@@ -72,6 +72,8 @@ import {
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
+  ITermsConsentPrompt,
+  ITermsConsentSource,
 } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -91,10 +93,16 @@ import {
   settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
+  termsConsentPersistAtom,
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
 import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim';
+import {
+  TERMS_CONSENT_ACCEPT_PATH,
+  TERMS_CONSENT_SETTING_KEY,
+  resolveTermsConsentPrompt,
+} from './ServiceSetting/termsConsent';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
@@ -551,22 +559,27 @@ class ServiceSetting extends ServiceBase {
     }
   }
 
+  private async fetchUtilitySettingValue(key: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: { value: string; key: string }[];
+    }>('/utility/v1/setting', {
+      params: {
+        key,
+      },
+    });
+    return response.data.data.find((item) => item.key === key)?.value;
+  }
+
   private _fetchInscriptionProtectionControl = memoizee(
     async () => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const response = await client.get<{
-        data: { value: string; key: string }[];
-      }>('/utility/v1/setting', {
-        params: {
-          key: INSCRIPTION_PROTECTION_SETTING_KEY,
-        },
-      });
-      const matched = response.data.data.find(
-        (item) => item.key === INSCRIPTION_PROTECTION_SETTING_KEY,
+      const value = await this.fetchUtilitySettingValue(
+        INSCRIPTION_PROTECTION_SETTING_KEY,
       );
-      const serverEnabled = matched
-        ? parseInscriptionProtectionServerEnabled(matched.value)
-        : undefined;
+      const serverEnabled =
+        value === undefined
+          ? undefined
+          : parseInscriptionProtectionServerEnabled(value);
       if (serverEnabled === undefined) {
         throw new OneKeyLocalError(
           'Invalid inscription protection control response',
@@ -600,6 +613,150 @@ class ServiceSetting extends ServiceBase {
         error instanceof Error ? error.message : 'Unknown error',
       );
     }
+  }
+
+  private _fetchTermsConsentVersion = memoizee(
+    async () => {
+      const value = await this.fetchUtilitySettingValue(
+        TERMS_CONSENT_SETTING_KEY,
+      );
+      return value?.trim() || undefined;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  // `fallback` answers when the server can't be reached, which unlike an empty
+  // value doesn't mean the version was withdrawn.
+  private async getTermsConsentRequiredVersion(fallback?: string) {
+    try {
+      return await this._fetchTermsConsentVersion();
+    } catch (error) {
+      void this._fetchTermsConsentVersion.clear();
+      // Without the server value nothing is shown: until users agree, the
+      // terms they accepted before keep applying.
+      defaultLogger.setting.page.consoleError(
+        'fetchTermsConsentVersion error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return fallback;
+    }
+  }
+
+  // Settles once the latest acceptance is stored or has failed. Checks wait
+  // for it, so Enter wallet right after agreeing on the ready page, or a quick
+  // unlock after Agree, doesn't ask again, and a second tap uploads nothing.
+  private termsConsentAccepting: Promise<void> = Promise.resolve();
+
+  // The version this install still has to accept, for the ready page's notice.
+  @backgroundMethod()
+  public async getTermsConsentPendingVersion() {
+    await this.termsConsentAccepting;
+    const requiredVersion = await this.getTermsConsentRequiredVersion();
+    const { acceptedVersion } = await termsConsentPersistAtom.get();
+    return requiredVersion !== acceptedVersion ? requiredVersion : undefined;
+  }
+
+  @backgroundMethod()
+  public async getTermsConsentPrompt(): Promise<
+    ITermsConsentPrompt | undefined
+  > {
+    await this.termsConsentAccepting;
+    // New users accept on Get Started instead, so they skip the request too.
+    const { isOnboardingDone } =
+      await this.backgroundApi.serviceOnboarding.isOnboardingDone();
+    if (!isOnboardingDone) {
+      return undefined;
+    }
+    const requiredVersion = await this.getTermsConsentRequiredVersion();
+    if (!requiredVersion) {
+      return undefined;
+    }
+    const state = await termsConsentPersistAtom.get();
+    const { prompt, round } = resolveTermsConsentPrompt({
+      requiredVersion,
+      state,
+      now: Date.now(),
+    });
+    if (!prompt) {
+      return undefined;
+    }
+    if (round !== state.round) {
+      await termsConsentPersistAtom.set((prev) => ({ ...prev, round }));
+    }
+    return prompt;
+  }
+
+  @backgroundMethod()
+  public async snoozeTermsConsent({ version }: { version: string }) {
+    await termsConsentPersistAtom.set((prev) =>
+      prev.round?.version === version
+        ? { ...prev, round: { ...prev.round, notNowAt: Date.now() } }
+        : prev,
+    );
+  }
+
+  @backgroundMethod()
+  public async acceptTermsConsent(params: {
+    source: ITermsConsentSource;
+    // The version the dialog or ready page showed; Get Started takes the
+    // current one.
+    version?: string;
+  }) {
+    const accepting = this.termsConsentAccepting.then(() =>
+      this.uploadTermsConsent(params),
+    );
+    this.termsConsentAccepting = accepting.catch(() => undefined);
+    await accepting;
+  }
+
+  private async uploadTermsConsent({
+    source,
+    version: shownVersion,
+  }: {
+    source: ITermsConsentSource;
+    version?: string;
+  }) {
+    // A failed lookup keeps the agreement to the version on screen.
+    const requiredVersion =
+      await this.getTermsConsentRequiredVersion(shownVersion);
+    // A dialog or ready page left open while the server moved on or withdrew
+    // the version must not record it, or roll the stored acceptance back.
+    if (shownVersion && shownVersion !== requiredVersion) {
+      return;
+    }
+    const version = shownVersion ?? requiredVersion;
+    if (!version) {
+      return;
+    }
+    const { acceptedVersion } = await termsConsentPersistAtom.get();
+    if (acceptedVersion === version) {
+      return;
+    }
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      // The install id, platform and app version travel in the default
+      // request headers; the server keeps its own receive time.
+      await client.post(
+        TERMS_CONSENT_ACCEPT_PATH,
+        { version, source },
+        { headers: await this.getOneKeyIdAuthHeaders() },
+      );
+    } catch (error) {
+      // Only a stored record counts as agreement, so a failed upload leaves
+      // the local state untouched and the prompt comes back next time.
+      defaultLogger.setting.page.consoleError(
+        'acceptTermsConsent error',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      return;
+    }
+    await termsConsentPersistAtom.set((prev) => ({
+      ...prev,
+      acceptedVersion: version,
+    }));
   }
 
   private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
