@@ -9,16 +9,13 @@
         "file": "package.json",
         "expect": "1.3.1"
       },
-      "directories": ["ios", "lib", "nitrogen", "src"],
-      "files": [
-        "LICENSE",
-        "NOTICE",
-        "OnramperReactNative.podspec",
-        "app.plugin.js",
-        "nitro.json",
-        "package.json"
-      ],
+      "directories": ["."],
+      "files": [],
       "hashes": {
+        "CHANGELOG.md": {
+          "sha256": "4051685656651bcf986edf18a82b0e452fe9f0a45efd9b2825b306c8e9e90acc",
+          "size": 18658
+        },
         "LICENSE": {
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
           "size": 11358
@@ -30,6 +27,10 @@
         "OnramperReactNative.podspec": {
           "sha256": "c9cec9a89e2dc243259308f429d93cba68b2e0396e1b1c3d23496d05285132fd",
           "size": 1523
+        },
+        "README.md": {
+          "sha256": "d1c3624d64d55c16532f57822e1a74d1d6180e5a0f365400ab30ae0c6909333b",
+          "size": 8260
         },
         "app.plugin.js": {
           "sha256": "74b90c4bb9c8f3882a35cbc7cadc3e8afd58acad3b9e3c460412068e50a59b0d",

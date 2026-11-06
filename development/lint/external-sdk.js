@@ -4,9 +4,9 @@
 //
 // Third-party native SDKs that ship as binaries (the OnramperSDK framework binary is the
 // first one) cannot be reviewed by reading source in this repo. This lint pins
-// every vendored file by SHA-256 in `external-sdk.config.json` and fails when a
-// file is modified, added or removed, so a supply-chain compromise or an
-// npm publish that was not reviewed breaks CI instead of silently shipping.
+// the configured files by SHA-256 in `external-sdk.config.json`. The manifest
+// and checker are trusted review inputs. Run on a quiescent installation;
+// this is a point-in-time check, not a sandbox for install scripts or builds.
 //
 // Usage:
 //   yarn lint:external-sdk                 # verify pinned files
@@ -55,11 +55,13 @@ function parseArgs(argv) {
     switch (arg) {
       case '--config':
         args.configPath = argv[(index += 1)];
-        if (!args.configPath) fail('--config requires a path');
+        if (!args.configPath || args.configPath.startsWith('--'))
+          fail('--config requires a path');
         break;
       case '--base':
         args.base = argv[(index += 1)];
-        if (!args.base) fail('--base requires a directory');
+        if (!args.base || args.base.startsWith('--'))
+          fail('--base requires a directory');
         break;
       case '--write':
         args.write = true;
@@ -83,25 +85,50 @@ function toPosixPath(value) {
   return value.split(path.sep).join('/');
 }
 
-function sha256File(filePath) {
-  const noFollow = fs.constants.O_NOFOLLOW ?? 0;
+function sameFileState(a, b) {
+  return ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].every(
+    (key) => a[key] === b[key],
+  );
+}
+
+function sha256File(root, relativePath) {
+  const filePath = path.join(root, relativePath);
+  assertPathComponents(root, relativePath);
+  const before = fs.lstatSync(filePath, { bigint: true });
+  const noFollow = fs.constants.O_NOFOLLOW;
+  if (noFollow === undefined) fail('O_NOFOLLOW is required on this platform');
   let fd;
   try {
-    fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
+    fd = fs.openSync(
+      filePath,
+      fs.constants.O_RDONLY | noFollow | fs.constants.O_NONBLOCK,
+    );
   } catch (error) {
     fail(`Cannot read ${filePath}: ${error.message}`);
   }
   try {
-    const stat = fs.fstatSync(fd);
+    const stat = fs.fstatSync(fd, { bigint: true });
     if (!stat.isFile()) fail(`Not a regular file: ${filePath}`);
+    if (!sameFileState(before, stat))
+      fail(`File changed before hashing: ${filePath}`);
     const hash = crypto.createHash('sha256');
     const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let totalBytes = 0;
     let bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
     while (bytesRead > 0) {
       hash.update(buffer.subarray(0, bytesRead));
+      totalBytes += bytesRead;
       bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
     }
-    return { sha256: hash.digest('hex'), size: stat.size };
+    assertPathComponents(root, relativePath);
+    if (
+      BigInt(totalBytes) !== stat.size ||
+      !sameFileState(stat, fs.fstatSync(fd, { bigint: true })) ||
+      !sameFileState(stat, fs.lstatSync(filePath, { bigint: true }))
+    ) {
+      fail(`File changed while hashing: ${filePath}`);
+    }
+    return { sha256: hash.digest('hex'), size: totalBytes };
   } finally {
     fs.closeSync(fd);
   }
@@ -121,16 +148,27 @@ function readJson(filePath) {
   }
 }
 
-function assertRelativePath(value, label) {
+function assertRelativePath(value, label, allowRoot = false) {
   if (typeof value !== 'string' || value.length === 0) {
     fail(`${label} must be a non-empty string`);
   }
-  if (path.isAbsolute(value)) {
-    fail(`${label} must be relative, got absolute path: ${value}`);
+  if (allowRoot && value === '.') return;
+  if (
+    /[\\:]/u.test(value) ||
+    [...value].some((character) => character.charCodeAt(0) < 32) ||
+    value !== value.normalize('NFC') ||
+    value.split('/').some((part) => !part || part === '.' || part === '..')
+  ) {
+    fail(`${label} must be a canonical relative POSIX path: ${value}`);
   }
-  const normalized = path.normalize(value);
-  if (normalized === '..' || normalized.startsWith(`..${path.sep}`)) {
-    fail(`${label} must not escape its root: ${value}`);
+}
+
+function assertPathComponents(root, relativePath) {
+  lstatOrFail(root, root);
+  let current = root;
+  for (const part of relativePath.split('/')) {
+    current = path.join(current, part);
+    lstatOrFail(current, current);
   }
 }
 
@@ -158,12 +196,13 @@ function walkDirectory(root, relativeDirectory, collector) {
   }
 
   for (const entry of entries.toSorted((a, b) =>
-    a.name.localeCompare(b.name),
+    a.name < b.name ? -1 : Number(a.name > b.name),
   )) {
-    if (entry.name !== '.DS_Store') {
+    if (entry.name !== '.DS_Store' || !entry.isFile()) {
       const relativePath = toPosixPath(
         path.join(relativeDirectory, entry.name),
       );
+      assertRelativePath(relativePath, 'SDK file');
       if (entry.isSymbolicLink()) {
         fail(`Refusing to pin a symlink (possible tampering): ${relativePath}`);
       } else if (entry.isDirectory()) {
@@ -188,10 +227,13 @@ function validateSdkConfig(sdk) {
   }
   if (!Array.isArray(sdk.files)) fail(`${sdk.id}.files must be an array`);
   for (const directory of sdk.directories) {
-    assertRelativePath(directory, `${sdk.id}.directories[]`);
+    assertRelativePath(directory, `${sdk.id}.directories[]`, true);
   }
   for (const file of sdk.files) {
     assertRelativePath(file, `${sdk.id}.files[]`);
+  }
+  if (sdk.directories.length + sdk.files.length === 0) {
+    fail(`${sdk.id}: select at least one file or directory`);
   }
   if (sdk.packageVersion !== undefined) {
     if (
@@ -201,6 +243,30 @@ function validateSdkConfig(sdk) {
     ) {
       fail(`${sdk.id}.packageVersion must be { file, expect }`);
     }
+    assertRelativePath(
+      sdk.packageVersion.file,
+      `${sdk.id}.packageVersion.file`,
+    );
+    if (!sdk.packageVersion.expect)
+      fail(`${sdk.id}: expected version is empty`);
+  }
+  if (
+    !sdk.hashes ||
+    Array.isArray(sdk.hashes) ||
+    typeof sdk.hashes !== 'object'
+  ) {
+    fail(`${sdk.id}.hashes must be an object`);
+  }
+  for (const [file, pin] of Object.entries(sdk.hashes)) {
+    assertRelativePath(file, `${sdk.id}.hashes key`);
+    if (
+      !pin ||
+      typeof pin !== 'object' ||
+      !/^[a-f0-9]{64}$/u.test(pin.sha256) ||
+      !Number.isSafeInteger(pin.size) ||
+      pin.size < 0
+    )
+      fail(`${sdk.id}: invalid SHA-256/size pin for ${file}`);
   }
 }
 
@@ -225,6 +291,7 @@ function loadConfig(configPath) {
 }
 
 function resolveSdkRoot(base, sdk) {
+  assertPathComponents(base, sdk.root);
   const root = path.resolve(base, sdk.root);
   const stat = lstatOrFail(root, `${sdk.id} root ${sdk.root}`);
   if (!stat.isDirectory()) fail(`${sdk.id} root is not a directory: ${root}`);
@@ -234,6 +301,7 @@ function resolveSdkRoot(base, sdk) {
 function collectSdkFiles(root, sdk) {
   const collector = new Set();
   for (const directory of sdk.directories) {
+    assertPathComponents(root, directory);
     const absoluteDirectory = path.join(root, directory);
     const stat = lstatOrFail(absoluteDirectory, `${sdk.id}: ${directory}`);
     if (!stat.isDirectory()) {
@@ -242,20 +310,31 @@ function collectSdkFiles(root, sdk) {
     walkDirectory(root, directory, collector);
   }
   for (const file of sdk.files) {
+    assertPathComponents(root, file);
     const absoluteFile = path.join(root, file);
     const stat = lstatOrFail(absoluteFile, `${sdk.id}: ${file}`);
     if (!stat.isFile()) fail(`${sdk.id}: ${file} is not a regular file`);
     collector.add(toPosixPath(file));
   }
-  return [...collector].toSorted();
+  const files = [...collector].toSorted();
+  if (files.length === 0) fail(`${sdk.id}: no files selected`);
+  const portableNames = new Set();
+  for (const file of files) {
+    const key = file.toLowerCase();
+    if (portableNames.has(key)) fail(`${sdk.id}: case-colliding path: ${file}`);
+    portableNames.add(key);
+  }
+  if (sdk.packageVersion && !collector.has(sdk.packageVersion.file)) {
+    fail(`${sdk.id}: packageVersion.file must be included in the pinned files`);
+  }
+  return files;
 }
 
 function buildHashes(root, relativeFiles) {
-  const hashes = {};
+  const hashes = Object.create(null);
   let totalBytes = 0;
   for (const relativePath of relativeFiles) {
-    const absolutePath = path.join(root, relativePath);
-    const digest = sha256File(absolutePath);
+    const digest = sha256File(root, relativePath);
     hashes[relativePath] = digest;
     totalBytes += digest.size;
   }
@@ -274,17 +353,17 @@ function compareSdk(sdk, root) {
   const missing = [];
   const modified = [];
   const unexpected = [];
+  let totalBytes = 0;
   for (const relativePath of files) {
-    const pin = pins[relativePath];
+    const pin = Object.hasOwn(pins, relativePath)
+      ? pins[relativePath]
+      : undefined;
     if (!pin) {
       unexpected.push(relativePath);
     } else {
-      const absolutePath = path.join(root, relativePath);
-      const digest = sha256File(absolutePath);
-      if (
-        pin.sha256 !== digest.sha256 ||
-        (typeof pin.size === 'number' && pin.size !== digest.size)
-      ) {
+      const digest = sha256File(root, relativePath);
+      totalBytes += digest.size;
+      if (pin.sha256 !== digest.sha256 || pin.size !== digest.size) {
         modified.push({
           relativePath,
           expected: pin.sha256,
@@ -293,23 +372,18 @@ function compareSdk(sdk, root) {
       }
     }
   }
-  for (const relativePath of Object.keys(pins)) {
-    if (!files.includes(relativePath)) missing.push(relativePath);
+  const fileSet = new Set(files);
+  for (const relativePath of Object.keys(pins).toSorted()) {
+    if (!fileSet.has(relativePath)) missing.push(relativePath);
   }
 
-  let versionError;
-  if (sdk.packageVersion) {
-    const packageJsonPath = path.join(root, sdk.packageVersion.file);
-    const packageJson = readJson(packageJsonPath);
-    if (packageJson.version !== sdk.packageVersion.expect) {
-      versionError = `${sdk.id}: expected package version ${sdk.packageVersion.expect}, found ${String(packageJson.version)}`;
-    }
-  }
+  const versionError = checkPackageVersion(sdk, root);
 
   return {
     id: sdk.id,
     root: sdk.root,
     fileCount: files.length,
+    totalBytes,
     missing,
     modified,
     unexpected,
@@ -322,14 +396,37 @@ function compareSdk(sdk, root) {
   };
 }
 
+function checkPackageVersion(sdk, root) {
+  if (sdk.packageVersion) {
+    assertPathComponents(root, sdk.packageVersion.file);
+    const packageJsonPath = path.join(root, sdk.packageVersion.file);
+    const packageJson = readJson(packageJsonPath);
+    if (packageJson.version !== sdk.packageVersion.expect) {
+      return `${sdk.id}: expected package version ${sdk.packageVersion.expect}, found ${String(packageJson.version)}`;
+    }
+  }
+
+  return undefined;
+}
+
 function writePins(config, configPath, base) {
   for (const sdk of config.sdks) {
     const root = resolveSdkRoot(base, sdk);
     const files = collectSdkFiles(root, sdk);
+    const versionError = checkPackageVersion(sdk, root);
+    if (versionError) fail(versionError);
     const { hashes } = buildHashes(root, files);
     sdk.hashes = hashes;
   }
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  const temporaryPath = `${configPath}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, {
+      flag: 'wx',
+    });
+    fs.renameSync(temporaryPath, configPath);
+  } finally {
+    fs.rmSync(temporaryPath, { force: true });
+  }
 }
 
 function printHumanResult(result, configPath) {
@@ -375,7 +472,7 @@ function main() {
     return 0;
   }
 
-  const base = path.resolve(args.base);
+  const base = fs.realpathSync(args.base);
   const configPath = path.resolve(args.configPath);
   const config = loadConfig(configPath);
 
@@ -395,11 +492,8 @@ function main() {
     const root = resolveSdkRoot(base, sdk);
     const result = compareSdk(sdk, root);
     if (result.ok) {
-      const files = collectSdkFiles(root, sdk);
-      for (const relativePath of files) {
-        totalBytes += sha256File(path.join(root, relativePath)).size;
-        totalFiles += 1;
-      }
+      totalBytes += result.totalBytes;
+      totalFiles += result.fileCount;
     }
     sdks.push(result);
   }

@@ -4,8 +4,16 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const SCRIPT = path.join(__dirname, 'external-sdk.js');
+const fixtureDirectories = [];
+
+test.after(() => {
+  for (const directory of fixtureDirectories) {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function writeFile(filePath, contents) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -14,6 +22,7 @@ function writeFile(filePath, contents) {
 
 function createFixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'external-sdk-lint-'));
+  fixtureDirectories.push(base);
   const packageRoot = path.join(base, 'node_modules', 'fake-sdk');
   writeFile(
     path.join(packageRoot, 'package.json'),
@@ -271,4 +280,174 @@ test('uninitialized manifest fails closed', () => {
   const result = runLint(fixture);
   assert.equal(result.status, 2);
   assert.match(result.stderr, /no SHA-256 pins/u);
+});
+
+function editConfig(fixture, edit) {
+  const config = JSON.parse(fs.readFileSync(fixture.configPath, 'utf8'));
+  edit(config.sdks[0]);
+  writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+test('checks package-root additions when the complete package is selected', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = ['.'];
+    sdk.files = [];
+  });
+  pin(fixture);
+  writeFile(path.join(fixture.packageRoot, 'extra.txt'), 'new root input');
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /UNEXPECTED\s+extra.txt/u);
+});
+
+test('rejects symlinks in ancestors of the package root', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const modules = path.join(fixture.base, 'node_modules');
+  const relocated = path.join(fixture.base, 'relocated');
+  fs.renameSync(modules, relocated);
+  fs.symlinkSync(relocated, modules);
+  assert.equal(runLint(fixture).status, 2);
+});
+
+test('rejects symlinks in ancestors of a configured nested file', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = [];
+    sdk.files = ['package.json', 'lib/index.js'];
+  });
+  pin(fixture);
+  const directory = path.join(fixture.packageRoot, 'lib');
+  const relocated = path.join(fixture.base, 'relocated');
+  fs.renameSync(directory, relocated);
+  fs.symlinkSync(relocated, directory);
+  const result = runLint(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('rejects noncanonical config paths including packageVersion.file', () => {
+  for (const value of [
+    '../outside',
+    '/absolute',
+    'ios/../lib',
+    './lib',
+    'lib//index.js',
+    'C:\\lib',
+    'lib\\index.js',
+    'cafe\u0301',
+  ]) {
+    const fixture = createFixture();
+    editConfig(fixture, (sdk) => {
+      sdk.packageVersion.file = value;
+    });
+    const result = runLint(fixture, ['--write']);
+    assert.equal(result.status, 2, value);
+    assert.match(result.stderr, /canonical relative POSIX/u);
+  }
+});
+
+test('requires a valid digest and size for every pin', () => {
+  for (const pinValue of [
+    null,
+    { sha256: 'bad', size: 1 },
+    { sha256: 'a'.repeat(64) },
+    { sha256: 'a'.repeat(64), size: -1 },
+  ]) {
+    const fixture = createFixture();
+    pin(fixture);
+    editConfig(fixture, (sdk) => {
+      sdk.hashes['package.json'] = pinValue;
+    });
+    const result = runLint(fixture);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /invalid SHA-256\/size/u);
+  }
+});
+
+test('requires the package version file to be pinned', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.files = [];
+  });
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /packageVersion.file must be included/u);
+});
+
+test('--write rejects version drift without changing the manifest', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const before = fs.readFileSync(fixture.configPath, 'utf8');
+  writeFile(
+    path.join(fixture.packageRoot, 'package.json'),
+    '{"version":"9.9.9"}',
+  );
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /expected package version/u);
+  assert.equal(fs.readFileSync(fixture.configPath, 'utf8'), before);
+});
+
+test('--write is deterministic and ignores only regular .DS_Store files', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const before = fs.readFileSync(fixture.configPath, 'utf8');
+  const metadata = path.join(fixture.packageRoot, 'lib', '.DS_Store');
+  writeFile(metadata, 'Finder metadata');
+  pin(fixture);
+  assert.equal(fs.readFileSync(fixture.configPath, 'utf8'), before);
+  fs.rmSync(metadata);
+  fs.symlinkSync(path.join(fixture.packageRoot, 'package.json'), metadata);
+  assert.equal(runLint(fixture).status, 2);
+});
+
+test('empty file selection fails closed in write mode', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = [];
+    sdk.files = [];
+  });
+  assert.equal(runLint(fixture, ['--write']).status, 2);
+});
+
+test('hashes complete content across short reads and rejects unstable file metadata', () => {
+  const fixture = createFixture();
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  function hashWithFs(fileSystem) {
+    return vm.runInNewContext(`${source}\nsha256File(root, 'lib/index.js');`, {
+      require: (name) => (name === 'node:fs' ? fileSystem : require(name)),
+      __dirname,
+      Buffer,
+      root: fixture.packageRoot,
+      process: {
+        argv: [process.execPath, SCRIPT, '--help'],
+        cwd: () => fixture.base,
+      },
+      console: { log() {}, error() {} },
+    });
+  }
+  const normal = hashWithFs(fs);
+  const shortReads = hashWithFs({
+    ...fs,
+    readSync: (fd, buffer, offset, length, position) =>
+      fs.readSync(fd, buffer, offset, Math.min(2, length), position),
+  });
+  assert.equal(shortReads.sha256, normal.sha256);
+  assert.equal(shortReads.size, normal.size);
+  let calls = 0;
+  assert.throws(
+    () =>
+      hashWithFs({
+        ...fs,
+        fstatSync: (...args) => {
+          const stat = fs.fstatSync(...args);
+          calls += 1;
+          if (calls > 1) stat.ctimeNs += 1n;
+          return stat;
+        },
+      }),
+    /File changed while hashing/u,
+  );
 });
