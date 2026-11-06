@@ -45,6 +45,7 @@ export type IActionItemsProps = {
 
 function ActionItem({
   icon = 'PlaceholderOutline',
+  iconProps,
   label,
   verticalContainerProps,
   showButtonStyle = false,
@@ -71,6 +72,7 @@ function ActionItem({
       <Button
         testID="home-action-item-btn"
         icon={icon || undefined}
+        iconProps={iconProps}
         variant={highlighted ? 'primary' : undefined}
         {...(!label && {
           py: '$2',
@@ -143,6 +145,7 @@ function ActionItem({
         variant={highlighted ? 'primary' : 'secondary'}
         size={actionSize}
         icon={icon || undefined}
+        iconProps={iconProps}
         display="none"
         $gtSm={{ display: 'flex' }}
         onPress={onPress}
@@ -180,6 +183,9 @@ function ActionSend(props: IActionItemsProps) {
   );
 }
 
+// The down arrow's head carries its weight low, so the pill lifts it 1px.
+const RECEIVE_ARROW_ICON_PROPS = { y: -1 } as const;
+
 function ActionReceive(props: IActionItemsProps) {
   const intl = useIntl();
   const { icon, label, ...rest } = props;
@@ -187,6 +193,7 @@ function ActionReceive(props: IActionItemsProps) {
     <ActionItem
       label={label ?? intl.formatMessage({ id: ETranslations.global_receive })}
       icon={icon ?? 'ArrowBottomOutline'}
+      iconProps={icon ? undefined : RECEIVE_ARROW_ICON_PROPS}
       {...rest}
     />
   );

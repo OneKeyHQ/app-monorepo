@@ -34,6 +34,11 @@ export interface IButtonProps extends ThemeableStackProps {
     | 'accent'
     | 'link';
   icon?: IKeyOfIcons;
+  /**
+   * Extra props for the leading `icon`, e.g. `{ y: -1 }` to optically lift a
+   * glyph whose weight sits low.
+   */
+  iconProps?: Omit<IIconProps, 'name' | 'size'>;
   iconAfter?: IKeyOfIcons;
   disabled?: boolean;
   loading?: boolean;
@@ -165,16 +170,24 @@ const useSizeStyles = (size: IButtonProps['size']) =>
       small: {
         py: '$1',
         px: '$2.5',
+        iconSidePx: '$2.5',
+        iconGap: '$2',
         textVariant: '$bodyMdMedium',
       },
       medium: {
         py: '$1.5',
         px: '$3.5',
+        // An icon beside the label reads heavier than the text, so its side
+        // gets a tighter edge and gap to keep the pair optically centered.
+        iconSidePx: '$2.5',
+        iconGap: '$1.5',
         textVariant: '$bodyLgMedium',
       },
       large: {
         py: '$3',
         px: '$5',
+        iconSidePx: '$5',
+        iconGap: '$2',
         textVariant: '$bodyLgMedium',
       },
     };
@@ -222,6 +235,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
     const {
       size = 'medium',
       icon,
+      iconProps,
       iconAfter,
       disabled,
       loading,
@@ -237,11 +251,21 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       ...rest
     } = useProps(props, {});
 
-    const { py, px, textVariant } = useSizeStyles(size);
+    const { py, px, iconSidePx, iconGap, textVariant } = useSizeStyles(size);
     const [internalLoading, setInternalLoading] = useState(false);
     const inGlassHeader = useInGlassHeader();
 
     const isLoading = loading || internalLoading;
+
+    // Icon-only buttons keep the symmetric frame and the base gap, which
+    // callers size their own padding around.
+    const hasLabel = !!children;
+    const framePx = variant === 'tertiary' ? '$2' : px;
+    const iconEdgePx =
+      hasLabel && variant !== 'tertiary' ? iconSidePx : framePx;
+    const leadingPx = icon || isLoading ? iconEdgePx : framePx;
+    const trailingPx = iconAfter ? iconEdgePx : framePx;
+    const labelGap = hasLabel ? iconGap : '$2';
 
     const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
       variant,
@@ -309,7 +333,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
         my={variant === 'tertiary' ? -5 : '$0'}
         mx={variant === 'tertiary' ? -9 : '$0'}
         py={variant === 'tertiary' ? '$1' : py}
-        px={variant === 'tertiary' ? '$2' : px}
+        pl={leadingPx}
+        pr={trailingPx}
         borderCurve="continuous"
         disabled={!!disabled || !!isLoading}
         aria-disabled={!!disabled || !!isLoading}
@@ -332,12 +357,17 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
           <ButtonIcon
             name={icon}
             size={size}
-            mr="$2"
+            mr={labelGap}
             color={outerIconColor || iconColor}
+            {...iconProps}
           />
         ) : null}
         {isLoading ? (
-          <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
+          <Spinner
+            size="small"
+            mr={labelGap}
+            color={outerIconColor || iconColor}
+          />
         ) : null}
         {childrenAsText ? (
           <SizableText
@@ -365,7 +395,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
           <ButtonIcon
             name={iconAfter}
             size={size}
-            ml="$2"
+            ml={labelGap}
             color={outerIconColor || iconColor}
           />
         ) : null}
