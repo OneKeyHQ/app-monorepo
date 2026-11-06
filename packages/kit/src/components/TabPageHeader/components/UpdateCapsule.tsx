@@ -168,12 +168,15 @@ export function UpdateCapsule({
   const percent = useDownloadProgress(getAppUpdateProgressScope(data));
   const mode = getCapsuleMode(data);
 
-  const isVisibleHost = useCallback(
-    () =>
+  const isVisibleHost = useCallback(() => {
+    const host = document.getElementById(anchorId);
+    return (
+      isRouteFocused &&
       document.visibilityState === 'visible' &&
-      Boolean(document.getElementById(anchorId)?.offsetParent),
-    [anchorId],
-  );
+      Boolean(host?.offsetParent) &&
+      !host?.closest('[inert]')
+    );
+  }, [anchorId, isRouteFocused]);
 
   useEffect(() => {
     ensureCapsuleStyles();
@@ -207,10 +210,16 @@ export function UpdateCapsule({
       globalThis.removeEventListener('focus', checkCompleted);
       document.removeEventListener('visibilitychange', checkCompleted);
       if (interval) clearInterval(interval);
-      clearTimeout(busyTimer.current);
-      clearTimeout(notifyTimer.current);
     };
   }, [isVisibleHost]);
+
+  useEffect(
+    () => () => {
+      clearTimeout(busyTimer.current);
+      clearTimeout(notifyTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const onOpenDetails = () => {

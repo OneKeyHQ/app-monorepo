@@ -14,24 +14,39 @@ import { UpdateCapsule } from './UpdateCapsule';
 
 const mockDownloadPackage = jest.fn();
 const mockCanDownload = jest.fn(async () => true);
+const mockCanRestart = jest.fn(async () => true);
+const mockStartBanner = jest.fn();
+let mockRouteFocused = true;
+let mockBanner: { version: string; expiresAt?: number } | undefined;
 
 jest.mock('@onekeyhq/components', () => {
-  const Container = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  );
+  const Container = ({
+    children,
+    id,
+  }: {
+    children?: ReactNode;
+    id?: string;
+  }) => <div id={id}>{children}</div>;
   return {
     Button: ({
       children,
       onPress,
       testID,
       disabled,
+      id,
     }: {
       children?: ReactNode;
       onPress?: () => void;
       testID?: string;
       disabled?: boolean;
+      id?: string;
     }) => (
-      <button data-testid={testID} onClick={onPress} disabled={disabled}>
+      <button
+        id={id}
+        data-testid={testID}
+        onClick={onPress}
+        disabled={disabled}
+      >
         {children}
       </button>
     ),
@@ -66,7 +81,10 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceAppUpdate: { canDownloadCurrentTarget: () => mockCanDownload() },
+    serviceAppUpdate: {
+      canDownloadCurrentTarget: () => mockCanDownload(),
+      canRestartForUpdate: () => mockCanRestart(),
+    },
   },
 }));
 jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
@@ -76,7 +94,7 @@ jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocused,
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   useDownloadProgress: () => 0,
@@ -85,8 +103,16 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
 jest.mock('../../AppUpdate/AppUpdateForeground', () => ({
-  peekDesktopUpdateBanner: () => undefined,
-  startDesktopUpdateBanner: () => undefined,
+  peekDesktopUpdateBanner: () => {
+    if (mockBanner?.expiresAt && mockBanner.expiresAt <= Date.now())
+      mockBanner = undefined;
+    return mockBanner;
+  },
+  startDesktopUpdateBanner: () => {
+    mockStartBanner();
+    if (mockBanner) mockBanner.expiresAt ??= Date.now() + 6000;
+    return mockBanner;
+  },
 }));
 jest.mock('./UpdateVerifyReceipt', () => ({ UpdateVerifyReceipt: () => null }));
 
@@ -99,6 +125,18 @@ beforeAll(() => {
       removeEventListener: jest.fn(),
     }),
   });
+});
+
+beforeEach(() => {
+  mockRouteFocused = true;
+  mockBanner = undefined;
+  mockStartBanner.mockClear();
+  mockCanRestart.mockResolvedValue(true);
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.useRealTimers();
 });
 
 test.each([
@@ -162,3 +200,142 @@ test.each([true, false])(
     ).toBeTruthy();
   },
 );
+
+test.each([
+  'locked route',
+  'inactive route',
+  'inert ancestor',
+  'hidden document',
+  'no layout',
+] as const)(
+  'completion banner waits until the header is usable (%s)',
+  async (blockedBy) => {
+    jest.useFakeTimers();
+    const offsetParent = jest
+      .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+      .mockReturnValue(blockedBy === 'no layout' ? null : document.body);
+    const visibility = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue(blockedBy === 'hidden document' ? 'hidden' : 'visible');
+    mockBanner = { version: '2.0.0' };
+    mockRouteFocused =
+      blockedBy !== 'locked route' && blockedBy !== 'inactive route';
+    const data = {
+      latestVersion: '2.0.0',
+      updateAt: 0,
+      updateStrategy: EUpdateStrategy.manual,
+      status: EAppUpdateStatus.done,
+    };
+    const host = document.createElement('div');
+    if (blockedBy === 'locked route' || blockedBy === 'inert ancestor')
+      host.setAttribute('inert', '');
+    document.body.appendChild(host);
+    const onWhatsNew = jest.fn();
+    const view = render(
+      <UpdateCapsule data={data} showUpdate={false} onWhatsNew={onWhatsNew} />,
+      { container: host },
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(7000);
+    });
+    expect(mockStartBanner).not.toHaveBeenCalled();
+    expect(mockBanner?.expiresAt).toBeUndefined();
+    expect(view.queryByTestId('header-update-completed')).toBeNull();
+    if (blockedBy === 'locked route') {
+      mockRouteFocused = true;
+      view.rerender(
+        <UpdateCapsule
+          data={data}
+          showUpdate={false}
+          onWhatsNew={onWhatsNew}
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockStartBanner).not.toHaveBeenCalled();
+    }
+    host.removeAttribute('inert');
+    mockRouteFocused = true;
+    visibility.mockReturnValue('visible');
+    offsetParent.mockReturnValue(document.body);
+    view.rerender(
+      <UpdateCapsule data={data} showUpdate={false} onWhatsNew={onWhatsNew} />,
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockStartBanner).toHaveBeenCalledTimes(1);
+    expect(view.getByTestId('header-update-completed')).toBeTruthy();
+    fireEvent.click(view.getByTestId('header-update-completed'));
+    expect(onWhatsNew).toHaveBeenCalledTimes(1);
+    const remaining = (mockBanner?.expiresAt ?? 0) - Date.now();
+    expect(remaining).toBeGreaterThanOrEqual(5900);
+    await act(async () => {
+      jest.advanceTimersByTime(remaining - 1);
+    });
+    expect(view.getByTestId('header-update-completed')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(101);
+    });
+    expect(view.queryByTestId('header-update-completed')).toBeNull();
+    view.unmount();
+    host.remove();
+  },
+);
+
+test('route focus changes keep transient update timers active', async () => {
+  jest.useFakeTimers();
+  mockCanRestart.mockResolvedValue(false);
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.ready,
+  };
+  const view = render(
+    <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-restart'));
+  });
+  expect(
+    view.getByText(ETranslations.app_update_finish_first__msg),
+  ).toBeTruthy();
+  mockRouteFocused = false;
+  view.rerender(<UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />);
+  await act(async () => {
+    jest.advanceTimersByTime(3000);
+  });
+  expect(
+    view.queryByText(ETranslations.app_update_finish_first__msg),
+  ).toBeNull();
+  mockRouteFocused = true;
+  view.rerender(
+    <UpdateCapsule
+      data={{ ...data, status: EAppUpdateStatus.notify }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  view.rerender(
+    <UpdateCapsule
+      data={{ ...data, status: EAppUpdateStatus.downloadPackage }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(view.getByTestId('header-update-notify-exit')).toBeTruthy();
+  mockRouteFocused = false;
+  view.rerender(
+    <UpdateCapsule
+      data={{ ...data, status: EAppUpdateStatus.downloadPackage }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  await act(async () => {
+    jest.advanceTimersByTime(100);
+  });
+  expect(view.queryByTestId('header-update-notify-exit')).toBeNull();
+});
