@@ -39,7 +39,8 @@ function WalletRowsLoading({
             <Skeleton h="$4" w="$16" />
             <Skeleton h="$3" w="$12" />
           </Stack>
-          <Stack w={38} alignItems="center">
+          {/* ml 13 matches the quiet swap button's margin in index.css. */}
+          <Stack w={38} ml={13} alignItems="center">
             <Skeleton w="$6" h="$6" radius="round" />
           </Stack>
           {index < listCount - 1 ? (

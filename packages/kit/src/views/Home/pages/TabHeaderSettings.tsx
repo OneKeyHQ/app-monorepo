@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
+  Divider,
   ESwitchSize,
   IconButton,
   Popover,
@@ -408,20 +409,27 @@ function TokenListDustSweepTabAction() {
     return null;
   }
   return (
-    <Button
-      testID="token-list-header-dust-sweep"
-      variant="tertiary"
-      size="small"
-      icon="BroomOutline"
-      h={38}
-      my="$0"
-      mx="$0"
-      py="$0"
-      px={10}
-      onPress={handlePress}
-    >
-      {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
-    </Button>
+    <>
+      <Button
+        testID="token-list-header-dust-sweep"
+        variant="tertiary"
+        size="small"
+        icon="BroomOutline"
+        h={38}
+        my="$0"
+        mx="$0"
+        py="$0"
+        px={10}
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+      </Button>
+      {/* 6 + 1 + 7 before the filter button: the label ends on the balance
+          row's last action label, and the line sits midway between the label
+          and the filter glyph (10px into its button). x 0 undoes Separator's
+          -0.5px shift. */}
+      <Divider vertical h="$4" x={0} ml={6} mr={7} />
+    </>
   );
 }
 
@@ -432,7 +440,7 @@ function TokenListTabActions() {
     return <TokenListSettings />;
   }
   return (
-    <XStack alignItems="center" gap="$2">
+    <XStack alignItems="center">
       <DustSweepEntryCapabilitiesProvider isFocused={isRouteFocused}>
         <TokenListDustSweepTabAction />
       </DustSweepEntryCapabilitiesProvider>

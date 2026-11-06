@@ -337,6 +337,14 @@ textarea {
   top: 0 !important;
 }
 
+/* Home wallet rows: the package pulls the quiet swap button 7px into the row
+   gap. Push it 13px out instead, so the value column ends on the same line as
+   the balance row's last action label and "Dust sweep" in the tab bar. */
+.ok-native-list-item
+  .ok-native-list-icon-button.ok-native-list-tertiary-icon[data-native-list-quiet-row-action='true'] {
+  margin-inline-start: 13px;
+}
+
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
