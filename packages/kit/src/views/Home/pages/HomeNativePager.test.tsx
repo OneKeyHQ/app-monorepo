@@ -977,6 +977,43 @@ describe('HomePageView complete header authority', () => {
       },
     );
 
+  // The sticky header content is the native-tab-bar spacer followed by the
+  // settings panel, wrapped by the pager in its own measured view.
+  const stickyContentChildren = () => {
+    const rendered = mockNativeEvents.stickyHeader?.props.children as
+      | React.ReactElement<{ children?: React.ReactNode }>
+      | undefined;
+    return React.Children.toArray(
+      React.isValidElement(rendered) && rendered.type === React.Fragment
+        ? rendered.props.children
+        : rendered,
+    );
+  };
+  const nativeToolbarOf = () => {
+    const settings = stickyContentChildren().find(
+      (child) =>
+        (child as React.ReactElement<{ nativeToolbar?: unknown }>).props
+          ?.nativeToolbar,
+    ) as
+      | React.ReactElement<{
+          nativeToolbar: {
+            press?: { key: string };
+            pressConsumed?: boolean;
+            onPressConsumed?: (event: {
+              key: string;
+              anchorRect: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+              };
+            }) => void;
+          };
+        }>
+      | undefined;
+    return settings?.props.nativeToolbar;
+  };
+
   it.each(['ios', 'android', 'web'] as const)(
     'uses the native refresh control for an unbacked wallet on %s',
     (platform) => {
@@ -1087,8 +1124,17 @@ describe('HomePageView complete header authority', () => {
           modify: jest.fn(),
         },
         onTabPress: jest.fn(),
-      }) as React.ReactElement<{ focusedTab: string }>;
-      return rendered.props.focusedTab;
+      }) as React.ReactElement<{ children?: React.ReactNode }>;
+      const settings = React.Children.toArray(
+        React.isValidElement(rendered) && rendered.type === React.Fragment
+          ? rendered.props.children
+          : rendered,
+      ).find(
+        (child) =>
+          (child as React.ReactElement<{ focusedTab?: string }>).props
+            ?.focusedTab !== undefined,
+      ) as React.ReactElement<{ focusedTab: string }> | undefined;
+      return settings?.props.focusedTab;
     };
     expect(settingsName(name(EHomeWalletTab.History))).toBe(
       name(EHomeWalletTab.Portfolio),
@@ -1181,13 +1227,7 @@ describe('HomePageView complete header authority', () => {
       screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
         typeof HomeNativePager
       >;
-    const toolbarRequest = () => {
-      const rendered = mockNativeEvents.stickyHeader?.props
-        .children as React.ReactElement<{
-        nativeToolbar: { press?: { key: string } };
-      }>;
-      return rendered.props.nativeToolbar.press;
-    };
+    const toolbarRequest = () => nativeToolbarOf()?.press;
     const pressToolbar = () =>
       act(() =>
         pagerProps().onNativeToolbarPress?.({
@@ -1224,6 +1264,55 @@ describe('HomePageView complete header authority', () => {
     accountId = 'test-account';
     screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
     expect(toolbarRequest()).toBeUndefined();
+  });
+
+  it('reserves the native tab bar height for the React sticky content', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const spacer = stickyContentChildren()[0] as React.ReactElement<{
+      height?: number;
+      pointerEvents?: string;
+    }>;
+    expect(spacer.props.height).toBe(pagerProps().nativeTabBar?.style?.height);
+    expect(spacer.props.pointerEvents).toBe('none');
+  });
+
+  it('keeps a consumed toolbar request from replaying after a same-owner pager remount', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const pressNativeEvent = {
+      key: EHomeWalletTab.Portfolio,
+      anchorRect: { x: 300, y: 100, width: 38, height: 38 },
+    };
+    const pressToolbar = () =>
+      act(() =>
+        pagerProps().onNativeToolbarPress?.({
+          nativeEvent: pressNativeEvent,
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeToolbarPress']>
+        >[0]),
+      );
+    pressToolbar();
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
+    act(() => nativeToolbarOf()?.onPressConsumed?.(pressNativeEvent));
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // The auth wrapper adds and removes the tabs subtree for the same owner.
+    validationRequired = true;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    validationRequired = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // A fresh native request for the same item must open the panel again.
+    pressToolbar();
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
   });
 
   it('clears capability when the pager unmounts and rejects its stale same-owner receipt', () => {

@@ -320,6 +320,48 @@ describe('TabHeaderSettings history export entry', () => {
     expect(latest().map((value) => value.open)).toEqual([false, false]);
   });
 
+  it('keeps a consumed native request from reopening after the settings remount', () => {
+    mockToolbarState.enabled = true;
+    const press = {
+      key: EHomeWalletTab.History,
+      anchorRect: { x: 1, y: 2, width: 38, height: 38 },
+    };
+    const latestHistoryPopover = () =>
+      [...mockPopover.mock.calls]
+        .toReversed()
+        .find(([props]) => props.kind === 'TxHistorySettingsContent')?.[0] as
+        | { open: boolean; onOpenChange: (value: boolean) => void }
+        | undefined;
+    const onConfig = jest.fn();
+    const onPressConsumed = jest.fn();
+    const first = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{ onConfig, press, onPressConsumed }}
+      />,
+    );
+    expect(latestHistoryPopover()?.open).toBe(true);
+    expect(onPressConsumed).toHaveBeenCalledWith(press);
+    act(() => latestHistoryPopover()?.onOpenChange(false));
+    expect(latestHistoryPopover()?.open).toBe(false);
+    first.unmount();
+    onPressConsumed.mockClear();
+    // The owner keeps the consumed request while the pager subtree remounts.
+    render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.global_history}
+        nativeToolbar={{
+          onConfig,
+          press,
+          pressConsumed: true,
+          onPressConsumed,
+        }}
+      />,
+    );
+    expect(latestHistoryPopover()?.open).toBe(false);
+    expect(onPressConsumed).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       label: 'active Prime',

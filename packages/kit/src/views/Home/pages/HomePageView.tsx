@@ -946,6 +946,7 @@ export function HomePageView({
   const [nativeToolbarPress, setNativeToolbarPress] = useState<{
     event: CollapsiblePagerToolbarPress;
     ownerKey: string;
+    consumed?: boolean;
   }>();
   useEffect(() => setNativeToolbarPress(undefined), [homeScrollOwnerKey]);
   const handleNativeToolbarConfig = useCallback<IHomeNativeToolbar['onConfig']>(
@@ -960,16 +961,37 @@ export function HomePageView({
     },
     [],
   );
-  const nativeToolbar = useMemo<IHomeNativeToolbar>(
-    () => ({
+  // The settings panel reports the request it handled. Keeping the consumed
+  // flag on this owner (instead of the remounting pager subtree) prevents the
+  // same request from reopening a closed panel when the auth wrapper rebuilds
+  // the pager for the same wallet / account owner.
+  const handleNativeToolbarPressConsumed = useCallback<
+    NonNullable<IHomeNativeToolbar['onPressConsumed']>
+  >((event) => {
+    setNativeToolbarPress((current) => {
+      if (!current || current.event !== event || current.consumed) {
+        return current;
+      }
+      return { ...current, consumed: true };
+    });
+  }, []);
+  const nativeToolbar = useMemo<IHomeNativeToolbar>(() => {
+    const ownedPress =
+      nativeToolbarPress?.ownerKey === homeScrollOwnerKey
+        ? nativeToolbarPress
+        : undefined;
+    return {
       onConfig: handleNativeToolbarConfig,
-      press:
-        nativeToolbarPress?.ownerKey === homeScrollOwnerKey
-          ? nativeToolbarPress.event
-          : undefined,
-    }),
-    [handleNativeToolbarConfig, nativeToolbarPress, homeScrollOwnerKey],
-  );
+      onPressConsumed: handleNativeToolbarPressConsumed,
+      press: ownedPress?.event,
+      pressConsumed: ownedPress?.consumed,
+    };
+  }, [
+    handleNativeToolbarConfig,
+    handleNativeToolbarPressConsumed,
+    nativeToolbarPress,
+    homeScrollOwnerKey,
+  ]);
   const nativeTextTabBar = useMemo<
     CollapsiblePagerNativeTabBarConfig | undefined
   >(() => {
@@ -1064,13 +1086,23 @@ export function HomePageView({
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       if (platformEnv.isNative && isSmallScreen) {
         return (
-          <TabHeaderSettings
-            key={homeScrollOwnerKey}
-            focusedTab={
-              tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
-            }
-            nativeToolbar={nativeToolbar}
-          />
+          <>
+            {/* The native tab bar draws the visible tabs and filter buttons, so
+                reserve the same height here. The React sticky content then
+                matches the pager's sticky geometry instead of reporting a
+                zero-height bar to the scroll containers. */}
+            <Stack
+              pointerEvents="none"
+              height={nativeTextTabBar?.style?.height ?? 0}
+            />
+            <TabHeaderSettings
+              key={homeScrollOwnerKey}
+              focusedTab={
+                tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
+              }
+              nativeToolbar={nativeToolbar}
+            />
+          </>
         );
       }
       const handleTabPress = (name: string) => {
@@ -1145,6 +1177,7 @@ export function HomePageView({
     },
     [
       nativeToolbar,
+      nativeTextTabBar,
       activeTabId,
       homeScrollOwnerKey,
       portalRefCallback,

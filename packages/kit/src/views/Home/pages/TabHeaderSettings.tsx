@@ -50,6 +50,11 @@ export type IHomeNativeToolbar = {
     item: CollapsiblePagerToolbarItem | undefined,
   ) => void;
   press?: CollapsiblePagerToolbarPress;
+  // The owner of the request keeps the consumed flag so a remounted settings
+  // panel (the auth wrapper remounts the pager on the same owner) cannot replay
+  // an already handled press.
+  pressConsumed?: boolean;
+  onPressConsumed?: (event: CollapsiblePagerToolbarPress) => void;
 };
 
 function useNativeSettingsToolbar(
@@ -64,6 +69,7 @@ function useNativeSettingsToolbar(
   );
   const intl = useIntl();
   const onConfig = toolbar?.onConfig;
+  const onPressConsumed = toolbar?.onPressConsumed;
   const title = intl.formatMessage({ id: ETranslations.global_filter });
   useEffect(() => {
     onConfig?.(
@@ -85,14 +91,26 @@ function useNativeSettingsToolbar(
   useEffect(() => {
     if (!toolbar) return;
     const press = toolbar.press;
-    if (!enabled || press?.key !== key) {
-      if (press) consumedPress.current = press;
+    if (!press || press.key !== key) {
+      // A request for another toolbar item, or the owner clearing its request
+      // on a tab / account change, closes this panel.
       setOpen(false);
-    } else if (consumedPress.current !== press) {
-      consumedPress.current = press;
-      setOpen(true);
+      return;
     }
-  }, [toolbar, key, enabled]);
+    const consumed = consumedPress.current === press || toolbar.pressConsumed;
+    if (consumed) {
+      consumedPress.current = press;
+      if (!enabled) setOpen(false);
+      return;
+    }
+    consumedPress.current = press;
+    onPressConsumed?.(press);
+    if (enabled) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  }, [toolbar, key, enabled, onPressConsumed]);
   return toolbar
     ? {
         open,
