@@ -702,7 +702,10 @@ function DustSweepPageContent() {
       {/* Mobile picks tokens in this footer; the sweep itself runs in the
           live sheet, so the footer steps aside while it is open. */}
       {desktop || !selecting ? null : (
-        <Page.Footer safeAreaBottomMode="container">
+        <Page.Footer
+          safeAreaBottomMode="container"
+          disableKeyboardAnimation={platformEnv.isNativeIOS}
+        >
           <YStack position="relative" bg="$bgApp">
             <DustSweepSummary desktop={false} onDetails={onDetails} />
             <Stack
