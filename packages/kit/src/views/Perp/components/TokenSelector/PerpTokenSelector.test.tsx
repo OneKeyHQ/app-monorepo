@@ -111,6 +111,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   usePerpsTokenSearchAliasesAtom: () => [mockEmpty],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsCustomSettingsAtom: () => [{ mobileTradingMode: 'pro' }],
   usePerpsActiveAccountAtom: () => [{ walletType: 'test' }],
   usePerpTokenSelectorConfigPersistAtom: () => {
     const state = useMockState();
@@ -252,6 +253,7 @@ jest.mock('@onekeyhq/components', () => {
     Spinner: () => null,
     Popover: ({ renderContent }: { renderContent: ReactNode }) => renderContent,
     usePopoverContext: () => ({ closePopover: jest.fn() }),
+    useMedia: () => ({ gtMd: true }),
     ListView: ({
       data,
       renderItem,
