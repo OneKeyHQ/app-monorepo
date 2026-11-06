@@ -605,7 +605,7 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   expect(mockApplyPatches).not.toHaveBeenCalled();
 });
 
-it('rounds table rows on every engine and leaves native identity rows to the engine', () => {
+it('rounds the Web row box for its hover fill and leaves native rows to the engine', () => {
   const props = {
     rows: [ethToken],
     networkId: 'evm--1',
@@ -641,10 +641,9 @@ it('rounds table rows on every engine and leaves native identity rows to the eng
         type,
         container: { cornerRadius: 12 },
       });
-      // iOS rounds the pressed fill of identity rows only.
       expect(renderFirstRow('native', tableLayout)).toEqual({
         type,
-        container: tableLayout ? { cornerRadius: 12 } : undefined,
+        container: undefined,
       });
     }
   } finally {

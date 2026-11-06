@@ -69,7 +69,6 @@ import TokenActionsView from './TokenActionsView';
 import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
 import {
   TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
-  TOKEN_TABLE_ROW_CONTAINER_STYLE,
   getTokenRowIconSize,
   getTokenTableColumnWeights,
 } from './tokenListRowLayoutShared';
@@ -912,7 +911,7 @@ export function NativeTokenSelectorList({
                 ],
                 trailing: swapAction,
                 style: {
-                  container: TOKEN_TABLE_ROW_CONTAINER_STYLE,
+                  container: TOKEN_ROW_CONTAINER_STYLE,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,

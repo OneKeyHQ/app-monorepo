@@ -37,10 +37,6 @@ export function getTokenRowIconSize(gtMd: boolean): number {
   return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
 }
 
-// iOS rounds the pressed fill of identity rows only, so table rows set their
-// radius on every engine.
-export const TOKEN_TABLE_ROW_CONTAINER_STYLE = { cornerRadius: 12 };
-
 type ITokenTableColumnWeight = 1 | 2 | 3;
 
 export type ITokenTableColumnWeights = {
