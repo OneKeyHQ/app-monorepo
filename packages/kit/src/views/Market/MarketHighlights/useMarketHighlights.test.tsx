@@ -94,6 +94,44 @@ it('loads immediately and replaces the headline while the page remains open', as
   expect(result.current.items?.[0].title).toBe('New headline');
 });
 
+it.each(['response', 'preview'])(
+  'provides consistent native flags to detail and favorites from the %s',
+  async (source) => {
+    const token: IMarketHighlightAsset = {
+      type: 'token',
+      chainId: 'btc--0',
+      contractAddress: '',
+      symbol: 'BTC',
+      favorite: { chainId: 'btc--0', contractAddress: '' },
+    };
+    const items = [
+      {
+        highlightId: 'bitcoin',
+        title: 'Bitcoin',
+        description: '',
+        publishedAt: '2026-11-04T00:00:00Z',
+        assets: [token, { ...token, isNative: false }],
+        links: [],
+      },
+    ];
+    service.fetchMarketHighlights.mockResolvedValue(items);
+    const { result } = renderHook(() =>
+      useMarketHighlights(
+        source === 'preview' ? { locale: 'en-US', items } : undefined,
+      ),
+    );
+    if (source === 'response') {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+    }
+    expect(result.current.items?.[0].assets).toMatchObject([
+      { isNative: true, favorite: { isNative: true } },
+      { isNative: false, favorite: { isNative: false } },
+    ]);
+  },
+);
+
 it.each(['en-US', 'zh-CN'])(
   'reuses the homepage list only for the current locale when preview locale=%s',
   async (previewLocale) => {

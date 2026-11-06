@@ -1,8 +1,12 @@
+import { useMemo } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
+
+import { getNativeTokenInfo } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 export type IMarketHighlightsPreview = {
   locale: string;
@@ -28,8 +32,26 @@ export function useMarketHighlights(initialResult?: IMarketHighlightsPreview) {
       watchLoading: true,
     },
   );
+  const items = useMemo(() => {
+    if (result?.locale !== locale) return undefined;
+    return result.items.map((item) => ({
+      ...item,
+      assets: item.assets.map((asset) => {
+        if (asset.type !== 'token') return asset;
+        const { isNative } = getNativeTokenInfo(
+          asset.isNative ?? asset.favorite.isNative,
+          asset.contractAddress,
+        );
+        return {
+          ...asset,
+          isNative,
+          favorite: { ...asset.favorite, isNative },
+        };
+      }),
+    }));
+  }, [locale, result]);
   return {
-    items: result?.locale === locale ? result.items : undefined,
+    items,
     isLoading,
     retry: run,
   };
