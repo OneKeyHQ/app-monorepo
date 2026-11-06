@@ -1306,3 +1306,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
 **Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
 **Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.
+
+## Case: Privacy account management modules were missing from the native registry (OK-66558)
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
+**Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
+**Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
+**Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
+**Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
