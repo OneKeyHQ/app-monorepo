@@ -177,6 +177,99 @@ test.each([
   );
 });
 
+test.each([
+  [EAppUpdateStatus.downloadASCFailed, mockDownloadASC],
+  [EAppUpdateStatus.verifyASCFailed, mockVerifyASC],
+])(
+  'overlapping retries while the target gate is pending run %s once',
+  async (status, expected) => {
+    mockCanDownload.mockReset();
+    mockDownloadPackage.mockClear();
+    mockDownloadASC.mockClear();
+    mockVerifyASC.mockClear();
+    let resolveGate: (allowed: boolean) => void = () => {};
+    mockCanDownload.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveGate = resolve;
+        }),
+    );
+    mockCanDownload.mockResolvedValue(true);
+    const view = render(
+      <UpdateCapsule
+        showUpdate
+        onWhatsNew={() => {}}
+        data={{
+          latestVersion: '2.0.0',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status,
+          updateError: {
+            code: EUpdateErrorCode.networkError,
+            step: 'download',
+          },
+        }}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    // The second click must be rejected while the first one is still awaiting
+    // the target gate.
+    expect(mockCanDownload).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveGate(true);
+    });
+    expect(expected).toHaveBeenCalledTimes(1);
+    // The guard must be released after the retry settles.
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(expected).toHaveBeenCalledTimes(2);
+  },
+);
+
+test.each([
+  [EAppUpdateStatus.downloadASCFailed, mockDownloadASC],
+  [EAppUpdateStatus.verifyASCFailed, mockVerifyASC],
+])(
+  'denied target gate releases the in-flight retry guard for %s',
+  async (status, expected) => {
+    mockCanDownload.mockReset();
+    mockDownloadPackage.mockClear();
+    mockDownloadASC.mockClear();
+    mockVerifyASC.mockClear();
+    mockCanDownload.mockResolvedValueOnce(false);
+    mockCanDownload.mockResolvedValue(true);
+    const view = render(
+      <UpdateCapsule
+        showUpdate
+        onWhatsNew={() => {}}
+        data={{
+          latestVersion: '2.0.0',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status,
+          updateError: {
+            code: EUpdateErrorCode.networkError,
+            step: 'download',
+          },
+        }}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(expected).not.toHaveBeenCalled();
+    // A denied retry must still release the guard so the user can try again.
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(expected).toHaveBeenCalledTimes(1);
+  },
+);
+
 test.each([true, false])(
   'integrity failure retains safe download recovery without claiming a locked file was removed (retained=%s)',
   (retained) => {

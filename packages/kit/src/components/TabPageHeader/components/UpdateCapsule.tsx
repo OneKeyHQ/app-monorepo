@@ -326,15 +326,17 @@ export function UpdateCapsule({
   const retryInFlight = useRef(false);
   const retry = useCallback(async () => {
     if (retryInFlight.current) return;
-    // Keep the existing target gate: retrying must not bypass a blocked/
-    // ignored update target (e.g. downloadRetryExhausted freeze).
-    if (
-      !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget())
-    ) {
-      return;
-    }
+    // Claim the in-flight slot synchronously: the awaits below are
+    // interleaving points where a second click would otherwise pass the guard.
     retryInFlight.current = true;
     try {
+      // Keep the existing target gate: retrying must not bypass a blocked/
+      // ignored update target (e.g. downloadRetryExhausted freeze).
+      if (
+        !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget())
+      ) {
+        return;
+      }
       switch (data.status) {
         case EAppUpdateStatus.downloadASCFailed:
           // Installer is already on disk; only the ASC fetch failed. Resuming
