@@ -284,6 +284,8 @@ onramper-sdk/integration/restore.sh  # 如需回退
   - 包版本变化 → 失败；
   - 从显式 base 至 SDK root、目录、文件逐级拒绝 symlink；路径必须为规范 POSIX/NFC，拒绝 case collision；
   - hash 用同一 fd 读取并核对前后 inode/size/mtime/ctime 与读取字节数，检测常见读取期间变化；
+    `O_NOFOLLOW`/`O_NONBLOCK` 仅在平台提供时使用；Windows 缺失这两个 POSIX 常量时，
+    依赖逐级 lstat 与 fd/路径 metadata 比对拒绝 symlink，不再直接失败；
   - manifest 的 SHA-256/size 与版本文件覆盖须有效；`--write` 拒绝版本漂移/空选择，全部成功后原子替换配置。
 - 命令：
   - `yarn lint:external-sdk`（CI / `lint:project` / `agent:check` 已接入）；
@@ -291,7 +293,8 @@ onramper-sdk/integration/restore.sh  # 如需回退
   - `--json` 机器可读输出。
 - 测试：`development/lint/external-sdk.node-test.js` 覆盖内容/文件集合漂移、版本漂移、
   leaf/ancestor symlink、路径/摘要 schema、版本文件覆盖、write 幂等/失败保留配置、
-  short read 与读取期间 metadata 变化，共 23 个测试；CI 的 `01-lint` workflow 执行该测试。
+  short read 与读取期间 metadata 变化、平台缺少 POSIX open 常量（Windows）时的 open 策略
+  与 symlink 拒绝，共 27 个测试；CI 的 `01-lint` workflow 执行该测试。
 - **工作区限制**：本 worktree 的 `node_modules` 是 symlink，因此默认命令有意拒绝。
   可用 `yarn lint:external-sdk --base /Volumes/T7Shield/Project/app-monorepo` 显式检查真实
   安装根；默认 config 仍是本 worktree 的 manifest。CI 的普通实体目录不需此参数。
@@ -299,7 +302,8 @@ onramper-sdk/integration/restore.sh  # 如需回退
   检查不是安装脚本 sandbox，也不阻止检查之后的替换，更不能对恶意并发目录交换提供原子快照保证。
   应在隔离、无并发安装的 CI 中执行，并在消费产物的 build 阶段建立同等门禁；当前 wiring 仅 lint job。
   本轮验证 macOS；Linux workflow wiring（包括 dependency snapshot 使用 mount 而非 symlink）
-  已检查，但本轮没有新 Linux runner 执行结果。175 个 pin 均与 Yarn 缓存 1.3.1 zip 一致，
+  已检查，但本轮没有新 Linux runner 执行结果。Windows 路径由“模拟缺失 O_NOFOLLOW/O_NONBLOCK”
+  的回归测试覆盖，本轮没有真实 Windows runner 执行结果。175 个 pin 均与 Yarn 缓存 1.3.1 zip 一致，
   原有 173 个 pin 未改变，只增加 README/CHANGELOG 两个摘要。
 - 扩展方式：在 `external-sdk.config.json` 的 `sdks[]` 追加条目即可接入下一个
   二进制 SDK（Android AAR、其他 xcframework 等）。

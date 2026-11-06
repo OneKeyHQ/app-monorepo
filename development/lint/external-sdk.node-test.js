@@ -87,6 +87,66 @@ function pin(fixture) {
   assert.equal(result.status, 0, result.stderr);
 }
 
+function withoutPosixOpenFlags(fileSystem) {
+  const constants = { ...fileSystem.constants };
+  delete constants.O_NOFOLLOW;
+  delete constants.O_NONBLOCK;
+  return { ...fileSystem, constants };
+}
+
+function runLintWithoutPosixOpenFlags(fixture, args = []) {
+  const preloadPath = path.join(
+    fixture.base,
+    'simulate-windows-open-constants.js',
+  );
+  writeFile(
+    preloadPath,
+    `// Simulate a platform without the POSIX-only O_NOFOLLOW/O_NONBLOCK flags.
+const Module = require('node:module');
+const realFs = require('node:fs');
+const constants = { ...realFs.constants };
+delete constants.O_NOFOLLOW;
+delete constants.O_NONBLOCK;
+const patchedFs = { ...realFs, constants };
+const originalLoad = Module._load;
+Module._load = function load(request, parent, isMain) {
+  if (request === 'node:fs' || request === 'fs') return patchedFs;
+  return originalLoad.call(this, request, parent, isMain);
+};
+`,
+  );
+  return spawnSync(
+    process.execPath,
+    [
+      '--require',
+      preloadPath,
+      SCRIPT,
+      '--base',
+      fixture.base,
+      '--config',
+      fixture.configPath,
+      ...args,
+    ],
+    { encoding: 'utf8' },
+  );
+}
+
+function hashInSandbox(fixture, fileSystem, relativePath = 'lib/index.js') {
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  return vm.runInNewContext(`${source}\nsha256File(root, relativePath);`, {
+    require: (name) => (name === 'node:fs' ? fileSystem : require(name)),
+    __dirname,
+    Buffer,
+    root: fixture.packageRoot,
+    relativePath,
+    process: {
+      argv: [process.execPath, SCRIPT, '--help'],
+      cwd: () => fixture.base,
+    },
+    console: { log() {}, error() {} },
+  });
+}
+
 test('reports a clean manifest after --write', () => {
   const fixture = createFixture();
   pin(fixture);
@@ -414,22 +474,8 @@ test('empty file selection fails closed in write mode', () => {
 
 test('hashes complete content across short reads and rejects unstable file metadata', () => {
   const fixture = createFixture();
-  const source = fs.readFileSync(SCRIPT, 'utf8');
-  function hashWithFs(fileSystem) {
-    return vm.runInNewContext(`${source}\nsha256File(root, 'lib/index.js');`, {
-      require: (name) => (name === 'node:fs' ? fileSystem : require(name)),
-      __dirname,
-      Buffer,
-      root: fixture.packageRoot,
-      process: {
-        argv: [process.execPath, SCRIPT, '--help'],
-        cwd: () => fixture.base,
-      },
-      console: { log() {}, error() {} },
-    });
-  }
-  const normal = hashWithFs(fs);
-  const shortReads = hashWithFs({
+  const normal = hashInSandbox(fixture, fs);
+  const shortReads = hashInSandbox(fixture, {
     ...fs,
     readSync: (fd, buffer, offset, length, position) =>
       fs.readSync(fd, buffer, offset, Math.min(2, length), position),
@@ -439,7 +485,7 @@ test('hashes complete content across short reads and rejects unstable file metad
   let calls = 0;
   assert.throws(
     () =>
-      hashWithFs({
+      hashInSandbox(fixture, {
         ...fs,
         fstatSync: (...args) => {
           const stat = fs.fstatSync(...args);
@@ -450,4 +496,57 @@ test('hashes complete content across short reads and rejects unstable file metad
       }),
     /File changed while hashing/u,
   );
+});
+
+test('hashes when the platform provides neither O_NOFOLLOW nor O_NONBLOCK', () => {
+  const fixture = createFixture();
+  const normal = hashInSandbox(fixture, fs);
+  const withoutPosixFlags = hashInSandbox(fixture, withoutPosixOpenFlags(fs));
+  assert.equal(withoutPosixFlags.sha256, normal.sha256);
+  assert.equal(withoutPosixFlags.size, normal.size);
+});
+
+test('detects a symlink swapped in at open time when O_NOFOLLOW is unavailable', () => {
+  const fixture = createFixture();
+  const target = path.join(fixture.packageRoot, 'lib', 'index.js');
+  const outside = path.join(fixture.base, 'outside.js');
+  writeFile(outside, 'module.exports = { pwned: true };\n');
+  let swapped = false;
+  const windowsLike = withoutPosixOpenFlags({
+    ...fs,
+    openSync: (filePath, flags) => {
+      if (!swapped) {
+        swapped = true;
+        fs.renameSync(target, `${target}.pinned`);
+        fs.symlinkSync(outside, target);
+      }
+      return fs.openSync(filePath, flags);
+    },
+  });
+  assert.throws(
+    () => hashInSandbox(fixture, windowsLike),
+    /File changed before hashing/u,
+  );
+});
+
+test('lints an installation when the platform lacks POSIX open constants (Windows simulation)', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const result = runLintWithoutPosixOpenFlags(fixture);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OK/u);
+  assert.match(result.stdout, /5 files/u);
+});
+
+test('still rejects symlinks when POSIX open constants are unavailable', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  fs.rmSync(path.join(fixture.packageRoot, 'package.json'));
+  fs.symlinkSync(
+    path.join(fixture.base, 'outside.json'),
+    path.join(fixture.packageRoot, 'package.json'),
+  );
+  const result = runLintWithoutPosixOpenFlags(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
 });

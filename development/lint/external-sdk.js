@@ -23,6 +23,16 @@ const path = require('node:path');
 const DEFAULT_CONFIG_PATH = path.join(__dirname, 'external-sdk.config.json');
 const CONFIG_VERSION = 1;
 
+// O_NOFOLLOW and O_NONBLOCK are POSIX-only; Windows exposes neither
+// (https://nodejs.org/docs/latest-v24.x/api/fs.html#file-open-constants).
+// Where they are unavailable, the per-component lstat checks and the
+// fd/path metadata comparison around hashing are the symlink defenses.
+const HASH_READ_FLAGS = [
+  fs.constants.O_RDONLY,
+  fs.constants.O_NOFOLLOW,
+  fs.constants.O_NONBLOCK,
+].reduce((flags, flag) => (typeof flag === 'number' ? flags | flag : flags), 0);
+
 function usage() {
   return [
     'Usage: node development/lint/external-sdk.js [options]',
@@ -95,14 +105,9 @@ function sha256File(root, relativePath) {
   const filePath = path.join(root, relativePath);
   assertPathComponents(root, relativePath);
   const before = fs.lstatSync(filePath, { bigint: true });
-  const noFollow = fs.constants.O_NOFOLLOW;
-  if (noFollow === undefined) fail('O_NOFOLLOW is required on this platform');
   let fd;
   try {
-    fd = fs.openSync(
-      filePath,
-      fs.constants.O_RDONLY | noFollow | fs.constants.O_NONBLOCK,
-    );
+    fd = fs.openSync(filePath, HASH_READ_FLAGS);
   } catch (error) {
     fail(`Cannot read ${filePath}: ${error.message}`);
   }
