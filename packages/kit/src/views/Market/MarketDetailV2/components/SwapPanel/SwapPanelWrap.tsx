@@ -42,6 +42,7 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import {
   ESwapNetworkFeeLevel,
   ESwapSlippageSegmentKey,
+  ESwapSource,
   ESwapTabSwitchType,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -761,7 +762,9 @@ function SwapPanelWrapContent({
         return;
       }
 
-      const reviewAnalytics = createSwapReviewAnalytics();
+      const reviewAnalytics = createSwapReviewAnalytics({
+        swapSource: ESwapSource.MARKET,
+      });
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
