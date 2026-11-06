@@ -1255,6 +1255,13 @@ export function EarnOffersDeposit({
   // Beside the form only where the modal is wide and the window holds it;
   // under the amount box otherwise
   const isRoutesBeside = listsRoutes && routesBeside && gtLg;
+  // Past 1024 px the form moves beside the offers or under them and is built
+  // anew there: it starts on what was typed, as for another token's form
+  const [shownBeside, setShownBeside] = useState(isRoutesBeside);
+  if (shownBeside !== isRoutesBeside) {
+    setShownBeside(isRoutesBeside);
+    setStartAmount(typedAmountRef.current || undefined);
+  }
   const routes = listsRoutes ? (
     <EarnOfferRoutes
       offers={offers}

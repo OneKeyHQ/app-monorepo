@@ -375,6 +375,20 @@ const ManagePositionPage = () => {
   // Where the window can't hold the offers beside the form, the full router
   // keeps the usual width, its offers under the form
   const isColumns = isFullRouter && isWideScreen;
+  // On web the page keeps its scroll at every width, switched off beside the
+  // columns (each scrolls by itself, filling the window): one structure, so a
+  // window resized past 1024 px keeps the card, Pay with and the amount.
+  // Native keeps the columns out of its keyboard-aware scroll
+  const keepsPageScroll = !platformEnv.isNative;
+  const pageScrollProps = useMemo(
+    () => ({
+      keyboardShouldPersistTaps: 'handled' as const,
+      ...(keepsPageScroll && isColumns
+        ? { scrollEnabled: false, contentContainerStyle: { flex: 1 } }
+        : {}),
+    }),
+    [isColumns, keepsPageScroll],
+  );
   useEffect(() => {
     const earnOffers = route.params.earnOffers;
     if (earnOffers?.wide && Boolean(earnOffers.narrow) === isWideScreen) {
@@ -755,8 +769,8 @@ const ManagePositionPage = () => {
       {/* Beside the form, each column scrolls by itself and nothing else
           does */}
       <Page
-        scrollEnabled={!isColumns}
-        scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+        scrollEnabled={keepsPageScroll || !isColumns}
+        scrollProps={pageScrollProps}
       >
         <Page.Header
           title={title}
