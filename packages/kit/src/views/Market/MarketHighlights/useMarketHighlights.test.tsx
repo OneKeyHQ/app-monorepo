@@ -507,34 +507,61 @@ it('keeps failed asset quotes during a partial refresh and removes deleted asset
   expect(result.current?.has('asset:btc')).toBe(false);
 });
 
-it('clears a cached quote when its source successfully returns no quote', async () => {
-  const assets: IMarketHighlightAsset[] = [
-    {
+it.each([false, true])(
+  'clears a cached quote before a second source settles (second quote cached: %s)',
+  async (hasSecondQuote) => {
+    const pending =
+      buildDeferredPromise<
+        Awaited<ReturnType<typeof service.fetchMarketListingWatchlistQuote>>
+      >();
+    const assets = ['btc', 'eth'].map<IMarketHighlightAsset>((assetId) => ({
       type: 'asset',
-      assetId: 'btc',
-      symbol: 'BTC',
-      favorite: { chainId: '', contractAddress: '', assetId: 'btc' },
-    },
-  ];
-  service.fetchMarketListingWatchlistQuote
-    .mockResolvedValueOnce({
+      assetId,
+      symbol: assetId.toUpperCase(),
+      favorite: { chainId: '', contractAddress: '', assetId },
+    }));
+    const bitcoin = {
       name: 'Bitcoin',
       symbol: 'BTC',
       logoUrl: 'btc-logo',
       price: '100',
-    })
-    .mockResolvedValueOnce(undefined);
-  const { result } = renderHook(() => useMarketHighlightQuotes(assets));
-  await act(async () => {
-    await jest.advanceTimersByTimeAsync(0);
-  });
-  expect(result.current?.get('asset:btc')?.price).toBe('100');
+    };
+    const ethereum = {
+      name: 'Ethereum',
+      symbol: 'ETH',
+      logoUrl: 'eth-logo',
+      price: '200',
+    };
+    service.fetchMarketListingWatchlistQuote.mockImplementation(
+      async ({ assetId }) => {
+        if (assetId === 'btc') return bitcoin;
+        return hasSecondQuote ? ethereum : undefined;
+      },
+    );
+    const { result } = renderHook(() => useMarketHighlightQuotes(assets));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current?.get('asset:btc')?.price).toBe('100');
 
-  await act(async () => {
-    await jest.advanceTimersByTimeAsync(30_000);
-  });
-  expect(result.current?.has('asset:btc')).toBe(false);
-});
+    service.fetchMarketListingWatchlistQuote.mockImplementation(
+      async ({ assetId }) => (assetId === 'btc' ? undefined : pending.promise),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+    });
+    expect(result.current?.has('asset:btc')).toBe(false);
+    expect(result.current?.get('asset:eth')?.price).toBe(
+      hasSecondQuote ? '200' : undefined,
+    );
+
+    pending.resolve({ ...ethereum, price: '201' });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current?.get('asset:eth')?.price).toBe('201');
+  },
+);
 
 it('ignores a late partial result after switching visible assets', async () => {
   const pending =

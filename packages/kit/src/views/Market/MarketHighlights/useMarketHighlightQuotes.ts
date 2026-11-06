@@ -140,9 +140,7 @@ async function fetchHighlightQuotes(
       .filter((request) => request !== false)
       .map(async (request) => {
         await request;
-        if (quotes.size > 0) {
-          onUpdate(new Map(quotes));
-        }
+        onUpdate(new Map(quotes));
       }),
   );
   if (
@@ -178,7 +176,7 @@ export function useMarketHighlightQuotes(
           requestRef.current === requestId &&
           assetsRef.current === assets
         ) {
-          setResult((previous) => new Map([...(previous ?? []), ...quotes]));
+          setResult(quotes);
         }
       });
     },
