@@ -374,8 +374,12 @@ const SwapTokenSelectPage = ({
     getSwapTokenSelectorCacheEpoch,
     getSwapTokenSelectorCacheEpoch,
   );
-  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM, {
+    networkScope: 'selector',
+  });
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO, {
+    networkScope: 'selector',
+  });
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
