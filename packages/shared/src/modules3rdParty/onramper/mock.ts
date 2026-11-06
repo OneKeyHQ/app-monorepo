@@ -50,7 +50,7 @@ export function createMockOnramperClient(
       const rate = 192.94;
       const networkFee = 0.42;
       const transactionFee = 3.99;
-      // The only state the page reads: where a prepared checkout settles.
+      // Where a prepared checkout settles: the page reads the login from it.
       stateListeners.forEach((listener) =>
         listener(
           signedIn

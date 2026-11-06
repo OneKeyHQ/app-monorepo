@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 
 const mockStore = new Map<string, boolean>();
 let mockStateListener: ((state: IOnramperState) => void) | undefined;
+let mockFailedListener: ((event: IOnramperEvent) => void) | undefined;
 const mockSignOut = jest.fn<Promise<void>, []>();
 // A mock client skips the session mint; a real one mints, then initializes.
 let mockIsMockClient = true;
@@ -31,13 +32,19 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
   ...jest.requireActual<
     typeof import('@onekeyhq/shared/src/modules3rdParty/onramper/utils')
   >('@onekeyhq/shared/src/modules3rdParty/onramper/utils'),
-  ONRAMPER_EVENT_NAMES: [],
+  ONRAMPER_EVENT_NAMES: ['failed'],
   getOnramperConfig: () => ({}),
   createOnramperClient: () => ({
     isMock: mockIsMockClient,
     initialize: () => mockInitialize(),
     getCheckoutRequirements: () => mockGetCheckoutRequirements(),
-    addEventListener: () => () => {},
+    addEventListener: (
+      _name: string,
+      listener: (event: IOnramperEvent) => void,
+    ) => {
+      mockFailedListener = listener;
+      return () => {};
+    },
     addStateListener: (listener: (state: IOnramperState) => void) => {
       mockStateListener = listener;
       return () => {};
@@ -67,6 +74,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 import type {
+  IOnramperEvent,
   IOnramperQuote,
   IOnramperSession,
   IOnramperState,
@@ -106,6 +114,10 @@ function publishState(state: IOnramperState) {
   act(() => mockStateListener?.(state));
 }
 
+function publishFailed(event: IOnramperEvent) {
+  act(() => mockFailedListener?.({ type: 'failed', ...event }));
+}
+
 // A checkout prepared for a user the SDK holds no login for.
 const LOGIN_FROM_NOTHING: IOnramperState = {
   kind: 'requireLogin',
@@ -138,6 +150,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockStore.clear();
   mockStateListener = undefined;
+  mockFailedListener = undefined;
   mockSignOut.mockReset();
   mockSignOut.mockResolvedValue(undefined);
   mockIsMockClient = true;
@@ -179,9 +192,8 @@ describe('useOnramperCheckout OnramperID login state', () => {
     expect(result.current.canSignOut).toBe(true);
     expect(mockStore.get(KEY)).toBe(true);
 
-    // Re-quoting and paying say nothing about the login.
+    // Re-quoting and a failure say nothing about the login.
     publishState({ kind: 'checkoutPreparing' });
-    publishState({ kind: 'finalizing' });
     publishState({ kind: 'failed' });
     expect(result.current.canSignOut).toBe(true);
 
@@ -193,6 +205,53 @@ describe('useOnramperCheckout OnramperID login state', () => {
     expect(result.current.canSignOut).toBe(true);
 
     publishState(LOGIN_FROM_NOTHING);
+    expect(result.current.canSignOut).toBe(false);
+    expect(mockStore.get(KEY)).toBe(false);
+  });
+
+  // The checkout was prepared as a login from nothing, so that is all a
+  // prepared checkout ever said; the login then happens inside the button.
+  it('learns a login made through the checkout button, and keeps it when the payment fails', async () => {
+    mockGetCheckoutRequirements.mockResolvedValueOnce({
+      button: 'button-1',
+      quote: QUOTE,
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    publishState(LOGIN_FROM_NOTHING);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.canSignOut).toBe(false);
+
+    // Opening the OnramperID flow is not a login yet.
+    publishState({ kind: 'authenticating' });
+    expect(result.current.canSignOut).toBe(false);
+
+    publishState({ kind: 'finalizing' });
+    expect(result.current.canSignOut).toBe(true);
+    expect(mockStore.get(KEY)).toBe(true);
+
+    publishState({ kind: 'failed', errorCode: 'paymentFailed' });
+    publishFailed({ errorCode: 'paymentFailed', message: 'declined' });
+
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.canSignOut).toBe(true);
+    expect(mockStore.get(KEY)).toBe(true);
+  });
+
+  it('stays signed out when the login made through the button is abandoned', async () => {
+    mockGetCheckoutRequirements.mockResolvedValueOnce({
+      button: 'button-1',
+      quote: QUOTE,
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    publishState(LOGIN_FROM_NOTHING);
+
+    publishState({ kind: 'authenticating' });
+    publishState({ kind: 'failed', errorCode: 'oidcFlowCancelled' });
+    publishFailed({ errorCode: 'oidcFlowCancelled' });
+
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.canSignOut).toBe(false);
     expect(mockStore.get(KEY)).toBe(false);
   });

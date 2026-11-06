@@ -263,17 +263,29 @@ describe('getOnramperSignedInFromState', () => {
     ).toBeUndefined();
   });
 
+  // A login made through the checkout button is only visible here: the
+  // checkout was prepared as `requireLogin` and no `readyToCheckout` has to
+  // follow the OnramperID flow.
+  it('reads a checkout that is being paid as signed in', () => {
+    const paying: IOnramperStateKind[] = [
+      'finalizing',
+      'rendering',
+      'paymentPending',
+      'completed',
+    ];
+    paying.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBe(true);
+    });
+  });
+
   it('learns nothing from the other states', () => {
     const silent: IOnramperStateKind[] = [
       'idle',
       'initializing',
       'ready',
       'checkoutPreparing',
+      // The OnramperID flow was opened, not finished.
       'authenticating',
-      'finalizing',
-      'rendering',
-      'paymentPending',
-      'completed',
       'failed',
     ];
     silent.forEach((kind) => {

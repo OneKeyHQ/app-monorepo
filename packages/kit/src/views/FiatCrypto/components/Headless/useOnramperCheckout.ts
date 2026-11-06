@@ -107,7 +107,8 @@ type IResult = {
   refreshQuote: () => void;
   // Whether to offer the sign-out action. Follows the OnramperID login as far
   // as the SDK has told us: remembered from the last visit, then corrected by
-  // every prepared checkout and by signOut. While the login is unknown it is
+  // every prepared checkout, by a checkout that gets paid after a login made
+  // through its button, and by signOut. While the login is unknown it is
   // offered only on a failure, where no prepared checkout is coming to report
   // it: a user who signed in on an earlier build must still be able to switch
   // accounts from there.
