@@ -1,3 +1,7 @@
+import {
+  EAppUpdateStatus,
+  EUpdateStrategy,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 
 import {
@@ -180,6 +184,7 @@ describe('desktop app update adapter', () => {
   const downloadUpdate = jest.fn();
   const getDownloadedFileAvailability = jest.fn();
   const installPackage = jest.fn();
+  const prepareQuitInstall = jest.fn(async () => undefined);
   const manualInstallPackage = jest.fn();
   const verifyPackage = jest.fn();
   const onUpdateError = (
@@ -206,6 +211,7 @@ describe('desktop app update adapter', () => {
         downloadUpdate,
         getDownloadedFileAvailability,
         installPackage,
+        prepareQuitInstall,
         manualInstallPackage,
         verifyPackage,
       },
@@ -219,6 +225,32 @@ describe('desktop app update adapter', () => {
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+  });
+
+  test('quit preparation uses the verified artifact identity and forwards targeted revocation', async () => {
+    const appInfo: IAppUpdateInfo = {
+      latestVersion: '6.6.0',
+      updateAt: 0,
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadUrl: 'https://example.com/release',
+      downloadedEvent: {
+        latestVersion: '6.6.0',
+        downloadUrl: 'https://example.com/artifact.zip',
+      },
+    };
+    await AppUpdate.prepareQuitInstall?.(appInfo);
+    expect(prepareQuitInstall).toHaveBeenCalledWith({
+      latestVersion: '6.6.0',
+      downloadUrl: 'https://example.com/artifact.zip',
+      buildNumber: '1',
+    });
+    const target = {
+      latestVersion: '6.6.0',
+      downloadUrl: 'https://example.com/artifact.zip',
+    };
+    await AppUpdate.prepareQuitInstall?.(undefined, target);
+    expect(prepareQuitInstall).toHaveBeenLastCalledWith(undefined, target);
   });
 
   test('downloadPackage resolves the app identity and ignores bundle events', async () => {

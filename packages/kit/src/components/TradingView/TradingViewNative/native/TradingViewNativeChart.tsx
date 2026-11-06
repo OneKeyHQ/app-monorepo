@@ -407,6 +407,45 @@ export const TradingViewNativeChart = memo(
       : undefined;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
+    const downColor = chartSettings.candles.body.downColor;
+    const upColor = chartSettings.candles.body.upColor;
+    const watermarkOpacity =
+      themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+    const scenePaletteInput = useMemo(
+      () => ({
+        colors: {
+          axisText,
+          background,
+          down: downColor,
+          grid,
+          line,
+          timeAxisBorder,
+          up: upColor,
+        },
+        watermarkOpacity,
+      }),
+      [
+        axisText,
+        background,
+        downColor,
+        grid,
+        line,
+        timeAxisBorder,
+        upColor,
+        watermarkOpacity,
+      ],
+    );
+    // A theme switch repaints native views with its commit, but restarting the
+    // Skia mappers waits for the passive effects of the whole re-rendered app,
+    // leaving the canvas on the previous theme. The mappers observe this value
+    // instead, so the palette reaches the UI runtime from the layout phase.
+    const scenePalette = useSharedValue(scenePaletteInput);
+    const pushedScenePaletteRef = useRef(scenePaletteInput);
+    useLayoutEffect(() => {
+      if (pushedScenePaletteRef.current === scenePaletteInput) return;
+      pushedScenePaletteRef.current = scenePaletteInput;
+      scenePalette.value = scenePaletteInput;
+    }, [scenePalette, scenePaletteInput]);
     const pointCount = points.length;
     const autoPriceRange = useMemo(
       () =>
@@ -447,8 +486,6 @@ export const TradingViewNativeChart = memo(
       () => getTradingViewNativeSubIndicatorAxisLabel(subIndicatorPanes),
       [subIndicatorPanes],
     );
-    const watermarkOpacity =
-      themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
     const legendText = useMemo(
       () =>
         getTradingViewNativeSkiaLegendText({ candleLabels, chartComponents }),
@@ -480,15 +517,7 @@ export const TradingViewNativeChart = memo(
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
-          colors: {
-            axisText,
-            background,
-            down: chartSettings.candles.body.downColor,
-            grid,
-            line,
-            timeAxisBorder,
-            up: chartSettings.candles.body.upColor,
-          },
+          colors: scenePalette.value.colors,
           fontFamily: SYSTEM_FONT_FAMILY,
           legendFont,
           priceAxisTypeface,
@@ -499,17 +528,11 @@ export const TradingViewNativeChart = memo(
           watermarkSvg,
         }),
       [
-        axisText,
-        background,
-        chartSettings.candles.body.downColor,
-        chartSettings.candles.body.upColor,
-        grid,
         legendFont,
-        line,
         priceAxisTypeface,
         priceAxisFontSize,
+        scenePalette,
         timeAxisFontSize,
-        timeAxisBorder,
         timeAxisBorderWidth,
         tradingLineLabelFont,
         watermarkSvg,
@@ -651,7 +674,7 @@ export const TradingViewNativeChart = memo(
         timeAxisFontSize,
         timeAxisHeight,
         viewport: runtime.viewport,
-        watermarkOpacity,
+        watermarkOpacity: scenePalette.value.watermarkOpacity,
         width: runtime.size.width,
       });
     }, [
@@ -667,10 +690,10 @@ export const TradingViewNativeChart = memo(
       priceAxisTickCount,
       priceAxisWidth,
       resources,
+      scenePalette,
       showLegend,
       timeAxisFontSize,
       timeAxisHeight,
-      watermarkOpacity,
     ]);
 
     useAnimatedReaction(

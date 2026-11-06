@@ -19,6 +19,9 @@ export interface ISoftwareUpdateParams {
   toVersion: string;
   updateStrategy: string;
   platform: string;
+  installSource?: 'capsule' | 'legacy' | 'quit' | 'startup';
+  readyWaitMs?: number;
+  readyAt?: number;
 }
 
 export type IAppUpdateAuditPayload = Record<string, unknown>;

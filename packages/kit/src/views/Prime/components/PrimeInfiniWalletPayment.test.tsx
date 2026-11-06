@@ -253,6 +253,44 @@ describe('Infini wallet loader creation gate', () => {
     expect(mockClose).not.toHaveBeenCalled();
   });
 
+  it.each(['cancel', 'resume'] as const)(
+    'does not prepare or resume an ambiguous lookup without explicit replacement: %s',
+    async (choice) => {
+      mockLookup.mockResolvedValue({ authContext, status: 'unavailable' });
+      mockChoose.mockResolvedValue(choice);
+      renderRoot(false, 'original-id');
+      await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+      expect(mockChoose).toHaveBeenCalledWith(
+        expect.objectContaining({ canResume: false, lookupUnavailable: true }),
+      );
+      expect(mockContent?.props.shouldCreatePayment).toBeUndefined();
+      expect(mockContent?.props.remoteRecovery).toBeUndefined();
+      expect(mockWaitingDialog).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['replace', 'cancel'] as const)(
+    'uses the existing unfinished-payment warning for multiple orders: %s',
+    async (choice) => {
+      mockLookup.mockResolvedValue({ authContext, hasPendingPayments: true });
+      mockChoose.mockResolvedValue(choice);
+      renderRoot(true);
+      if (choice === 'replace')
+        await waitFor(() =>
+          expect(mockContent?.props.shouldCreatePayment).toBe(true),
+        );
+      else await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+      expect(mockChoose).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canResume: false,
+          lookupUnavailable: undefined,
+        }),
+      );
+      expect(mockContent?.props.remoteRecovery).toBeUndefined();
+      expect(mockWaitingDialog).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['replace', 'cancel'] as const)(
     'warns rather than guessing recovery of a transferred order: %s',
     async (choice) => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -468,10 +468,25 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
 export function EarnHomeBanner({
   banners,
   isLoading,
+  autoPlayEnabled = true,
 }: {
   banners: IEarnPageBannerListItem[];
   isLoading: boolean;
+  autoPlayEnabled?: boolean;
 }) {
+  const [isAppActive, setIsAppActive] = useState(
+    () => AppState.currentState === 'active',
+  );
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      setIsAppActive(state === 'active');
+    });
+    if (AppState.currentState) {
+      setIsAppActive(AppState.currentState === 'active');
+    }
+    return () => subscription.remove();
+  }, []);
+
   const validBanners = useMemo(
     () =>
       banners.filter(
@@ -520,6 +535,7 @@ export function EarnHomeBanner({
         data={validBanners}
         renderItem={renderItem}
         autoPlayInterval={5000}
+        autoPlayEnabled={autoPlayEnabled && isAppActive}
         loop={validBanners.length > 1}
         infinite
         showPagination={validBanners.length > 1}
