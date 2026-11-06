@@ -343,6 +343,7 @@ function AnimatedTabBarItem({
   focusedTabStyle,
   isFocused,
   onItemLayout,
+  testID,
 }: {
   name: string;
   index: number;
@@ -352,6 +353,7 @@ function AnimatedTabBarItem({
   focusedTabStyle?: IYStackProps;
   isFocused: boolean;
   onItemLayout?: (index: number, layout: IItemLayout) => void;
+  testID?: string;
 }) {
   const handlePress = useCallback(() => {
     onPress(name);
@@ -385,6 +387,7 @@ function AnimatedTabBarItem({
 
   return (
     <YStack
+      testID={testID}
       h={44}
       ai="center"
       jc="center"
@@ -486,12 +489,14 @@ function AnimatedPillTabBarItem({
   indexDecimal,
   onPress,
   onItemLayout,
+  testID,
 }: {
   name: string;
   index: number;
   indexDecimal: IReadonlySharedValue<number>;
   onPress: (name: string) => void;
   onItemLayout?: (index: number, layout: IItemLayout) => void;
+  testID?: string;
 }) {
   const handlePress = useCallback(() => {
     onPress(name);
@@ -525,6 +530,7 @@ function AnimatedPillTabBarItem({
 
   return (
     <YStack
+      testID={testID}
       ai="center"
       jc="center"
       px="$3.5"
@@ -644,6 +650,8 @@ export interface ITabBarProps {
   focusedTab: SharedValue<string>;
   tabNames: string[];
   onTabPress: (name: string) => void;
+  /** Identifies tab items without replacing their built-in rendering. */
+  getTabTestID?: (name: string, index: number) => string | undefined;
   indexDecimal?: SharedValue<number>;
   width?: number;
   containerStyle?: IYStackProps;
@@ -778,6 +786,7 @@ export function TabBar({
   // eslint-disable-next-line react/prop-types
   renderToolbar,
   renderItem,
+  getTabTestID,
   divider = true,
   tabItemStyle,
   focusedTabStyle,
@@ -1413,6 +1422,7 @@ export function TabBar({
       return tabNames.map((name, index) => (
         <AnimatedTabBarItem
           key={name}
+          testID={getTabTestID?.(name, index)}
           name={name}
           index={index}
           indexDecimal={animatedDefaultIndexDecimal}
@@ -1428,6 +1438,7 @@ export function TabBar({
       return tabNames.map((name, index) => (
         <AnimatedPillTabBarItem
           key={name}
+          testID={getTabTestID?.(name, index)}
           name={name}
           index={index}
           indexDecimal={indexDecimal}
@@ -1450,6 +1461,7 @@ export function TabBar({
         renderItem(
           {
             name,
+            testID: getTabTestID?.(name, index),
             isFocused: currentTab === name,
             onPress: handleTabPress,
             tabItemStyle,
@@ -1467,6 +1479,7 @@ export function TabBar({
       ) : (
         <TabBarItem
           key={name}
+          testID={getTabTestID?.(name, index)}
           name={name}
           isFocused={currentTab === name}
           onPress={handleTabPress}
@@ -1515,6 +1528,7 @@ export function TabBar({
     handleItemLayout,
     itemsLayout,
     renderItem,
+    getTabTestID,
     focusedTextSize,
     hideActiveIndicator,
     tabItemStyle,
@@ -1608,6 +1622,7 @@ export function TabBar({
         renderItem(
           {
             name,
+            testID: getTabTestID?.(name, index),
             isFocused: currentTab === name,
             onPress: handleTabPress,
             tabItemStyle,
@@ -1622,6 +1637,7 @@ export function TabBar({
       ) : (
         <TabBarItem
           key={name}
+          testID={getTabTestID?.(name, index)}
           name={name}
           isFocused={currentTab === name}
           onPress={handleTabPress}
@@ -1641,6 +1657,7 @@ export function TabBar({
       handleTabPress,
       hideActiveIndicator,
       renderItem,
+      getTabTestID,
       tabItemStyle,
       textSize,
       variant,
