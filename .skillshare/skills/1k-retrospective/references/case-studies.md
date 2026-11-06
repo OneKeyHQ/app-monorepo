@@ -1311,3 +1311,25 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
 **Fix**: Remove that extra selector and its import. Keep a settings icon accessible before readiness, with a chart-switch-only menu so stalled or failed TV loading does not trap users. Hide full settings and chart style until readiness. Regression coverage includes a chart that never becomes ready and switching after closing the recovery dialog. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back to Original while TV remains stalled; Android device verification remains for QA.
 **Catchable by**: Section 8: Manual Verification â€” inspect loading and ready states separately when moving controls into a settings menu.
+
+## Case: Lite backup completion outlived its owning dialog
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and asynchronous bg wallet service. The process-owned native NFC operation can finish after the main UI owner unmounts; the two JS heaps are separate.
+**Symptom**: Closing a parent menu cancelled a pending Lite operation. If a native backup then completed, the card could contain the backup while the wallet remained marked unbacked up. Retrying a failed first write could also reuse stale new-card state after PIN initialization.
+**Root Cause**: React parent dismissal unmounted the operation owner, UI cancellation discarded the native result, and retries assumed the first card state was still current.
+**Fix**: Keep the owning parent mounted until the operation settles, settle UI cancellation once, refresh card state on retry, retain card identity and request overwrite confirmation. Persist backup status inside the native write callback only for an error-free true result with the expected serial and captured wallet ID; gate subsequent UI on the owner still being mounted. Focused hook tests cover successful completion after unmount/cancellation and reject errors, false results and other-card results. Physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: Trace native completion through UI cancellation and bg persistence; test an owner unmount before native success and stale card state after a failed first write.
+
+## Case: Closing a lower iOS dialog blurred an independent upper overlay
+**Date**: 2026-11-06 | **Platforms**: iOS main UI runtime and process-owned native overlay windows. Android and Web/Desktop keyboard behavior is unchanged.
+**Symptom**: Closing a lower dialog dismissed the keyboard and blurred an input in an independent upper overlay window.
+**Root Cause**: Both dialog close paths requested a delayed global keyboard dismissal, which could target another native window's first responder after the lower dialog closed.
+**Fix**: Skip the two global keyboard dismissals on iOS and let the closing entry release its own input. Add independent overlay, handoff and reopening scenarios to the existing Gallery. Focused dialog tests check both close paths on iOS and retain non-iOS dismissal. Native/device keyboard acceptance remains open.
+**Catchable by**: Sections 3, 5 and 8: Check global input side effects against independently owned windows and verify focus while closing a lower overlay with an upper input active.
+
+
+## Case: Lite PIN changes checked card identity after mutation
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and process-owned native NFC operation; no bg heap sharing is assumed.
+**Symptom**: Verifying the old PIN on card A and presenting card B with the same PIN could change B's PIN before the App reported a card mismatch.
+**Root Cause**: The native changePin call did not receive the verified serial; the App's result handler compared card identity only after the write.
+**Fix**: Forward the verified serial to the SDK. On Android, validate the acquired card state and mutate through the same connection. On iOS, refresh card identity before PIN dispatch and claim the pending completion with its identity snapshot so a late connection after cancellation cannot become unguarded. Reuse DeviceMismatch and require native rebuilds. Focused App, wrapper and native host regressions cover forwarding, mismatch rejection, V1/V2 and cancellation; physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: A device identity used to authorize mutation must be checked before the mutation on the same native resource; result validation alone cannot undo a wrong-device write.

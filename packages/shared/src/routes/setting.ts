@@ -32,6 +32,7 @@ export enum EModalSettingRoutes {
   SettingDevSniRequestQa = 'SettingDevSniRequestQa',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
+  SettingDevHardwarePathTestModal = 'SettingDevHardwarePathTestModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
@@ -128,6 +129,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevSniRequestQa]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevHardwarePathTestModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevStorageGalleryModal]: undefined;

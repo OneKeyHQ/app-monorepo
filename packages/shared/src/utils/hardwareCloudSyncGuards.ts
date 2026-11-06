@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 
 import {
-  HARDWARE_CLOUD_SYNC_KEK_SALT_LINE,
+  HARDWARE_CLOUD_SYNC_KEK_SALT_FIELD,
   HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
 } from '../consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '../errors/errors/localError';
@@ -10,10 +10,10 @@ const RESERVED_REQUEST_ERROR =
   'OneKey Cloud key operations are unavailable to external signing requests';
 const IDENTITY_LENGTH = 16;
 const SALT_LENGTH = 32;
-// prefix | identity hex | "\nKey: " | salt hex
+// prefix | identity hex | ";salt=" | salt hex
 const IDENTITY_START = HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX.length;
 const SALT_LINE_START = IDENTITY_START + IDENTITY_LENGTH;
-const SALT_START = SALT_LINE_START + HARDWARE_CLOUD_SYNC_KEK_SALT_LINE.length;
+const SALT_START = SALT_LINE_START + HARDWARE_CLOUD_SYNC_KEK_SALT_FIELD.length;
 const MESSAGE_LENGTH = SALT_START + SALT_LENGTH;
 
 type IMessageEncoding = 'utf8' | 'hex';
@@ -23,7 +23,7 @@ function expectedCharAt(index: number): string | undefined {
     return HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX[index];
   }
   if (index >= SALT_LINE_START && index < SALT_START) {
-    return HARDWARE_CLOUD_SYNC_KEK_SALT_LINE[index - SALT_LINE_START];
+    return HARDWARE_CLOUD_SYNC_KEK_SALT_FIELD[index - SALT_LINE_START];
   }
   // Identity and salt positions: lowercase hex.
   return undefined;
@@ -52,7 +52,7 @@ function isReservedText(message: string): boolean {
 /**
  * Compare the actual protocol message, not arbitrary RPC metadata. Callers must
  * select the encoding the signer uses; JSON/hex/base64 literals are not decoded
- * recursively. Exact length checks bound decoding to the 185-byte contract.
+ * recursively. Exact length checks bound decoding to the 199-byte contract.
  */
 export function assertNoHardwareCloudSyncSigningRequest(
   message: unknown,
