@@ -13,7 +13,8 @@
  * - Inflight dedup: concurrent requests for the same segment share one Promise
  * - dependsOn recursion with cycle detection
  * - Runtime-based segment access control (main-only / bg-only / shared)
- * - Failure caching (no auto-retry within process lifetime)
+ * - One foreground-gated native main-runtime retry for transient failures
+ * - Failure caching after fatal errors or the shared retry budget is exhausted
  * - Explicit retrySegment() for recovery/debugging
  */
 
@@ -22,7 +23,12 @@ import {
   LogLevel,
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { assertRuntimePolyfillsReady } from '@onekeyhq/shared/src/polyfills/runtimeCapabilities';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 
 import { getRuntimeKind } from './runtimeInfo';
 import {
@@ -65,8 +71,9 @@ const eagerFallbackWarned = new Set<string>();
 // ran in time (timeout, e.g. a segment load requested before the entry bundle
 // finished evaluating). For the first MAX_RETRYABLE_ATTEMPTS-1 attempts these
 // are NOT cached as failures — so an early `import()` during startup/reload is
-// re-attempted on the next call instead of poisoning the segment for the whole
-// process. Only on the FINAL attempt does the circuit-breaker (see
+// re-attempted instead of poisoning the segment for the whole process. Native
+// main-runtime imports recover once before rejecting; other callers retry on
+// their next call. Only on the FINAL attempt does the circuit-breaker (see
 // MAX_RETRYABLE_ATTEMPTS below) cache the failure to stop a permanently wedged
 // runtime from re-attempting forever; `retrySegment()` clears that cache.
 //
@@ -91,14 +98,11 @@ const eagerFallbackWarned = new Set<string>();
 // NOT_FOUND for a file that is on disk and complete — seen on the first launch
 // after an APK replace, where the install-stamp wipe forces every segment to
 // re-extract at once. Caching that on sight blanked a route for the rest of the
-// process. It is deliberately on the SAME budget as the other transient codes
-// rather than a tighter one: a tighter budget would be spent by a single mount
-// plus its one boundary retry (MAX_LAZY_RETRIES) within one RETRY_BACKOFF_MS
-// window, leaving nothing for a later navigation if the window turned out to be
-// longer than the backoff. The cost on a genuinely missing segment is two extra
-// native calls before going fatal — not free (each re-enters the loader and can
-// queue behind in-flight extractions) but bounded, and the route is dead either
-// way.
+// process. It shares the SAME budget as the other transient codes, including
+// automatic recovery and any later caller or UI-boundary retry. The cost on a
+// genuinely missing segment is two extra native calls before going fatal —
+// not free (each re-enters the loader and can queue behind in-flight
+// extractions) but bounded, and the route is dead either way.
 //
 // This stays useful after the native fix ships: OTA bundles run on whatever
 // native build is installed, so JS has to self-heal on binaries already in the
@@ -123,7 +127,34 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // re-attempt on every `import()` forever. Reset to 0 once the segment loads
 // successfully.
 const MAX_RETRYABLE_ATTEMPTS = 3;
+const NATIVE_RETRY_BACKOFF_MS = 150;
 const retryableAttempts = new Map<string, number>();
+
+function waitForForegroundRetry(): Promise<void> {
+  return new Promise((resolve) => {
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribe: (() => void) | undefined;
+    const scheduleRetry = () => {
+      if (retryTimer !== undefined || !getCurrentVisibilityState()) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined;
+        if (!getCurrentVisibilityState()) return;
+        unsubscribe?.();
+        unsubscribe = undefined;
+        resolve();
+      }, NATIVE_RETRY_BACKOFF_MS);
+    };
+    unsubscribe = onVisibilityStateChange((visible) => {
+      if (visible) {
+        scheduleRetry();
+      } else if (retryTimer !== undefined) {
+        clearTimeout(retryTimer);
+        retryTimer = undefined;
+      }
+    });
+    scheduleRetry();
+  });
+}
 
 /**
  * Read the native reject `code` from a thrown error. RN TurboModule rejections
@@ -443,12 +474,38 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       const loader = ensureNativeLoader();
 
       const startMs = Date.now();
-      await loader.loadSegment({
+      const request = {
         segmentId: entry.id,
         segmentKey: entry.key,
         relativePath: entry.relativePath,
         sha256: entry.sha256,
-      });
+      };
+      try {
+        await loader.loadSegment(request);
+      } catch (error) {
+        const code = getNativeRejectCode(error);
+        const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+        if (
+          !platformEnv.isNative ||
+          currentRuntime !== 'main' ||
+          !code ||
+          !RETRYABLE_NATIVE_REJECT_CODES.has(code) ||
+          attempts >= MAX_RETRYABLE_ATTEMPTS
+        ) {
+          throw error;
+        }
+
+        // Keep this import and all its joiners pending. Only this segment's
+        // direct native failure spends its budget; dependency errors do not.
+        retryableAttempts.set(segmentKey, attempts);
+        segmentStats.failures += 1;
+        safeNativeLog(
+          LogLevel.Warning,
+          `[SplitBundle] retrying ${segmentKey} in foreground (attempt ${attempts + 1}/${MAX_RETRYABLE_ATTEMPTS}, code=${code})`,
+        );
+        await waitForForegroundRetry();
+        await loader.loadSegment(request);
+      }
       const durationMs = Date.now() - startMs;
 
       segmentStats.totalLoaded += 1;

@@ -19,15 +19,11 @@ import {
   onVisibilityStateChange,
 } from '../utils/appVisibility';
 
-// Kept at 1 deliberately: installProdBundleLoader caps a segment at
-// MAX_RETRYABLE_ATTEMPTS=3 native attempts per process, then PERMANENTLY caches
-// it as failed. With 1 boundary retry a single failed mount spends only 2 of
-// those attempts, so it can never single-handedly trip that permanent cache and
-// poison the route for the rest of the process — a later navigation still gets
-// the 3rd attempt once the transient (NO_RUNTIME / suspend-false-fire) clears.
-// One retry is enough for the target bug: the watchdog false-fire recovers as
-// soon as the buffered executor flushes on resume, which the foreground-gated
-// retry lands on.
+// Native main-runtime imports already get one foreground-gated recovery inside
+// installProdBundleLoader. This boundary adds at most one new import, sharing
+// the loader's total budget of three native attempts per segment. Once that
+// budget is exhausted, retryable=false prevents further boundary retries.
+// Other runtimes keep their existing single boundary retry.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
 // Defense in depth for a split-bundle error that reaches the boundary WITHOUT
