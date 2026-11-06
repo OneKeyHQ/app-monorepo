@@ -227,7 +227,16 @@ export function TabStackNavigator<RouteName extends string>({
         });
       }
       if (routeName === ETabRoutes.Market) {
-        markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+        // Pressing the already focused tab is not an entry; a marker left by it
+        // would be consumed by the next return from a page above the home.
+        if (
+          willTabFocusTransition(
+            routeName,
+            isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+          )
+        ) {
+          markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+        }
         appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
           from: EEnterWay.HomeTab,
         });
