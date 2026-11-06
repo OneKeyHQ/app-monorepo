@@ -64,7 +64,12 @@ def build_ar(members: dict[str, bytes]) -> bytes:
     return bytes(archive)
 
 
-def build_macho(text: bytes, symbols: list[tuple[str, int]]) -> bytes:
+def build_macho(
+    text: bytes,
+    symbols: list[tuple[str, int]],
+    relocations: list[tuple[int, int]] | None = None,
+) -> bytes:
+    relocations = relocations or []
     string_table = bytearray(b"\x00")
     string_offsets = []
     for name, _value in symbols:
@@ -76,6 +81,19 @@ def build_macho(text: bytes, symbols: list[tuple[str, int]]) -> bytes:
     code_offset = 32 + command_bytes
     symbol_offset = code_offset + len(text)
     string_offset = symbol_offset + 16 * len(symbols)
+    relocation_offset = string_offset + len(string_table)
+    relocation_bytes = b"".join(
+        struct.pack(
+            "<iI",
+            address,
+            (symbol_index & 0xFFFFFF)
+            | (1 << 24)
+            | (2 << 25)
+            | (1 << 27)
+            | (3 << 28),
+        )
+        for address, symbol_index in relocations
+    )
 
     segment = struct.pack(
         "<II16sQQQQiiII",
@@ -99,8 +117,8 @@ def build_macho(text: bytes, symbols: list[tuple[str, int]]) -> bytes:
         len(text),
         code_offset,
         0,
-        0,
-        0,
+        relocation_offset,
+        len(relocations),
         0x80000400,
         0,
         0,
@@ -121,7 +139,16 @@ def build_macho(text: bytes, symbols: list[tuple[str, int]]) -> bytes:
     header = struct.pack(
         "<IiiIIII", 0xFEEDFACF, 0x0100000C, 0, 1, 2, command_bytes, 0
     ) + b"\x00" * 4
-    return header + segment + section + symtab + text + nlist + bytes(string_table)
+    return (
+        header
+        + segment
+        + section
+        + symtab
+        + text
+        + nlist
+        + bytes(string_table)
+        + relocation_bytes
+    )
 
 
 def build_java_class(target_call: bool) -> bytes:
@@ -213,7 +240,11 @@ def build_ios_fixture(root: Path) -> tuple[Path, dict]:
         )
     )
     text = b"\x1f\x20\x03\xd5" * 2  # two nop instructions
-    object_bytes = build_macho(text, [("-[Fixture a]", 0), ("-[Fixture b]", 4)])
+    object_bytes = build_macho(
+        text,
+        [("-[Fixture a]", 0), ("-[Fixture b]", 4)],
+        relocations=[(0, 0)],
+    )
     archive_bytes = build_ar({"Fixture.o": object_bytes})
     library = slice_root / "libFixture.a"
     library.write_bytes(archive_bytes)
@@ -330,6 +361,19 @@ class IosPatcherTest(unittest.TestCase):
         result = run_patcher(IOS_PATCHER, self.node_modules, self.manifest, "--check")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("already patched", result.stdout)
+
+    def test_patch_drops_entry_relocations(self) -> None:
+        result = run_patcher(IOS_PATCHER, self.node_modules, self.manifest)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        archive = self.library.read_bytes()
+        name, offset, size = next(
+            IOS.archive_members(archive, 0, len(archive))
+        )
+        self.assertEqual(name, "Fixture.o")
+        member = archive[offset : offset + size]
+        _cpu, sections, _symtab = IOS.object_sections(member, 0, len(member))
+        text = next(section for section in sections if section[1] == "__text")
+        self.assertEqual(text[6], 0)
 
     def test_check_rejects_unpatched_library(self) -> None:
         result = run_patcher(IOS_PATCHER, self.node_modules, self.manifest, "--check")

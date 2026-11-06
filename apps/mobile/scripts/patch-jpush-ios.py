@@ -20,10 +20,12 @@ pinned archives:
 - Diagnostics: `JCORELogger` accepts remote log enable/expiry/upload settings.
 
 This removes the remote commands without changing any public API, normal
-notification payload or push delivery path. The manifest pins the SHA-256 of
-every reviewed input and expected output slice. An SDK upgrade fails loudly
-until the new bytes are reviewed again. The patch is idempotent: an already
-patched slice is verified and left untouched.
+notification payload or push delivery path. Relocation rows that target an
+overwritten entry instruction are removed as well; otherwise the linker would
+apply e.g. ARM64_RELOC_PAGE21 to a `ret` and reject the object. The manifest
+pins the SHA-256 of every reviewed input and expected output slice. An SDK
+upgrade fails loudly until the new bytes are reviewed again. The patch is
+idempotent: an already patched slice is verified and left untouched.
 
 Usage:
     python3 -B apps/mobile/scripts/patch-jpush-ios.py <node_modules>
@@ -187,8 +189,20 @@ def object_sections(data: bytes, base: int, size: int):
                 address = u64(data, section_cursor + 32)
                 section_size = u64(data, section_cursor + 40)
                 file_offset = u32(data, section_cursor + 48)
+                section_header = section_cursor
+                relocation_offset = u32(data, section_cursor + 56)
+                relocation_count = u32(data, section_cursor + 60)
                 sections.append(
-                    (segment_name, section_name, address, section_size, file_offset)
+                    (
+                        segment_name,
+                        section_name,
+                        address,
+                        section_size,
+                        file_offset,
+                        base + relocation_offset,
+                        relocation_count,
+                        section_header,
+                    )
                 )
                 section_cursor += 80
         elif command == LC_SYMTAB:
@@ -205,8 +219,8 @@ def object_sections(data: bytes, base: int, size: int):
 
 def symbol_file_offset(
     data: bytes, base: int, size: int, symbol: str
-) -> tuple[int, int, bytes]:
-    """Resolve `symbol` to (absolute file offset, cpu, current bytes at offset)."""
+) -> tuple[int, int, bytes, tuple, int]:
+    """Resolve `symbol` to (file offset, cpu, bytes, section, section offset)."""
     cpu, sections, (symbol_offset, symbol_count, string_offset) = object_sections(
         data, base, size
     )
@@ -228,16 +242,72 @@ def symbol_file_offset(
         if cstring(data, base + string_offset + name_index) != symbol:
             continue
         value = u64(data, entry + 8)
-        for segment_name, section_name, address, section_size, file_offset in sections:
+        for section in sections:
+            segment_name, section_name, address, section_size = section[:4]
             if segment_name != "__TEXT" or section_name != "__text":
                 continue
             if address <= value < address + section_size:
                 if value + 4 > address + section_size:
                     raise PatchError("Symbol crosses its __text section")
+                file_offset = section[4]
                 absolute = base + file_offset + (value - address)
-                return absolute, cpu, bytes(data[absolute : absolute + 4])
+                return (
+                    absolute,
+                    cpu,
+                    bytes(data[absolute : absolute + 4]),
+                    section,
+                    value - address,
+                )
         raise PatchError("Symbol " + symbol + " is not inside __TEXT,__text")
     raise PatchError("Missing reviewed symbol: " + symbol)
+
+
+def assert_no_entry_relocations(
+    data: bytes, section: tuple, section_offset: int, length: int
+) -> None:
+    relocation_offset = section[5]
+    relocation_count = struct.unpack_from("<I", data, section[7] + 60)[0]
+    for index in range(relocation_count):
+        entry = relocation_offset + 8 * index
+        address = struct.unpack_from("<i", data, entry)[0]
+        if 0 <= address and section_offset <= address < section_offset + length:
+            raise PatchError(
+                "Relocation still targets a patched entry instruction at "
+                + hex(address)
+            )
+
+
+def remove_entry_relocations(
+    data: bytearray, section: tuple, section_offset: int, length: int
+) -> int:
+    """Drop relocations that target the overwritten entry instruction.
+
+    The linker applies every relocation in the object, so leaving e.g. an
+    ARM64_RELOC_PAGE21 row on a location that now holds `ret` fails the link
+    with "relocation on non-ADRP instruction". The relocation table is compacted
+    in place and its section count is reduced.
+    """
+    relocation_offset = section[5]
+    relocation_count = section[6]
+    section_header = section[7]
+    kept = []
+    for index in range(relocation_count):
+        entry = relocation_offset + 8 * index
+        address = struct.unpack_from("<i", data, entry)[0]
+        if 0 <= address and section_offset <= address < section_offset + length:
+            continue
+        kept.append(bytes(data[entry : entry + 8]))
+    removed = relocation_count - len(kept)
+    if removed == 0:
+        return 0
+    for index, entry in enumerate(kept):
+        destination = relocation_offset + 8 * index
+        data[destination : destination + 8] = entry
+    for index in range(len(kept), relocation_count):
+        destination = relocation_offset + 8 * index
+        data[destination : destination + 8] = b"\0" * 8
+    struct.pack_into("<I", data, section_header + 60, len(kept))
+    return removed
 
 
 def patch_thin_archive(
@@ -251,12 +321,12 @@ def patch_thin_archive(
             data, base, length
         ):
             try:
-                absolute, cpu, current = symbol_file_offset(
+                resolved = symbol_file_offset(
                     data, member_offset, member_size, symbol
                 )
             except PatchError:
                 continue
-            matches.append((member_name, absolute, cpu, current))
+            matches.append((member_name, resolved))
         if len(matches) != 1:
             raise PatchError(
                 "Expected exactly one definition of "
@@ -264,15 +334,16 @@ def patch_thin_archive(
                 + ", found "
                 + str(len(matches))
             )
-        member_name, absolute, cpu, current = matches[0]
+        member_name, (absolute, cpu, current, section, section_offset) = matches[0]
         ret = RET_BYTES.get(cpu)
         if ret is None:
             raise PatchError("Unsupported architecture for " + symbol)
-        if current == ret:
-            continue
         if current == b"\0" * len(current):
             raise PatchError("Reviewed symbol has no code: " + symbol)
-        data[absolute : absolute + len(ret)] = ret
+        if current != ret:
+            data[absolute : absolute + len(ret)] = ret
+        remove_entry_relocations(data, section, section_offset, len(ret))
+        assert_no_entry_relocations(data, section, section_offset, len(ret))
         patched.append(member_name + ":" + symbol)
     return patched
 
