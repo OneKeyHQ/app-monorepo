@@ -187,6 +187,10 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   // original `softwareUpdateStarted` event, keeping per-attempt funnels
   // correlated across the install boundary. Cleared by reset().
   currentUpdateAttemptId?: string;
+  blockedDownloadUrl?: string;
+  readyAt?: number;
+  installSource?: 'capsule' | 'legacy' | 'quit' | 'startup';
+  downloadRetryExhausted?: boolean;
 }
 
 export enum EAppUpdateStatus {
