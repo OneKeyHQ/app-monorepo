@@ -1,4 +1,11 @@
-import { cloneElement, useCallback, useMemo, useRef } from 'react';
+import {
+  cloneElement,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -20,6 +27,7 @@ import type { ISettingsEntrySurface } from '@onekeyhq/shared/src/logger/scopes/s
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { type ISubSettingConfig } from './config';
 import { navigateToSettingsTabInModal } from './navigateToSettingsTab';
@@ -38,21 +46,30 @@ type ISettingsSectionProps = IStackProps & {
   presentation?: ISettingsSectionPresentation;
 };
 
+const TabSettingsSectionBackgroundContext = createContext<
+  | ReturnType<typeof resolveSettingsSectionSurface>['backgroundColor']
+  | undefined
+>(undefined);
+
 export function TabSettingsSection({
   presentation = 'flat',
   ...props
 }: ISettingsSectionProps) {
   const surface = resolveSettingsSectionSurface(presentation);
   return (
-    <YStack
-      backgroundColor={surface.backgroundColor}
-      overflow="hidden"
-      borderRadius={surface.borderRadius}
-      borderCurve={surface.borderCurve}
-      borderWidth={StyleSheet.hairlineWidth * surface.borderWidthScale}
-      borderColor={surface.borderColor}
-      {...(props as IYStackProps)}
-    />
+    <TabSettingsSectionBackgroundContext.Provider
+      value={surface.backgroundColor}
+    >
+      <YStack
+        backgroundColor={surface.backgroundColor}
+        overflow="hidden"
+        borderRadius={surface.borderRadius}
+        borderCurve={surface.borderCurve}
+        borderWidth={StyleSheet.hairlineWidth * surface.borderWidthScale}
+        borderColor={surface.borderColor}
+        {...(props as IYStackProps)}
+      />
+    </TabSettingsSectionBackgroundContext.Provider>
   );
 }
 
@@ -73,6 +90,27 @@ export function TabSettingsListItem({
     analyticsSource?: ISettingsEntrySurface;
   }) {
   const { isMobileLayout } = useSettingsLayout();
+  const sectionBackground = useContext(TabSettingsSectionBackgroundContext);
+  // Inset dividers use the same color as the hover background but skip the
+  // icon column, so a touching divider makes the highlight look 1px taller
+  // beside the text. Paint over both neighbors with the section background.
+  // The hover color is translucent, so it cannot cover them on its own.
+  const hoverMaskProps =
+    sectionBackground &&
+    props.onPress &&
+    !props.disabled &&
+    !platformEnv.isNative
+      ? {
+          hoverStyle: {
+            ...listItemPressStyle.hoverStyle,
+            zIndex: 1,
+            boxShadow: `0 0 0 ${
+              StyleSheet.hairlineWidth
+            }px var(--${sectionBackground.slice(1)})`,
+            ...props.hoverStyle,
+          },
+        }
+      : undefined;
   return (
     <BaseListItem
       py="$3"
@@ -80,6 +118,7 @@ export function TabSettingsListItem({
       mx={0}
       borderRadius={0}
       {...props}
+      {...hoverMaskProps}
     >
       {children}
       {showDot ? (
