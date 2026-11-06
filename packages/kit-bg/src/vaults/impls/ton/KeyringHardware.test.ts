@@ -570,6 +570,8 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     'forwardWithoutComment',
     'nullComment',
     'longComment',
+    'binaryForward',
+    'nestedForward',
   ] as const)(
     'preserves a Jetton payload that firmware cannot reconstruct: %s',
     async (kind) => {
@@ -581,6 +583,13 @@ describe('TON hardware signing uses the shared transaction parser', () => {
         jetton.amount = '0';
       } else if (kind === 'forwardWithoutComment') {
         jetton.forwardAmount = '1';
+      } else if (kind === 'binaryForward' || kind === 'nestedForward') {
+        jetton.forwardAmount = '1';
+        const forward = beginCell().storeUint(0x12_34_56_78, 32);
+        if (kind === 'nestedForward') {
+          forward.storeRef(beginCell().storeUint(7, 8).endCell());
+        }
+        jetton.forwardPayload = forward.endCell();
       } else {
         jetton.forwardAmount = '1';
         jetton.forwardPayload = beginCell()
@@ -593,7 +602,7 @@ describe('TON hardware signing uses the shared transaction parser', () => {
       const payload = encodeDecodedJetton(jetton).toBoc().toString('base64');
       encodedTx.messages[0].payload = payload;
       const { keyring, params, tonSignMessage } = setup(encodedTx);
-      await keyring.signTransaction(params);
+      const signed = await keyring.signTransaction(params);
       expect(tonSignMessage.mock.calls[0][2]).toMatchObject({
         destination: friendly(WALLET),
         isRawData: true,
@@ -601,6 +610,9 @@ describe('TON hardware signing uses the shared transaction parser', () => {
       });
       expect(tonSignMessage.mock.calls[0][2]).not.toHaveProperty(
         'jettonAmount',
+      );
+      expect((signed.encodedTx as IEncodedTxTon).messages[0].payload).toBe(
+        payload,
       );
     },
   );

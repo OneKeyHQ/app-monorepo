@@ -42,12 +42,14 @@ function getCandidateAmount({
   budget,
   fee,
   changeReserve,
+  requested,
 }: {
   inputs: node.UTXO[];
   destination: SignTransferTxParams['destinations'][number];
   budget: number;
   fee: bigint;
   changeReserve: bigint;
+  requested: bigint;
 }): bigint {
   const token = destination.tokens?.[0];
   if (!token) {
@@ -72,10 +74,11 @@ function getCandidateAmount({
       inputCount += 1;
     }
     if (alph >= requiredAlph) {
-      return selected.reduce(
+      const amount = selected.reduce(
         (total, utxo) => total + tokenAmount(utxo, token.id),
         0n,
       );
+      if (amount < requested) return amount;
     }
   }
   return 0n;
@@ -149,6 +152,7 @@ export async function getAlphHardwareInputLimitError({
       budget: limit,
       fee,
       changeReserve,
+      requested,
     });
     if (amount <= 0n || amount >= requested || (!token && amount < DUST_AMOUNT))
       return error;

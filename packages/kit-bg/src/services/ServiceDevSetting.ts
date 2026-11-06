@@ -678,25 +678,6 @@ class ServiceDevSetting extends ServiceBase {
     return testHardwareCipherKeyValue(this.backgroundApi, params);
   }
 
-  @backgroundMethod()
-  public async testAlphHardwareInputs(params: {
-    accountId: string;
-    inputCount: number;
-  }) {
-    if (!(await devSettingsPersistAtom.get()).enabled) {
-      throw new OneKeyLocalError(
-        'ALPH hardware input tests require developer mode',
-      );
-    }
-    const { runAlphHardwareInputTest } =
-      await import('./ServiceDevSetting/alphHardwareInputTest');
-    return runAlphHardwareInputTest({
-      backgroundApi: this.backgroundApi,
-      accountId: params.accountId,
-      inputCount: params.inputCount,
-    });
-  }
-
   // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----
   //
   // Runtime model: in native production the app runs two isolated JS runtimes

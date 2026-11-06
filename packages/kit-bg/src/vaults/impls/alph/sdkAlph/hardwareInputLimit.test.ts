@@ -277,6 +277,37 @@ describe('ALPH amount advice after a hardware rejection', () => {
     expect(ctx.params.destinations[0].tokens?.[0].amount).toBe('16000000');
   });
 
+  it.each(['90000000', '100000000'])(
+    'tries a shorter token prefix when the first fee-capable amount is not below %s',
+    async (requested) => {
+      const ctx = setup(3, 2);
+      ctx.utxos[0].amount = '100000000000000000';
+      ctx.utxos[1].tokens = [{ id: TOKEN_ID, amount: '60000000' }];
+      ctx.utxos[2].tokens = [{ id: TOKEN_ID, amount: '40000000' }];
+      ctx.params.destinations[0].attoAlphAmount = DUST_AMOUNT.toString();
+      ctx.params.destinations[0].tokens = [{ id: TOKEN_ID, amount: requested }];
+      expect(await ctx.run()).toMatchObject({
+        code: 827,
+        message: 'Reduce to 60 TEST',
+        payload: ctx.error.payload,
+      });
+      expect(ctx.sendProxyRequest).toHaveBeenCalledTimes(1);
+      expect(ctx.params.destinations[0].tokens[0].amount).toBe(requested);
+    },
+  );
+
+  it('keeps the hardware rejection when no fee-capable token prefix is smaller', async () => {
+    const ctx = setup(3, 2);
+    ctx.utxos[0].amount = '100000000000000000';
+    ctx.utxos[1].tokens = [{ id: TOKEN_ID, amount: '100000000' }];
+    ctx.utxos[2].tokens = [{ id: TOKEN_ID, amount: '40000000' }];
+    ctx.params.destinations[0].attoAlphAmount = DUST_AMOUNT.toString();
+    ctx.params.destinations[0].tokens = [{ id: TOKEN_ID, amount: '90000000' }];
+    expect(await ctx.run()).toBe(ctx.error);
+    expect(ctx.sendProxyRequest).toHaveBeenCalledTimes(1);
+    expect(ctx.getNetwork).not.toHaveBeenCalled();
+  });
+
   it('does not suggest a zero or dust native amount', async () => {
     const ctx = setup();
     ctx.utxos.slice(0, 16).forEach((utxo) => {

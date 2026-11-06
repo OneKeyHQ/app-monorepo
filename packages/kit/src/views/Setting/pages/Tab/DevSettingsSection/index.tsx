@@ -1307,7 +1307,7 @@ const BaseDevSettingsSection = () => {
         title: 'Transaction & Signature',
         description: '交易 签名',
         keywords:
-          'Sign Message ALPH Alephium UTXO 硬件实测 输入上限 禁用Solana交易优先费 模拟交易费过高 始终只签名不广播 严格的签名Alert展示 signTypedData',
+          'Sign Message 禁用Solana交易优先费 模拟交易费过高 始终只签名不广播 严格的签名Alert展示 signTypedData',
       },
     ],
     [],
@@ -3153,18 +3153,6 @@ const BaseDevSettingsSection = () => {
                         title="Sign Message"
                         subtitle="Sign Message"
                         onPress={handleSignMessage}
-                      />
-                      <SectionPressItem
-                        icon="OnekeyDeviceCustom"
-                        title="ALPH UTXO 硬件实测"
-                        subtitle="构造大输入交易，查看真实硬件报错；只签名不广播"
-                        searchKeywords="Alephium inputs input limit 输入上限 Too many inputs 827"
-                        testID="dev-alph-hardware-input-test"
-                        onPress={async () => {
-                          const { showAlphHardwareInputTestDialog } =
-                            await import('./AlphHardwareInputTest');
-                          showAlphHardwareInputTestDialog();
-                        }}
                       />
                       <SectionFieldItem
                         icon="SolanaIllus"

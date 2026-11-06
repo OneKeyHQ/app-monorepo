@@ -250,9 +250,11 @@ export default class Vault extends VaultBase {
           networkId: network.id,
         });
         const decodedPayload = parsed.payload;
+        // Verified token outflows remain known when forwarded contract effects are not.
         if (
-          decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER &&
-          (!decodedPayload.jetton || parsed.jetton)
+          parsed.jetton ||
+          (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER &&
+            !decodedPayload.jetton)
         ) {
           const tokenAddress = parsed.jetton?.tokenAddress ?? '';
           let to = message.address;
@@ -317,9 +319,14 @@ export default class Vault extends VaultBase {
             // wallet later refunds some of it to the payload's response address.
             transfers.push(nativeTransfer);
           }
-          return [
-            await this.buildTxTransferAssetAction({ from, to, transfers }),
-          ];
+          const assetAction = await this.buildTxTransferAssetAction({
+            from,
+            to,
+            transfers,
+          });
+          return decodedPayload.type === EDecodedTxActionType.UNKNOWN
+            ? [unknownAction, assetAction]
+            : [assetAction];
         }
         return buildUnknownActions();
       }),

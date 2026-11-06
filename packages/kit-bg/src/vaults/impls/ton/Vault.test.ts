@@ -376,6 +376,86 @@ describe('TON Jetton confirmation integrity', () => {
   });
 
   it.each([
+    {
+      name: 'inline binary',
+      asRef: false,
+      nested: false,
+      native: '10000000000',
+    },
+    {
+      name: 'referenced binary',
+      asRef: true,
+      nested: false,
+      native: '10000000000',
+    },
+    { name: 'nested binary', asRef: true, nested: true, native: '10000000000' },
+    { name: 'zero attached TON', asRef: true, nested: false, native: '0' },
+  ])(
+    'shows verified Jetton outflows with $name forward payload',
+    async ({ asRef, nested, native }) => {
+      const { vault } = setup();
+      const encodedTx = buildJettonTx();
+      const message = encodedTx.messages[0];
+      const forward = beginCell().storeUint(0x12_34_56_78, 32);
+      if (nested) forward.storeRef(beginCell().storeUint(7, 8).endCell());
+      message.amount = native;
+      message.payload = encodeDecodedJetton(
+        {
+          ...checkIsDefined(decodePayload(message.payload).jetton),
+          forwardPayload: forward.endCell(),
+        },
+        asRef,
+      )
+        .toBoc()
+        .toString('base64');
+      const originalPayload = message.payload;
+      expect(decodePayload(message.payload).type).toBe(
+        EDecodedTxActionType.UNKNOWN,
+      );
+      const unsignedTx = { encodedTx };
+      const decoded = await vault.buildDecodedTx({ unsignedTx });
+      expect(decoded.actions).toContainEqual(
+        expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+      );
+      const transfers = decoded.actions.filter(
+        (action) => action.assetTransfer,
+      );
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0].assetTransfer).toMatchObject({
+        sends: expect.arrayContaining([
+          {
+            from: friendly(FROM),
+            to: friendly(RECIPIENT),
+            amount: '1.5',
+            isNative: false,
+            tokenIdOnNetwork: MASTER,
+            icon: '',
+            symbol: 'JETTON',
+            name: 'Jetton',
+          },
+        ]),
+      });
+      const components =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx: decoded,
+          unsignedTx,
+        });
+      expect(
+        components.filter(
+          (component) =>
+            component.type === EParseTxComponentType.InternalAssets,
+        ),
+      ).toEqual([
+        expect.objectContaining({ symbol: 'JETTON', amountParsed: '1.5' }),
+        ...(native === '0'
+          ? []
+          : [expect.objectContaining({ symbol: 'TON', amountParsed: '10' })]),
+      ]);
+      expect(message.payload).toBe(originalPayload);
+    },
+  );
+
+  it.each([
     'unknownOpcode',
     'complexJetton',
     'unverifiedJetton',
@@ -427,6 +507,9 @@ describe('TON Jetton confirmation integrity', () => {
       );
       expect(amounts).toEqual([
         expect.objectContaining({ symbol: 'TON', amountParsed: '0.001' }),
+        ...(kind === 'complexJetton'
+          ? [expect.objectContaining({ symbol: 'JETTON', amountParsed: '1.5' })]
+          : []),
         expect.objectContaining({ symbol: 'TON', amountParsed: '100' }),
       ]);
     },
