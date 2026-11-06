@@ -1185,17 +1185,58 @@ describe('installProdBundleLoader', () => {
       expect(firstError).toMatchObject({ retryable: false });
       expect(await joiner).toBe(firstError);
       expect(mock.loadSegment).toHaveBeenCalledTimes(4);
-
-      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
-        retryable: false,
-      });
-      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
-        retryable: false,
-      });
-      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
       expect(getSegmentLoadStats()).toMatchObject({ failures: 4 });
       expect(mockVisibilityListeners.size).toBe(0);
       expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('allows a later import to recover after the previous load exhausted its retries', async () => {
+      const mock = createMockNativeLoader();
+      mock.loadSegment.mockRejectedValue(timeout());
+      const {
+        installProdBundleLoader,
+        loadSegment,
+        getSegmentState,
+        isSegmentLoaded,
+      } = getLoader();
+      installProdBundleLoader(mock);
+      const first = loadSegment('seg:test.a').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({ retryable: false });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+      expect(getSegmentState('seg:test.a')).toBe('idle');
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      mock.loadSegment.mockResolvedValueOnce(undefined);
+      const laterImport = loadSegment('seg:test.a');
+      await jest.advanceTimersByTimeAsync(450);
+      await expect(laterImport).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(8);
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    });
+
+    it('allows a later parent import to recover after its dependency exhausts retries', async () => {
+      const mock = createMockNativeLoader();
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        mock.loadSegment.mockRejectedValueOnce(timeout());
+      }
+      const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+        getLoader();
+      installProdBundleLoader(mock);
+      const first = loadSegment('seg:test.b').catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(450);
+      expect(await first).toMatchObject({
+        segmentKey: 'seg:test.a',
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(4);
+
+      await expect(loadSegment('seg:test.b')).resolves.toBeUndefined();
+      expect(mock.loadSegment).toHaveBeenCalledTimes(6);
+      expect(isSegmentLoaded('seg:test.a')).toBe(true);
+      expect(isSegmentLoaded('seg:test.b')).toBe(true);
     });
 
     it('recovers on the third retry even when transient error codes change', async () => {
@@ -1261,13 +1302,11 @@ describe('installProdBundleLoader', () => {
 
     it('stops immediately if a retry returns a fatal error', async () => {
       const mock = createMockNativeLoader();
-      mock.loadSegment
-        .mockRejectedValueOnce(timeout())
-        .mockRejectedValueOnce(
-          Object.assign(new Error('Invalid segment'), {
-            code: 'SPLIT_BUNDLE_EVAL_ERROR',
-          }),
-        );
+      mock.loadSegment.mockRejectedValueOnce(timeout()).mockRejectedValueOnce(
+        Object.assign(new Error('Invalid segment'), {
+          code: 'SPLIT_BUNDLE_EVAL_ERROR',
+        }),
+      );
       const { installProdBundleLoader, loadSegment } = getLoader();
       installProdBundleLoader(mock);
       const pending = loadSegment('seg:test.a').catch(

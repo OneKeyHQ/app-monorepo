@@ -22,7 +22,7 @@ import {
 // Native main-runtime imports already get up to three foreground-gated retries
 // inside installProdBundleLoader, sharing a total budget of four native calls
 // per segment. Once exhausted, retryable=false prevents this boundary from
-// starting another import. Success resets the loader's failure budget.
+// starting another import. A later mount can recover with a fresh loader budget.
 // Other runtimes keep their existing single boundary retry.
 export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
@@ -50,12 +50,11 @@ const RETRYABLE_ERROR_NAMES = new Set(['ChunkLoadError']);
 // non-retryable and surface immediately.
 //
 // IMPORTANT: installProdBundleLoader exhausts its own retry budget
-// (MAX_RETRYABLE_ATTEMPTS) and then PERMANENTLY caches the failure with
-// `retryable` cleared to false. An explicit `retryable === false` is therefore
-// AUTHORITATIVE and must win over a transient-looking code/message — otherwise a
-// permanently-dead route would burn a full retry round (fallback spinner +
-// guaranteed-failing attempts) on every re-navigation instead of going fatal at
-// once.
+// (MAX_RETRYABLE_ATTEMPTS) and clears `retryable` to false. That flag is
+// AUTHORITATIVE for this boundary even when the code/message looks transient:
+// otherwise the boundary would immediately start another full retry round.
+// Main-runtime transient failures remain recoverable by a later route mount;
+// fatal failures and exhausted background loads stay cached in the loader.
 export function isRetryableLazyError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as {
