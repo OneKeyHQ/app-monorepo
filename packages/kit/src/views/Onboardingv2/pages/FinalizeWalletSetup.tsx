@@ -15,6 +15,7 @@ import {
   AnimatePresence,
   Button,
   Dialog,
+  HeightTransition,
   Icon,
   LinearGradient,
   SizableText,
@@ -97,6 +98,7 @@ import {
   flushPendingExistingWalletSwitchToast,
   setExistingWalletSwitchToastDeferred,
 } from '../../../utils/toastExistingWalletSwitch';
+import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { OnboardingPage } from '../components/Layout';
 import {
   type IShowOnboardingInviteCodeDialog,
@@ -132,6 +134,10 @@ import type { SearchDevice } from '@onekeyfe/hd-core';
 const POPUP_LAYERED_SHADOW =
   'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
+// Stable identity: HeightTransition memoizes its style prop.
+const fullWidthStyle = {
+  width: '100%',
+} as const;
 const fixErrorString = (errorMessage: string) => {
   if (errorMessage.toLowerCase() === 'no wallet creation strategy') {
     return ETranslations.hardware_user_cancel_error;
@@ -378,10 +384,30 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  const handleLetsGo = useCallback(
-    () => enterWalletAfterOnboarding(route.key),
-    [route.key],
-  );
+  // Set only for those who got here without agreeing on Get Started, such as
+  // a hardware wallet connected from device management. As on Get Started,
+  // the notice sits above Enter wallet and tapping it counts as agreeing.
+  const [termsVersion, setTermsVersion] = useState<string>();
+  useEffect(() => {
+    void (async () => {
+      try {
+        setTermsVersion(
+          await backgroundApiProxy.serviceSetting.getTermsConsentPendingVersion(),
+        );
+      } catch {
+        // No notice: the terms dialog asks after entering the wallet.
+      }
+    })();
+  }, []);
+
+  const handleLetsGo = useCallback(() => {
+    if (termsVersion) {
+      void backgroundApiProxy.serviceSetting
+        .acceptTermsConsent({ source: 'wallet_ready', version: termsVersion })
+        .catch(() => undefined);
+    }
+    return enterWalletAfterOnboarding(route.key);
+  }, [route.key, termsVersion]);
 
   const processNextStep = useCallback(() => {
     while (stepQueue.current.length > 0) {
@@ -1432,6 +1458,28 @@ function FinalizeWalletSetupPage({
       {intl.formatMessage({ id: ETranslations.enter_wallet })}
     </Button>
   );
+  // Grows in with Enter wallet, spacing included, as the gift offer does, so
+  // it never shifts the centered layout while the wallet is being created.
+  const termsNotice =
+    termsVersion && isReadyActionVisible ? (
+      <YStack w="100%" $gtMd={{ w: 400 }}>
+        <HeightTransition
+          duration={300}
+          roundHeightToNearestPixel={platformEnv.isNativeIOS}
+          style={fullWidthStyle}
+        >
+          <YStack pb="$4" w="100%">
+            <TermsAndPrivacy
+              messageId={ETranslations.onboarding_terms_consent__desc}
+              contentContainerProps={{
+                $md: { px: '$5' },
+                $gtMd: { alignSelf: 'center' },
+              }}
+            />
+          </YStack>
+        </HeightTransition>
+      </YStack>
+    ) : null;
 
   return (
     <OnboardingPage
@@ -1633,13 +1681,19 @@ function FinalizeWalletSetupPage({
                 ) : null}
               </YStack>
               {gtMd ? (
-                <YStack minHeight={48} {...enterWalletTransitionProps}>
+                <YStack
+                  minHeight={48}
+                  alignItems="center"
+                  {...enterWalletTransitionProps}
+                >
+                  {termsNotice}
                   {enterWalletButton}
                 </YStack>
               ) : null}
             </YStack>
             {!gtMd ? (
               <YStack pb="$5" {...enterWalletTransitionProps}>
+                {termsNotice}
                 {enterWalletButton}
               </YStack>
             ) : null}

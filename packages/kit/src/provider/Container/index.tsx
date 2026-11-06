@@ -40,6 +40,7 @@ import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { RookieShareContainerLazy } from './RookieShareContainer/Lazy';
 import { SplitViewPerpTabSync } from './SplitViewPerpTabSync';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
+import { TermsConsentContainer } from './TermsConsentContainer';
 import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiStateContainer/Lazy';
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
@@ -84,6 +85,7 @@ function DetailRouter() {
       <LinuxUdevGuideDialogContainer />
       <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
+      <TermsConsentContainer />
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
