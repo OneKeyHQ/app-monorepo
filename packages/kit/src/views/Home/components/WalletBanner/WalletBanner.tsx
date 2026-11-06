@@ -8,6 +8,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDecay,
 } from 'react-native-reanimated';
@@ -530,7 +531,17 @@ const STRIP_SHADOW =
 const STRIP_SHADOW_HOVER =
   '0 0 0 1px var(--neutral4), 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 10px -4px rgba(0, 0, 0, 0.08)';
 // The web animation driver writes these names into `transition-property`.
-const ANIMATE_ONLY_BOX_SHADOW = ['box-shadow'];
+// Reduced motion keeps the shadow, opacity and blur changes and drops movement.
+const ANIMATE_ONLY_STRIP_CARD = ['box-shadow', 'transform', 'opacity'];
+const ANIMATE_ONLY_STRIP_CARD_REDUCED = ['box-shadow', 'opacity'];
+const ANIMATE_ONLY_STRIP_CONTENT = ['opacity', 'transform', 'filter'];
+const ANIMATE_ONLY_HEIGHT = ['height'];
+const ANIMATE_ONLY_BACKGROUND = ['background-color'];
+// Lengths of the `popoverQuick` (150ms) and `switch` (200ms) presets.
+const STRIP_SWAP_MS = 150;
+const STRIP_EXIT_MS = 200;
+// Felt rather than seen on a card this wide (about 3px in on each side).
+const STRIP_PRESS_SCALE = 0.995;
 const STRIP_CARD_PROPS: IYStackProps = {
   bg: '$bg',
   borderRadius: '$5',
@@ -538,15 +549,17 @@ const STRIP_CARD_PROPS: IYStackProps = {
   my: '$0',
   boxShadow: STRIP_SHADOW,
   hoverStyle: { bg: '$bg', boxShadow: STRIP_SHADOW_HOVER },
-  pressStyle: { bg: '$bg', boxShadow: STRIP_SHADOW_HOVER },
-  transition: 'quick',
-  animateOnly: ANIMATE_ONLY_BOX_SHADOW,
 };
-// The Tron resource card beside the strip: same surface, rows fit in 72.
+// The Tron resource card beside the strip: same surface, rows fit in 72. It
+// has no controls inside, so a CSS press state is safe; it settles the shadow
+// without moving, which also suits reduced motion.
 const STRIP_RESOURCE_CARD_PROPS: IYStackProps = {
   ...STRIP_CARD_PROPS,
   px: '$4',
   py: '$2.5',
+  pressStyle: { bg: '$bg', boxShadow: STRIP_SHADOW },
+  transition: 'popoverQuick',
+  animateOnly: ANIMATE_ONLY_STRIP_CARD_REDUCED,
 };
 
 const readLastShownBannerId = () =>
@@ -607,6 +620,27 @@ function useStripBanner(banners: IWalletBanner[]) {
   return { index: Math.max(0, index), show };
 }
 
+function StripContent({ item }: { item: IWalletBanner }) {
+  return (
+    <>
+      <StripMedia item={item} />
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <SizableText
+          size="$bodyMdMedium"
+          numberOfLines={item.description ? 1 : 2}
+        >
+          {item.title}
+        </SizableText>
+        {item.description ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {item.description}
+          </SizableText>
+        ) : null}
+      </YStack>
+    </>
+  );
+}
+
 function StripMedia({ item }: { item: IWalletBanner }) {
   if (item.src) {
     return (
@@ -654,25 +688,78 @@ function DesktopBannerStrip({
   leadingContent?: ReactNode;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
   const { index, show } = useStripBanner(banners);
   const item = banners[index] as IWalletBanner | undefined;
   const count = banners.length;
+  const [closingId, setClosingId] = useState<string>();
+  const closing = !!item && closingId === item.id;
+  // The row folds away only with motion and without the Tron card beside it;
+  // otherwise just the card fades out.
+  const collapseRow = closing && !leadingContent && !reduceMotion;
+  // Tracked in JS: a CSS :active state would also fire while the close button
+  // or an indicator bar inside the card is pressed.
+  const [pressed, setPressed] = useState(false);
+  // onPressOut does not fire when the pointer is released outside the card;
+  // like a native press, release anywhere ends it.
+  useEffect(() => {
+    if (!pressed) return;
+    const release = () => setPressed(false);
+    globalThis.addEventListener('pointerup', release);
+    globalThis.addEventListener('pointercancel', release);
+    return () => {
+      globalThis.removeEventListener('pointerup', release);
+      globalThis.removeEventListener('pointercancel', release);
+    };
+  }, [pressed]);
+  // A pointer pick keeps the outgoing banner on top while it fades out, so the
+  // two cross-fade instead of the card going blank for a few frames.
+  const [leaving, setLeaving] = useState<{
+    item: IWalletBanner;
+    dir: 1 | -1;
+  }>();
+
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => setLeaving(undefined), STRIP_SWAP_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
+
+  // `dir` 0 is a keyboard pick: it swaps instantly.
+  const switchTo = useCallback(
+    (id: string, dir: 1 | -1 | 0) => {
+      setLeaving(
+        dir !== 0 && item && item.id !== id ? { item, dir } : undefined,
+      );
+      show(id);
+    },
+    [item, show],
+  );
 
   const go = useCallback(
     (delta: number) => {
       if (count < 2) return;
-      show(banners[(index + delta + count) % count].id);
+      switchTo(banners[(index + delta + count) % count].id, 0);
     },
-    [banners, count, index, show],
+    [banners, count, index, switchTo],
   );
 
   const onDismiss = useCallback(() => {
-    if (!item) return;
+    if (!item || closingId) return;
     // Show the banner that followed the closed one instead of jumping back.
-    const next = banners[index + 1] ?? banners[index - 1];
-    if (next) show(next.id);
-    handleDismiss(item);
-  }, [banners, handleDismiss, index, item, show]);
+    const after = banners[index + 1];
+    const next = after ?? banners[index - 1];
+    if (next) {
+      switchTo(next.id, after ? 1 : -1);
+      handleDismiss(item);
+      return;
+    }
+    // The last banner leaves before it unmounts, so the tabs and token list
+    // below glide up (or, with reduced motion, the card fades) instead of the
+    // page jumping.
+    setClosingId(item.id);
+    setTimeout(() => handleDismiss(item), STRIP_EXIT_MS);
+  }, [banners, closingId, handleDismiss, index, item, switchTo]);
 
   const onKeyDown = useCallback(
     (event: {
@@ -694,121 +781,193 @@ function DesktopBannerStrip({
     [go, handleBannerOnPress, item],
   );
 
+  // Presses on the controls must not reach the card's press state.
+  const stopPressIn = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+  }, []);
+
+  let cardScale = 1;
+  if (!reduceMotion && closing) cardScale = 0.98;
+  else if (!reduceMotion && pressed) cardScale = STRIP_PRESS_SCALE;
+  const shift = reduceMotion ? 0 : 8;
+  const contentMotion = {
+    transition: 'popoverQuick',
+    animateOnly: ANIMATE_ONLY_STRIP_CONTENT,
+  } as const;
+
   return (
-    <XStack px="$pagePadding" gap="$3" bg="$bgApp">
-      {leadingContent}
-      {item ? (
-        <XStack
-          testID="home-wallet-banner-strip"
-          flex={1}
-          minWidth={0}
-          h={STRIP_HEIGHT}
-          pl={20}
-          pr="$2.5"
-          alignItems="center"
-          gap="$3"
-          {...STRIP_CARD_PROPS}
-          focusable
-          tabIndex={0}
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineWidth: 2,
-            outlineStyle: 'solid',
-            outlineOffset: -2,
-          }}
-          role="button"
-          aria-label={item.title}
-          onPress={() => handleBannerOnPress(item)}
-          onKeyDown={onKeyDown}
-          userSelect="none"
-        >
-          <StripMedia item={item} />
-          <YStack flex={1} minWidth={0} gap="$0.5">
-            <SizableText
-              size="$bodyMdMedium"
-              numberOfLines={item.description ? 1 : 2}
+    <YStack
+      h={collapseRow ? 0 : STRIP_HEIGHT}
+      overflow={collapseRow ? 'hidden' : 'visible'}
+      {...(!reduceMotion && {
+        transition: 'switch',
+        animateOnly: ANIMATE_ONLY_HEIGHT,
+      })}
+    >
+      <XStack px="$pagePadding" gap="$3" bg="$bgApp">
+        {leadingContent}
+        {item ? (
+          <XStack
+            testID="home-wallet-banner-strip"
+            flex={1}
+            minWidth={0}
+            h={STRIP_HEIGHT}
+            pl={20}
+            pr="$2.5"
+            alignItems="center"
+            gap="$3"
+            {...STRIP_CARD_PROPS}
+            hoverStyle={{
+              bg: '$bg',
+              boxShadow: pressed ? STRIP_SHADOW : STRIP_SHADOW_HOVER,
+            }}
+            transition={closing ? 'switch' : 'popoverQuick'}
+            animateOnly={
+              reduceMotion
+                ? ANIMATE_ONLY_STRIP_CARD_REDUCED
+                : ANIMATE_ONLY_STRIP_CARD
+            }
+            opacity={closing ? 0 : 1}
+            scale={cardScale}
+            pointerEvents={closing ? 'none' : 'auto'}
+            aria-hidden={closing ? true : undefined}
+            focusable
+            tabIndex={0}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: -2,
+            }}
+            role="button"
+            aria-label={item.title}
+            onPressIn={() => setPressed(true)}
+            onPressOut={() => setPressed(false)}
+            onPress={() => handleBannerOnPress(item)}
+            onKeyDown={onKeyDown}
+            userSelect="none"
+          >
+            <XStack
+              flex={1}
+              minWidth={0}
+              alignSelf="stretch"
+              position="relative"
             >
-              {item.title}
-            </SizableText>
-            {item.description ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {item.description}
-              </SizableText>
-            ) : null}
-          </YStack>
-          {count > 1 ? (
-            <XStack alignItems="center" flexShrink={0}>
-              {banners.map((banner, i) => (
-                <Stack
-                  key={banner.id}
-                  w={24}
-                  h={40}
+              {leaving ? (
+                <XStack
+                  key={`leaving-${leaving.item.id}`}
+                  position="absolute"
+                  top={0}
+                  right={0}
+                  bottom={0}
+                  left={0}
                   alignItems="center"
-                  justifyContent="center"
-                  role="button"
-                  aria-label={`${i + 1} / ${count}`}
-                  aria-current={i === index ? 'true' : undefined}
-                  focusable
-                  tabIndex={0}
-                  onKeyDown={(event: {
-                    key: string;
-                    preventDefault: () => void;
-                  }) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      show(banner.id);
-                    }
-                  }}
-                  focusVisibleStyle={{
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: -4,
-                  }}
-                  borderRadius="$2"
-                  onPress={(event: GestureResponderEvent) => {
-                    event.stopPropagation();
-                    show(banner.id);
-                  }}
+                  gap="$3"
+                  pointerEvents="none"
+                  aria-hidden
+                  {...contentMotion}
+                  enterStyle={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                  opacity={0}
+                  x={-leaving.dir * shift}
+                  filter={reduceMotion ? undefined : 'blur(2px)'}
                 >
-                  <Stack
-                    w={12}
-                    h={3}
-                    borderRadius="$full"
-                    bg={i === index ? '$textSubdued' : '$neutral5'}
-                  />
-                </Stack>
-              ))}
+                  <StripContent item={leaving.item} />
+                </XStack>
+              ) : null}
+              <XStack
+                key={item.id}
+                flex={1}
+                minWidth={0}
+                alignItems="center"
+                gap="$3"
+                {...(leaving && {
+                  ...contentMotion,
+                  enterStyle: {
+                    opacity: 0,
+                    x: leaving.dir * shift,
+                    filter: reduceMotion ? undefined : 'blur(2px)',
+                  },
+                })}
+              >
+                <StripContent item={item} />
+              </XStack>
             </XStack>
-          ) : null}
-          {/* Not closable: keep the slot so the bars stay put between banners. */}
-          {item.closeable ? (
-            <IconButton
-              testID="home-wallet-banner-strip-close"
-              variant="tertiary"
-              size="medium"
-              iconSize="$5"
-              p="$2.5"
-              m="$0"
-              icon="CrossedSmallOutline"
-              aria-label={intl.formatMessage({
-                id: ETranslations.global_close,
-              })}
-              onPress={(event: GestureResponderEvent) => {
-                event.stopPropagation();
-                onDismiss();
-              }}
-            />
-          ) : (
-            <Stack w={42} h={42} flexShrink={0} />
-          )}
-        </XStack>
-      ) : null}
-    </XStack>
+            {count > 1 ? (
+              <XStack alignItems="center" flexShrink={0}>
+                {banners.map((banner, i) => (
+                  <Stack
+                    key={banner.id}
+                    w={24}
+                    h={40}
+                    alignItems="center"
+                    justifyContent="center"
+                    role="button"
+                    aria-label={`${i + 1} / ${count}`}
+                    aria-current={i === index ? 'true' : undefined}
+                    focusable
+                    tabIndex={0}
+                    onKeyDown={(event: {
+                      key: string;
+                      preventDefault: () => void;
+                    }) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        switchTo(banner.id, 0);
+                      }
+                    }}
+                    focusVisibleStyle={{
+                      outlineColor: '$focusRing',
+                      outlineWidth: 2,
+                      outlineStyle: 'solid',
+                      outlineOffset: -4,
+                    }}
+                    borderRadius="$2"
+                    hoverStyle={{ bg: '$bgHover' }}
+                    pressStyle={{ bg: '$bgActive' }}
+                    transition="100ms"
+                    animateOnly={ANIMATE_ONLY_BACKGROUND}
+                    onPressIn={stopPressIn}
+                    onPress={(event: GestureResponderEvent) => {
+                      event.stopPropagation();
+                      if (i !== index) switchTo(banner.id, i > index ? 1 : -1);
+                    }}
+                  >
+                    <Stack
+                      w={12}
+                      h={3}
+                      borderRadius="$full"
+                      bg={i === index ? '$textSubdued' : '$neutral5'}
+                    />
+                  </Stack>
+                ))}
+              </XStack>
+            ) : null}
+            {/* Not closable: keep the slot so the bars stay put between banners. */}
+            {item.closeable ? (
+              <IconButton
+                testID="home-wallet-banner-strip-close"
+                variant="tertiary"
+                size="medium"
+                iconSize="$5"
+                p="$2.5"
+                m="$0"
+                icon="CrossedSmallOutline"
+                aria-label={intl.formatMessage({
+                  id: ETranslations.global_close,
+                })}
+                onPressIn={stopPressIn}
+                onPress={(event: GestureResponderEvent) => {
+                  event.stopPropagation();
+                  onDismiss();
+                }}
+              />
+            ) : (
+              <Stack w={42} h={42} flexShrink={0} />
+            )}
+          </XStack>
+        ) : null}
+      </XStack>
+    </YStack>
   );
 }
 
