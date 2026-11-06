@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -47,6 +47,14 @@ function PasswordKeyboardDescription({
 
 export default function usePIN() {
   const intl = useIntl();
+  const pendingCancels = useRef(new Set<() => void>());
+  useEffect(
+    () => () => {
+      for (const cancel of pendingCancels.current) cancel();
+      pendingCancels.current.clear();
+    },
+    [],
+  );
   const showPINFormDialog = useCallback(
     (isSetNewPassword?: boolean, shouldConfirmPassword?: string) => {
       const config = {
@@ -94,9 +102,20 @@ export default function usePIN() {
           closeReason,
         });
       };
-      return new Promise<string>((resolve) => {
+      return new Promise<string>((resolve, reject) => {
+        const dialog: { current?: ReturnType<typeof Dialog.confirm> } = {};
+        let confirmed = false;
+        const cancel = () => {
+          pendingCancels.current.delete(cancel);
+          if (!confirmed) {
+            confirmed = true;
+            reject(new Error('Lite PIN cancelled'));
+            void dialog.current?.close();
+          }
+        };
+        pendingCancels.current.add(cancel);
         logDialog('dialog-show-request');
-        Dialog.confirm({
+        dialog.current = Dialog.confirm({
           icon: 'GiroCardOutline',
           title: config.title,
           renderContent: (
@@ -117,18 +136,23 @@ export default function usePIN() {
             },
           },
           onConfirm: (dialogInstance) => {
+            if (confirmed) return;
             const pin = dialogInstance.getForm()?.getValues().password;
+            confirmed = true;
+            pendingCancels.current.delete(cancel);
             logDialog('pin-confirm-resolve');
             resolve(pin);
           },
           onCloseStart: () => logDialog('dialog-close-start'),
-          onClose: (extra) =>
+          onClose: (extra) => {
+            cancel();
             logDialog(
               'dialog-close',
               extra?.flag === 'confirm' || extra?.flag === 'cancel'
                 ? extra.flag
                 : 'other',
-            ),
+            );
+          },
         });
         logDialog('dialog-show-returned');
       });
