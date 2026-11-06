@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "description": "Reviewed call sites neutralized in the pinned Jiguang JPush Android SDK jar. Remote rich-push/in-app HTML pages are never loaded and the reflective JavaScript bridge is never registered: WebView load calls become stack-balancing pops, JavaScript settings are disabled, and the addJavascriptInterface method name is renamed so the SDK's reflection lookup fails. The manifest pins the reviewed input SHA-256, the expected call-site counts and the SHA-256 of every patched class entry, so an SDK upgrade fails loudly until the new bytes are reviewed. JCore has no WebView call sites and its JDynamicLoadBase implementation class is not packaged, so no JCore target is needed.",
+  "jars": [
+    {
+      "name": "JPush",
+      "packageJson": "jpush-react-native/package.json",
+      "packageVersion": "3.2.1",
+      "jar": "jpush-react-native/android/libs/jpush-android-5.9.0.jar",
+      "inputSha256": "ce7667fb9ad966b6b5e44b90564da117ab0c9c5a67abd9a3ecc61dd95e11f728",
+      "expectedInvokeSites": 9,
+      "expectedUtf8Renames": 3,
+      "invokeTargets": [
+        {
+          "owner": "android/webkit/WebView",
+          "name": "loadUrl",
+          "descriptor": "(Ljava/lang/String;)V"
+        },
+        {
+          "owner": "android/webkit/WebView",
+          "name": "loadUrl",
+          "descriptor": "(Ljava/lang/String;Ljava/util/Map;)V"
+        },
+        {
+          "owner": "android/webkit/WebView",
+          "name": "loadData",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "owner": "android/webkit/WebView",
+          "name": "loadDataWithBaseURL",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V"
+        },
+        {
+          "owner": "android/webkit/WebView",
+          "name": "postUrl",
+          "descriptor": "(Ljava/lang/String;[B)V"
+        },
+        {
+          "owner": "android/webkit/WebView",
+          "name": "evaluateJavascript",
+          "descriptor": "(Ljava/lang/String;Landroid/webkit/ValueCallback;)V"
+        },
+        {
+          "owner": "android/webkit/WebSettings",
+          "name": "setJavaScriptEnabled",
+          "descriptor": "(Z)V"
+        }
+      ],
+      "utf8Renames": [
+        {
+          "value": "addJavascriptInterface",
+          "replacement": "addJavascriptInterfacX"
+        }
+      ],
+      "patchedClassSha256": {
+        "cn/jpush/android/u/f.class": "574d067583d9b168c7f5ace28b13ca0dd4f27491237ee27f4d98da87d0f07ea6",
+        "cn/jpush/android/ui/b.class": "e02070efdc78e321ac237a2148410f89998644e427bb3726d6e3d15446a0ae70",
+        "cn/jpush/android/ui/c.class": "b51fae742ccb9eb730d4f64382d80b6f647b0731e2abe7cc0c709709766b9a2b",
+        "cn/jpush/android/webview/bridge/b.class": "f5de0635bf2e0f355f5e1c3cf8ff3196a32b6e80b0d8a5c9c638affb7dda1e99",
+        "cn/jpush/android/api/SystemAlertHelper$1.class": "263f9cedc8408e6bdebf8ce7f7b38724e82681eba936773f30f432510bc2fbb8"
+      }
+    }
+  ]
+}

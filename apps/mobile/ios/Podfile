@@ -158,6 +158,18 @@ target 'OneKeyWallet' do
       unless system('python3', '-B', intercom_patch, intercom_framework)
         raise '[Intercom] Failed to remove recording capabilities from the pinned iOS SDK'
       end
+
+      # Remove JPush/JCore remote commands that write to or collect the iOS
+      # pasteboard, render server-supplied in-app/rich-media HTML5, drive remote
+      # geofence/location strategies, or enable SDK log upload. Both pods are
+      # development pods, so their pinned static libraries are linked from
+      # node_modules; patch the reviewed bytes there before Xcode copies them
+      # into XCFrameworkIntermediates.
+      jpush_patch = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
+      jpush_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
+      unless system('python3', '-B', jpush_patch, jpush_node_modules)
+        raise '[JPush] Failed to remove remote commands from the pinned iOS SDKs'
+      end
     end
 
     # Copy custom fonts from components package and add to Xcode Resources.
