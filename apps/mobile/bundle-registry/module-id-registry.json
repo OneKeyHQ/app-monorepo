@@ -25638,6 +25638,7 @@
     "packages/kit/src/views/Perp/components/PerpOrderBookMobileVerticalShell.tsx": 9699,
     "packages/kit/src/views/Perp/components/PerpSettingsButton.tsx": 8413,
     "packages/kit/src/views/Perp/components/PerpSettingsDialog.tsx": 8016,
+    "packages/kit/src/views/Perp/components/PerpSigningManagement.tsx": 18123,
     "packages/kit/src/views/Perp/components/PerpTips.tsx": 5126,
     "packages/kit/src/views/Perp/components/PerpsActivityCenterAction.tsx": 5534,
     "packages/kit/src/views/Perp/components/PerpsCampaignIllustration.tsx": 19968,
