@@ -26,13 +26,9 @@ const syncedBelowBlocksCache = new Map<
   { syncedBelowBlocks: number; blockTime?: IPrivacyChainBlockTime }
 >();
 
-// Network reporting and the foreground wake lock belong to scanning, not its visual surfaces.
-export function PrivacyChainSyncEffects() {
-  const [state] = usePrivacyChainAtom();
-  const [stage] = useDeviceStageAtom();
-  const isCellular = useIsCellularNetwork();
-  const activeNetworkKey = state.boostingNetworkIds.join(',');
-  const { result: syncedBelowBlocksByNetwork } = usePromiseResult(
+function useSyncThresholds(activeNetworkIds: string[]) {
+  const activeNetworkKey = activeNetworkIds.join(',');
+  return usePromiseResult(
     async () =>
       Object.fromEntries(
         await Promise.all(
@@ -56,6 +52,49 @@ export function PrivacyChainSyncEffects() {
     [activeNetworkKey],
     { checkIsFocused: false },
   );
+}
+
+function useDeviceNetworkReporter() {
+  const isCellular = useIsCellularNetwork();
+  useEffect(() => {
+    const reportDeviceNetworkState = () => {
+      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
+        isCellular,
+      });
+    };
+    reportDeviceNetworkState();
+    appEventBus.on(
+      EAppEventBusNames.BackgroundThreadReady,
+      reportDeviceNetworkState,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.BackgroundThreadReady,
+        reportDeviceNetworkState,
+      );
+    };
+  }, [isCellular]);
+}
+
+function useScanWakeLock(hasRunningScans: boolean) {
+  useEffect(() => {
+    if (!hasRunningScans) return;
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {
+      defaultLogger.app.error.log('Privacy chain keep-awake unavailable');
+    });
+    return () => {
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, [hasRunningScans]);
+}
+
+// Network reporting and the foreground wake lock belong to scanning, not its visual surfaces.
+export function PrivacyChainSyncEffects() {
+  const [state] = usePrivacyChainAtom();
+  const [stage] = useDeviceStageAtom();
+  const { result: syncedBelowBlocksByNetwork } = useSyncThresholds(
+    state.boostingNetworkIds,
+  );
   const isStageOpen = Boolean(stage && stage.step !== 'off');
   const hasRunningScans =
     !(platformEnv.isNativeIOS && isStageOpen) &&
@@ -75,34 +114,8 @@ export function PrivacyChainSyncEffects() {
       );
     });
 
-  useEffect(() => {
-    const reportDeviceNetworkState = () => {
-      void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
-        isCellular,
-      });
-    };
-    reportDeviceNetworkState();
-    appEventBus.on(
-      EAppEventBusNames.BackgroundThreadReady,
-      reportDeviceNetworkState,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.BackgroundThreadReady,
-        reportDeviceNetworkState,
-      );
-    };
-  }, [isCellular]);
-
-  useEffect(() => {
-    if (!hasRunningScans) return;
-    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {
-      defaultLogger.app.error.log('Privacy chain keep-awake unavailable');
-    });
-    return () => {
-      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
-    };
-  }, [hasRunningScans]);
+  useDeviceNetworkReporter();
+  useScanWakeLock(hasRunningScans);
 
   return null;
 }
