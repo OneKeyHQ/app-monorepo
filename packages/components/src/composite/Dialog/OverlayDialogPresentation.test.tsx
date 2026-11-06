@@ -11,6 +11,7 @@ import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 let mockProps: IOverlayViewProps;
 let mockSurfaceProps: { width?: unknown };
 let mockPlatformOS = 'android';
+let mockWindowWidth = 1000;
 const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const mockContentFrame = { x: 0, y: 0, width: 1000, height: 800 };
 jest.mock('react-native', () => ({
@@ -18,7 +19,7 @@ jest.mock('react-native', () => ({
     select: (spec: Record<string, unknown>) =>
       mockPlatformOS in spec ? spec[mockPlatformOS] : spec.default,
   },
-  useWindowDimensions: () => ({ width: 1000, height: 800 }),
+  useWindowDimensions: () => ({ width: mockWindowWidth, height: 800 }),
 }));
 jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaFrame: () => mockContentFrame,
@@ -77,6 +78,7 @@ afterEach(() => {
   nativeEnv.isNative = true;
   nativeEnv.isNativeAndroid = true;
   mockPlatformOS = 'android';
+  mockWindowWidth = 1000;
   mockSafeAreaInsets.left = 0;
   mockSafeAreaInsets.right = 0;
   mockContentFrame.width = 1000;
@@ -151,6 +153,22 @@ it('leaves an iOS global sheet to the width the overlay reports', () => {
   render(<OverlayDialogPresentation {...dialogProps} isSheet />);
   // The overlay lays the content out at the platform's sheet width.
   expect(mockSurfaceProps.width).toBeUndefined();
+});
+
+it('paints a compact sheet surface natively so the bottom safe-area strip has no seam', () => {
+  mockWindowWidth = 402;
+  render(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  // A JS-drawn max-width surface leaves a subpixel seam between the surface
+  // and its bottom tail. A full-width compact sheet is painted by the native
+  // sheet instead, so the strip below the fitted content stays filled.
+  expect(mockProps.sheet?.maxWidth).toBeUndefined();
+  expect(mockProps.sheet?.backgroundColor).toBe('#fff');
+});
+
+it('keeps the max-width surface on wider sheets', () => {
+  mockWindowWidth = 1000;
+  render(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockProps.sheet?.maxWidth).toBe(540);
 });
 
 it('fits an Android global sheet to the app content beside a side navigation bar', () => {

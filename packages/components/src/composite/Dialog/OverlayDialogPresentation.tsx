@@ -8,7 +8,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaFrame } from '../../hooks/useLayout';
-import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
+import {
+  OVERLAY_SHEET_MAX_WIDTH,
+  useOverlayWidthClass,
+} from '../../hooks/useOverlayWidthClass';
 import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
 import { ThemeableStack } from '../../primitives';
@@ -99,15 +102,23 @@ export function OverlayDialogPresentation({
     }),
     [dismissOnOverlayPress, theme.bgBackdrop.val],
   );
+  const overlayWidthClass = useOverlayWidthClass();
   const sheet = useMemo<IOverlaySheetOptions>(
     () => ({
-      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
+      // A max-width surface is drawn by the overlay in JS and its bottom tail
+      // covers the strip below the fitted content. On compact windows the
+      // sheet is full width anyway, so let the native sheet paint the surface
+      // instead: two adjacent JS surfaces leave a subpixel seam between them
+      // that shows as a hairline above the bottom safe area once the frame is
+      // scaled (Simulator window, screenshots, screen recordings).
+      maxWidth:
+        overlayWidthClass === 'compact' ? undefined : OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius: SHEET_CORNER_RADIUS,
       showHandle: false,
       backgroundColor: surfaceColor,
       dismissOnPanDown: !disableDrag,
     }),
-    [disableDrag, surfaceColor],
+    [disableDrag, overlayWidthClass, surfaceColor],
   );
 
   const handleRequestDismiss = useCallback(
