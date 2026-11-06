@@ -1,6 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   applyHeadlessBuyOrderTimeRules,
+  applyHeadlessBuyPaidOutcome,
   applyOnramperTransactionStatus,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import type {
@@ -75,20 +76,24 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
 
   // Merges `patch` into an existing record atomically (read-modify-write
   // inside the storage lock). Returns the updated record, or undefined when
-  // there is nothing to patch.
+  // there is nothing to patch. `onlyIfHidden` skips a record that became
+  // visible since the caller read it, so a checkout-failure write can never
+  // overwrite a `completed` one that landed in between.
   @backgroundMethod()
   async patchOrder({
     transactionId,
     patch,
+    onlyIfHidden,
   }: {
     transactionId: string;
     patch: Partial<IHeadlessBuyOrder>;
+    onlyIfHidden?: boolean;
   }): Promise<IHeadlessBuyOrder | undefined> {
     let updated: IHeadlessBuyOrder | undefined;
     await this.setRawData((raw) => {
       const orders = { ...raw?.orders };
       const existing = orders[transactionId];
-      if (!existing) {
+      if (!existing || (onlyIfHidden && existing.submittedAt !== undefined)) {
         updated = undefined;
         return { orders };
       }
@@ -118,6 +123,34 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
       }
       return { orders };
     });
+  }
+
+  // Applies a paid checkout outcome (applyHeadlessBuyPaidOutcome) to an
+  // existing record. The rule runs inside the storage lock, so a failure
+  // write or a status round that landed after the caller's read is merged
+  // into rather than overwritten. Returns the change, or undefined when the
+  // record is missing or already says everything the outcome does.
+  @backgroundMethod()
+  async applyPaidOutcome({
+    transactionId,
+  }: {
+    transactionId: string;
+  }): Promise<IHeadlessBuyOrderChange | undefined> {
+    let change: IHeadlessBuyOrderChange | undefined;
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      const existing = orders[transactionId];
+      change = undefined;
+      if (existing) {
+        const next = applyHeadlessBuyPaidOutcome(existing);
+        if (next !== existing) {
+          orders[transactionId] = next;
+          change = { from: existing, to: next };
+        }
+      }
+      return { orders };
+    });
+    return change;
   }
 
   // Deletes a record only while it is still hidden and has never shown a
