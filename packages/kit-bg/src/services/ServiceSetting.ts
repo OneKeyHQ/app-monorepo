@@ -718,9 +718,9 @@ class ServiceSetting extends ServiceBase {
     version?: string;
   }) {
     const requiredVersion = await this.getTermsConsentRequiredVersion();
-    // A dialog left open while the server moved on must not record the older
-    // version, or roll the stored acceptance back to it.
-    if (shownVersion && requiredVersion && shownVersion !== requiredVersion) {
+    // A dialog or ready page left open while the server moved on or withdrew
+    // the version must not record it, or roll the stored acceptance back.
+    if (shownVersion && shownVersion !== requiredVersion) {
       return;
     }
     const version = shownVersion ?? requiredVersion;
