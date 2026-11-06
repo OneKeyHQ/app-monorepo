@@ -200,10 +200,23 @@ export function useTradingViewNativePriceScale({
     () => chartRuntime.value.candleIntervalSeconds,
     (interval, previousInterval) => {
       if (previousInterval !== null && interval !== previousInterval) {
-        scheduleOnRN(restoreControls, true, 'linear');
+        const runtime = chartRuntime.value;
+        const scale =
+          activePaneId === null
+            ? undefined
+            : runtime.subIndicatorPriceScales[activePaneId];
+        scheduleOnRN(
+          restoreControls,
+          activePaneId === null
+            ? runtime.pinnedPriceRange === null
+            : !scale?.pinnedPriceRange,
+          activePaneId === null
+            ? runtime.priceScaleMode
+            : (scale?.mode ?? 'linear'),
+        );
       }
     },
-    [chartRuntime, restoreControls],
+    [activePaneId, chartRuntime, restoreControls],
   );
 
   useEffect(() => {

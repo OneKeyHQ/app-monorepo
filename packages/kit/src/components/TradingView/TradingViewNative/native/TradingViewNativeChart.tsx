@@ -924,6 +924,12 @@ export const TradingViewNativeChart = memo(
         scheduleOnUI(() => {
           'worklet';
 
+          // Fullscreen handoff runs first; its runtime may already own this interval.
+          if (
+            chartRuntime.value.candleIntervalSeconds === candleIntervalSeconds
+          ) {
+            return;
+          }
           const sizedRuntime = resizeTradingViewNativeChartRuntime(
             freshRuntime,
             chartRuntime.value.size,

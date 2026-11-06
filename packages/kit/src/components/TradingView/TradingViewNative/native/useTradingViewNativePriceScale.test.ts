@@ -261,6 +261,21 @@ describe('useTradingViewNativePriceScale', () => {
     expect(result.current.mode).toBe('linear');
   });
 
+  it('restores adopted fullscreen price controls after an interval change', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: { minPrice: 9, maxPrice: 16 },
+        priceScaleMode: 'logarithmic',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(result.current.mode).toBe('logarithmic');
+  });
+
   it.each([
     { isRTL: true, edgeWidth: 32, absoluteX: 384, blocked: true },
     { isRTL: true, edgeWidth: 32, absoluteX: 368, blocked: false },

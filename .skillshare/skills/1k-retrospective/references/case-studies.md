@@ -1276,3 +1276,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Reset reused Confirm's `commitValue`, which toggles the dialog-wide submitting state. Persisting local defaults resolves within a frame or two, so the state flipped on and straight back off. The first fix kept controls editable during the save, but `commitSettingsValue()` committed the current draft rather than the persisted defaults, so an edit made before the save resolved was marked as saved and then overwritten by the controlled value refresh.
 **Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
 **Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
+
+## Case: Perps indicator reset removed default volume (OK-66449)
+**Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
+**Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
+**Root Cause**: Reset used generic inactive indicator defaults without the Perps storage namespace.
+**Fix**: Pass the namespace through reset and enable VOL only for Perps defaults. Regression tests and Web reset/refresh verification cover persistence and unchanged market/swap defaults.
+**Catchable by**: Section 4: Business Logic & Regression — module defaults must survive shared reset flows.
+
+## Case: Empty desktop order headers could not scroll (OK-65891)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single runtime; verified in Web.
+**Symptom**: Narrow or zoomed empty order tables clipped rightmost columns with no way to reach them.
+**Root Cause**: The empty state had no body scroller, and the separate header scroller was disabled.
+**Fix**: Enable horizontal header scrolling only for the desktop empty state. Hide the scroll indicator to match the existing table presentation. Web verification covers reaching the final columns while the empty state and fixed actions stay in place.
+**Catchable by**: Section 8: Manual Verification — test empty and populated layouts at constrained widths.
+
+## Case: Historical trade shares skipped current-position leverage (OK-65726)
+**Date**: 2026-11-06 | **Platforms**: Shared main UI on mobile/extension and single-runtime desktop/Web.
+**Symptom**: Share leverage and ROE differed from Hyperliquid when current-position leverage differed from the cached setting.
+**Root Cause**: The lookup started with last-used leverage and omitted the matching current position.
+**Fix**: Prefer account-scoped same-coin position leverage before last-used and maximum-leverage fallbacks. Regression tests cover precedence and unrelated coins. This aligns the accepted Hyperliquid display convention, not historical execution leverage; fills do not provide that field.
+**Catchable by**: Section 4: Data flow end-to-end — verify the reference product's data precedence and distinguish current state from historical facts.
+
+## Case: Perps interval switches remounted the native canvas (OK-65650)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main chart UI and UI worklet; bg is not involved. Direct device verification uses iOS Simulator.
+**Symptom**: Switching intervals briefly blanked the full plot. Retaining the canvas then exposed a fullscreen handoff regression: returning after changing interval reset the adopted viewport again.
+**Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
+**Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
+**Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
