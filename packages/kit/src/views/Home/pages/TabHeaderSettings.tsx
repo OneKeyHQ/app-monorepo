@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,10 +33,74 @@ import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkE
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isTokenSelectorDappTokenFilterSupportedNetwork } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { ListItem } from '../../../components/ListItem';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+
+import type {
+  CollapsiblePagerToolbarItem,
+  CollapsiblePagerToolbarPress,
+} from 'react-native-pager-view';
+
+export type IHomeNativeToolbar = {
+  onConfig: (
+    key: EHomeWalletTab,
+    item: CollapsiblePagerToolbarItem | undefined,
+  ) => void;
+  press?: CollapsiblePagerToolbarPress;
+};
+
+function useNativeSettingsToolbar(
+  key: EHomeWalletTab,
+  enabled: boolean,
+  selected: boolean,
+  toolbar?: IHomeNativeToolbar,
+) {
+  const [open, setOpen] = useState(false);
+  const consumedPress = useRef<CollapsiblePagerToolbarPress | undefined>(
+    undefined,
+  );
+  const intl = useIntl();
+  const onConfig = toolbar?.onConfig;
+  const title = intl.formatMessage({ id: ETranslations.global_filter });
+  useEffect(() => {
+    onConfig?.(
+      key,
+      enabled
+        ? {
+            iconName: 'SliderHorOutline',
+            selected,
+            accessibilityLabel: title,
+            testID:
+              key === EHomeWalletTab.Portfolio
+                ? 'home-media-icon-btn'
+                : 'home-filter-scam-history-supported-icon-btn',
+          }
+        : undefined,
+    );
+  }, [enabled, selected, title, key, onConfig]);
+  useEffect(() => () => onConfig?.(key, undefined), [key, onConfig]);
+  useEffect(() => {
+    if (!toolbar) return;
+    const press = toolbar.press;
+    if (!enabled || press?.key !== key) {
+      if (press) consumedPress.current = press;
+      setOpen(false);
+    } else if (consumedPress.current !== press) {
+      consumedPress.current = press;
+      setOpen(true);
+    }
+  }, [toolbar, key, enabled]);
+  return toolbar
+    ? {
+        open,
+        onOpenChange: setOpen,
+        nativeAnchorRect: toolbar.press?.anchorRect,
+      }
+    : {};
+}
 
 function TokenListSettingsContent({
   handleOnManageToken,
@@ -91,7 +155,11 @@ function TokenListSettingsContent({
   );
 }
 
-function TokenListSettings() {
+function TokenListSettings({
+  nativeToolbar,
+}: {
+  nativeToolbar?: IHomeNativeToolbar;
+}) {
   const intl = useIntl();
   const {
     activeAccount: {
@@ -135,23 +203,32 @@ function TokenListSettings() {
     [setTokenSelectorFilter],
   );
 
+  const nativePopover = useNativeSettingsToolbar(
+    EHomeWalletTab.Portfolio,
+    showLpTokenFilterSwitch || manageTokenEnabled,
+    showLpTokensOnly,
+    nativeToolbar,
+  );
   if (!showLpTokenFilterSwitch && !manageTokenEnabled) {
     return null;
   }
 
   return (
     <Popover
+      {...nativePopover}
       title={intl.formatMessage({ id: ETranslations.global_filter })}
       renderTrigger={
-        <IconButton
-          testID="home-media-icon-btn"
-          title={intl.formatMessage({
-            id: ETranslations.global_filter,
-          })}
-          variant="tertiary"
-          icon="SliderHorOutline"
-          bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}
-        />
+        nativeToolbar ? null : (
+          <IconButton
+            testID="home-media-icon-btn"
+            title={intl.formatMessage({
+              id: ETranslations.global_filter,
+            })}
+            variant="tertiary"
+            icon="SliderHorOutline"
+            bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}
+          />
+        )
       }
       renderContent={
         <TokenListSettingsContent
@@ -276,7 +353,17 @@ function TxHistorySettingsContent({
   );
 }
 
-function TxHistorySettings() {
+function TxHistorySettings({
+  nativeToolbar,
+}: {
+  nativeToolbar?: IHomeNativeToolbar;
+}) {
+  const nativePopover = useNativeSettingsToolbar(
+    EHomeWalletTab.History,
+    true,
+    false,
+    nativeToolbar,
+  );
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
@@ -348,16 +435,19 @@ function TxHistorySettings() {
   return (
     <Stack>
       <Popover
+        {...nativePopover}
         title={intl.formatMessage({ id: ETranslations.global_filter })}
         renderTrigger={
-          <IconButton
-            testID="home-filter-scam-history-supported-icon-btn"
-            title={intl.formatMessage({
-              id: ETranslations.global_filter,
-            })}
-            variant="tertiary"
-            icon="SliderHorOutline"
-          />
+          nativeToolbar ? null : (
+            <IconButton
+              testID="home-filter-scam-history-supported-icon-btn"
+              title={intl.formatMessage({
+                id: ETranslations.global_filter,
+              })}
+              variant="tertiary"
+              icon="SliderHorOutline"
+            />
+          )
         }
         renderContent={
           <TxHistorySettingsContent
@@ -380,7 +470,13 @@ function TxHistorySettings() {
   );
 }
 
-function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
+function BasicTabHeaderSettings({
+  focusedTab,
+  nativeToolbar,
+}: {
+  focusedTab: string;
+  nativeToolbar?: IHomeNativeToolbar;
+}) {
   const intl = useIntl();
   const historyName = useMemo(
     () =>
@@ -398,16 +494,24 @@ function BasicTabHeaderSettings({ focusedTab }: { focusedTab: string }) {
   );
 
   const content = useMemo(() => {
+    if (nativeToolbar) {
+      return (
+        <>
+          <TokenListSettings nativeToolbar={nativeToolbar} />
+          <TxHistorySettings nativeToolbar={nativeToolbar} />
+        </>
+      );
+    }
     switch (focusedTab) {
       case portfolioName:
-        return <TokenListSettings />;
+        return <TokenListSettings nativeToolbar={nativeToolbar} />;
       case historyName:
-        return <TxHistorySettings />;
+        return <TxHistorySettings nativeToolbar={nativeToolbar} />;
       default:
         return null;
     }
-  }, [portfolioName, focusedTab, historyName]);
-  return <XStack pr="$pagePadding">{content}</XStack>;
+  }, [portfolioName, focusedTab, historyName, nativeToolbar]);
+  return nativeToolbar ? content : <XStack pr="$pagePadding">{content}</XStack>;
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);
