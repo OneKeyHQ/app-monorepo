@@ -14,6 +14,7 @@
 //   node development/lint/external-sdk.js --json    # machine-readable result
 //
 // Exit codes: 0 = all pinned SDKs match, 1 = mismatch, 2 = config/usage error.
+// Per-SDK audit conclusions live in external-sdk-audit-docs/<name>.md.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');

@@ -10,6 +10,15 @@
 > 完整性 lint 说明。详细证据与可读重建源码作为内部审计交付物保留（见 §10），
 > 不随本 PR 提交。
 
+> **反编译审计声明（本 PR 公开披露）**：我们对上述闭源 `OnramperSDK.xcframework`
+> 做了静态逆向安全审计——使用随包 dSYM/DWARF、`.swiftinterface`、`otool`/`llvm-objdump`
+> 反汇编、Mach-O bind 表、ObjC 元数据和字符串交叉验证，并在此基础上产出本结论、
+> 外部 SDK 完整性 lint 与重建源码。本 PR **不包含** Onramper 的原始或重建源码；
+> 重建源码作为内部审计交付物单独保存（见 §10）。
+>
+> **审计覆盖范围**：iOS 原生二进制（完整审计）+ Android 实际接入面（无原生 SDK，
+> 审计远程 web widget 与 WebView/Manifest 配置）。详见 §5。
+
 ## 0. 结论速览
 
 1. **用户最担心的行为不存在**：剪贴板读写、定位、IDFA/ATT 跨 App 追踪、通讯录、
@@ -152,7 +161,7 @@ MoonPay/Paybis/Coinbase provider 桥）。
 App Attest bootstrap 具体时序、X25519/AES-GCM KDF 细节、pin→host 映射、
 OIDC 具体路径、provider bootstrap 策略、错误文案等。**上线前必须真机全流程冒烟**。
 
-## 5. Android 结论
+## 5. Android 审计结论（无原生 SDK；审计远程 web widget + WebView 配置）
 
 - **本仓库没有 Android 原生 Onramper SDK**：`@onramper/onramper-react-native`
   仅 iOS（1.3.1 与最新 1.6.0 均如此）；`apps/mobile/android` 无任何 Onramper
@@ -176,6 +185,15 @@ OIDC 具体路径、provider bootstrap 策略、错误文案等。**上线前必
 - 结论：Android **不存在“可反编译替换”的原生对象**；若要去掉闭源 widget，
   需基于 Onramper 公开 API 自建页面或更换供应商（产品决策）。
 
+### 5.1 Android 审计边界
+
+- **可离线证明**：仓库无 Android 原生产物、Manifest 权限、WebView 配置、
+  widget 抓取版本的 JS 行为（source map 还原）。
+- **不可离线证明**：线上 widget 由 Onramper 服务端随时更新；本次结论仅对
+  2026-11-06 抓取版本（SHA-256 已记录）负责，App 不做完整性校验。
+- **不适用**：Android 没有可 pin 的本地 SDK 二进制，因此 `external-sdk` lint
+  当前只 pin iOS SDK；如果未来引入 Android AAR，按 §7 的扩展方式加入同一 manifest。
+
 ## 6. 替换方案
 
 ```bash
@@ -196,7 +214,8 @@ onramper-sdk/integration/restore.sh  # 如需回退
 ## 7. 外部 SDK 完整性 lint（本 PR 新增）
 
 **目的**：对以二进制分发、无法在本仓库 review 源码的三方 SDK 做供应链完整性校验。
-首个接入对象就是 Onramper iOS SDK。
+首个接入对象就是 Onramper iOS SDK（我们已于本仓库外完成反编译级安全审计，
+本目录 `OnramperSDK.md` 即该审计结论；lint 用于防止审计过的字节被替换）。
 
 **实现**（`development/lint/external-sdk.js` + `external-sdk.config.json`）：
 
@@ -264,3 +283,9 @@ onramper-sdk/integration/restore.sh  # 如需回退
 
 > 证据复现：`artifacts/ios/tools/run-all.sh`（约 5 秒重建全部 iOS 二进制证据）。
 > 内部目录位于开发 worktree，不属于本 PR 的提交范围。
+
+---
+
+_本文档位置：`development/lint/external-sdk-audit-docs/OnramperSDK.md`（与
+`external-sdk.js` / `external-sdk.config.json` 同级）。以后每个接入 `external-sdk`
+lint 的三方 SDK 都在此目录下建一个同名 Markdown 文档。_
