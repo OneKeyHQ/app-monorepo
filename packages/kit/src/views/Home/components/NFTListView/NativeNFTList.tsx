@@ -88,6 +88,9 @@ export function NFTListView({
             ...nativeListTheme,
             disabledText: componentTheme.iconDisabled.val,
             accent: componentTheme.focusRing.val,
+            // Hover only dims the image (see index.css), the tile stays clear.
+            rowHoverBackground: 'transparent',
+            rowPressedBackground: 'transparent',
           },
     [nativeListTheme, componentTheme, webScrollHost],
   );

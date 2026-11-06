@@ -594,7 +594,8 @@ function buildHistoryActivityRowUnchecked({
           : 1,
       separator: false,
       style: {
-        horizontalPadding: 20,
+        container: { cornerRadius: 12 },
+        horizontalPadding: 12,
         verticalPadding: 12,
         lineGap: tableLayout ? 4 : 0,
         title: {
