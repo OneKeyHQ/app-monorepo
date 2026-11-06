@@ -380,22 +380,26 @@ def patch_library(
             + output_hash
         )
     if not report_only:
-        with tempfile.NamedTemporaryFile(
+        temporary = tempfile.NamedTemporaryFile(
             prefix=".onekey-jpush-patch-", dir=path.parent, delete=False
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-            temporary.write(data)
-            temporary.flush()
-        # Close the temporary file before replacing it so the write works on
-        # every host platform that can run this build phase.
+        )
+        temporary_path = Path(temporary.name)
         try:
-            os.chmod(temporary_path, stat.S_IMODE(path.stat().st_mode))
-        except OSError:
-            pass
-        try:
+            with temporary:
+                temporary.write(data)
+                temporary.flush()
+            # Close the temporary file before replacing it so the write works
+            # on every host platform that can run this build phase.
+            try:
+                os.chmod(temporary_path, stat.S_IMODE(path.stat().st_mode))
+            except OSError:
+                pass
             os.replace(temporary_path, path)
         finally:
-            temporary_path.unlink(missing_ok=True)
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
     return input_hash, output_hash, True
 
 

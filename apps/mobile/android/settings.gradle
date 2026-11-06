@@ -68,8 +68,9 @@ project(':mmkv').projectDir = new File(rootDir, 'mmkv')
 // JDynamicLoadBase implementation class is not packaged.
 def jpushAndroidPatch = new File(rootDir, '../scripts/patch-jpush-android.py')
 def jpushAndroidNodeModules = new File(rootDir, '../../../node_modules')
-if (jpushAndroidPatch.exists()) {
-  providers.exec {
-    commandLine('python3', '-B', jpushAndroidPatch.absolutePath, jpushAndroidNodeModules.absolutePath)
-  }.result.get()
+if (!jpushAndroidPatch.isFile()) {
+  throw new GradleException("[JPush] Patch script is missing: ${jpushAndroidPatch.absolutePath}")
 }
+providers.exec {
+  commandLine('python3', '-B', jpushAndroidPatch.absolutePath, jpushAndroidNodeModules.absolutePath)
+}.result.get()

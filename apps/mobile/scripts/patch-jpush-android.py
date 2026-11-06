@@ -349,34 +349,38 @@ def read_entries(jar: Path) -> tuple[list[zipfile.ZipInfo], dict[str, bytes]]:
 def write_jar(
     jar: Path, infos: list[zipfile.ZipInfo], entries: dict[str, bytes]
 ) -> None:
-    with tempfile.NamedTemporaryFile(
+    temporary = tempfile.NamedTemporaryFile(
         prefix=".onekey-jpush-android-", dir=jar.parent, delete=False
-    ) as temporary:
-        temporary_path = Path(temporary.name)
-        with zipfile.ZipFile(
-            temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=9
-        ) as archive:
-            for info in infos:
-                copy = zipfile.ZipInfo(
-                    info.filename, date_time=(1980, 1, 1, 0, 0, 0)
-                )
-                copy.compress_type = info.compress_type
-                copy.external_attr = info.external_attr
-                copy.internal_attr = info.internal_attr
-                copy.create_system = info.create_system
-                archive.writestr(copy, entries[info.filename])
-        temporary.flush()
-    # Close the temporary file before replacing it: Windows keeps an open handle
-    # until close, and os.fchmod is unavailable there. os.chmod is supported on
-    # every build platform; permission bits are best-effort on Windows.
+    )
+    temporary_path = Path(temporary.name)
     try:
-        os.chmod(temporary_path, stat.S_IMODE(jar.stat().st_mode))
-    except OSError:
-        pass
-    try:
+        with temporary:
+            with zipfile.ZipFile(
+                temporary, "w", zipfile.ZIP_DEFLATED, compresslevel=9
+            ) as archive:
+                for info in infos:
+                    copy = zipfile.ZipInfo(
+                        info.filename, date_time=(1980, 1, 1, 0, 0, 0)
+                    )
+                    copy.compress_type = info.compress_type
+                    copy.external_attr = info.external_attr
+                    copy.internal_attr = info.internal_attr
+                    copy.create_system = info.create_system
+                    archive.writestr(copy, entries[info.filename])
+            temporary.flush()
+        # Close the temporary file before replacing it: Windows keeps an open
+        # handle until close, and os.fchmod is unavailable there. os.chmod is
+        # supported on every build platform; permission bits are best-effort.
+        try:
+            os.chmod(temporary_path, stat.S_IMODE(jar.stat().st_mode))
+        except OSError:
+            pass
         os.replace(temporary_path, jar)
     finally:
-        temporary_path.unlink(missing_ok=True)
+        try:
+            temporary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def patch_jar(jar: Path, spec: dict, check_only: bool, report_only: bool) -> str:
