@@ -705,7 +705,10 @@ function BaseDialogContainer(
         }
         onCloseRequested?.();
         changeIsOpen(false);
-        void Keyboard.dismissWithDelay(50);
+        // iOS tears down this entry's input without blurring another window.
+        if (!platformEnv.isNativeIOS) {
+          void Keyboard.dismissWithDelay(50);
+        }
         await forwardOnClose(extra);
       };
       pendingCloseRef.current = close().finally(() => {
@@ -905,7 +908,9 @@ function dialogShow({
       removeDialogInstance(dialogInstance);
       dialogInstance = undefined;
     }
-    void Keyboard.dismissWithDelay(50);
+    if (!platformEnv.isNativeIOS) {
+      void Keyboard.dismissWithDelay(50);
+    }
     void onClose?.(extra);
   };
 

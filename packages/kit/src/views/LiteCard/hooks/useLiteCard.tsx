@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -18,6 +19,8 @@ import useNFC, { CardErrors, LiteCard } from './useNFC';
 import useOperationDialog from './useOperationDialog';
 import usePIN from './usePIN';
 import useReadMnemonic from './useReadMnemonic';
+
+import type { CardInfo } from '@onekeyfe/react-native-lite-card';
 
 function createFlowLogger(
   operation: 'backup' | 'import' | 'changePIN' | 'reset',
@@ -51,130 +54,146 @@ export default function useLiteCard() {
     showChangePINSuccessDialog,
     showResetSuccessDialog,
   } = useOperationDialog();
-  const pin = useRef('');
-
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const navigation = useAppNavigation();
   const backupWallet = useCallback(
     async (walletId?: string) => {
+      if (busy.current) return false;
+      busy.current = true;
       const log = createFlowLogger('backup');
       let attempt = 0;
+      let isSuccess = false;
       log('flow-start');
       defaultLogger.setting.page.oneKeyLiteBackup();
       try {
         log('permission-start');
         await nfc.checkNFCEnabledPermission();
         log('permission-result');
+        if (!mounted.current) return false;
         const { mnemonic, walletId: selectedWalletId } =
           await readMnemonicWithWalletId(walletId);
-        const createLiteInfoConnection = nfc.createNFCConnection(async () => {
+        if (!mounted.current) return false;
+        log('encode-start');
+        const encodedMnemonic =
+          await backgroundApiProxy.serviceLiteCardMnemonic.encodeMnemonic(
+            mnemonic,
+          );
+        log('encode-result');
+        let expectedCard: CardInfo | undefined;
+        while (mounted.current) {
           attempt += 1;
-          const currentAttempt = attempt;
-          log('callback-enter', {
-            attempt: currentAttempt,
-            nativeMethod: 'getLiteInfo',
-          });
-          log('native-start', {
-            attempt: currentAttempt,
-            nativeMethod: 'getLiteInfo',
-          });
-          const { error: oldError, cardInfo: oldCard } =
-            await LiteCard.getLiteInfo();
+          log('native-start', { nativeMethod: 'getLiteInfo', attempt });
+          const read = await nfc.createNFCConnection(() =>
+            LiteCard.getLiteInfo(),
+          )();
           log('native-result', {
-            attempt: currentAttempt,
             nativeMethod: 'getLiteInfo',
-            errorCode: oldError?.code,
-            hasCardInfo: Boolean(oldCard),
-            hasBackup: oldCard?.hasBackup,
-            isNewCard: oldCard?.isNewCard,
+            attempt,
+            errorCode: read.error?.code,
+            hasCardInfo: Boolean(read.cardInfo),
+            hasBackup: read.cardInfo?.hasBackup,
+            isNewCard: read.cardInfo?.isNewCard,
           });
-          await nfc.handlerLiteCardError({
-            error: oldError,
-            cardInfo: oldCard,
-            retryNFCAction: createLiteInfoConnection,
+          if (!mounted.current) return false;
+          const readAction = await nfc.handlerLiteCardError({
+            error: read.error,
+            cardInfo: read.cardInfo,
+            lastCardInfo: expectedCard,
           });
-          if (!oldCard?.isNewCard) {
-            await showBackupOverwrittenDialog();
-          }
-          const isNewCard = oldCard?.isNewCard;
-          const createPINConnection = async () => {
-            pin.current = await showPINFormDialog(isNewCard);
-          };
-          await createPINConnection();
-          if (isNewCard) {
-            await showPINFormDialog(isNewCard, pin.current);
-          }
-          log('encode-start');
-          const encodeMnemonic =
-            await backgroundApiProxy.serviceLiteCardMnemonic.encodeMnemonic(
-              mnemonic,
-            );
-          log('encode-result');
-
-          const createSetMnemonicConnection = nfc.createNFCConnection(
-            async () => {
-              attempt += 1;
-              const writeAttempt = attempt;
-              log('callback-enter', {
-                attempt: writeAttempt,
-                nativeMethod: 'setMnemonic',
-                overwrite: !isNewCard,
-              });
-              defaultLogger.hardware.liteCard.log(
-                'connected lite setMnemonic',
-                { cardInfo: oldCard },
+          if (readAction === 'cancel')
+            throw new OneKeyLocalError('Lite backup cancelled');
+          if (!mounted.current) return false;
+          if (readAction === 'continue') {
+            const card = read.cardInfo;
+            if (!card?.serialNum || typeof card.isNewCard !== 'boolean')
+              throw new OneKeyLocalError('Lite card information missing');
+            expectedCard = expectedCard ?? card;
+            if (!card.isNewCard || card.hasBackup === true)
+              await showBackupOverwrittenDialog();
+            if (!mounted.current) return false;
+            const pin = await showPINFormDialog(card.isNewCard);
+            if (!mounted.current) return false;
+            if (card.isNewCard) await showPINFormDialog(true, pin);
+            if (!mounted.current) return false;
+            const overwrite = !card.isNewCard || card.hasBackup === true;
+            log('native-start', {
+              nativeMethod: 'setMnemonic',
+              attempt,
+              overwrite,
+            });
+            const expectedSerial = expectedCard.serialNum;
+            const write = await nfc.createNFCConnection(async () => {
+              const result = await LiteCard.setMnemonic(
+                encodedMnemonic,
+                pin,
+                overwrite,
+                expectedSerial,
               );
-              log('native-start', {
-                attempt: writeAttempt,
-                nativeMethod: 'setMnemonic',
-                overwrite: !isNewCard,
-              });
-              const { error: newError, cardInfo: newCard } =
-                await LiteCard.setMnemonic(
-                  encodeMnemonic,
-                  pin.current,
-                  !isNewCard,
-                );
-              log('native-result', {
-                attempt: writeAttempt,
-                nativeMethod: 'setMnemonic',
-                errorCode: newError?.code,
-                hasCardInfo: Boolean(newCard),
-                hasBackup: newCard?.hasBackup,
-                isNewCard: newCard?.isNewCard,
-              });
-              defaultLogger.hardware.liteCard.log('setMnemonic result', {
-                cardInfo: newCard,
-                error: newError,
-              });
-              await nfc.handlerLiteCardError({
-                error: newError,
-                cardInfo: newCard,
-                lastCardInfo: oldCard,
-                retryNFCAction: createSetMnemonicConnection,
-                retryPINAction: createPINConnection,
-              });
-              showBackupSuccessDialog();
-              if (selectedWalletId) {
+              if (
+                !result.error &&
+                result.data === true &&
+                result.cardInfo?.serialNum === expectedSerial &&
+                selectedWalletId
+              ) {
+                // Persist even if unmounting cancelled the UI's NFC wait.
                 await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
                   {
                     walletId: selectedWalletId,
                     isBackedUp: true,
                   },
                 );
+              }
+              return result;
+            })();
+            if (!mounted.current) return false;
+            log('native-result', {
+              nativeMethod: 'setMnemonic',
+              attempt,
+              errorCode: write.error?.code,
+              hasCardInfo: Boolean(write.cardInfo),
+              hasBackup: write.cardInfo?.hasBackup,
+              isNewCard: write.cardInfo?.isNewCard,
+            });
+            const writeAction = await nfc.handlerLiteCardError({
+              error: write.error,
+              cardInfo: write.cardInfo,
+              lastCardInfo: card,
+            });
+            if (writeAction === 'cancel')
+              throw new OneKeyLocalError('Lite backup cancelled');
+            if (!mounted.current) return false;
+            if (writeAction === 'continue') {
+              if (
+                write.data !== true ||
+                write.cardInfo?.serialNum !== expectedSerial
+              )
+                throw new OneKeyLocalError('Lite backup result missing');
+              if (selectedWalletId) {
                 appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
               }
-            },
-          );
-          await createSetMnemonicConnection();
-        });
-        await createLiteInfoConnection();
-        log('flow-return');
-        defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: true });
-        return true;
-      } catch {
-        log('flow-caught');
-        defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: false });
+              showBackupSuccessDialog();
+              log('flow-return');
+              isSuccess = true;
+              return true;
+            }
+          }
+        }
         return false;
+      } catch {
+        if (mounted.current) {
+          log('flow-caught');
+        }
+        return false;
+      } finally {
+        defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess });
+        busy.current = false;
       }
     },
     [
@@ -186,184 +205,164 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
     const log = createFlowLogger('import');
-    let attempt = 0;
+    let isSuccess = false;
     log('flow-start');
     defaultLogger.account.wallet.addWalletStarted({
       addMethod: 'ImportWallet',
-      details: {
-        importType: 'lite',
-      },
+      details: { importType: 'lite' },
       isSoftwareWalletOnlyUser,
     });
     try {
       log('permission-start');
       await nfc.checkNFCEnabledPermission();
       log('permission-result');
-      const createPINConnection = async () => {
-        pin.current = await showPINFormDialog();
-      };
-      await createPINConnection();
-      const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
-        attempt += 1;
-        const currentAttempt = attempt;
-        log('callback-enter', {
-          attempt: currentAttempt,
-          nativeMethod: 'getMnemonicWithPin',
-        });
-        log('native-start', {
-          attempt: currentAttempt,
-          nativeMethod: 'getMnemonicWithPin',
-        });
-        const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(
-          pin.current,
-        );
+      if (!mounted.current) return;
+      let pin = await showPINFormDialog();
+      if (!mounted.current) return;
+      while (mounted.current) {
+        const currentPin = pin;
+        log('native-start', { nativeMethod: 'getMnemonicWithPin' });
+        const result = await nfc.createNFCConnection(() =>
+          LiteCard.getMnemonicWithPin(currentPin),
+        )();
         log('native-result', {
-          attempt: currentAttempt,
           nativeMethod: 'getMnemonicWithPin',
-          errorCode: error?.code,
-          hasCardInfo: Boolean(cardInfo),
-          hasBackup: cardInfo?.hasBackup,
-          isNewCard: cardInfo?.isNewCard,
+          errorCode: result.error?.code,
+          hasCardInfo: Boolean(result.cardInfo),
+          hasBackup: result.cardInfo?.hasBackup,
+          isNewCard: result.cardInfo?.isNewCard,
         });
-        defaultLogger.hardware.liteCard.log('getMnemonicWithPin result', {
-          cardInfo,
-          error,
+        if (!mounted.current) return;
+        const action = await nfc.handlerLiteCardError({
+          error: result.error,
+          cardInfo: result.cardInfo,
         });
-        await nfc.handlerLiteCardError({
-          error,
-          cardInfo,
-          retryNFCAction: createGetMnemonicConnection,
-          retryPINAction: createPINConnection,
-        });
-        log('decode-start');
-        const mnemonicDecoded =
-          await backgroundApiProxy.serviceLiteCardMnemonic.decodeMnemonic(
-            data ?? '',
+        if (action === 'cancel')
+          throw new OneKeyLocalError('Lite import cancelled');
+        if (!mounted.current) return;
+        if (action === 'retryPin') pin = await showPINFormDialog();
+        if (!mounted.current) return;
+        if (action === 'continue') {
+          log('decode-start');
+          const mnemonicEncoded =
+            await backgroundApiProxy.servicePassword.encodeSensitiveText({
+              text: await backgroundApiProxy.serviceLiteCardMnemonic.decodeMnemonic(
+                result.data ?? '',
+              ),
+            });
+          log('decode-result');
+          log('validate-start');
+          await backgroundApiProxy.serviceAccount.validateMnemonic(
+            mnemonicEncoded,
           );
-        log('decode-result');
-        log('encode-start');
-        const mnemonicEncoded =
-          await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: mnemonicDecoded,
+          log('validate-result');
+          if (!mounted.current) return;
+          navigation.pushModal(EModalRoutes.OnboardingModal, {
+            screen: EOnboardingPages.FinalizeWalletSetup,
+            params: { mnemonic: mnemonicEncoded, isWalletBackedUp: true },
           });
-        log('encode-result');
-        log('validate-start');
-        await backgroundApiProxy.serviceAccount.validateMnemonic(
-          mnemonicEncoded,
-        );
-        log('validate-result');
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.FinalizeWalletSetup,
-          params: { mnemonic: mnemonicEncoded, isWalletBackedUp: true },
-        });
-      });
-      await createGetMnemonicConnection();
-      log('flow-return');
-      defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
-      defaultLogger.account.wallet.walletAdded({
-        status: 'success',
-        addMethod: 'ImportWallet',
-        details: {
-          importType: 'lite',
-        },
-        isSoftwareWalletOnlyUser,
-      });
+          log('flow-return');
+          isSuccess = true;
+          return;
+        }
+      }
     } catch {
-      log('flow-caught');
-      defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
+      if (mounted.current) {
+        log('flow-caught');
+      }
+    } finally {
+      defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess });
       defaultLogger.account.wallet.walletAdded({
-        status: 'failure',
+        status: isSuccess ? 'success' : 'failure',
         addMethod: 'ImportWallet',
-        details: {
-          importType: 'lite',
-        },
+        details: { importType: 'lite' },
         isSoftwareWalletOnlyUser,
       });
+      busy.current = false;
     }
   }, [nfc, showPINFormDialog, navigation, isSoftwareWalletOnlyUser]);
   const changePIN = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
     const log = createFlowLogger('changePIN');
-    let attempt = 0;
     log('flow-start');
-    log('permission-start');
-    await nfc.checkNFCEnabledPermission();
-    log('permission-result');
-    const createPINConnection = async () => {
-      pin.current = await showPINFormDialog();
-    };
-    await createPINConnection();
-    const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
-      attempt += 1;
-      const currentAttempt = attempt;
-      log('callback-enter', {
-        attempt: currentAttempt,
-        nativeMethod: 'getMnemonicWithPin',
-      });
-      log('native-start', {
-        attempt: currentAttempt,
-        nativeMethod: 'getMnemonicWithPin',
-      });
-      const { error: oldError, cardInfo: oldCard } =
-        await LiteCard.getMnemonicWithPin(pin.current);
-      log('native-result', {
-        attempt: currentAttempt,
-        nativeMethod: 'getMnemonicWithPin',
-        errorCode: oldError?.code,
-        hasCardInfo: Boolean(oldCard),
-        hasBackup: oldCard?.hasBackup,
-        isNewCard: oldCard?.isNewCard,
-      });
-      if (oldError?.code === CardErrors.NotInitializedError) {
-        await nfc.hideNFCConnectDialog();
-        showChangePINOnNewCardDialog();
-        return;
-      }
-      await nfc.handlerLiteCardError({
-        error: oldError,
-        cardInfo: oldCard,
-        retryNFCAction: createGetMnemonicConnection,
-        retryPINAction: createPINConnection,
-      });
-      Toast.success({ title: 'Lite PIN Verified' });
-      const newPIN = await showPINFormDialog(true);
-      await showPINFormDialog(true, newPIN);
-      const createChangePINConnection = nfc.createNFCConnection(async () => {
-        attempt += 1;
-        const writeAttempt = attempt;
-        log('callback-enter', {
-          attempt: writeAttempt,
-          nativeMethod: 'changePin',
-        });
-        log('native-start', {
-          attempt: writeAttempt,
-          nativeMethod: 'changePin',
-        });
-        const { error: newError, cardInfo: newCard } = await LiteCard.changePin(
-          pin.current,
-          newPIN,
-        );
+    try {
+      log('permission-start');
+      await nfc.checkNFCEnabledPermission();
+      log('permission-result');
+      if (!mounted.current) return;
+      let pin = await showPINFormDialog();
+      if (!mounted.current) return;
+      let expectedSerial: string | undefined;
+      while (mounted.current) {
+        const currentPin = pin;
+        log('native-start', { nativeMethod: 'getMnemonicWithPin' });
+        const read = await nfc.createNFCConnection(() =>
+          LiteCard.getMnemonicWithPin(currentPin),
+        )();
         log('native-result', {
-          attempt: writeAttempt,
-          nativeMethod: 'changePin',
-          errorCode: newError?.code,
-          hasCardInfo: Boolean(newCard),
-          hasBackup: newCard?.hasBackup,
-          isNewCard: newCard?.isNewCard,
+          nativeMethod: 'getMnemonicWithPin',
+          errorCode: read.error?.code,
+          hasCardInfo: Boolean(read.cardInfo),
+          hasBackup: read.cardInfo?.hasBackup,
+          isNewCard: read.cardInfo?.isNewCard,
         });
-        await nfc.handlerLiteCardError({
-          error: newError,
-          cardInfo: newCard,
-          lastCardInfo: oldCard,
-          retryNFCAction: createChangePINConnection,
-          retryPINAction: createPINConnection,
+        if (!mounted.current) return;
+        if (read.error?.code === CardErrors.NotInitializedError) {
+          await nfc.hideNFCConnectDialog();
+          if (!mounted.current) return;
+          showChangePINOnNewCardDialog();
+          return;
+        }
+        const readAction = await nfc.handlerLiteCardError({
+          error: read.error,
+          cardInfo: read.cardInfo,
         });
-        showChangePINSuccessDialog();
-      });
-      await createChangePINConnection();
-    });
-    await createGetMnemonicConnection();
-    log('flow-return');
+        if (readAction === 'cancel') return;
+        if (!mounted.current) return;
+        if (readAction === 'retryPin') pin = await showPINFormDialog();
+        if (!mounted.current) return;
+        if (readAction === 'continue') {
+          const card = read.cardInfo;
+          if (
+            !card?.serialNum ||
+            (expectedSerial && expectedSerial !== card.serialNum)
+          )
+            return;
+          expectedSerial = expectedSerial ?? card.serialNum;
+          Toast.success({ title: 'Lite PIN Verified' });
+          const newPIN = await showPINFormDialog(true);
+          if (!mounted.current) return;
+          await showPINFormDialog(true, newPIN);
+          if (!mounted.current) return;
+          const write = await nfc.createNFCConnection(() =>
+            LiteCard.changePin(currentPin, newPIN, card.serialNum),
+          )();
+          if (!mounted.current) return;
+          const writeAction = await nfc.handlerLiteCardError({
+            error: write.error,
+            cardInfo: write.cardInfo,
+            lastCardInfo: card,
+          });
+          if (writeAction === 'cancel') return;
+          if (!mounted.current) return;
+          if (writeAction === 'retryPin') pin = await showPINFormDialog();
+          if (!mounted.current) return;
+          if (writeAction === 'continue') {
+            log('flow-return');
+            showChangePINSuccessDialog();
+            return;
+          }
+        }
+      }
+    } catch {
+      if (mounted.current) log('flow-caught');
+    } finally {
+      busy.current = false;
+    }
   }, [
     nfc,
     showPINFormDialog,
@@ -371,40 +370,44 @@ export default function useLiteCard() {
     showChangePINSuccessDialog,
   ]);
   const reset = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = true;
     const log = createFlowLogger('reset');
-    let attempt = 0;
     log('flow-start');
-    log('permission-start');
-    await nfc.checkNFCEnabledPermission();
-    log('permission-result');
-    await showResetWarningDialog();
-    const createResetConnection = nfc.createNFCConnection(async () => {
-      attempt += 1;
-      const currentAttempt = attempt;
-      log('callback-enter', { attempt: currentAttempt, nativeMethod: 'reset' });
-      log('native-start', { attempt: currentAttempt, nativeMethod: 'reset' });
-      const { error, cardInfo } = await LiteCard.reset();
-      log('native-result', {
-        attempt: currentAttempt,
-        nativeMethod: 'reset',
-        errorCode: error?.code,
-        hasCardInfo: Boolean(cardInfo),
-        hasBackup: cardInfo?.hasBackup,
-        isNewCard: cardInfo?.isNewCard,
-      });
-      defaultLogger.hardware.liteCard.log('reset card result', {
-        cardInfo,
-        error,
-      });
-      await nfc.handlerLiteCardError({
-        error,
-        cardInfo,
-        retryNFCAction: createResetConnection,
-      });
-      showResetSuccessDialog();
-    });
-    await createResetConnection();
-    log('flow-return');
+    try {
+      log('permission-start');
+      await nfc.checkNFCEnabledPermission();
+      log('permission-result');
+      if (!mounted.current) return;
+      await showResetWarningDialog();
+      while (mounted.current) {
+        log('native-start', { nativeMethod: 'reset' });
+        const result = await nfc.createNFCConnection(() => LiteCard.reset())();
+        log('native-result', {
+          nativeMethod: 'reset',
+          errorCode: result.error?.code,
+          hasCardInfo: Boolean(result.cardInfo),
+          hasBackup: result.cardInfo?.hasBackup,
+          isNewCard: result.cardInfo?.isNewCard,
+        });
+        if (!mounted.current) return;
+        const action = await nfc.handlerLiteCardError({
+          error: result.error,
+          cardInfo: result.cardInfo,
+        });
+        if (action === 'cancel') return;
+        if (!mounted.current) return;
+        if (action === 'continue') {
+          log('flow-return');
+          showResetSuccessDialog();
+          return;
+        }
+      }
+    } catch {
+      if (mounted.current) log('flow-caught');
+    } finally {
+      busy.current = false;
+    }
   }, [nfc, showResetWarningDialog, showResetSuccessDialog]);
   return useMemo(
     () => ({
