@@ -738,6 +738,99 @@ describe('useMarketSwapReviewActions', () => {
     expect(result.current.swapSteps.preSwapData.netWorkFee).toBeUndefined();
   });
 
+  it('retries a failed approval without repeating a successful reset or sending the swap', async () => {
+    const adapter = createAdapter();
+    adapter.sendApproveTx
+      .mockRejectedValueOnce(new Error('Enable Passphrase on the device'))
+      .mockImplementationOnce(async ({ onBroadcast }) => {
+        onBroadcast?.({ txHash: '0xapprove', amount: '1' });
+      });
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return { actions, swapSteps };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.SUCCESS,
+                isResetApprove: true,
+                canRetry: true,
+              },
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.READY,
+                isResetApprove: false,
+                canRetry: true,
+                shouldWaitApproved: true,
+              },
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            quoteResult: createQuoteResult({
+              allowanceResult: {
+                allowanceTarget: '0xspender',
+                amount: '1',
+              },
+            }),
+          }),
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    expect(result.current.swapSteps.steps[0].status).toBe(
+      ESwapStepStatus.SUCCESS,
+    );
+    expect(result.current.swapSteps.steps[1]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.FAILED,
+        errorMessage: 'Enable Passphrase on the device',
+      }),
+    );
+    expect(result.current.swapSteps.steps[2].status).toBe(
+      ESwapStepStatus.READY,
+    );
+    expect(adapter.sendApproveTx).toHaveBeenCalledTimes(1);
+    expect(adapter.sendApproveTx).toHaveBeenCalledWith(
+      expect.objectContaining({ isResetApprove: false }),
+    );
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.actions.preSwapStepsStart();
+    });
+
+    expect(result.current.swapSteps.steps[0].status).toBe(
+      ESwapStepStatus.SUCCESS,
+    );
+    expect(result.current.swapSteps.steps[1]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.PENDING,
+        txHash: '0xapprove',
+        errorMessage: undefined,
+      }),
+    );
+    expect(result.current.swapSteps.steps[2].status).toBe(
+      ESwapStepStatus.READY,
+    );
+    expect(adapter.sendApproveTx).toHaveBeenCalledTimes(2);
+    expect(adapter.sendApproveTx).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isResetApprove: false }),
+    );
+    expect(adapter.sendSwapTx).not.toHaveBeenCalled();
+  });
+
   it('starts an approve step through the review-visible swap approving state', async () => {
     const adapter = createAdapter();
     adapter.sendApproveTx.mockImplementation(
