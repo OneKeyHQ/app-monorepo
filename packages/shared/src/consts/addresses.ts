@@ -14,6 +14,11 @@ export const EthereumJrUSDe = '0xC58D044404d8B14e953C115E67823784dEA53d8F';
 export const EthereumCUSDO = '0xaD55aebc9b8c03FC43cd9f62260391c13c23e7c0';
 export const EthereumSENA = '0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9';
 export const EthereumStETH = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
+// oxlint-disable-next-line @cspell/spellchecker
+export const EthereumEETH = '0x35fa164735182de50811e8e2e824cfb9b6118ac2';
+export const EthereumWeETH = '0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee';
+// oxlint-disable-next-line @cspell/spellchecker
+export const EthereumEBTC = '0x657e8c867d8b37dcc18fa4caead9c45eb088c642';
 export const EthereumStETHWithdrawalQueue =
   '0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1';
 export const EthereumWstETH = '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0';
@@ -46,6 +51,9 @@ export const PlasmaAUSDT0 = '0x5D72a9d9A9510Cd8cBdBA12aC62593A58930a948';
 
 export const MorphoBundlerContract =
   '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
+// EtherFi deposits approve the referral proxy, not the receipt vault or Teller.
+export const EtherFiLiquidReferContract =
+  '0x1d536713e681b3679f6201f0ad0f83d79eff3ede';
 export const PendleRouterContract =
   '0x888888888889758f76e7103c6cbf23abbf58f946';
 export const MorphoUSDCVaultAddress =
