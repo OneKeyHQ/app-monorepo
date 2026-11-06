@@ -486,8 +486,10 @@ const fetchMarketTokenListBatchLight = async (
   return { list: cachedResults };
 };
 
+// Keyed by locale: category names are localized and onboarding switches the
+// language without reloading the page.
 const memoizedFetchMarketBasicConfigLight = memoizee(
-  async () => {
+  async (locale: string) => {
     markMarketPerf('market-light-api-basic-config-start');
     const client = await getUtilityClient();
     const response = (
@@ -497,6 +499,7 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
         },
       )
     ).data;
@@ -511,7 +514,9 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
 
 const fetchMarketBasicConfigLight = async () => {
   try {
-    return await memoizedFetchMarketBasicConfigLight();
+    return await memoizedFetchMarketBasicConfigLight(
+      resolveMarketTokenBatchLocale(),
+    );
   } catch (error) {
     void memoizedFetchMarketBasicConfigLight.clear();
     throw error;

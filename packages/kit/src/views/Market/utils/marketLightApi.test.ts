@@ -554,7 +554,45 @@ describe('marketLightApi', () => {
         params: {
           configVersion: 2,
         },
+        headers: { 'x-onekey-request-locale': 'zh-cn' },
       },
     );
+  });
+
+  it('refetches the basic config after the locale changes without a reload', async () => {
+    const intl = jest.requireMock<{
+      appLocale: { intl: { locale: string } };
+    }>('@onekeyhq/shared/src/locale/appLocale').appLocale.intl;
+    const configFor = (name: string) => ({
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name }] },
+    });
+    mockGet
+      .mockResolvedValueOnce({ data: configFor('Trending') })
+      .mockResolvedValueOnce({ data: configFor('トレンド') });
+
+    // The module-level cache outlives each test, so use locales no other
+    // test fetches the config with.
+    try {
+      intl.locale = 'en';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('Trending'),
+      );
+      intl.locale = 'ja-JP';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('トレンド'),
+      );
+    } finally {
+      intl.locale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet.mock.calls[0]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'en',
+    });
+    expect(mockGet.mock.calls[1]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'ja-jp',
+    });
   });
 });
