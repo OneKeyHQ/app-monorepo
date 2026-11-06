@@ -141,27 +141,23 @@ function WalletBoundReferralCodeButtonView({
       }
       isOpeningRef.current = true;
       try {
-        await runAfterActionListClose(
-          close,
-          () => {
-            if (isReferralBlocked) {
-              showBotWalletDisabledToast('referral');
-              return;
-            }
-            if (!shouldBoundReferralCode) {
-              return;
-            }
-            bindWalletInviteCode({
-              wallet,
-              onSuccess: () => {
-                setTimeout(() => {
-                  void refreshDisplayReferralCodeButton();
-                }, 200);
-              },
-            });
-          },
-          { waitForAnimation: platformEnv.isNative },
-        );
+        await runAfterActionListClose(close, () => {
+          if (isReferralBlocked) {
+            showBotWalletDisabledToast('referral');
+            return;
+          }
+          if (!shouldBoundReferralCode) {
+            return;
+          }
+          bindWalletInviteCode({
+            wallet,
+            onSuccess: () => {
+              setTimeout(() => {
+                void refreshDisplayReferralCodeButton();
+              }, 200);
+            },
+          });
+        });
       } finally {
         isOpeningRef.current = false;
       }
