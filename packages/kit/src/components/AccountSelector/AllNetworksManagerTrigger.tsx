@@ -405,7 +405,7 @@ function AllNetworksManagerTrigger({
             bg="$gray5"
             borderRadius="$full"
             ml="$-2"
-            zIndex={999}
+            zIndex={shownNetworks.length}
             borderWidth={2}
             borderColor={chipRing}
             alignItems="center"

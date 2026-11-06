@@ -185,6 +185,7 @@ function BasicTabItemView({
           <SizableText
             size="$bodyXsMedium"
             cursor="default"
+            userSelect="none"
             color="$text"
             textAlign="center"
             numberOfLines={2}
@@ -475,6 +476,7 @@ function OverflowMoreButton({
         <SizableText
           size="$bodyXsMedium"
           cursor="default"
+          userSelect="none"
           color="$text"
           textAlign="center"
           numberOfLines={1}

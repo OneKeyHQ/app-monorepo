@@ -78,7 +78,6 @@ const HISTORY_CHANGED_EVENTS = [
 
 // The web animation driver writes these names into `transition-property`.
 // Reduced motion keeps the fades and drops the fold and the blur.
-const ANIMATE_ONLY_BACKGROUND = ['background-color'];
 const ANIMATE_ONLY_FOLD = ['height', 'opacity'];
 const ANIMATE_ONLY_FADE = ['opacity'];
 const ANIMATE_ONLY_SWAP = ['opacity', 'filter'];
@@ -284,10 +283,9 @@ function WalletActivityHintView({
           alignItems="center"
           borderRadius="$2"
           userSelect="none"
+          // Snaps, like the other hover plates on the page.
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
-          transition="100ms"
-          animateOnly={ANIMATE_ONLY_BACKGROUND}
           focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,

@@ -345,6 +345,16 @@ textarea {
   margin-inline-start: 13px;
 }
 
+/* Home wallet token rows and their swap button follow the app's buttons,
+   which keep the arrow cursor and signal interactivity through their hover
+   background; the package ships `cursor: pointer` on both. The extra
+   attribute outranks the package's row rule, which is injected later. */
+.ok-native-list-item[data-testid^='home-token-item-'][data-native-list-row-press-enabled]
+  > .ok-native-list-row,
+.ok-native-list-item[data-testid^='home-token-item-'] .ok-native-list-icon-button {
+  cursor: default;
+}
+
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
