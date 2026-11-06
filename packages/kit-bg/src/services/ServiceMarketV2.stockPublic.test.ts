@@ -80,6 +80,36 @@ describe('ServiceMarketV2 public stock APIs', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses the canonical Bitcoin listing ID without changing the BTC perp', async () => {
+    const service = createService();
+    const bitcoin = {
+      type: 'asset',
+      symbol: 'BTC',
+      assetId: 'bitcoin',
+      favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+    };
+    const btcPerp = {
+      type: 'perp',
+      symbol: 'BTC',
+      perpsCoin: 'BTC',
+      favorite: { perpsCoin: 'BTC', chainId: '', contractAddress: '' },
+    };
+    mockGet.mockResolvedValueOnce({
+      data: { code: 0, data: { data: [{ assets: [bitcoin, btcPerp] }] } },
+    });
+
+    const [item] = await service.fetchMarketHighlights('en-US');
+
+    expect(item.assets).toEqual([
+      {
+        ...bitcoin,
+        assetId: 'btc',
+        favorite: { ...bitcoin.favorite, assetId: 'btc' },
+      },
+      btcPerp,
+    ]);
+  });
+
   it('keeps partial batch rows aligned and only retries missing tokens', async () => {
     const service = createService();
     const unknown = {
