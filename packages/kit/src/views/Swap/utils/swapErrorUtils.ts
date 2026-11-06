@@ -62,6 +62,20 @@ export function getSwapQuoteLimitMessage({
   return error ? formatSwapErrorMessage(intl, error).title : undefined;
 }
 
+export function isSwapQuoteAvailable(
+  quote: IFetchQuoteResult | undefined,
+  fromTokenAmount?: string,
+): quote is IFetchQuoteResult & { toAmount: string } {
+  const toAmount = new BigNumber(quote?.toAmount ?? 0);
+  return Boolean(
+    quote?.info.provider &&
+    !quote.errorMessage &&
+    toAmount.isFinite() &&
+    toAmount.gt(0) &&
+    !getSwapQuoteLimitError({ limit: quote.limit, fromTokenAmount }),
+  );
+}
+
 export function getSwapBalanceInsufficientError({
   networkId,
   tokenSymbol,

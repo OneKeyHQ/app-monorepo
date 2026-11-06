@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty, isEqual, isUndefined } from 'lodash';
+import { chunk, isEmpty, isEqual, isUndefined } from 'lodash';
 
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -34,6 +34,7 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { currencyPersistAtom } from '../states/jotai/atoms/currency';
@@ -41,6 +42,24 @@ import { currencyPersistAtom } from '../states/jotai/atoms/currency';
 import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
+
+const DEFI_OVERVIEW_TOTAL_FIELDS = [
+  'totalValue',
+  'totalDebt',
+  'totalReward',
+  'netWorth',
+] as const;
+
+// The per-network overviews persisted below are derived from the position rows,
+// so a complete response must represent its totals with those rows. A network
+// missing from `positions` would otherwise be persisted as a zero balance.
+// Tolerate the backend's float summation/rounding noise, but not a material gap.
+const DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD = 0.01;
+const DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE = 1e-6;
+
+// The positions API accepts at most this many networks per request; larger
+// lists are split internally so callers never have to know the limit.
+const DEFI_POSITIONS_BATCH_MAX_NETWORKS = 10;
 
 type IDeFiEnabledNetworksMapState = {
   enabledNetworksMap: Record<string, boolean>;
@@ -204,10 +223,178 @@ class ServiceDeFi extends ServiceBase {
   // the DeFi portfolio for that chain. Covers indexer lag after the tx lands.
   private readonly _deFiForceRefreshOffsetsMs = [40_000, 80_000] as const;
 
+  private readonly _submittedDeFiRefreshOffsetsMs = [
+    10_000, 30_000, 60_000, 120_000, 240_000, 480_000,
+  ] as const;
+
   private _deFiForceRefreshTimers = new Map<
     string,
     ReturnType<typeof setTimeout>[]
   >();
+
+  private _submittedDeFiRefreshTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>[]
+  >();
+
+  private _trackedDeFiTransactions = new Set<string>();
+
+  private _recentDeFiSettlements = new Map<string, number>();
+
+  private _deFiSettlementRevision = 0;
+
+  private _markRecentDeFiSettlement(accountId: string, networkId: string) {
+    this._deFiSettlementRevision += 1;
+    this._recentDeFiSettlements.set(
+      this._buildDeFiForceRefreshKey(accountId, networkId),
+      this._deFiSettlementRevision,
+    );
+  }
+
+  private _hasRecentDeFiSettlement(accountId: string, networkId: string) {
+    const key = this._buildDeFiForceRefreshKey(accountId, networkId);
+    return this._recentDeFiSettlements.has(key);
+  }
+
+  @backgroundMethod()
+  public async getDeFiSettlementRevision(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    return this._recentDeFiSettlements.get(
+      this._buildDeFiForceRefreshKey(params.accountId, params.networkId),
+    );
+  }
+
+  @backgroundMethod()
+  public async acknowledgeDeFiSettlement(params: {
+    accountId: string;
+    networkId: string;
+    revision: number;
+  }) {
+    const key = this._buildDeFiForceRefreshKey(
+      params.accountId,
+      params.networkId,
+    );
+    if (this._recentDeFiSettlements.get(key) === params.revision) {
+      this._recentDeFiSettlements.delete(key);
+    }
+  }
+
+  private _deFiForceRefreshInFlight = new Map<
+    string,
+    Promise<
+      IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] | undefined
+    >
+  >();
+
+  // Keep revisions ordered across a background-runtime restart while the UI
+  // runtime remains mounted. Reserve room for requests within a millisecond.
+  private _overviewRequestRevision = Date.now() * 1000;
+
+  private _overviewRequestRevisions = new Map<string, number>();
+
+  private _overviewWrites = new Map<string, Promise<void>>();
+
+  private _beginOverviewRequest(params: {
+    accountAddress?: string;
+    xpub?: string;
+    networkIds: string[];
+  }) {
+    if (!params.accountAddress && !params.xpub) return undefined;
+    const owner = accountUtils.buildAccountLocalAssetsKey(params);
+    const revisions = new Map<string, number>();
+    for (const networkId of params.networkIds) {
+      this._overviewRequestRevision = Math.max(
+        this._overviewRequestRevision + 1,
+        Date.now() * 1000,
+      );
+      const revision = this._overviewRequestRevision;
+      const key = `${owner}::${networkId}`;
+      this._overviewRequestRevisions.delete(key);
+      this._overviewRequestRevisions.set(key, revision);
+      revisions.set(networkId, revision);
+    }
+    while (this._overviewRequestRevisions.size > 1024) {
+      const oldestKey = this._overviewRequestRevisions.keys().next().value;
+      if (!oldestKey) break;
+      this._overviewRequestRevisions.delete(oldestKey);
+    }
+    return { owner, revisions };
+  }
+
+  public trackSubmittedDeFiTransaction(params: {
+    accountId: string;
+    networkId: string;
+    txid: string;
+  }) {
+    const { accountId, networkId, txid } = params;
+    if (!accountId || !networkId || !txid) return;
+    const key = JSON.stringify([accountId, networkId, txid]);
+    if (this._trackedDeFiTransactions.has(key)) return;
+    this._trackedDeFiTransactions.add(key);
+
+    // A confirmed history detail is not always available even after the
+    // portfolio has changed. Refresh the portfolio independently of it.
+    void this._refreshSubmittedDeFiTransaction({ accountId, networkId }).catch(
+      (error: unknown) => {
+        console.error(
+          '[ServiceDeFi] submitted transaction refresh failed',
+          error,
+        );
+      },
+    );
+
+    void (async () => {
+      try {
+        // The transaction outlives its confirmation sheet. Keep tracking in
+        // background so leaving the page cannot cancel settlement detection.
+        for (let attempt = 0; attempt < 120; attempt += 1) {
+          const response = await this.backgroundApi.serviceHistory
+            .fetchTxDetails(params)
+            .catch(() => undefined);
+          const status = response?.data?.status;
+          if (
+            status === EOnChainHistoryTxStatus.Success ||
+            status === EOnChainHistoryTxStatus.Failed
+          ) {
+            // A failed transaction may still consume gas. History owns the
+            // pending-to-final transition for both terminal statuses.
+            appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+              accounts: [{ accountId, networkId }],
+            });
+            void this.backgroundApi.serviceHistory
+              .fetchAccountHistory({ accountId, networkId })
+              .then(() => {
+                appEventBus.emit(
+                  EAppEventBusNames.HistoryTxStatusChanged,
+                  undefined,
+                );
+              })
+              .catch((error: unknown) => {
+                console.error(
+                  '[ServiceDeFi] history reconciliation failed',
+                  error,
+                );
+              });
+            if (status === EOnChainHistoryTxStatus.Failed) return;
+            await this.refreshAccountDeFiPositionsAfterAction({
+              accountId,
+              networkId,
+            });
+            return;
+          }
+          if (attempt < 119) {
+            await timerUtils.wait(5000);
+          }
+        }
+      } catch (error) {
+        console.error('[ServiceDeFi] transaction tracking failed', error);
+      } finally {
+        this._trackedDeFiTransactions.delete(key);
+      }
+    })();
+  }
 
   private _fixCurrencyValue = ({
     sourceCurrencyInfo,
@@ -263,11 +450,37 @@ class ServiceDeFi extends ServiceBase {
       string,
       ReturnType<ServiceDeFi['_buildLocalDeFiOverviewEntry']>
     >;
+    request?: ReturnType<ServiceDeFi['_beginOverviewRequest']>;
   }) {
+    const { request, ...data } = params;
+    if (!request) return;
+    const previous = this._overviewWrites.get(request.owner);
+    const current = (async () => {
+      if (previous) await previous.catch(() => undefined);
+      const overview = Object.fromEntries(
+        Object.entries(data.overview).filter(
+          ([networkId]) =>
+            this._overviewRequestRevisions.get(
+              `${request.owner}::${networkId}`,
+            ) === request.revisions.get(networkId),
+        ),
+      );
+      if (Object.keys(overview).length === 0) return;
+      await this.updateAccountsLocalDeFiOverview({
+        ...data,
+        overview,
+        merge: true,
+      });
+    })();
+    this._overviewWrites.set(request.owner, current);
     try {
-      await this.updateAccountsLocalDeFiOverview({ ...params, merge: true });
+      await current;
     } catch (error) {
       console.error('[ServiceDeFi] local DeFi overview write failed', error);
+    } finally {
+      if (this._overviewWrites.get(request.owner) === current) {
+        this._overviewWrites.delete(request.owner);
+      }
     }
   }
 
@@ -293,6 +506,40 @@ class ServiceDeFi extends ServiceBase {
       (networkId) =>
         !queried.has(networkId) && !resp.data?.positions?.[networkId],
     );
+  }
+
+  // Complete responses must be fully attributable to the position rows we
+  // persist. `unrepresentedValue` is the backend's own signal for value outside
+  // `positions`; otherwise the per-network rows must sum to the response totals.
+  private _isDeFiTotalsCoveredByPositions({
+    networkIds,
+    positions,
+    totals,
+  }: {
+    networkIds: string[];
+    positions: IFetchAccountDeFiPositionsResp['data']['positions'] | undefined;
+    totals: IFetchAccountDeFiPositionsResp['data']['totals'] | undefined;
+  }) {
+    if (!totals) return false;
+    if (!new BigNumber(totals.unrepresentedValue ?? 0).isZero()) {
+      return false;
+    }
+    const splitResults = defiUtils.splitDeFiPositionsByNetwork({
+      networkIds,
+      positions,
+    });
+    return DEFI_OVERVIEW_TOTAL_FIELDS.every((field) => {
+      const total = new BigNumber(totals[field]);
+      if (!total.isFinite()) return false;
+      const coveredTotal = BigNumber.sum(
+        ...splitResults.map((result) => result.overview[field]),
+      );
+      const tolerance = BigNumber.maximum(
+        total.abs().multipliedBy(DEFI_TOTALS_COVERAGE_RELATIVE_TOLERANCE),
+        DEFI_TOTALS_COVERAGE_MIN_TOLERANCE_USD,
+      );
+      return coveredTotal.minus(total).abs().lte(tolerance);
+    });
   }
 
   private _filterLowValueProtocols({
@@ -372,6 +619,31 @@ class ServiceDeFi extends ServiceBase {
     });
   }
 
+  private async _buildDeFiPositionsRequestConfig({
+    accountId,
+    controller,
+    params,
+    sourceCurrencyInfo,
+  }: {
+    accountId: string;
+    controller: AbortController;
+    params: { timeoutMs?: number; requireComplete?: boolean };
+    sourceCurrencyInfo?: ICurrencyItem;
+  }) {
+    return {
+      signal: controller.signal,
+      ...(params.timeoutMs !== undefined ? { timeout: params.timeoutMs } : {}),
+      headers: {
+        ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          { accountId },
+        )),
+        ...(params.requireComplete && sourceCurrencyInfo
+          ? { 'x-onekey-request-currency': sourceCurrencyInfo.id }
+          : {}),
+      },
+    };
+  }
+
   @backgroundMethod()
   public async fetchAccountDeFiPositions(
     params: IFetchAccountDeFiPositionsParams,
@@ -405,6 +677,8 @@ class ServiceDeFi extends ServiceBase {
       return {
         ...defiUtils.getEmptyDeFiData(),
         networkId: currentNetworkId,
+        isNetworkQueried: false,
+        overviewRequestRevision: undefined,
       };
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -437,8 +711,20 @@ class ServiceDeFi extends ServiceBase {
       ]);
       accountAddress = a;
       xpub = x;
+    } else if (saveToLocal && !xpub) {
+      xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      });
     }
 
+    const overviewRequest = saveToLocal
+      ? this._beginOverviewRequest({
+          accountAddress,
+          xpub,
+          networkIds: [networkId],
+        })
+      : undefined;
     const resp = await client.post<{
       data: IFetchAccountDeFiPositionsResp;
     }>(
@@ -446,16 +732,48 @@ class ServiceDeFi extends ServiceBase {
       {
         networkId,
         accountAddress,
-        isForceRefresh,
+        isForceRefresh: this._hasRecentDeFiSettlement(accountId, networkId)
+          ? true
+          : isForceRefresh,
       },
-      {
-        signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+      await this._buildDeFiPositionsRequestConfig({
+        accountId,
+        controller,
+        params,
+        sourceCurrencyInfo,
+      }),
     );
+
+    if (params.requireComplete) {
+      const result = resp.data.data;
+      const meta = result.meta;
+      const expectedCurrency = sourceCurrencyInfo?.id;
+      if (
+        !result.success ||
+        !meta ||
+        meta.degraded !== false ||
+        !meta.requestedNetworkIds?.includes(networkId) ||
+        (Array.isArray(meta.queriedNetworkIds) &&
+          !meta.queriedNetworkIds.includes(networkId)) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => id !== networkId) ||
+        Object.entries(result.data?.positions ?? {}).some(
+          ([id, positions]) => id !== networkId && positions.length > 0,
+        ) ||
+        this._getNotQueriedNetworkIds({ networkIds: [networkId], resp: result })
+          .length > 0 ||
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds: [networkId],
+          positions: result.data?.positions,
+          totals: result.data?.totals,
+        })
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
 
     const parsedData = defiUtils.transformDeFiData({
       accountId,
@@ -496,6 +814,7 @@ class ServiceDeFi extends ServiceBase {
       await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
+        request: overviewRequest,
         overview: {
           [networkId]: this._buildLocalDeFiOverviewEntry({
             overview,
@@ -510,6 +829,8 @@ class ServiceDeFi extends ServiceBase {
       overview,
       protocols: parsedData.protocols,
       protocolMap: parsedData.protocolMap,
+      isNetworkQueried,
+      overviewRequestRevision: overviewRequest?.revisions.get(networkId),
       isSameAllNetworksAccountData: !!(
         allNetworksAccountId &&
         allNetworksNetworkId &&
@@ -524,17 +845,30 @@ class ServiceDeFi extends ServiceBase {
   private async _fetchAccountDeFiPositionsPerNetwork(
     params: IFetchAccountDeFiPositionsBatchParams,
   ): Promise<Array<IFetchAccountDeFiPositionsResult | undefined>> {
+    // Complete queries persist only after every network produced a validated
+    // result, so a failed fallback cannot leave partial balances in the cache.
+    const persistAfterCompletion = Boolean(
+      params.requireComplete && params.saveToLocal,
+    );
+    const overviewRequest = persistAfterCompletion
+      ? this._beginOverviewRequest({
+          accountAddress: params.accountAddress,
+          xpub: params.xpub,
+          networkIds: params.networkIds,
+        })
+      : undefined;
     const settled = await promiseAllSettledEnhanced(
       params.networkIds.map((networkId) => async () => {
         const r = await this.fetchAccountDeFiPositions({
           ...params,
           networkId,
+          saveToLocal: persistAfterCompletion ? false : params.saveToLocal,
         });
         return { ...r, networkId };
       }),
       { continueOnError: true, concurrency: 2 },
     );
-    return settled.map((r) =>
+    const results = settled.map((r) =>
       r
         ? {
             networkId: r.networkId,
@@ -542,15 +876,42 @@ class ServiceDeFi extends ServiceBase {
             protocols: r.protocols,
             protocolMap: r.protocolMap,
             isSameAllNetworksAccountData: !!r.isSameAllNetworksAccountData,
+            isNetworkQueried: r.isNetworkQueried,
+            overviewRequestRevision: r.overviewRequestRevision,
           }
         : undefined,
     );
+    const completeResults = results.filter(
+      (result): result is NonNullable<typeof result> => Boolean(result),
+    );
+    if (params.requireComplete && completeResults.length !== results.length) {
+      throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+    }
+    if (overviewRequest && completeResults.length) {
+      await this._saveLocalDeFiOverview({
+        accountAddress: params.accountAddress,
+        xpub: params.xpub,
+        request: overviewRequest,
+        overview: Object.fromEntries(
+          completeResults.map((result) => [
+            result.networkId,
+            this._buildLocalDeFiOverviewEntry({
+              overview: result.overview,
+              sourceCurrencyInfo: params.sourceCurrencyInfo,
+              targetCurrencyInfo: params.targetCurrencyInfo,
+            }),
+          ]),
+        ),
+      });
+    }
+    return results;
   }
 
   /**
    * One request for up to 10 networks served by the same address/xpub
-   * (All Networks fan-out). Returns one entry per `networkIds` element in the
-   * same order; `undefined` marks a network whose fallback request failed.
+   * (All Networks fan-out); larger lists are split into consecutive requests
+   * internally. Returns one entry per `networkIds` element in the same order;
+   * `undefined` marks a network whose fallback request failed.
    */
   @backgroundMethod()
   public async fetchAccountDeFiPositionsBatch(
@@ -573,6 +934,14 @@ class ServiceDeFi extends ServiceBase {
     if (networkIds.length === 0) {
       return [];
     }
+    if (networkIds.length > DEFI_POSITIONS_BATCH_MAX_NETWORKS) {
+      const chunkResults = await Promise.all(
+        chunk(networkIds, DEFI_POSITIONS_BATCH_MAX_NETWORKS).map((ids) =>
+          this.fetchAccountDeFiPositionsBatch({ ...params, networkIds: ids }),
+        ),
+      );
+      return chunkResults.flat();
+    }
 
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
     const currentNetworkId = isUrlAccount
@@ -593,6 +962,7 @@ class ServiceDeFi extends ServiceBase {
         ...defiUtils.getEmptyDeFiData(),
         networkId,
         isSameAllNetworksAccountData: false,
+        isNetworkQueried: false,
       }));
     }
 
@@ -619,6 +989,11 @@ class ServiceDeFi extends ServiceBase {
       ]);
       accountAddress = a;
       xpub = x;
+    } else if (saveToLocal && !xpub) {
+      xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId: networkIds[0],
+      });
     }
 
     const resolvedParams = {
@@ -641,6 +1016,9 @@ class ServiceDeFi extends ServiceBase {
       this._fetchAccountDeFiPositionsControllers.push(controller);
     }
 
+    const overviewRequest = saveToLocal
+      ? this._beginOverviewRequest({ accountAddress, xpub, networkIds })
+      : undefined;
     let resp: { data: { data: IFetchAccountDeFiPositionsResp } };
     try {
       resp = await client.post<{ data: IFetchAccountDeFiPositionsResp }>(
@@ -649,32 +1027,29 @@ class ServiceDeFi extends ServiceBase {
           // Contract: one network is a string, several are an array.
           networkId: networkIds.length === 1 ? networkIds[0] : networkIds,
           accountAddress,
-          isForceRefresh,
+          isForceRefresh: networkIds.some((id) =>
+            this._hasRecentDeFiSettlement(accountId, id),
+          )
+            ? true
+            : isForceRefresh,
         },
-        {
-          signal: controller.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              { accountId },
-            ),
-        },
+        await this._buildDeFiPositionsRequestConfig({
+          accountId,
+          controller,
+          params,
+          sourceCurrencyInfo,
+        }),
       );
     } catch (error) {
       const code = (error as { code?: number } | undefined)?.code;
-      if (code === 13_004 && networkIds.length > 1) {
-        // Defensive: the planner never exceeds the limit. Halve and retry once.
-        const middle = Math.ceil(networkIds.length / 2);
-        const [head, tail] = await Promise.all([
-          this.fetchAccountDeFiPositionsBatch({
-            ...resolvedParams,
-            networkIds: networkIds.slice(0, middle),
-          }),
-          this.fetchAccountDeFiPositionsBatch({
-            ...resolvedParams,
-            networkIds: networkIds.slice(middle),
-          }),
-        ]);
-        return [...head, ...tail];
+      if (code === 13_004) {
+        // The backend enforces a smaller multi-network limit than our planner:
+        // serve the networks one by one instead of failing the refresh. The
+        // complete per-network fallback persists atomically.
+        if (networkIds.length > 1) {
+          this._rejectedMultiChainSets.set(multiChainSetKey, Date.now());
+        }
+        return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
       if (code === 40_115) {
         // The backend does not array this network set (not in its multi-chain
@@ -685,6 +1060,8 @@ class ServiceDeFi extends ServiceBase {
         }
         return this._fetchAccountDeFiPositionsPerNetwork(resolvedParams);
       }
+      // Complete Portfolio queries must not amplify rate limits or partial failures.
+      if (params.requireComplete) throw error;
       if (networkIds.length > 1 && !controller.signal.aborted) {
         // Any other failure of the array request (timeout, 5xx, another
         // business code) would drop every network of the batch at once.
@@ -698,10 +1075,54 @@ class ServiceDeFi extends ServiceBase {
 
     const body = resp.data.data;
     const data = body.data;
-    const notQueriedNetworkIds = this._getNotQueriedNetworkIds({
-      networkIds,
-      resp: body,
-    });
+    if (params.requireComplete) {
+      const meta = body.meta;
+      const queriedNetworkIds = meta?.queriedNetworkIds;
+      const requested = new Set(networkIds);
+      const expectedCurrency = sourceCurrencyInfo?.id;
+      if (
+        !body.success ||
+        !meta ||
+        meta.degraded !== false ||
+        (networkIds.length === 1 &&
+          !meta.requestedNetworkIds?.includes(networkIds[0])) ||
+        (networkIds.length === 1 &&
+          Array.isArray(queriedNetworkIds) &&
+          !queriedNetworkIds.includes(networkIds[0])) ||
+        !Array.isArray(meta.networkIds) ||
+        meta.networkIds.some((id) => !requested.has(id)) ||
+        Object.entries(data?.positions ?? {}).some(
+          ([id, positions]) => !requested.has(id) && positions.length > 0,
+        ) ||
+        (expectedCurrency !== undefined &&
+          meta.currencyInfo?.actual !== undefined &&
+          meta.currencyInfo.actual !== expectedCurrency) ||
+        !this._isDeFiTotalsCoveredByPositions({
+          networkIds,
+          positions: data?.positions,
+          totals: data?.totals,
+        })
+      ) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+    }
+    const queriedNetworkIdsInResponse = Array.isArray(
+      body.meta?.queriedNetworkIds,
+    )
+      ? body.meta.queriedNetworkIds
+      : undefined;
+    // Complete queries treat any network the backend did not query as missing,
+    // even when it seeded an empty positions bucket for it: that bucket is not
+    // a confirmed zero. Non-complete callers keep the lenient heuristic.
+    const notQueriedNetworkIds =
+      params.requireComplete && queriedNetworkIdsInResponse
+        ? networkIds.filter(
+            (networkId) => !queriedNetworkIdsInResponse.includes(networkId),
+          )
+        : this._getNotQueriedNetworkIds({
+            networkIds,
+            resp: body,
+          });
     const notQueried = new Set(notQueriedNetworkIds);
     // A single network already went out as the string request the fallback
     // would send: its empty result stands, only the cache write is skipped.
@@ -737,16 +1158,28 @@ class ServiceDeFi extends ServiceBase {
           protocols: visibleProtocols,
           protocolMap,
           isSameAllNetworksAccountData,
+          isNetworkQueried: !notQueried.has(networkId),
+          overviewRequestRevision: overviewRequest?.revisions.get(networkId),
         };
       });
-
     const persistedResults = results.filter(
       (result) => !notQueried.has(result.networkId),
     );
-    if (saveToLocal && (accountAddress || xpub) && persistedResults.length) {
+    // Complete queries persist only after the whole result is assembled below,
+    // so a failed recovery cannot leave a partial cache write behind.
+    const deferCompletePersistence = Boolean(
+      params.requireComplete && refetchNetworkIds.length > 0 && saveToLocal,
+    );
+    if (
+      !deferCompletePersistence &&
+      saveToLocal &&
+      (accountAddress || xpub) &&
+      persistedResults.length
+    ) {
       await this._saveLocalDeFiOverview({
         accountAddress,
         xpub,
+        request: overviewRequest,
         overview: Object.fromEntries(
           persistedResults.map((result) => [
             result.networkId,
@@ -763,12 +1196,13 @@ class ServiceDeFi extends ServiceBase {
     if (refetchNetworkIds.length === 0) {
       return results;
     }
-    // The networks the array request did not query are served as string
-    // requests, which the backend routes through its single-chain providers;
-    // one that fails stays `undefined` and keeps its cached overview.
+    // Networks the array request omitted are recovered through complete
+    // single-network requests; the aggregate fails only when one of them cannot
+    // produce a validated result.
     const fallbackResults = await this._fetchAccountDeFiPositionsPerNetwork({
       ...resolvedParams,
       networkIds: refetchNetworkIds,
+      saveToLocal: deferCompletePersistence ? false : params.saveToLocal,
     });
     const resultByNetworkId = new Map<
       string,
@@ -777,7 +1211,35 @@ class ServiceDeFi extends ServiceBase {
     fallbackResults.forEach((result, index) => {
       resultByNetworkId.set(refetchNetworkIds[index], result);
     });
-    return networkIds.map((networkId) => resultByNetworkId.get(networkId));
+    const finalResults = networkIds.map((networkId) =>
+      resultByNetworkId.get(networkId),
+    );
+    if (params.requireComplete) {
+      const completeFinalResults = finalResults.filter(
+        (result): result is NonNullable<typeof result> => Boolean(result),
+      );
+      if (completeFinalResults.length !== finalResults.length) {
+        throw new OneKeyLocalError('Incomplete DeFi portfolio response');
+      }
+      if (deferCompletePersistence && (accountAddress || xpub)) {
+        await this._saveLocalDeFiOverview({
+          accountAddress,
+          xpub,
+          request: overviewRequest,
+          overview: Object.fromEntries(
+            completeFinalResults.map((result) => [
+              result.networkId,
+              this._buildLocalDeFiOverviewEntry({
+                overview: result.overview,
+                sourceCurrencyInfo,
+                targetCurrencyInfo,
+              }),
+            ]),
+          ),
+        });
+      }
+    }
+    return finalResults;
   }
 
   @backgroundMethod()
@@ -813,11 +1275,14 @@ class ServiceDeFi extends ServiceBase {
     return `${accountId}__${networkId}`;
   }
 
-  private _cancelDeFiForceRefresh(key: string) {
-    const timers = this._deFiForceRefreshTimers.get(key);
+  private _cancelDeFiForceRefresh(
+    key: string,
+    timersByKey = this._deFiForceRefreshTimers,
+  ) {
+    const timers = timersByKey.get(key);
     if (!timers) return;
     timers.forEach((t) => clearTimeout(t));
-    this._deFiForceRefreshTimers.delete(key);
+    timersByKey.delete(key);
   }
 
   private _scheduleDeFiForceRefresh(
@@ -827,23 +1292,47 @@ class ServiceDeFi extends ServiceBase {
       indexedAccountId?: string;
       networkId: string;
     },
+    offsets: readonly number[] = this._deFiForceRefreshOffsetsMs,
+    timersByKey = this._deFiForceRefreshTimers,
   ) {
     // Coalesce multiple refresh triggers: reset the schedule to the latest one.
-    this._cancelDeFiForceRefresh(key);
+    this._cancelDeFiForceRefresh(key, timersByKey);
 
-    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
-    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
+    const maxOffset = Math.max(...offsets);
+    const timers = offsets.map((offset) =>
       setTimeout(() => {
         void this._runDeFiForceRefresh(params);
         // After the last scheduled offset fires, drop the Map entry so it
         // does not linger once every timer has run.
         if (offset === maxOffset) {
-          this._deFiForceRefreshTimers.delete(key);
+          timersByKey.delete(key);
         }
       }, offset),
     );
 
-    this._deFiForceRefreshTimers.set(key, timers);
+    timersByKey.set(key, timers);
+  }
+
+  private async _refreshSubmittedDeFiTransaction(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { accountId, networkId } = params;
+    const dbAccount = await this.backgroundApi.serviceAccount
+      .getDBAccountSafe({ accountId })
+      .catch(() => undefined);
+    const refreshParams = {
+      accountId,
+      networkId,
+      indexedAccountId: dbAccount?.indexedAccountId,
+    };
+    this._scheduleDeFiForceRefresh(
+      this._buildDeFiForceRefreshKey(accountId, networkId),
+      refreshParams,
+      this._submittedDeFiRefreshOffsetsMs,
+      this._submittedDeFiRefreshTimers,
+    );
+    await this._runDeFiForceRefresh(refreshParams);
   }
 
   @backgroundMethod()
@@ -884,11 +1373,46 @@ class ServiceDeFi extends ServiceBase {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
+    retryOnSuperseded?: boolean;
+  }): Promise<
+    IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] | undefined
+  > {
+    const key = this._buildDeFiForceRefreshKey(
+      params.accountId,
+      params.networkId,
+    );
+    const previous = this._deFiForceRefreshInFlight.get(key);
+    const current = (async () => {
+      if (previous) await previous;
+      return this._fetchDeFiForceRefresh(params);
+    })();
+    this._deFiForceRefreshInFlight.set(key, current);
+    try {
+      return await current;
+    } finally {
+      if (this._deFiForceRefreshInFlight.get(key) === current) {
+        this._deFiForceRefreshInFlight.delete(key);
+      }
+    }
+  }
+
+  private async _fetchDeFiForceRefresh(params: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+    retryOnSuperseded?: boolean;
   }): Promise<
     IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] | undefined
   > {
     const { accountId, indexedAccountId, networkId } = params;
     try {
+      const resolvedIndexedAccountId =
+        indexedAccountId ??
+        (
+          await this.backgroundApi.serviceAccount
+            .getDBAccountSafe({ accountId })
+            .catch(() => undefined)
+        )?.indexedAccountId;
       const [settings, currencyMap, accountAddress, xpub] = await Promise.all([
         settingsPersistAtom.get(),
         this.backgroundApi.serviceSetting.getCurrencyMap(),
@@ -906,15 +1430,14 @@ class ServiceDeFi extends ServiceBase {
 
       const resp = await this.fetchAccountDeFiPositions({
         accountId,
-        indexedAccountId,
+        indexedAccountId: resolvedIndexedAccountId,
         networkId,
         accountAddress,
         xpub,
         excludeLowValueProtocols: true,
         sourceCurrencyInfo,
         targetCurrencyInfo,
-        // Written directly below with this account's address/xpub.
-        saveToLocal: false,
+        saveToLocal: true,
         isForceRefresh: true,
         // Do not share the abort pool: a UI-initiated
         // abortFetchAccountDeFiPositions() must not cancel the scheduled
@@ -922,44 +1445,31 @@ class ServiceDeFi extends ServiceBase {
         abortable: false,
       });
 
-      if (accountAddress || xpub) {
-        await this.updateAccountsLocalDeFiOverview({
-          accountAddress,
-          xpub,
-          overview: {
-            [networkId]: {
-              totalValue: this._fixCurrencyValue({
-                sourceCurrencyInfo,
-                targetCurrencyInfo,
-                value: resp.overview.totalValue,
-              }).toNumber(),
-              totalDebt: this._fixCurrencyValue({
-                sourceCurrencyInfo,
-                targetCurrencyInfo,
-                value: resp.overview.totalDebt,
-              }).toNumber(),
-              totalReward: this._fixCurrencyValue({
-                sourceCurrencyInfo,
-                targetCurrencyInfo,
-                value: resp.overview.totalReward,
-              }).toNumber(),
-              netWorth: this._fixCurrencyValue({
-                sourceCurrencyInfo,
-                targetCurrencyInfo,
-                value: resp.overview.netWorth,
-              }).toNumber(),
-              currency: targetCurrencyInfo?.id ?? '',
-            },
-          },
-          merge: true,
-        });
+      if (!resp.isNetworkQueried || !resp.overviewRequestRevision) return;
+      const owner = accountUtils.buildAccountLocalAssetsKey({
+        accountAddress,
+        xpub,
+      });
+      if (
+        this._overviewRequestRevisions.get(`${owner}::${networkId}`) !==
+        resp.overviewRequestRevision
+      ) {
+        if (params.retryOnSuperseded !== false) {
+          void this._runDeFiForceRefresh({
+            ...params,
+            retryOnSuperseded: false,
+          });
+        }
+        return;
       }
+      this._markRecentDeFiSettlement(accountId, networkId);
 
       const payload: IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] =
         {
           accountId,
-          indexedAccountId,
+          indexedAccountId: resolvedIndexedAccountId,
           networkId,
+          overviewRequestRevision: resp.overviewRequestRevision,
           overview: resp.overview,
           protocols: resp.protocols,
           protocolMap: resp.protocolMap,
@@ -987,6 +1497,7 @@ class ServiceDeFi extends ServiceBase {
     if (!accountId || !networkId) return undefined;
     if (!(await this.isNetworkDeFiEnabled(networkId))) return undefined;
 
+    this._markRecentDeFiSettlement(accountId, networkId);
     const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
       accountId,
     });

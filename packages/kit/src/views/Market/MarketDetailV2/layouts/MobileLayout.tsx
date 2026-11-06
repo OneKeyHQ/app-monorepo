@@ -66,6 +66,7 @@ import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -111,7 +112,11 @@ import {
 } from '../utils/marketTradingViewSubIndicatorCount';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
-import { shouldShowMobileSimpleChart } from './mobileChartVisibility';
+import {
+  isTransientLandscapePageLayout,
+  shouldShowMobileNativeChart,
+  shouldShowMobileSimpleChart,
+} from './mobileChartVisibility';
 import {
   MOBILE_SIMPLE_CHART_HEIGHT,
   MobileChartModeControl,
@@ -396,10 +401,7 @@ export function MobileLayout({
     stockPreview,
     stockId,
   } = useStockDetail();
-  const { priceMode } = useStockPriceSource();
-  // The legacy token-only chart cannot render the selected share series.
-  const isTradingViewNative =
-    preferredIsTradingViewNative || priceMode === 'share';
+  const { priceMode, isPriceSourceReady } = useStockPriceSource();
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
@@ -454,7 +456,11 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: active !== false && !isSimpleChart && priceMode === 'token',
+    enabled:
+      active !== false &&
+      isPriceSourceReady &&
+      !isSimpleChart &&
+      priceMode === 'token',
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -464,6 +470,18 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const isTradingViewNative = shouldShowMobileNativeChart({
+    isNativeChartPreferred: preferredIsTradingViewNative,
+    hasTradingViewParams: Boolean(marketTradingViewParams),
+    isSharePrice: priceMode === 'share',
+  });
+  // Only the native chart has a fullscreen mode here. Leave it when
+  // TradingView takes over, e.g. once its chart params arrive.
+  useEffect(() => {
+    if (isChartFullscreen && !isTradingViewNative) {
+      onChartFullscreenChange(false);
+    }
+  }, [isChartFullscreen, isTradingViewNative, onChartFullscreenChange]);
   let marketTradingViewKey = 'v2';
   if (!isTradingViewNative && marketTradingViewParams) {
     marketTradingViewKey = [
@@ -577,7 +595,7 @@ export function MobileLayout({
     enabled: resolveMarketNativeChartFallbackQuoteEnabled({
       active,
       isTradingViewNative,
-      isNativeChartMounted: !isSimpleChart,
+      isNativeChartMounted: isPriceSourceReady && !isSimpleChart,
       source: tradingViewNativeSource,
       isNative,
       networkId,
@@ -708,19 +726,34 @@ export function MobileLayout({
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
 
+  // Only the fullscreen chart leaves portrait on regular iPhones. Foldable
+  // iPhones rotate the whole app, so landscape is a real page layout there.
   const preservesPortraitLayout =
-    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone();
   const preserveInlineViewport =
     preservesPortraitLayout &&
     (isChartFullscreen || windowWidth > windowHeight);
+  // Android: set while the native chart fullscreen rotates the window. Keep the
+  // page's portrait measurements through those rotations only; the window can
+  // also be landscape on its own, e.g. in split screen.
+  const isChartRotatingWindowRef = useRef(false);
+  const handleChartWindowRotationChange = useCallback((isRotating: boolean) => {
+    isChartRotatingWindowRef.current = isRotating;
+  }, []);
 
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       if (
         preserveInlineViewport ||
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -753,9 +786,13 @@ export function MobileLayout({
         (preservesAndroidTabHeight && Keyboard.isVisible()) ||
         preserveInlineViewport ||
         // A queued landscape layout can arrive after Dimensions is portrait.
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -772,8 +809,8 @@ export function MobileLayout({
     [
       pageViewportCacheKey,
       preserveInlineViewport,
-      preservesPortraitLayout,
       preservesAndroidTabHeight,
+      preservesPortraitLayout,
       usesMeasuredPageViewport,
       windowHeight,
       windowWidth,
@@ -895,7 +932,22 @@ export function MobileLayout({
           position="relative"
           pb={isChartFullscreen ? 0 : MOBILE_CHART_BOTTOM_SPACING}
         >
-          {isSimpleChart ? (
+          {!isPriceSourceReady ? (
+            <YStack
+              h={
+                isSimpleChart
+                  ? MOBILE_SIMPLE_CHART_HEIGHT +
+                    TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
+                  : tradingViewHeight
+              }
+            >
+              <ChartControlsSkeleton />
+              <Stack flex={1} position="relative">
+                <TradingViewChartLoadingMask />
+              </Stack>
+            </YStack>
+          ) : null}
+          {isPriceSourceReady && isSimpleChart ? (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen}
               panActiveOffsetY={[-4, 4]}
@@ -907,7 +959,7 @@ export function MobileLayout({
               <MobileSimpleChart marketAssetId={marketTokenId} />
             </MarketDetailHeaderGesture>
           ) : null}
-          {isSimpleChart ? null : (
+          {!isPriceSourceReady || isSimpleChart ? null : (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen || isTradingViewScrollLocked}
               panActiveOffsetY={isTradingViewNative ? [-12, 12] : [-4, 4]}
@@ -1001,6 +1053,9 @@ export function MobileLayout({
                         }
                         onChartSwitch={onChartSwitch}
                         onNativeChartFullscreenChange={onChartFullscreenChange}
+                        onNativeChartWindowRotationChange={
+                          handleChartWindowRotationChange
+                        }
                       />
                     ) : (
                       // Same controls row + masked canvas the chart mounts with.
@@ -1067,8 +1122,11 @@ export function MobileLayout({
             </MarketDetailHeaderGesture>
           )}
           {/* Reserve the async quick bar until its availability is known. */}
-          {isSimpleChart ? null : nativeIndicatorQuickBarContent}
+          {!isPriceSourceReady || isSimpleChart
+            ? null
+            : nativeIndicatorQuickBarContent}
           {platformEnv.isNativeIOS &&
+          isPriceSourceReady &&
           !isTradingViewNative &&
           !isChartFullscreen &&
           !isSimpleChart ? (
@@ -1092,6 +1150,7 @@ export function MobileLayout({
     chartHeaderLogoUrl,
     chartHeaderSymbol,
     detailKind,
+    handleChartWindowRotationChange,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
     handleNativeChartPriceUpdate,
@@ -1099,6 +1158,7 @@ export function MobileLayout({
     handleNativeSubIndicatorCountChange,
     intl,
     isChartFullscreen,
+    isPriceSourceReady,
     isSimpleChart,
     isStockDetailChart,
     isTradingViewScrollLocked,
@@ -1117,6 +1177,7 @@ export function MobileLayout({
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
+    tradingViewHeight,
   ]);
 
   const renderInformationHeader = useCallback(
@@ -1294,6 +1355,11 @@ export function MobileLayout({
               }
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={
+                isStockPortfolio
+                  ? stockPortfolio.isPortfolioIncomplete
+                  : tokenPortfolio.isPortfolioFailed
+              }
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}

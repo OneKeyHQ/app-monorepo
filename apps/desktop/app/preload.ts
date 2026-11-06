@@ -5,6 +5,7 @@ import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/consta
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import { ipcMessageKeys } from './config';
 
@@ -477,6 +478,8 @@ const desktopApi = {
       };
     },
   } as ThirdPartyBleApi,
+  fetchStream: (params: IFetchStreamRequest) =>
+    ipcRenderer.invoke(ipcMessageKeys.FETCH_STREAM, params),
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),

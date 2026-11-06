@@ -18,6 +18,7 @@ export type { ITabSceneInfo } from './TabSceneContext';
  * Types
  */
 export type {
+  NativeBottomTabIconSource,
   NativeBottomTabNavigationEventMap,
   NativeBottomTabNavigationOptions,
   NativeBottomTabNavigationProp,

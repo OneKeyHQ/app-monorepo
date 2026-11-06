@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -85,6 +86,9 @@ export function EarnPageContainer({
   bodyListMode = false,
 }: IEarnPageContainerProps) {
   const media = useMedia();
+  // The standalone search row sits beside the iPadOS window controls.
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
   const { width: windowWidth } = useWindowDimensions();
   const navigation = useAppNavigation();
   const { top: safeAreaTop } = useSafeAreaInsets();
@@ -326,7 +330,7 @@ export function EarnPageContainer({
           ) : null}
         </YStack>
       ) : (
-        <YStack mx="$pagePadding" mt="$2" mb="$1">
+        <YStack mx="$pagePadding" mt="$2" mb="$1" pl={windowControlsOffset}>
           <Page.Header headerShown={false} />
           <LegacyUniversalSearchInput
             size="medium"

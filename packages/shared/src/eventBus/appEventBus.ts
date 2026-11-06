@@ -119,6 +119,7 @@ export type IEventBusPayloadShowToast = {
   i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
+  nativeStorageRecoveryTestSessionId?: string;
 };
 
 export type ILinuxUdevGuideReason =
@@ -171,6 +172,13 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
+  // The device is asking for confirmation `current` of `total`.
+  [EAppEventBusNames.HardwareCloudKeySignProgress]: {
+    current: number;
+    total: number;
+  };
+  // Another device reset the key or signed this one out; it must sign again.
+  [EAppEventBusNames.HardwareCloudKeyDropped]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {
@@ -200,6 +208,13 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
+  };
+  // Fires once a new HD wallet is persisted. isFreshlyGeneratedMnemonic is
+  // true only for a mnemonic generateMnemonic() just handed out -- the one
+  // case provably free of prior on-chain history.
+  [EAppEventBusNames.WalletAdded]: {
+    walletId: string;
+    isFreshlyGeneratedMnemonic: boolean;
   };
   [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
   [EAppEventBusNames.AccountRemove]:
@@ -283,6 +298,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
   };
+  [EAppEventBusNames.ScanAirGapQrcode]: {
+    promiseId: number;
+  };
+  [EAppEventBusNames.CancelAirGapQrcodeScan]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.SyncDeviceLabelToWalletName]: {
@@ -318,8 +339,20 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewMountRequested]: {
+    mountId: string;
+    mountSequence: number;
+  };
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]:
+    | { mainRuntimeId: string; probeId?: string }
+    | undefined;
+  [EAppEventBusNames.WebEmbedWebViewRuntimeProbe]: { probeId: string };
+  [EAppEventBusNames.WebEmbedWebViewNotReady]: { mountId: string };
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
+    mountId: string;
+    requestId?: string;
+  };
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
   // whoever is running the check (OK-59934).
@@ -349,6 +382,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
+  [EAppEventBusNames.CustomRpcChanged]: { networkIds: string[] };
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
@@ -375,6 +409,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
+    overviewRequestRevision?: number;
     overview: IFetchAccountDeFiPositionsResp['data']['totals'];
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
@@ -453,6 +488,15 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
+  [EAppEventBusNames.LocalWalletAccountsChanged]: {
+    networkId: string;
+    accountIds: string[];
+  };
+  // A display read gave up and showed a saved balance; the live one is in.
+  [EAppEventBusNames.LocalWalletBalanceLanded]: {
+    networkId: string;
+    accountId: string;
+  };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
@@ -784,6 +828,7 @@ export interface IAppEventBusPayload {
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
+  [EAppEventBusNames.BackgroundThreadReady]: { bootId: string };
   [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
   [EAppEventBusNames.MemoryPressureWarning]: {

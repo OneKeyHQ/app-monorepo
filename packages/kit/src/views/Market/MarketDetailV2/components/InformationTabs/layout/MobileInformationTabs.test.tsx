@@ -337,7 +337,62 @@ describe('stock positions', () => {
     expect(screen.queryByText('No data')).toBeNull();
     expect(
       Array.from(container.querySelectorAll('img'), (img) => img.src),
-    ).toEqual(positions.map((position) => position.tokenLogoUrl));
+    ).toEqual([positions[1].tokenLogoUrl, positions[0].tokenLogoUrl]);
+  });
+
+  it('sorts Market positions by value and preserves the supplied Swap order', () => {
+    const { rerender } = render(
+      <Portfolio
+        standalone
+        isStock
+        isMarketDetail
+        hasAccount
+        portfolioData={positions}
+      />,
+    );
+    expect(
+      screen
+        .getByText('NVDAB')
+        .compareDocumentPosition(screen.getByText('NVDAon')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    rerender(
+      <Portfolio standalone isStock hasAccount portfolioData={positions} />,
+    );
+    expect(
+      screen
+        .getByText('NVDAon')
+        .compareDocumentPosition(screen.getByText('NVDAB')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('keeps a stock position with unavailable value after valued positions', () => {
+    const unknownValue = {
+      ...positions[0],
+      tokenAddress: 'unknown-value',
+      symbol: 'UNKNOWN',
+      totalPrice: '',
+    };
+    render(
+      <Portfolio
+        standalone
+        isStock
+        isMarketDetail
+        hasAccount
+        portfolioData={[positions[0], unknownValue, positions[1]]}
+      />,
+    );
+    const higher = screen.getByText('NVDAB');
+    const lower = screen.getByText('NVDAon');
+    const unknown = screen.getByText('UNKNOWN');
+    expect(
+      higher.compareDocumentPosition(lower) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      lower.compareDocumentPosition(unknown) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('keeps the desktop stock table columns', () => {

@@ -57,10 +57,8 @@ import {
   EThirdPartyHardwareRetryAction,
   getThirdPartyHardwareRetryAction,
 } from '@onekeyhq/shared/src/hardware/thirdPartyHardwareRetry';
-import {
-  ETranslations,
-  isKnownTranslationKey,
-} from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isKnownTranslationKey } from '@onekeyhq/shared/src/locale/translationKeys';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildWalletCreatedAtISOString } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';

@@ -12,6 +12,12 @@ import type {
 } from '@react-navigation/native';
 import type { ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
 
+export type NativeBottomTabIconSource =
+  | ImageSourcePropType
+  | AppleIcon
+  | { iconName: string }
+  | string;
+
 export type NativeBottomTabNavigationEventMap = {
   /**
    * Event which fires on tapping on the tab in the tab bar.
@@ -65,9 +71,11 @@ export type NativeBottomTabNavigationOptions = {
   tabBarLabel?: string;
 
   /**
-   * Function that given { focused: boolean } returns ImageSource or AppleIcon to display in the navigation bar.
+   * Function that given { focused: boolean } returns ImageSource, AppleIcon, or packaged icon name to display in the navigation bar.
    */
-  tabBarIcon?: (props: { focused: boolean }) => ImageSourcePropType | AppleIcon;
+  tabBarIcon?: (props: {
+    focused: boolean;
+  }) => NativeBottomTabIconSource | undefined;
 
   /**
    * Whether the tab bar item is visible. Defaults to true.
@@ -165,6 +173,7 @@ export type NativeBottomTabNavigationConfig = Partial<
     | 'getFreezeOnBlur'
     | 'getSceneStyle'
     | 'getPreventsDefault'
+    | 'sideAccessoryIcon'
   >
 > & {
   /**
@@ -172,4 +181,5 @@ export type NativeBottomTabNavigationConfig = Partial<
    */
   tabBarHidden?: boolean;
   tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+  sideAccessoryIcon?: ImageSourcePropType | { iconName: string } | string;
 };

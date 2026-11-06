@@ -40,6 +40,7 @@ import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
   getTradingViewNativeNavigationEvent,
   isTradingViewNativeNavigationHotZone,
+  isTradingViewNativeNavigationResetAvailable,
 } from '../utils/chartNavigation';
 import {
   type ITradingViewNativeChartRuntimeState,
@@ -151,7 +152,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
-    enableNavigationControls = false,
+    enableNavigationControls = true,
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,
@@ -174,6 +175,7 @@ export const TradingViewNativeChart = memo(
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     timeAxisBorderWidth,
     currentPriceLabel,
+    priceAxisDecimalPlaces,
     priceDecimalPlaces,
     onChartWidthChange,
     onSubIndicatorSettingsPress,
@@ -395,10 +397,12 @@ export const TradingViewNativeChart = memo(
     );
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
+    // Ticks, the crosshair, and the latest close all fit the axis display precision.
+    const axisLabelDecimalPlaces = priceAxisDecimalPlaces ?? priceDecimalPlaces;
     const priceAxisLabels = useMemo<ITradingViewNativeCanvasPriceAxisLabels>(
       () => ({
         autoPriceRange,
-        priceDecimalPlaces,
+        priceDecimalPlaces: axisLabelDecimalPlaces,
         subIndicatorPanes,
         subIndicatorPriceScales,
         chartComponentPrice: getTradingViewNativeChartComponentPriceAxisLabel(
@@ -412,7 +416,7 @@ export const TradingViewNativeChart = memo(
           getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
         widestPrice: getTradingViewNativePriceAxisLabel(
           points,
-          priceDecimalPlaces,
+          axisLabelDecimalPlaces,
         ),
         widestSubIndicator:
           getTradingViewNativeSubIndicatorAxisLabel(subIndicatorPanes),
@@ -427,6 +431,7 @@ export const TradingViewNativeChart = memo(
         chartSettings.options.latestPrice,
         chartSettings.options.yAxis,
         currentPriceLabel,
+        axisLabelDecimalPlaces,
         priceDecimalPlaces,
         hasVolume,
         indicatorSeries,
@@ -562,6 +567,7 @@ export const TradingViewNativeChart = memo(
           hasVolume,
           candleLabels,
           currentPriceLabel,
+          priceAxisDecimalPlaces,
           priceDecimalPlaces,
           indicatorSeries,
           isMobileLayout,
@@ -653,6 +659,7 @@ export const TradingViewNativeChart = memo(
         chartSettings,
         chartType,
         currentPriceLabel,
+        priceAxisDecimalPlaces,
         priceDecimalPlaces,
         drawDrawings,
         drawingsEnabled,
@@ -1493,9 +1500,7 @@ export const TradingViewNativeChart = memo(
     }, [handleWheel]);
 
     const showNavigationControls =
-      enableNavigationControls &&
-      !isMobileLayout &&
-      chartSettings.options.navigationButtons;
+      enableNavigationControls && chartSettings.options.navigationButtons;
     const [isNavigationHotZoneHovered, setIsNavigationHotZoneHovered] =
       useState(false);
     useEffect(() => {
@@ -1803,7 +1808,16 @@ export const TradingViewNativeChart = memo(
             <TradingViewNativeNavigationControls
               backgroundColor={background}
               chartWidth={measuredChartWidth}
-              isVisible={isNavigationHotZoneHovered && pointCount > 0}
+              isResetVisible={isTradingViewNativeNavigationResetAvailable({
+                chartWidth: measuredChartWidth,
+                isAutoScale,
+                pointCount,
+                viewport: viewportState,
+              })}
+              isVisible={
+                (isMobileLayout || isNavigationHotZoneHovered) && pointCount > 0
+              }
+              isMobileLayout={isMobileLayout}
               onAction={handleNavigationAction}
               timeAxisHeight={timeAxisHeight}
               testID={testID}

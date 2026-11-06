@@ -85,6 +85,23 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     },
   );
 
+  it('asks the SDK to look for the USB device again on a QR fallback retry', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        false,
+        { requestId: 'qr-fallback-current', retry: true },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+      payload: {
+        confirmed: false,
+        retry: true,
+        requestId: 'qr-fallback-current',
+      },
+    });
+  });
+
   it('echoes the QR fallback request id when its prompt is dismissed', async () => {
     const uiResponse = jest.fn(async () => undefined);
     const cancel = jest.fn(async () => undefined);

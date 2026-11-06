@@ -176,31 +176,13 @@ export function reportIpTableRequestFailure(
 /**
  * Once a request has been handed to the SNI transport it may have reached
  * the server even when we got no usable response back. Re-sending it over
- * the domain is only safe for idempotent methods, or when the error code
- * proves the connection was never established (nothing was written).
+ * the domain is only allowed for the explicit read-method fallback policy.
+ * A final native error code cannot prove that an earlier attempt sent nothing.
  */
 const IDEMPOTENT_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-// SNI_NETWORK_UNREACHABLE is deliberately NOT in this set: on iOS the native
-// module maps NSURLErrorNetworkConnectionLost — which can fire after the body
-// was fully sent and the server executed the request — to that code
-// (SniConnectClient.swift maps NotConnectedToInternet and
-// NetworkConnectionLost to the same .networkUnreachable case), so it cannot
-// prove the request was never written.
-const SNI_PRE_WRITE_ERROR_CODES = new Set([
-  'SNI_CONNECTION_REFUSED',
-  'SNI_DNS_FAILED',
-  'SNI_INVALID_URL',
-]);
-
-function canFallbackAfterSniStarted(method: string, error?: unknown): boolean {
-  if (IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase())) {
-    return true;
-  }
-  if (error && SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error))) {
-    return true;
-  }
-  return false;
+function canFallbackAfterSniStarted(method: string): boolean {
+  return IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase());
 }
 
 // A TLS failure on the pinned IP says that route is broken, not that the
@@ -337,7 +319,7 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // The request that trips the threshold is never replayed — only subsequent
 // requests take the fail-open route — and once a request has been handed to
 // the SNI transport, falling back to the domain (which re-sends it) is
-// restricted to idempotent methods or provably-unsent errors; see
+// restricted to the explicit read-method fallback policy; see
 // canFallbackAfterSniStarted.
 
 interface IAdapterFailoverState {
@@ -375,7 +357,7 @@ const adapterFailoverStates = new Map<string, IAdapterFailoverState>();
 /** IP Table state for availability metrics, from the inputs selection uses. */
 const readIpTableAvailabilityState = memoizee(
   async (): Promise<IAvailabilityIpTableState> => {
-    if (!(await shouldUseIpTable())) return 'disabled';
+    if (!isSniSupported() || !(await shouldUseIpTable())) return 'disabled';
     const configWithRuntime = await requestHelper.getIpTableConfig();
     if (!configWithRuntime) return 'noConfig';
     return configWithRuntime.runtime?.enabled === false
@@ -1614,7 +1596,7 @@ export function createIpTableAdapter(
     markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
-    // null-response branch throws for non-idempotent requests and that
+    // null-response branch throws outside the read fallback policy and that
     // throw lands in the same catch below, which would otherwise report the
     // same failure a second time.
     let ipFailureReported = false;
@@ -1657,22 +1639,22 @@ export function createIpTableAdapter(
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         await reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
-        // server. Re-sending over the domain is only safe for idempotent
-        // methods; anything else must surface the failure to the caller.
+        // server. Only the explicit read-method fallback policy may resend
+        // it over the domain; other methods must surface the failure.
         const method = (config.method || 'GET').toUpperCase();
         if (!canFallbackAfterSniStarted(method)) {
           logIpTableEvent('warn', 'sni_fallback_blocked', {
             hostname,
             rootDomain,
             method,
-            reason: 'non_idempotent_after_sni_started',
+            reason: 'method_not_allowed_after_sni_started',
           });
           throw new OneKeyLocalError(
-            'IP Table Adapter: SNI response missing and request is not idempotent',
+            'IP Table Adapter: SNI response missing and method is not allowed to fall back',
           );
         }
-        // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        return await callOriginalAdapter({
+        // Let domain rejection reach the caller instead of the SNI catch below.
+        return callOriginalAdapter({
           config,
           isFallback: true,
           hostname,
@@ -1749,12 +1731,12 @@ export function createIpTableAdapter(
       // Once the request was handed to the SNI transport it may have been
       // written to the wire (e.g. SNI_TIMEOUT after send). Re-sending over
       // the domain risks double-executing mutating requests, so fallback is
-      // restricted to idempotent methods or errors that prove the
-      // connection was never established.
+      // restricted to the explicit read-method fallback policy, regardless
+      // of the final native error code.
       const method = (config.method || 'GET').toUpperCase();
       const canFallback = failClosed
         ? canFallbackAfterFailClosedError(method, error)
-        : canFallbackAfterSniStarted(method, error);
+        : canFallbackAfterSniStarted(method);
       if (failClosed) {
         debugError('[IpTableAdapter] SNI fail-closed error:', error);
         logIpTableEvent(canFallback ? 'warn' : 'error', 'sni_fail_closed', {
@@ -1774,7 +1756,7 @@ export function createIpTableAdapter(
             rootDomain,
             method,
             errorCode: getErrorCode(error),
-            reason: 'non_idempotent_after_sni_started',
+            reason: 'method_not_allowed_after_sni_started',
           });
         }
         // Metrics keep the native code; the caller gets the domain shape.

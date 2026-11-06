@@ -6,8 +6,16 @@ import backgroundApiInit from './backgroundApiInit';
 
 let backgroundApi = null;
 
+const isDesktopTrayRenderer =
+  platformEnv.isDesktop &&
+  typeof globalThis.location !== 'undefined' &&
+  new URLSearchParams(globalThis.location.search ?? '').get('render') ===
+    'tray';
+
 const shouldDeferLocalBackgroundApi =
-  platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
+  (platformEnv.isNativeMainThread &&
+    platformEnv.enableNativeBackgroundThread) ||
+  isDesktopTrayRenderer;
 
 if (!platformEnv.isExtensionUi && !shouldDeferLocalBackgroundApi) {
   // Ext use mock backgroundApi in UI

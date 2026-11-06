@@ -1,4 +1,5 @@
 /* eslint-disable import/first */
+import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -8,12 +9,17 @@ import type {
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import ServiceDevSetting from './ServiceDevSetting';
+import { runHardwareDerivationPathTest } from './ServiceDevSetting/hardwareDerivationPathTest';
 import {
   identityLifecycleMutex,
   resetIdentityRecoveryStateForTest,
 } from './ServiceIdentityExit/identityLifecycleMutex';
 
 import type { IDevSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+
+jest.mock('./ServiceDevSetting/hardwareDerivationPathTest', () => ({
+  runHardwareDerivationPathTest: jest.fn(),
+}));
 
 let mockSettings: IDevSettingsPersistAtom;
 const mockSetSettings = jest.fn(
@@ -33,6 +39,15 @@ const mockAuthState = jest.fn<Promise<'loggedIn' | 'loggedOut'>, []>();
 const mockAuthSessionSource = jest.fn<Promise<string | undefined>, []>();
 const mockBumpRevision = jest.fn<Promise<number>, []>();
 const mockKeylessWallet = jest.fn<Promise<{ id: string } | undefined>, []>();
+const mockSimulateRealMarker = jest.fn<
+  Promise<{ restartRequired: true }>,
+  unknown[]
+>();
+
+jest.mock('@onekeyhq/shared/src/storage/nativeStorageExecutor', () => ({
+  simulateNativeAppStorageMissingMarker: (...args: unknown[]) =>
+    mockSimulateRealMarker(...args),
+}));
 
 jest.mock('./ServiceBase', () => ({
   __esModule: true,
@@ -79,7 +94,12 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: false, isDesktop: false, isJest: true },
+  default: {
+    isNative: false,
+    isDesktop: false,
+    isJest: true,
+    isNativeBackgroundThread: false,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
@@ -136,6 +156,16 @@ function createService() {
   });
 }
 
+test('CipherKeyValue diagnostics require developer mode before accessing hardware', async () => {
+  mockSettings = { enabled: false, settings: {} };
+  await expect(
+    createService().testHardwareCipherKeyValue({
+      connectId: 'test-device',
+      key: 'OneKey DEV TEST',
+    }),
+  ).rejects.toThrow('Developer mode is required.');
+});
+
 describe('OneKey ID environment switching', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -158,6 +188,33 @@ describe('OneKey ID environment switching', () => {
     resetIdentityRecoveryStateForTest('ready');
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it('rejects direct real-marker simulation RPC outside native bg or developer mode', async () => {
+    const service = createService();
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).rejects.toThrow('developer mode');
+    jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', true);
+    mockSettings.enabled = false;
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).rejects.toThrow('developer mode');
+    expect(mockSimulateRealMarker).not.toHaveBeenCalled();
+    mockSettings.enabled = true;
+    mockSimulateRealMarker.mockResolvedValueOnce({ restartRequired: true });
+    await expect(
+      service.simulateRealAppStorageMissingMarker(
+        'REMOVE MARKER ON MY TEST DEVICE',
+      ),
+    ).resolves.toEqual({ restartRequired: true });
+    expect(mockSimulateRealMarker).toHaveBeenCalledWith(
+      'REMOVE MARKER ON MY TEST DEVICE',
+    );
   });
 
   test.each(['prod-to-test', 'test-to-prod', 'disable-dev'] as const)(
@@ -574,5 +631,91 @@ describe('OneKey ID environment switching', () => {
     expect(mockBumpRevision).toHaveBeenCalledTimes(2);
     await jest.runOnlyPendingTimersAsync();
     expect(mockRestart).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('hardware derivation test cancellation', () => {
+  const request: IHardwarePathTestRequest = {
+    testId: 'first',
+    connectId: 'device-a',
+    path: "m/44'/0'/0'/0/0",
+    method: 'btcSignMessage',
+    signType: 'default',
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSettings = { enabled: true, settings: {} };
+  });
+  function deferred() {
+    let finish!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    return { promise, finish };
+  }
+  test('finishing one device test preserves the other device cancellation handle', async () => {
+    const service = createService();
+    const first = deferred();
+    const second = deferred();
+    const started = deferred();
+    const cancelA = jest.fn();
+    const cancelB = jest.fn();
+    jest
+      .mocked(runHardwareDerivationPathTest)
+      .mockImplementationOnce(async ({ onCancelChange }) => {
+        onCancelChange(cancelA);
+        await first.promise;
+        onCancelChange(undefined);
+        return { success: true } as Awaited<
+          ReturnType<typeof runHardwareDerivationPathTest>
+        >;
+      })
+      .mockImplementationOnce(async ({ onCancelChange }) => {
+        onCancelChange(cancelB);
+        started.finish();
+        await second.promise;
+        onCancelChange(undefined);
+        return { success: true } as Awaited<
+          ReturnType<typeof runHardwareDerivationPathTest>
+        >;
+      });
+    const a = service.testHardwareDerivationPath(request);
+    const b = service.testHardwareDerivationPath({
+      ...request,
+      testId: 'second',
+      connectId: 'device-b',
+    });
+    await started.promise;
+    await service.cancelHardwareDerivationPathTest('missing');
+    await service.cancelHardwareDerivationPathTest('first');
+    expect(cancelA).toHaveBeenCalledTimes(1);
+    expect(cancelB).not.toHaveBeenCalled();
+    first.finish();
+    await a;
+    await service.cancelHardwareDerivationPathTest('second');
+    expect(cancelB).toHaveBeenCalledTimes(1);
+    second.finish();
+    await b;
+    await service.cancelHardwareDerivationPathTest('second');
+    expect(cancelB).toHaveBeenCalledTimes(1);
+  });
+  test('cancellation before the lease registers is delivered when its handle becomes available', async () => {
+    const service = createService();
+    const cancel = jest.fn();
+    jest
+      .mocked(runHardwareDerivationPathTest)
+      .mockImplementationOnce(async ({ onCancelChange }) => {
+        onCancelChange(cancel);
+        onCancelChange(undefined);
+        return { success: true } as Awaited<
+          ReturnType<typeof runHardwareDerivationPathTest>
+        >;
+      });
+    const active = service.testHardwareDerivationPath(request);
+    await expect(service.testHardwareDerivationPath(request)).rejects.toThrow();
+    await service.cancelHardwareDerivationPathTest('first');
+    await active;
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(runHardwareDerivationPathTest).toHaveBeenCalledTimes(1);
   });
 });

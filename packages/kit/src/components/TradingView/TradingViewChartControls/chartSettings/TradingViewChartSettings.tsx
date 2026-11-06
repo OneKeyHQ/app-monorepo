@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -171,8 +171,6 @@ function SettingsColorPair({
       <XStack
         gap="$4"
         alignItems="center"
-        flexWrap="wrap"
-        flexShrink={1}
         opacity={item.enabled ? 1 : 0.5}
         pointerEvents={item.enabled && !disabled ? 'auto' : 'none'}
       >
@@ -408,8 +406,9 @@ export function TradingViewChartSettings({
   });
   const [selectedAppearanceSectionId, setSelectedAppearanceSectionId] =
     useState<ITradingViewSettingsMockAppearanceSectionId>('candles');
-  const [isConfirming, setIsConfirming] = useState(false);
-  const submitInProgress = isSubmitting || isConfirming;
+  const [isCommitting, setIsCommitting] = useState(false);
+  const isResettingRef = useRef(false);
+  const submitInProgress = isSubmitting || isCommitting;
 
   const isAppearanceSectionVisible = useCallback(
     (sectionId: ITradingViewSettingsMockAppearanceSectionId) =>
@@ -438,10 +437,6 @@ export function TradingViewChartSettings({
   );
   const effectiveSelectedAppearanceSectionId =
     selectedAppearanceSection?.id ?? 'candles';
-
-  const handleReset = useCallback(() => {
-    updateSettingsValue(() => createTradingViewChartSettingsValue());
-  }, [updateSettingsValue]);
 
   const handleOptionChange = useCallback(
     (key: keyof ITradingViewChartSettingsOptions, checked: boolean) => {
@@ -510,32 +505,61 @@ export function TradingViewChartSettings({
     onClose?.();
   };
 
+  const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    try {
+      await onConfirm?.(nextValue);
+      commitSettingsValue(nextValue);
+      return true;
+    } catch (error) {
+      onConfirmError?.(error);
+      return false;
+    }
+  };
+
+  const commitValue = async (nextValue: ITradingViewChartSettingsValue) => {
+    setIsCommitting(true);
+    try {
+      return await persistValue(nextValue);
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (submitInProgress || isResettingRef.current) {
+      return;
+    }
+    isResettingRef.current = true;
+    const resetValue = createTradingViewChartSettingsValue();
+    updateSettingsValue(() => resetValue);
+    // Reset is a sibling action of Confirm rather than a pending edit, so the
+    // defaults are applied right away while the settings stay open. The draft
+    // already shows them and persisting resolves within a frame or two, so
+    // skip the submitting state: toggling every control disabled for that
+    // long makes the whole dialog flash.
+    try {
+      await persistValue(resetValue);
+    } finally {
+      isResettingRef.current = false;
+    }
+  };
+
   const handleConfirm = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return false;
     }
 
-    let didConfirm = false;
-    setIsConfirming(true);
-    try {
-      await onConfirm?.(settingsValue);
-      commitSettingsValue();
-      didConfirm = true;
-    } catch (error) {
-      onConfirmError?.(error);
-    } finally {
-      setIsConfirming(false);
+    if (!(await commitValue(settingsValue))) {
+      return false;
     }
 
-    if (didConfirm) {
-      try {
-        await onConfirmSuccess?.();
-      } catch (error) {
-        onConfirmError?.(error);
-        return false;
-      }
+    try {
+      await onConfirmSuccess?.();
+    } catch (error) {
+      onConfirmError?.(error);
+      return false;
     }
-    return didConfirm;
+    return true;
   };
 
   const chartDisplayLeadingRow = renderChartDisplayLeadingRow?.({
@@ -652,8 +676,6 @@ export function TradingViewChartSettings({
               <XStack
                 gap="$3"
                 alignItems="center"
-                flexWrap="wrap"
-                flexShrink={1}
                 opacity={settingsValue.options.latestPrice ? 1 : 0.5}
               >
                 <SettingsColorField
@@ -903,8 +925,6 @@ export function TradingViewChartSettings({
             <XStack
               gap="$3"
               alignItems="center"
-              flexWrap="wrap"
-              flexShrink={1}
               opacity={settingsValue.options.crossLine ? 1 : 0.5}
             >
               <SettingsSelect
@@ -971,7 +991,7 @@ export function TradingViewChartSettings({
       size="medium"
       variant="secondary"
       disabled={submitInProgress}
-      onPress={handleReset}
+      onPress={() => void handleReset()}
     >
       {intl.formatMessage({ id: ETranslations.global_reset })}
     </Button>
@@ -1083,7 +1103,7 @@ export function TradingViewChartSettings({
       testIDPrefix="trading-view-settings"
       title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
       isSubmitting={submitInProgress}
-      onReset={handleReset}
+      onReset={() => void handleReset()}
       onCancel={handleCancel}
       onClose={handleClose}
       onConfirm={handleConfirm}

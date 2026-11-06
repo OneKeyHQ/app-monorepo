@@ -1,5 +1,7 @@
 import { TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE } from '../chartConstants';
 
+import { clampTradingViewNativePanOffset } from './chartViewport';
+
 import type {
   ITradingViewNativeChartRuntimeEvent,
   ITradingViewNativeChartRuntimeViewport,
@@ -10,6 +12,8 @@ const NAVIGATION_SCROLL_CHART_WIDTH_RATIO = 0.2;
 const NAVIGATION_HOT_ZONE_HEIGHT = 180;
 const NAVIGATION_HOT_ZONE_WIDTH_RATIO = 0.5;
 const NAVIGATION_HOT_ZONE_HORIZONTAL_PADDING = 24;
+const NAVIGATION_RESET_OFFSET_EPSILON = 0.5;
+const NAVIGATION_RESET_ZOOM_EPSILON = 1e-6;
 
 // 25% larger than the price scale A/L buttons, which share the same colors.
 export const TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE = 25;
@@ -25,8 +29,51 @@ export type ITradingViewNativeNavigationAction =
   | 'scrollRight'
   | 'reset';
 
+export const TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS: readonly ITradingViewNativeNavigationAction[] =
+  ['zoomOut', 'zoomIn', 'scrollLeft', 'scrollRight'];
+
 export const TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS: readonly ITradingViewNativeNavigationAction[] =
-  ['zoomOut', 'zoomIn', 'scrollLeft', 'scrollRight', 'reset'];
+  [...TRADING_VIEW_NATIVE_NAVIGATION_PRIMARY_ACTIONS, 'reset'];
+
+/**
+ * Whether the reset action would change the view: the main price axis is
+ * pinned, or the viewport moved away from the default zoom at the newest
+ * candles.
+ */
+export function isTradingViewNativeNavigationResetAvailable({
+  chartWidth,
+  isAutoScale,
+  pointCount,
+  viewport,
+}: {
+  chartWidth: number;
+  isAutoScale: boolean;
+  pointCount: number;
+  viewport: ITradingViewNativeChartRuntimeViewport;
+}) {
+  'worklet';
+
+  if (!isAutoScale) {
+    return true;
+  }
+  if (
+    Math.abs(viewport.zoomScale - TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE) >
+    NAVIGATION_RESET_ZOOM_EPSILON
+  ) {
+    return true;
+  }
+  // Match the reducer's clamped reset target so a no-op reset never shows.
+  const resetOffset = clampTradingViewNativePanOffset({
+    chartWidth,
+    initialRightOffset: viewport.initialRightOffset,
+    offset: 0,
+    pointCount,
+    zoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  });
+  return (
+    Math.abs(viewport.offset - resetOffset) > NAVIGATION_RESET_OFFSET_EPSILON
+  );
+}
 
 /**
  * The navigation bar only appears while the pointer is in the bottom-center
@@ -78,6 +125,8 @@ export function getTradingViewNativeNavigationEvent({
   pointCount: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
 }): ITradingViewNativeChartRuntimeEvent | null {
+  'worklet';
+
   if (!Number.isFinite(chartWidth) || chartWidth <= 0 || pointCount <= 0) {
     return null;
   }

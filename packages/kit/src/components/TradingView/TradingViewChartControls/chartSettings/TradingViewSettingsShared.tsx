@@ -214,15 +214,20 @@ export function useSettingsDraftValue<TValue>({
   );
   const committedValue = value ?? innerCommittedValue;
   const committedValueRef = useRef(committedValue);
+  // Last external value mirrored into the draft. Tracked apart from
+  // committedValueRef so a commit keeps showing its value until the caller's
+  // `value` actually changes, which can arrive after onConfirm resolves.
+  const syncedValueRef = useRef(committedValue);
   const draftValueRef = useRef(committedValue);
   const [isDraftDirty, setIsDraftDirty] = useState(false);
   const [draftValue, setDraftValue] = useState(committedValue);
 
   useEffect(() => {
-    if (isDraftDirty || Object.is(committedValueRef.current, committedValue)) {
+    if (isDraftDirty || Object.is(syncedValueRef.current, committedValue)) {
       return;
     }
 
+    syncedValueRef.current = committedValue;
     committedValueRef.current = committedValue;
     draftValueRef.current = committedValue;
     setDraftValue(committedValue);
@@ -242,13 +247,21 @@ export function useSettingsDraftValue<TValue>({
     [onChange],
   );
 
-  const commitDraftValue = useCallback(() => {
-    setIsDraftDirty(false);
-    committedValueRef.current = draftValueRef.current;
-    if (value === undefined) {
-      setInnerCommittedValue(draftValueRef.current);
-    }
-  }, [value]);
+  // Pass the value that was actually persisted when the draft stays editable
+  // during an async save: edits made after it was captured remain a dirty
+  // draft instead of being marked as saved.
+  const commitDraftValue = useCallback(
+    (persistedValue?: TValue) => {
+      const nextCommittedValue =
+        persistedValue === undefined ? draftValueRef.current : persistedValue;
+      setIsDraftDirty(!Object.is(draftValueRef.current, nextCommittedValue));
+      committedValueRef.current = nextCommittedValue;
+      if (value === undefined) {
+        setInnerCommittedValue(nextCommittedValue);
+      }
+    },
+    [value],
+  );
 
   const cancelDraftValue = useCallback(() => {
     const restoredValue = committedValueRef.current;

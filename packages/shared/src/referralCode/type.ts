@@ -42,6 +42,19 @@ export interface IWithdrawAddress {
   updatedAt: string;
 }
 
+// Server-owned, already localized. The app shows `description` as-is and
+// never keeps its own channel or token list.
+export interface IInviteRewardScope {
+  subject: string;
+  description: string;
+}
+
+// `GET /rebate/v1/invite/reward-scopes`. A product without server config is
+// left out.
+export interface IInviteRewardScopesResponse {
+  rewardScopes?: IInviteRewardScope[];
+}
+
 export interface IInviteSummary {
   faqs: Array<{
     q: string;

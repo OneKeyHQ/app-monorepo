@@ -9,6 +9,7 @@ export {
   getTradingViewNativeSubIndicatorDefinition,
 } from './definitions';
 export {
+  applyTradingViewNativeSubIndicatorDisplayPrecision,
   buildTradingViewNativeSubIndicatorRenderPane,
   buildTradingViewNativeSubIndicatorRenderPanes,
 } from './model';
@@ -17,6 +18,7 @@ export {
   createTradingViewNativeSubIndicatorRenderSnapshots,
 } from './pipeline';
 export {
+  formatTradingViewNativeSubIndicatorReadoutValue,
   formatTradingViewNativeSubIndicatorValue,
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeSubIndicatorValueAtY,

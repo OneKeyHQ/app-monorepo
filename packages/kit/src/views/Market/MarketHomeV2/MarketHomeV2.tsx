@@ -12,7 +12,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useMarketSelectedTabAtom,
@@ -21,6 +24,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -30,6 +34,10 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import {
+  HEADER_SEARCH_BAR_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '../../../components/TabPageHeader/headerLayout';
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
@@ -419,7 +427,23 @@ function BaseMarketHomeLayout({
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  const rootRoutersLength = getRootRoutersLength();
+  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  const ownsModalBackgroundRef = useRef(isFocused);
+  if (isFocused) {
+    ownsModalBackgroundRef.current = true;
+    focusedRootRoutersLengthRef.current = rootRoutersLength;
+  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
+    ownsModalBackgroundRef.current = false;
+  }
+  // Root modals blur Market while its content remains visible underneath.
+  const isCoveredByModal =
+    ownsModalBackgroundRef.current &&
+    rootRoutersLength > focusedRootRoutersLengthRef.current;
   const { top } = useSafeAreaInsets();
+  // The search row sits beside the iPadOS window controls.
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
   const searchGlassActive = isLiquidGlassAvailable();
   const scrollEdgeHeaderEnabled = Boolean(
     platformEnv.isNativeIOS && searchGlassActive,
@@ -441,6 +465,10 @@ function BaseMarketHome() {
     searchTop = top + 5;
   } else if (searchGlassActive) {
     searchTop = top + 6;
+  }
+  if (!top) {
+    searchTop =
+      getFoldableIPhoneHeaderTop(HEADER_SEARCH_BAR_HEIGHT) || searchTop;
   }
 
   return (
@@ -480,16 +508,18 @@ function BaseMarketHome() {
             px="$5"
             width="100%"
           >
-            <LegacyUniversalSearchInput
-              size="medium"
-              glass
-              initialTab="market"
-              tabRoute={ETabRoutes.Market}
-              containerProps={{
-                width: '100%',
-                $gtLg: undefined,
-              }}
-            />
+            <YStack pl={windowControlsOffset}>
+              <LegacyUniversalSearchInput
+                size="medium"
+                glass
+                initialTab="market"
+                tabRoute={ETabRoutes.Market}
+                containerProps={{
+                  width: '100%',
+                  $gtLg: undefined,
+                }}
+              />
+            </YStack>
           </YStack>
         </>
       ) : (
@@ -499,7 +529,9 @@ function BaseMarketHome() {
         />
       )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze freeze={!platformEnv.isNative && !isFocused}>
+        <DelayedFreeze
+          freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
+        >
           <BaseMarketHomeLayout
             externalTopOverlayTag={headerReady ? headerTag : undefined}
             externalTopOverlayHeight={headerReady ? headerHeight : undefined}

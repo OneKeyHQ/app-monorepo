@@ -17,6 +17,7 @@ import {
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IActivityHubLayout } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
@@ -211,6 +212,8 @@ export function ActivityHubContent({
   campaigns?: IActivityHubCampaign[];
 }) {
   const intl = useIntl();
+  const [user] = usePrimePersistAtom();
+  const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
   const { gtMd } = useMedia();
   const isDesktop = gtMd;
   const themeVariant = useThemeVariant();
@@ -222,6 +225,8 @@ export function ActivityHubContent({
   const hasCampaigns = campaignCount > 0;
   // The Perps menu lists the entry like its other menu items.
   const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
+  const showHubTitle =
+    showTitle && (!showInvitePanel || isLoggedIn || hasCampaigns);
   // The invite panel shares the title's 20px inset (popover header and dialog
   // title alike) and keeps an even 16px above and below its content; the
   // Perks row's own 6px press padding counts toward the bottom.
@@ -311,7 +316,7 @@ export function ActivityHubContent({
 
   return (
     <YStack mb={menuLayout || showInvitePanel ? '$0' : '$2'}>
-      {isDesktop && showTitle ? (
+      {isDesktop && showHubTitle ? (
         <XStack px="$5" pt="$4" pb="$1">
           <SizableText size="$headingMd" color="$text" userSelect="none">
             {hubTitle}

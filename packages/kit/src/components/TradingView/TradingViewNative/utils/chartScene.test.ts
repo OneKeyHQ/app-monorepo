@@ -56,6 +56,87 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 
 describe('TradingViewNative shared chart scene', () => {
   it.each([
+    [80_311, 1],
+    [3012.5, 2],
+  ])(
+    'keeps the fallback axis width stable when %s loses trailing zeros',
+    (price, priceDecimalPlaces) => {
+      const widthFor = (close: number) =>
+        buildTradingViewNativeChartScene({
+          candleIntervalSeconds: 3600,
+          candleLabels: CANDLE_LABELS,
+          chartType: 'candlestick',
+          crosshair: { visible: false, x: 0, y: 0 },
+          hasVolume: false,
+          height: 400,
+          measureTextWidth: (text: string) => text.length * 6,
+          points: [
+            { c: close, h: price + 1, l: price - 1, o: price, t: 1, v: 10 },
+          ],
+          priceDecimalPlaces,
+          viewport: { offset: 0, zoomScale: 1 },
+          watermarkOpacity: 0,
+          width: 840,
+        }).priceAxisWidth;
+      expect(widthFor(price)).toBe(widthFor(price + 10 ** -priceDecimalPlaces));
+    },
+  );
+
+  it.each([
+    [1271.25, 1285.0569, '1285.0 1282.7 1280.4 1278.1 1275.8 1273.5 1271.2'],
+    [1270.1, 1270.7, '1270.7 1270.6 1270.5 1270.4 1270.3 1270.2 1270.1'],
+    [1270.1, 1271.3, '1271.3 1271.1 1270.9 1270.7 1270.5 1270.3 1270.1'],
+    [
+      1270.099_999_99,
+      1270.699_999_99,
+      '1270.6 1270.5 1270.4 1270.3 1270.2 1270.1 1270.0',
+    ],
+  ] as const)(
+    'truncates interpolated ZEC ticks from %s to %s without changing OHLC',
+    (minPrice, maxPrice, expected) => {
+      const options = {
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick' as const,
+        crosshair: { visible: false, x: 0, y: 0 },
+        hasVolume: false,
+        height: 400,
+        measureTextWidth: (text: string) => text.length * 6,
+        points: [
+          { c: 999.1234, h: 1280.5, l: 998.1234, o: 999.1, t: 1, v: 10 },
+        ],
+        pinnedPriceRange: { minPrice, maxPrice },
+        priceAxisTickCount: 7,
+        priceAxisDecimalPlaces: 1,
+        priceDecimalPlaces: 4,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 840,
+      };
+      const scene = buildTradingViewNativeChartScene(options);
+      const ticks = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'priceAxis' &&
+        command.paint === 'axisText'
+          ? [command.text]
+          : [],
+      );
+
+      expect(ticks).toEqual(expected.split(' '));
+      expect(ticks.every((text) => /^\d+\.\d$/.test(text))).toBe(true);
+      expect(scene.commands).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'text',
+            font: 'legend',
+            text: '999.1234',
+          }),
+        ]),
+      );
+    },
+  );
+
+  it.each([
     { offset: 0, zoomScale: 1, width: 840 },
     { offset: 57, zoomScale: 1.25, width: 840 },
     { offset: 0, zoomScale: 1, width: 840.5 },
@@ -182,11 +263,41 @@ describe('TradingViewNative shared chart scene', () => {
     },
   );
 
+  it('formats the crosshair price with the axis display precision', () => {
+    const getCrosshairText = (priceAxisDecimalPlaces?: number) =>
+      buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: 120, y: 83 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        priceAxisDecimalPlaces,
+        priceDecimalPlaces: 3,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 320,
+      }).commands.flatMap((command) =>
+        command.kind === 'text' && command.paint === 'crosshairLabelText'
+          ? [command.text]
+          : [],
+      );
+
+    const [axisPrecisionText] = getCrosshairText(2);
+    const [fullPrecisionText] = getCrosshairText();
+    expect(axisPrecisionText?.split('.')[1]?.length ?? 0).toBeLessThanOrEqual(
+      2,
+    );
+    expect(fullPrecisionText?.split('.')[1]?.length).toBe(3);
+  });
+
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
       chartType: 'candlestick',
-      crosshair: { visible: true, x: 264.5, y: 80 },
+      crosshair: { visible: true, x: 259.5, y: 80 },
       hasVolume: true,
       height: 240,
       measureTextWidth: (text) => text.length * 6,
@@ -933,7 +1044,7 @@ describe('TradingViewNative shared chart scene', () => {
       (command) =>
         command.kind === 'text' &&
         command.font === 'legend' &&
-        command.text === '110.00',
+        command.text === '110',
     );
     const linePriceChange = scene.commands.find(
       (command) => command.kind === 'text' && command.text === '+10 (+10%)',
@@ -991,7 +1102,7 @@ describe('TradingViewNative shared chart scene', () => {
         (command) =>
           command.kind === 'text' &&
           command.font === 'legend' &&
-          command.text === '90.00',
+          command.text === '90',
       ),
     ).toMatchObject({ paint: 'line' });
     expect(
@@ -1034,7 +1145,7 @@ describe('TradingViewNative shared chart scene', () => {
     const priceLegendValue = scene.commands.find(
       (command) =>
         command.kind === 'text' &&
-        command.text === '104.00' &&
+        command.text === '104' &&
         command.paint === 'up',
     );
     const text = scene.commands.flatMap((command) =>

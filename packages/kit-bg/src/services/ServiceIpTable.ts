@@ -15,6 +15,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   IP_TABLE_DOMAIN_FAILOVER_THRESHOLD,
+  IP_TABLE_ENABLED,
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
   IP_TABLE_SNI_FAILURE_THRESHOLD,
@@ -105,14 +106,14 @@ class ServiceIpTable extends ServiceBase {
 
   /**
    * Check if IP Table is enabled considering all conditions:
-   * 1. Platform support
+   * 1. Master switch (IP_TABLE_ENABLED) and platform support
    * 2. runtime.enabled
    * 3. devSettings conditions (disableIpTableInProd)
    * @returns true if IP Table should be active, false otherwise
    */
   private async isIpTableEnabled(): Promise<boolean> {
-    // 1. Check platform support
-    if (!isSupportIpTablePlatform()) {
+    // 1. Check the master switch and platform support
+    if (!IP_TABLE_ENABLED || !isSupportIpTablePlatform()) {
       return false;
     }
 

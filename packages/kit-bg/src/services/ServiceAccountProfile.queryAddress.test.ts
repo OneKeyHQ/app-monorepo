@@ -76,8 +76,16 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   },
 }));
 
+jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
+  isLocalWalletNetwork: async ({ networkId }: { networkId: string }) =>
+    networkId === 'zec--0',
+  isAddressWithheldFromBackend: async () => false,
+}));
+const mockGetChainOnlyVault = jest.fn<Promise<unknown>, [unknown]>();
 jest.mock('../vaults/factory', () => ({
-  vaultFactory: {},
+  vaultFactory: {
+    getChainOnlyVault: (params: unknown) => mockGetChainOnlyVault(params),
+  },
 }));
 
 jest.mock('../vaults/impls/btc/sdkBtc/findAddressUtils', () => ({
@@ -211,6 +219,50 @@ const baseArgs = {
 };
 
 describe('ServiceAccountProfile.queryAddress request overlap', () => {
+  it('starts combined validation while local normalization is still pending', async () => {
+    const { service, backgroundApi, validate } = makeService();
+    const normalization = deferred<{
+      isValid: boolean;
+      displayAddress: string;
+      normalizedAddress: string;
+    }>();
+    backgroundApi.serviceValidator.localValidateAddress.mockImplementation(
+      () => normalization.promise,
+    );
+    const pending = service.queryAddress({ ...baseArgs, networkId: 'zec--0' });
+    await flushMicrotasks();
+    expect(
+      backgroundApi.serviceValidator.validateAddress,
+    ).toHaveBeenCalledTimes(1);
+    validate.resolve('valid');
+    normalization.resolve({
+      isValid: true,
+      displayAddress: RECIPIENT,
+      normalizedAddress: RECIPIENT,
+    });
+    await expect(pending).resolves.toMatchObject({ validStatus: 'valid' });
+  });
+
+  it('keeps other chains validation after local address normalization', async () => {
+    const { service, backgroundApi, validate } = makeService();
+    const normalizedAddress = 'normalized-recipient';
+    backgroundApi.serviceValidator.localValidateAddress.mockResolvedValue({
+      isValid: true,
+      displayAddress: normalizedAddress,
+      normalizedAddress,
+    });
+    const pending = service.queryAddress(baseArgs);
+    await flushMicrotasks();
+    expect(backgroundApi.serviceValidator.validateAddress).toHaveBeenCalledWith(
+      {
+        networkId: NETWORK_ID,
+        address: normalizedAddress,
+      },
+    );
+    validate.resolve('valid');
+    await expect(pending).resolves.toMatchObject({ validStatus: 'valid' });
+  });
+
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => {
     unhandled.push(reason);
@@ -316,5 +368,65 @@ describe('ServiceAccountProfile.queryAddress request overlap', () => {
     await pending;
 
     expect(clientGet).not.toHaveBeenCalled();
+  });
+});
+
+// History reads back a private payment as the receiver it paid, not the address saved in the book.
+describe('ServiceAccountProfile.queryAddress address book on a privacy chain', () => {
+  const saved = {
+    id: 'alice',
+    name: 'Alice',
+    address: 'u1-saved-full',
+    networkId: 'zec--0',
+  };
+
+  it.each([
+    ['names an entry holding the paid receiver', true, 'Alice'],
+    ['leaves another recipient unnamed', false, undefined],
+  ])('%s', async (_, sameRecipient, name) => {
+    // A rejecting local check leaves the input as it is.
+    const { service, backgroundApi } = makeService({ localValid: false });
+    backgroundApi.serviceAddressBook.getItemsByNetwork.mockImplementation(
+      async () => [saved] as never[],
+    );
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        isSameRecipient: (a: string, b: string) =>
+          sameRecipient && a === saved.address && b === 'u1-paid-receiver',
+      }),
+    });
+
+    const result = await service.queryAddress({
+      networkId: 'zec--0',
+      address: 'u1-paid-receiver',
+      enableAddressBook: true,
+      skipValidateAddress: true,
+    });
+
+    if (name === undefined) {
+      expect(result.addressBookName).toBeUndefined();
+    } else {
+      expect(result.addressBookName).toMatch(new RegExp(` / ${name}$`));
+    }
+    expect(
+      backgroundApi.serviceAddressBook.getItemsByNetwork,
+    ).toHaveBeenCalledWith({ networkId: 'zec--0' });
+  });
+
+  it('never matches loosely on other chains', async () => {
+    const { service, backgroundApi } = makeService();
+    mockGetChainOnlyVault.mockClear();
+
+    await service.queryAddress({
+      ...baseArgs,
+      enableAddressInteractionStatus: false,
+      enableAddressContract: false,
+      skipValidateAddress: true,
+    });
+
+    expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceAddressBook.getItemsByNetwork,
+    ).not.toHaveBeenCalled();
   });
 });

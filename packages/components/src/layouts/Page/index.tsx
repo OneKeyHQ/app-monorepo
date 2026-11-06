@@ -40,6 +40,7 @@ function PageProvider({
   fullPage,
   testID,
   backgroundColor,
+  directFooter,
   onMounted,
   onUnmounted,
   onClose,
@@ -79,6 +80,7 @@ function PageProvider({
               fullPage={fullPage}
               testID={testID}
               backgroundColor={backgroundColor}
+              directFooter={directFooter}
             >
               {children}
             </PageContainer>

@@ -20,13 +20,14 @@ import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TopCoinsOverviewContent } from '../components/TopCoinsOverview/TopCoinsOverviewContent';
+import { useMarketDetailTabMinHeight } from '../hooks/useMarketDetailTabMinHeight';
 
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
-const TOP_COINS_COLUMN_GAP = 12;
+const TOP_COINS_COLUMN_GAP = 0;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',
@@ -95,6 +96,7 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
 function TopCoinsInformation({
   portfolioData,
   isRefreshing,
+  isPortfolioFailed,
   tokenLogoUrl,
   accountAddress,
   isAssetDetailLoading,
@@ -102,6 +104,7 @@ function TopCoinsInformation({
 }: {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   accountAddress?: string;
   isAssetDetailLoading: boolean;
@@ -109,6 +112,12 @@ function TopCoinsInformation({
 }) {
   const intl = useIntl();
   const [tab, setTab] = useState<'overview' | 'portfolio'>('overview');
+  const { ref, minHeight, preserveScrollPosition } =
+    useMarketDetailTabMinHeight(assetDetail?.asset.assetId);
+  const handleTabChange = (nextTab: typeof tab) => {
+    preserveScrollPosition();
+    setTab(nextTab);
+  };
 
   let tabContent: ReactNode;
   if (tab === 'portfolio') {
@@ -122,7 +131,9 @@ function TopCoinsInformation({
           accountAddress={accountAddress}
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
+          isFailed={isPortfolioFailed}
           tokenLogoUrl={tokenLogoUrl}
+          isMarketDetail
         />
       </YStack>
     );
@@ -136,14 +147,14 @@ function TopCoinsInformation({
   }
 
   return (
-    <YStack minHeight={620}>
+    <YStack ref={ref} minHeight={Math.max(620, minHeight)}>
       <XStack height={44} px="$5" gap="$5" alignItems="stretch">
         <XStack
           alignItems="center"
           borderBottomWidth={tab === 'overview' ? 2 : 0}
           borderBottomColor="$borderActive"
           cursor="pointer"
-          onPress={() => setTab('overview')}
+          onPress={() => handleTabChange('overview')}
         >
           <SizableText
             size="$bodyLgMedium"
@@ -157,7 +168,7 @@ function TopCoinsInformation({
           borderBottomWidth={tab === 'portfolio' ? 2 : 0}
           borderBottomColor="$borderActive"
           cursor="pointer"
-          onPress={() => setTab('portfolio')}
+          onPress={() => handleTabChange('portfolio')}
         >
           <SizableText
             size="$bodyLgMedium"
@@ -183,6 +194,7 @@ export function TopCoinsDesktopLayout({
   portfolioData,
   accountAddress,
   isRefreshing,
+  isPortfolioFailed,
   tokenLogoUrl,
   showFavoriteButton,
   isChartFullscreen,
@@ -203,6 +215,7 @@ export function TopCoinsDesktopLayout({
   portfolioData: IMarketAccountPortfolioItem[];
   accountAddress?: string;
   isRefreshing?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
@@ -262,6 +275,7 @@ export function TopCoinsDesktopLayout({
             portfolioData={portfolioData}
             accountAddress={accountAddress}
             isRefreshing={isRefreshing}
+            isPortfolioFailed={isPortfolioFailed}
             tokenLogoUrl={tokenLogoUrl}
             isAssetDetailLoading={Boolean(isAssetDetailLoading)}
             assetDetail={assetDetail}
@@ -272,10 +286,6 @@ export function TopCoinsDesktopLayout({
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
           mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          {/* Shown only for tokens with a perps market, and hidden once
-              dismissed. Sits above the trade panel, where the pre-redesign
-              desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}
@@ -284,6 +294,10 @@ export function TopCoinsDesktopLayout({
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
           />
+          {/* Shown only for tokens with a perps market, and hidden once
+              dismissed. Below the trade panel, so switching between tokens
+              with and without a perps market never moves the panel. */}
+          <PerpetualTradingBanner px="$5" py="$2" iconGap="$1.5" />
         </YStack>
       </XStack>
     </YStack>

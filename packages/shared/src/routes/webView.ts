@@ -13,6 +13,9 @@ export type IModalWebViewParamList = {
     hashRouteQueryParams?: Record<string, string>;
     redirectExternalNavigation?: boolean;
     hideHeaderRight?: boolean;
+    disableBridge?: boolean;
+    /** Internal support-session owner; null denotes anonymous support. */
+    intercomUserId?: string | null;
     /**
      * Inject the full dApp session features (account/network change events on
      * top of the inpage provider every WebView already carries). Opt-in: the
