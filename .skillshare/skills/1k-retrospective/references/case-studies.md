@@ -1270,6 +1270,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Treat both confirmed local lookup misses as zero Perps equity, and leave other lookup failures unknown. Regression tests cover the uncreated Perps account, the indexed-account miss, and unrelated not-found errors.
 **Catchable by**: Section 4: Business Logic & Regression — trace the thrown error from the missing DB record, not only the error the caller expected; Section 6: A bug fix includes a regression test for the confirmed empty case and for nearby errors that must stay unknown.
 
+## Case: Chart settings dialog flashed on Reset (OK-66403)
+**Date**: 2026-11-05 | **Platforms**: Shared chart settings dialog (Market / Swap / Perps) on Web/Desktop single runtime and extension/iOS/Android main UI; verified on Web. No native resource changes.
+**Symptom**: Pressing Reset in Chart settings made the whole dialog flash: for 2-3 frames every control turned disabled, Confirm showed a spinner and the header close button disappeared.
+**Root Cause**: Reset reused Confirm's `commitValue`, which toggles the dialog-wide submitting state. Persisting local defaults resolves within a frame or two, so the state flipped on and straight back off. The first fix kept controls editable during the save, but `commitSettingsValue()` committed the current draft rather than the persisted defaults, so an edit made before the save resolved was marked as saved and then overwritten by the controlled value refresh.
+**Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
+**Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
+
 ## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
 **Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
 **Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.

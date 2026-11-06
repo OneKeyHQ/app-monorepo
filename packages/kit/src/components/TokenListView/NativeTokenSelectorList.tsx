@@ -66,6 +66,7 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
+import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
 import {
   TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
   getTokenRowIconSize,
@@ -832,6 +833,7 @@ export function NativeTokenSelectorList({
               disabled: !!otherProcessing,
               opacity: otherProcessing ? 0.5 : 1,
               style: {
+                container: TOKEN_ROW_CONTAINER_STYLE,
                 horizontalPadding: 12,
                 verticalPadding: 8,
                 leadingGap: 12,
@@ -898,6 +900,7 @@ export function NativeTokenSelectorList({
                 ],
                 trailing: swapAction,
                 style: {
+                  container: TOKEN_ROW_CONTAINER_STYLE,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,
