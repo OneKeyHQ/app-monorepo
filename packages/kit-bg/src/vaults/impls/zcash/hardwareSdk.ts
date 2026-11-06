@@ -5,21 +5,18 @@ import { zPrivacyHex } from '@onekeyhq/shared/src/utils/privacyTransactionReview
 
 import { ZCASH_PCZT_HEX_MAX_CHARS } from './transactionReview';
 
-import type { IHwAllNetworkPrepareAccountsItem } from '../../types';
-
 const addressSchema = z.object({
   path: z.string().min(1),
   address: z.string().min(1),
-  ufvk: z
-    .string()
-    .min(1)
-    .nullish()
-    .transform((value) => value ?? undefined),
   seedFingerprint: z
     .string()
     .regex(/^[0-9a-fA-F]{64}$/)
     .nullish()
     .transform((value) => value ?? undefined),
+});
+const viewingKeySchema = z.object({
+  path: z.string().min(1),
+  ufvk: z.string().min(1),
 });
 const signedSchema = z.object({
   pczt: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS),
@@ -36,12 +33,18 @@ const errorSchema = z.object({
 });
 
 export type IZcashHardwareAddress = z.infer<typeof addressSchema>;
+export type IZcashHardwareViewingKey = z.infer<typeof viewingKeySchema>;
 type IResponse<T> =
   | { success: true; payload: T }
   | { success: false; payload: z.infer<typeof errorSchema> };
 type IParams = Record<string, unknown>;
 type IRawSdk = {
   zcashGetAddress: (
+    connectId: string,
+    deviceId: string,
+    params: IParams,
+  ) => Promise<unknown>;
+  zcashGetFullViewingKey: (
     connectId: string,
     deviceId: string,
     params: IParams,
@@ -53,15 +56,16 @@ type IRawSdk = {
   ) => Promise<unknown>;
 };
 
+const REQUIRED_METHODS = [
+  'zcashGetAddress',
+  'zcashGetFullViewingKey',
+  'zcashSignPczt',
+] as const;
+
 function supportsZcash(sdk: unknown): sdk is IRawSdk {
-  return (
-    typeof sdk === 'object' &&
-    sdk !== null &&
-    'zcashGetAddress' in sdk &&
-    typeof sdk.zcashGetAddress === 'function' &&
-    'zcashSignPczt' in sdk &&
-    typeof sdk.zcashSignPczt === 'function'
-  );
+  if (typeof sdk !== 'object' || sdk === null) return false;
+  const methods = sdk as Record<string, unknown>;
+  return REQUIRED_METHODS.every((name) => typeof methods[name] === 'function');
 }
 
 function parseResponse<T>(
@@ -85,13 +89,6 @@ function parseAddress(value: unknown): IZcashHardwareAddress {
   if (!result.success)
     throw new OneKeyLocalError('zcash: malformed hardware address');
   return result.data;
-}
-
-// An all-network result is checked like a direct zcashGetAddress reply.
-export function parseZcashAllNetworkAddress(
-  item: IHwAllNetworkPrepareAccountsItem,
-): IZcashHardwareAddress {
-  return parseAddress({ ...item.payload, path: item.path });
 }
 
 // SDKs without these methods must fail before any device operation; every
@@ -134,6 +131,24 @@ export function getZcashHardwareSdk(sdk: unknown) {
       return parseAddress(value);
     });
   }
+  // The device asks the user to confirm before it exports the UFVK.
+  async function zcashGetFullViewingKey(
+    connectId: string,
+    deviceId: string,
+    params: IParams,
+  ): Promise<IResponse<IZcashHardwareViewingKey>> {
+    const result = await supportedSdk.zcashGetFullViewingKey(
+      connectId,
+      deviceId,
+      params,
+    );
+    return parseResponse(result, (value) => {
+      const viewingKey = viewingKeySchema.safeParse(value);
+      if (!viewingKey.success)
+        throw new OneKeyLocalError('zcash: malformed hardware viewing key');
+      return viewingKey.data;
+    });
+  }
   async function zcashSignPczt(
     connectId: string,
     deviceId: string,
@@ -151,5 +166,5 @@ export function getZcashHardwareSdk(sdk: unknown) {
       return signed.data;
     });
   }
-  return { zcashGetAddress, zcashSignPczt };
+  return { zcashGetAddress, zcashGetFullViewingKey, zcashSignPczt };
 }

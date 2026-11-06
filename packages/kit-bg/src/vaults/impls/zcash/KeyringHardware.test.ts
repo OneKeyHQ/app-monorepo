@@ -50,6 +50,39 @@ const deviceParams = {
   deviceCommonParams: { passphraseState: 'pp' },
 };
 
+// The device answers each requested address type: 1 transparent, 2 Orchard UA.
+function deviceAddresses({
+  transparent = 't1account',
+  unified = 'u1device',
+  seedFingerprint = 'ab'.repeat(32),
+}: {
+  transparent?: string;
+  unified?: string;
+  seedFingerprint?: string;
+} = {}) {
+  return jest.fn(
+    async (
+      _connectId: string,
+      _deviceId: string,
+      { bundle }: { bundle: { path: string; addressType: number }[] },
+    ) => ({
+      success: true,
+      payload: bundle.map(({ path, addressType }) => ({
+        path,
+        address: addressType === 1 ? transparent : unified,
+        seedFingerprint,
+      })),
+    }),
+  );
+}
+
+function deviceViewingKey(ufvk = 'uview1device') {
+  return jest.fn(async () => ({
+    success: true,
+    payload: { path: "m/32'/133'/0'", ufvk },
+  }));
+}
+
 function receiveVerificationParams(
   form: 'public' | 'private',
   expectedAddress: string,
@@ -120,11 +153,12 @@ function createKeyring({
     .spyOn(KeyringHardwareBase.prototype, 'getHardwareSDKInstance')
     .mockResolvedValue({
       zcashGetAddress: jest.fn(),
+      zcashGetFullViewingKey: jest.fn(),
       zcashSignPczt: jest.fn(),
       ...sdk,
     } as never);
   return Object.assign(Object.create(KeyringHardware.prototype), {
-    hwSdkNetwork: 'zcash',
+    hwSdkNetwork: 'btc',
     vault: {
       accountId: 'hw-1--acc',
       networkId: 'zec--0',
@@ -250,13 +284,21 @@ describe('Zcash KeyringHardware', () => {
     simpleDbZcash: Record<string, jest.Mock>;
   }) {
     const zcashGetAddress = jest.fn();
+    const zcashGetFullViewingKey = jest.fn();
     const getItem = jest.fn(async ({ path }: { path: string }) => ({
       success: true,
       path,
-      network: 'zcash',
+      network: 'btc',
       payload: items.find((item) => item.path === path),
     }));
-    const keyring = createKeyring({ sdk: { zcashGetAddress }, simpleDbZcash });
+    const getAddressFromXpub = jest.fn().mockResolvedValue({
+      addresses: { '0/0': 't1-account' },
+      publicKeys: { '0/0': 'public-key' },
+    });
+    const keyring = createKeyring({
+      sdk: { zcashGetAddress, zcashGetFullViewingKey },
+      simpleDbZcash,
+    });
     Object.assign(keyring, {
       walletId: 'hw-1',
       getCoreApiNetworkInfo: jest.fn().mockResolvedValue({
@@ -266,17 +308,7 @@ describe('Zcash KeyringHardware', () => {
         accountType: EDBAccountType.UTXO,
         impl: 'zec',
       }),
-      coreApi: {
-        getAddressFromXpub: jest.fn().mockResolvedValue({
-          addresses: { '0/0': 't1-account' },
-          publicKeys: { '0/0': 'public-key' },
-        }),
-      },
-    });
-    mockGetZcashApi.mockResolvedValue({
-      deriveTransparentXpubFromUfvk: jest.fn().mockResolvedValue({
-        xpub: 'transparent-xpub',
-      }),
+      coreApi: { getAddressFromXpub },
     });
     const result = keyring.prepareAccounts({
       indexes: [0, 1],
@@ -288,19 +320,29 @@ describe('Zcash KeyringHardware', () => {
       deviceParams,
       hwAllNetworkPrepareAccountsResponse: { getItem },
     } as unknown as Parameters<KeyringHardware['prepareAccounts']>[0]);
-    return { result, getItem, zcashGetAddress };
+    return {
+      result,
+      getItem,
+      getAddressFromXpub,
+      zcashGetAddress,
+      zcashGetFullViewingKey,
+    };
   }
 
-  it('creates accounts from the all-network response, keeping its root fingerprint', async () => {
+  it('creates accounts from the BTC public keys alone, without the viewing key', async () => {
     const beginZcashPrivacyModeEnable = jest.fn();
     const saveZcashAccountMeta = jest.fn();
     const fingerprintStore = createSeedFingerprintStore();
-    const { result, getItem, zcashGetAddress } = prepareFromAllNetwork({
+    const {
+      result,
+      getItem,
+      getAddressFromXpub,
+      zcashGetAddress,
+      zcashGetFullViewingKey,
+    } = prepareFromAllNetwork({
       items: [0, 1].map((index) => ({
-        path: `m/32'/133'/${index}'`,
-        address: 'u1-account',
-        ufvk: 'viewing-key',
-        seedFingerprint: 'ab'.repeat(32),
+        path: `m/44'/133'/${index}'`,
+        xpub: `device-xpub-${index}`,
         rootFingerprint: 0x12_34_56_78,
       })),
       simpleDbZcash: {
@@ -313,10 +355,17 @@ describe('Zcash KeyringHardware', () => {
     const accounts = await result;
 
     expect(getItem.mock.calls.map(([arg]) => arg)).toEqual([
-      { path: "m/32'/133'/0'", hwSdkNetwork: 'zcash', useTweak: undefined },
-      { path: "m/32'/133'/1'", hwSdkNetwork: 'zcash', useTweak: undefined },
+      { path: "m/44'/133'/0'", hwSdkNetwork: 'btc', useTweak: undefined },
+      { path: "m/44'/133'/1'", hwSdkNetwork: 'btc', useTweak: undefined },
     ]);
+    for (const index of [0, 1]) {
+      expect(getAddressFromXpub).toHaveBeenNthCalledWith(
+        index + 1,
+        expect.objectContaining({ xpub: `device-xpub-${index}` }),
+      );
+    }
     expect(zcashGetAddress).not.toHaveBeenCalled();
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
     expect(accounts).toHaveLength(2);
     for (const account of accounts) {
       expect(account.__hwExtraInfo__).toEqual({
@@ -325,32 +374,13 @@ describe('Zcash KeyringHardware', () => {
     }
     expect(
       fingerprintStore.saveZcashWalletSeedFingerprint,
-    ).toHaveBeenCalledWith({
-      walletId: 'hw-1',
-      seedFingerprintHex: 'ab'.repeat(32),
-    });
+    ).not.toHaveBeenCalled();
     expect(beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
     expect(saveZcashAccountMeta).not.toHaveBeenCalled();
   });
 
-  it('refuses an all-network result without the viewing key', async () => {
-    const fingerprintStore = createSeedFingerprintStore();
-    const { result } = prepareFromAllNetwork({
-      items: [0, 1].map((index) => ({
-        path: `m/32'/133'/${index}'`,
-        address: 'u1-account',
-        rootFingerprint: 1,
-      })),
-      simpleDbZcash: { ...fingerprintStore },
-    });
-
-    await expect(result).rejects.toThrow('did not return the viewing key');
-    expect(
-      fingerprintStore.saveZcashWalletSeedFingerprint,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('asks the all-network call for the ZIP-32 account path', async () => {
+  // Pro 2's BTC coin table has no Zcash, so the coin must be named; the path alone means Zcash.
+  it('asks the all-network BTC public-key call for the transparent account', async () => {
     const keyring = createKeyring({ sdk: {} });
 
     await expect(
@@ -360,8 +390,9 @@ describe('Zcash KeyringHardware', () => {
         index: 3,
       }),
     ).resolves.toEqual({
-      network: 'zcash',
-      path: "m/32'/133'/3'",
+      network: 'btc',
+      chainName: 'btc',
+      path: "m/44'/133'/3'",
       showOnOneKey: false,
     });
   });
@@ -498,26 +529,17 @@ describe('Zcash KeyringHardware', () => {
         spentOutpoints: request.selectedOutpoints,
       };
       const sdk = {
-        zcashGetAddress: jest.fn().mockResolvedValue({
-          success: true,
-          payload: [
-            {
-              path: "m/32'/133'/0'",
-              address: 'u1-device',
-              ufvk: 'viewing',
-              seedFingerprint: '01'.repeat(32),
-            },
-          ],
+        zcashGetAddress: deviceAddresses({
+          transparent: 't1-account',
+          seedFingerprint: '01'.repeat(32),
         }),
+        zcashGetFullViewingKey: deviceViewingKey('viewing'),
         zcashSignPczt: jest.fn().mockResolvedValue({
           success: true,
           payload: { pczt: 'ccdd' },
         }),
       };
       const api = {
-        deriveTransparentXpubFromUfvk: jest
-          .fn()
-          .mockResolvedValue({ xpub: 'account-xpub' }),
         createTransparentHardwarePczt: jest
           .fn()
           .mockResolvedValue({ pcztHex: 'aabb' }),
@@ -544,9 +566,11 @@ describe('Zcash KeyringHardware', () => {
             .mockResolvedValue(request),
         },
         serviceAccount: {
-          getDBAccount: jest
-            .fn()
-            .mockResolvedValue({ pathIndex: 0, xpub: 'account-xpub' }),
+          getDBAccount: jest.fn().mockResolvedValue({
+            pathIndex: 0,
+            xpub: 'account-xpub',
+            address: 't1-account',
+          }),
         },
       });
       const result = await keyring.signTransaction({
@@ -566,20 +590,20 @@ describe('Zcash KeyringHardware', () => {
       expect(result.rawTx).toBe('abcd');
       expect(simpleDbZcash.getZcashAccountMeta).not.toHaveBeenCalled();
       expect(simpleDbZcash.isZcashPrivacyModeEnabled).not.toHaveBeenCalled();
-      // A shielded payment carries the device's UFVK; no privacy setup stored one.
-      const ufvk = address.startsWith('u1') ? 'viewing' : undefined;
+      // No privacy setup stored a UFVK, and sending never asks the device to export one.
+      expect(sdk.zcashGetFullViewingKey).not.toHaveBeenCalled();
       expect(api.createTransparentHardwarePczt).toHaveBeenCalledWith({
         request,
         accountXpub: 'account-xpub',
         seedFingerprintHex: '01'.repeat(32),
-        ufvk,
+        ufvk: undefined,
       });
       expect(api.finalizeTransparentHardwarePczt).toHaveBeenCalledWith({
         request,
         accountXpub: 'account-xpub',
         originalPcztHex: 'aabb',
         signedPcztHex: 'ccdd',
-        ufvk,
+        ufvk: undefined,
       });
       expect(journal.saveTransparentPendingTx).toHaveBeenCalledWith({
         accountId: 'hw-1--acc',
@@ -621,17 +645,8 @@ describe('Zcash KeyringHardware', () => {
 
   it('saves and verifies device-provided viewing metadata without querying the node', async () => {
     const saveAccountMeta = jest.fn();
-    const zcashGetAddress = jest.fn().mockResolvedValue({
-      success: true,
-      payload: [
-        {
-          path: "m/32'/133'/2'",
-          address: 'u1device',
-          ufvk: 'uview1device',
-          seedFingerprint: 'ab'.repeat(32),
-        },
-      ],
-    });
+    const zcashGetAddress = deviceAddresses();
+    const zcashGetFullViewingKey = deviceViewingKey();
     const deriveAddressFromUfvk = jest.fn().mockResolvedValue({
       unifiedAddress: 'u1app',
       transparentAddress: 't1account',
@@ -639,7 +654,7 @@ describe('Zcash KeyringHardware', () => {
     const getChainTip = jest.fn().mockResolvedValue(3_000_000);
     mockGetZcashApi.mockResolvedValue({ deriveAddressFromUfvk, getChainTip });
     const keyring = createKeyring({
-      sdk: { zcashGetAddress },
+      sdk: { zcashGetAddress, zcashGetFullViewingKey },
       simpleDbZcash: {
         getZcashPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
@@ -665,20 +680,23 @@ describe('Zcash KeyringHardware', () => {
       expect.objectContaining({ lightwalletdUrl: 'https://custom.lwd:443' }),
     );
     expect(getChainTip).not.toHaveBeenCalled();
+    const addressRequest = (addressType: number) => ({
+      path: "m/32'/133'/2'",
+      showOnOneKey: false,
+      addressType,
+      scope: 0,
+      diversifierIndex: 0,
+      includeSeedFingerprint: true,
+    });
     expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
       passphraseState: 'pp',
-      bundle: [
-        {
-          path: "m/32'/133'/2'",
-          showOnOneKey: false,
-          addressType: 2,
-          scope: 0,
-          diversifierIndex: 0,
-          includeUfvk: true,
-          includeSeedFingerprint: true,
-        },
-      ],
+      bundle: [addressRequest(1), addressRequest(2)],
     });
+    expect(zcashGetFullViewingKey).toHaveBeenCalledWith(
+      'connect-1',
+      'device-1',
+      { passphraseState: 'pp', path: "m/32'/133'/2'" },
+    );
     const vkFp = getViewingKeyFingerprint({
       networkId: 'zec--0',
       viewingKey: 'uview1device',
@@ -735,8 +753,46 @@ describe('Zcash KeyringHardware', () => {
     ).resolves.toBe('ab'.repeat(32));
   });
 
+  it('refuses a device without this account before asking to export the viewing key', async () => {
+    const saveAccountMeta = jest.fn();
+    const zcashGetFullViewingKey = deviceViewingKey();
+    const fingerprintStore = createSeedFingerprintStore();
+    const keyring = createKeyring({
+      sdk: {
+        zcashGetAddress: deviceAddresses({ transparent: 't1other' }),
+        zcashGetFullViewingKey,
+      },
+      simpleDbZcash: {
+        ...fingerprintStore,
+        getZcashPrivacyModeState: jest.fn().mockResolvedValue({
+          intent: 'on',
+          birthdayHeight: 2_500_000,
+        }),
+        getZcashAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveZcashAccountMeta: saveAccountMeta,
+      },
+      serviceAccount: {
+        getDBAccount: jest.fn().mockResolvedValue({
+          id: 'hw-1--acc',
+          pathIndex: 2,
+          address: 't1account',
+        }),
+      },
+    });
+
+    await expect(
+      keyring.retryLocalWalletSetup({ deviceParams: deviceParams as never }),
+    ).rejects.toThrow('device seed does not match this account');
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
+    expect(
+      fingerprintStore.saveZcashWalletSeedFingerprint,
+    ).not.toHaveBeenCalled();
+    expect(saveAccountMeta).not.toHaveBeenCalled();
+  });
+
   it('refuses privacy setup on a device whose seed differs from the wallet', async () => {
     const saveAccountMeta = jest.fn();
+    const zcashGetFullViewingKey = deviceViewingKey();
     mockGetZcashApi.mockResolvedValue({
       deriveAddressFromUfvk: jest.fn().mockResolvedValue({
         unifiedAddress: 'u1app',
@@ -746,17 +802,8 @@ describe('Zcash KeyringHardware', () => {
     });
     const keyring = createKeyring({
       sdk: {
-        zcashGetAddress: jest.fn().mockResolvedValue({
-          success: true,
-          payload: [
-            {
-              path: "m/32'/133'/2'",
-              address: 'u1device',
-              ufvk: 'uview1device',
-              seedFingerprint: 'cd'.repeat(32),
-            },
-          ],
-        }),
+        zcashGetAddress: deviceAddresses({ seedFingerprint: 'cd'.repeat(32) }),
+        zcashGetFullViewingKey,
       },
       simpleDbZcash: {
         ...createSeedFingerprintStore({ 'hw-1': 'ab'.repeat(32) }),
@@ -779,6 +826,7 @@ describe('Zcash KeyringHardware', () => {
     await expect(
       keyring.retryLocalWalletSetup({ deviceParams: deviceParams as never }),
     ).rejects.toThrow('device seed does not match this wallet');
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
     expect(saveAccountMeta).not.toHaveBeenCalled();
   });
 
@@ -793,17 +841,8 @@ describe('Zcash KeyringHardware', () => {
     });
     const keyring = createKeyring({
       sdk: {
-        zcashGetAddress: jest.fn().mockResolvedValue({
-          success: true,
-          payload: [
-            {
-              path: "m/32'/133'/2'",
-              address: 'u1device',
-              ufvk: 'uview1device',
-              seedFingerprint: 'ab'.repeat(32),
-            },
-          ],
-        }),
+        zcashGetAddress: deviceAddresses(),
+        zcashGetFullViewingKey: deviceViewingKey(),
       },
       simpleDbZcash: {
         getZcashPrivacyModeState: jest.fn().mockResolvedValue({
@@ -844,17 +883,8 @@ describe('Zcash KeyringHardware', () => {
     });
     const keyring = createKeyring({
       sdk: {
-        zcashGetAddress: jest.fn().mockResolvedValue({
-          success: true,
-          payload: [
-            {
-              path: "m/32'/133'/0'",
-              address: 'u1device',
-              ufvk: 'uview1device',
-              seedFingerprint: 'ab'.repeat(32),
-            },
-          ],
-        }),
+        zcashGetAddress: deviceAddresses(),
+        zcashGetFullViewingKey: deviceViewingKey(),
       },
       simpleDbZcash: {
         getZcashPrivacyModeState: jest.fn().mockResolvedValue({
@@ -910,8 +940,7 @@ describe('Zcash KeyringHardware transparent signing', () => {
   });
 
   function createTransparentKeyring({
-    accountXpub = 'xpub-account',
-    devicePubkeyXpub = 'xpub-account',
+    deviceAccountAddress = 't1-account',
     pathIndex = 0,
     accountStillExists = true,
     result = buildResult,
@@ -924,6 +953,11 @@ describe('Zcash KeyringHardware transparent signing', () => {
     const releaseTransparentReservation = jest.fn(async () => undefined);
     const saveTransparentPendingTx = jest.fn(async () => undefined);
     const zcashSignPczt = jest.fn(async () => deviceResponse);
+    const zcashGetAddress = deviceAddresses({
+      transparent: deviceAccountAddress,
+      seedFingerprint: 'EF'.repeat(32),
+    });
+    const zcashGetFullViewingKey = deviceViewingKey('device-ufvk');
     const fingerprintStore = createSeedFingerprintStore(
       storedFingerprint ? { 'hw-1': storedFingerprint } : {},
     );
@@ -932,15 +966,12 @@ describe('Zcash KeyringHardware transparent signing', () => {
     }));
     const finalizeTransparentHardwarePczt = jest.fn(async () => result);
     mockGetZcashApi.mockResolvedValue({
-      deriveTransparentXpubFromUfvk: jest.fn(async () => ({
-        xpub: devicePubkeyXpub,
-      })),
       createTransparentHardwarePczt,
       finalizeTransparentHardwarePczt,
       redactPcztForHardwareSigner,
     });
     const keyring = createKeyring({
-      sdk: { zcashSignPczt },
+      sdk: { zcashSignPczt, zcashGetAddress, zcashGetFullViewingKey },
       vault: {
         accountId,
         zcashPrepareFreshTransparentRequest: jest.fn(async () => ({
@@ -959,23 +990,14 @@ describe('Zcash KeyringHardware transparent signing', () => {
         getDBAccount: jest.fn(async () => ({
           id: accountId,
           pathIndex,
-          xpub: accountXpub,
+          xpub: 'xpub-account',
+          address: 't1-account',
         })),
         getDBAccountSafe: jest.fn(async () =>
           accountStillExists ? { id: accountId } : undefined,
         ),
       },
     });
-    const fetchDeviceViewingKeys = jest
-      .spyOn(
-        keyring as unknown as {
-          fetchDeviceViewingKeys: () => Promise<unknown>;
-        },
-        'fetchDeviceViewingKeys',
-      )
-      .mockResolvedValue([
-        { ufvk: 'device-ufvk', seedFingerprint: 'EF'.repeat(32) },
-      ]);
     const sign = () =>
       (
         keyring as unknown as {
@@ -991,7 +1013,8 @@ describe('Zcash KeyringHardware transparent signing', () => {
       releaseTransparentReservation,
       saveTransparentPendingTx,
       zcashSignPczt,
-      fetchDeviceViewingKeys,
+      zcashGetAddress,
+      zcashGetFullViewingKey,
       createTransparentHardwarePczt,
       finalizeTransparentHardwarePczt,
       fingerprintStore,
@@ -1001,7 +1024,8 @@ describe('Zcash KeyringHardware transparent signing', () => {
   it('signs with the stored seed fingerprint and calls the device only to sign', async () => {
     const {
       sign,
-      fetchDeviceViewingKeys,
+      zcashGetAddress,
+      zcashGetFullViewingKey,
       createTransparentHardwarePczt,
       finalizeTransparentHardwarePczt,
       zcashSignPczt,
@@ -1009,7 +1033,8 @@ describe('Zcash KeyringHardware transparent signing', () => {
 
     await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
 
-    expect(fetchDeviceViewingKeys).not.toHaveBeenCalled();
+    expect(zcashGetAddress).not.toHaveBeenCalled();
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
     expect(createTransparentHardwarePczt).toHaveBeenCalledWith({
       request,
       accountXpub: 'xpub-account',
@@ -1030,15 +1055,16 @@ describe('Zcash KeyringHardware transparent signing', () => {
   });
 
   it.each([
-    ['stored', 'stored-ufvk', 0],
-    ['missing', undefined, 1],
+    ['stored', 'stored-ufvk'],
+    ['missing', undefined],
   ])(
-    'seals a shielded payment with the account UFVK (%s UFVK)',
-    async (_label, storedUfvk, deviceCalls) => {
+    'seals a shielded payment only with a stored UFVK, never exporting one (%s UFVK)',
+    async (_label, storedUfvk) => {
       const shieldedRecipients = [{ address: 'u1-recipient' }];
       const {
         sign,
-        fetchDeviceViewingKeys,
+        zcashGetAddress,
+        zcashGetFullViewingKey,
         createTransparentHardwarePczt,
         finalizeTransparentHardwarePczt,
       } = createTransparentKeyring({
@@ -1049,30 +1075,19 @@ describe('Zcash KeyringHardware transparent signing', () => {
 
       await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
 
-      const ufvk = storedUfvk ?? 'device-ufvk';
-      expect(fetchDeviceViewingKeys).toHaveBeenCalledTimes(deviceCalls);
+      expect(zcashGetAddress).not.toHaveBeenCalled();
+      expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
       expect(createTransparentHardwarePczt).toHaveBeenCalledWith({
         request: { ...request, recipients: shieldedRecipients },
         accountXpub: 'xpub-account',
         seedFingerprintHex: 'ef'.repeat(32),
-        ufvk,
+        ufvk: storedUfvk,
       });
       expect(finalizeTransparentHardwarePczt).toHaveBeenCalledWith(
-        expect.objectContaining({ ufvk }),
+        expect.objectContaining({ ufvk: storedUfvk }),
       );
     },
   );
-
-  it('refuses a device UFVK of another wallet for a shielded payment', async () => {
-    const { sign, createTransparentHardwarePczt } = createTransparentKeyring({
-      storedFingerprint: 'ab'.repeat(32),
-      recipients: [{ address: 'u1-recipient' }],
-    });
-
-    await expect(sign()).rejects.toThrow('device seed does not match');
-
-    expect(createTransparentHardwarePczt).not.toHaveBeenCalled();
-  });
 
   it('tracks the local proving step as a user operation, not the device wait', async () => {
     const { sign, finalizeTransparentHardwarePczt, zcashSignPczt } =
@@ -1093,13 +1108,27 @@ describe('Zcash KeyringHardware transparent signing', () => {
     expect(zcashUserOperationsActive()).toBe(false);
   });
 
-  it('asks the device once when no fingerprint is stored, then keeps it', async () => {
-    const { sign, fetchDeviceViewingKeys, fingerprintStore } =
+  it('asks the device once without a prompt when no fingerprint is stored, then keeps it', async () => {
+    const { sign, zcashGetAddress, zcashGetFullViewingKey, fingerprintStore } =
       createTransparentKeyring();
 
     await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
 
-    expect(fetchDeviceViewingKeys).toHaveBeenCalledTimes(1);
+    expect(zcashGetAddress).toHaveBeenCalledTimes(1);
+    expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
+      passphraseState: 'pp',
+      bundle: [
+        {
+          path: "m/32'/133'/0'",
+          showOnOneKey: false,
+          addressType: 1,
+          scope: 0,
+          diversifierIndex: 0,
+          includeSeedFingerprint: true,
+        },
+      ],
+    });
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
     expect(
       fingerprintStore.saveZcashWalletSeedFingerprint,
     ).toHaveBeenCalledWith({
@@ -1134,14 +1163,21 @@ describe('Zcash KeyringHardware transparent signing', () => {
     expect(zcashSignPczt).not.toHaveBeenCalled();
   });
 
-  it('refuses a device viewing key that is not this account', async () => {
-    const { sign, releaseTransparentReservation, zcashSignPczt } =
-      createTransparentKeyring({ devicePubkeyXpub: 'xpub-someone-else' });
+  it('refuses a device that does not hold this account', async () => {
+    const {
+      sign,
+      releaseTransparentReservation,
+      zcashSignPczt,
+      fingerprintStore,
+    } = createTransparentKeyring({ deviceAccountAddress: 't1-someone-else' });
 
     await expect(sign()).rejects.toThrow(
-      'device viewing key does not match this account',
+      'device seed does not match this account',
     );
 
+    expect(
+      fingerprintStore.saveZcashWalletSeedFingerprint,
+    ).not.toHaveBeenCalled();
     expect(zcashSignPczt).not.toHaveBeenCalled();
     expect(releaseTransparentReservation).toHaveBeenCalledWith({
       accountId,
