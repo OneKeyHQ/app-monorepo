@@ -54,7 +54,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -642,8 +642,7 @@ export default function PrivacyNetworkSettings({
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       Dialog.show({
         title: intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__title,
-          defaultMessage: ETranslationsMock.privacy_enable_account__title,
+          id: ETranslations.privacy_enable_account__title,
         }),
         showConfirmButton: true,
         showCancelButton: true,
