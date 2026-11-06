@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Button,
@@ -1358,7 +1359,7 @@ const PositionRowMobileActions = memo(
                 textAlign="center"
                 // iOS keeps a fixed line height's baseline when shrinking the font.
                 // A zero native line height uses natural metrics; the wrapper centers it.
-                style={platformEnv.isNativeIOS ? { lineHeight: 0 } : undefined}
+                style={Platform.select({ ios: { lineHeight: 0 } })}
               >
                 {intl.formatMessage({ id: action.label })}
               </SizableText>
