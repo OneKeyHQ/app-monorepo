@@ -384,13 +384,18 @@ def patch_library(
             prefix=".onekey-jpush-patch-", dir=path.parent, delete=False
         ) as temporary:
             temporary_path = Path(temporary.name)
-            try:
-                temporary.write(data)
-                temporary.flush()
-                os.fchmod(temporary.fileno(), stat.S_IMODE(path.stat().st_mode))
-                os.replace(temporary_path, path)
-            finally:
-                temporary_path.unlink(missing_ok=True)
+            temporary.write(data)
+            temporary.flush()
+        # Close the temporary file before replacing it so the write works on
+        # every host platform that can run this build phase.
+        try:
+            os.chmod(temporary_path, stat.S_IMODE(path.stat().st_mode))
+        except OSError:
+            pass
+        try:
+            os.replace(temporary_path, path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
     return input_hash, output_hash, True
 
 

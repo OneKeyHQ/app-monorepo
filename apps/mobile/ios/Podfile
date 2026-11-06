@@ -231,6 +231,27 @@ target 'OneKeyWallet' do
       file_ref = fonts_group.new_file(f)
       main_target.resources_build_phase.add_file_reference(file_ref)
     end
+
+    # `yarn install` can restore the pristine JPush/JCore xcframeworks after the
+    # last `pod install`, while the development pods link them from node_modules.
+    # Fail every build if the reviewed patch is no longer applied.
+    unless mac_catalyst_enabled
+      jpush_check_phase_name = 'Check JPush SDK patches'
+      jpush_check_script = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
+      jpush_check_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
+      jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
+        phase.name == jpush_check_phase_name
+      end
+      unless jpush_check_phase
+        jpush_check_phase = main_target.new_shell_script_build_phase(jpush_check_phase_name)
+      end
+      jpush_check_phase.shell_script = <<~SCRIPT
+        python3 -B "#{jpush_check_script}" "#{jpush_check_node_modules}" --check
+      SCRIPT
+      main_target.build_phases.delete(jpush_check_phase)
+      main_target.build_phases.insert(0, jpush_check_phase)
+    end
+
     user_project.save
     puts "[Fonts] Added fonts to Xcode project Resources"
     if mac_catalyst_enabled
