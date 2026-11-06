@@ -163,6 +163,9 @@ function TokenListSettings({
           title={intl.formatMessage({
             id: ETranslations.global_filter,
           })}
+          aria-label={intl.formatMessage({
+            id: ETranslations.global_filter,
+          })}
           variant="tertiary"
           icon="SliderHorOutline"
           bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}

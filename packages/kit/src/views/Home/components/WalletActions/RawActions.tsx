@@ -264,6 +264,7 @@ function ActionMore({
       variant="secondary"
       size={actionSize}
       icon="DotHorOutline"
+      aria-label={label}
       testID={testID}
     />
   );

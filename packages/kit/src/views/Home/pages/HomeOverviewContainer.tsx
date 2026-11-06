@@ -645,13 +645,14 @@ function HomeOverviewContainer() {
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
+        aria-label={intl.formatMessage({ id: ETranslations.global_refresh })}
         loading={isLoading}
         onPress={handleRefreshWorth}
         testID="wallet-refresh-manually"
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
+  }, [handleRefreshWorth, intl, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();
@@ -661,6 +662,18 @@ function HomeOverviewContainer() {
       hideValue: !settingsValue.hideValue,
     });
   }, []);
+
+  // Web: pressing the balance hides it, so it is a real button for the
+  // keyboard too; the amount it shows stays its spoken name.
+  const handleBalanceKeyDown = useCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        void handleBalanceOnPress();
+      }
+    },
+    [handleBalanceOnPress],
+  );
 
   const handleBalanceDetailsOnPress = useCallback(() => {
     if (balanceDialogInstance?.current) {
@@ -1323,6 +1336,11 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              {...(!platformEnv.isNative && {
+                role: 'button',
+                tabIndex: 0,
+                onKeyDown: handleBalanceKeyDown,
+              })}
               testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
