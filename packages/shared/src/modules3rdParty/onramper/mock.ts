@@ -6,6 +6,7 @@ import type {
   IOnramperClient,
   IOnramperEventListener,
   IOnramperEventName,
+  IOnramperStateListener,
 } from './type';
 
 const delay = (ms: number) => timerUtils.wait(ms);
@@ -28,6 +29,10 @@ export function createMockOnramperClient(
   const listeners: Partial<
     Record<IOnramperEventName, Set<IOnramperEventListener>>
   > = {};
+  const stateListeners = new Set<IOnramperStateListener>();
+  // The mock user holds an OnramperID login until signOut(), so the page's
+  // sign-out action shows up after the first quote, as on a device.
+  let signedIn = true;
 
   return {
     isMock: true,
@@ -45,6 +50,14 @@ export function createMockOnramperClient(
       const rate = 192.94;
       const networkFee = 0.42;
       const transactionFee = 3.99;
+      // The only state the page reads: where a prepared checkout settles.
+      stateListeners.forEach((listener) =>
+        listener(
+          signedIn
+            ? { kind: 'readyToCheckout' }
+            : { kind: 'requireLogin', requirementTypes: ['user_info'] },
+        ),
+      );
       return {
         button: null,
         quote: {
@@ -69,17 +82,20 @@ export function createMockOnramperClient(
         set.delete(listener);
       };
     },
-    addStateListener() {
-      // The mock has no state machine; nothing is ever published.
-      return () => {};
+    addStateListener(listener: IOnramperStateListener) {
+      stateListeners.add(listener);
+      return () => {
+        stateListeners.delete(listener);
+      };
     },
     async reset() {
       // no-op for the mock
     },
     async signOut() {
-      // no-op for the mock
+      signedIn = false;
     },
     destroy() {
+      stateListeners.clear();
       (Object.keys(listeners) as IOnramperEventName[]).forEach((name) => {
         listeners[name]?.clear();
       });

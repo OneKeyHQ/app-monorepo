@@ -10,6 +10,7 @@ import {
   getErrorMessageForLog,
   getOnramperConfig,
   getOnramperErrorFieldsForLog,
+  getOnramperSignedInFromState,
   getUrlHostForLog,
   isStructuralOnramperError,
   sanitizeOnramperLogRecord,
@@ -22,12 +23,36 @@ import type {
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
 import { EBuyActionState } from './types';
 
 const DEBOUNCE_MS = 400;
+
+// The OnramperID login the SDK last reported on this install. The SDK only
+// reveals it once a checkout is prepared (getOnramperSignedInFromState), so
+// this is what the page goes by until then.
+function readRememberedSignedIn(): boolean {
+  return (
+    appStorage.syncStorage.getBoolean(
+      EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+    ) === true
+  );
+}
+
+async function rememberSignedIn(signedIn: boolean) {
+  try {
+    await appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+      signedIn,
+    );
+  } catch {
+    // Not remembered: the next prepared checkout reports the login again.
+  }
+}
 
 type IParams = {
   amount: number; // parsed fiat amount (0 when empty/invalid)
@@ -80,6 +105,10 @@ type IResult = {
   retry: () => void;
   // Silent re-quote for flow-driven refreshes (e.g. leaving review).
   refreshQuote: () => void;
+  // Whether the SDK holds an OnramperID login, as far as it has told us:
+  // remembered from the last visit, then corrected by every prepared checkout
+  // and by signOut. False while unknown.
+  isSignedIn: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Exposed for the header sign-out
   // button.
@@ -120,6 +149,16 @@ export function useOnramperCheckout({
   const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [isSignedIn, setIsSignedIn] = useState(readRememberedSignedIn);
+  const isSignedInRef = useRef(isSignedIn);
+  const markSignedIn = useCallback((signedIn: boolean) => {
+    if (isSignedInRef.current === signedIn) {
+      return;
+    }
+    isSignedInRef.current = signedIn;
+    setIsSignedIn(signedIn);
+    void rememberSignedIn(signedIn);
+  }, []);
 
   // Reference-stable logging context so the (dep-free) event callbacks can read
   // the current token without re-subscribing. `elapsedMs` counts from the
@@ -397,6 +436,10 @@ export function useOnramperCheckout({
         }),
       ),
       client.addStateListener((state) => {
+        const signedIn = getOnramperSignedInFromState(state);
+        if (signedIn !== undefined) {
+          markSignedIn(signedIn);
+        }
         defaultLogger.fiatCrypto.onramper.sdkStateChanged({
           ...getLogContext(),
           state: state.kind,
@@ -754,7 +797,8 @@ export function useOnramperCheckout({
       });
       throw error;
     }
-  }, [getLogContext]);
+    markSignedIn(false);
+  }, [getLogContext, markSignedIn]);
 
   return {
     actionState,
@@ -766,6 +810,7 @@ export function useOnramperCheckout({
     payMock,
     retry,
     refreshQuote,
+    isSignedIn,
     signOut,
     getLogContext,
   };

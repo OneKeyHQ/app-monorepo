@@ -401,6 +401,7 @@ function HeadlessBuyPage() {
     payMock,
     retry,
     refreshQuote,
+    isSignedIn,
     signOut,
     getLogContext,
   } = useOnramperCheckout({
@@ -640,6 +641,8 @@ function HeadlessBuyPage() {
   // login in native storage and offers no in-flow way to switch accounts —
   // without this, a user whose OnramperID cannot transact (e.g. KYC country
   // vs current region mismatch) is stuck with no way to try another account.
+  // Offered only while the SDK reports a login (isSignedIn): there is nothing
+  // to sign out of otherwise.
   const renderSignOutButton = useCallback(
     () => (
       <HeaderIconButton
@@ -669,7 +672,7 @@ function HeadlessBuyPage() {
           interception above. */}
       <Page.Header
         title={activeToken?.symbol ? `Buy ${activeToken.symbol}` : 'Buy'}
-        headerRight={renderSignOutButton}
+        headerRight={isSignedIn ? renderSignOutButton : undefined}
       />
       <Page.Body>
         <YStack flex={1} px="$5" pb="$3">

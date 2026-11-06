@@ -1,4 +1,47 @@
-import type { IOnramperError, IOnramperLogRecord } from './type';
+import type {
+  IOnramperError,
+  IOnramperLogRecord,
+  IOnramperState,
+} from './type';
+
+// A user_info field the backend already holds can only belong to a signed-in
+// OnramperID user: nothing is satisfied for an anonymous checkout.
+export function hasVerifiedOnramperUserInfo(
+  requirements: { type: string; fields?: { satisfied: boolean }[] }[],
+): boolean {
+  return requirements.some(
+    (requirement) =>
+      requirement.type === 'user_info' &&
+      requirement.fields?.some((field) => field.satisfied),
+  );
+}
+
+// The SDK has no "is the OnramperID user signed in" query: its login tokens
+// stay in the Keychain. The checkout state machine is the only signal — every
+// prepared checkout settles on `readyToCheckout` (the button pays without a
+// login) or on `requireLogin` (the button runs the OnramperID flow first).
+// `requireLogin` alone does not mean signed out: it also covers a signed-in
+// user who has to re-verify or add details, and that user must keep the
+// sign-out action. Only a login that starts from nothing counts. Every other
+// state says nothing about the login.
+export function getOnramperSignedInFromState(
+  state: Pick<
+    IOnramperState,
+    'kind' | 'requirementTypes' | 'hasVerifiedUserInfo'
+  >,
+): boolean | undefined {
+  if (state.kind === 'readyToCheckout') {
+    return true;
+  }
+  if (state.kind !== 'requireLogin') {
+    return undefined;
+  }
+  const types = state.requirementTypes ?? [];
+  if (state.hasVerifiedUserInfo || types.includes('reverification')) {
+    return true;
+  }
+  return types.includes('user_info') ? false : undefined;
+}
 
 // Structural / non-retryable failures → fall back to the web widget (S5).
 // Everything else is treated as retryable (inline retry, S4).
