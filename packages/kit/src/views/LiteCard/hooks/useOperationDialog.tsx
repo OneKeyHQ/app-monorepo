@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,10 +7,30 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export default function useOperationDialog() {
   const intl = useIntl();
+  const pendingCancels = useRef(new Set<() => void>());
+  useEffect(
+    () => () => {
+      for (const cancel of pendingCancels.current) cancel();
+      pendingCancels.current.clear();
+    },
+    [],
+  );
   const showBackupOverwrittenDialog = useCallback(
     () =>
-      new Promise<void>((resolve) => {
-        Dialog.show({
+      new Promise<void>((resolve, reject) => {
+        const dialog: { current?: ReturnType<typeof Dialog.confirm> } = {};
+        let confirmed = false;
+        const cancel = () => {
+          pendingCancels.current.delete(cancel);
+          if (!confirmed) {
+            confirmed = true;
+            reject(new Error('Lite operation cancelled'));
+            void dialog.current?.close();
+          }
+        };
+        pendingCancels.current.add(cancel);
+        dialog.current = Dialog.show({
+          onClose: cancel,
           icon: 'ErrorOutline',
           tone: 'destructive',
           title: intl.formatMessage({
@@ -44,15 +64,32 @@ export default function useOperationDialog() {
               return !value;
             },
           },
-          onConfirm: () => resolve(),
+          onConfirm: () => {
+            if (confirmed) return;
+            confirmed = true;
+            pendingCancels.current.delete(cancel);
+            resolve();
+          },
         });
       }),
     [intl],
   );
   const showResetWarningDialog = useCallback(
     () =>
-      new Promise<void>((resolve) => {
-        Dialog.show({
+      new Promise<void>((resolve, reject) => {
+        const dialog: { current?: ReturnType<typeof Dialog.confirm> } = {};
+        let confirmed = false;
+        const cancel = () => {
+          pendingCancels.current.delete(cancel);
+          if (!confirmed) {
+            confirmed = true;
+            reject(new Error('Lite operation cancelled'));
+            void dialog.current?.close();
+          }
+        };
+        pendingCancels.current.add(cancel);
+        dialog.current = Dialog.show({
+          onClose: cancel,
           icon: 'GiroCardOutline',
           title: intl.formatMessage({
             id: ETranslations.hardware_reset_onekey_lite,
@@ -84,7 +121,12 @@ export default function useOperationDialog() {
               return !/^RESET$/i.test(value);
             },
           },
-          onConfirm: () => resolve(),
+          onConfirm: () => {
+            if (confirmed) return;
+            confirmed = true;
+            pendingCancels.current.delete(cancel);
+            resolve();
+          },
         });
       }),
     [intl],
