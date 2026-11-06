@@ -294,6 +294,10 @@ export class OnramperScene extends BaseScene {
         checkoutId?: string;
         // Present once checkout finalize succeeded (see checkoutCompleted).
         transactionId?: string;
+        // `reason` of the provider page error that led to this failure (e.g.
+        // Coinbase `onramp_api.commit_error`); the SDK's own error fields do
+        // not carry it.
+        providerReason?: string;
         // True when a newer quote request had already superseded the checkout
         // this failure belongs to — logged, but not surfaced to the user.
         stale?: boolean;
@@ -472,6 +476,9 @@ export class OnramperScene extends BaseScene {
     rawStatus?: string;
     hasTxHash: boolean;
     timedOut?: boolean;
+    // Failed by the provider's payment page (authorization failed), not by
+    // the backend.
+    authorizationFailed?: boolean;
   }) {
     return params;
   }
@@ -489,7 +496,9 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public ordersEntryPressed(params: {
-    source: 'icon' | 'banner' | 'reminder';
+    // paymentUnknown: the review screen's "View order" after a checkout
+    // failed with the payment outcome unknown.
+    source: 'icon' | 'banner' | 'reminder' | 'paymentUnknown';
     processingCount: number;
   }) {
     return params;

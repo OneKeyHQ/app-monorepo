@@ -75,20 +75,24 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
 
   // Merges `patch` into an existing record atomically (read-modify-write
   // inside the storage lock). Returns the updated record, or undefined when
-  // there is nothing to patch.
+  // there is nothing to patch. `onlyIfHidden` skips a record that became
+  // visible since the caller read it, so a checkout-failure write can never
+  // overwrite a `completed` one that landed in between.
   @backgroundMethod()
   async patchOrder({
     transactionId,
     patch,
+    onlyIfHidden,
   }: {
     transactionId: string;
     patch: Partial<IHeadlessBuyOrder>;
+    onlyIfHidden?: boolean;
   }): Promise<IHeadlessBuyOrder | undefined> {
     let updated: IHeadlessBuyOrder | undefined;
     await this.setRawData((raw) => {
       const orders = { ...raw?.orders };
       const existing = orders[transactionId];
-      if (!existing) {
+      if (!existing || (onlyIfHidden && existing.submittedAt !== undefined)) {
         updated = undefined;
         return { orders };
       }

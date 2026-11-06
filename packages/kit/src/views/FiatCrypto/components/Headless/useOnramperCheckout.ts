@@ -22,6 +22,7 @@ import type {
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import { getHeadlessBuyAbandonReason } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -84,7 +85,9 @@ type IParams = {
   onPaymentAuthorized?: (transactionId: string) => void;
   // cancelled / failed without a completed: the (hidden) order is dead —
   // except `providerFailed` (SDK 1.3+), where the payment outcome is unknown
-  // and the service keeps the record for tracking.
+  // and the service keeps the record for tracking, and `authorizationFailed`
+  // (the provider's payment page said the authorization failed), where the
+  // service shows the record as failed.
   onCheckoutAbandoned?: (
     transactionId: string,
     reason: IHeadlessBuyAbandonReason,
@@ -97,9 +100,15 @@ type IResult = {
   quote: IOnramperQuote | undefined;
   isMock: boolean;
   errorMessage: string | undefined;
-  // SDK error code behind errorMessage — lets the page route amount-level
-  // failures back to the input screen instead of a generic retry.
+  // Error code behind errorMessage — lets the page route amount-level
+  // failures back to the input screen instead of a generic retry. The SDK's
+  // code, except for a failed payment authorization, which the SDK reports
+  // as `providerFailed` and this hook reports as `paymentFailed`.
   errorCode: string | undefined;
+  // Set while the failure on screen left the payment outcome unknown (SDK
+  // `providerFailed` with no page reason settling it): the order to send the
+  // user to instead of offering a one-tap retry that could pay twice.
+  unknownOutcomeTransactionId: string | undefined;
   payMock: () => void;
   // User-pressed Retry (logged as a funnel signal).
   retry: () => void;
@@ -152,6 +161,10 @@ export function useOnramperCheckout({
     undefined,
   );
   const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
+  // Transaction the failure on screen belongs to (checkout failures only).
+  const [errorTransactionId, setErrorTransactionId] = useState<
+    string | undefined
+  >(undefined);
   const [ready, setReady] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   // Undefined while unknown (readRememberedSignedIn).
@@ -275,6 +288,12 @@ export function useOnramperCheckout({
   // EVERY event rather than only checkoutFinalized so the order is recorded
   // even if a future SDK publishes the id on a different event.
   const createdTransactionIdRef = useRef<string | undefined>(undefined);
+  // Reason of the last `providerError` and the transaction it belongs to. The
+  // SDK publishes it right before the `failed` it causes, and it is the only
+  // place the provider page's own event name survives.
+  const providerErrorRef = useRef<
+    { transactionId: string; reason: string } | undefined
+  >(undefined);
   const noteTransactionId = useCallback((transactionId: string | undefined) => {
     if (transactionId && createdTransactionIdRef.current !== transactionId) {
       createdTransactionIdRef.current = transactionId;
@@ -317,6 +336,7 @@ export function useOnramperCheckout({
           }),
         );
         setErrorCode(event.errorCode);
+        setErrorTransactionId(event.transactionId);
         setActionState(EBuyActionState.RetryableError);
       }
     },
@@ -326,15 +346,25 @@ export function useOnramperCheckout({
   const handleCheckoutFailed = useCallback(
     (event: IOnramperEvent) => {
       noteTransactionId(event.transactionId);
+      // The page reason that led to this failure, if it is this transaction's.
+      // Consumed here: a later failure is judged on its own.
+      const providerError = providerErrorRef.current;
+      providerErrorRef.current = undefined;
+      const providerReason =
+        providerError && providerError.transactionId === event.transactionId
+          ? providerError.reason
+          : undefined;
+      const abandonReason = getHeadlessBuyAbandonReason({
+        errorCode: event.errorCode,
+        providerReason,
+      });
       if (event.transactionId) {
         // Regardless of `stale` below: a failed checkout's hidden order is
         // dead either way (the service ignores already-submitted orders) —
         // unless the payment surface failed with the outcome unknown, which
-        // the service treats as "possibly paid" and keeps.
-        onCheckoutAbandonedRef.current?.(
-          event.transactionId,
-          event.errorCode === 'providerFailed' ? 'providerFailed' : 'failed',
-        );
+        // the service treats as "possibly paid" and keeps, or the payment
+        // authorization failed, which the service shows as a failed order.
+        onCheckoutAbandonedRef.current?.(event.transactionId, abandonReason);
       }
       // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
       // newer quote request exists (amount / address edit, review exit) that
@@ -353,12 +383,20 @@ export function useOnramperCheckout({
         ramp: quoteRef.current?.ramp,
         checkoutId: event.checkoutId,
         transactionId: event.transactionId,
+        providerReason,
         stale,
       });
       if (stale) {
         return;
       }
-      applyFailure(event);
+      // A failed authorization is a definite payment failure, whatever code
+      // the SDK filed it under: show the payment-failed copy and keep the
+      // in-place retry instead of the "status unknown" handling.
+      applyFailure(
+        abandonReason === 'authorizationFailed'
+          ? { ...event, errorCode: 'paymentFailed' }
+          : event,
+      );
     },
     [applyFailure, getLogContext, noteTransactionId],
   );
@@ -386,7 +424,7 @@ export function useOnramperCheckout({
   const handleCheckoutCompletedRef = useRef(handleCheckoutCompleted);
   handleCheckoutCompletedRef.current = handleCheckoutCompleted;
 
-  // Every other SDK checkout event is diagnostics only: logged, never acted on.
+  // Every other SDK checkout event: logged, and acted on only where noted.
   const handleSdkEvent = useCallback(
     (event: IOnramperEvent) => {
       if (!event.type) {
@@ -398,6 +436,12 @@ export function useOnramperCheckout({
           onPaymentAuthorizedRef.current?.(event.transactionId);
         } else if (event.type === 'cancelled') {
           onCheckoutAbandonedRef.current?.(event.transactionId, 'cancelled');
+        } else if (event.type === 'providerError' && event.reason) {
+          // Kept for the `failed` event that follows (see handleCheckoutFailed).
+          providerErrorRef.current = {
+            transactionId: event.transactionId,
+            reason: event.reason,
+          };
         }
       }
       defaultLogger.fiatCrypto.onramper.sdkCheckoutEvent({
@@ -583,6 +627,7 @@ export function useOnramperCheckout({
     );
     setErrorMessage(undefined);
     setErrorCode(undefined);
+    setErrorTransactionId(undefined);
     const provider = onlyOnramps?.[0];
     const timer = setTimeout(() => {
       const client = clientRef.current;
@@ -832,6 +877,13 @@ export function useOnramperCheckout({
     isMock,
     errorMessage,
     errorCode,
+    // Tied to the failure being on screen: a retry or a review exit moves the
+    // state on before the next quote clears the error fields.
+    unknownOutcomeTransactionId:
+      actionState === EBuyActionState.RetryableError &&
+      errorCode === 'providerFailed'
+        ? errorTransactionId
+        : undefined,
     payMock,
     retry,
     refreshQuote,

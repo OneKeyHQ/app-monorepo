@@ -90,7 +90,11 @@ export enum EHeadlessBuyOrderStatus {
 export type IHeadlessBuyAbandonReason =
   | 'cancelled'
   | 'failed'
-  | 'providerFailed';
+  | 'providerFailed'
+  // The provider's payment page reported that the payment authorization
+  // failed (Coinbase `onramp_api.commit_error`): the order is shown as failed
+  // at once instead of waiting on a backend status that may never change.
+  | 'authorizationFailed';
 
 export type IAddHeadlessBuyOrderParams = {
   // Onramper durable transaction id (SDK 1.2.1+); the storage key and the
@@ -124,8 +128,9 @@ export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
   // `completed` event time (or backend-observed payment progress). Only
   // orders with this set are shown anywhere.
   submittedAt?: number;
-  // paymentAuthorized seen locally, or backend status pending/paid. Such an
-  // order is never auto-failed by the 24 h rule.
+  // paymentAuthorized / a paid checkout outcome seen locally, or backend
+  // status paid. Such an order is never auto-failed by the 24 h rule. Backend
+  // `pending` does not count: a provider order is `pending` from creation.
   paymentSeen?: boolean;
   // SDK 1.3 `providerFailed`: the payment surface failed without confirming
   // whether the user was charged. Not payment evidence (the 24 h rule still
@@ -148,6 +153,11 @@ export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
   // Failed by the 24 h no-progress rule rather than by the backend. Such an
   // order keeps being refreshed so a late completion can flip it back.
   timedOut?: boolean;
+  // Failed because the provider's payment page reported a failed payment
+  // authorization, before any backend verdict. Refreshed like a timed-out
+  // order: a backend status that proves a payment flips it back, a backend
+  // failure replaces it.
+  authorizationFailed?: boolean;
 };
 
 // One entry of the wallet-side Onramper transaction lookup (OK-64602). Field

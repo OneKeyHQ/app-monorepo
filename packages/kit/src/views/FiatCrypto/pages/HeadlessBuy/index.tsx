@@ -303,7 +303,8 @@ function HeadlessBuyPage() {
   // Order lifecycle → background store (product spec 2026-10-16): record on
   // the first transaction id (before Apple Pay), note payment authorization,
   // drop the hidden record on cancel / pre-payment failure (but keep it when
-  // the provider failed with the payment outcome unknown).
+  // the provider failed with the payment outcome unknown, and show it as
+  // failed when the provider's payment page said the authorization failed).
   const handleTransactionCreated = useCallback((transactionId: string) => {
     void backgroundApiProxy.serviceFiatCrypto.addHeadlessBuyOrder(
       buildOrderParamsRef.current(transactionId),
@@ -398,6 +399,7 @@ function HeadlessBuyPage() {
     isMock,
     errorMessage,
     errorCode,
+    unknownOutcomeTransactionId,
     payMock,
     retry,
     refreshQuote,
@@ -567,6 +569,20 @@ function HeadlessBuyPage() {
       transactionId: sameTokenOrder.transactionId,
     });
   }, [sameTokenOrder, processingOrders.length, navigation]);
+  // The checkout failed with the payment outcome unknown: the action zone
+  // opens that order instead of offering a one-tap retry.
+  const openUnknownOutcomeOrder = useCallback(() => {
+    if (!unknownOutcomeTransactionId) {
+      return;
+    }
+    defaultLogger.fiatCrypto.onramper.ordersEntryPressed({
+      source: 'paymentUnknown',
+      processingCount: processingOrders.length,
+    });
+    navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrderDetail, {
+      transactionId: unknownOutcomeTransactionId,
+    });
+  }, [unknownOutcomeTransactionId, processingOrders.length, navigation]);
 
   // The ≈crypto line under the amount: live payout from the quote, a skeleton
   // while a quote is in flight (avoids showing a stale figure for the newly
@@ -792,6 +808,11 @@ function HeadlessBuyPage() {
                   errorText={errorMessage}
                   onMockPay={payMock}
                   onRetry={retry}
+                  onViewOrder={
+                    unknownOutcomeTransactionId
+                      ? openUnknownOutcomeOrder
+                      : undefined
+                  }
                   onWebFallback={openWebFallback}
                 />
               </YStack>

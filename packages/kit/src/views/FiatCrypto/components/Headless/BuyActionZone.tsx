@@ -32,6 +32,10 @@ type IProps = {
   errorText?: string;
   onMockPay: () => void;
   onRetry: () => void;
+  // Set when the failure on screen left the payment outcome unknown: the
+  // retry gives way to opening that order, so a second payment is never one
+  // tap away while the first may have gone through.
+  onViewOrder?: () => void;
   onWebFallback: () => void;
 };
 
@@ -49,6 +53,7 @@ export function BuyActionZone({
   errorText,
   onMockPay,
   onRetry,
+  onViewOrder,
   onWebFallback,
 }: IProps) {
   let content: ReactNode;
@@ -74,7 +79,18 @@ export function BuyActionZone({
     );
   } else if (state === EBuyActionState.RetryableError) {
     // S4 — retryable error (message rendered in the amount hero slot above).
-    content = (
+    // With the payment outcome unknown the action is checking the order;
+    // buying again stays possible by going back to the amount screen.
+    content = onViewOrder ? (
+      <Button
+        testID="headless-buy-view-order"
+        size="large"
+        variant="primary"
+        onPress={onViewOrder}
+      >
+        View order
+      </Button>
+    ) : (
       <Button
         testID="headless-buy-retry"
         size="large"

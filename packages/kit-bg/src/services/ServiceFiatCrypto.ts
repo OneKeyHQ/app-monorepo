@@ -9,7 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { isTerminalHeadlessBuyOrder } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import {
+  isClientFailedHeadlessBuyOrder,
+  isTerminalHeadlessBuyOrder,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -100,10 +103,11 @@ function sortOrdersNewestFirst(
   );
 }
 
-// Visible processing orders first, then hidden records, then timed-out
-// failures (the sort is stable, so each tier stays newest first).
+// Visible processing orders first, then hidden records, then client-decided
+// failures — timed out, or failed by the provider's payment page (the sort is
+// stable, so each tier stays newest first).
 function lookupPriority(order: IHeadlessBuyOrder): number {
-  if (order.timedOut) {
+  if (isClientFailedHeadlessBuyOrder(order)) {
     return 2;
   }
   return order.submittedAt === undefined ? 1 : 0;
@@ -587,7 +591,8 @@ class ServiceFiatCrypto extends ServiceBase {
   // and neither is a hidden one whose Apple Pay sheet was already authorized
   // or whose payment surface failed with the outcome unknown (SDK 1.3
   // `providerFailed`): money may have moved, so that record is surfaced for
-  // the user to track and the next status lookup settles it.
+  // the user to track and the next status lookup settles it. A failed payment
+  // authorization (`authorizationFailed`) surfaces the record as failed.
   @backgroundMethod()
   public async discardHeadlessBuyOrder({
     transactionId,
@@ -637,6 +642,30 @@ class ServiceFiatCrypto extends ServiceBase {
     const { simpleDb } = this.backgroundApi;
     const { transactionId } = order;
     if (order.submittedAt !== undefined) {
+      return;
+    }
+    if (reason === 'authorizationFailed') {
+      // The provider's payment page said the authorization failed, and the
+      // backend can leave such a transaction `pending` for good (Coinbase,
+      // device-observed 2026-11-06), so waiting for a backend verdict would
+      // park the order in Processing. It is failed here and kept, not
+      // dropped: a brief card hold is possible, so the user needs the order
+      // id, and the record keeps being refreshed — a backend status that
+      // proves a payment flips it back. Conditional inside the storage lock
+      // so a `completed` write that lands after the read above wins.
+      const failed = await simpleDb.headlessBuyOrders.patchOrder({
+        transactionId,
+        onlyIfHidden: true,
+        patch: {
+          submittedAt: Date.now(),
+          status: EHeadlessBuyOrderStatus.Failed,
+          authorizationFailed: true,
+        },
+      });
+      if (failed) {
+        this.logHeadlessBuyOrderStatusChange(order, failed);
+        this.emitHeadlessBuyOrdersChanged();
+      }
       return;
     }
     // `providerFailed` is not evidence of a payment (paymentSeen stays as it
@@ -721,7 +750,8 @@ class ServiceFiatCrypto extends ServiceBase {
   ) {
     if (
       from.status === to.status &&
-      Boolean(from.timedOut) === Boolean(to.timedOut)
+      Boolean(from.timedOut) === Boolean(to.timedOut) &&
+      Boolean(from.authorizationFailed) === Boolean(to.authorizationFailed)
     ) {
       return;
     }
@@ -732,6 +762,7 @@ class ServiceFiatCrypto extends ServiceBase {
       rawStatus: to.rawStatus,
       hasTxHash: Boolean(to.transactionHash),
       timedOut: to.timedOut,
+      authorizationFailed: to.authorizationFailed,
     });
   }
 

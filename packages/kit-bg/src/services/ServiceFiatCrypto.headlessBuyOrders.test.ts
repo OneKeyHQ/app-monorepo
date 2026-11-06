@@ -439,6 +439,79 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
+  test('discardHeadlessBuyOrder shows a hidden order as failed when the payment authorization failed', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'authorized', paymentSeen: true }),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // The provider's payment page reported a failed authorization (Coinbase
+    // `commit_error`). The backend may leave the transaction `pending` for
+    // good, so the order is failed here instead of sitting in Processing.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'authorized',
+      reason: 'authorizationFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'authorizationFailed',
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    });
+    expect(store.get('01M3')?.paymentOutcomeUnknown).toBeUndefined();
+    // The Apple Pay sheet was approved before the provider failed to commit
+    // it: still failed, and the record keeps that evidence.
+    expect(store.get('authorized')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      paymentSeen: true,
+    });
+    // An already visible order is left alone.
+    expect(store.get('paid')).toMatchObject({
+      submittedAt: T0,
+      status: EHeadlessBuyOrderStatus.Processing,
+    });
+    expect(store.get('paid')?.authorizationFailed).toBeUndefined();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HeadlessBuyOrdersChanged,
+      undefined,
+    );
+  });
+
+  test('addHeadlessBuyOrder shows a record as failed when its authorization failure overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      accountName: 'Account 1',
+      authorizationFailed: true,
+    });
+  });
+
   test('discardHeadlessBuyOrder keeps a record that got submitted after the read', async () => {
     const { service, store, simpleDb } = createService([baseOrder()]);
     // The `completed` event lands between the service's read and its
@@ -515,9 +588,10 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       transactionHash: '0xhash',
       lastCheckOk: true,
     });
+    // `pending` is applied as the raw status but is not payment evidence.
     expect(store.get('b')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Processing,
-      paymentSeen: true,
+      paymentSeen: false,
       rawStatus: 'pending',
     });
     expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
@@ -568,7 +642,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('b')).toMatchObject({ lastCheckOk: false });
     expect(store.get('c')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Processing,
-      paymentSeen: true,
+      rawStatus: 'pending',
       lastCheckOk: true,
     });
     expect(emit).not.toHaveBeenCalledWith(
@@ -683,6 +757,35 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       'v1',
       'v2',
     ]);
+  });
+
+  test('refreshHeadlessBuyOrders keeps checking an authorization-failed order, rarely, and leaves it failed on pending', async () => {
+    const { service, store, post } = createService([
+      baseOrder({
+        transactionId: 'auth-failed',
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        authorizationFailed: true,
+        lastCheckedAt: T0 + 1000 - 5 * 60_000,
+        lastCheckOk: true,
+      }),
+    ]);
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, { 'auth-failed': { status: 'pending' } }),
+    );
+    // Checked five minutes ago: a general refresh leaves it for later, the
+    // same budget as a timed-out record.
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).not.toHaveBeenCalled();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 10 * 60_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requestedIds(post)).toEqual(['auth-failed']);
+    expect(store.get('auth-failed')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      rawStatus: 'pending',
+      lastCheckOk: true,
+    });
   });
 
   test('refreshHeadlessBuyOrders sends at most twenty ids per request, newest first, and no more requests than the budget allows', async () => {
@@ -848,7 +951,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('mock-1')?.lastCheckedAt).toBeUndefined();
     expect(store.get('local-1')?.lastCheckedAt).toBeUndefined();
     expect(store.get('a')).toMatchObject({
-      paymentSeen: true,
+      rawStatus: 'pending',
       lastCheckOk: true,
     });
   });
