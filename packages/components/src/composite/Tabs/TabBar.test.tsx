@@ -64,9 +64,7 @@ jest.mock('react-native-reanimated', () => {
   return {
     __esModule: true,
     default: {
-      Text: ({ children }: { children?: ReactNode }) => (
-        <span data-animated-text>{children}</span>
-      ),
+      Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
       View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     },
     Extrapolation: { CLAMP: 'clamp' },
@@ -364,49 +362,6 @@ describe('TabBar scrollable focus handling', () => {
     });
     jest.useRealTimers();
   });
-
-  it.each([
-    ['web default', false, false, 'default', false],
-    ['web scrollable', false, true, 'default', false],
-    ['native scrollable', true, true, 'default', false],
-    ['native animated default', true, false, 'default', true],
-    ['native animated pill', true, false, 'pill', true],
-    ['native animated text', true, false, 'text', true],
-  ] as const)(
-    'adds test IDs without changing rendering or presses for %s tabs',
-    (_scenario, isNative, scrollable, variant, animated) => {
-      platformEnv.isNative = isNative;
-      const props = {
-        focusedTab: mockInteractiveFocusedTab,
-        indexDecimal: animated ? mockIndexDecimal : undefined,
-        tabNames: mockTabNames,
-        onTabPress: mockInteractiveTabPress,
-        scrollable,
-        variant,
-      };
-      const { container, rerender } = render(<TabBar {...props} />);
-      expect(container.querySelectorAll('[data-animated-text]')).toHaveLength(
-        animated ? mockTabNames.length : 0,
-      );
-
-      rerender(<TabBar {...props} getTabTestID={(name) => `tab-${name}`} />);
-      for (const name of mockTabNames) {
-        expect(screen.getByTestId(`tab-${name}`).textContent).toBe(name);
-      }
-      expect(container.querySelectorAll('[data-animated-text]')).toHaveLength(
-        animated ? mockTabNames.length : 0,
-      );
-
-      fireEvent.click(screen.getByTestId('tab-Perps'));
-      expect(mockInteractiveTabPress).toHaveBeenCalledWith('Perps');
-      expect(mockInteractiveFocusedTab.value).toBe('Perps');
-      if (!animated) {
-        expect(screen.getByText('Perps').getAttribute('data-color')).toBe(
-          '$text',
-        );
-      }
-    },
-  );
 
   it('scrolls the initially focused tab into view after the list is ready', () => {
     render(

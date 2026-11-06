@@ -45,9 +45,6 @@ type IMarketDetailProps = IPageScreenProps<
   EModalAssetDetailRoutes.MarketDetail
 >;
 
-const getMarketDetailTabTestID = (_name: string, index: number) =>
-  `asset-market-detail-tab-${index}`;
-
 export function MarketDetailContent({
   coinGeckoId,
   preferredToken,
@@ -128,9 +125,7 @@ export function MarketDetailContent({
                 />
               </YStack>
             )}
-            renderTabBar={(props) => (
-              <Tabs.TabBar {...props} getTabTestID={getMarketDetailTabTestID} />
-            )}
+            renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
             <Tabs.Tab
               name={intl.formatMessage({ id: ETranslations.market_chart })}
