@@ -201,6 +201,35 @@ function SpotlightContent({
     measureTriggerInWindow();
   }, [md, measureTriggerInWindow, windowWidth]);
 
+  // iOS reports a JS-measured anchor inside a native screen/modal in that
+  // screen's space, while the overlay draws in window space, so the rect can be
+  // off by the screen origin. Ask the host for the correction and hold the guide
+  // until it arrives. Android keeps its own pane offset; other platforms measure
+  // in window space already.
+  const correctAnchorByWindowOffset =
+    platformEnv.isNativeIOS && usePortalCoordinates;
+  const [anchorWindowOffset, setAnchorWindowOffset] = useState<{
+    x: number;
+    y: number;
+  }>();
+  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  const handleAnchorWindowOffset = useCallback(
+    (offset: { x: number; y: number }) => {
+      setAnchorWindowOffset(offset);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!correctAnchorByWindowOffset) return;
+    if (!visible) {
+      setAnchorWindowOffset(undefined);
+      return;
+    }
+    setWindowOffsetRequest((request) => request + 1);
+  }, [correctAnchorByWindowOffset, visible]);
+  const anchorWindowOffsetReady =
+    !correctAnchorByWindowOffset || !!anchorWindowOffset;
+
   useLayoutEffect(() => {
     if (triggerPropsRef.current) {
       triggerPropsRef.current.trigger = (params) => {
@@ -236,6 +265,11 @@ function SpotlightContent({
   } = props;
 
   const isRendered = floatingPosition.width > 0;
+  const overlayVisible =
+    visible &&
+    isRendered &&
+    !(deferUntilIdle && isGuideBlocked) &&
+    anchorWindowOffsetReady;
   const hasPortalLayout =
     !usePortalCoordinates ||
     ((portalFrame?.width ?? 0) > 0 &&
@@ -247,11 +281,15 @@ function SpotlightContent({
     : windowWidth;
   const anchorLeftProperty =
     usePortalCoordinates && I18nManager.isRTL ? 'end' : 'left';
-  const shouldMeasurePortal =
-    usePortalCoordinates &&
-    visible &&
-    isRendered &&
-    !(deferUntilIdle && isGuideBlocked);
+  const anchorPosition = useMemo(() => {
+    if (!anchorWindowOffset) return floatingPosition;
+    return {
+      ...floatingPosition,
+      x: floatingPosition.x + anchorWindowOffset.x,
+      y: floatingPosition.y + anchorWindowOffset.y,
+    };
+  }, [anchorWindowOffset, floatingPosition]);
+  const shouldMeasurePortal = usePortalCoordinates && overlayVisible;
   const measurePortalInWindow = useCallback(() => {
     if (!usePortalCoordinates) return;
     const portal = portalRef.current;
@@ -300,8 +338,8 @@ function SpotlightContent({
   const floatingStyle = useMemo(() => {
     if (!isRendered) return undefined;
     const top =
-      floatingPosition.y +
-      floatingPosition.height +
+      anchorPosition.y +
+      anchorPosition.height +
       floatingOffset +
       childrenPaddingVertical -
       portalY;
@@ -316,8 +354,8 @@ function SpotlightContent({
       const availableWidth = Math.max(0, maxRight - minLeft);
       const width = Math.min(cardMaxWidth ?? availableWidth, availableWidth);
       const anchorRight =
-        floatingPosition.x +
-        floatingPosition.width +
+        anchorPosition.x +
+        anchorPosition.width +
         childrenPaddingHorizontal -
         portalX;
 
@@ -334,16 +372,16 @@ function SpotlightContent({
 
     return {
       top,
-      left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
+      left: gtMd ? anchorPosition.x - childrenPaddingHorizontal : '$4',
       right: gtMd ? undefined : '$4',
       maxWidth: cardMaxWidth ?? (gtMd ? 354 : undefined),
     };
   }, [
     isRendered,
-    floatingPosition.y,
-    floatingPosition.height,
-    floatingPosition.x,
-    floatingPosition.width,
+    anchorPosition.y,
+    anchorPosition.height,
+    anchorPosition.x,
+    anchorPosition.width,
     floatingOffset,
     childrenPaddingVertical,
     gtMd,
@@ -360,8 +398,6 @@ function SpotlightContent({
   ]);
 
   const handleBackPress = useCallback(() => true, []);
-  const overlayVisible =
-    visible && isRendered && !(deferUntilIdle && isGuideBlocked);
   const handleConfirm = useCallback(() => {
     if (overlayVisible) onConfirm?.();
   }, [onConfirm, overlayVisible]);
@@ -384,6 +420,13 @@ function SpotlightContent({
       level={level}
       presentation="fullscreen"
       dismissOnBackPress={false}
+      // The offset probe needs the content mounted while the host is still
+      // hidden, so the guide can be placed before it is presented.
+      keepContentMounted={correctAnchorByWindowOffset}
+      windowOffsetRequest={windowOffsetRequest}
+      onWindowOffset={
+        correctAnchorByWindowOffset ? handleAnchorWindowOffset : undefined
+      }
     >
       <Stack
         ref={usePortalCoordinates ? portalRef : undefined}
@@ -418,19 +461,19 @@ function SpotlightContent({
               testID="spotlight-highlight"
               position="absolute"
               pointerEvents="none"
-              top={floatingPosition.y - portalY - childrenPaddingVertical}
+              top={anchorPosition.y - portalY - childrenPaddingVertical}
               {...{
                 [anchorLeftProperty]:
-                  floatingPosition.x - portalX - childrenPaddingHorizontal,
+                  anchorPosition.x - portalX - childrenPaddingHorizontal,
               }}
               width={
                 matchTriggerSize
-                  ? floatingPosition.width + childrenPaddingHorizontal * 2
+                  ? anchorPosition.width + childrenPaddingHorizontal * 2
                   : undefined
               }
               height={
                 matchTriggerSize
-                  ? floatingPosition.height + childrenPaddingVertical * 2
+                  ? anchorPosition.height + childrenPaddingVertical * 2
                   : undefined
               }
               borderRadius={highlightBorderRadius ?? '$3'}
@@ -446,7 +489,17 @@ function SpotlightContent({
                   opacity={highlightBackgroundOpacity}
                 />
               ) : null}
-              <Stack position="relative">{children}</Stack>
+              {/* The copy must occupy the same box the trigger had on the page.
+                  A bare wrapper collapses flex triggers (they size from
+                  `flexBasis: 0`) and their content clips to nothing. */}
+              <Stack
+                testID="spotlight-highlight-body"
+                position="relative"
+                width="100%"
+                height="100%"
+              >
+                {children}
+              </Stack>
             </Stack>
             <YStack
               testID="spotlight-card"

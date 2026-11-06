@@ -28,6 +28,7 @@ let mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 let mockDesktopPlatform: 'mac' | 'windows' | 'linux' = 'mac';
 let mockIsNative = false;
 let mockIsNativeAndroid = false;
+let mockIsNativeIOS = false;
 let mockIsRTL = false;
 let mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
 let mockPortalLayout: (() => void) | undefined;
@@ -40,6 +41,13 @@ let mockMeasureCallbacks:
   | undefined;
 let mockDeferOverlayExit = false;
 let mockFinishOverlayExit: (() => void) | undefined;
+type IMockOverlayProps = {
+  visible?: boolean;
+  keepContentMounted?: boolean;
+  windowOffsetRequest?: number;
+  onWindowOffset?: (offset: { x: number; y: number }) => void;
+};
+let lastOverlayProps: IMockOverlayProps = {};
 
 jest.mock('@onekeyfe/react-native-native-overlay', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -49,12 +57,21 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => {
       children,
       visible,
       onClose,
+      keepContentMounted,
+      windowOffsetRequest,
+      onWindowOffset,
     }: {
       children?: ReactNode;
       visible: boolean;
       onClose?: () => void;
-    }) {
+    } & IMockOverlayProps) {
       const [mounted, setMounted] = React.useState(visible);
+      lastOverlayProps = {
+        visible,
+        keepContentMounted,
+        windowOffsetRequest,
+        onWindowOffset,
+      };
       mockFinishOverlayExit = () => {
         setMounted(false);
         onClose?.();
@@ -66,7 +83,7 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => {
           onClose?.();
         }
       }, [mounted, onClose, visible]);
-      return visible || mounted ? (
+      return visible || mounted || keepContentMounted ? (
         <div data-testid="spotlight-overlay" data-visible={String(visible)}>
           {children}
         </div>
@@ -114,6 +131,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     },
     get isNativeAndroid() {
       return mockIsNativeAndroid;
+    },
+    get isNativeIOS() {
+      return mockIsNativeIOS;
     },
     get isDesktopWin() {
       return mockDesktopPlatform === 'windows';
@@ -347,7 +367,9 @@ describe('Spotlight dismissal', () => {
     mockDesktopPlatform = 'mac';
     mockIsNative = false;
     mockIsNativeAndroid = false;
+    mockIsNativeIOS = false;
     mockIsRTL = false;
+    lastOverlayProps = {};
     mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
     mockPortalLayout = undefined;
     mockPortalMeasureCallbacks = undefined;
@@ -503,6 +525,99 @@ describe('Spotlight dismissal', () => {
 
     expect(highlightedTrigger()?.getAttribute('data-width')).toBe('104');
     expect(highlightedTrigger()?.getAttribute('data-height')).toBe('60');
+  });
+
+  // iOS measures a JS anchor inside a native screen/modal in that screen's
+  // space, so an anchor-end guide must wait for the overlay's window-offset
+  // report and place itself from the corrected rect (OK-65868).
+  it('holds a native iOS anchor-end guide until the window offset arrives', async () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    render(
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd
+        matchTriggerSize
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    await advanceTime(0);
+
+    expect(lastOverlayProps.windowOffsetRequest).toBeGreaterThan(0);
+    expect(lastOverlayProps.onWindowOffset).toBeDefined();
+    expect(screen.getByTestId('spotlight-overlay').dataset.visible).toBe(
+      'false',
+    );
+
+    act(() => lastOverlayProps.onWindowOffset?.({ x: 0, y: 162 }));
+    await advanceTime(0);
+
+    expect(screen.getByTestId('spotlight-overlay').dataset.visible).toBe(
+      'true',
+    );
+    expect(
+      screen.getByTestId('spotlight-highlight').getAttribute('data-top'),
+    ).toBe('194');
+    expect(screen.getByTestId('spotlight-card').getAttribute('data-top')).toBe(
+      '270',
+    );
+  });
+
+  it('does not wait for a window offset outside native iOS', async () => {
+    mockIsNative = true;
+    mockIsNativeIOS = false;
+    render(
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd
+        matchTriggerSize
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    await advanceTime(0);
+
+    expect(lastOverlayProps.windowOffsetRequest ?? 0).toBe(0);
+    expect(lastOverlayProps.onWindowOffset).toBeUndefined();
+    expect(lastOverlayProps.keepContentMounted).toBe(false);
+    expect(screen.getByTestId('spotlight-overlay').dataset.visible).toBe(
+      'true',
+    );
+    expect(
+      screen.getByTestId('spotlight-highlight').getAttribute('data-top'),
+    ).toBe('32');
+  });
+
+  // The trigger copy must get the same box the trigger had on the page.
+  // Without an explicit size the wrapper is measured from a `flexBasis: 0`
+  // child and collapses, so the call-to-action renders clipped (OK-65868).
+  it('gives the highlighted trigger copy the trigger box', async () => {
+    render(
+      <SpotlightView
+        visible
+        matchTriggerSize
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    await act(async () => {
+      await jest.runOnlyPendingTimersAsync();
+    });
+
+    const highlight = screen.getByTestId('spotlight-highlight');
+    const copy = screen.getByTestId('spotlight-highlight-body');
+    expect(highlight.contains(copy)).toBe(true);
+    expect(copy.getAttribute('data-width')).toBe('100%');
+    expect(copy.getAttribute('data-height')).toBe('100%');
+    expect(
+      Array.from(copy.querySelectorAll('span')).some(
+        (element) => element.textContent === 'More',
+      ),
+    ).toBe(true);
   });
 
   it.each([false, true])(
