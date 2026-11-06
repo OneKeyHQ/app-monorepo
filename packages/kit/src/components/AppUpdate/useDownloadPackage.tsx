@@ -15,8 +15,10 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
+  EUpdateStrategy,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -158,17 +160,56 @@ export const useDownloadPackage = () => {
   );
 
   const installPackage = useCallback(
-    async (onSuccess: () => void, onFail: () => void) => {
+    async (
+      onSuccess: () => void,
+      onFail: () => void,
+      options?: {
+        userInitiated?: boolean;
+        installSource?: 'capsule' | 'legacy';
+      },
+    ) => {
       if (installPackageState) return;
       installPackageState = EInstallPackageState.installing;
       let lockUntilRestart = false;
+      let nativeInstallStarted = false;
+      let recordedInstallSource = false;
+      let installSourceSnapshot: IAppUpdateInfo | undefined;
       try {
         const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         const fileType = await getFileTypeFromUpdateInfo();
         const showToastError = isShowToastError(data.updateStrategy);
+        if (
+          platformEnv.isDesktop &&
+          data.updateStrategy !== EUpdateStrategy.force &&
+          !(await backgroundApiProxy.serviceAppUpdate.canRestartForUpdate())
+        ) {
+          return;
+        }
         ensureUpdateAttemptId();
         try {
-          defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
+          if (
+            platformEnv.isDesktop &&
+            fileType === EUpdateFileType.appShell &&
+            options?.installSource &&
+            data.latestVersion &&
+            data.downloadUrl
+          ) {
+            installSourceSnapshot = data;
+            await backgroundApiProxy.serviceAppUpdate.recordInstallSource(
+              options.installSource,
+              data.latestVersion,
+              data.downloadUrl,
+            );
+            recordedInstallSource = true;
+          }
+          defaultLogger.app.appUpdate.startInstallPackage({
+            fileType,
+            data,
+            installSource: options?.installSource,
+            readyWaitMs: data.readyAt
+              ? Math.max(0, Date.now() - data.readyAt)
+              : undefined,
+          });
           if (fileType === EUpdateFileType.jsBundle) {
             if (!data.downloadedEvent) {
               throw createUpdateError({
@@ -180,22 +221,32 @@ export const useDownloadPackage = () => {
             installPackageState = EInstallPackageState.awaitingBundleRestart;
             lockUntilRestart = true;
           } else {
-            const installStarted = await AppUpdate.installPackage(data);
+            const installStarted = await AppUpdate.installPackage({
+              ...data,
+              ...options,
+            });
             if (!installStarted) {
               return;
             }
+            nativeInstallStarted = true;
           }
           defaultLogger.app.appUpdate.endInstallPackage(true);
           onSuccess();
         } catch (e: unknown) {
           const error = getFailure(e, 'install');
           if (error.code === EUpdateErrorCode.cancelled) return;
+          if (error.code === EUpdateErrorCode.installLocation) {
+            await backgroundApiProxy.serviceAppUpdate.installLocationFailed(
+              error,
+            );
+          }
           defaultLogger.app.appUpdate.endInstallPackage(
             false,
             createUpdateError(error),
           );
           defaultLogger.app.appUpdate.softwareUpdateResult({
             ...buildSoftwareUpdateParams(fileType, data, getUpdateAttemptId()),
+            installSource: options?.installSource ?? data.installSource,
             status: 'failed',
             failedStep: 'install',
             errorCode: error.code,
@@ -216,7 +267,12 @@ export const useDownloadPackage = () => {
             }
           } else if (error.code === EUpdateErrorCode.packageMissing) {
             onFail();
-          } else if (showToastError) {
+          } else if (
+            showToastError ||
+            (platformEnv.isDesktop &&
+              fileType === EUpdateFileType.appShell &&
+              options?.userInitiated)
+          ) {
             Toast.error({
               title: intl.formatMessage({
                 id:
@@ -227,7 +283,24 @@ export const useDownloadPackage = () => {
           }
         }
       } finally {
-        if (!lockUntilRestart) installPackageState = undefined;
+        try {
+          if (
+            recordedInstallSource &&
+            !nativeInstallStarted &&
+            options?.installSource &&
+            installSourceSnapshot?.latestVersion &&
+            installSourceSnapshot.downloadUrl
+          ) {
+            await backgroundApiProxy.serviceAppUpdate.restoreInstallSource(
+              options.installSource,
+              installSourceSnapshot.installSource,
+              installSourceSnapshot.latestVersion,
+              installSourceSnapshot.downloadUrl,
+            );
+          }
+        } finally {
+          if (!lockUntilRestart) installPackageState = undefined;
+        }
       }
     },
     [getFileTypeFromUpdateInfo, intl, recoverAppShellPackage],
@@ -238,6 +311,11 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
 
     const fileType = getUpdateFileType(appUpdateInfo);
+    const isDesktopPackage =
+      platformEnv.isDesktop &&
+      fileType === EUpdateFileType.appShell &&
+      appUpdateInfo.updateStrategy !== EUpdateStrategy.force;
+    let packageVerified = false;
     ensureUpdateAttemptId();
     try {
       const params =
@@ -277,15 +355,23 @@ export const useDownloadPackage = () => {
           : AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
+      packageVerified = true;
+      if (isDesktopPackage) defaultLogger.app.appUpdate.endVerifyPackage(true);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
-      defaultLogger.app.appUpdate.endVerifyPackage(true);
+      if (!isDesktopPackage) defaultLogger.app.appUpdate.endVerifyPackage(true);
     } catch (e) {
-      const error = getFailure(e, 'verifyPackage');
-      if (error.code === EUpdateErrorCode.cancelled) return;
-      defaultLogger.app.appUpdate.endVerifyPackage(
-        false,
-        createUpdateError(error),
+      const installStageFailure = isDesktopPackage && packageVerified;
+      const error = getFailure(
+        e,
+        installStageFailure ? 'install' : 'verifyPackage',
       );
+      if (error.code === EUpdateErrorCode.cancelled) return;
+      if (!installStageFailure) {
+        defaultLogger.app.appUpdate.endVerifyPackage(
+          false,
+          createUpdateError(error),
+        );
+      }
       defaultLogger.app.appUpdate.softwareUpdateResult({
         ...buildSoftwareUpdateParams(
           fileType,
@@ -293,10 +379,14 @@ export const useDownloadPackage = () => {
           getUpdateAttemptId(),
         ),
         status: 'failed',
-        failedStep: 'verifyPackage',
+        failedStep: installStageFailure ? 'install' : 'verifyPackage',
         errorCode: error.code,
         httpStatus: error.httpStatus,
       });
+      if (installStageFailure) {
+        await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(error);
+        return;
+      }
       const recoveredStatus = await recoverAppShellPackage({
         fileType,
         error,
@@ -605,7 +695,9 @@ export const useDownloadPackage = () => {
             `downloadPackage: OCDS §5.11 terminal give-up reason=${e.reason}`,
           );
         }
-        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(error);
+        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(error, {
+          terminal: e instanceof DownloadGaveUpError,
+        });
         if (showToastError) {
           Toast.error({
             title: intl.formatMessage({
