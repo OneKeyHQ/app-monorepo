@@ -219,8 +219,10 @@ onramper-sdk/integration/restore.sh  # 如需回退
 
 **实现**（`development/lint/external-sdk.js` + `external-sdk.config.json`）：
 
-- manifest 按 **30 个文件**（`OnramperSDK.xcframework` 全量 + 6 个 Swift bridge，
-  共 30.0 MB）记录每个文件的 SHA-256 + size；
+- manifest 按 **173 个文件（30.3 MB）** 记录每个文件的 SHA-256 + size，覆盖 App 实际消费的全部可执行内容：
+  `ios/`（xcframework 全量 + podspec 编译的所有 Swift/ObjC 源文件）、`lib/`（RN 实际加载的 JS 产物）、
+  `src/`（Metro 源码入口）、`nitrogen/`（生成的原生绑定）、`OnramperReactNative.podspec`、
+  `app.plugin.js`、`nitro.json`、`package.json`、`LICENSE`、`NOTICE`；
 - 同时 pin npm 包版本（`1.3.1`）；
 - 校验规则：
   - 文件内容变化 → `MODIFIED`，失败；
@@ -232,9 +234,9 @@ onramper-sdk/integration/restore.sh  # 如需回退
   - `yarn lint:external-sdk`（CI / `lint:project` / `agent:check` 已接入）；
   - `node development/lint/external-sdk.js --write`（评审后重新 pin，必须 review diff）；
   - `--json` 机器可读输出。
-- 测试：`development/lint/external-sdk.node-test.js` 覆盖 clean / modified /
-  added / missing / version-mismatch / symlink / json / 未初始化 manifest 共 8 个用例；
-  CI 的 `01-lint` workflow 已执行该测试。
+- 测试：`development/lint/external-sdk.node-test.js` 共 **13 个用例**，覆盖 clean / 修改 JS（P0 回归）/
+  注入同级 Swift（P1 回归）/ added / missing / version-mismatch / symlink file / symlink dir /
+  symlink root / json / 未初始化 manifest；CI 的 `01-lint` workflow 已执行该测试。
 - 扩展方式：在 `external-sdk.config.json` 的 `sdks[]` 追加条目即可接入下一个
   二进制 SDK（Android AAR、其他 xcframework 等）。
 

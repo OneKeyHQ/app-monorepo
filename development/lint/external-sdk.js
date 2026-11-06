@@ -84,10 +84,27 @@ function toPosixPath(value) {
 }
 
 function sha256File(filePath) {
-  return crypto
-    .createHash('sha256')
-    .update(fs.readFileSync(filePath))
-    .digest('hex');
+  const noFollow = fs.constants.O_NOFOLLOW ?? 0;
+  let fd;
+  try {
+    fd = fs.openSync(filePath, fs.constants.O_RDONLY | noFollow);
+  } catch (error) {
+    fail(`Cannot read ${filePath}: ${error.message}`);
+  }
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile()) fail(`Not a regular file: ${filePath}`);
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+    while (bytesRead > 0) {
+      hash.update(buffer.subarray(0, bytesRead));
+      bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+    }
+    return { sha256: hash.digest('hex'), size: stat.size };
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function readJson(filePath) {
@@ -117,8 +134,22 @@ function assertRelativePath(value, label) {
   }
 }
 
+function lstatOrFail(filePath, label) {
+  let stat;
+  try {
+    stat = fs.lstatSync(filePath);
+  } catch (_error) {
+    fail(`${label} is missing`);
+  }
+  if (stat.isSymbolicLink()) {
+    fail(`Refusing to trust a symlink: ${label}`);
+  }
+  return stat;
+}
+
 function walkDirectory(root, relativeDirectory, collector) {
   const absoluteDirectory = path.join(root, relativeDirectory);
+  lstatOrFail(absoluteDirectory, relativeDirectory);
   let entries;
   try {
     entries = fs.readdirSync(absoluteDirectory, { withFileTypes: true });
@@ -195,12 +226,7 @@ function loadConfig(configPath) {
 
 function resolveSdkRoot(base, sdk) {
   const root = path.resolve(base, sdk.root);
-  let stat;
-  try {
-    stat = fs.statSync(root);
-  } catch (_error) {
-    fail(`Cannot find ${sdk.id} root: ${sdk.root} (run yarn install first)`);
-  }
+  const stat = lstatOrFail(root, `${sdk.id} root ${sdk.root}`);
   if (!stat.isDirectory()) fail(`${sdk.id} root is not a directory: ${root}`);
   return root;
 }
@@ -209,12 +235,7 @@ function collectSdkFiles(root, sdk) {
   const collector = new Set();
   for (const directory of sdk.directories) {
     const absoluteDirectory = path.join(root, directory);
-    let stat;
-    try {
-      stat = fs.statSync(absoluteDirectory);
-    } catch (_error) {
-      fail(`${sdk.id}: missing directory ${directory}`);
-    }
+    const stat = lstatOrFail(absoluteDirectory, `${sdk.id}: ${directory}`);
     if (!stat.isDirectory()) {
       fail(`${sdk.id}: ${directory} is not a directory`);
     }
@@ -222,12 +243,7 @@ function collectSdkFiles(root, sdk) {
   }
   for (const file of sdk.files) {
     const absoluteFile = path.join(root, file);
-    let stat;
-    try {
-      stat = fs.statSync(absoluteFile);
-    } catch (_error) {
-      fail(`${sdk.id}: missing file ${file}`);
-    }
+    const stat = lstatOrFail(absoluteFile, `${sdk.id}: ${file}`);
     if (!stat.isFile()) fail(`${sdk.id}: ${file} is not a regular file`);
     collector.add(toPosixPath(file));
   }
@@ -239,12 +255,9 @@ function buildHashes(root, relativeFiles) {
   let totalBytes = 0;
   for (const relativePath of relativeFiles) {
     const absolutePath = path.join(root, relativePath);
-    const stat = fs.statSync(absolutePath);
-    hashes[relativePath] = {
-      sha256: sha256File(absolutePath),
-      size: stat.size,
-    };
-    totalBytes += stat.size;
+    const digest = sha256File(absolutePath);
+    hashes[relativePath] = digest;
+    totalBytes += digest.size;
   }
   return { hashes, totalBytes };
 }
@@ -267,16 +280,15 @@ function compareSdk(sdk, root) {
       unexpected.push(relativePath);
     } else {
       const absolutePath = path.join(root, relativePath);
-      const stat = fs.statSync(absolutePath);
-      const actualSha256 = sha256File(absolutePath);
+      const digest = sha256File(absolutePath);
       if (
-        pin.sha256 !== actualSha256 ||
-        (typeof pin.size === 'number' && pin.size !== stat.size)
+        pin.sha256 !== digest.sha256 ||
+        (typeof pin.size === 'number' && pin.size !== digest.size)
       ) {
         modified.push({
           relativePath,
           expected: pin.sha256,
-          actual: actualSha256,
+          actual: digest.sha256,
         });
       }
     }
@@ -385,7 +397,7 @@ function main() {
     if (result.ok) {
       const files = collectSdkFiles(root, sdk);
       for (const relativePath of files) {
-        totalBytes += fs.statSync(path.join(root, relativePath)).size;
+        totalBytes += sha256File(path.join(root, relativePath)).size;
         totalFiles += 1;
       }
     }
