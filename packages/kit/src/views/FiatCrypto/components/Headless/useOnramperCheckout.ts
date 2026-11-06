@@ -34,12 +34,12 @@ const DEBOUNCE_MS = 400;
 
 // The OnramperID login the SDK last reported on this install. The SDK only
 // reveals it once a checkout is prepared (getOnramperSignedInFromState), so
-// this is what the page goes by until then.
-function readRememberedSignedIn(): boolean {
-  return (
-    appStorage.syncStorage.getBoolean(
-      EAppSyncStorageKeys.onekey_onramper_id_signed_in,
-    ) === true
+// this is what the page goes by until then. Undefined when nothing was ever
+// reported: a fresh install, or a login made on a build that did not record
+// it — the Keychain may hold one either way.
+function readRememberedSignedIn(): boolean | undefined {
+  return appStorage.syncStorage.getBoolean(
+    EAppSyncStorageKeys.onekey_onramper_id_signed_in,
   );
 }
 
@@ -105,10 +105,13 @@ type IResult = {
   retry: () => void;
   // Silent re-quote for flow-driven refreshes (e.g. leaving review).
   refreshQuote: () => void;
-  // Whether the SDK holds an OnramperID login, as far as it has told us:
-  // remembered from the last visit, then corrected by every prepared checkout
-  // and by signOut. False while unknown.
-  isSignedIn: boolean;
+  // Whether to offer the sign-out action. Follows the OnramperID login as far
+  // as the SDK has told us: remembered from the last visit, then corrected by
+  // every prepared checkout and by signOut. While the login is unknown it is
+  // offered only on a failure, where no prepared checkout is coming to report
+  // it: a user who signed in on an earlier build must still be able to switch
+  // accounts from there.
+  canSignOut: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Also re-quotes, because the SDK
   // discards the checkout it had prepared. Exposed for the header sign-out
@@ -150,7 +153,10 @@ export function useOnramperCheckout({
   const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
-  const [isSignedIn, setIsSignedIn] = useState(readRememberedSignedIn);
+  // Undefined while unknown (readRememberedSignedIn).
+  const [isSignedIn, setIsSignedIn] = useState<boolean | undefined>(
+    readRememberedSignedIn,
+  );
   const isSignedInRef = useRef(isSignedIn);
   const markSignedIn = useCallback((signedIn: boolean) => {
     if (isSignedInRef.current === signedIn) {
@@ -810,6 +816,14 @@ export function useOnramperCheckout({
     }
   }, [getLogContext, markSignedIn, refreshQuote]);
 
+  // Unknown login: a sticky init failure or a failed first quote leaves the
+  // page without a prepared checkout to report it, and signOut() works there
+  // (it needs the configured client, not an initialized one).
+  const canSignOut =
+    isSignedIn ??
+    (actionState === EBuyActionState.RetryableError ||
+      actionState === EBuyActionState.WebFallback);
+
   return {
     actionState,
     nativeButton,
@@ -820,7 +834,7 @@ export function useOnramperCheckout({
     payMock,
     retry,
     refreshQuote,
-    isSignedIn,
+    canSignOut,
     signOut,
     getLogContext,
   };

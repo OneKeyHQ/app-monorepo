@@ -6,6 +6,10 @@ import { act, renderHook } from '@testing-library/react';
 const mockStore = new Map<string, boolean>();
 let mockStateListener: ((state: IOnramperState) => void) | undefined;
 const mockSignOut = jest.fn<Promise<void>, []>();
+// A mock client skips the session mint; a real one mints, then initializes.
+let mockIsMockClient = true;
+const mockFetchOnramperSession = jest.fn<Promise<IOnramperSession>, []>();
+const mockInitialize = jest.fn<Promise<void>, []>();
 const mockGetCheckoutRequirements = jest.fn<
   Promise<{ button: string; quote: IOnramperQuote }>,
   []
@@ -30,9 +34,8 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
   ONRAMPER_EVENT_NAMES: [],
   getOnramperConfig: () => ({}),
   createOnramperClient: () => ({
-    // Skips the session mint; the state stream below is what is under test.
-    isMock: true,
-    initialize: async () => {},
+    isMock: mockIsMockClient,
+    initialize: () => mockInitialize(),
     getCheckoutRequirements: () => mockGetCheckoutRequirements(),
     addEventListener: () => () => {},
     addStateListener: (listener: (state: IOnramperState) => void) => {
@@ -47,7 +50,11 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceFiatCrypto: {
+      fetchOnramperSession: () => mockFetchOnramperSession(),
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -61,6 +68,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 import type {
   IOnramperQuote,
+  IOnramperSession,
   IOnramperState,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -132,6 +140,14 @@ beforeEach(() => {
   mockStateListener = undefined;
   mockSignOut.mockReset();
   mockSignOut.mockResolvedValue(undefined);
+  mockIsMockClient = true;
+  mockFetchOnramperSession.mockReset();
+  mockFetchOnramperSession.mockResolvedValue({
+    sessionId: 'session',
+    sessionToken: 'token',
+  });
+  mockInitialize.mockReset();
+  mockInitialize.mockResolvedValue(undefined);
   mockGetCheckoutRequirements.mockReset();
 });
 
@@ -142,42 +158,42 @@ afterEach(() => {
 });
 
 describe('useOnramperCheckout OnramperID login state', () => {
-  it('starts signed out when no login was ever reported', async () => {
+  it('does not offer sign-out while the login is unknown and nothing failed', async () => {
     const { result } = await renderCheckout();
-    expect(result.current.isSignedIn).toBe(false);
+    expect(result.current.canSignOut).toBe(false);
   });
 
   it('starts from the login remembered on this install', async () => {
     mockStore.set(KEY, true);
     const { result } = await renderCheckout();
-    expect(result.current.isSignedIn).toBe(true);
+    expect(result.current.canSignOut).toBe(true);
   });
 
   it('follows the prepared checkout and remembers it', async () => {
     const { result } = await renderCheckout();
 
     publishState({ kind: 'checkoutPreparing' });
-    expect(result.current.isSignedIn).toBe(false);
+    expect(result.current.canSignOut).toBe(false);
 
     publishState({ kind: 'readyToCheckout' });
-    expect(result.current.isSignedIn).toBe(true);
+    expect(result.current.canSignOut).toBe(true);
     expect(mockStore.get(KEY)).toBe(true);
 
     // Re-quoting and paying say nothing about the login.
     publishState({ kind: 'checkoutPreparing' });
     publishState({ kind: 'finalizing' });
     publishState({ kind: 'failed' });
-    expect(result.current.isSignedIn).toBe(true);
+    expect(result.current.canSignOut).toBe(true);
 
     // Neither does a login that only re-verifies the known user.
     publishState({
       kind: 'requireLogin',
       requirementTypes: ['reverification'],
     });
-    expect(result.current.isSignedIn).toBe(true);
+    expect(result.current.canSignOut).toBe(true);
 
     publishState(LOGIN_FROM_NOTHING);
-    expect(result.current.isSignedIn).toBe(false);
+    expect(result.current.canSignOut).toBe(false);
     expect(mockStore.get(KEY)).toBe(false);
   });
 
@@ -188,7 +204,7 @@ describe('useOnramperCheckout OnramperID login state', () => {
     await act(() => result.current.signOut());
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(result.current.isSignedIn).toBe(false);
+    expect(result.current.canSignOut).toBe(false);
     expect(mockStore.get(KEY)).toBe(false);
   });
 
@@ -201,8 +217,71 @@ describe('useOnramperCheckout OnramperID login state', () => {
       await expect(result.current.signOut()).rejects.toThrow('clientDestroyed');
     });
 
-    expect(result.current.isSignedIn).toBe(true);
+    expect(result.current.canSignOut).toBe(true);
     expect(mockStore.get(KEY)).toBe(true);
+  });
+});
+
+// No login was ever reported on this install: a fresh one, or one that signed
+// in on a build that did not record it. The Keychain may hold a login, and a
+// failure leaves no prepared checkout to say so.
+describe('useOnramperCheckout sign-out with an unknown login', () => {
+  it('offers sign-out when the session mint fails', async () => {
+    mockIsMockClient = false;
+    mockFetchOnramperSession.mockRejectedValue(new Error('mint failed'));
+    const { result } = await renderCheckout({ amount: 50 });
+
+    expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
+    expect(result.current.canSignOut).toBe(true);
+
+    // One sign-out settles it: the action is not left to be pressed again.
+    await act(() => result.current.signOut());
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(result.current.canSignOut).toBe(false);
+    expect(mockStore.get(KEY)).toBe(false);
+    expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
+  });
+
+  it('offers sign-out when the client fails to initialize', async () => {
+    mockIsMockClient = false;
+    mockInitialize.mockRejectedValue({ code: 'initializationFailed' });
+    const { result } = await renderCheckout({ amount: 50 });
+
+    expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
+    expect(result.current.canSignOut).toBe(true);
+  });
+
+  it('offers sign-out when the first quote fails, until a checkout reports the login', async () => {
+    mockGetCheckoutRequirements
+      .mockRejectedValueOnce({ code: 'networkError', message: 'offline' })
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    expect(result.current.canSignOut).toBe(false);
+
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.canSignOut).toBe(true);
+
+    act(() => {
+      result.current.retry();
+    });
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    publishState(LOGIN_FROM_NOTHING);
+
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.canSignOut).toBe(false);
+  });
+
+  it('keeps sign-out hidden on a failure once the login is known to be gone', async () => {
+    mockStore.set(KEY, false);
+    mockIsMockClient = false;
+    mockFetchOnramperSession.mockRejectedValue(new Error('mint failed'));
+    const { result } = await renderCheckout({ amount: 50 });
+
+    expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
+    expect(result.current.canSignOut).toBe(false);
   });
 });
 
