@@ -11,6 +11,15 @@ export type IOnramperLogContext = {
   elapsedMs?: number;
 };
 
+// Which attempt an init or quote step was (1 = the first try) and, on a
+// failure, the back-off before the automatic retry — absent when the failure
+// was final. Retry success rate = attempt > 1 successes over failures that
+// carry `retryInMs`.
+type IOnramperAttemptFields = {
+  attempt?: number;
+  retryInMs?: number;
+};
+
 type IOnramperErrorFields = {
   errorCode?: string;
   // Truncated SDK / backend message. The Nitro bridge folds the backend
@@ -51,6 +60,10 @@ export class OnramperScene extends BaseScene {
       | 'tokenLookupFailed'
       | 'headlessNotSupported'
       | 'noNetworkCode';
+    // Where the token's region flag came from: a list row fetched recently,
+    // the server asked at tap time, or — the server unreachable — an older
+    // row. Absent when the gate stopped before resolving a token.
+    tokenSource?: 'row' | 'lookup' | 'staleRow';
   }) {
     return params;
   }
@@ -77,6 +90,7 @@ export class OnramperScene extends BaseScene {
     params: IOnramperLogContext & {
       durationMs: number;
       expiresAt?: string;
+      attempt?: number;
     },
   ) {
     return params;
@@ -85,7 +99,8 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'error' })
   public sessionMintFailed(
-    params: IOnramperLogContext & { durationMs: number; errorMessage?: string },
+    params: IOnramperLogContext &
+      IOnramperAttemptFields & { durationMs: number; errorMessage?: string },
   ) {
     return params;
   }
@@ -97,6 +112,7 @@ export class OnramperScene extends BaseScene {
       durationMs: number;
       // Native iOS SDK version actually loaded (SDK 1.3.1+).
       sdkVersion?: string;
+      attempt?: number;
     },
   ) {
     return params;
@@ -105,7 +121,28 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'error' })
   public clientInitFailed(
-    params: IOnramperLogContext & IOnramperErrorFields & { durationMs: number },
+    params: IOnramperLogContext &
+      IOnramperErrorFields &
+      IOnramperAttemptFields & { durationMs: number },
+  ) {
+    return params;
+  }
+
+  // The user asked for a new init run from the web fallback.
+  @LogToServer()
+  @LogToLocal()
+  public initRetryPressed(
+    params: IOnramperLogContext & { errorCode?: string },
+  ) {
+    return params;
+  }
+
+  // A visible wait passed the slow threshold and the page said so. `stage` is
+  // what the user was waiting on.
+  @LogToServer()
+  @LogToLocal()
+  public waitingHintShown(
+    params: IOnramperLogContext & { stage: 'init' | 'quote' },
   ) {
     return params;
   }
@@ -142,6 +179,7 @@ export class OnramperScene extends BaseScene {
   public quoteRequested(
     params: IOnramperLogContext & {
       seq: number;
+      attempt?: number;
       amount: number;
       source: string;
       destination: string;
@@ -165,6 +203,7 @@ export class OnramperScene extends BaseScene {
   public quoteResolved(
     params: IOnramperLogContext & {
       seq: number;
+      attempt?: number;
       durationMs: number;
       amount: number;
       quoteId?: string;
@@ -199,7 +238,8 @@ export class OnramperScene extends BaseScene {
   @LogToLocal({ level: 'error' })
   public quoteFailed(
     params: IOnramperLogContext &
-      IOnramperErrorFields & {
+      IOnramperErrorFields &
+      IOnramperAttemptFields & {
         seq: number;
         durationMs: number;
         amount: number;

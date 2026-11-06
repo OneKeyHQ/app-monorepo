@@ -17,19 +17,41 @@ export type ITryOpenHeadlessBuyParams = {
   // Provided when navigating from the token list; direct-buy entries omit it and
   // the token is resolved from the cached list.
   token?: IFiatCryptoToken;
+  // When the list that `token` came from was fetched from the server
+  // (IFiatCryptoTokenListWithNetworks.fetchedAt). The row decides native vs
+  // web only while this is recent, see HEADLESS_BUY_ROW_MAX_AGE_MS.
+  tokenFetchedAt?: number;
   // Launching surface — analytics only.
   entryFrom: EHeadlessBuyEntry;
 };
 
-type IEntryDecisionReason = Parameters<
+type IEntryDecision = Parameters<
   typeof defaultLogger.fiatCrypto.onramper.entryDecided
->[0]['reason'];
+>[0];
+type IEntryDecisionReason = IEntryDecision['reason'];
+type IEntryTokenSource = IEntryDecision['tokenSource'];
+
+// `headlessSupported` is trimmed by the IP of the request that fetched the
+// list, and a list row can be much older than it looks: the buy list paints a
+// persisted snapshot before its own fetch lands, and a list left open is not
+// fetched again. Past this age (or with no fetch time at all) the row no longer
+// decides, and the tap asks the server like a direct-buy entry does.
+const HEADLESS_BUY_ROW_MAX_AGE_MS = 60_000;
+
+function isRecentRow(tokenFetchedAt: number | undefined): boolean {
+  if (tokenFetchedAt === undefined) {
+    return false;
+  }
+  const ageMs = Date.now() - tokenFetchedAt;
+  return ageMs >= 0 && ageMs <= HEADLESS_BUY_ROW_MAX_AGE_MS;
+}
 
 // The native path is only ever a candidate on iOS; logging the gate on every
 // other platform's buy tap would be pure noise.
 function logEntryDecision(
   params: ITryOpenHeadlessBuyParams,
   reason: IEntryDecisionReason,
+  tokenSource?: IEntryTokenSource,
 ) {
   if (!platformEnv.isNativeIOS) {
     return;
@@ -40,6 +62,7 @@ function logEntryDecision(
     tokenAddress: params.tokenAddress,
     decision: reason === 'ok' ? 'native' : 'web',
     reason,
+    tokenSource,
   });
 }
 
@@ -56,7 +79,14 @@ function logEntryDecision(
 export async function tryOpenHeadlessBuy(
   params: ITryOpenHeadlessBuyParams,
 ): Promise<boolean> {
-  const { networkId, tokenAddress, accountId, token, entryFrom } = params;
+  const {
+    networkId,
+    tokenAddress,
+    accountId,
+    token,
+    tokenFetchedAt,
+    entryFrom,
+  } = params;
   if (!canUseHeadless()) {
     logEntryDecision(params, 'headlessUnavailable');
     return false;
@@ -75,10 +105,12 @@ export async function tryOpenHeadlessBuy(
   // is region-trimmed by request IP, and `onramperNetworkCode` is the network
   // slug the checkout request needs — a token missing either can never quote,
   // so the caller's web-widget flow runs unchanged for it. A caller-provided
-  // token already carries the server fields (same list endpoint), so only
-  // token-less direct-buy entries pay the list lookup.
+  // token carries the server fields (same list endpoint) and skips the list
+  // lookup while its list is recent; token-less direct-buy entries and older
+  // rows pay it.
   let resolvedToken = token;
-  if (resolvedToken === undefined) {
+  let tokenSource: IEntryTokenSource = 'row';
+  if (resolvedToken === undefined || !isRecentRow(tokenFetchedAt)) {
     try {
       resolvedToken =
         await backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken({
@@ -86,27 +118,33 @@ export async function tryOpenHeadlessBuy(
           tokenAddress,
           accountId,
         });
+      tokenSource = 'lookup';
     } catch {
-      // The lookup only decides native vs web; a transient list failure must
-      // not reject the buy tap — the caller's web-widget flow still runs.
-      logEntryDecision(params, 'tokenLookupFailed');
-      return false;
+      if (resolvedToken === undefined) {
+        // The lookup only decides native vs web; a transient list failure
+        // must not reject the buy tap — the caller's web-widget flow still
+        // runs.
+        logEntryDecision(params, 'tokenLookupFailed');
+        return false;
+      }
+      // The server cannot be asked: the row is the best answer there is.
+      tokenSource = 'staleRow';
     }
   }
   if (!resolvedToken) {
-    logEntryDecision(params, 'tokenNotFound');
+    logEntryDecision(params, 'tokenNotFound', tokenSource);
     return false;
   }
   if (!resolvedToken.headlessSupported) {
-    logEntryDecision(params, 'headlessNotSupported');
+    logEntryDecision(params, 'headlessNotSupported', tokenSource);
     return false;
   }
   if (!resolvedToken.onramperNetworkCode) {
-    logEntryDecision(params, 'noNetworkCode');
+    logEntryDecision(params, 'noNetworkCode', tokenSource);
     return false;
   }
 
-  logEntryDecision(params, 'ok');
+  logEntryDecision(params, 'ok', tokenSource);
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.FiatCryptoModal,
     params: {

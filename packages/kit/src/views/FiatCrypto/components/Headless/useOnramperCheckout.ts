@@ -18,11 +18,17 @@ import {
 import type {
   IOnramperButtonStyle,
   IOnramperClient,
+  IOnramperError,
   IOnramperEvent,
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import { getHeadlessBuyAbandonReason } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import {
+  ONRAMPER_SLOW_HINT_MS,
+  getOnramperInitRetryDelayMs,
+  getOnramperQuoteRetryDelayMs,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/retryPolicy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
@@ -112,6 +118,15 @@ type IResult = {
   payMock: () => void;
   // User-pressed Retry (logged as a funnel signal).
   retry: () => void;
+  // The web fallback on screen came from a failed init that another attempt
+  // may fix (anything but a structural failure): the zone offers `retryInit`
+  // next to the web widget.
+  canRetryInit: boolean;
+  // Mints a new session and initializes a fresh client, in place.
+  retryInit: () => void;
+  // A visible wait (init or quote, with an amount entered) has lasted long
+  // enough that the page should say it is still working.
+  isTakingLong: boolean;
   // Silent re-quote for flow-driven refreshes (e.g. leaving review).
   refreshQuote: () => void;
   // Whether to offer the sign-out action. Follows the OnramperID login as far
@@ -166,7 +181,20 @@ export function useOnramperCheckout({
     string | undefined
   >(undefined);
   const [ready, setReady] = useState(false);
+  // Mirrors `ready` for the dep-free event callbacks.
+  const readyRef = useRef(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  // Each value is one init attempt (session mint + initialize) on a client of
+  // its own; bumped by the automatic retries and by retryInit.
+  const [initNonce, setInitNonce] = useState(0);
+  // 1-based attempt of the current init run, and when that run began. A run is
+  // the first attempt plus its automatic retries.
+  const initAttemptRef = useRef(1);
+  const initRunStartedAtRef = useRef(Date.now());
+  const [canRetryInit, setCanRetryInit] = useState(false);
+  // Bumped per quote request so the slow-wait clock restarts with it.
+  const [waitEpoch, setWaitEpoch] = useState(0);
+  const [isTakingLong, setIsTakingLong] = useState(false);
   // Undefined while unknown (readRememberedSignedIn).
   const [isSignedIn, setIsSignedIn] = useState<boolean | undefined>(
     readRememberedSignedIn,
@@ -270,9 +298,9 @@ export function useOnramperCheckout({
   const quoteSeqRef = useRef(0);
   const hasButtonRef = useRef(false);
   const quoteLoggedRef = useRef(false);
-  // Sticky init failure (session mint / client.initialize): `ready` never
-  // becomes true afterwards, so the quote loop and refreshQuote must keep the
-  // WebFallback state instead of overwriting it with Preparing.
+  // Init gave up (session mint / client.initialize, retries included):
+  // `ready` stays false until retryInit, so the quote loop and refreshQuote
+  // must keep the WebFallback state instead of overwriting it with Preparing.
   const initFailedRef = useRef(false);
 
   // Keep callbacks fresh without re-subscribing the event listeners.
@@ -369,8 +397,12 @@ export function useOnramperCheckout({
       // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
       // newer quote request exists (amount / address edit, review exit) that
       // checkout is abandoned: log the event, but don't let it replace the
-      // fresh quote's state with an unrelated retry error.
-      const stale = quoteSeqRef.current !== reqSeqRef.current;
+      // fresh quote's state with an unrelated retry error. Before the client
+      // is ready there is no checkout at all: the SDK also publishes `failed`
+      // for a failed initialize (before or after the call rejects), and that
+      // one is the init effect's to settle — retry or fallback.
+      const stale =
+        !readyRef.current || quoteSeqRef.current !== reqSeqRef.current;
       defaultLogger.fiatCrypto.onramper.checkoutFailed({
         ...getLogContext(),
         ...getOnramperErrorFieldsForLog({
@@ -473,8 +505,38 @@ export function useOnramperCheckout({
     }
     const client = clientRef.current;
     setReady(false);
+    readyRef.current = false;
     initFailedRef.current = false;
     let cancelled = false;
+    const attempt = initAttemptRef.current;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const getRetryDelayMs = (error: IOnramperError) =>
+      getOnramperInitRetryDelayMs({
+        attempt,
+        elapsedMs: Date.now() - initRunStartedAtRef.current,
+        error,
+      });
+    // A failed attempt either waits for its retry — the page keeps showing
+    // Preparing, and the next attempt starts over on a new client, which is
+    // what leaving and re-entering the page did — or ends the run on the web
+    // fallback.
+    const settleInitFailure = (
+      error: IOnramperError,
+      retryInMs: number | undefined,
+    ) => {
+      if (retryInMs !== undefined) {
+        retryTimer = setTimeout(() => {
+          initAttemptRef.current = attempt + 1;
+          setInitNonce((n) => n + 1);
+        }, retryInMs);
+        return;
+      }
+      initFailedRef.current = true;
+      setCanRetryInit(!isStructuralOnramperError(error));
+      setErrorMessage(getOnramperErrorMessage(error));
+      setErrorCode(error.code);
+      goWebFallback(error);
+    };
     const removeListeners = [
       ...ONRAMPER_EVENT_NAMES.map((name) =>
         client.addEventListener(name, (event) => {
@@ -514,14 +576,19 @@ export function useOnramperCheckout({
           : await backgroundApiProxy.serviceFiatCrypto.fetchOnramperSession();
       } catch (error) {
         if (!cancelled) {
-          const message = getErrorMessageForLog(error);
+          const initError = {
+            code: 'sessionMintFailed',
+            message: getErrorMessageForLog(error),
+          };
+          const retryInMs = getRetryDelayMs(initError);
           defaultLogger.fiatCrypto.onramper.sessionMintFailed({
             ...getLogContext(),
             durationMs: Date.now() - mintStartedAt,
-            errorMessage: message,
+            errorMessage: initError.message,
+            attempt,
+            retryInMs,
           });
-          initFailedRef.current = true;
-          goWebFallback({ code: 'sessionMintFailed', message });
+          settleInitFailure(initError, retryInMs);
         }
         return;
       }
@@ -532,26 +599,33 @@ export function useOnramperCheckout({
         ...getLogContext(),
         durationMs: Date.now() - mintStartedAt,
         expiresAt: session.expiresAt,
+        attempt,
       });
       const initStartedAt = Date.now();
       try {
         await client.initialize(session);
       } catch (error) {
         if (!cancelled) {
-          const err = error as { code?: string; message?: string };
+          const err = error as IOnramperError | undefined;
+          const initError = {
+            code: err?.code ?? 'clientInitFailed',
+            message: err?.message,
+            userMessage: err?.userMessage,
+            supportCode: err?.supportCode,
+          };
+          const retryInMs = getRetryDelayMs(initError);
           defaultLogger.fiatCrypto.onramper.clientInitFailed({
             ...getLogContext(),
             durationMs: Date.now() - initStartedAt,
             ...getOnramperErrorFieldsForLog({
               code: err?.code,
               message: err?.message,
+              supportCode: err?.supportCode,
             }),
+            attempt,
+            retryInMs,
           });
-          initFailedRef.current = true;
-          goWebFallback({
-            code: err?.code ?? 'clientInitFailed',
-            message: err?.message,
-          });
+          settleInitFailure(initError, retryInMs);
         }
         return;
       }
@@ -560,12 +634,15 @@ export function useOnramperCheckout({
           ...getLogContext(),
           durationMs: Date.now() - initStartedAt,
           sdkVersion: client.sdkVersion,
+          attempt,
         });
+        readyRef.current = true;
         setReady(true);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
       removeListeners.forEach((remove) => remove());
       // The disposed instance must not be reused — see the recreate guard above.
       clientRef.current = null;
@@ -587,7 +664,7 @@ export function useOnramperCheckout({
       }, 400);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initNonce]);
 
   // Debounced checkout loop: re-quote on amount/token change; keep the old button
   // mounted under a mask (S3) and swap in a single commit; drop stale responses.
@@ -628,8 +705,12 @@ export function useOnramperCheckout({
     setErrorMessage(undefined);
     setErrorCode(undefined);
     setErrorTransactionId(undefined);
+    setWaitEpoch(seq);
     const provider = onlyOnramps?.[0];
-    const timer = setTimeout(() => {
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // `attempt` is 1 for the debounced request and 2 for its one automatic
+    // retry (transient failures only, see getOnramperQuoteRetryDelayMs).
+    const requestQuote = (attempt: number) => {
       const client = clientRef.current;
       if (!client) {
         return;
@@ -637,6 +718,7 @@ export function useOnramperCheckout({
       defaultLogger.fiatCrypto.onramper.quoteRequested({
         ...getLogContext(),
         seq,
+        attempt,
         amount,
         source,
         destination,
@@ -675,6 +757,7 @@ export function useOnramperCheckout({
           defaultLogger.fiatCrypto.onramper.quoteResolved({
             ...getLogContext(),
             seq,
+            attempt,
             durationMs,
             amount,
             quoteId: result.quote.quoteId,
@@ -715,6 +798,10 @@ export function useOnramperCheckout({
             userMessage?: string;
             supportCode?: string;
           };
+          const retryInMs = getOnramperQuoteRetryDelayMs({
+            attempt,
+            error: err,
+          });
           defaultLogger.fiatCrypto.onramper.quoteFailed({
             ...getLogContext(),
             ...getOnramperErrorFieldsForLog({
@@ -724,10 +811,21 @@ export function useOnramperCheckout({
               supportCode: err?.supportCode,
             }),
             seq,
+            attempt,
+            retryInMs,
             durationMs,
             amount,
             provider,
           });
+          if (retryInMs !== undefined) {
+            // Ask again before showing anything: the state stays Preparing /
+            // Refreshing, and a newer request drops the timer in the cleanup.
+            // No reset() in between — a quote-stage failure leaves the SDK
+            // able to prepare the next checkout (device-traced: `failed` →
+            // `checkoutPreparing`), same as an amount edit after a failure.
+            retryTimer = setTimeout(() => requestQuote(attempt + 1), retryInMs);
+            return;
+          }
           // The retained quote answered an EARLIER request (previous amount /
           // provider / address); this failure means no quote answers the
           // current one. Drop it so every quote-derived figure — hero
@@ -749,10 +847,12 @@ export function useOnramperCheckout({
           });
         }
       })();
-    }, DEBOUNCE_MS);
+    };
+    const timer = setTimeout(() => requestQuote(1), DEBOUNCE_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      clearTimeout(retryTimer);
     };
   }, [
     ready,
@@ -770,6 +870,45 @@ export function useOnramperCheckout({
     applyFailure,
     getLogContext,
   ]);
+
+  // The wait the user can see: an amount is entered and the init or the quote
+  // behind it has not answered. Automatic retries keep the state Preparing,
+  // so they count as one wait; a new quote request restarts the clock.
+  const isWaiting =
+    isAmountValid &&
+    amount > 0 &&
+    (actionState === EBuyActionState.Preparing ||
+      actionState === EBuyActionState.Refreshing);
+  useEffect(() => {
+    setIsTakingLong(false);
+    if (!isWaiting) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setIsTakingLong(true);
+      defaultLogger.fiatCrypto.onramper.waitingHintShown({
+        ...getLogContext(),
+        stage: readyRef.current ? 'quote' : 'init',
+      });
+    }, ONRAMPER_SLOW_HINT_MS);
+    return () => clearTimeout(timer);
+  }, [isWaiting, waitEpoch, getLogContext]);
+
+  // Starts a new init run from the web fallback an earlier run ended on.
+  const retryInit = useCallback(() => {
+    defaultLogger.fiatCrypto.onramper.initRetryPressed({
+      ...getLogContext(),
+      errorCode: errorCodeRef.current,
+    });
+    initAttemptRef.current = 1;
+    initRunStartedAtRef.current = Date.now();
+    initFailedRef.current = false;
+    setCanRetryInit(false);
+    setErrorMessage(undefined);
+    setErrorCode(undefined);
+    setActionState(EBuyActionState.Preparing);
+    setInitNonce((n) => n + 1);
+  }, [getLogContext]);
 
   const payMock = useCallback(() => {
     // Mirror the real event order: the id is known before "payment". The
@@ -886,6 +1025,9 @@ export function useOnramperCheckout({
         : undefined,
     payMock,
     retry,
+    canRetryInit: actionState === EBuyActionState.WebFallback && canRetryInit,
+    retryInit,
+    isTakingLong,
     refreshQuote,
     canSignOut,
     signOut,

@@ -74,3 +74,43 @@ describe('BuyActionZone retryable error', () => {
     expect(onRetry).not.toHaveBeenCalled();
   });
 });
+
+function renderFallback(onRetryInit?: () => void) {
+  const onWebFallback = jest.fn();
+  render(
+    <BuyActionZone
+      state={EBuyActionState.WebFallback}
+      nativeButton={null}
+      isMock={false}
+      errorText="Initialization failed. Try again"
+      onMockPay={() => {}}
+      onRetry={() => {}}
+      onRetryInit={onRetryInit}
+      onWebFallback={onWebFallback}
+    />,
+  );
+  return { onWebFallback };
+}
+
+describe('BuyActionZone web fallback', () => {
+  it('offers only the web widget for a failure nothing can fix in place', () => {
+    const { onWebFallback } = renderFallback();
+
+    fireEvent.click(screen.getByTestId('headless-buy-web-fallback'));
+
+    expect(onWebFallback).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('headless-buy-retry-init')).toBeNull();
+  });
+
+  it('adds an in-place retry when the init failure may pass on another try', () => {
+    const onRetryInit = jest.fn();
+    const { onWebFallback } = renderFallback(onRetryInit);
+
+    // The web widget stays available next to it.
+    expect(screen.getByTestId('headless-buy-web-fallback')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('headless-buy-retry-init'));
+
+    expect(onRetryInit).toHaveBeenCalledTimes(1);
+    expect(onWebFallback).not.toHaveBeenCalled();
+  });
+});

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/core';
@@ -85,6 +86,12 @@ type IBuyMode = 'input' | 'review';
 // Amount-level quote failures return the user to the input screen (inline
 // error under the amount) instead of offering an in-place retry.
 const AMOUNT_ERROR_CODES = new Set(['amountOutOfRange', 'quoteUnavailable']);
+
+// Shown under the amount once the init or the quote has kept the user waiting
+// (see the hook's isTakingLong): entering the page to a first quote takes
+// 7-16 s on device, most of it session + SDK init. Hardcoded English pending
+// the i18n pass, same as the rest of the Headless UI.
+const SLOW_WAIT_TEXT = 'Still working on it. This is taking longer than usual';
 
 // Mode-swap animation: the leaving lower block fades out fast (accelerating,
 // overlaid at its last position), the entering one fades in slower
@@ -402,6 +409,9 @@ function HeadlessBuyPage() {
     unknownOutcomeTransactionId,
     payMock,
     retry,
+    canRetryInit,
+    retryInit,
+    isTakingLong,
     refreshQuote,
     canSignOut,
     signOut,
@@ -682,6 +692,57 @@ function HeadlessBuyPage() {
     [signOut],
   );
 
+  // The one line under the amount. A quote error comes first; then the slow
+  // wait, which only lasts until the pending answer lands; then the reminder
+  // of a same-token order, which matters once there is something to pay.
+  let heroNotice: ReactNode;
+  if (!heroError && isTakingLong) {
+    heroNotice = (
+      <SizableText
+        testID="headless-buy-slow-wait"
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        numberOfLines={2}
+      >
+        {SLOW_WAIT_TEXT}
+      </SizableText>
+    );
+  } else if (!heroError && sameTokenOrder) {
+    heroNotice = (
+      <XStack
+        testID="headless-buy-order-reminder"
+        ai="center"
+        jc="center"
+        gap="$1"
+        onPress={openSameTokenOrder}
+        cursor="pointer"
+        pressStyle={{ opacity: 0.6 }}
+      >
+        <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {intl.formatMessage({
+            id: ETranslations.buy_order_in_progress_same_token__msg,
+          })}
+        </SizableText>
+        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+      </XStack>
+    );
+  } else {
+    heroNotice = (
+      <Animated.View style={heroErrorStyle}>
+        <SizableText
+          size="$bodySm"
+          color="$textCritical"
+          textAlign="center"
+          numberOfLines={2}
+        >
+          {lastHeroErrorRef.current ?? ''}
+        </SizableText>
+      </Animated.View>
+    );
+  }
+
   return (
     <Page>
       {/* In review the close button returns to input via the beforeRemove
@@ -722,49 +783,7 @@ function HeadlessBuyPage() {
                   // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
                   // numberOfLines truncates copy that outgrows the slot.
                   <Stack h="$8" jc="center" alignSelf="stretch">
-                    {!heroError && sameTokenOrder ? (
-                      <XStack
-                        testID="headless-buy-order-reminder"
-                        ai="center"
-                        jc="center"
-                        gap="$1"
-                        onPress={openSameTokenOrder}
-                        cursor="pointer"
-                        pressStyle={{ opacity: 0.6 }}
-                      >
-                        <Stack
-                          w="$1.5"
-                          h="$1.5"
-                          borderRadius="$full"
-                          bg="$iconInfo"
-                        />
-                        <SizableText
-                          size="$bodySm"
-                          color="$textSubdued"
-                          numberOfLines={1}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.buy_order_in_progress_same_token__msg,
-                          })}
-                        </SizableText>
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$4"
-                          color="$iconSubdued"
-                        />
-                      </XStack>
-                    ) : (
-                      <Animated.View style={heroErrorStyle}>
-                        <SizableText
-                          size="$bodySm"
-                          color="$textCritical"
-                          textAlign="center"
-                          numberOfLines={2}
-                        >
-                          {lastHeroErrorRef.current ?? ''}
-                        </SizableText>
-                      </Animated.View>
-                    )}
+                    {heroNotice}
                   </Stack>
                 }
                 width="100%"
@@ -813,6 +832,7 @@ function HeadlessBuyPage() {
                       ? openUnknownOutcomeOrder
                       : undefined
                   }
+                  onRetryInit={canRetryInit ? retryInit : undefined}
                   onWebFallback={openWebFallback}
                 />
               </YStack>

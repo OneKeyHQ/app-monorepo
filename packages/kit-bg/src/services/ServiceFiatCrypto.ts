@@ -296,6 +296,7 @@ class ServiceFiatCrypto extends ServiceBase {
       mergeDeriveAssetsNetworkIds: networkIds.filter(
         (_, index) => mergeDeriveFlags[index],
       ),
+      fetchedAt: Date.now(),
     };
   }
 

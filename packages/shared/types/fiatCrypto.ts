@@ -57,6 +57,11 @@ export type IFiatCryptoTokenListWithNetworks = {
   // Networks whose vault merges derive-type assets (BTC / LTC style), i.e.
   // rows that must open the address type selector instead of a direct action.
   mergeDeriveAssetsNetworkIds: string[];
+  // When this list was fetched (ms). The list is persisted and repainted on
+  // the next visit, so a row's region-trimmed `headlessSupported` can be far
+  // older than the screen showing it; absent on snapshots stored before the
+  // field existed.
+  fetchedAt?: number;
 };
 
 // Where a native Headless buy attempt was started from. Carried through the
