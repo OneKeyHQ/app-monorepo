@@ -1277,6 +1277,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
 **Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
 
+## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
+**Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
+**Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.
+**Root Cause**: The hide-value setting lives in the main window's jotai store. The tray payload had no field for it, the main-window provider neither read the setting nor re-sent on a toggle, and the tray rendered the amounts unconditionally.
+**Fix**: Carry `hideValue` on every tray payload, stamped when the payload is sent, and re-deliver the last payload as soon as the setting flips instead of waiting for a gather that needs the network and may fail. The tray masks the total as `****` and pending amounts as `**** SYMBOL`, the same rules as the home total and history rows; market quotes stay visible. Regression tests cover the sender (stamp at send time, immediate re-delivery, error and locked placeholders, reset) and the rendered tray panel (hidden, visible, live toggle).
+**Catchable by**: Section 3: Cross-Platform Impact — list every window and runtime that renders the same data before treating a display setting as global; Section 4: Business Logic & Regression — a privacy toggle must be checked on each surface that shows the value, including ones that receive a copied snapshot.
+
 ## Case: Perps indicator reset removed default volume (OK-66449)
 **Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
 **Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
