@@ -34,11 +34,18 @@ const DEFAULT_ZONE_MIN_HEIGHT = 56;
 // pay block; reserving it would leave a hole.
 const MAX_REMEMBERED_ZONE_HEIGHT = 160;
 
+// Stored as a string, not a number: on iOS/Android the main runtime reads
+// settings from a snapshot the background runtime builds at cold start, and
+// that snapshot reads each value with getString first — which MMKV answers
+// with "" (not undefined) for a stored number. A remembered number therefore
+// came back empty after every relaunch (seen on device); a string survives.
 function readRememberedZoneHeight(): number {
-  const remembered = appStorage.syncStorage.getNumber(
-    EAppSyncStorageKeys.onekey_onramper_pay_zone_height,
+  const remembered = Number(
+    appStorage.syncStorage.getString(
+      EAppSyncStorageKeys.onekey_onramper_pay_zone_height,
+    ),
   );
-  return remembered !== undefined &&
+  return Number.isFinite(remembered) &&
     remembered > DEFAULT_ZONE_MIN_HEIGHT &&
     remembered <= MAX_REMEMBERED_ZONE_HEIGHT
     ? remembered
@@ -49,7 +56,7 @@ async function rememberZoneHeight(height: number) {
   try {
     await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_onramper_pay_zone_height,
-      height,
+      String(height),
     );
   } catch {
     // Not remembered: the next visit measures the pay block again.

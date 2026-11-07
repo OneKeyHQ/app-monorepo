@@ -66,13 +66,21 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-const mockStorage = new Map<string, number>();
+const mockStorage = new Map<string, string | number | boolean>();
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
     syncStorage: {
-      getNumber: (key: string) => mockStorage.get(key),
-      set: (key: string, value: number) => {
+      // MMKV hands back "" from getString for a stored number; the zone
+      // must not depend on getNumber surviving the native mirror.
+      getString: (key: string) => {
+        const value = mockStorage.get(key);
+        if (value === undefined) {
+          return undefined;
+        }
+        return typeof value === 'string' ? value : '';
+      },
+      set: (key: string, value: string | number | boolean) => {
         mockStorage.set(key, value);
       },
     },
@@ -245,7 +253,7 @@ function zoneMinHeight(container: HTMLElement) {
 
 describe('BuyActionZone reserved height', () => {
   it('reserves the pay block height remembered from an earlier visit', () => {
-    mockStorage.set(ZONE_HEIGHT_KEY, 92);
+    mockStorage.set(ZONE_HEIGHT_KEY, '92');
 
     const { container } = renderReady();
 
@@ -253,7 +261,7 @@ describe('BuyActionZone reserved height', () => {
   });
 
   it('ignores a remembered height no pay block could have', () => {
-    mockStorage.set(ZONE_HEIGHT_KEY, 400);
+    mockStorage.set(ZONE_HEIGHT_KEY, '400');
 
     const { container } = renderReady();
 
@@ -271,12 +279,20 @@ describe('BuyActionZone reserved height', () => {
 
     reportHeight(91.2);
     expect(zoneMinHeight(container)).toBe(92);
-    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe(92);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
 
     // A shorter pass (the button mid-swap) never shrinks the reservation.
     reportHeight(50);
     expect(zoneMinHeight(container)).toBe(92);
-    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe(92);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
+  });
+
+  it('falls back when an older build left a number the mirror reads as ""', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, 91);
+
+    const { container } = renderReady();
+
+    expect(zoneMinHeight(container)).toBe(56);
   });
 });
 
