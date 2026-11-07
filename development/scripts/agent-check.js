@@ -690,6 +690,7 @@ function runLocalChecks(logDir) {
     ]),
     runCommand(logDir, 'test-integrity', 'yarn', ['lint:test-integrity']),
     runCommand(logDir, 'onekeyfe-patches', 'yarn', ['lint:onekeyfe-patches']),
+    runCommand(logDir, 'external-sdk', 'yarn', ['lint:external-sdk']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];
