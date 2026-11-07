@@ -132,7 +132,7 @@ export function TokenPrivacyPanel({
         mt={isDisabled ? '$3' : undefined}
         flexShrink={0}
         size="small"
-        variant={isDisabled ? 'primary' : 'tertiary'}
+        variant={isDisabled ? 'primary' : 'secondary'}
         loading={busy}
         disabled={busy}
         onPress={onAction}
