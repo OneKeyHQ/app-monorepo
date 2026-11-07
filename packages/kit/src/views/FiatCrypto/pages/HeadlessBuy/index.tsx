@@ -734,25 +734,35 @@ function HeadlessBuyPage() {
 
   // The ≈crypto line under the amount: live payout from the quote, a skeleton
   // while a quote is in flight (avoids showing a stale figure for the newly
-  // typed amount), and a plain 0 when there is nothing to quote.
+  // typed amount), a plain 0 when there is nothing to quote, and "--" when
+  // the quote failed — the same empty value as the card below ("0 ETH" under
+  // a real amount read as buying nothing).
   const isQuoting =
     amount > 0 &&
     (actionState === EBuyActionState.Preparing ||
       actionState === EBuyActionState.Refreshing);
-  const estimateValueProps = useMemo(
-    () => ({
-      // The hook keeps the last successful quote; with the amount cleared that
-      // figure is stale, so the estimate falls back to 0 immediately.
-      value:
-        amount > 0 && quote?.payout !== undefined ? String(quote.payout) : '0',
+  const isQuoteFailed =
+    amount > 0 &&
+    (actionState === EBuyActionState.RetryableError ||
+      actionState === EBuyActionState.WebFallback);
+  const estimateValueProps = useMemo(() => {
+    // The hook keeps the last successful quote; with the amount cleared that
+    // figure is stale, so the estimate falls back to 0 immediately.
+    let value = '0';
+    if (amount > 0 && quote?.payout !== undefined) {
+      value = String(quote.payout);
+    } else if (isQuoteFailed) {
+      value = '--';
+    }
+    return {
+      value,
       tokenSymbol: activeToken?.symbol,
       formatter: 'balance' as const,
       // Regular body type — the estimate is secondary to the amount above it.
       size: '$bodyLg' as const,
       loading: isQuoting,
-    }),
-    [amount, quote?.payout, activeToken?.symbol, isQuoting],
-  );
+    };
+  }, [amount, quote?.payout, activeToken?.symbol, isQuoting, isQuoteFailed]);
 
   // Switchable providers: the current quote's ramp plus the SDK's recommended
   // alternatives. TODO(onramper): confirm `recommendations` carries provider
