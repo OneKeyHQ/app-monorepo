@@ -19,8 +19,15 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData,
 } = createJotaiContext();
 export { ProviderJotaiContextDiscovery, contextAtomMethod };
+
+// Store accessor for hooks that build derived (selectAtom) subscriptions on
+// top of the context atoms — the per-tab reads in useWebTabs.ts. Kept out of
+// the default export set on purpose: regular consumers should keep using the
+// generated use*Atom hooks.
+export const useDiscoveryContextStoreData = useContextData;
 
 /**
  * WebTabs Atom
