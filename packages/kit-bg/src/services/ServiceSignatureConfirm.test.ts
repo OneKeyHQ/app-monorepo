@@ -1,3 +1,11 @@
+import { Address, beginCell } from '@ton/core';
+import TonWeb from 'tonweb';
+
+jest.mock('../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => () => undefined,
   backgroundMethod:
@@ -50,6 +58,7 @@ import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
+  EParseTxComponentRole,
   EParseTxType,
   type IDisplayComponent,
   type IDisplayComponentAddress,
@@ -208,6 +217,10 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it.each(['xmr--0', 'zec--0'])(
     '%s uses only verified local payment details and fees',
     async (privacyNetworkId) => {
@@ -343,6 +356,333 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       ).rejects.toThrow('Privacy transactions must be reviewed locally');
       expect(mockGetVault).not.toHaveBeenCalled();
       expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps TON payload-derived transfer facts while retaining server risks', async () => {
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const forged = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const risk = {
+      value: 'Risky address',
+      displayType: 'critical',
+    } as IDisplayComponentAddress['tags'][number];
+    const parsedTx = buildParsedTx({
+      components: [
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: forged,
+          role: EParseTxComponentRole.SwapReceiver,
+          tags: [risk],
+        },
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: Address.parse(recipient).toString({ bounceable: true }),
+          tags: [risk],
+        },
+        { type: EParseTxComponentType.Default, label: 'Amount', value: '999' },
+      ],
+      alerts: ['Server risk alert'],
+    });
+    const service = buildService(parsedTx);
+    const local = buildLocalDecodedTx();
+    local.networkId = 'ton--mainnet';
+    local.actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: accountAddress,
+          to: recipient,
+          receives: [],
+          sends: [
+            {
+              from: accountAddress,
+              to: recipient,
+              amount: '1.5',
+              name: 'Jetton',
+              symbol: 'JETTON',
+              icon: '',
+              isNative: false,
+              tokenIdOnNetwork: `0:${'44'.repeat(32)}`,
+            },
+            {
+              from: accountAddress,
+              to: Address.parse(`0:${'44'.repeat(32)}`).toString({
+                bounceable: false,
+              }),
+              amount: '10',
+              name: 'Toncoin',
+              symbol: 'TON',
+              icon: '',
+              isNative: true,
+              tokenIdOnNetwork: '',
+            },
+          ],
+        },
+      },
+    ];
+    mockGetVault.mockResolvedValue({
+      buildDecodedTx: jest.fn().mockResolvedValue(local),
+    });
+    const decoded = await service.buildDecodedTx({
+      networkId: 'ton--mainnet',
+      accountId,
+      accountAddress,
+      unsignedTx: { encodedTx: {} },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.hasServerSecurityAnalysis).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(decoded.txDisplay?.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'JETTON',
+          amountParsed: '1.5',
+        }),
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'TON',
+          amountParsed: '10',
+        }),
+      ]),
+    );
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({ address: recipient, tags: [risk] }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ address: forged, label: 'Recipient' }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ label: 'Amount', value: '999' }),
+    );
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({
+        address: forged,
+        label: 'global.address',
+        role: undefined,
+        tags: [risk],
+      }),
+    );
+  });
+
+  it('shows every native outflow when a TON batch mixes a transfer and an unknown call', async () => {
+    const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+    const from = Address.parse(`0:${'11'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const contract = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const service = buildService(
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server amount',
+            value: '100.001',
+          },
+        ],
+        alerts: ['Server risk alert'],
+      }),
+    );
+    const vault = Object.create(TonVault.prototype) as InstanceType<
+      typeof TonVault
+    >;
+    vault.networkId = 'ton--mainnet';
+    vault.accountId = accountId;
+    vault.getAccountAddress = jest.fn().mockResolvedValue(from);
+    vault.getNetwork = jest
+      .fn()
+      .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+    vault.backgroundApi = service.backgroundApi;
+    vault.backgroundApi.serviceToken = {
+      getToken: jest.fn().mockResolvedValue(null),
+    } as unknown as typeof vault.backgroundApi.serviceToken;
+    mockGetVault.mockResolvedValue(vault);
+    const decoded = await service.buildDecodedTx({
+      networkId: vault.networkId,
+      accountId,
+      accountAddress: from,
+      unsignedTx: {
+        encodedTx: {
+          from,
+          messages: [
+            { address: recipient, amount: '1000000' },
+            {
+              address: contract,
+              amount: '100000000000',
+              payload: beginCell()
+                .storeUint(0x12_34_56_78, 32)
+                .endCell()
+                .toBoc()
+                .toString('base64'),
+            },
+          ],
+        },
+      },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(
+      decoded.txDisplay?.components.filter(
+        (component) => component.type === EParseTxComponentType.InternalAssets,
+      ),
+    ).toEqual([
+      expect.objectContaining({ symbol: 'TON', amountParsed: '0.001' }),
+      expect.objectContaining({ symbol: 'TON', amountParsed: '100' }),
+    ]);
+    expect(decoded.actions).toContainEqual(
+      expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+    );
+  });
+
+  it.each([false, true])(
+    'keeps verified Jetton outflows and unknown forwarded effects in the final confirmation, forward as ref: %s',
+    async (forwardAsRef) => {
+      const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+      const { encodeDecodedJetton } =
+        await import('../vaults/impls/ton/sdkTon/payload');
+      const from = `0:${'11'.repeat(32)}`;
+      const recipient = `0:${'22'.repeat(32)}`;
+      const wallet = `0:${'44'.repeat(32)}`;
+      const master = `0:${'55'.repeat(32)}`;
+      const friendlyFrom = Address.parse(from).toString({ bounceable: false });
+      const friendlyRecipient = Address.parse(recipient).toString({
+        bounceable: false,
+      });
+      const friendlyWallet = Address.parse(wallet).toString({
+        bounceable: false,
+      });
+      const service = buildService(
+        buildParsedTx({
+          components: [
+            {
+              type: EParseTxComponentType.InternalAssets,
+              label: 'Server token amount',
+              name: 'Jetton',
+              icon: '',
+              symbol: 'JETTON',
+              amount: '1500000',
+              amountParsed: '1.5',
+            },
+            {
+              type: EParseTxComponentType.Address,
+              label: 'Server recipient',
+              address: friendlyRecipient,
+              tags: [],
+            },
+            {
+              type: EParseTxComponentType.Default,
+              label: 'Server amount',
+              value: '999',
+            },
+          ],
+          alerts: ['Server risk alert'],
+        }),
+      );
+      const vault = Object.create(TonVault.prototype) as InstanceType<
+        typeof TonVault
+      >;
+      vault.networkId = 'ton--mainnet';
+      vault.accountId = accountId;
+      vault.getAccountAddress = jest.fn().mockResolvedValue(friendlyFrom);
+      vault.getNetwork = jest
+        .fn()
+        .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+      vault.backgroundApi = service.backgroundApi;
+      vault.backgroundApi.serviceToken = {
+        getToken: jest.fn(
+          async ({ tokenIdOnNetwork }: { tokenIdOnNetwork: string }) => ({
+            address: tokenIdOnNetwork,
+            decimals: tokenIdOnNetwork ? 6 : 9,
+            symbol: tokenIdOnNetwork ? 'JETTON' : 'TON',
+            name: tokenIdOnNetwork ? 'Jetton' : 'Toncoin',
+            isNative: !tokenIdOnNetwork,
+          }),
+        ),
+      } as unknown as typeof vault.backgroundApi.serviceToken;
+      const getData = jest
+        .spyOn(TonWeb.token.jetton.JettonWallet.prototype, 'getData')
+        .mockResolvedValue({
+          balance: new TonWeb.utils.BN(1_500_000),
+          ownerAddress: new TonWeb.Address(from),
+          jettonMinterAddress: new TonWeb.Address(master),
+          tokenWalletCode: new TonWeb.boc.Cell(),
+        });
+      const getWalletAddress = jest
+        .spyOn(
+          TonWeb.token.jetton.JettonMinter.prototype,
+          'getJettonWalletAddress',
+        )
+        .mockResolvedValue(new TonWeb.Address(wallet));
+      mockGetVault.mockResolvedValue(vault);
+      const payload = encodeDecodedJetton(
+        {
+          queryId: '0',
+          amount: '1500000',
+          toAddress: recipient,
+          responseAddress: from,
+          forwardAmount: '1',
+          forwardPayload: beginCell().storeUint(0x12_34_56_78, 32).endCell(),
+        },
+        forwardAsRef,
+      )
+        .toBoc()
+        .toString('base64');
+      const unsignedTx = {
+        encodedTx: {
+          from: friendlyFrom,
+          messages: [
+            { address: friendlyWallet, amount: '10000000000', payload },
+          ],
+        },
+      };
+      const decoded = await service.buildDecodedTx({
+        networkId: vault.networkId,
+        accountId,
+        accountAddress: friendlyFrom,
+        unsignedTx,
+      });
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getWalletAddress).toHaveBeenCalledTimes(1);
+      expect(decoded.isLocalParsed).toBe(true);
+      expect(decoded.hasServerSecurityAnalysis).toBe(true);
+      expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+      expect(decoded.actions).toContainEqual(
+        expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+      );
+      expect(
+        decoded.txDisplay?.components.filter(
+          (component) =>
+            component.type === EParseTxComponentType.InternalAssets,
+        ),
+      ).toEqual([
+        expect.objectContaining({ symbol: 'JETTON', amountParsed: '1.5' }),
+        expect.objectContaining({ symbol: 'TON', amountParsed: '10' }),
+      ]);
+      expect(decoded.txDisplay?.components).toContainEqual(
+        expect.objectContaining({ address: friendlyRecipient }),
+      );
+      expect(decoded.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          label: 'sig.interact_contract_label',
+          address: friendlyWallet,
+        }),
+      );
+      expect(decoded.txDisplay?.components).not.toContainEqual(
+        expect.objectContaining({ value: '999' }),
+      );
+      expect(unsignedTx.encodedTx.messages[0].payload).toBe(payload);
     },
   );
 
