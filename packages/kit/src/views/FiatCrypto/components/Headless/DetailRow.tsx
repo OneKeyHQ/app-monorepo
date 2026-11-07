@@ -95,8 +95,11 @@ export function DetailRowMotion({ children }: { children: ReactNode }) {
   );
 }
 
-// "Account name · 0x12…89ab". The address is what the user checks, so it
-// always shows in full; a long account name truncates first.
+// "Account name · 0x1234…89ab". The address is what the user checks, so it
+// never truncates; a long account name truncates first. The address keeps
+// only its first 6 and last 4 characters — enough to recognize it — which
+// leaves room for a typical account name ("Account #3") beside the long
+// "Receiving address" label (the default 8 + 6 left it four letters).
 export function DetailAddressValue({
   address,
   accountName,
@@ -104,7 +107,11 @@ export function DetailAddressValue({
   address: string;
   accountName?: string;
 }) {
-  const shortAddress = accountUtils.shortenAddress({ address });
+  const shortAddress = accountUtils.shortenAddress({
+    address,
+    leadingLength: 6,
+    trailingLength: 4,
+  });
   return (
     <XStack flexShrink={1}>
       {accountName ? (
