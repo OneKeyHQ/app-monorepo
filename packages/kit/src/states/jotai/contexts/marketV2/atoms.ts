@@ -53,6 +53,21 @@ export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
 export const { atom: tokenDetailSymbolAtom, use: useTokenDetailSymbolAtom } =
   contextAtomComputed((get) => get(tokenDetailAtom())?.symbol);
 
+// Identity of the detail currently in `tokenDetailAtom`. Unlike the full
+// detail atom this only changes when the token itself changes, so pages can
+// check whether the store still renders their token without subscribing to
+// every price tick.
+export const {
+  atom: tokenDetailIdentityAtom,
+  use: useTokenDetailIdentityAtom,
+} = contextAtomComputed((get) => {
+  const detail = get(tokenDetailAtom());
+  if (!detail) {
+    return undefined;
+  }
+  return `${detail.networkId || ''}|${(detail.address || '').toLowerCase()}`;
+});
+
 export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
   contextAtom<IMarketTokenDetailPreview | undefined>(undefined);
 

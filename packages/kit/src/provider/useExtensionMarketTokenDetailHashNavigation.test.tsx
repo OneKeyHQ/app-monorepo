@@ -120,7 +120,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false&disableTrade=true&skipMarketDataFetch=true&marketTokenId=bitcoin&marketVariantId=bitcoin-evm--56-0xabc&marketTokenCategory=top_coins&resolveMarketAsset=true&marketTokenSymbol=BTC',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -130,6 +130,8 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         marketTokenId: 'bitcoin',
         marketVariantId: 'bitcoin-evm--56-0xabc',
         marketTokenCategory: 'top_coins',
+        marketTokenSymbol: 'BTC',
+        resolveMarketAsset: true,
         skipMarketDataFetch: true,
         isNative: false,
         from: 'ExtensionSidePanel',
@@ -137,6 +139,27 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         showFavoriteButton: false,
       },
     });
+  });
+
+  it('parses an Asset-only hash into the existing token detail route', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins&marketVariantId=bitcoin-evm--1-0xbtc&disableTrade=true',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+        disableTrade: true,
+      },
+    });
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token?marketTokenId=bitcoin',
+      ),
+    ).toBeUndefined();
   });
 
   it('ignores a serialized token preview in the expand-tab hash', () => {
@@ -678,6 +701,16 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
       query: 'marketTokenCategory=top_coins',
       currentParams: {},
       expectedParams: { marketTokenCategory: 'top_coins' },
+    },
+    {
+      query: 'resolveMarketAsset=true',
+      currentParams: {},
+      expectedParams: { resolveMarketAsset: true },
+    },
+    {
+      query: 'marketTokenSymbol=BTC',
+      currentParams: {},
+      expectedParams: { marketTokenSymbol: 'BTC' },
     },
   ])(
     'refreshes the same token route when $query changes',

@@ -32,6 +32,21 @@ function MarketDetailResponsiveLayoutBase({
   initialSection,
   onInitialSectionShown,
 }: IMarketDetailResponsiveLayoutProps) {
+  // An Asset-only route has no network identity until its detail request
+  // resolves a variant. Do not mount the narrow detail charts before that,
+  // otherwise they mount twice and lose their scroll/chart state.
+  if (isLayoutPending && !isDesktopLayout && !networkId) {
+    return (
+      <Stack
+        testID="market-detail-layout-loading"
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
   if (isDesktopLayout) {
     // The favorites sidebar wraps both states so resolving a token picked from
     // it only swaps the detail side; the list keeps its state and scroll.

@@ -162,6 +162,8 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
+    '/market/token': { showUrl: true, showParams: true },
+    '/market/token/': { showUrl: true, showParams: true },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketStockDetail}`]:
       {
         showUrl: true,

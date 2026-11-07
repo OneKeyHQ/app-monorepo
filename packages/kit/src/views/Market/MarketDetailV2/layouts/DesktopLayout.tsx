@@ -364,7 +364,9 @@ export function DesktopLayout({
   const isSwapTokenReady = shouldUseStockDesktopLayout
     ? Boolean(isSwapTokenIdentityReady) &&
       isMarketTokenDecimalsReady(displayTokenDetail)
-    : Boolean(isSwapTokenIdentityReady);
+    : Boolean(isSwapTokenIdentityReady) &&
+      (!shouldUseTopCoinsDesktopLayout ||
+        isMarketTokenDecimalsReady(displayTokenDetail));
   const isTerminalStockTradeUnavailable =
     shouldUseStockDesktopLayout &&
     !selectedTokenVariant &&

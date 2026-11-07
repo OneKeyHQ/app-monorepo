@@ -1607,6 +1607,90 @@ describe('marketV2 asset token detail actions', () => {
     },
   );
 
+  it('keeps late Asset metadata valid after a newer price poll', async () => {
+    const metadata = createDeferred<{ info: { decimals: number } }>();
+    mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+    mockFetchMarketAssetDetail.mockResolvedValue({
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    });
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(useMarketAssetTokenDetailAction, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: '',
+      });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: '0xabc',
+      decimalsResolved: false,
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+
+    // A price poll owns a newer request id, but the route still shows this token.
+    act(() => {
+      store.set(
+        tokenDetailRequestIdAtom(),
+        store.get(tokenDetailRequestIdAtom()) + 1,
+      );
+    });
+    await act(async () => {
+      metadata.resolve({ info: { decimals: 18 } });
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: '0xabc',
+      decimals: 18,
+      decimalsResolved: true,
+    });
+  });
+
+  it('ignores late Asset metadata once the route loses ownership', async () => {
+    const metadata = createDeferred<{ info: { decimals: number } }>();
+    mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+    mockFetchMarketAssetDetail.mockResolvedValue({
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    });
+    let ownsRoute = true;
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(useMarketAssetTokenDetailAction, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: '',
+        isCurrentRequest: () => ownsRoute,
+      });
+    });
+    ownsRoute = false;
+    await act(async () => {
+      metadata.resolve({ info: { decimals: 18 } });
+    });
+
+    expect(store.get(tokenDetailAtom())?.decimalsResolved).toBe(false);
+  });
+
   it('preserves confirmed zero decimals for a non-native token', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(useMarketAssetTokenDetailAction, {

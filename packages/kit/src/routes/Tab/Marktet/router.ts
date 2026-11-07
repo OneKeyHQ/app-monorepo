@@ -50,7 +50,7 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetailV2,
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
-    rewrite: '/token/:network/:tokenAddress',
+    rewrite: '/token/:network?/:tokenAddress?',
   },
   {
     name: ETabMarketRoutes.MarketStockDetail,
@@ -62,7 +62,7 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketNativeDetail,
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
-    rewrite: '/token/:network',
+    rewrite: '/token/:network([^/]+)',
   },
   {
     name: ETabMarketRoutes.MarketBannerDetail,

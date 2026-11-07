@@ -16,12 +16,10 @@ export enum ETabMarketRoutes {
 }
 
 export type IMarketTokenDetailRouteParams = {
-  tokenAddress: string;
-  network: string;
   swapTokenSymbol?: string;
-  marketTokenId?: string;
   marketVariantId?: string;
-  marketTokenCategory?: string;
+  marketTokenSymbol?: string;
+  resolveMarketAsset?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   marketTokenPreviewId?: string;
@@ -30,7 +28,20 @@ export type IMarketTokenDetailRouteParams = {
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
-};
+} & (
+  | {
+      tokenAddress: string;
+      network: string;
+      marketTokenId?: string;
+      marketTokenCategory?: string;
+    }
+  | {
+      tokenAddress?: never;
+      network?: never;
+      marketTokenId: string;
+      marketTokenCategory: 'top_coins';
+    }
+);
 
 // A section the desktop detail page scrolls to on open, below the chart.
 export type IMarketStockDetailInitialSection = 'overview';
@@ -71,6 +82,8 @@ export type ITabMarketParamList = {
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;
+    marketTokenSymbol?: string;
+    resolveMarketAsset?: boolean;
     skipMarketDataFetch?: boolean;
     legacyTokenPreview?: IMarketTokenDetailPreview;
     marketTokenPreviewId?: string;

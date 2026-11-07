@@ -63,11 +63,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   const [path, query = ''] = hashPath.split('?');
   const segments = path.replace(/^\/+|\/+$/g, '').split('/');
 
-  if (
-    segments[0] !== 'market' ||
-    !['stock', 'token'].includes(segments[1]) ||
-    !segments[2]
-  ) {
+  if (segments[0] !== 'market' || !['stock', 'token'].includes(segments[1])) {
     return undefined;
   }
 
@@ -85,13 +81,43 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const skipMarketDataFetch = parseOptionalRouteBooleanParam(
       searchParams.get('skipMarketDataFetch'),
     );
+    const resolveMarketAsset = parseOptionalRouteBooleanParam(
+      searchParams.get('resolveMarketAsset'),
+    );
     const marketTokenId = searchParams.get('marketTokenId') || undefined;
     const marketVariantId = searchParams.get('marketVariantId') || undefined;
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
+    const marketTokenSymbol =
+      searchParams.get('marketTokenSymbol') || undefined;
     const from = searchParams.get('from');
     const marketTokenPreviewId =
       searchParams.get('marketTokenPreviewId') || undefined;
+
+    if (
+      segments[1] === 'token' &&
+      segments.length === 2 &&
+      marketTokenId &&
+      marketTokenCategory === 'top_coins'
+    ) {
+      return {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          marketTokenId,
+          marketTokenCategory,
+          ...(marketVariantId ? { marketVariantId } : undefined),
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
+            ? undefined
+            : { showFavoriteButton }),
+        },
+      };
+    }
+
+    if (!segments[2]) {
+      return undefined;
+    }
 
     if (segments[1] === 'stock') {
       const stockId = decodeURIComponent(segments[2]);
@@ -138,6 +164,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(marketTokenId ? { marketTokenId } : undefined),
           ...(marketVariantId ? { marketVariantId } : undefined),
           ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+          ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+          ...(resolveMarketAsset === undefined
+            ? undefined
+            : { resolveMarketAsset }),
           ...(skipMarketDataFetch === undefined
             ? undefined
             : { skipMarketDataFetch }),
@@ -159,6 +189,10 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         ...(marketTokenId ? { marketTokenId } : undefined),
         ...(marketVariantId ? { marketVariantId } : undefined),
         ...(marketTokenCategory ? { marketTokenCategory } : undefined),
+        ...(marketTokenSymbol ? { marketTokenSymbol } : undefined),
+        ...(resolveMarketAsset === undefined
+          ? undefined
+          : { resolveMarketAsset }),
         ...(skipMarketDataFetch === undefined
           ? undefined
           : { skipMarketDataFetch }),
@@ -238,6 +272,11 @@ function isCurrentMarketTokenDetailTarget(
         target.params.legacyTokenPreview.selectedAt) ||
     params.marketVariantId !== target.params.marketVariantId ||
     params.marketTokenCategory !== target.params.marketTokenCategory ||
+    ('marketTokenSymbol' in target.params &&
+      params.marketTokenSymbol !== target.params.marketTokenSymbol) ||
+    ('resolveMarketAsset' in target.params &&
+      normalizeRouteBooleanParam(params.resolveMarketAsset, false) !==
+        normalizeRouteBooleanParam(target.params.resolveMarketAsset, false)) ||
     normalizeRouteBooleanParam(params.skipMarketDataFetch, false) !==
       normalizeRouteBooleanParam(target.params.skipMarketDataFetch, false)
   ) {
@@ -357,7 +396,10 @@ export const useExtensionMarketTokenDetailHashNavigation =
 
             if (
               target.screen !== ETabMarketRoutes.MarketStockDetail &&
-              target.params.marketTokenPreviewId
+              target.params.marketTokenPreviewId &&
+              target.params.network &&
+              (target.screen === ETabMarketRoutes.MarketNativeDetail ||
+                typeof target.params.tokenAddress === 'string')
             ) {
               const tokenTarget = target;
               void readExtensionTokenPreview(
@@ -366,7 +408,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
                   network: target.params.network,
                   tokenAddress:
                     'tokenAddress' in target.params
-                      ? target.params.tokenAddress
+                      ? (target.params.tokenAddress ?? '')
                       : '',
                   isNative: normalizeRouteBooleanParam(
                     target.params.isNative,

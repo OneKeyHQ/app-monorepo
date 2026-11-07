@@ -112,6 +112,45 @@ it('opens an ordinary detail without a preview when storage is unavailable', asy
   });
 });
 
+it('opens the existing Market detail path with an Asset-only identity', async () => {
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    marketTokenId: 'bitcoin',
+    marketVariantId: 'bitcoin-evm--1-0xbtc',
+    marketTokenCategory: 'top_coins',
+    disableTrade: true,
+  });
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token',
+    params: {
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-evm--1-0xbtc',
+      marketTokenCategory: 'top_coins',
+      disableTrade: true,
+    },
+  });
+  expect(storeExtensionTokenPreview).not.toHaveBeenCalled();
+});
+
+it('forwards the Asset symbol resolution hints on the token path', async () => {
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    ...params,
+    skipMarketDataFetch: false,
+    marketTokenSymbol: 'ABC',
+    resolveMarketAsset: true,
+  });
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token/eth/0xabc',
+    params: {
+      isNative: false,
+      disableTrade: true,
+      marketTokenSymbol: 'ABC',
+      resolveMarketAsset: true,
+    },
+  });
+});
+
 it('rejects an explicitly non-native empty address before writing a handoff', async () => {
   const service = new ServiceApp({ backgroundApi: {} });
   await expect(
