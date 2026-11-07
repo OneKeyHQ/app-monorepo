@@ -1,42 +1,117 @@
 import type { ReactNode } from 'react';
 
 import { SizableText, XStack } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-// Shared label/value row for the review breakdown and the success page's
-// order card — one definition so the two surfaces can't drift.
+// Rows sit on a 20pt text line inside a card with a 12pt row gap. A tappable
+// row grows its pressed fill by 6pt each way (inner padding cancelled by a
+// negative margin, so the row doesn't move) and its touch target by 6pt more
+// of slop: 44pt, stopping at the gap's midpoint so neighbors never overlap.
+// The fill sits 8pt inside the card's 16pt padding, so its radius is the
+// card's 12 minus that 8: a concentric 4.
+const PRESSABLE_ROW: IXStackProps = {
+  mx: '$-2',
+  px: '$2',
+  my: '$-1.5',
+  py: '$1.5',
+  borderRadius: '$1',
+  hitSlop: { top: 6, bottom: 6 },
+};
+
+// The value + ⓘ trigger of an explainer popover sits on the same 20pt line:
+// 12pt of slop makes it a 44pt target that still stops inside the row gap.
+export const INFO_TRIGGER_HIT_SLOP = {
+  top: 12,
+  bottom: 12,
+  left: 12,
+  right: 12,
+};
+
+// Shared label/value row for the review card and the order card — one
+// definition so the two surfaces can't drift. A tappable row's pressed fill
+// wraps its content with an inset and rounded corners instead of a hard band
+// flush with the text. The label keeps its width and the value gives way
+// (wrapping or truncating, per value), so a long value — a large payout, a
+// long account name — never runs into the label or past the card.
 export function DetailRow({
   label,
   children,
-  py,
   onPress,
 }: {
   label: string;
   children: ReactNode;
-  py?: '$2';
   onPress?: () => void;
 }) {
   return (
     <XStack
-      py={py}
       jc="space-between"
       ai="center"
+      gap="$3"
       onPress={onPress}
       {...(onPress
         ? {
+            ...PRESSABLE_ROW,
+            role: 'button' as const,
             hoverStyle: { bg: '$bgHover' },
             pressStyle: { bg: '$bgActive' },
             cursor: 'pointer' as const,
           }
         : {})}
     >
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
-      {children}
+      <XStack flexShrink={1} jc="flex-end">
+        {children}
+      </XStack>
     </XStack>
   );
 }
+
+// "Account name · 0x12…89ab". The address is what the user checks, so it
+// always shows in full; a long account name truncates first.
+export function DetailAddressValue({
+  address,
+  accountName,
+}: {
+  address: string;
+  accountName?: string;
+}) {
+  const shortAddress = accountUtils.shortenAddress({ address });
+  return (
+    <XStack flexShrink={1}>
+      {accountName ? (
+        <SizableText size="$bodyMd" numberOfLines={1} flexShrink={1}>
+          {accountName}
+        </SizableText>
+      ) : null}
+      <SizableText size="$bodyMd" flexShrink={0}>
+        {accountName ? ` · ${shortAddress}` : shortAddress}
+      </SizableText>
+    </XStack>
+  );
+}
+
+// A value no quote answers (failed, or handed to the web widget). A skeleton
+// there would read as still loading; the row stays mounted so a retry fills
+// it in place.
+export function DetailEmptyValue() {
+  return (
+    <SizableText size="$bodyMd" color="$textSubdued">
+      --
+    </SizableText>
+  );
+}
+
+// Card shell shared by the review breakdown and the order detail.
+export const DETAIL_CARD_PROPS = {
+  bg: '$bgSubdued',
+  borderRadius: '$3',
+  p: '$4',
+  gap: '$3',
+} as const;
 
 export function formatPrice(value: number) {
   return numberFormat(String(value), {

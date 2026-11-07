@@ -12,7 +12,9 @@ import {
   getOnramperErrorFieldsForLog,
   getOnramperSignedInFromState,
   getUrlHostForLog,
+  isSelfHealingOnramperError,
   isStructuralOnramperError,
+  isUserCancelledOnramperError,
   sanitizeOnramperLogRecord,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
@@ -75,6 +77,9 @@ type IParams = {
   // Pin routing to these provider slugs; omit for Onramper's best choice.
   // Must be reference-stable (useMemo) — it is a debounce-effect dependency.
   onlyOnramps?: string[];
+  // Read when a quote is requested, never a reason to request one: a theme
+  // flip (system appearance can switch on a schedule) must not re-quote under
+  // a checkout that is already paying. The next quote picks the new style up.
   buttonStyle: IOnramperButtonStyle;
   // Surface that launched the buy page — rides on every funnel event.
   entryFrom?: string;
@@ -139,8 +144,8 @@ type IResult = {
   canSignOut: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Also re-quotes, because the SDK
-  // discards the checkout it had prepared. Exposed for the header sign-out
-  // button.
+  // discards the checkout it had prepared. Exposed for the failure states'
+  // "verify with a different email" action.
   signOut: () => Promise<void>;
   // Logging context (network / token / entry / elapsed) for page-level events
   // so they line up with the hook's own timeline.
@@ -240,6 +245,8 @@ export function useOnramperCheckout({
   amountRef.current = amount;
   const errorCodeRef = useRef<string | undefined>(undefined);
   errorCodeRef.current = errorCode;
+  const buttonStyleRef = useRef(buttonStyle);
+  buttonStyleRef.current = buttonStyle;
 
   const createClient = useCallback(
     () =>
@@ -348,18 +355,43 @@ export function useOnramperCheckout({
     [getLogContext],
   );
 
+  // refreshQuote is declared further down; the failure policy below reaches it
+  // through this ref.
+  const refreshQuoteRef = useRef<() => void>(() => undefined);
+  // Set once a self-healing failure has re-prepared the checkout, cleared when
+  // a quote lands: a second one before that shows the retryable error instead
+  // of re-preparing in a loop.
+  const selfHealedRef = useRef(false);
+
   // Shared failure policy for the SDK's `failed` event and the quote loop's
-  // thrown rejection: structural → web fallback, everything else retryable.
-  // Logging is the caller's job — the two paths emit different events.
+  // thrown rejection: a cancelled sign-in or a self-healing failure quietly
+  // re-prepares the checkout (the tapped one is spent either way), structural
+  // → web fallback, everything else retryable. Logging is the caller's job —
+  // the two paths emit different events.
   const applyFailure = useCallback(
     (event: IOnramperEvent) => {
-      if (
-        isStructuralOnramperError({
-          code: event.errorCode,
-          message: event.message,
-        })
-      ) {
-        goWebFallback({ code: event.errorCode, message: event.message });
+      const error = { code: event.errorCode, message: event.message };
+      if (isUserCancelledOnramperError(error)) {
+        refreshQuoteRef.current();
+        return;
+      }
+      if (isSelfHealingOnramperError(error) && !selfHealedRef.current) {
+        selfHealedRef.current = true;
+        refreshQuoteRef.current();
+        return;
+      }
+      if (isStructuralOnramperError(error)) {
+        // The web fallback says why the in-app purchase is off.
+        setErrorMessage(
+          getOnramperErrorMessage({
+            code: event.errorCode,
+            message: event.message,
+            userMessage: event.userMessage,
+            supportCode: event.supportCode,
+          }),
+        );
+        setErrorCode(event.errorCode);
+        goWebFallback(error);
       } else {
         setErrorMessage(
           getOnramperErrorMessage({
@@ -766,7 +798,7 @@ export function useOnramperCheckout({
               ...(onlyOnramps?.length ? { onlyOnramps } : {}),
               wallet: { network, address: address ?? '' },
             },
-            buttonStyle,
+            buttonStyleRef.current,
           );
           const durationMs = Date.now() - startedAt;
           if (cancelled || seq !== reqSeqRef.current) {
@@ -779,6 +811,7 @@ export function useOnramperCheckout({
           }
           quoteRef.current = result.quote;
           quoteSeqRef.current = seq;
+          selfHealedRef.current = false;
           setQuote(result.quote);
           setNativeButton(result.button);
           hasButtonRef.current = true;
@@ -893,7 +926,6 @@ export function useOnramperCheckout({
     address,
     country,
     onlyOnramps,
-    buttonStyle,
     retryNonce,
     applyFailure,
     getLogContext,
@@ -1001,6 +1033,7 @@ export function useOnramperCheckout({
       })();
     }, 64);
   }, [getLogContext]);
+  refreshQuoteRef.current = refreshQuote;
 
   const retry = useCallback(() => {
     defaultLogger.fiatCrypto.onramper.retryPressed({

@@ -16,6 +16,14 @@ const mockGetCheckoutRequirements = jest.fn<
   []
 >();
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    getLocale: () => 'en-US',
+    // Message ids stand in for copy: these tests check which line is shown.
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
@@ -247,10 +255,9 @@ describe('useOnramperCheckout OnramperID login state', () => {
   });
 
   it('stays signed out when the login made through the button is abandoned', async () => {
-    mockGetCheckoutRequirements.mockResolvedValueOnce({
-      button: 'button-1',
-      quote: QUOTE,
-    });
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
     const { result } = await renderCheckout({ amount: 50 });
     await advance(QUOTE_DEBOUNCE_MS);
     publishState(LOGIN_FROM_NOTHING);
@@ -259,9 +266,62 @@ describe('useOnramperCheckout OnramperID login state', () => {
     publishState({ kind: 'failed', errorCode: 'oidcFlowCancelled' });
     publishFailed({ errorCode: 'oidcFlowCancelled' });
 
-    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    // Closing the sign-in is not a failure: no error, a fresh checkout instead
+    // of the spent one.
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+    expect(result.current.nativeButton).toBeNull();
     expect(result.current.canSignOut).toBe(false);
     expect(mockStore.get(KEY)).toBe(false);
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+  });
+
+  it('re-prepares once after an expired quote, then shows the error if it repeats', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-3', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.nativeButton).toBe('button-1');
+
+    // Tapped after the intent expired: nothing for the user to decide.
+    publishFailed({ errorCode: 'intentInvalidated' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+
+    // A landed quote re-arms the quiet recovery.
+    publishFailed({ errorCode: 'intentAlreadyConsumed' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.nativeButton).toBe('button-3');
+  });
+
+  it('shows the error when a self-healing failure repeats before any quote lands', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockRejectedValueOnce({ code: 'invalidState', message: 'busy' });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    publishFailed({ errorCode: 'invalidStateTransition' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
   });
 
   it('signs out once the SDK dropped the login', async () => {

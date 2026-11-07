@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { AccessibilityInfo } from 'react-native';
 
 import {
   Button,
@@ -35,9 +36,17 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHeadlessBuyOrderStatus } from '@onekeyhq/shared/types/fiatCrypto';
 
-import { DetailRow, formatPrice } from '../../components/Headless/DetailRow';
+import {
+  DETAIL_CARD_PROPS,
+  DetailAddressValue,
+  DetailRow,
+  formatPrice,
+} from '../../components/Headless/DetailRow';
 import { formatHeadlessBuyOrderTime } from '../../components/Headless/orderFormat';
-import { OrderStatusBadge } from '../../components/Headless/OrderStatusBadge';
+import {
+  OrderStatusBadge,
+  getHeadlessBuyOrderStatusLabelId,
+} from '../../components/Headless/OrderStatusBadge';
 import {
   ProviderLogo,
   getProviderDisplayName,
@@ -148,6 +157,33 @@ function HeadlessBuyOrderDetailPage() {
     navigation.popStack();
   }, [navigation]);
 
+  // A status that changes while the page is open (the poll above) is
+  // announced: a VoiceOver user doesn't see the badge flip. The status the
+  // page opens with is not — it is read with the page.
+  const announcedStatusRef = useRef(order?.status);
+  useEffect(() => {
+    if (!order) {
+      return;
+    }
+    const previous = announcedStatusRef.current;
+    announcedStatusRef.current = order.status;
+    if (previous === undefined || previous === order.status) {
+      return;
+    }
+    const statusLabel = intl.formatMessage({
+      id: getHeadlessBuyOrderStatusLabelId(order.status),
+    });
+    const changedSentenceId = getHeadlessBuyOrderSentenceId(order, Date.now());
+    AccessibilityInfo.announceForAccessibility(
+      changedSentenceId
+        ? `${statusLabel}. ${intl.formatMessage(
+            { id: changedSentenceId },
+            { token: order.tokenSymbol },
+          )}`
+        : statusLabel,
+    );
+  }, [order, intl]);
+
   const now = Date.now();
   const sentenceId = order
     ? getHeadlessBuyOrderSentenceId(order, now)
@@ -186,7 +222,12 @@ function HeadlessBuyOrderDetailPage() {
         {isReady && !order ? (
           <Empty
             illustration="Orders"
-            title={intl.formatMessage({ id: ETranslations.global_no_results })}
+            title={intl.formatMessage({
+              id: ETranslations.buy_order_not_found__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.buy_order_not_found__desc,
+            })}
           />
         ) : null}
         {order ? (
@@ -215,6 +256,9 @@ function HeadlessBuyOrderDetailPage() {
                   size="small"
                   variant="secondary"
                   icon="BubbleAnnotationOutline"
+                  // 30pt small button → 44pt target; nothing else is
+                  // pressable within 7pt of it.
+                  hitSlop={{ top: 7, bottom: 7 }}
                   onPress={contactSupport}
                 >
                   {intl.formatMessage({
@@ -223,13 +267,16 @@ function HeadlessBuyOrderDetailPage() {
                 </Button>
               ) : null}
             </YStack>
-            <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$3">
+            {/* Same card and weights as the review breakdown: values are
+                regular, only what the user gets (received / est. receive)
+                is emphasized. */}
+            <YStack {...DETAIL_CARD_PROPS}>
               <DetailRow
                 label={intl.formatMessage({
                   id: ETranslations.buy_order_amount_paid__title,
                 })}
               >
-                <SizableText size="$bodyMdMedium">
+                <SizableText size="$bodyMd">
                   {formatPrice(order.fiatAmount)}
                 </SizableText>
               </DetailRow>
@@ -254,7 +301,12 @@ function HeadlessBuyOrderDetailPage() {
                     id: ETranslations.earn_est_receive,
                   })}
                 >
-                  <XStack ai="center" gap="$1">
+                  <XStack
+                    ai="center"
+                    jc="flex-end"
+                    flexWrap="wrap"
+                    columnGap="$1"
+                  >
                     <NumberSizeableText
                       size="$bodyMdMedium"
                       formatter="balance"
@@ -275,10 +327,6 @@ function HeadlessBuyOrderDetailPage() {
                   tokenSymbol={order.tokenSymbol}
                   impliedPrice={pricing.impliedPrice}
                   providerName={order.providerName}
-                  size="$bodyMdMedium"
-                  label={intl.formatMessage({
-                    id: ETranslations.swap_history_detail_rate,
-                  })}
                 />
               ) : null}
               {order.providerName ? (
@@ -289,7 +337,7 @@ function HeadlessBuyOrderDetailPage() {
                 >
                   <XStack ai="center" gap="$1.5">
                     <ProviderLogo provider={order.providerName} />
-                    <SizableText size="$bodyMdMedium">
+                    <SizableText size="$bodyMd">
                       {getProviderDisplayName(order.providerName)}
                     </SizableText>
                   </XStack>
@@ -300,7 +348,7 @@ function HeadlessBuyOrderDetailPage() {
               >
                 <XStack ai="center" gap="$1.5">
                   <NetworkAvatar networkId={order.networkId} size="$5" />
-                  <SizableText size="$bodyMdMedium">
+                  <SizableText size="$bodyMd">
                     {order.networkName ?? ''}
                   </SizableText>
                 </XStack>
@@ -311,14 +359,10 @@ function HeadlessBuyOrderDetailPage() {
                     id: ETranslations.receive_address__title,
                   })}
                 >
-                  <SizableText size="$bodyMdMedium">
-                    {[
-                      order.accountName,
-                      accountUtils.shortenAddress({ address: order.address }),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </SizableText>
+                  <DetailAddressValue
+                    address={order.address}
+                    accountName={order.accountName}
+                  />
                 </DetailRow>
               ) : null}
               {/* Visual spec: the hash follows the address, ahead of time. */}
@@ -330,7 +374,7 @@ function HeadlessBuyOrderDetailPage() {
                   onPress={openTxHash}
                 >
                   <XStack ai="center" gap="$1.5">
-                    <SizableText size="$bodyMdMedium">
+                    <SizableText size="$bodyMd">
                       {accountUtils.shortenAddress({
                         address: order.transactionHash,
                       })}
@@ -342,7 +386,7 @@ function HeadlessBuyOrderDetailPage() {
               <DetailRow
                 label={intl.formatMessage({ id: ETranslations.global_time })}
               >
-                <SizableText size="$bodyMdMedium">
+                <SizableText size="$bodyMd">
                   {formatHeadlessBuyOrderTime(order)}
                 </SizableText>
               </DetailRow>
@@ -353,7 +397,7 @@ function HeadlessBuyOrderDetailPage() {
                 onPress={copyOrderId}
               >
                 <XStack ai="center" gap="$1.5">
-                  <SizableText size="$bodyMdMedium">
+                  <SizableText size="$bodyMd">
                     {accountUtils.shortenAddress({ address: transactionId })}
                   </SizableText>
                   <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
