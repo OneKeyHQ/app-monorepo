@@ -107,8 +107,9 @@ type IProps = {
   // Set when an OnramperID login may be what keeps failing (e.g. its KYC
   // country doesn't match the current region): dropping it lets the next
   // checkout verify a different email and phone. Offered only on failures —
-  // it is a way out of a stuck account, not an everyday action.
-  onSwitchAccount?: () => void;
+  // it is a way out of a stuck account, not an everyday action. Settles when
+  // the sign-out does: the button spins and ignores taps until then.
+  onSwitchAccount?: () => Promise<void>;
 };
 
 // The pay action zone on the review screen: renders exactly one of S1–S5.
@@ -151,6 +152,7 @@ export function BuyActionZone({
     <Button
       testID="headless-buy-switch-account"
       {...SECONDARY_ACTION_PROPS}
+      onPressLoadingEnabled
       onPress={onSwitchAccount}
     >
       {intl.formatMessage({ id: ETranslations.buy_use_another_email__action })}

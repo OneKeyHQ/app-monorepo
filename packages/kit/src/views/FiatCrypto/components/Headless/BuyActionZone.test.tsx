@@ -108,7 +108,7 @@ function renderZone(
   }: {
     offerWebFallback?: boolean;
     errorText?: string;
-    onSwitchAccount?: () => void;
+    onSwitchAccount?: () => Promise<void>;
   } = {},
 ) {
   const onRetry = jest.fn();
@@ -179,7 +179,7 @@ describe('BuyActionZone retryable error', () => {
   });
 
   it('offers verifying another email only when there may be a login to drop', () => {
-    const onSwitchAccount = jest.fn();
+    const onSwitchAccount = jest.fn(() => Promise.resolve());
     renderZone(undefined, { onSwitchAccount });
 
     fireEvent.click(screen.getByTestId('headless-buy-switch-account'));

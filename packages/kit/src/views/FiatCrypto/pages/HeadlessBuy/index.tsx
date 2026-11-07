@@ -809,27 +809,41 @@ function HeadlessBuyPage() {
   // OnramperID cannot transact (e.g. KYC country vs current region mismatch)
   // is stuck with no way to try another account. Offered from the failure
   // states only, and only while there may be a login to drop (canSignOut).
-  const handleSwitchAccount = useCallback(() => {
-    void signOut().then(
-      () => {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.logged_out_feedback,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.buy_onramper_signed_out__msg,
-          }),
-        });
-      },
-      () => {
-        // Already logged by the hook (signOutFailed).
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          }),
-        });
-      },
-    );
+  // One sign-out at a time: a second tap while the first is in flight would
+  // sign out and re-quote twice and stack two toasts (one may even report a
+  // failure). The button also shows a spinner until this settles
+  // (onPressLoadingEnabled in BuyActionZone); the ref closes the window
+  // before that re-render lands.
+  const switchingAccountRef = useRef(false);
+  const handleSwitchAccount = useCallback(async () => {
+    if (switchingAccountRef.current) {
+      return;
+    }
+    switchingAccountRef.current = true;
+    try {
+      await signOut().then(
+        () => {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.logged_out_feedback,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.buy_onramper_signed_out__msg,
+            }),
+          });
+        },
+        () => {
+          // Already logged by the hook (signOutFailed).
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        },
+      );
+    } finally {
+      switchingAccountRef.current = false;
+    }
   }, [signOut, intl]);
 
   // The init or the quote has kept the user waiting (the hook's
