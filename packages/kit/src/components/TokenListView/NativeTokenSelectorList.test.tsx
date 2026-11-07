@@ -553,10 +553,12 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   expect(first?.type).toBe('dataRow');
   if (first?.type === 'dataRow') {
     expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
-    expect(first.columns.map((column) => column.key)).toEqual([
-      'asset',
-      'balance',
-      'price',
+    expect(first.style?.container?.cornerRadius).toBe(12);
+    expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual([
+      { key: 'asset', weight: 2 },
+      { key: 'balance', weight: 3 },
+      { key: 'price', weight: 3 },
+      { key: 'swapSpacer', weight: 2 },
     ]);
     expect(first.columns[1].text).toBe('414');
     expect(first.columns[1].secondaryText).toContain('0.41');

@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import {
   MAX_DISPLAYED_TRANSFERS,
   formatTransferOverflowLabel,
@@ -594,7 +595,8 @@ function buildHistoryActivityRowUnchecked({
           : 1,
       separator: false,
       style: {
-        horizontalPadding: 20,
+        container: TOKEN_ROW_CONTAINER_STYLE,
+        horizontalPadding: 12,
         verticalPadding: 12,
         lineGap: tableLayout ? 4 : 0,
         title: {
