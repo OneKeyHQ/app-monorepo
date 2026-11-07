@@ -26,6 +26,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { validateZcashMemoHex } from '@onekeyhq/shared/src/utils/zcashMemo';
 import type {
   IEstimateGasParams,
@@ -664,7 +665,21 @@ export async function broadcastTransaction(
     try {
       broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     } catch (error) {
-      // Like BTC, a failed broadcast keeps no input lock; a retry reuses the inputs and the node rejects a real double spend.
+      // No answer (timeout, network, 5xx): the node may already have the tx, so the
+      // journal and input holds stay until history settles it or it expires.
+      if (isTransientNetworkLikeError(error)) {
+        console.error('[zcash] transparent broadcast outcome unknown', {
+          txid: expectedTxid,
+          ...zcashDescribeError(error),
+        });
+        throw toUserFacingZcashError(
+          zcashTransparentError(
+            'BROADCAST_OUTCOME_UNKNOWN',
+            'Zcash transparent broadcast outcome is unknown',
+          ),
+        );
+      }
+      // The backend answered with a rejection. Like BTC, the inputs are released for a retry.
       await vault.backgroundApi.simpleDb.privacyChainJournal
         .settleTransparentPendingTx({
           accountId: vault.accountId,
