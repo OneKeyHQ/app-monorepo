@@ -764,6 +764,9 @@ export function TradingViewChartSettings({
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS.clickInteraction,
               })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_interaction__desc,
+              })}
               testID="click-interaction"
               value={settingsValue.options.clickInteraction}
               disabled={submitInProgress}
@@ -776,6 +779,9 @@ export function TradingViewChartSettings({
             <SettingsCheckboxRow
               label={intl.formatMessage({
                 id: OPTION_TRANSLATION_IDS.navigationButtons,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.chart_navigation_buttons__desc,
               })}
               testID="navigation-buttons"
               value={settingsValue.options.navigationButtons}

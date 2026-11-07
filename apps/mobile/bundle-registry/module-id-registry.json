@@ -23118,6 +23118,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/native/tradeMarkLabelPaths.ts": 6543,
     "packages/kit/src/components/TradingView/TradingViewNative/native/useNativeChartDrawings.ts": 10697,
     "packages/kit/src/components/TradingView/TradingViewNative/native/useTradingViewNativeChartGestures.ts": 3379,
+    "packages/kit/src/components/TradingView/TradingViewNative/native/useTradingViewNativeNavigationVisibility.ts": 9975,
     "packages/kit/src/components/TradingView/TradingViewNative/native/useTradingViewNativePriceScale.ts": 377,
     "packages/kit/src/components/TradingView/TradingViewNative/showTradingViewNativeIndicatorSettingsDialog.tsx": 13506,
     "packages/kit/src/components/TradingView/TradingViewNative/tradingViewNativeFullscreenState.ts": 19070,
