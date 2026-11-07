@@ -1129,6 +1129,32 @@ describe('swapStockChannelUtils', () => {
     ).toBe(false);
   });
 
+  it.each([undefined, Number.NaN, -1, 1.5])(
+    'does not build a stock swap token with unresolved precision %s',
+    (decimals) => {
+      expect(
+        buildStockSwapTokenFromMarketToken({
+          id: 'aapl',
+          address: '0xaapl',
+          networkId: 'evm--56',
+          symbol: 'AAPL',
+          name: 'Apple',
+          decimals,
+          price: 100,
+          change24h: 0,
+          marketCap: 0,
+          liquidity: 0,
+          transactions: 0,
+          uniqueTraders: 0,
+          holders: 0,
+          turnover: 0,
+          tokenImageUri: '',
+          networkLogoUri: '',
+        }),
+      ).toBeUndefined();
+    },
+  );
+
   it('marks only stock market tokens as stock swap tokens', () => {
     const stock = {
       subtitle: 'Stock',

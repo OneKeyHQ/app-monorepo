@@ -135,10 +135,22 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   memoFn: (fn: any) => fn,
 }));
 
+function createBackgroundApiMock() {
+  return {
+    serviceAppUpdate: {
+      // Desktop app-install execution is gated by canRestartForUpdate.
+      canRestartForUpdate: jest.fn(async () => true),
+    },
+  };
+}
+
 function createService(refreshUpdateStatus = jest.fn(async () => undefined)) {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
-  return new ServicePendingInstallTask({ refreshUpdateStatus });
+  return new ServicePendingInstallTask({
+    backgroundApi: createBackgroundApiMock(),
+    refreshUpdateStatus,
+  });
 }
 
 function setState(overrides: Partial<IAppUpdateInfo>) {
@@ -223,6 +235,7 @@ describe('servicePendingInstallTask', () => {
 
   test('does not emit process finished event when bundle switch succeeds and restart is expected', async () => {
     const service = createService();
+    const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
     pendingTaskValue = makeSwitchTask();
 
     await service.processPendingInstallTask();
@@ -230,6 +243,14 @@ describe('servicePendingInstallTask', () => {
     expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.PendingInstallTaskProcessFinished,
       undefined,
+    );
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'restart_requested' }),
     );
   });
 
@@ -245,6 +266,131 @@ describe('servicePendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
+  });
+
+  test.each(['bundle', 'builtin'])(
+    '%s restart records the request before returning and retries a delayed failure',
+    async (restartTarget) => {
+      jest.useFakeTimers();
+      try {
+        const service = createService();
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
+        const isBuiltinFallback = restartTarget === 'builtin';
+        pendingTaskValue = makeSwitchTask(
+          isBuiltinFallback
+            ? {
+                targetBundleVersion: '0',
+                payload: {
+                  appVersion: '1.0.0',
+                  bundleVersion: '0',
+                  signature: 'signature',
+                },
+              }
+            : {},
+        );
+        if (isBuiltinFallback) {
+          BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        }
+        const restart = isBuiltinFallback
+          ? BundleUpdate.restart
+          : BundleUpdate.switchBundle;
+        restart.mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              setTimeout(
+                () =>
+                  reject(
+                    createUpdateError({
+                      code: EUpdateErrorCode.installFailed,
+                      step: 'install',
+                    }),
+                  ),
+                2500,
+              );
+            }),
+        );
+        const processing = service.processPendingInstallTask();
+        await jest.advanceTimersByTimeAsync(0);
+        if (isBuiltinFallback) {
+          expect(pendingTaskValue).toBeUndefined();
+        } else {
+          expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+        }
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            result: isBuiltinFallback
+              ? 'builtin_fallback_restart_requested'
+              : 'restart_requested',
+          }),
+        );
+
+        await jest.advanceTimersByTimeAsync(2500);
+        await processing;
+        expect(pendingTaskValue).toMatchObject({
+          status: 'pending',
+          retryCount: 1,
+          lastError: EUpdateErrorCode.installFailed,
+        });
+        expect(appEventBus.emit).toHaveBeenCalledWith(
+          EAppEventBusNames.PendingInstallTaskProcessFinished,
+          undefined,
+        );
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            result: 'fail',
+            errorCode: EUpdateErrorCode.installFailed,
+          }),
+          'error',
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('builtin fallback restart failure is retried instead of discarded', async () => {
+    const service = createService();
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeSwitchTask({
+      targetBundleVersion: '0',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '0',
+        signature: 'signature',
+      },
+    });
+    BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    BundleUpdate.restart.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: EUpdateErrorCode.installFailed,
+    });
+    expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalledTimes(1);
     expect(appEventBus.emit).toHaveBeenCalledWith(
       EAppEventBusNames.PendingInstallTaskProcessFinished,
       undefined,

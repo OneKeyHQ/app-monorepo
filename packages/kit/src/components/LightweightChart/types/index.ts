@@ -9,7 +9,10 @@ import type {
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
-export type ILightweightChartLineType = 'simple' | 'steps';
+// `curved`: monotone cubic through every point, so the line never overshoots a
+// real high or low. Honored by the dotted-area series and its overlay line on
+// web and the native canvas; the Catalyst WebView draws it straight.
+export type ILightweightChartLineType = 'simple' | 'steps' | 'curved';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
 export type ILightweightChartSeriesType =
   | 'area'
@@ -136,6 +139,10 @@ export interface ILightweightChartProps {
   secondaryLineData?: ILightweightSecondaryLineChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  // Web only, curved dotted-area overlay: draws the overlay up to the bar at
+  // this time. Unlike passing a shorter series, the curve keeps the shape it
+  // has over the full series.
+  secondaryLineEndTime?: number;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -196,12 +203,12 @@ export interface ILightweightChartProps {
   timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
-  // Native WebView only. Keeps the default axis hover label unless a chart
+  // Native only. Keeps the default axis hover label unless a chart
   // with its own tooltip explicitly opts out.
   hideCrosshairPriceLabel?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
   // signal the chart is live. Toggling it does not recreate the chart; the
-  // native WebView draws the same dot inside its page.
+  // native renderer draws the same dot inside its canvas.
   pulseLastPoint?: boolean;
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.

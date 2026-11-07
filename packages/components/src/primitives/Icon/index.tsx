@@ -1,4 +1,8 @@
-import { forwardRef, useEffect, useMemo, useState } from 'react';
+import { forwardRef } from 'react';
+
+import { OneKeyIcon } from '@onekeyfe/react-native-image/icon';
+import { getRgba } from '@tamagui/web';
+import { I18nManager } from 'react-native';
 
 import {
   type GetProps,
@@ -6,10 +10,11 @@ import {
   useTheme,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OptimizationView } from '../../optimization';
+import { Stack } from '../Stack';
 
-import ICON_CONFIG from './Icons';
+import { resolveIconName } from './Icons';
 
 import type { IKeyOfIcons } from './Icons';
 import type { TextStyle } from 'react-native';
@@ -20,151 +25,62 @@ export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   style?: TextStyle;
 };
 
-const ComponentMaps: Record<string, typeof Svg> = {};
+const resourceStyle = { width: '100%', height: '100%' } as const;
 
-const DEFAULT_SIZE = 24;
-type IIconLoadResult = typeof Svg | undefined;
-
-// Global promise cache to ensure only one loading promise per icon
-const isLoadingIcon: Record<string, boolean> = {};
-// Callback queues for each icon
-const callbackQueues: Record<
-  string,
-  Array<(component: IIconLoadResult) => void>
-> = {};
-
-const resolveIconCallbacks = (
-  name: IKeyOfIcons,
-  component: IIconLoadResult,
-) => {
-  const callbacks = callbackQueues[name] || [];
-  callbacks.forEach((callback) => callback(component));
-  delete callbackQueues[name];
-};
-
-const loadIconModule = (name: IKeyOfIcons): Promise<IIconLoadResult> => {
-  return new Promise((resolveCallback) => {
-    const iconLoader = ICON_CONFIG[name];
-    if (!iconLoader) {
-      resolveCallback(undefined);
-      return;
-    }
-
-    if (callbackQueues[name]) {
-      callbackQueues[name].push(resolveCallback);
-    } else {
-      callbackQueues[name] = [resolveCallback];
-    }
-
-    if (isLoadingIcon[name]) {
-      return;
-    }
-
-    isLoadingIcon[name] = true;
-    void iconLoader()
-      .then((module: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const component = module?.default as typeof Svg | undefined;
-        if (component) {
-          ComponentMaps[name] = component;
-        }
-        delete isLoadingIcon[name];
-        resolveIconCallbacks(name, component);
-      })
-      .catch(() => {
-        delete isLoadingIcon[name];
-        resolveIconCallbacks(name, undefined);
-      });
-  });
-};
-
-const loadIcon = (name: IKeyOfIcons) =>
-  new Promise<IIconLoadResult>((resolve) => {
-    // If component is already loaded, resolve immediately
-    if (ComponentMaps[name]) {
-      resolve(ComponentMaps[name]);
-      return;
-    }
-
-    void loadIconModule(name).then(resolve);
-  });
-
-function IconLoader({
-  name,
-  ...props
-}: {
-  name: IKeyOfIcons;
-  width: number;
-  height: number;
-  color: string;
-  style?: TextStyle;
-}) {
-  const [, setCount] = useState(0);
-
-  useEffect(() => {
-    if (ComponentMaps[name]) {
-      return;
-    }
-    void loadIcon(name).then(() => {
-      setCount((prev) => prev + 1);
-    });
-  }, [name]);
-
-  const placeholderStyle = useMemo(
-    () => ({
-      width: props.width,
-      height: props.height,
-    }),
-    [props.width, props.height],
-  );
-
-  const Svg = ComponentMaps[name];
-  return Svg ? (
-    <Svg {...props} />
-  ) : (
-    <OptimizationView style={placeholderStyle} />
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
+function BasicIconContainer(
+  {
+    name,
+    style,
+    accessibilityRole,
+    accessibilityLabel,
+    testID,
+    ...props
+  }: IIconContainerProps & { className?: string },
+  _ref: React.ForwardedRef<Svg>,
+) {
   const theme = useTheme();
-  const defaultColor = theme.icon.val;
-  if (!name) {
-    return null;
+  if (!name) return null;
+  const color = (style?.color as string) || theme.icon.val;
+  let iconColor = 'inherit';
+  if (platformEnv.isNative) {
+    const rgba = getRgba(color);
+    iconColor = rgba ? `rgba(${rgba.r},${rgba.g},${rgba.b},${rgba.a})` : color;
   }
-  const primaryColor: string = (style?.color as string) || defaultColor;
-
-  const Svg = ComponentMaps[name];
-
-  const componentWidth = (style?.width as number) || DEFAULT_SIZE;
-  const componentHeight = (style?.height as number) || DEFAULT_SIZE;
-  const componentColor = primaryColor || defaultColor;
-  return Svg ? (
-    <Svg
-      width={componentWidth}
-      height={componentHeight}
+  // Unlabelled icons are decorative: keep them out of the accessibility tree.
+  const labelled = !!accessibilityLabel;
+  return (
+    <Stack
+      className={props.className}
       style={style}
-      color={componentColor}
-    />
-  ) : (
-    <IconLoader
-      width={componentWidth}
-      height={componentHeight}
-      style={style}
-      color={componentColor}
-      name={name}
-    />
+      accessibilityRole={
+        platformEnv.isNative
+          ? (accessibilityRole ?? (labelled ? 'image' : undefined))
+          : undefined
+      }
+      role={!platformEnv.isNative && labelled ? 'img' : undefined}
+      aria-hidden={!platformEnv.isNative && !labelled ? true : undefined}
+      aria-label={platformEnv.isNative ? undefined : accessibilityLabel}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+    >
+      <OneKeyIcon
+        name={resolveIconName(name, I18nManager.isRTL)}
+        color={iconColor}
+        style={resourceStyle}
+        accessible={false}
+      />
+    </Stack>
   );
 }
 const IconContainer = forwardRef(BasicIconContainer);
 
 const BasicIcon = styled(IconContainer, {
+  width: 24,
+  height: 24,
+  defaultVariants: { color: '$icon' },
   variants: {
     color: {
       '...color': (color) => ({
-        height: undefined,
-        width: undefined,
         color,
       }),
     },
@@ -190,90 +106,9 @@ const BasicIcon = styled(IconContainer, {
   } as const,
 });
 
+// Named resources are native-owned; these legacy entry points no longer load JS modules.
 const loadIcons = (...names: IKeyOfIcons[]) =>
-  Promise.all(names.map((name) => loadIcon(name)));
-
-const CRITICAL_ICON_NAMES: IKeyOfIcons[] = [
-  'ArrowTopOutline',
-  'ArrowBottomOutline',
-  'DotHorOutline',
-  'SearchOutline',
-  'BellOutline',
-  'DotGridOutline',
-];
-
-const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
-  'TradingViewCandlesOutline',
-  'FunctionCustom',
-  'SliderHorOutline',
-  'ClockTimeHistoryOutline',
-  'InfoCircleSolid',
-  'CrossedSmallSolid',
-  'SwitchVerOutline',
-  'AnonymousHiddenOutline',
-];
-
-const PERPS_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
-  'BookOpenOutline',
-  'ChartPositionOutline',
-  'ChartTrending2Outline',
-  'ChevronBottomOutline',
-  'ChevronDownSmallOutline',
-  'ChevronTriangleDownSmallSolid',
-  'ClockTimeHistoryOutline',
-  'Copy3Outline',
-  'DownloadOutline',
-  'OpenOutline',
-  'SliderVerOutline',
-  'TradingViewCandlesOutline',
-];
-
-const TAB_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
-  'CodeBracketsOutline',
-  'CodeBracketsSolid',
-  'CoinsOutline',
-  'CoinsSolid',
-  'CompassOutline',
-  'CompassSolid',
-  'GiftOutline',
-  'GiftSolid',
-  'PhoneOutline',
-  'PhoneSolid',
-  'SwitchHorOutline',
-  'SwitchHorSolid',
-  'TradeOutline',
-  'TradeSolid',
-  'TradingViewCandlesOutline',
-  'TradingViewCandlesSolid',
-  'Wallet4Outline',
-  'Wallet4Solid',
-];
-
-const APP_COLD_START_ICON_NAMES = [
-  ...new Set([
-    ...CRITICAL_ICON_NAMES,
-    ...SWAP_COLD_START_ICON_NAMES,
-    ...PERPS_COLD_START_ICON_NAMES,
-    ...TAB_COLD_START_ICON_NAMES,
-  ]),
-];
-
-export const prefetchSwapColdStartIcons = () =>
-  loadIcons(...SWAP_COLD_START_ICON_NAMES)
-    .then(() => undefined)
-    .catch(() => undefined);
-
-/**
- * Pre-warm critical icon segment loading. Call at JS entry (before React mount)
- * so segments start loading early and icons are ready by first render.
- */
-export function warmCriticalIcons() {
-  for (const name of APP_COLD_START_ICON_NAMES) {
-    if (!ComponentMaps[name] && ICON_CONFIG[name]) {
-      void loadIcon(name);
-    }
-  }
-}
+  Promise.resolve(names.map(() => undefined));
 
 export const Icon = withStaticProperties(BasicIcon, {
   prefetch: loadIcons,

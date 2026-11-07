@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 
+import { EDustSweepPhase, isDustSweepItemActive } from '../stateMachine';
+
 import type { IDustSweepState } from '../stateMachine';
 import type {
   LayoutChangeEvent,
@@ -46,12 +48,12 @@ export function useDustSweepActiveItemScroll({
   const revealed = useRef<{ sessionId: string; keys: Set<string> } | undefined>(
     undefined,
   );
-  const activeIndex = ['running', 'paused', 'blocked'].includes(state.phase)
-    ? state.items.findIndex((item) =>
-        ['preparing', 'signing', 'broadcasted', 'unknown'].includes(
-          item.status,
-        ),
-      )
+  const activeIndex = [
+    EDustSweepPhase.Running,
+    EDustSweepPhase.Paused,
+    EDustSweepPhase.Blocked,
+  ].some((phase) => phase === state.phase)
+    ? state.items.findIndex(isDustSweepItemActive)
     : -1;
   const activeKey = state.items[activeIndex]?.token.key;
   const sessionId = state.snapshot?.id;

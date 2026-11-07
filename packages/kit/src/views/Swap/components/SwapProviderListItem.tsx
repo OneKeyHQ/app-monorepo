@@ -124,6 +124,13 @@ const SwapProviderListItem = ({
   }, [estTime, estimatedTime, intl]);
 
   const leftMainLabel = useMemo(() => {
+    const limitMessage = getSwapQuoteLimitMessage({
+      intl,
+      limit: providerResult.limit,
+      fromTokenAmount,
+      fromTokenSymbol: fromToken?.symbol,
+    });
+    if (limitMessage) return limitMessage;
     if (disabled) {
       return (
         providerResult?.errorMessage ||
@@ -132,13 +139,6 @@ const SwapProviderListItem = ({
         })
       );
     }
-    const limitMessage = getSwapQuoteLimitMessage({
-      intl,
-      limit: providerResult.limit,
-      fromTokenAmount,
-      fromTokenSymbol: fromToken?.symbol,
-    });
-    if (limitMessage) return limitMessage;
     if (providerResult.toAmount) {
       const toAmountBN = new BigNumber(providerResult.toAmount);
       return `${numberFormat(providerResult.toAmount, {

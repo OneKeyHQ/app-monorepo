@@ -3,20 +3,14 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  formatDate,
-  formatDateFns,
-} from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Input } from '../../forms/Input';
 
 import type { IDatePickerTriggerProps, IDateRange } from './type';
 import type { IntlShape } from 'react-intl';
 
-// Localized medium date of the app language (date-fns `PP`): "Jul 1, 2026",
-// "2026年7月1日". The numeric `LL/dd/yyyy` form reads
-// ambiguously outside en-US.
-const formatDay = (date: Date) => formatDateFns(date, 'PP');
+const formatDay = (date: Date) => formatDate(date, { hideTimeForever: true });
 
 const formatTriggerValue = (
   value: Date | Date[] | IDateRange | null | undefined,
@@ -71,10 +65,7 @@ const formatTriggerValue = (
 
   if (mode === 'month') {
     const date = value as Date;
-    return formatDate(date, {
-      formatTemplate: 'yyyy-MM',
-      hideTimeForever: true,
-    });
+    return formatMonth(date);
   }
 
   return formatDay(value as Date);

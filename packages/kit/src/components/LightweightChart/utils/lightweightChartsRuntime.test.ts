@@ -5,6 +5,7 @@ import type { ILightweightChartConfig } from '../types';
 import type {
   IPrimitivePaneRenderer,
   ISeriesPrimitive,
+  TickMarkFormatter,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -112,6 +113,7 @@ function createNativeChartPage(
     },
   };
   const postMessage = jest.fn();
+  const requestAnimationFrame = jest.fn<number, [() => void]>(() => 1);
   document.documentElement.innerHTML = generateChartHTML(config);
   Object.defineProperty(document.getElementById('chart'), 'clientWidth', {
     value: 400,
@@ -126,12 +128,18 @@ function createNativeChartPage(
   runInNewContext(document.scripts[1].textContent ?? '', {
     document,
     window: pageWindow,
-    Date: { now: () => 1000 },
+    Date: new Proxy(Date, {
+      get: (dateConstructor, property): unknown =>
+        property === 'now'
+          ? () => 1000
+          : Reflect.get(dateConstructor, property),
+    }),
     LightweightCharts: {
       createChart: () => chart,
       CrosshairMode: { Normal: 0 },
     },
-    requestAnimationFrame: jest.fn(),
+    requestAnimationFrame,
+    cancelAnimationFrame: jest.fn(),
     ResizeObserver: jest.fn(() => ({ observe: jest.fn() })),
   });
   expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'ready' }));
@@ -149,8 +157,32 @@ function createNativeChartPage(
     pageWindow,
     hover,
     getView,
+    // Runs the latest queued frame, where the pulse dot is placed.
+    flushFrame: () => requestAnimationFrame.mock.calls.at(-1)?.[0](),
   };
 }
+
+it.each([
+  ['en', 'Nov'],
+  ['zh-CN', '11月'],
+  ['fr-FR', 'nov.'],
+])(
+  'keeps WebView month-boundary labels distinct from days in %s',
+  (locale, month) => {
+    const { chart } = createNativeChartPage({
+      timeZone: 'Asia/Shanghai',
+      locale,
+    });
+    const options = chart.applyOptions.mock.calls.at(-1)?.[0] as
+      | { timeScale?: { tickMarkFormatter?: TickMarkFormatter } }
+      | undefined;
+    const tick = options?.timeScale?.tickMarkFormatter;
+    const time = (Date.UTC(2026, 9, 31, 16) / 1000) as UTCTimestamp;
+    expect(tick).toBeDefined();
+    expect(tick?.(time, 1, locale)).toBe(month);
+    expect(tick?.(time, 2, locale)).toBe('01');
+  },
+);
 
 it('scrubs locally on the cursor layer and clears immediately when touch tracking exits', () => {
   const {
@@ -688,4 +720,25 @@ it('repaints a returning native canvas without accepting zero-size layouts', () 
   container.clientWidth = 390;
   listeners.visibilitychange();
   expect(resize).toHaveBeenLastCalledWith(390, 280, true);
+});
+
+it('moves the pulse dot to the crosshair point and back to the tail', () => {
+  const page = createNativeChartPage({ pulseLastPoint: true });
+  const pulse = document.getElementById('pulse');
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['60px', '30px']);
+
+  page.hover({
+    time: 2,
+    point: { x: 40, y: 100 },
+    sourceEvent: {},
+    seriesData: new Map([[page.primary, { value: 2 }]]),
+  });
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['40px', '20px']);
+
+  page.hover({});
+  page.flushFrame();
+  expect([pulse?.style.left, pulse?.style.top]).toEqual(['60px', '30px']);
+  expect(pulse?.style.display).toBe('block');
 });

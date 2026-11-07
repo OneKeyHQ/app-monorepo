@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Page,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -35,9 +34,9 @@ import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCros
 import {
   EReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
-  resolveReferralPageTab,
 } from '../InviteReward/referralPageTab';
 import { useReferralTabCopy } from '../InviteReward/referralTabCopy';
+import { useReferralPageTab } from '../InviteReward/useReferralPageTab';
 import { useReferralTabSwitch } from '../InviteReward/useReferralTabSwitch';
 import { MyRewardsContent } from '../MyRewards';
 
@@ -144,7 +143,7 @@ function ReferAFriendPageWrapper() {
     perksEntry: route.params?.perksEntry,
   });
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
-  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
     useReferralTabSwitch(activeTab);
@@ -234,18 +233,6 @@ function ReferAFriendPageWrapper() {
                 // compact switch as the navigation bar elsewhere.
                 variant={md ? 'compact' : 'tabs'}
               />
-              {/* Same intro at the right of the tabs as the signed-in page;
-                  compact layouts show it atop the Perks content. */}
-              {md ? null : (
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {tabCopy.perksIntro}
-                </SizableText>
-              )}
             </XStack>
           </Page.Container>
         ) : null}

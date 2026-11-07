@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
-import { Keyboard, View } from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  ScrollView,
+  View,
+  type ViewInstance,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -21,6 +28,7 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -58,6 +66,432 @@ const LEVEL_COLORS: Record<IOverlayLevel, string> = {
   lock: '#111827',
   debug: '#ef4444',
 };
+
+const independentAnchoredTrigger = (
+  <Button testID="independent-anchored-trigger">True anchored Popover</Button>
+);
+const independentAnchoredPanelProps = { width: 260 };
+
+function IndependentAnchoredContent({
+  closePopover,
+}: {
+  closePopover: () => void;
+}) {
+  const [count, setCount] = useState(0);
+  return (
+    <YStack p="$3" gap="$2" testID="independent-anchored-panel">
+      <SizableText>Anchored panel</SizableText>
+      <Button
+        testID="independent-anchored-action"
+        onPress={() => setCount((n) => n + 1)}
+      >{`Anchored taps ${count}`}</Button>
+      <Button testID="independent-anchored-close" onPress={closePopover}>
+        Close anchored panel
+      </Button>
+    </YStack>
+  );
+}
+
+interface IIndependentEntry {
+  name: string;
+  visible: boolean;
+  presentation: IOverlayPresentation;
+  level: IOverlayLevel;
+}
+
+let independentMounts = 0;
+
+function IndependentEntry({
+  entry,
+  close,
+  next,
+  rapid,
+  clear,
+  removed,
+}: {
+  entry: IIndependentEntry;
+  close: (name: string) => void;
+  next: (name: string) => void;
+  rapid: (name: string) => void;
+  clear: () => void;
+  removed: (name: string, reason: string) => void;
+}) {
+  const [mount] = useState(() => {
+    independentMounts += 1;
+    return independentMounts;
+  });
+  const [text, setText] = useState('');
+  const [count, setCount] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const passive = entry.level === 'toast';
+  return (
+    <OverlayView
+      visible={entry.visible}
+      presentation={entry.presentation}
+      level={entry.level}
+      blocking={!passive}
+      dismissOnBackPress={!passive}
+      sheet={{
+        height: 520,
+        showHandle: true,
+        backgroundColor: LEVEL_COLORS[entry.level],
+      }}
+      backdrop={passive ? false : { dismissOnPress: true }}
+      onRequestDismiss={() => close(entry.name)}
+      onClose={(reason) => removed(entry.name, reason)}
+      testID={`independent-overlay-${entry.name}`}
+    >
+      <YStack
+        flex={entry.presentation === 'sheet' ? undefined : 1}
+        justifyContent={passive ? 'flex-start' : 'center'}
+        pt={passive ? '$16' : undefined}
+        alignItems="center"
+        pointerEvents="box-none"
+      >
+        <YStack
+          width={passive ? 260 : 340}
+          p="$4"
+          gap="$2"
+          borderRadius="$4"
+          bg={LEVEL_COLORS[entry.level]}
+        >
+          <SizableText
+            testID={`independent-title-${entry.name}`}
+            color="white"
+            size="$headingLg"
+          >
+            {`${entry.name} · mount ${mount}`}
+          </SizableText>
+          {!passive ? (
+            <>
+              <XStack gap="$2" flexWrap="wrap">
+                {['A', 'B', 'C'].map((name) => (
+                  <Button
+                    key={name}
+                    testID={`independent-close-${name}-from-${entry.name}`}
+                    size="small"
+                    onPress={() => close(name)}
+                  >{`Close ${name}`}</Button>
+                ))}
+                <Button
+                  testID={`independent-next-${entry.name}`}
+                  size="small"
+                  onPress={() => next(entry.name)}
+                >
+                  Next
+                </Button>
+                <Button
+                  testID={`independent-rapid-${entry.name}`}
+                  size="small"
+                  onPress={() => rapid('C')}
+                >
+                  Rapid C
+                </Button>
+                <Button
+                  testID={`independent-rapid-lower-${entry.name}`}
+                  size="small"
+                  onPress={() => rapid('A')}
+                >
+                  Rapid A
+                </Button>
+                <Button
+                  testID={`independent-clear-${entry.name}`}
+                  size="small"
+                  onPress={clear}
+                >
+                  Clear
+                </Button>
+              </XStack>
+              <Input
+                testID={`independent-input-${entry.name}`}
+                placeholder="Synthetic input"
+                value={text}
+                onChangeText={setText}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Button
+                testID={`independent-count-${entry.name}`}
+                size="small"
+                onPress={() => setCount((n) => n + 1)}
+              >{`Count ${count}`}</Button>
+              <SizableText
+                testID={`independent-scroll-offset-${entry.name}`}
+                color="white"
+              >{`Scroll ${Math.round(scrollY)}`}</SizableText>
+              <ScrollView
+                testID={`independent-scroll-${entry.name}`}
+                style={{ height: 100 }}
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode="none"
+                scrollEventThrottle={32}
+                onScroll={(event) =>
+                  setScrollY(event.nativeEvent.contentOffset.y)
+                }
+              >
+                {Array.from({ length: 30 }, (_, index) => (
+                  <SizableText
+                    color="white"
+                    key={index}
+                  >{`${entry.name} synthetic row ${index + 1}`}</SizableText>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <>
+              <SizableText color="white">
+                Passive toast: keeps its own window
+              </SizableText>
+              <Button
+                testID="independent-toast-count"
+                size="small"
+                onPress={() => setCount((n) => n + 1)}
+              >{`Toast taps ${count}`}</Button>
+              <Button
+                testID="independent-toast-close"
+                size="small"
+                onPress={() => close(entry.name)}
+              >
+                Close toast
+              </Button>
+            </>
+          )}
+        </YStack>
+      </YStack>
+    </OverlayView>
+  );
+}
+
+function IndependentWindowsRegression({
+  children,
+}: {
+  children: (controls: ReactElement) => ReactElement;
+}) {
+  const [entries, setEntries] = useState<IIndependentEntry[]>([]);
+  const [events, setEvents] = useState<string[]>([]);
+  const [baseTaps, setBaseTaps] = useState(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const open = useCallback(
+    (
+      name: string,
+      presentation: IOverlayPresentation = 'sheet',
+      level: IOverlayLevel = 'modal',
+    ) => {
+      setEntries((current) => [
+        ...current.filter((entry) => entry.name !== name),
+        { name, visible: true, presentation, level },
+      ]);
+    },
+    [],
+  );
+  const close = useCallback((name: string) => {
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.name === name ? { ...entry, visible: false } : entry,
+      ),
+    );
+  }, []);
+  const clear = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    setEntries((current) =>
+      current.map((entry) => ({ ...entry, visible: false })),
+    );
+  }, []);
+  const removed = useCallback((name: string, reason: string) => {
+    setEvents((current) => [...current.slice(-7), `${name}:${reason}`]);
+    setEntries((current) => current.filter((entry) => entry.name !== name));
+  }, []);
+  const rapid = useCallback(
+    (name: string) => {
+      close(name);
+      for (const [delay, visible] of [
+        [40, true],
+        [80, false],
+        [120, true],
+      ] as const) {
+        timers.current.push(
+          setTimeout(
+            () =>
+              setEntries((current) =>
+                current.map((entry) =>
+                  entry.name === name ? { ...entry, visible } : entry,
+                ),
+              ),
+            delay,
+          ),
+        );
+      }
+    },
+    [close],
+  );
+  const next = useCallback(
+    (name: string) => open(name === 'A' ? 'B' : 'C'),
+    [open],
+  );
+  const dialogChain = useCallback(() => {
+    Dialog.confirm({
+      title: 'PIN-like confirmation',
+      renderContent: (
+        <Dialog.Form formProps={{ defaultValues: { pin: '' } }}>
+          <Dialog.FormField name="pin" rules={{ required: true }}>
+            <Input
+              testID="independent-dialog-pin-input"
+              placeholder="Synthetic PIN only"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: () => {
+        // Open the next Dialog before Footer performs its normal close.
+        Dialog.confirm({
+          title: 'NFC-like next Dialog',
+          renderContent: (
+            <Dialog.Form formProps={{ defaultValues: { state: '' } }}>
+              <Dialog.FormField name="state">
+                <Input
+                  testID="independent-dialog-nfc-input"
+                  placeholder="Synthetic NFC-like state"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </Dialog.FormField>
+            </Dialog.Form>
+          ),
+          confirmButtonProps: { testID: 'independent-dialog-next-confirm' },
+        });
+      },
+      confirmButtonProps: { testID: 'independent-dialog-pin-confirm' },
+    });
+  }, []);
+  const dialogLowerClose = useCallback(() => {
+    const lower = Dialog.confirm({
+      title: 'Dialog lower A',
+      renderContent: <Input placeholder="Synthetic lower input" />,
+    });
+    Dialog.confirm({
+      title: 'Dialog survivor B',
+      renderContent: (
+        <YStack gap="$3">
+          <Dialog.Form formProps={{ defaultValues: { survivor: '' } }}>
+            <Dialog.FormField name="survivor">
+              <Input
+                testID="independent-dialog-survivor-input"
+                placeholder="Synthetic survivor input"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </Dialog.FormField>
+          </Dialog.Form>
+          <Button
+            testID="independent-dialog-close-lower"
+            onPress={() => {
+              void lower.close();
+            }}
+          >
+            Close lower Dialog A
+          </Button>
+        </YStack>
+      ),
+    });
+  }, []);
+  const controls = (
+    <YStack gap="$3">
+      <SizableText size="$headingLg">Independent iOS windows</SizableText>
+      <Button testID="independent-dialog-chain" onPress={dialogChain}>
+        Dialog confirm → next Dialog
+      </Button>
+      <Button
+        testID="independent-dialog-lower-close"
+        onPress={dialogLowerClose}
+      >
+        Dialog lower-close keyboard
+      </Button>
+      <Popover
+        title="True anchored Popover"
+        nativePresentation="anchored"
+        showHeader={false}
+        placement="bottom-start"
+        floatingPanelProps={independentAnchoredPanelProps}
+        renderTrigger={independentAnchoredTrigger}
+        renderContent={IndependentAnchoredContent}
+      />
+      <XStack gap="$2" flexWrap="wrap">
+        <Button testID="independent-open-A" onPress={() => open('A')}>
+          Open A
+        </Button>
+        <Button
+          testID="independent-close-during-enter"
+          onPress={() => {
+            open('C');
+            timers.current.push(setTimeout(() => close('C'), 40));
+          }}
+        >
+          Close during enter
+        </Button>
+        <Button
+          testID="independent-open-ABC"
+          onPress={() => {
+            open('A');
+            open('B');
+            open('C');
+          }}
+        >
+          A/B/C sheets
+        </Button>
+        <Button
+          testID="independent-open-mixed"
+          onPress={() => {
+            open('A');
+            open('B', 'center');
+            open('C');
+          }}
+        >
+          Sheet / center / sheet
+        </Button>
+        <Button
+          testID="independent-open-secure"
+          onPress={() => {
+            open('A', 'sheet', 'secure');
+            open('T', 'toast', 'toast');
+            open('C', 'fullscreen', 'lock');
+          }}
+        >
+          Secure / toast / lock
+        </Button>
+        <Button testID="independent-base-clear" onPress={clear}>
+          Clear overlays
+        </Button>
+      </XStack>
+      <Button
+        testID="independent-base-target"
+        onPress={() => setBaseTaps((n) => n + 1)}
+      >{`Base taps ${baseTaps}`}</Button>
+      <SizableText testID="independent-events">
+        {events.join(' | ') || 'No closes yet'}
+      </SizableText>
+    </YStack>
+  );
+  return (
+    <>
+      {children(controls)}
+      {entries.map((entry) => (
+        <IndependentEntry
+          key={entry.name}
+          entry={entry}
+          close={close}
+          next={next}
+          rapid={rapid}
+          clear={clear}
+          removed={removed}
+        />
+      ))}
+    </>
+  );
+}
 
 let demoSeq = 0;
 
@@ -291,7 +725,7 @@ function MeasureOverlay({
 }) {
   const [visible, setVisible] = useState(true);
   const [result, setResult] = useState('measuring…');
-  const boxRef = useRef<View>(null);
+  const boxRef = useRef<ViewInstance>(null);
   const measure = useCallback(() => {
     boxRef.current?.measureInWindow((x, y, width, height) => {
       setResult(
@@ -372,6 +806,33 @@ async function lockBriefly() {
 }
 
 // Every Dialog now renders in the native overlay (P4c).
+function DialogIntrinsicHeightContent() {
+  const [selected, setSelected] = useState('None');
+
+  return (
+    <YStack flex={1} testID="native-overlay-dialog-intrinsic-outer">
+      <YStack flex={1} testID="native-overlay-dialog-intrinsic-inner">
+        <Input
+          testID="native-overlay-dialog-intrinsic-input"
+          placeholder="Type here"
+        />
+        {['Ledger', 'Trezor', 'Keystone'].map((device) => (
+          <ListItem
+            key={device}
+            testID={`native-overlay-dialog-intrinsic-${device.toLowerCase()}`}
+            title={device}
+            drillIn
+            onPress={() => setSelected(device)}
+          />
+        ))}
+        <SizableText testID="native-overlay-dialog-intrinsic-selection">
+          {`Selected: ${selected}`}
+        </SizableText>
+      </YStack>
+    </YStack>
+  );
+}
+
 function DialogDemos() {
   const inPageDialog = useInPageDialog();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
@@ -402,6 +863,18 @@ function DialogDemos() {
         }
       >
         Form dialog
+      </Button>
+      <Button
+        testID="native-overlay-intrinsic-dialog-open"
+        onPress={() =>
+          Dialog.show({
+            title: 'Intrinsic height',
+            renderContent: <DialogIntrinsicHeightContent />,
+            showFooter: false,
+          })
+        }
+      >
+        Flex content and list
       </Button>
       <Button
         onPress={() =>
@@ -851,17 +1324,27 @@ function NativeOverlayDemo() {
   );
 }
 
-const NativeOverlayGallery = () => (
-  <Layout
-    getFilePath={() => __CURRENT_FILE_PATH__}
-    componentName="NativeOverlay"
-    elements={[
-      {
-        title: 'Level ordering / strategies',
-        element: <NativeOverlayDemo />,
-      },
-    ]}
-  />
-);
+const NativeOverlayGallery = () => {
+  const renderGallery = (controls?: ReactElement) => (
+    <Layout
+      getFilePath={() => __CURRENT_FILE_PATH__}
+      componentName="NativeOverlay"
+      elements={[
+        ...(controls
+          ? [{ title: 'Independent window regression', element: controls }]
+          : []),
+        {
+          title: 'Level ordering / strategies',
+          element: <NativeOverlayDemo />,
+        },
+      ]}
+    />
+  );
+  return Platform.OS === 'ios' ? (
+    <IndependentWindowsRegression>{renderGallery}</IndependentWindowsRegression>
+  ) : (
+    renderGallery()
+  );
+};
 
 export default NativeOverlayGallery;

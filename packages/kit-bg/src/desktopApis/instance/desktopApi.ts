@@ -193,6 +193,10 @@ class DesktopApi implements IDesktopApi {
 
 const desktopApi = new DesktopApi();
 
+export function getDesktopApiAppUpdate(): DesktopApiAppUpdate {
+  return desktopApi.appUpdate;
+}
+
 const createDesktopApiModule = memoizee(
   async (name: IDesktopApiKeys) => {
     return desktopApi[name];

@@ -31,8 +31,8 @@ const CASES: Array<{
       featureId,
       notice: { kind: 'exhausted', resetAt: RESET_AT } as const,
       toastTitle: `${name}本月免费次数已用完`,
-      toastMessage: '2026-11-01 重置',
-      hint: '本月免费次数已用完。2026-11-01 重置',
+      toastMessage: '2026/11/01 重置',
+      hint: '本月免费次数已用完。2026/11/01 重置',
     },
     {
       featureId,
@@ -51,16 +51,16 @@ const CASES: Array<{
     featureId,
     notice: { kind: 'reservationHeld', heldUntil: HELD_UNTIL } as const,
     toastTitle: `${name}上次使用未结束`,
-    toastMessage: '若已中断，下午 6:41 前退回次数',
-    hint: '上次使用未结束。若已中断，下午 6:41 前退回次数',
+    toastMessage: '若已中断，18:41 前退回次数',
+    hint: '上次使用未结束。若已中断，18:41 前退回次数',
   })),
   {
     featureId: EPrimeFeatures.DAppTranslate,
     notice: { kind: 'exhausted', resetAt: RESET_AT },
     toastTitle: 'AI 翻译本月免费额度已用完',
-    toastMessage: '2026-11-01 重置',
+    toastMessage: '2026/11/01 重置',
     // Translate renders no hint.
-    hint: '本月免费次数已用完。2026-11-01 重置',
+    hint: '本月免费次数已用完。2026/11/01 重置',
   },
   {
     featureId: EPrimeFeatures.DAppTranslate,

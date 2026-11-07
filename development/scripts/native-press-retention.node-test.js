@@ -32,6 +32,7 @@ function responder(
     deferredMeasure = false,
     manualGrant = false,
     onPress,
+    onPressOut,
     externalOwnership = () => false,
     userHandlers = {},
   } = {},
@@ -70,8 +71,9 @@ function responder(
         counts.press += 1;
         onPress?.(e);
       },
-      onPressOut: () => {
+      onPressOut: (e) => {
         counts.out += 1;
+        onPressOut?.(e);
       },
       onLongPress: () => {
         counts.long += 1;
@@ -114,6 +116,14 @@ const fabricFilename = path.join(
   'node_modules/react-native/Libraries/Renderer/implementations/ReactFabric-dev.js',
 );
 const fabricSource = fs.readFileSync(fabricFilename, 'utf8');
+const legacyEventSource = fs.readFileSync(
+  path.join(
+    root,
+    'node_modules/react-native/src/private/renderer/events/LegacySyntheticEvent.js',
+  ),
+  'utf8',
+);
+assert.match(legacyEventSource, /get nativeEvent\(\):/);
 const syntheticEventParts = [];
 const fabricAst = babel.parseSync(fabricSource, {
   configFile: false,
@@ -124,6 +134,7 @@ babel.traverse(fabricAst, {
     if (
       [
         'SyntheticEvent',
+        'currentTimeStamp',
         'getPooledWarningPropertyDefinition',
         'functionThatReturnsTrue',
         'functionThatReturnsFalse',
@@ -142,7 +153,7 @@ babel.traverse(fabricAst, {
     }
   },
 });
-assert.equal(syntheticEventParts.length, 6);
+assert.equal(syntheticEventParts.length, 7);
 
 const sharedPressFilename = path.join(
   root,
@@ -165,6 +176,11 @@ vm.runInNewContext(
       if (name === '@onekeyhq/shared/src/logger/logger') {
         return { defaultLogger: {} };
       }
+      if (name === '../../shared/overlayCloseCancellation') {
+        return {
+          OverlayCloseCancelledError: class OverlayCloseCancelledError extends Error {},
+        };
+      }
       throw new Error(`Unexpected dependency: ${name}`);
     },
   },
@@ -172,6 +188,56 @@ vm.runInNewContext(
 
 for (const platform of ['ios', 'android']) {
   for (const entry of entries) {
+    test(`${platform} ${entry}: RN 0.88 getter-only event survives deferred measure`, () => {
+      const currentTargetKey = Symbol('currentTarget');
+      const eventPrototype = {
+        get nativeEvent() {
+          return this._nativeEvent;
+        },
+        get currentTarget() {
+          return this[currentTargetKey];
+        },
+        eventMethod() {
+          return this.nativeEvent.pageY;
+        },
+      };
+      let measured;
+      let pressOutEvent;
+      const target = {
+        measure(callback) {
+          measured = callback;
+        },
+      };
+      const makeEvent = (pageY) => {
+        const event = Object.create(eventPrototype);
+        event._nativeEvent = { pageX: 60, pageY };
+        event[currentTargetKey] = target;
+        return event;
+      };
+      const h = responder(entry, platform, {
+        manualGrant: true,
+        onPressOut: (event) => {
+          pressOutEvent = event;
+        },
+      });
+      const grant = makeEvent(120);
+      h.props.onResponderGrant(grant);
+      const outside = makeEvent(310);
+      h.props.onResponderMove(outside);
+      outside.nativeEvent.pageY = 120;
+      measured(0, 0, 100, 44, 20, 100);
+      assert.equal(h.counts.out, 1);
+      assert.equal(pressOutEvent.eventMethod(), 310);
+      assert.equal(pressOutEvent.currentTarget, target);
+      assert.equal(pressOutEvent[currentTargetKey], target);
+      assert.equal(Object.hasOwn(pressOutEvent, 'nativeEvent'), true);
+      assert.notEqual(pressOutEvent.nativeEvent, outside.nativeEvent);
+      assert.equal(Object.hasOwn(outside, 'nativeEvent'), false);
+      assert.equal(outside.nativeEvent.pageY, 120);
+      h.props.onResponderRelease(makeEvent(310));
+      assert.equal(h.counts.press, 0);
+    });
+
     test(`${platform} ${entry}: taps remain active, drags and cancellation do not press`, () => {
       const tap = responder(entry, platform);
       tap.props.onResponderRelease(tap.event(60, 120));

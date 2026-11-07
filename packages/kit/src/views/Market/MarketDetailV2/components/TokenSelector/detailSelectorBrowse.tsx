@@ -24,7 +24,11 @@ export type IDetailSelectorDefaultCategory =
   | 'stocks';
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
-export type IDetailSelectorWatchlistFilter = 'all' | 'spot' | 'stocks';
+export type IDetailSelectorWatchlistFilter =
+  | 'all'
+  | 'spot'
+  | 'stocks'
+  | 'perps';
 
 export const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
 const DETAIL_SELECTOR_STOCK_CATEGORY = 'all';
@@ -115,8 +119,9 @@ export function useDetailSelectorBrowseState({
   const intl = useIntl();
   const [{ data: watchlist, isMounted: isWatchlistMounted }] =
     useMarketWatchListV2Atom();
-  const isWatchlistEmpty =
-    isWatchlistMounted && !watchlist?.some((item) => !item.perpsCoin);
+  // Perps are favorites too, with their own category, so only a watchlist
+  // with nothing stored reads as empty.
+  const isWatchlistEmpty = isWatchlistMounted && !watchlist?.length;
   const [browseTab, setBrowseTab] = useState<IDetailSelectorBrowseTab>(() =>
     getInitialDetailSelectorBrowseTab({
       defaultCategory,
@@ -186,6 +191,10 @@ export function useDetailSelectorBrowseState({
           id: ETranslations.perps_token_selector_stocks,
         }),
       },
+      {
+        id: 'perps',
+        name: intl.formatMessage({ id: ETranslations.global_perp }),
+      },
     ],
     [intl],
   );
@@ -246,7 +255,8 @@ export function useDetailSelectorBrowseState({
         if (
           categoryId === 'all' ||
           categoryId === 'spot' ||
-          categoryId === 'stocks'
+          categoryId === 'stocks' ||
+          categoryId === 'perps'
         ) {
           setWatchlistFilter(categoryId);
         }

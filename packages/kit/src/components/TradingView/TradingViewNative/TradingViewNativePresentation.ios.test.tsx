@@ -10,6 +10,7 @@ import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
+import { useIsTradingViewNativeFullscreenActive } from './tradingViewNativeFullscreenState';
 import {
   TradingViewNativeFullscreenPage,
   TradingViewNativePresentation,
@@ -22,6 +23,7 @@ import type { Edge } from 'react-native-safe-area-context';
 let mockPageLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockChartReady: (() => void) | undefined;
 let mockIsNativeIOSPad = false;
+let mockIsFoldableIPhone = false;
 const mockDispatch = jest.fn();
 const mockPageNavigation = {
   setOptions: jest.fn(),
@@ -67,6 +69,12 @@ jest.mock('@onekeyhq/components', () => ({
     },
   },
 }));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({
+    isFoldableIPhone: () => mockIsFoldableIPhone,
+  }),
+);
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -106,6 +114,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 beforeEach(() => {
   mockIsNativeIOSPad = false;
+  mockIsFoldableIPhone = false;
   mockDispatch.mockReset();
   mockChartReady = undefined;
   mockPageNavigation.setOptions.mockClear();
@@ -134,6 +143,51 @@ function layout(width: number, height: number) {
   });
 }
 
+function FullscreenActiveProbe() {
+  return <i>{String(useIsTradingViewNativeFullscreenActive())}</i>;
+}
+
+it('reports fullscreen from the open request until the native page is gone', () => {
+  const probe = render(<FullscreenActiveProbe />);
+  const chart = (isFullscreen: boolean) => (
+    <TradingViewNativePresentation isFullscreen={isFullscreen}>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>
+  );
+  const owner = render(chart(false));
+  expect(probe.container.textContent).toBe('false');
+  owner.rerender(chart(true));
+  // Set with the push itself, before the native page lays out or rotates.
+  expect(probe.container.textContent).toBe('true');
+  const page = render(<TradingViewNativeFullscreenPage />);
+  layout(874, 402);
+  owner.rerender(chart(false));
+  layout(402, 874);
+  expect(probe.container.textContent).toBe('true');
+  page.unmount();
+  expect(probe.container.textContent).toBe('false');
+});
+
+it('keeps reporting fullscreen while the page outlives its owner', () => {
+  const probe = render(<FullscreenActiveProbe />);
+  const owner = render(
+    <TradingViewNativePresentation isFullscreen>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>,
+  );
+  const page = render(<TradingViewNativeFullscreenPage />);
+  owner.unmount();
+  expect(mockDispatch).toHaveBeenLastCalledWith({
+    type: 'GO_BACK',
+    source: 'fullscreen',
+    target: 'root',
+  });
+  // The native page is still dismissing over the detail.
+  expect(probe.container.textContent).toBe('true');
+  page.unmount();
+  expect(probe.container.textContent).toBe('false');
+});
+
 it.each([
   { isPad: false, topPadding: '0px' },
   { isPad: true, topPadding: '62px' },
@@ -155,6 +209,33 @@ it.each([
     expect(safeArea.style.paddingLeft).toBe('62px');
   },
 );
+
+it('opens and closes in the current orientation on foldable iPhones', () => {
+  mockIsFoldableIPhone = true;
+  const chart = (isFullscreen: boolean) => (
+    <TradingViewNativePresentation isFullscreen={isFullscreen}>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>
+  );
+  const owner = render(chart(true));
+  render(<TradingViewNativeFullscreenPage />);
+  layout(669, 951);
+  act(() => {
+    mockChartReady?.();
+  });
+  expect(mockPageNavigation.setOptions).toHaveBeenCalledWith({
+    contentReady: true,
+  });
+  owner.rerender(chart(false));
+  expect(mockPageNavigation.setOptions).not.toHaveBeenCalledWith(
+    expect.objectContaining({ orientation: 'portrait' }),
+  );
+  expect(mockDispatch).toHaveBeenLastCalledWith({
+    type: 'GO_BACK',
+    source: 'fullscreen',
+    target: 'root',
+  });
+});
 
 it('keeps the inline canvas mounted while the native page receives updates', () => {
   const onClose = jest.fn();

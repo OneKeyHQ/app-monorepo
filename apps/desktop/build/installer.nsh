@@ -9,6 +9,49 @@
 !define ONEKEY_APP_USER_MODEL_ID "OneKey Wallet"
 !define ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY "Software\Classes\AppUserModelId\${ONEKEY_APP_USER_MODEL_ID}"
 
+!macro OneKeyDeleteProtocolKeyIfOwnedByDir ROOT_KEY SCHEME TARGET_DIR
+  ${If} "${TARGET_DIR}" != ""
+    ReadRegStr $R9 ${ROOT_KEY} "Software\Classes\${SCHEME}\shell\open\command" ""
+    ${If} $R9 == '"${TARGET_DIR}\${APP_EXECUTABLE_FILENAME}" "--" "%1"'
+    ${OrIf} $R9 == '"${TARGET_DIR}\${APP_EXECUTABLE_FILENAME}" "%1"'
+      DeleteRegKey ${ROOT_KEY} "Software\Classes\${SCHEME}"
+    ${EndIf}
+    ClearErrors
+  ${EndIf}
+!macroend
+
+!macro OneKeyUnregisterProtocolIfOwned ROOT_KEY SCHEME
+  !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$INSTDIR"
+  ${If} $installMode == "all"
+    !ifdef INSTALL_MODE_PER_ALL_USERS_REQUIRED
+      !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$perMachineInstallationFolder"
+    !endif
+  ${Else}
+    !ifndef INSTALL_MODE_PER_ALL_USERS
+      !insertmacro OneKeyDeleteProtocolKeyIfOwnedByDir ${ROOT_KEY} "${SCHEME}" "$perUserInstallationFolder"
+    !endif
+  ${EndIf}
+!macroend
+
+!macro OneKeyRegisterProtocolScheme SCHEME DESCRIPTION
+  !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "${SCHEME}"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}" "" "${DESCRIPTION}"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}" "URL Protocol" ""
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}\DefaultIcon" "" "$appExe,0"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\${SCHEME}\shell\open\command" "" '"$appExe" "--" "%1"'
+  ClearErrors
+!macroend
+
+!macro OneKeyUnregisterProtocolSchemes
+  !insertmacro OneKeyUnregisterProtocolIfOwned SHELL_CONTEXT "onekey-wallet"
+  !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "onekey-wallet"
+  !insertmacro OneKeyUnregisterProtocolIfOwned SHELL_CONTEXT "wc"
+  !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "wc"
+  !insertmacro OneKeyUnregisterProtocolIfOwned SHELL_CONTEXT "ethereum"
+  !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "ethereum"
+  ClearErrors
+!macroend
+
 Var OneKeyModernUiActive
 Var OneKeyModernLocale
 Var OneKeyModernResult
@@ -257,6 +300,7 @@ FunctionEnd
 
 !ifdef BUILD_UNINSTALLER
 
+  !define /redef APP_PRODUCT_FILENAME "OneKey Wallet"
   Var OneKeyModernUninstallAccepted
   Var OneKeyModernUninstallOriginalDirectory
   !define MUI_CUSTOMFUNCTION_UNGUIINIT un.OneKeyModernOnGuiInit
@@ -274,6 +318,7 @@ FunctionEnd
   FunctionEnd
 
   !macro customUnWelcomePage
+    !define MUI_WELCOMEPAGE_TEXT "$(OneKeyUninstallWarning)"
     !define MUI_PAGE_CUSTOMFUNCTION_PRE un.OneKeyModernUninstallWelcomePre
     !insertmacro MUI_UNPAGE_WELCOME
   !macroend
@@ -471,6 +516,54 @@ FunctionEnd
       ${EndIf}
     ${EndIf}
     DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
+    !insertmacro OneKeyUnregisterProtocolSchemes
+    ${If} $installMode == "all"
+    ${AndIf} ${UAC_IsInnerInstance}
+      !insertmacro UAC_AsUser_Call Function un.OneKeyUnregisterUserProtocols 0
+    ${EndIf}
+  !macroend
+
+  !macro customHeader
+    !tempfile ONEKEY_UNINSTALL_MESSAGES
+    !system 'node "${PROJECT_DIR}/scripts/generate-nsis-uninstall-messages.js" "${ONEKEY_UNINSTALL_MESSAGES}"' = 0
+    !include /CHARSET=UTF8 "${ONEKEY_UNINSTALL_MESSAGES}"
+    !delfile "${ONEKEY_UNINSTALL_MESSAGES}"
+    !undef ONEKEY_UNINSTALL_MESSAGES
+
+    Function un.OneKeyUnregisterUserProtocols
+      SetShellVarContext current
+      !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "onekey-wallet"
+      !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "wc"
+      !insertmacro OneKeyUnregisterProtocolIfOwned HKCU "ethereum"
+      ClearErrors
+      ${If} $installMode == "all"
+        SetShellVarContext all
+      ${EndIf}
+    FunctionEnd
+
+    Function un.OneKeyRemoveAppData
+      Call un.OneKeyUnregisterUserProtocols
+      SetShellVarContext current
+      RMDir /r "$APPDATA\${APP_FILENAME}"
+      !ifdef APP_PRODUCT_FILENAME
+        RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
+      !endif
+      !ifdef APP_PACKAGE_NAME
+        RMDir /r "$APPDATA\${APP_PACKAGE_NAME}"
+      !endif
+      ${If} $installMode == "all"
+        SetShellVarContext all
+      ${EndIf}
+    FunctionEnd
+  !macroend
+
+  !macro customRemoveAppData
+    ${If} $installMode == "all"
+    ${AndIf} ${UAC_IsInnerInstance}
+      !insertmacro UAC_AsUser_Call Function un.OneKeyRemoveAppData 0
+    ${Else}
+      Call un.OneKeyRemoveAppData
+    ${EndIf}
   !macroend
 
   !macro customUninstallPage
@@ -987,6 +1080,9 @@ FunctionEnd
 
     WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "DisplayName" "${PRODUCT_NAME}"
     WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "IconUri" "$INSTDIR\resources\windows\notificationIcon.png"
+    !insertmacro OneKeyRegisterProtocolScheme "onekey-wallet" "URL:OneKey Protocol"
+    !insertmacro OneKeyRegisterProtocolScheme "wc" "URL:WalletConnect Protocol"
+    !insertmacro OneKeyRegisterProtocolScheme "ethereum" "URL:Ethereum Protocol"
 
     ${If} $OneKeyModernUiActive == "1"
       # Native mirroring has already reported intermediate progress.

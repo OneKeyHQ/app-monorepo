@@ -16,6 +16,7 @@ import { WebView } from 'react-native-webview';
 import { Toast } from '@onekeyhq/components';
 import { createEmailOtpRateLimitError } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalNetworkDoctorPages,
@@ -405,6 +406,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
       subscription: {
+        emailOtpCaptchaDiagnostic: jest.fn(),
         onekeyIdLoginFailedReason: (...args: unknown[]) => {
           mockOneKeyIdLoginFailedReason(...args);
         },
@@ -431,6 +433,274 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     mockIsNativePlatform = false;
     mockDialogClose.mockReset().mockResolvedValue(undefined);
     mockRunNetworkDiagnostics.mockReset().mockResolvedValue(true);
+  });
+
+  test.each([
+    new AuthApiError(
+      'Signups not allowed for this instance',
+      422,
+      'signup_disabled',
+    ),
+    toPlainErrorObject(
+      new OneKeyLocalError({
+        message: 'Email sign-up is no longer supported.',
+        data: { supabaseErrorCode: 'signup_disabled' },
+      }),
+    ),
+  ])(
+    'keeps signup-disabled guidance below the code input alongside the original toast',
+    async (error) => {
+      const loginWithCode = jest
+        .fn()
+        .mockRejectedValue(new Error('Invalid code'));
+      render(
+        <PrimeLoginEmailCodeDialogV2
+          email="test@example.com"
+          sendCode={jest.fn().mockRejectedValue(error)}
+          loginWithCode={loginWithCode}
+        />,
+      );
+      const hint = await screen.findByTestId('prime-otp-signup-disabled-hint');
+      expect(hint.textContent).toBe(
+        ETranslations.onekey_id_email_existing_only__desc,
+      );
+      expect(Toast.error).toHaveBeenCalledTimes(1);
+      expect(Toast.error).toHaveBeenCalledWith({ title: error.message });
+      const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+      expect(input.compareDocumentPosition(hint)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      fireEvent.change(input, { target: { value: '123456' } });
+      expect(hint.textContent).toBe(
+        ETranslations.onekey_id_email_existing_only__desc,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+      await waitFor(() => expect(loginWithCode).toHaveBeenCalledTimes(1));
+      expect(
+        await screen.findByText(ETranslations.prime_invalid_verification_code),
+      ).toBeTruthy();
+      expect(
+        screen.getAllByText(ETranslations.onekey_id_email_existing_only__desc),
+      ).toHaveLength(1);
+      fireEvent.change(input, { target: { value: '123457' } });
+      expect(
+        screen.queryByText(ETranslations.prime_invalid_verification_code),
+      ).toBeNull();
+      expect(hint.textContent).toBe(
+        ETranslations.onekey_id_email_existing_only__desc,
+      );
+    },
+  );
+
+  test('shows verification network errors alongside signup guidance and clears both after a successful retry', async () => {
+    const loginWithCode = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new AuthRetryableFetchError('Network unavailable', 0),
+      )
+      .mockResolvedValueOnce(undefined);
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest
+          .fn()
+          .mockRejectedValue(
+            new AuthApiError('Signup disabled', 422, 'signup_disabled'),
+          )}
+        loginWithCode={loginWithCode}
+      />,
+    );
+    await screen.findByTestId('prime-otp-signup-disabled-hint');
+    const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+    fireEvent.change(input, { target: { value: '123456' } });
+    const confirm = screen.getByRole('button', { name: 'confirm' });
+    fireEvent.click(confirm);
+    expect(
+      await screen.findByText(ETranslations.global_network_error),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(ETranslations.onekey_id_email_existing_only__desc),
+    ).toHaveLength(1);
+    expect(input.value).toBe('123456');
+    fireEvent.click(confirm);
+    await waitFor(() => expect(loginWithCode).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByTestId('prime-otp-signup-disabled-hint')).toBeNull(),
+    );
+    expect(screen.queryByTestId('prime-otp-error')).toBeNull();
+  });
+
+  test('keeps signup-disabled guidance while retrying and after a network failure, then clears it on successful send', async () => {
+    let rejectRetry!: (error: Error) => void;
+    const sendCode = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new AuthApiError('Signup disabled', 422, 'signup_disabled'),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectRetry = reject;
+          }),
+      )
+      .mockResolvedValueOnce(undefined);
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={sendCode}
+        loginWithCode={jest.fn()}
+      />,
+    );
+    await screen.findByText(ETranslations.onekey_id_email_existing_only__desc);
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.prime_code_resend }),
+    );
+    await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByText(ETranslations.onekey_id_email_existing_only__desc),
+    ).toBeTruthy();
+    await act(async () =>
+      rejectRetry(new AuthRetryableFetchError('Network unavailable', 0)),
+    );
+    expect(
+      screen.getByText(ETranslations.onekey_id_email_existing_only__desc),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.prime_code_resend }),
+    );
+    await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(
+        screen.queryByText(ETranslations.onekey_id_email_existing_only__desc),
+      ).toBeNull(),
+    );
+    expect(
+      screen.getByTestId<HTMLInputElement>('prime-otp-code').disabled,
+    ).toBe(false);
+  });
+
+  test.each([
+    'email',
+    'configuration',
+    'sign-in-method',
+    'login-success',
+  ] as const)(
+    'clears signup-disabled guidance on %s recovery',
+    async (recovery) => {
+      const props = {
+        email: 'test@example.com',
+        sendCode: jest
+          .fn()
+          .mockRejectedValue(
+            new AuthApiError('Signup disabled', 422, 'signup_disabled'),
+          ),
+        loginWithCode: jest.fn().mockResolvedValue(undefined),
+        onChooseAnotherSignInMethod: jest.fn().mockResolvedValue(undefined),
+      };
+      const { rerender } = render(<PrimeLoginEmailCodeDialogV2 {...props} />);
+      await screen.findByText(
+        ETranslations.onekey_id_email_existing_only__desc,
+      );
+      if (recovery === 'sign-in-method') {
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: ETranslations.choose_another_sign_in_method__action,
+          }),
+        );
+        await waitFor(() =>
+          expect(props.onChooseAnotherSignInMethod).toHaveBeenCalledTimes(1),
+        );
+      } else if (recovery === 'login-success') {
+        fireEvent.change(screen.getByTestId('prime-otp-code'), {
+          target: { value: '123456' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+        await waitFor(() =>
+          expect(props.loginWithCode).toHaveBeenCalledTimes(1),
+        );
+      } else {
+        rerender(
+          <PrimeLoginEmailCodeDialogV2
+            {...props}
+            email={recovery === 'email' ? 'another@example.com' : props.email}
+            developmentConfigRevision={recovery === 'configuration' ? 1 : 0}
+          />,
+        );
+      }
+      await waitFor(() =>
+        expect(
+          screen.queryByText(ETranslations.onekey_id_email_existing_only__desc),
+        ).toBeNull(),
+      );
+    },
+  );
+
+  test.each([
+    new Error('signup_disabled'),
+    new AuthApiError(
+      'Signups not allowed for this instance',
+      422,
+      'email_address_invalid',
+    ),
+    new AuthApiError('CAPTCHA rejected', 400, 'captcha_failed'),
+  ])(
+    'preserves the original behavior for unrelated send errors: $message',
+    async (error) => {
+      render(
+        <PrimeLoginEmailCodeDialogV2
+          email="test@example.com"
+          sendCode={jest.fn().mockRejectedValue(error)}
+          loginWithCode={jest.fn()}
+        />,
+      );
+      await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+      expect(
+        screen.queryByText(ETranslations.onekey_id_email_existing_only__desc),
+      ).toBeNull();
+    },
+  );
+
+  test('does not show signup-disabled guidance from a stale email request', async () => {
+    let rejectOld!: (error: Error) => void;
+    const props = {
+      email: 'test@example.com',
+      sendCode: jest.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOld = reject;
+          }),
+      ),
+      loginWithCode: jest.fn(),
+    };
+    const { rerender } = render(<PrimeLoginEmailCodeDialogV2 {...props} />);
+    await waitFor(() => expect(props.sendCode).toHaveBeenCalledTimes(1));
+    rerender(
+      <PrimeLoginEmailCodeDialogV2 {...props} email="another@example.com" />,
+    );
+    await act(async () =>
+      rejectOld(new AuthApiError('Signup disabled', 422, 'signup_disabled')),
+    );
+    expect(
+      screen.queryByText(ETranslations.onekey_id_email_existing_only__desc),
+    ).toBeNull();
+    expect(Toast.error).not.toHaveBeenCalled();
+  });
+
+  test('shows signup-disabled guidance without duplicating an automatic toast', async () => {
+    const error = new OneKeyLocalError({
+      autoToast: true,
+      message: 'Signup disabled',
+      data: { supabaseErrorCode: 'signup_disabled' },
+    });
+    render(
+      <PrimeLoginEmailCodeDialogV2
+        email="test@example.com"
+        sendCode={jest.fn().mockRejectedValue(error)}
+        loginWithCode={jest.fn()}
+      />,
+    );
+    await screen.findByText(ETranslations.onekey_id_email_existing_only__desc);
+    expect(Toast.error).not.toHaveBeenCalled();
   });
 
   test.each([

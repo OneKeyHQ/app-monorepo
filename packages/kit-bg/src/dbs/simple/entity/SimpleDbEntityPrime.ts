@@ -357,6 +357,28 @@ function getActiveInfiniSupersededPaymentSessions({
   });
 }
 
+function hasInfiniPaymentLocalSendEvidence({
+  rawData,
+  onekeyUserId,
+  paymentId,
+  now,
+}: {
+  rawData: ISimpleDBPrime | null | undefined;
+  onekeyUserId: string;
+  paymentId: string;
+  now: number;
+}) {
+  return [
+    rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId],
+    ...getActiveInfiniSupersededPaymentSessions({ rawData, onekeyUserId, now }),
+  ].some(
+    (session) =>
+      session?.payment?.paymentId === paymentId &&
+      session.sendStarted &&
+      isValidInfiniPendingPaymentSession(session, { onekeyUserId, now }),
+  );
+}
+
 function isValidInfiniPendingPaymentSession(
   session: IPrimeInfiniPendingPaymentSession | undefined,
   {
@@ -1690,12 +1712,30 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async hasInfiniPaymentLocalSendEvidence({
+    onekeyUserId,
+    paymentId,
+  }: {
+    onekeyUserId: string;
+    paymentId: string;
+  }): Promise<boolean> {
+    return hasInfiniPaymentLocalSendEvidence({
+      rawData: await this.getRawData(),
+      onekeyUserId,
+      paymentId,
+      now: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
   async setInfiniPendingPaymentSession({
     onekeyUserId,
     session,
+    isRemoteRecovery = false,
   }: {
     onekeyUserId: string;
     session: IPrimeInfiniPendingPaymentSessionInput;
+    isRemoteRecovery?: boolean;
   }): Promise<IPrimeInfiniPendingPaymentSession> {
     if (!onekeyUserId || session.baseline.onekeyUserId !== onekeyUserId) {
       throw new OneKeyLocalError({
@@ -1802,6 +1842,15 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         payment: nextPayment,
         sendStarted: Boolean(
           session.sendStarted ||
+          // A remote quote cannot erase a send archived after discovery.
+          // Explicit new purchases keep the existing session behavior.
+          (isRemoteRecovery &&
+            hasInfiniPaymentLocalSendEvidence({
+              rawData,
+              onekeyUserId,
+              paymentId: session.payment.paymentId,
+              now,
+            })) ||
           hasPrimeInfiniPaymentProgressSnapshot(nextPayment) ||
           (isCurrentSessionValid &&
             currentSession &&
@@ -2690,51 +2739,34 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       : undefined;
   }
 
+  // Records a new hosted checkout as the user's current one. Every call comes
+  // from a new card payment click and always replaces the previous record,
+  // even for the same plan (OK-65674): reusing it would reopen an older
+  // attempt instead of the plan the user just picked. The record only lets
+  // the app detect this checkout's result after the user leaves it. The
+  // replaced record is returned so the extension can reuse its checkout tab.
   // The read and write share the entity mutex, including across extension UIs.
   @backgroundMethod()
   async acquireWebCheckoutPendingSession({
     session,
   }: {
     session: IPrimeWebCheckoutPendingSession;
-  }): Promise<{
-    session: IPrimeWebCheckoutPendingSession;
-    reused: boolean;
-    replacedSession?: IPrimeWebCheckoutPendingSession;
-  }> {
-    const now = Date.now();
+  }): Promise<{ replacedSession?: IPrimeWebCheckoutPendingSession }> {
     if (
       !isValidWebCheckoutPendingSession(session, {
         onekeyUserId: session.onekeyUserId,
-        now,
+        now: Date.now(),
       })
     ) {
       throw new OneKeyLocalError('Invalid Prime web checkout session');
     }
-    let acquisition:
-      | {
-          session: IPrimeWebCheckoutPendingSession;
-          reused: boolean;
-          replacedSession?: IPrimeWebCheckoutPendingSession;
-        }
-      | undefined;
+    let replacedSession: IPrimeWebCheckoutPendingSession | undefined;
     await this.setRawData((rawData) => {
       const sessions = pruneWebCheckoutPendingSessions(
         rawData?.webCheckoutPendingSessionByUserId,
         Date.now(),
       );
-      const previousSession = sessions[session.onekeyUserId];
-      if (
-        previousSession?.platform === session.platform &&
-        previousSession.isSandbox === session.isSandbox
-      ) {
-        acquisition = { session: previousSession, reused: true };
-        return rawData ?? {};
-      }
-      acquisition = {
-        session,
-        reused: false,
-        replacedSession: previousSession,
-      };
+      replacedSession = sessions[session.onekeyUserId];
       return {
         ...rawData,
         webCheckoutPendingSessionByUserId: {
@@ -2743,10 +2775,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         },
       };
     });
-    if (!acquisition) {
-      throw new OneKeyLocalError('Prime web checkout session was not acquired');
-    }
-    return acquisition;
+    return { replacedSession };
   }
 
   // Records the extension tabs after the checkout tab exists. Ignored when

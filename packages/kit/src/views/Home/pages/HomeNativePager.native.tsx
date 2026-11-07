@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -31,6 +30,9 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   headerHeightHint,
   topOverlayHeightHint,
   renderHeader,
@@ -138,6 +140,7 @@ export function HomeNativePager({
     pages,
     initialTabName,
     pagerRef,
+    ref,
     onSelectionChange: handleSelectionChange,
     onBeforeCommand: handleBeforeCommand,
   });
@@ -149,22 +152,7 @@ export function HomeNativePager({
     focusedTab,
     indexDecimal,
     jumpToTab,
-    setIndex,
-    syncCurrentPage,
-    getCurrentIndex,
-    getFocusedTab,
   } = controller;
-  useImperativeHandle(
-    ref,
-    () => ({
-      jumpToTab,
-      setIndex,
-      getCurrentIndex,
-      getFocusedTab,
-      syncCurrentPage,
-    }),
-    [jumpToTab, setIndex, getCurrentIndex, getFocusedTab, syncCurrentPage],
-  );
   // Explicit top requests affect the active pane; owner changes remount all panes.
   const scrollToTop = useCallback(() => {
     pagerRef.current?.scrollToPageTop({ animated: false });
@@ -192,6 +180,21 @@ export function HomeNativePager({
       <CollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: theme.bgApp.val }}
+        nativeTabBar={
+          nativeTabBar
+            ? {
+                ...nativeTabBar,
+                style: {
+                  ...nativeTabBar.style,
+                  backgroundColor: topEdgeActive
+                    ? 'transparent'
+                    : theme.bgApp.val,
+                },
+              }
+            : undefined
+        }
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         initialPage={initialIndex}
         nestedScrollEnabled
         nativeSmoothHeaderScrollEnabled
@@ -217,7 +220,7 @@ export function HomeNativePager({
           }
         }}
         headerHeight={headerLayout.height}
-        stickyHeaderHeight={stickyHeight}
+        stickyHeaderHeight={nativeTabBar?.style?.height ?? stickyHeight}
         // Spot remains the owner of shared asset loading even while offscreen.
         pageRetentionDistance={tabs.length}
         offscreenPageLimit={Math.max(1, tabs.length - 1)}

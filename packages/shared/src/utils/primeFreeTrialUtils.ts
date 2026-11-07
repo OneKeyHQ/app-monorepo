@@ -5,8 +5,9 @@ import {
 } from '../../types/prime/primeFreeTrialTypes';
 import { OneKeyLocalError } from '../errors';
 
-import { formatDateFns } from './dateUtils';
+import { formatDate } from './dateUtils';
 
+import type { IFormatDateOptions } from './dateUtils';
 import type {
   IPrimeFreeTrialError,
   IPrimeFreeTrialFeatureId,
@@ -82,22 +83,22 @@ export function getPrimeFreeTrialFeatureQuota({
   return quota?.features?.find((item) => item.featureId === featureId);
 }
 
-// Free-trial times follow the app language (date-fns localized patterns, as
-// the Prime expiry date does), in the user's local time zone.
-function formatPrimeFreeTrialTime(time: number | undefined, pattern: string) {
+function formatPrimeFreeTrialTime(
+  time: number | undefined,
+  options: IFormatDateOptions,
+) {
   if (!time || !Number.isFinite(time)) {
     return undefined;
   }
-  const text = formatDateFns(new Date(time), pattern);
-  // formatDateFns returns '-' when formatting fails.
+  const text = formatDate(new Date(time), options);
   return text === '-' ? undefined : text;
 }
 
 export function formatPrimeFreeTrialResetDate(resetAt: number | undefined) {
-  return formatPrimeFreeTrialTime(resetAt, 'PP');
+  return formatPrimeFreeTrialTime(resetAt, { hideTimeForever: true });
 }
 
 // A reservation ends at most 30 minutes later, so the time alone is enough.
 export function formatPrimeFreeTrialReservationEnd(end: number | undefined) {
-  return formatPrimeFreeTrialTime(end, 'p');
+  return formatPrimeFreeTrialTime(end, { onlyTime: true, hideSeconds: true });
 }

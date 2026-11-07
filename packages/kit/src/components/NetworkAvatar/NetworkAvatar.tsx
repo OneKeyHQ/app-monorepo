@@ -42,6 +42,17 @@ export const NetworkAvatarBase = ({
   allNetworksIconProps?: ComponentProps<typeof Icon>;
   isAggregateToken?: boolean;
 }) => {
+  const placeholder = useMemo(() => <Stack width="100%" height="100%" />, []);
+  const fallback = useMemo(
+    () => (
+      <Icon
+        size={size as FontSizeTokens}
+        name="GlobusOutline"
+        color="$iconSubdued"
+      />
+    ),
+    [size],
+  );
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
   }
@@ -70,14 +81,8 @@ export const NetworkAvatarBase = ({
       src={logoURI}
       bg="$bgApp"
       borderRadius="$full"
-      placeholder={<Stack width="100%" height="100%" />}
-      fallback={
-        <Icon
-          size={size as FontSizeTokens}
-          name="GlobusOutline"
-          color="$iconSubdued"
-        />
-      }
+      placeholder={placeholder}
+      fallback={fallback}
     />
   );
 };

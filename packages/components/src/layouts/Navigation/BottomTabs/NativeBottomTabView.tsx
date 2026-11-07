@@ -14,6 +14,7 @@ import { StyleSheet, View } from 'react-native';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { Spinner, Stack } from '../../../primitives';
+import { BottomTabBarVerticalContext } from '../../Page/BottomTabBarVisibilityContext';
 
 import { TabSceneContext } from './TabSceneContext';
 
@@ -22,6 +23,7 @@ import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
+import type { TabBarPlacement } from '@onekeyfe/react-native-bottom-tabs';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
@@ -122,8 +124,18 @@ export function NativeBottomTabView({
   descriptors,
   tabBar,
   tabBarHidden,
+  sideAccessoryIcon,
+  onTabBarPlacementChange,
   ...rest
 }: Props) {
+  const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
+  const handleTabBarPlacementChange = useCallback(
+    (placement: TabBarPlacement) => {
+      setIsVerticalTabBar(placement !== 'bottom');
+      onTabBarPlacementChange?.(placement);
+    },
+    [onTabBarPlacementChange],
+  );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
     return focusedRouteKey ? [focusedRouteKey] : [];
@@ -308,28 +320,32 @@ export function NativeBottomTabView({
   );
 
   return (
-    <BottomTabs
-      {...rest}
-      tabBarHidden={tabBarHidden}
-      navigationState={state}
-      renderScene={renderScene}
-      renderLazyPlaceholder={renderLazyPlaceholder}
-      getActiveTintColor={getActiveTintColor}
-      getLabelText={getLabelText}
-      getBadge={getBadge}
-      getBadgeBackgroundColor={getBadgeBackgroundColor}
-      getBadgeTextColor={getBadgeTextColor}
-      getHidden={getHidden}
-      getTestID={getTestID}
-      getRole={getRole}
-      tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon}
-      getLazy={getLazy}
-      getFreezeOnBlur={getFreezeOnBlur}
-      getSceneStyle={getSceneStyle}
-      onTabDoublePress={onTabDoublePress}
-      getPreventsDefault={getPreventsDefault}
-      onIndexChange={onIndexChange}
-    />
+    <BottomTabBarVerticalContext.Provider value={isVerticalTabBar}>
+      <BottomTabs
+        {...rest}
+        sideAccessoryIcon={sideAccessoryIcon}
+        tabBarHidden={tabBarHidden}
+        navigationState={state}
+        renderScene={renderScene}
+        renderLazyPlaceholder={renderLazyPlaceholder}
+        getActiveTintColor={getActiveTintColor}
+        getLabelText={getLabelText}
+        getBadge={getBadge}
+        getBadgeBackgroundColor={getBadgeBackgroundColor}
+        getBadgeTextColor={getBadgeTextColor}
+        getHidden={getHidden}
+        getTestID={getTestID}
+        getRole={getRole}
+        tabBar={tabBar ? tabBarCallback : undefined}
+        getIcon={getIcon}
+        getLazy={getLazy}
+        getFreezeOnBlur={getFreezeOnBlur}
+        getSceneStyle={getSceneStyle}
+        onTabDoublePress={onTabDoublePress}
+        getPreventsDefault={getPreventsDefault}
+        onIndexChange={onIndexChange}
+        onTabBarPlacementChange={handleTabBarPlacementChange}
+      />
+    </BottomTabBarVerticalContext.Provider>
   );
 }

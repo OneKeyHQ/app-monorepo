@@ -135,4 +135,7 @@ module.exports = {
     'contextMenus',
   ],
   'host_permissions': KEYLESS_WEB_TAB_URL_PATTERNS,
+  // Privacy-chain nodes the user adds are requested when added. Never require
+  // one here: a new required host permission disables the extension on update.
+  'optional_host_permissions': ['http://*/*', 'https://*/*'],
 };

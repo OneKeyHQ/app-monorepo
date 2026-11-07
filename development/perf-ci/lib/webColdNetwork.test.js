@@ -24,6 +24,52 @@ function tempFixturePath() {
 }
 
 describe('web cold network fixtures', () => {
+  test('covers the homepage highlight quote prefetch with recordable fixtures', () => {
+    const file = readFixtureFile(
+      path.join(__dirname, '..', 'fixtures', 'web-cold-api.json'),
+    );
+    const store = createFixtureStore(file);
+    const highlights = store.lookup({
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v1/market/highlight',
+    }).entry.json.data.data;
+    const assets = highlights
+      .slice(0, 3)
+      .flatMap((item) => item.assets.slice(0, 3));
+    const requests = [
+      {
+        path: '/utility/v2/market/token/list/batch',
+        body: {
+          currency: 'usd',
+          tokenAddressList: assets
+            .filter((asset) => asset.type === 'token')
+            .map(({ chainId, contractAddress, isNative }) => ({
+              chainId,
+              contractAddress,
+              isNative,
+            })),
+        },
+      },
+      {
+        path: '/utility/v1/stocks/batch',
+        body: {
+          stockIds: assets
+            .filter((asset) => asset.type === 'stock')
+            .map((asset) => asset.stockId),
+        },
+      },
+    ];
+    for (const { path: endpoint, body } of requests) {
+      const request = {
+        method: 'POST',
+        url: `https://utility.onekeycn.com${endpoint}`,
+        postData: JSON.stringify(body),
+      };
+      expect(recordRefusal(request)).toBeNull();
+      expect(store.lookup(request).entry?.json.code).toBe(0);
+    }
+  });
+
   test('keys GET requests by host, path and sorted query without volatile params', () => {
     expect(
       requestKey({
@@ -116,6 +162,126 @@ describe('web cold network fixtures', () => {
         url: 'https://utility.onekeycn.com/utility/v1/track/event',
       }).entry,
     ).toBeNull();
+  });
+
+  test('matches hourly candle windows without mixing coins or intervals', () => {
+    const request = (req) => ({
+      method: 'POST',
+      url: 'https://api.hyperliquid.xyz/info',
+      postData: JSON.stringify({
+        type: 'candleSnapshot',
+        req: {
+          coin: 'xyz:NVDA',
+          interval: '1h',
+          startTime: 0,
+          endTime: 10,
+          ...req,
+        },
+      }),
+    });
+    const key = requestKey(request({}));
+    expect(key).toBe(
+      'POST api.hyperliquid.xyz/info {"req":{"coin":"xyz:NVDA","interval":"1h"},"type":"candleSnapshot"}',
+    );
+    expect(requestKey(request({ startTime: 100, endTime: 110 }))).toBe(key);
+    const store = createFixtureStore({ entries: [{ key, json: [] }] });
+    for (const req of [
+      { coin: 'BTC' },
+      { interval: '4h' },
+      { user: '0xprivate' },
+      { startTime: -1 },
+      { startTime: 11 },
+      { endTime: Number.MAX_SAFE_INTEGER + 1 },
+    ]) {
+      expect(store.lookup(request(req)).entry).toBeNull();
+    }
+    expect(
+      store.lookup({ ...request({}), url: 'https://other.onekeycn.com/info' })
+        .entry,
+    ).toBeNull();
+  });
+
+  test('replays recorded candles in the current window with a stable pagination anchor', () => {
+    const hour = 3_600_000;
+    const request = (startTime, endTime) => ({
+      method: 'POST',
+      url: 'https://api.hyperliquid.xyz/info',
+      postData: JSON.stringify({
+        type: 'candleSnapshot',
+        req: { coin: 'xyz:NVDA', interval: '1h', startTime, endTime },
+      }),
+    });
+    const bars = [1, 2, 3].map((n) => ({
+      t: n * hour,
+      T: (n + 1) * hour - 1,
+      s: 'xyz:NVDA',
+      i: '1h',
+      o: '100',
+      h: '110',
+      l: '90',
+      c: '105',
+      v: '42',
+      n: 8,
+    }));
+    const now = jest.spyOn(Date, 'now').mockReturnValue(100 * hour + 1234);
+    try {
+      const store = createFixtureStore({
+        entries: [{ key: requestKey(request(0, hour)), json: bars }],
+      });
+      const latest = store.lookup(request(99 * hour, 100 * hour + 1234)).entry
+        .json;
+      expect(latest).toEqual([
+        { ...bars[1], t: 99 * hour, T: 100 * hour - 1 },
+        { ...bars[2], t: 100 * hour, T: 101 * hour - 1 },
+      ]);
+      now.mockReturnValue(101 * hour);
+      expect(
+        store.lookup(request(98 * hour, 99 * hour - 1)).entry.json,
+      ).toEqual([{ ...bars[0], t: 98 * hour, T: 99 * hour - 1 }]);
+      expect(store.lookup(request(0, 97 * hour)).entry.json).toEqual([]);
+      expect(bars[0].t).toBe(hour);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  test('records only public hourly candle bodies without credentials or extra fields', () => {
+    const body = {
+      type: 'candleSnapshot',
+      req: {
+        coin: 'xyz:NVDA',
+        interval: '1h',
+        startTime: 1_791_995_142_000,
+        endTime: 1_793_795_142_000,
+      },
+    };
+    const request = {
+      method: 'POST',
+      url: 'https://api.hyperliquid.xyz/info',
+      postData: JSON.stringify(body),
+    };
+    expect(recordRefusal(request)).toBeNull();
+    for (const headers of [
+      { authorization: 'secret' },
+      { cookie: 'secret' },
+      { 'x-onekey-request-token': 'secret' },
+    ]) {
+      expect(recordRefusal({ ...request, headers })).toMatch(/^carries /);
+    }
+    for (const invalid of [
+      { ...body, user: '0xprivate' },
+      { ...body, req: { ...body.req, user: '0xprivate' } },
+      { ...body, req: { ...body.req, interval: '4h' } },
+      { ...body, req: { ...body.req, startTime: -1 } },
+      { ...body, req: { ...body.req, startTime: body.req.endTime + 1 } },
+    ]) {
+      expect(
+        recordRefusal({ ...request, postData: JSON.stringify(invalid) }),
+      ).toBe('request body not allowed for this endpoint');
+    }
+    expect(
+      recordRefusal({ ...request, url: `${request.url}?user=private` }),
+    ).toBe('query parameter not allowed for this endpoint');
   });
 
   test('recorder merges into the existing file', () => {

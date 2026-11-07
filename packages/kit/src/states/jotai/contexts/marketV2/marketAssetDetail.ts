@@ -238,27 +238,24 @@ async function fetchMarketAssetTokenDetail(
           },
         })
       : false;
-    let decimals = previewMatchesRoute
-      ? tokenDetailPreview?.decimals
-      : currentDecimals;
+    // Native precision belongs to the chain; listing previews may contain 0.
+    const nativeDecimals = selectedVariant.isNative
+      ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)?.decimals
+      : undefined;
+    let decimals =
+      nativeDecimals ??
+      (previewMatchesRoute ? tokenDetailPreview?.decimals : currentDecimals);
 
     if (!isValidTokenDecimals(decimals)) {
-      if (selectedVariant.isNative) {
-        decimals = networkUtils.getLocalNetworkInfo(
-          selectedVariant.networkId,
-        )?.decimals;
-      }
-      if (!isValidTokenDecimals(decimals)) {
-        try {
-          const tokenInfo =
-            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-              networkId: selectedVariant.networkId,
-              tokenAddress: selectedVariant.tokenAddress,
-            });
-          decimals = tokenInfo?.info?.decimals;
-        } catch {
-          decimals = undefined;
-        }
+      try {
+        const tokenInfo =
+          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+            networkId: selectedVariant.networkId,
+            tokenAddress: selectedVariant.tokenAddress,
+          });
+        decimals = tokenInfo?.info?.decimals;
+      } catch {
+        decimals = undefined;
       }
     }
 

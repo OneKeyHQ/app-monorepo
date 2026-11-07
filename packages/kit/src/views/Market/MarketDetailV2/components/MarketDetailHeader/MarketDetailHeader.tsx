@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -32,6 +33,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -44,7 +46,10 @@ import {
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { getTokenAgeLabel } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
-import { buildMarketFullUrlV2 } from '../../../marketUtils';
+import {
+  buildMarketFullUrlV2,
+  buildMarketStockFullUrlV2,
+} from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
@@ -93,8 +98,14 @@ export function MarketDetailHeader({
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
-    useMarketDetailHeaderDisplayData();
+  const {
+    tokenDetail,
+    tokenDetailPreview,
+    tokenAddress,
+    networkId,
+    isNative,
+    isStockToken,
+  } = useMarketDetailHeaderDisplayData();
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
@@ -190,23 +201,26 @@ export function MarketDetailHeader({
   // Reserve the bar margins, back/action capsules, and the title's side gaps.
   // Custom bar items resist native compression, so constrain long identities
   // before UIKit lays out the left and right item groups.
-  const nativeHeaderTitleMaxWidth = Math.max(
-    0,
-    windowWidth -
-      safeAreaLeft -
-      safeAreaRight -
-      40 -
-      44 -
-      (showFavoriteButton ? 100 : 44) -
-      32,
-  );
+  const isTitleInLeftItem = isFoldableIPhone();
+  const nativeHeaderTitleMaxWidth = isTitleInLeftItem
+    ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
+    : Math.max(
+        0,
+        windowWidth -
+          safeAreaLeft -
+          safeAreaRight -
+          40 -
+          44 -
+          (showFavoriteButton ? 100 : 44) -
+          32,
+      );
 
   const renderNativeHeaderTitle = useCallback(
     () => (
       <XStack
         testID="market-detail-native-header-title"
         ai="center"
-        gap="$2"
+        gap="$3"
         flexShrink={1}
         minWidth={0}
         // Android's custom row must fill the space between the back and action
@@ -228,7 +242,7 @@ export function MarketDetailHeader({
         <YStack flexShrink={1} minWidth={0}>
           <XStack
             ai="center"
-            gap="$1"
+            gap="$1.5"
             flexShrink={1}
             {...(!isOverlayPage && {
               onPress: onPressTokenSelector,
@@ -258,7 +272,7 @@ export function MarketDetailHeader({
             {!isOverlayPage ? (
               <Icon
                 name="ChevronDownSmallOutline"
-                size="$4"
+                size="$5"
                 color="$iconSubdued"
               />
             ) : null}
@@ -364,18 +378,28 @@ export function MarketDetailHeader({
   });
 
   const { shareText } = useShare();
+  const shareAddress = isStockToken
+    ? (tokenDetail?.address ?? '')
+    : tokenAddress;
+  const canShare = Boolean(
+    listingStockId || (networkId && (isStockToken || isNative || shareAddress)),
+  );
 
   const handleShareNative = useCallback(() => {
-    if (!networkId) return;
+    if (listingStockId) {
+      void shareText(buildMarketStockFullUrlV2({ stockId: listingStockId }));
+      return;
+    }
+    if (!networkId || !canShare) return;
     const shortCode =
       networkUtils.getNetworkShortCode({ networkId }) || networkId;
     const url = buildMarketFullUrlV2({
       network: shortCode,
-      address: tokenDetail?.address ?? '',
+      address: shareAddress ?? '',
       isNative,
     });
     void shareText(url);
-  }, [networkId, tokenDetail?.address, isNative, shareText]);
+  }, [listingStockId, canShare, networkId, shareAddress, isNative, shareText]);
 
   const handleStarNative = useCallback(() => {
     void onStarPress();
@@ -394,10 +418,20 @@ export function MarketDetailHeader({
           ]
         : []),
       glassBarItem(
-        <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
+        <HeaderIconButton
+          icon="ShareOutline"
+          onPress={handleShareNative}
+          disabled={!canShare}
+        />,
       ),
     ],
-    [showFavoriteButton, starChecked, handleStarNative, handleShareNative],
+    [
+      showFavoriteButton,
+      starChecked,
+      handleStarNative,
+      handleShareNative,
+      canShare,
+    ],
   );
 
   // Drive the back button through useMarketDetailBackNavigation so the
@@ -417,8 +451,17 @@ export function MarketDetailHeader({
         identifier: 'market-detail-back',
         onPress: handleBackPress,
       },
+      ...(isTitleInLeftItem
+        ? [
+            {
+              type: 'custom' as const,
+              element: renderNativeHeaderTitle(),
+              hidesSharedBackground: true,
+            },
+          ]
+        : []),
     ],
-    [handleBackPress, intl],
+    [handleBackPress, intl, isTitleInLeftItem, renderNativeHeaderTitle],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -432,7 +475,7 @@ export function MarketDetailHeader({
         // A fixed-width titleView avoids the initial intrinsic-size growth that
         // previously let long identities overlap the bar items. Keeping it in
         // the native title slot also avoids a custom left-item snapshot on pop.
-        headerTitle={renderNativeHeaderTitle}
+        headerTitle={isTitleInLeftItem ? '' : renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
@@ -457,6 +500,7 @@ export function MarketDetailHeader({
           hideNavigationHeader={!showDappHeaderAboveDetail}
         >
           <NavBackButton onPress={handleBackPress} />
+          {platformEnv.isNativeIOS ? null : <XStack w="$3" flexShrink={0} />}
 
           {platformEnv.isNative || isMobileWebLayout ? (
             renderNativeHeaderTitle()
@@ -540,7 +584,7 @@ export function MarketDetailHeader({
           )}
 
           {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
-            <XStack gap="$3" ai="center">
+            <XStack gap={isMobileWebLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
                   {...listingIdentity}
@@ -552,13 +596,16 @@ export function MarketDetailHeader({
                   isNative={isNative}
                 />
               ) : null}
-              <ShareButton
-                networkId={networkId}
-                address={tokenDetail?.address ?? ''}
-                isNative={isNative}
-                useIconButton
-                size="large"
-              />
+              {canShare ? (
+                <ShareButton
+                  stockId={listingStockId}
+                  networkId={networkId}
+                  address={shareAddress ?? ''}
+                  isNative={isNative}
+                  useIconButton
+                  size="large"
+                />
+              ) : null}
             </XStack>
           ) : null}
         </TabPageHeaderContainer>

@@ -51,6 +51,7 @@ const Index = () => {
           }}
         >
           <Input
+            testID="developer-gallery-search-input"
             placeholder="Search components..."
             value={searchQuery}
             onChangeText={setSearchQuery}

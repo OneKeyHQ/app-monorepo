@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,8 +21,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -47,6 +53,28 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
+let desktopUpdateBanner: { version: string; expiresAt?: number } | undefined;
+
+export function peekDesktopUpdateBanner():
+  | { version: string; expiresAt?: number }
+  | undefined {
+  if (
+    desktopUpdateBanner?.expiresAt &&
+    desktopUpdateBanner.expiresAt <= Date.now()
+  ) {
+    desktopUpdateBanner = undefined;
+  }
+  return desktopUpdateBanner;
+}
+
+export function startDesktopUpdateBanner():
+  | { version: string; expiresAt: number }
+  | undefined {
+  const banner = peekDesktopUpdateBanner();
+  if (!banner) return undefined;
+  banner.expiresAt ??= Date.now() + 6000;
+  return { version: banner.version, expiresAt: banner.expiresAt };
+}
 const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
 
 /**
@@ -359,7 +387,12 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               response?.updateStrategy ?? EUpdateStrategy.manual;
             if (needUpdate) {
               if (isAutoUpdateStrategy(updateStrategy)) {
-                void downloadPackage();
+                const canAutoDownload =
+                  !platformEnv.isDesktop ||
+                  !response ||
+                  getUpdateFileType(response) !== EUpdateFileType.appShell ||
+                  (await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate());
+                if (canAutoDownload) void downloadPackage();
               } else if (isForceUpdate) {
                 toUpdatePreviewPage(true, response);
               } else if (platformEnv.isNative || platformEnv.isDesktop) {
@@ -409,6 +442,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       const info =
         await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
+      if (
+        platformEnv.isDesktop &&
+        !platformEnv.isDesktopMac &&
+        info.status === EAppUpdateStatus.ready &&
+        getUpdateFileType(info) === EUpdateFileType.appShell &&
+        info.updateStrategy !== EUpdateStrategy.force &&
+        !info.storeUrl &&
+        !isFirstLaunchAfterUpdated(info)
+      ) {
+        await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        if (cancelled) return;
+      }
 
       if (isFirstLaunchAfterUpdated(info)) {
         // Defer, don't skip: everything below is one-shot (analytics event,
@@ -436,6 +481,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           status: 'success',
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
+        const isDesktopPackage =
+          platformEnv.isDesktop &&
+          fileType === EUpdateFileType.appShell &&
+          info.updateStrategy !== EUpdateStrategy.force &&
+          !info.storeUrl;
+        if (isDesktopPackage && info.latestVersion) {
+          await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          desktopUpdateBanner = { version: info.latestVersion };
+          appEventBus.emit(EAppEventBusNames.AppUpdateCompleted, {
+            version: info.latestVersion,
+          });
+        }
         // Auto-update strategies (silent + seamless) complete invisibly, so
         // they must NOT pop the changelog / "what's new" page after the update
         // applies — only user-facing (manual / force) updates do. Previously
@@ -443,6 +500,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         // per product requirement (silent updates must not show the changelog
         // on completion, same as seamless).
         if (
+          !isDesktopPackage &&
           !isAutoUpdateStrategy(info.updateStrategy) &&
           !info.isRollbackTarget &&
           !whatsNewAlreadyShown
@@ -470,13 +528,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
-      const isDesktopAppShellRecovery =
-        platformEnv.isDesktop &&
-        getUpdateFileType(info) === EUpdateFileType.appShell;
+      const shouldShowIncompleteRecovery =
+        getUpdateFileType(info) === EUpdateFileType.jsBundle
+          ? !isAutoUpdateStrategy(info.updateStrategy)
+          : platformEnv.isDesktop;
       if (
         info.status === EAppUpdateStatus.updateIncomplete &&
         !forceUpdate &&
-        isDesktopAppShellRecovery
+        shouldShowIncompleteRecovery
       ) {
         showUpdateInCompleteDialogWhenUnlocked();
         return;
@@ -509,7 +568,22 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               info.downloadedEvent?.signature &&
               info.downloadedEvent?.sha256
             ) {
-              void BundleUpdate.installBundle(info.downloadedEvent);
+              void BundleUpdate.installBundle(info.downloadedEvent).catch(
+                async (error: unknown) => {
+                  defaultLogger.app.appUpdate.endInstallPackage(
+                    false,
+                    createUpdateError(getUpdateError(error, 'install')),
+                  );
+                  if (
+                    getUpdateError(error, 'install').code ===
+                    EUpdateErrorCode.packageMissing
+                  ) {
+                    await backgroundApiProxy.serviceAppUpdate
+                      .reconcileAppShellPackage()
+                      .catch(() => undefined);
+                  }
+                },
+              );
             } else {
               defaultLogger.app.appUpdate.endInstallPackage(
                 false,
@@ -600,7 +674,19 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       defaultLogger.app.appUpdate.log(
         `StartAutoDownloadUpdate received → foreground downloadPackage (${payload?.decision})`,
       );
-      void downloadPackage();
+      void (async () => {
+        const info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        if (
+          platformEnv.isDesktop &&
+          getUpdateFileType(info) === EUpdateFileType.appShell &&
+          (!isAutoUpdateStrategy(info.updateStrategy) ||
+            !(await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate()) ||
+            !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget()))
+        ) {
+          return;
+        }
+        await downloadPackage();
+      })();
     };
     appEventBus.on(EAppEventBusNames.StartAutoDownloadUpdate, handler);
     return () => {
@@ -611,13 +697,23 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     const handler = () => {
-      showUpdateInCompleteDialogWhenUnlocked();
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
     };
-    appEventBus.on(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+    appEventBus.on(
+      EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+      showUpdateInCompleteDialogWhenUnlocked,
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+      appEventBus.off(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+      appEventBus.off(
+        EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+        showUpdateInCompleteDialogWhenUnlocked,
+      );
     };
-  }, [enabled, showUpdateInCompleteDialogWhenUnlocked]);
+  }, [enabled, intl, showUpdateInCompleteDialogWhenUnlocked]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-
@@ -659,4 +755,5 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
+  desktopUpdateBanner = undefined;
 }

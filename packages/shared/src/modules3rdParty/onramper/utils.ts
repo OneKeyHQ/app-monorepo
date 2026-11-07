@@ -1,4 +1,62 @@
-import type { IOnramperError, IOnramperLogRecord } from './type';
+import type {
+  IOnramperError,
+  IOnramperLogRecord,
+  IOnramperState,
+  IOnramperStateKind,
+} from './type';
+
+// A user_info field the backend already holds can only belong to a signed-in
+// OnramperID user: nothing is satisfied for an anonymous checkout.
+export function hasVerifiedOnramperUserInfo(
+  requirements: { type: string; fields?: { satisfied: boolean }[] }[],
+): boolean {
+  return requirements.some(
+    (requirement) =>
+      requirement.type === 'user_info' &&
+      requirement.fields?.some((field) => field.satisfied),
+  );
+}
+
+// States a checkout only reaches once the OnramperID login is behind it: it
+// was prepared for a signed-in user (`readyToCheckout`), or it is being paid.
+// The paying states matter for a login made through the button: nothing
+// promises a `readyToCheckout` between `authenticating` and `finalizing`.
+const SIGNED_IN_STATE_KINDS = new Set<IOnramperStateKind>([
+  'readyToCheckout',
+  'finalizing',
+  'rendering',
+  'paymentPending',
+  'completed',
+]);
+
+// The SDK has no "is the OnramperID user signed in" query: its login tokens
+// stay in the Keychain. The checkout state machine is the only signal — every
+// prepared checkout settles on `readyToCheckout` (the button pays without a
+// login) or on `requireLogin` (the button runs the OnramperID flow first), and
+// a checkout that goes on to be paid has the login behind it either way.
+// `requireLogin` alone does not mean signed out: it also covers a signed-in
+// user who has to re-verify or add details, and that user must keep the
+// sign-out action. Only a login that starts from nothing counts. Every other
+// state says nothing about the login: `authenticating` is a flow the user can
+// still cancel, and `failed` can follow any state.
+export function getOnramperSignedInFromState(
+  state: Pick<
+    IOnramperState,
+    'kind' | 'requirementTypes' | 'hasVerifiedUserInfo'
+  >,
+): boolean | undefined {
+  if (SIGNED_IN_STATE_KINDS.has(state.kind)) {
+    return true;
+  }
+  if (state.kind !== 'requireLogin') {
+    return undefined;
+  }
+  const types = state.requirementTypes ?? [];
+  if (state.hasVerifiedUserInfo || types.includes('reverification')) {
+    return true;
+  }
+  return types.includes('user_info') ? false : undefined;
+}
 
 // Structural / non-retryable failures → fall back to the web widget (S5).
 // Everything else is treated as retryable (inline retry, S4).
@@ -77,8 +135,10 @@ export function getErrorMessageForLog(error: unknown): string | undefined {
   if (error === undefined || error === null) {
     return undefined;
   }
+  // Objects without a `message` (e.g. a bare { code }) must not fall through
+  // to String(), which would log "[object Object]".
   const message =
-    typeof error === 'object' && 'message' in error
+    typeof error === 'object'
       ? String((error as { message?: unknown }).message ?? '')
       : String(error);
   // Cap the free-form SDK text first, then annotate: the appended case names

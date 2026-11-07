@@ -947,10 +947,18 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
-  const dependencyNames = [
+  let dependencyNames = [
     ...devVendorConfig.nativeContractDependencies.shared,
     ...devVendorConfig.nativeContractDependencies[platform],
   ].toSorted();
+  if (platform === 'ios' && process.env.ONEKEY_MAC_CATALYST === '1') {
+    const { dependencies } = require(
+      path.join(repoRoot, 'apps/mobile/react-native.config.js'),
+    );
+    dependencyNames = dependencyNames.filter(
+      (name) => dependencies[name]?.platforms?.ios !== null,
+    );
+  }
   let engine;
   if (platform === 'android') {
     const properties = readKeyValueProperties(
@@ -980,6 +988,13 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   }
   return {
     app: getAppNativeAbiDescriptor(platform, repoRoot),
+    iconResources: hashRepoFiles(
+      listShellInputRepoFiles(repoRoot, [
+        'packages/components/svg',
+        'development/onekey-icons',
+      ]),
+      repoRoot,
+    ),
     dependencies: dependencyNames.map((name) =>
       getNativePackageAbiDescriptor(name, platform, repoRoot),
     ),
@@ -1096,6 +1111,7 @@ function computeNativeContractKey(platform, repoRoot = REPO_ROOT) {
       `engine.new-architecture=${descriptor.engine.newArchitecture}`,
       `hermes-bytecode-version=${String(descriptor.hermesBytecodeVersion)}`,
       `app=${stableJsonStringify(descriptor.app)}`,
+      `icon-resources=${descriptor.iconResources}`,
       ...descriptor.dependencies.map(stableJsonStringify),
     ].join('\0'),
   );

@@ -1,5 +1,9 @@
-import { getInviteRewardRows } from './getInviteRewardRows';
+import {
+  getInviteRewardRows,
+  getInviteRewardScopeItems,
+} from './getInviteRewardRows';
 
+import type { IInviteRewardRow } from './getInviteRewardRows';
 import type { IRewardSummaryItem } from './shared/getRewardSummary';
 
 const token = {
@@ -14,12 +18,18 @@ function reward(amount: string, fiatValue = amount): IRewardSummaryItem {
   return { amount, fiatValue, token };
 }
 
+const subjectsOf = (rows: IInviteRewardRow[], hasData: boolean) =>
+  rows.filter((row) => row.hasData === hasData).map((row) => row.subject);
+
 describe('getInviteRewardRows', () => {
-  it('folds every subject when summary is missing or zero', () => {
-    expect(getInviteRewardRows(undefined).visibleRows).toEqual([]);
-    expect(
-      getInviteRewardRows(null).foldedRows.map((row) => row.subject),
-    ).toEqual(['hardware', 'perps', 'swap', 'defi']);
+  it('lists every subject without data when summary is missing or zero', () => {
+    expect(subjectsOf(getInviteRewardRows(undefined), true)).toEqual([]);
+    expect(subjectsOf(getInviteRewardRows(null), false)).toEqual([
+      'hardware',
+      'perps',
+      'swap',
+      'defi',
+    ]);
 
     const zero = getInviteRewardRows({
       HardwareSales: {
@@ -31,36 +41,30 @@ describe('getInviteRewardRows', () => {
       Perp: { available: [] },
       Onchain: { swap: [reward('0')], available: undefined },
     });
-    expect(zero.visibleRows).toEqual([]);
-    expect(zero.foldedRows).toHaveLength(4);
+    expect(subjectsOf(zero, true)).toEqual([]);
+    expect(zero).toHaveLength(4);
   });
 
   it('keeps hardware visible when sales, available, or pending has data', () => {
     const salesOnly = getInviteRewardRows({
       HardwareSales: { monthlySalesFiatValue: '891.00' },
     });
-    expect(salesOnly.visibleRows.map((row) => row.subject)).toEqual([
-      'hardware',
-    ]);
-    expect(salesOnly.visibleRows[0]?.monthlySalesFiatValue).toBe('891.00');
-    expect(salesOnly.foldedRows.map((row) => row.subject)).toEqual([
-      'perps',
-      'swap',
-      'defi',
-    ]);
+    expect(subjectsOf(salesOnly, true)).toEqual(['hardware']);
+    expect(salesOnly[0]?.monthlySalesFiatValue).toBe('891.00');
+    expect(subjectsOf(salesOnly, false)).toEqual(['perps', 'swap', 'defi']);
 
     const pendingOnly = getInviteRewardRows({
       HardwareSales: { pending: [reward('203.04')] },
     });
-    expect(pendingOnly.visibleRows[0]?.pending?.hasReward).toBe(true);
+    expect(pendingOnly[0]?.pending?.hasReward).toBe(true);
 
     const availableOnly = getInviteRewardRows({
       HardwareSales: { monthlySales: '2', available: [reward('239.40')] },
     });
-    expect(availableOnly.visibleRows[0]?.available.hasReward).toBe(true);
+    expect(availableOnly[0]?.available.hasReward).toBe(true);
   });
 
-  it('shows only the subjects that have a balance and keeps canonical order', () => {
+  it('lists subjects with a balance first, each group in canonical order', () => {
     const rows = getInviteRewardRows({
       Perp: { available: [reward('1.5')] },
       Onchain: {
@@ -69,15 +73,14 @@ describe('getInviteRewardRows', () => {
       },
     });
 
-    expect(rows.visibleRows.map((row) => row.subject)).toEqual([
+    expect(rows.map((row) => row.subject)).toEqual([
       'perps',
       'defi',
-    ]);
-    expect(rows.foldedRows.map((row) => row.subject)).toEqual([
       'hardware',
       'swap',
     ]);
-    expect(rows.visibleRows[1]?.available.hasReward).toBe(true);
+    expect(subjectsOf(rows, true)).toEqual(['perps', 'defi']);
+    expect(rows[1]?.available.hasReward).toBe(true);
   });
 
   it('sums fiat across tokens in one subject', () => {
@@ -90,7 +93,7 @@ describe('getInviteRewardRows', () => {
         ],
       },
     });
-    const swap = rows.visibleRows.find((row) => row.subject === 'swap');
+    const swap = rows.find((row) => row.subject === 'swap');
     expect(swap?.available).toMatchObject({
       fiatValue: '14',
       hasReward: true,
@@ -103,13 +106,75 @@ describe('getInviteRewardRows', () => {
       Earn: { enabled: false },
       Onchain: { enabled: false },
     };
-    const { visibleRows, foldedRows } = getInviteRewardRows(
+    const rows = getInviteRewardRows(
       { Onchain: { swap: [reward('3')] } },
       configs,
     );
 
     // Swap is off but has earnings, so it stays; DeFi is off and empty.
-    expect(visibleRows.map((row) => row.subject)).toEqual(['swap']);
-    expect(foldedRows.map((row) => row.subject)).toEqual(['hardware', 'perps']);
+    expect(subjectsOf(rows, true)).toEqual(['swap']);
+    expect(subjectsOf(rows, false)).toEqual(['hardware', 'perps']);
+  });
+
+  it('maps server scope copy onto the matching product', () => {
+    const rows = getInviteRewardRows({}, undefined, [
+      { subject: 'Swap', description: '  Swap providers  ' },
+      { subject: 'Unknown', description: 'ignored' },
+      { subject: 'Onchain', description: '  first defi  ' },
+      { subject: 'Earn', description: 'second defi' },
+      { subject: 'Perp', description: '   ' },
+      { subject: 'HardwareSales', description: 'Hardware stores' },
+    ]);
+    const scopeOf = (subject: IInviteRewardRow['subject']) =>
+      rows.find((row) => row.subject === subject)?.scopeDescription;
+
+    expect(scopeOf('swap')).toBe('Swap providers');
+    // Earn and Onchain both mean DeFi; the first non-empty copy wins.
+    expect(scopeOf('defi')).toBe('first defi');
+    expect(scopeOf('hardware')).toBe('Hardware stores');
+    expect(scopeOf('perps')).toBeNull();
+
+    const blankThenEarn = getInviteRewardRows({}, undefined, [
+      { subject: 'Onchain', description: ' ' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ]);
+    expect(
+      blankThenEarn.find((row) => row.subject === 'defi')?.scopeDescription,
+    ).toBe('DeFi venues');
+  });
+
+  it('leaves scope empty when the server omits it', () => {
+    expect(
+      getInviteRewardRows(undefined).every(
+        (row) => row.scopeDescription === null,
+      ),
+    ).toBe(true);
+    expect(
+      getInviteRewardRows({ Perp: { available: [] } }).every(
+        (row) => row.scopeDescription === null,
+      ),
+    ).toBe(true);
+    expect(getInviteRewardScopeItems(getInviteRewardRows(null))).toEqual([]);
+  });
+
+  it('lists scope copy only for products still on the breakdown', () => {
+    const configs = {
+      Swap: { enabled: false },
+      Earn: { enabled: false },
+      Onchain: { enabled: false },
+    };
+    const items = getInviteRewardScopeItems(
+      getInviteRewardRows({ Onchain: { swap: [reward('3')] } }, configs, [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+        { subject: 'HardwareSales', description: 'Hardware stores' },
+      ]),
+    );
+
+    // Swap is off but has earnings, so its scope stays. DeFi is off and empty.
+    expect(items).toEqual([
+      { subject: 'swap', description: 'Swap providers' },
+      { subject: 'hardware', description: 'Hardware stores' },
+    ]);
   });
 });

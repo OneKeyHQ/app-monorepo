@@ -183,6 +183,7 @@ export function Welcome({
           gap="$5"
           px="$5"
           py="$6"
+          $platform-native={{ py: '$5' }}
           $gtMd={{
             minHeight: '$60',
           }}

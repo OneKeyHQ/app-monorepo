@@ -5,6 +5,7 @@ import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/consta
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import { ipcMessageKeys } from './config';
 
@@ -87,6 +88,8 @@ export interface IVerifyUpdateParams {
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
+  userInitiated?: boolean;
+  installSource?: 'capsule' | 'quit' | 'startup' | 'legacy';
 }
 
 export type IDesktopEventUnSubscribe = () => void;
@@ -193,6 +196,7 @@ const desktopApi = {
     }
   },
   supportsShareImageFile: platformInfo.supportsShareImageFile,
+  supportsCustomUserAgent: true,
   isDev,
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
@@ -476,6 +480,8 @@ const desktopApi = {
       };
     },
   } as ThirdPartyBleApi,
+  fetchStream: (params: IFetchStreamRequest) =>
+    ipcRenderer.invoke(ipcMessageKeys.FETCH_STREAM, params),
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),

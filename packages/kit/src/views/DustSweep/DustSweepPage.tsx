@@ -8,11 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import {
-  useFocusEffect,
-  usePreventRemove,
-  useRoute,
-} from '@react-navigation/core';
+import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -40,6 +36,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useInPageDialog,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -50,12 +47,8 @@ import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/S
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  createHideTabBarOwnerId,
-  releaseHideTabBar,
-  requestHideTabBar,
-} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useHeaderHeightCacheKey } from '../Earn/hooks/useHeaderHeightCacheKey';
@@ -77,7 +70,9 @@ import {
   DustSweepScreenProvider,
   useDustSweep,
 } from './DustSweepProvider';
-import { getDustSweepPresentation } from './stateMachine';
+import { getDustSweepHeaderHeightForSettling } from './hooks/dustSweepHeaderHeight';
+import { useDustSweepTabBarVisibility } from './hooks/useDustSweepTabBarVisibility';
+import { EDustSweepPhase, getDustSweepPresentation } from './stateMachine';
 
 import type { IDustSweepState } from './stateMachine';
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
@@ -89,6 +84,9 @@ const DESKTOP_DIRECTION_SIZE = 40;
 // Let the page content fill the window so the cards can take the remaining
 // height instead of a fixed one that overflows short windows.
 const DESKTOP_SCROLL_PROPS = { contentContainerStyle: { flexGrow: 1 } };
+// Extra rows from expanding the network bar come out of the cards' minimum
+// height, so the action button keeps its place on short windows.
+const DESKTOP_CARD_MIN_HEIGHT_FLOOR = 400;
 
 function useDustSweepDesktopLayout() {
   const media = useMedia();
@@ -296,16 +294,36 @@ function DustSweepPageContent() {
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
+  const overlay = useIsOverlayPage();
+  const [networkExtraHeight, setNetworkExtraHeight] = useState(0);
+  const desktopCardMinHeight = Math.max(
+    DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT - networkExtraHeight,
+    DESKTOP_CARD_MIN_HEIGHT_FLOOR,
+  );
+  const liveSheetDialog = useInPageDialog();
   // As a Home sub page on iOS 26 the transparent nav bar overlaps the body, so
   // offset it by the settled bar height (same approach as the Borrow home).
   const headerHeight = useHeaderHeight();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const useTransparentHeader =
+    !!platformEnv.isNativeIOS26Plus &&
+    !!platformEnv.isNativeIOSPhone &&
+    !overlay;
   const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight, {
-      cacheKey: headerHeightCacheKey,
-      estimatedHeaderHeight,
-    });
+    useSettledHeaderHeight(
+      getDustSweepHeaderHeightForSettling({
+        headerHeight,
+        estimatedHeaderHeight,
+        useTransparentHeader,
+      }),
+      {
+        cacheKey: useTransparentHeader
+          ? `dust-sweep:tab:${headerHeightCacheKey}`
+          : headerHeightCacheKey,
+        estimatedHeaderHeight,
+      },
+    );
   const [approvedRemovalAction, setApprovedRemovalAction] = useState<
     NavigationAction | undefined
   >(undefined);
@@ -323,12 +341,12 @@ function DustSweepPageContent() {
   const { progress, unknown } = getDustSweepPresentation(state);
   const title = intl.formatMessage({ id: ETranslations.title_dust_sweep });
   let subtitle: string | undefined;
-  if (!selecting && state.phase !== 'completed') {
+  if (!selecting && state.phase !== EDustSweepPhase.Completed) {
     if (unknown)
       subtitle = intl.formatMessage({
         id: ETranslations.global_pending,
       });
-    else if (state.phase === 'paused')
+    else if (state.phase === EDustSweepPhase.Paused)
       subtitle = `${intl.formatMessage({
         id: ETranslations.sweep_dust_sweep_paused,
       })} ${progress}/${state.items.length}`;
@@ -370,7 +388,7 @@ function DustSweepPageContent() {
   usePreventRemove(
     execution && !approvedRemovalAction && !selecting,
     ({ data }) => {
-      if (state.phase === 'completed') {
+      if (state.phase === EDustSweepPhase.Completed) {
         setApprovedRemovalAction(data.action);
         return;
       }
@@ -388,7 +406,8 @@ function DustSweepPageContent() {
             }),
             state.items.some(
               (item) =>
-                ['signing', 'broadcasted'].includes(item.status) ||
+                item.status === EDustSweepItemStatus.Signing ||
+                item.status === EDustSweepItemStatus.Broadcasted ||
                 item.approvalTxIds?.length,
             )
               ? intl.formatMessage({
@@ -480,7 +499,7 @@ function DustSweepPageContent() {
   }, []);
   useEffect(() => {
     if (
-      (!isFocused || selecting || state.phase === 'completed') &&
+      (!isFocused || selecting || state.phase === EDustSweepPhase.Completed) &&
       !leavePending.current
     )
       closeLeaveDialog();
@@ -558,7 +577,7 @@ function DustSweepPageContent() {
       return;
     }
     if (liveSheet.current) return;
-    const dialog = Dialog.show({
+    const dialog = liveSheetDialog.show({
       testID: 'dust-sweep-live-sheet',
       showHeader: false,
       showFooter: false,
@@ -577,7 +596,7 @@ function DustSweepPageContent() {
       ),
     });
     liveSheet.current = dialog;
-  }, [liveStore, showLiveSheet]);
+  }, [liveSheetDialog, liveStore, showLiveSheet]);
   useEffect(
     () => () => {
       const dialog = liveSheet.current;
@@ -588,7 +607,6 @@ function DustSweepPageContent() {
   );
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
-  const overlay = useIsOverlayPage();
   // A wallet with no assets has no network chips, so drop the empty row.
   const showNetworks = loadStatus === 'loading' || networks.length > 0;
   return (
@@ -627,12 +645,17 @@ function DustSweepPageContent() {
               <SizableText size="$heading2xl">{title}</SizableText>
               <DustSweepRefreshControl />
             </XStack>
-            {showNetworks ? <DustSweepNetworks desktop /> : null}
+            {showNetworks ? (
+              <DustSweepNetworks
+                desktop
+                onExtraHeightChange={setNetworkExtraHeight}
+              />
+            ) : null}
             {/* Stretch so the summary card always matches the token list card height. */}
             <XStack
               mt={showNetworks ? 30 : 0}
               flex={1}
-              minHeight={DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT}
+              minHeight={desktopCardMinHeight}
               maxHeight={DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT}
               alignItems="stretch"
             >
@@ -656,7 +679,9 @@ function DustSweepPageContent() {
                 >
                   <DustSweepDirectionIcon
                     desktop
-                    running={isFocused && state.phase === 'running'}
+                    running={
+                      isFocused && state.phase === EDustSweepPhase.Running
+                    }
                   />
                 </Stack>
               </Stack>
@@ -677,7 +702,10 @@ function DustSweepPageContent() {
       {/* Mobile picks tokens in this footer; the sweep itself runs in the
           live sheet, so the footer steps aside while it is open. */}
       {desktop || !selecting ? null : (
-        <Page.Footer safeAreaBottomMode="container">
+        <Page.Footer
+          safeAreaBottomMode="container"
+          disableKeyboardAnimation={platformEnv.isNativeIOS}
+        >
           <YStack position="relative" bg="$bgApp">
             <DustSweepSummary desktop={false} onDetails={onDetails} />
             <Stack
@@ -732,16 +760,7 @@ export default function DustSweepPage() {
   const overlay = useIsOverlayPage();
   // Small screens open this Home sub page full screen, so the bottom tab bar
   // must not cover the action footer.
-  useFocusEffect(
-    useCallback(() => {
-      if (desktop) return undefined;
-      const ownerId = createHideTabBarOwnerId('dust-sweep');
-      requestHideTabBar(ownerId);
-      return () => {
-        releaseHideTabBar(ownerId);
-      };
-    }, [desktop]),
-  );
+  useDustSweepTabBarVisibility(!desktop);
   if (!route.params?.walletId || !route.params.accountId) {
     return (
       <Page>

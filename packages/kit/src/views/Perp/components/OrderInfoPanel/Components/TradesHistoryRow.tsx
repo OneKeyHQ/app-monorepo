@@ -18,7 +18,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getHyperliquidTokenImageUris,
@@ -103,9 +103,7 @@ const TradesHistoryRow = memo(
     }, [actions, rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });
@@ -285,13 +283,14 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$1">
-              <XStack
-                gap="$2"
-                alignItems="center"
-                onPress={handleSwitchInstrument}
-                cursor="pointer"
-              >
-                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <XStack gap="$2" alignItems="center">
+                <SizableText
+                  size="$bodyMdMedium"
+                  onPress={handleSwitchInstrument}
+                  cursor="pointer"
+                >
+                  {assetSymbol}
+                </SizableText>
                 <SizableText
                   size="$bodySm"
                   color={directionInfo.directionColor}
@@ -444,13 +443,14 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySmMedium"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetSymbol}
               </SizableText>

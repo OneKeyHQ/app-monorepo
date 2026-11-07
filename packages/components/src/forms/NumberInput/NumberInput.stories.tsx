@@ -1,11 +1,11 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useState } from 'react';
 
 import { NumberInput } from '@onekeyhq/components/src/forms/NumberInput';
-import type { INumberInputProps } from '@onekeyhq/components/src/forms/NumberInput';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
-function ControlledNumberInput(args: INumberInputProps) {
+function ControlledNumberInput(args: ComponentProps<typeof NumberInput>) {
   const [value, setValue] = useState('14');
   const handleStep = useCallback(
     (direction: -1 | 1) =>

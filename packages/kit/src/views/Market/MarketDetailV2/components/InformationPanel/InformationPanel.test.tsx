@@ -45,6 +45,13 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
   BaseMarketTokenPrice: () => null,
   MarketTokenPrice: () => null,
 }));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
+  () => ({
+    PriceChangePercentage: ({ children }: { children: string }) =>
+      `percent:${children}`,
+  }),
+);
 jest.mock('../../../components/PerpsBadges', () => ({
   StockMarketStatusBadge: () => null,
 }));
@@ -100,8 +107,7 @@ it('shows audit in the native trending price header once security data arrives',
   rerender(<InformationPanel mobileDetailKind="trending" />);
   expect(
     screen.getByTestId('market-detail-security-row').textContent,
-  ).toContain(ETranslations.dexmarket_audit);
-  expect(screen.getByText('risk result')).toBeTruthy();
+  ).toContain('risk result');
   expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
 });
 
@@ -180,7 +186,7 @@ it('uses the redesigned price and audit layout on narrow web', () => {
     check: { value: true, content: 'Test', riskType: 'caution' },
   };
   render(<InformationPanel mobileDetailKind="trending" />);
-  expect(screen.getByText(ETranslations.dexmarket_audit)).toBeTruthy();
+  expect(screen.getByTestId('market-detail-security-row')).toBeTruthy();
   expect(screen.getByTestId('market-mobile-price-change-value')).toBeTruthy();
   expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
 });
@@ -220,7 +226,10 @@ it.each(['trending', 'topCoin'] as const)(
     expect(
       screen.getByTestId('market-mobile-price-change-value').textContent,
     ).toBe('10');
-    expect(screen.getByText('(+10%)')).toBeTruthy();
+    // The move goes through the capped percentage formatter, in parentheses.
+    expect(screen.getByText('percent:10')).toBeTruthy();
+    expect(screen.getByText('(')).toBeTruthy();
+    expect(screen.getByText(')')).toBeTruthy();
     mockDetail = { ...mockDetail, price: '90', priceChange24hPercent: '-10' };
     rerender(<InformationPanel mobileDetailKind={mobileDetailKind} />);
     expect(

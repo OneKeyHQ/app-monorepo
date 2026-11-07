@@ -14,6 +14,7 @@ def useDevShell = System.getenv('ONEKEY_DEV_SHELL') == 'true'
 def useDevBackgroundHmr = useDevShell && System.getenv('ONEKEY_DEV_BG_HMR') == 'true'
 def generatedDevShellAssetsDir = file("${buildDir}/generated/assets/onekeyDevShell/debug")
 def bip39EnglishWordList = new File(repositoryRoot, "node_modules/bip39/src/wordlists/english.json")
+def generatedOneKeyIconsDir = file("${buildDir}/generated/assets/onekeyIcons")
 def generatedSentryAssetsDir = file("${buildDir}/generated/assets/onekeySentry/main")
 def easBuildEnv = System.getenv('EAS_BUILD')
 def isEasAndroidBuild =
@@ -48,6 +49,45 @@ sentry {
     // Default is enabled.
     autoInstallation {
       enabled = false
+    }
+}
+
+afterEvaluate {
+    // Sentry adds its failure-check action during variant registration.
+    tasks.withType(io.sentry.android.gradle.tasks.SentryUploadNativeSymbolsTask).configureEach { nativeSymbolsTask ->
+        // Keep Sentry's upload actions and tolerate only transient API failures.
+        def sentryActions = new ArrayList(nativeSymbolsTask.actions)
+        nativeSymbolsTask.setActions(sentryActions.collect { originalAction ->
+            { task ->
+                try {
+                    originalAction.execute(task)
+                } catch (io.sentry.android.gradle.util.SentryCliException error) {
+                    def errorOutput = task.errorOutput?.toString() ?: ''
+                    def apiRequestFailed = errorOutput =~ /(?m)^error: API request failed[ \t]*\r?$/
+                    def httpStatuses = (errorOutput =~ /\(http status: ([0-9]{3})\)/).collect { match -> Integer.parseInt(match[1]) }
+                    def httpStatusMarkers = (errorOutput =~ /http status:/).collect { it }
+                    def transientFailure
+                    if (httpStatusMarkers) {
+                        transientFailure = httpStatuses.size() == httpStatusMarkers.size() &&
+                            httpStatuses.every { status -> status >= 500 && status <= 599 }
+                    } else {
+                        def curlCauses = (errorOutput =~ /(?m)^[ \t]*\[([0-9]+)\] ([^\r\n]+)\r?$/).collect { match ->
+                            [code: Integer.parseInt(match[1]), detail: match[2].trim()]
+                        }
+                        transientFailure = curlCauses && curlCauses.every { cause ->
+                            [28, 52, 55, 56].contains(cause.code) ||
+                                // Curl 26 is also a local read error; only this observed reset is transient.
+                                (cause.code == 26 && cause.detail == 'Failed to open/read local data from file/application (Recv failure: Connection reset by peer)')
+                        }
+                    }
+                    if (error.reason == io.sentry.android.gradle.util.CliFailureReason.UNKNOWN && apiRequestFailed && transientFailure) {
+                        task.logger.warn('Sentry native symbol upload did not complete after a transient API failure; continuing the build. Some native crashes may lack symbolication.')
+                    } else {
+                        throw error
+                    }
+                }
+            } as org.gradle.api.Action
+        })
     }
 }
 
@@ -160,6 +200,9 @@ def enableNativeBackgroundThread =
     defEnvStr(appEnvConfig, 'ENABLE_NATIVE_BACKGROUND_THREAD', 'false').toLowerCase()
 def sentryDsnReactNative =
     defEnvStr(appEnvConfig, 'SENTRY_DSN_REACT_NATIVE', '')
+// Publishable Messenger SDK key; Intercom must initialize in Application.onCreate.
+def intercomAndroidApiKey =
+    defEnvStr(appEnvConfig, 'INTERCOM_ANDROID_API_KEY', '')
 
 apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
@@ -186,6 +229,11 @@ android {
             "String",
             "SENTRY_DSN_REACT_NATIVE",
             groovy.json.JsonOutput.toJson(sentryDsnReactNative),
+        )
+        buildConfigField(
+            "String",
+            "INTERCOM_ANDROID_API_KEY",
+            groovy.json.JsonOutput.toJson(intercomAndroidApiKey),
         )
         // ONEKEY_STARTUP_PROFILE — single env-var flag enabling native HBC + segment
         // timing + JS module profile. See .skillshare/skills/1k-startup-profile/SKILL.md
@@ -271,6 +319,7 @@ android {
 
     sourceSets {
         main.assets.srcDir(generatedSentryAssetsDir)
+        main.assets.srcDir(new File(generatedOneKeyIconsDir, "native"))
         debug.assets.srcDir(generatedDevShellAssetsDir)
         if (isDetoxBuild) {
             // Allow only the local Detox server in instrumented Release builds.
@@ -300,6 +349,14 @@ android {
     }
 }
 
+def prepareOneKeyIconAssets = tasks.register("prepareOneKeyIconAssets", Exec) {
+    inputs.dir(new File(repositoryRoot, "packages/components/svg"))
+    inputs.dir(new File(repositoryRoot, "development/onekey-icons"))
+    outputs.dir(new File(generatedOneKeyIconsDir, "native"))
+    workingDir(repositoryRoot)
+    commandLine("node", "development/onekey-icons/generate-icons.mjs", "--native-only", "--output-root", generatedOneKeyIconsDir.absolutePath)
+}
+
 def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
     inputs.file(bip39EnglishWordList)
     outputs.file(file("${generatedSentryAssetsDir}/onekey-bip39-english.json"))
@@ -315,8 +372,11 @@ def prepareSentryNativeAssets = tasks.register("prepareSentryNativeAssets") {
 }
 
 tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
-    dependsOn(prepareSentryNativeAssets)
+    dependsOn(prepareSentryNativeAssets, prepareOneKeyIconAssets)
 }
+
+// Gradle 9 removed Project.exec() from task actions.
+def devShellExecOperations = project.services.get(org.gradle.process.ExecOperations)
 
 def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
     inputs.property("onekeyDevShellEnabled", useDevShell)
@@ -329,7 +389,7 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
             return
         }
         mkdir(generatedDevShellAssetsDir)
-        exec {
+        devShellExecOperations.exec {
             workingDir projectRoot
             commandLine(
                 "node",
@@ -347,7 +407,7 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
 android.applicationVariants.configureEach { variant ->
     def targetName = capitalizeVariantName(variant.name)
     tasks.named("merge${targetName}Assets").configure {
-        dependsOn(prepareSentryNativeAssets)
+        dependsOn(prepareSentryNativeAssets, prepareOneKeyIconAssets)
     }
     if (variant.buildType?.name?.equalsIgnoreCase("release")) {
         variant.preBuildProvider.configure {
@@ -675,6 +735,9 @@ def registerUnionBuildTask(variant, appProjectRootDir) {
 }
 
 dependencies {
+    // BaseMainApplication uses the SDK directly. Match the pinned RN wrapper;
+    // its implementation dependency is not exposed on this app's compile path.
+    implementation 'io.intercom.android:intercom-sdk:18.10.0'
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
@@ -683,6 +746,8 @@ dependencies {
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
+    // Virtual https origin for the local web-embed page (WebEmbedLocalOrigin).
+    implementation("androidx.webkit:webkit:1.14.0")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

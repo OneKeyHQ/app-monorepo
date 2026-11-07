@@ -25,7 +25,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
@@ -450,7 +450,11 @@ export function PrimeGiftSuccessContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               { id: ETranslations.prime_gift_valid_until__desc },
-              { date: formatDateFns(new Date(result.finalExpiresAt), 'PP') },
+              {
+                date: formatDate(new Date(result.finalExpiresAt), {
+                  hideTimeForever: true,
+                }),
+              },
             )}
           </SizableText>
         </YStack>

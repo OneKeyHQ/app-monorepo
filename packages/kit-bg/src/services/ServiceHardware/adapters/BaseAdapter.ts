@@ -33,13 +33,17 @@ export abstract class BaseAdapter {
     return publishThirdPartyHardwareUiState(state, uiRequestId);
   }
 
-  protected clearUiState(sessionId?: string): Promise<void> {
+  protected clearUiState(
+    sessionId?: string,
+    operationId?: string,
+  ): Promise<void> {
     const owner = this.uiStateOwner;
     // A delayed SDK completion must not dismiss another session's prompt.
     if (sessionId && owner?.sessionId !== sessionId) return Promise.resolve();
     return thirdPartyHardwareUiStateAtom.set((state) =>
       owner &&
       state?.vendor === this.vendor &&
+      (operationId === undefined || state.operationId === operationId) &&
       state.uiRequestId === owner.uiRequestId
         ? undefined
         : state,
@@ -49,26 +53,30 @@ export abstract class BaseAdapter {
   protected restoreProcessingUiState(
     action: IThirdPartyHardwareUiState['action'],
     sessionId?: string,
+    operationId?: string,
   ): Promise<void> {
     const owner = this.uiStateOwner;
     if (!owner) return Promise.resolve();
     if (sessionId && owner?.sessionId !== sessionId) return Promise.resolve();
     const replacement = { ...owner, uiRequestId: generateUUID() };
-    this.uiStateOwner = replacement;
     // Completion may restore this operation's progress, but cannot replace a
     // newer prompt published by another adapter or the service layer.
-    return thirdPartyHardwareUiStateAtom.set((state) =>
-      this.uiStateOwner === replacement &&
-      state?.vendor === this.vendor &&
-      state.uiRequestId === owner.uiRequestId
-        ? {
-            ...state,
-            action,
-            payload: undefined,
-            uiRequestId: replacement.uiRequestId,
-          }
-        : state,
-    );
+    return thirdPartyHardwareUiStateAtom.set((state) => {
+      if (
+        this.uiStateOwner !== owner ||
+        state?.vendor !== this.vendor ||
+        state.uiRequestId !== owner.uiRequestId ||
+        (operationId !== undefined && state.operationId !== operationId)
+      )
+        return state;
+      this.uiStateOwner = replacement;
+      return {
+        ...state,
+        action,
+        payload: undefined,
+        uiRequestId: replacement.uiRequestId,
+      };
+    });
   }
 
   private uiEventHandlers = new Set<(event: IAdapterUiEvent) => void>();

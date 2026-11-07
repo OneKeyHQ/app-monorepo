@@ -66,7 +66,10 @@ function formatPrice(value: number, priceDecimalPlaces?: number) {
   'worklet';
 
   return Number.isFinite(value)
-    ? formatTradingViewNativePriceTick(value, 4, priceDecimalPlaces)
+    ? formatTradingViewNativePriceTick(value, 4, priceDecimalPlaces).replace(
+        /(\.\d*?[1-9])0+$|\.0+$/,
+        '$1',
+      )
     : '--';
 }
 

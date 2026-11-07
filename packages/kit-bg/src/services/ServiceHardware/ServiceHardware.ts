@@ -26,6 +26,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import type { IConvertDeviceErrorOptions } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type {
   IAppEventBusPayload,
@@ -51,6 +52,7 @@ import {
   getValidDeviceStateVersionKeys,
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -80,6 +82,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceHomeScreen,
+  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -107,9 +110,11 @@ import {
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
+import { callHardwareCloudSyncDevice } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareConnectionManager } from './HardwareConnectionManager';
+import { getHardwareTelemetry } from './HardwareTelemetry';
 import {
   HardwareUiEventQueue,
   createHardwareUiEventState,
@@ -476,6 +481,36 @@ class ServiceHardware extends ServiceBase {
   private connectProtocolMigrationPromise: Promise<void> | undefined;
 
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
+
+  private sensitiveCloudKeyOperationDepth = 0;
+
+  private async convertHardwareResponse<T>(
+    operation: () => Promise<IDeviceResponseResult<T>>,
+    options?: IConvertDeviceErrorOptions,
+    connectId?: string,
+  ): Promise<T> {
+    return this.sensitiveCloudKeyOperationDepth > 0
+      ? callHardwareCloudSyncDevice(operation, connectId, options)
+      : convertDeviceResponse(operation, options);
+  }
+
+  // Internal background scope only. Never expose raw Cloud-key signatures over
+  // the bridge or copy SDK log payloads into application logs during this scope.
+  async runWithSensitiveCloudKeyOperation<T>(operation: () => Promise<T>) {
+    const debug =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
+    if (debug) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
+    this.sensitiveCloudKeyOperationDepth += 1;
+    try {
+      return await operation();
+    } finally {
+      this.sensitiveCloudKeyOperationDepth -= 1;
+    }
+  }
 
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
@@ -1188,6 +1223,9 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    if (this.sensitiveCloudKeyOperationDepth > 0 && debugMode) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
     const showSdkDebugLogs =
       platformEnv.isDev === true &&
       (platformEnv.isNative === true || platformEnv.isDesktop === true) &&
@@ -1249,6 +1287,15 @@ class ServiceHardware extends ServiceBase {
       effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
+    if (
+      this.sensitiveCloudKeyOperationDepth > 0 &&
+      (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension) &&
+      hardwareTransportType !== EHardwareTransportType.WEBUSB &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      // Bridge relays the signature through a separate process with its own logs.
+      throw new HardwareCloudKeyPrerequisiteError('transport');
+    }
 
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
@@ -1496,13 +1543,17 @@ class ServiceHardware extends ServiceBase {
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
-      } = originEvent.payload;
+        retryCount,
+      } = originEvent.payload as typeof originEvent.payload & {
+        retryCount?: number;
+      };
       newPayload.deviceProgress = {
         progress,
         transferredBytes,
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
+        retryCount,
       };
     }
 
@@ -2078,9 +2129,48 @@ class ServiceHardware extends ServiceBase {
       instance.on(
         LOG_EVENT,
         (messages: { event: string; type: string; payload: string[] }) => {
+          if (this.sensitiveCloudKeyOperationDepth > 0) {
+            return;
+          }
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
           const message = messages.payload.join(' ');
+          const transfer = serviceHardwareUtils.parseBleFileWriteLogPayload(
+            messages.payload,
+          );
+          if (transfer) {
+            const deviceKey =
+              this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+                ?.deviceKey;
+            void (async () => {
+              const { devices } = await localDb.getAllDevices();
+              const device = deviceKey
+                ? devices.find((item) =>
+                    [
+                      item.id,
+                      item.deviceId,
+                      item.uuid,
+                      item.connectId,
+                      item.usbConnectId,
+                      item.bleConnectId,
+                    ].includes(deviceKey),
+                  )
+                : undefined;
+              getHardwareTelemetry().report({
+                kind: 'ble',
+                params: {
+                  ...transfer,
+                  deviceType: device?.deviceType,
+                  firmwareVersion:
+                    device?.deviceStateInfo?.versions?.firmware ?? undefined,
+                  bleVersion:
+                    device?.deviceStateInfo?.versions?.ble ?? undefined,
+                },
+              });
+            })().catch(() => {
+              // Telemetry must never affect the SDK event handler.
+            });
+          }
 
           if (showSdkDebugLogs) {
             try {
@@ -2090,10 +2180,18 @@ class ServiceHardware extends ServiceBase {
             }
           }
 
+          // Method logs are noisy, but FirmwareUpdateV4 ones carry the failed
+          // install target and per-file transfer timing.
+          const isFirmwareUpdateLog =
+            messageType === '[Method]' &&
+            typeof messages.payload[1] === 'string' &&
+            messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
-            messageType.includes('@onekey/hd-core') ||
-            messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
+            !transfer &&
+            (messageType.includes('@onekey/hd-core') ||
+              messageType.includes('@onekey/hd-transport') ||
+              messageType.includes('@onekey/hd-ble-transport') ||
+              isFirmwareUpdateLog)
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
@@ -2124,6 +2222,8 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async init() {
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      void getHardwareTelemetry().flush();
     await this.getSDKInstance({
       hardwareCallContext: EHardwareCallContext.SDK_INITIALIZATION,
       connectId: undefined,
@@ -2726,7 +2826,7 @@ class ServiceHardware extends ServiceBase {
       connectProtocol: 'V2',
       hardwareCallContext,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK.deviceGetOnboardingStatus(compatibleConnectId, {
         connectProtocol: 'V2',
       }),
@@ -2962,7 +3062,7 @@ class ServiceHardware extends ServiceBase {
     const unlockParams: CommonParams & {
       pinType?: DeviceSessionPinType;
     } = pinType === undefined ? {} : { pinType };
-    return convertDeviceResponse(() => {
+    return this.convertHardwareResponse(() => {
       if (lease?.signal?.aborted) throw new UserCancelFromOutside();
       return hardwareSDK?.deviceUnlock(
         resolvedTransport.connectId,
@@ -3131,7 +3231,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK?.deviceSupportFeatures(compatibleConnectId),
     );
   }
@@ -3183,7 +3283,7 @@ class ServiceHardware extends ServiceBase {
             ...(detectBootloaderDevice ? { detectBootloaderDevice: true } : {}),
           }
         : getFeaturesParams;
-      const features = await convertDeviceResponse(
+      const features = await this.convertHardwareResponse(
         () =>
           hardwareSDK?.getFeatures(
             connectId as string,
@@ -3192,6 +3292,7 @@ class ServiceHardware extends ServiceBase {
               : undefined,
           ),
         { silentMode },
+        connectId,
       );
       await this.rememberDeviceProtocol({
         connectIds: [connectId],
@@ -3210,7 +3311,7 @@ class ServiceHardware extends ServiceBase {
     } else if (forceProtocolDetection) {
       readParams = { ...sdkParams, forceProtocolDetection: true };
     }
-    const currentState = await convertDeviceResponse(
+    const currentState = await this.convertHardwareResponse(
       () => hardwareSDK?.getDeviceState(connectId as string, readParams),
       { silentMode },
     );
@@ -3326,7 +3427,7 @@ class ServiceHardware extends ServiceBase {
       connectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
-        convertDeviceResponse(
+        this.convertHardwareResponse(
           () => {
             if (lease?.signal?.aborted) throw new UserCancelFromOutside();
             return hardwareSDK.getDeviceState(connectId, normalizedSdkParams);
@@ -3334,6 +3435,7 @@ class ServiceHardware extends ServiceBase {
           {
             silentMode,
           },
+          connectId,
         ),
     });
     await this.rememberDeviceProtocol({
@@ -3509,14 +3611,12 @@ class ServiceHardware extends ServiceBase {
   }) {
     if (platformEnv.isDesktop) {
       return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-        async () => {
-          const transport = await this.resolveHardwareTransport({
+        () =>
+          this.resolveHardwareTransport({
             connectId: params.connectId,
             features: params.features,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-          });
-          return transport.connectId;
-        },
+          }),
         { deviceKey: params.connectId },
       );
     }
@@ -3526,7 +3626,10 @@ class ServiceHardware extends ServiceBase {
     if (!dbDevice) {
       // 首次连接或 Bootloader 模式下，本地数据库可能还没有设备记录。
       // 此时跳过预检，把新发现的连接 ID 原样交给升级流程。
-      return params.connectId;
+      return {
+        connectId: params.connectId,
+        transportType: await this.getCurrentTransportType(),
+      };
     }
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
@@ -3555,7 +3658,7 @@ class ServiceHardware extends ServiceBase {
         },
       },
     );
-    return compatibleConnectId;
+    return resolvedTransport;
   }
 
   @backgroundMethod()
@@ -3597,7 +3700,7 @@ class ServiceHardware extends ServiceBase {
       const walletSessionParams = useEmptyPassphrase
         ? { mode: 'standard' as const }
         : { mode: 'select-hidden' as const };
-      const walletSession = await convertDeviceResponse(() =>
+      const walletSession = await this.convertHardwareResponse(() =>
         openWalletSession(connectId, walletSessionParams),
       );
       serviceHardwareUtils.hardwareLog('openWalletSession', {
@@ -3635,7 +3738,7 @@ class ServiceHardware extends ServiceBase {
       return undefined;
     }
 
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
@@ -3924,7 +4027,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
     });
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       hardwareSDK?.deviceUploadResource(compatibleConnectId, params),
     );
   }
@@ -3953,7 +4056,7 @@ class ServiceHardware extends ServiceBase {
         'Hardware SDK does not support Protocol V2 NFT upload',
       );
     }
-    return convertDeviceResponse(() =>
+    return this.convertHardwareResponse(() =>
       uploadNft(compatibleConnectId, {
         imageJpegBase64,
         thumbnailJpegBase64,
@@ -4010,7 +4113,7 @@ class ServiceHardware extends ServiceBase {
       connectId: compatibleConnectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
-        convertDeviceResponse(
+        this.convertHardwareResponse(
           () => {
             if (lease?.signal?.aborted) throw new UserCancelFromOutside();
             return hardwareSDK.uploadPortfolio(compatibleConnectId, {
@@ -4030,7 +4133,9 @@ class ServiceHardware extends ServiceBase {
       const hardwareSDK = await this.getSDKInstance({
         connectId: undefined,
       });
-      const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
+      const messages = await this.convertHardwareResponse(() =>
+        hardwareSDK.getLogs(),
+      );
       logs.push(...messages);
     } catch (_error) {
       // ignore
@@ -4383,7 +4488,7 @@ class ServiceHardware extends ServiceBase {
         connectId: compatibleConnectId,
       });
       await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
-      const evmAddressResponse = await convertDeviceResponse(() =>
+      const evmAddressResponse = await this.convertHardwareResponse(() =>
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
@@ -4475,18 +4580,22 @@ class ServiceHardware extends ServiceBase {
         connectId: compatibleConnectId,
       });
       await this.waitForLegacyHardwareCallBoundary(compatibleConnectId);
-      const result = await convertDeviceResponse(() => {
-        return hardwareSDK.btcGetPublicKey(
-          compatibleConnectId,
-          deviceId || '',
-          {
-            path: BTC_FIRST_TAPROOT_PATH,
-            showOnOneKey: false,
-            useEmptyPassphrase: passphraseState ? undefined : true,
-            passphraseState: passphraseState || undefined,
-          },
-        );
-      });
+      const result = await this.convertHardwareResponse(
+        () => {
+          return hardwareSDK.btcGetPublicKey(
+            compatibleConnectId,
+            deviceId || '',
+            {
+              path: BTC_FIRST_TAPROOT_PATH,
+              showOnOneKey: false,
+              useEmptyPassphrase: passphraseState ? undefined : true,
+              passphraseState: passphraseState || undefined,
+            },
+          );
+        },
+        undefined,
+        compatibleConnectId,
+      );
       if (result.root_fingerprint && result.xpub) {
         const xfp = numberUtils
           .numberToHex(result.root_fingerprint, { prefix0x: false })
@@ -4514,12 +4623,12 @@ class ServiceHardware extends ServiceBase {
     });
     let result: { device: KnownDevice | null };
     try {
-      result = await convertDeviceResponse(() =>
+      result = await this.convertHardwareResponse(() =>
         hardwareSDK?.promptWebDeviceAccess(params),
       );
     } catch (error) {
       if (await this.recoverLinuxWebUsbAccessDeniedError(error)) {
-        result = await convertDeviceResponse(() =>
+        result = await this.convertHardwareResponse(() =>
           hardwareSDK?.promptWebDeviceAccess(params),
         );
       } else {

@@ -773,6 +773,12 @@ const PreSwapDialogContent = ({
     () => resolveSwapReviewResultStep(swapSteps.steps),
     [swapSteps.steps],
   );
+  const retryFailedApproval =
+    resultStep?.type === ESwapStepType.APPROVE_TX &&
+    resultStep.status === ESwapStepStatus.FAILED &&
+    resultStep.canRetry &&
+    !resultStep.submitResultUnknown &&
+    resultStep !== swapSteps.steps[swapSteps.steps.length - 1];
   const supportSlippageRebuild = Boolean(
     rebuildReviewWithSlippage &&
     preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -911,7 +917,7 @@ const PreSwapDialogContent = ({
       />
       {showResultContent && resultStep ? (
         <PreSwapConfirmResult
-          onConfirm={onDone}
+          onConfirm={retryFailedApproval ? onConfirm : onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
           lastStep={resultStep}
@@ -991,29 +997,6 @@ const PreSwapDialogContent = ({
             <>
               <Divider testID="swap-stock-review-divider" />
               <YStack testID="swap-stock-review-info" gap="$3">
-                {stockReviewDisplay.sharePrice ? (
-                  <XStack
-                    testID="swap-stock-review-share-price"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    gap="$3"
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.market_token_price,
-                      })}
-                    </SizableText>
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settingsPersist.currencyInfo.symbol,
-                      }}
-                    >
-                      {stockReviewDisplay.sharePrice}
-                    </NumberSizeableText>
-                  </XStack>
-                ) : null}
                 <XStack
                   testID="swap-stock-review-estimated-shares"
                   alignItems="center"

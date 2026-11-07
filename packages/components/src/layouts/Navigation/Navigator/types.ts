@@ -17,7 +17,12 @@ import type {
 // Native bottom tabs icon type (for react-native-bottom-tabs)
 // ImageSourcePropType: for static images using require() or { uri: string }
 // { sfSymbol: string }: for SF Symbols on iOS
-export type INativeTabBarIcon = ImageSourcePropType | { sfSymbol: string };
+// { iconName: IKeyOfIcons } | IKeyOfIcons: for packaged OneKeyIcons resources
+export type INativeTabBarIcon =
+  | ImageSourcePropType
+  | { sfSymbol: string }
+  | { iconName: IKeyOfIcons }
+  | IKeyOfIcons;
 
 export type ICommonScreenOptions = {
   headerShown?: boolean;
@@ -81,10 +86,31 @@ export interface ICommonNavigatorConfig<
       }) => ICommonScreenOptions);
 }
 
+export interface ITabSubStackNavigatorProps {
+  config: ITabSubNavigatorConfig<string, any>[] | null;
+  /**
+   * Header style for screens pushed above the first one. `modal` gives them
+   * the opaque modal-stack header, for panes that host modal routes (the
+   * Settings split layout). Native only; defaults to `tab`.
+   */
+  pushedScreenPresentation?: 'tab' | 'modal';
+  // Set only on a tab's root stack. Stacks nested in a modal already sit inside
+  // the modal's own horizontal safe area, so this would inset them twice.
+  applyHorizontalSafeArea?: boolean;
+}
+
 export interface ITabNavigatorExtraConfig<RouteName extends string> {
   name: RouteName;
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
+}
+
+// A round button the native tab bar draws above itself while the system shows
+// it as a vertical bar (the iPhone Duo side strip). iOS only.
+export interface ITabBarSideAccessory {
+  icon: ImageSourcePropType | { iconName: IKeyOfIcons } | IKeyOfIcons;
+  label: string;
+  onPress: () => void;
 }
 
 export interface ITabNavigatorProps<RouteName extends string> {
@@ -93,4 +119,5 @@ export interface ITabNavigatorProps<RouteName extends string> {
   showTabBar?: boolean;
   bottomMenu: ReactElement;
   webPageTabBar: ReactElement;
+  sideAccessory?: ITabBarSideAccessory;
 }

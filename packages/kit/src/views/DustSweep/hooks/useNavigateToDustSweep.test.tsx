@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import {
   DustSweepEntryCapabilitiesProvider,
@@ -81,115 +81,151 @@ it('opens Dust Sweep right away when capabilities are current', async () => {
   });
 });
 
-it('holds a tap during a focus refresh and opens once it completes', async () => {
+it('opens once immediately while capabilities revalidate', async () => {
   mockCapabilities = { result: supported, isLoading: true };
   const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
     wrapper,
   });
-  // The entry stays available (not hidden or disabled) while revalidating.
   expect(result.current.canDustSweep).toBe(true);
-  act(() => {
-    void result.current.openDustSweep('tokenListHeader');
+  await act(async () => {
+    await result.current.openDustSweep('tokenListHeader');
   });
-  expect(mockNavigate).not.toHaveBeenCalled();
-
-  mockCapabilities = { result: supported, isLoading: false };
-  rerender();
-  await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
   expect(mockNavigate.mock.calls[0][0]).toMatchObject({
     params: expectedParams,
   });
+
+  mockCapabilities = { result: supported, isLoading: false };
+  rerender();
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
 });
 
-it('drops a held tap when the refreshed capabilities no longer support the network', async () => {
-  mockCapabilities = { result: supported, isLoading: true };
+it('opens immediately when Home regains focus before revalidation starts', async () => {
+  mockFocused = false;
   const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
     wrapper,
   });
-  act(() => {
-    void result.current.openDustSweep('tokenListHeader');
+  mockFocused = true;
+  rerender();
+  await act(async () => {
+    await result.current.openDustSweep('tokenListHeader');
   });
+  mockCapabilities = { result: supported, isLoading: true };
+  rerender();
+  mockCapabilities = { result: supported, isLoading: false };
+  rerender();
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
+});
 
+it('does not navigate when the network is unsupported', async () => {
   mockCapabilities = { result: [{ networkId: 'sol--101' }], isLoading: false };
-  rerender();
-  await waitFor(() => expect(result.current.canDustSweep).toBe(false));
+  const { result } = renderHook(() => useActiveAccountDustSweep(), { wrapper });
+  expect(result.current.canDustSweep).toBe(false);
+  await act(async () => {
+    await result.current.openDustSweep('tokenListHeader');
+  });
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
-it('drops a held tap when Home loses focus before the refresh completes', async () => {
-  mockCapabilities = { result: supported, isLoading: true };
+it('does not open if the network becomes unsupported while the navigation module loads', async () => {
   const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
     wrapper,
   });
+  let opening: Promise<void> | undefined;
   act(() => {
-    void result.current.openDustSweep('tokenListHeader');
+    opening = result.current.openDustSweep('tokenListHeader');
+    mockCapabilities = {
+      result: [{ networkId: 'sol--101' }],
+      isLoading: false,
+    };
+    rerender();
   });
-
-  mockFocused = false;
-  rerender();
-  mockFocused = true;
-  mockCapabilities = { result: supported, isLoading: false };
-  rerender();
-  await act(async () => undefined);
+  await act(async () => opening);
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
-it('drops a held tap when the account changes before the refresh completes', async () => {
-  mockCapabilities = { result: supported, isLoading: true };
-  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
-    wrapper,
+it('deduplicates rapid taps while opening the page', async () => {
+  const { result } = renderHook(() => useActiveAccountDustSweep(), { wrapper });
+  await act(async () => {
+    await Promise.all([
+      result.current.openDustSweep('tokenListHeader'),
+      result.current.openDustSweep('tokenListHeader'),
+    ]);
   });
-  act(() => {
-    void result.current.openDustSweep('tokenListHeader');
-  });
-
-  mockAccountId = 'other-account';
-  rerender();
-  mockCapabilities = { result: supported, isLoading: false };
-  rerender();
-  await act(async () => undefined);
-  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
 });
 
-it('holds a tap right after Home regains focus until that revalidation has run', async () => {
-  mockFocused = false;
-  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
-    wrapper,
-  });
-  // Focus is back, but the idle-scheduled revalidation has not started yet.
-  mockFocused = true;
-  rerender();
-  act(() => {
-    void result.current.openDustSweep('tokenListHeader');
-  });
-  expect(mockNavigate).not.toHaveBeenCalled();
-
-  mockCapabilities = { result: supported, isLoading: true };
-  rerender();
-  expect(mockNavigate).not.toHaveBeenCalled();
-  mockCapabilities = { result: supported, isLoading: false };
-  rerender();
-  await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
-});
-
-it('releases a held tap if the focus revalidation never starts', async () => {
-  jest.useFakeTimers();
-  try {
-    mockFocused = false;
+it.each(['account', 'focus'] as const)(
+  'does not open a stale page if %s changes while loading the navigation module',
+  async (change) => {
     const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
       wrapper,
     });
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = result.current.openDustSweep('tokenListHeader');
+      if (change === 'account') mockAccountId = 'other-account';
+      else mockFocused = false;
+      rerender();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  },
+);
+
+it('does not revive a pending tap after the account changes away and back', async () => {
+  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
+    wrapper,
+  });
+  let opening: Promise<void> | undefined;
+  act(() => {
+    opening = result.current.openDustSweep('tokenListHeader');
+    mockAccountId = 'other-account';
+    rerender();
+  });
+  act(() => {
+    mockAccountId = 'account';
+    rerender();
+  });
+  await act(async () => opening);
+  expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+it('allows a new account to open while an old account tap is pending', async () => {
+  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
+    wrapper,
+  });
+  let previous: Promise<void> | undefined;
+  let next: Promise<void> | undefined;
+  act(() => {
+    previous = result.current.openDustSweep('tokenListHeader');
+    mockAccountId = 'other-account';
+    rerender();
+  });
+  act(() => {
+    next = result.current.openDustSweep('tokenListHeader');
+  });
+  await act(async () => Promise.all([previous, next]));
+  expect(mockNavigate).toHaveBeenCalledTimes(1);
+  expect(mockNavigate.mock.calls[0][0]).toMatchObject({
+    params: { ...expectedParams, accountId: 'other-account' },
+  });
+});
+
+it('does not revive a pending tap after Home loses and regains focus', async () => {
+  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
+    wrapper,
+  });
+  let opening: Promise<void> | undefined;
+  act(() => {
+    opening = result.current.openDustSweep('tokenListHeader');
+    mockFocused = false;
+    rerender();
+  });
+  act(() => {
     mockFocused = true;
     rerender();
-    act(() => {
-      void result.current.openDustSweep('tokenListHeader');
-    });
-    expect(mockNavigate).not.toHaveBeenCalled();
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-    });
-    expect(mockNavigate).toHaveBeenCalledTimes(1);
-  } finally {
-    jest.useRealTimers();
-  }
+  });
+  await act(async () => opening);
+  expect(mockNavigate).not.toHaveBeenCalled();
 });

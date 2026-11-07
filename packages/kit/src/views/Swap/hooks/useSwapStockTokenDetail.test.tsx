@@ -1,10 +1,30 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react-native';
+import * as React from 'react';
+import { useRef } from 'react';
 
+import { act, render, renderHook } from '@testing-library/react-native';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapStockTokenDetail } from './useSwapStockTokenDetail';
+
+// The installed React runtime exposes Activity before its published types do.
+function isReactActivity(
+  value: unknown,
+): value is React.ExoticComponent<
+  React.PropsWithChildren<{ mode: 'hidden' | 'visible' }>
+> {
+  return value === Symbol.for('react.activity');
+}
+
+const activity: unknown = Reflect.get(React, 'Activity');
+if (!isReactActivity(activity)) {
+  throw new OneKeyLocalError('The React runtime does not provide Activity');
+}
+const Activity = activity;
 
 const mockFetchMarketTokenDetail = jest.fn();
 
@@ -60,8 +80,11 @@ const tick = async (ms = 0) => {
 describe('useSwapStockTokenDetail', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
     mockFetchMarketTokenDetail.mockReset();
     mockFetchMarketTokenDetail.mockResolvedValue({
+      code: 0,
       data: {
         perpsInfo: {
           hlTicker: 'AAPL',
@@ -129,8 +152,146 @@ describe('useSwapStockTokenDetail', () => {
     unmount();
   });
 
+  it('resumes the current stock detail polling after a retained surface reconnects', async () => {
+    let currentResult: ReturnType<typeof useSwapStockTokenDetail> | undefined;
+    const identities = new Set<object>();
+    function StockDetailProbe({ token }: { token: ISwapToken }) {
+      const identity = useRef({});
+      identities.add(identity.current);
+      currentResult = useSwapStockTokenDetail({ token });
+      return null;
+    }
+    const renderActivity = (mode: 'hidden' | 'visible', token: ISwapToken) => (
+      <Activity mode={mode}>
+        <StockDetailProbe token={token} />
+      </Activity>
+    );
+    const { rerender, unmount } = render(renderActivity('visible', stockToken));
+    await tick();
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(false);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(1);
+
+    rerender(renderActivity('hidden', stockToken));
+    await tick(65_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(1);
+    rerender(renderActivity('visible', stockToken));
+    await tick();
+
+    expect(identities.size).toBe(1);
+    const callsAfterReconnect = mockFetchMarketTokenDetail.mock.calls.length;
+    expect(callsAfterReconnect).toBeGreaterThan(1);
+    expect(currentResult?.pending).toBe(false);
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(false);
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(
+      callsAfterReconnect + 1,
+    );
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(
+      callsAfterReconnect + 2,
+    );
+
+    const nextToken = { ...stockToken, contractAddress: '0xstock-b' };
+    let resolveNext: ((value: unknown) => void) | undefined;
+    mockFetchMarketTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNext = resolve;
+        }),
+    );
+    rerender(renderActivity('visible', nextToken));
+    await tick();
+    expect(mockFetchMarketTokenDetail).toHaveBeenLastCalledWith(
+      nextToken.contractAddress,
+      nextToken.networkId,
+      { autoHandleError: false },
+    );
+    expect(currentResult?.pending).toBe(true);
+    expect(currentResult?.tokenDetail).toBeUndefined();
+    await act(async () => {
+      resolveNext?.({
+        code: 0,
+        data: {
+          token: {
+            address: nextToken.contractAddress,
+            stock: { isOpen: true, sourceLogoUri: '', subtitle: 'Apple' },
+          },
+        },
+      });
+    });
+    await tick();
+    expect(currentResult?.pending).toBe(false);
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(true);
+    unmount();
+  });
+
+  it('retains only the asset relation and preserves token and issuer metadata', async () => {
+    const { result, unmount } = renderHook(() =>
+      useSwapStockTokenDetail({
+        token: {
+          ...stockToken,
+          stock: {
+            stockId: 'AAPL',
+            subtitle: 'Apple',
+            sourceLogoUri: 'https://example.com/ondo.png',
+          },
+        },
+      }),
+    );
+    await tick();
+    expect(result.current.tokenDetail?.stock).toMatchObject({
+      stockId: 'AAPL',
+      subtitle: 'Apple',
+      sourceLogoUri: '',
+    });
+    unmount();
+  });
+
+  it.each([
+    { address: '0xanother-token' },
+    { networkId: 'evm--56' },
+    {
+      stock: {
+        stockId: 'NVDA',
+        subtitle: 'NVIDIA',
+        sourceLogoUri: 'https://example.com/bstock.png',
+      },
+    },
+    { code: 1 },
+  ])(
+    'rejects an invalid response before it can seed a token-to-asset relation (%j)',
+    async (overrides) => {
+      const { code = 0, ...tokenOverrides } = overrides;
+      mockFetchMarketTokenDetail.mockResolvedValue({
+        code,
+        data: {
+          token: {
+            address: stockToken.contractAddress,
+            stock: {
+              subtitle: 'Apple',
+              sourceLogoUri: 'https://example.com/ondo.png',
+            },
+            ...tokenOverrides,
+          },
+        },
+      });
+      const { result, unmount } = renderHook(() =>
+        useSwapStockTokenDetail({
+          token: {
+            ...stockToken,
+            stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' },
+          },
+        }),
+      );
+      await tick();
+      expect(result.current.tokenDetail).toBeUndefined();
+      unmount();
+    },
+  );
+
   it('does not expose perps data for a non-stock token detail response', async () => {
     mockFetchMarketTokenDetail.mockResolvedValue({
+      code: 0,
       data: {
         perpsInfo: {
           hlTicker: 'NOT_STOCK',

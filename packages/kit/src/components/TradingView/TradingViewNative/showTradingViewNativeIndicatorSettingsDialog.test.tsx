@@ -122,4 +122,25 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
     expect(props?.displayMode).toBe('full');
     expect(props?.dialogRef).toBe(dialogRef);
   });
+
+  it.each(['perps', 'market', 'swap'] as const)(
+    'restores the default indicators for %s without enabling other studies',
+    (storageNamespace) => {
+      showTradingViewNativeIndicatorSettingsDialog({
+        storageNamespace,
+        intl: { formatMessage: ({ id }) => id },
+        onConfirm: jest.fn(),
+        value: { indicators: [], schemaVersion: 1 },
+      });
+      const props = mockShowDialog.mock.calls[0][0].dialogContainer?.({
+        ref: { current: null },
+      }).props;
+      const defaults = props?.createDefaultValue?.();
+      expect(
+        defaults?.indicators
+          .filter((indicator) => indicator.active)
+          .map((indicator) => indicator.id),
+      ).toEqual(storageNamespace === 'perps' ? ['VOL'] : []);
+    },
+  );
 });

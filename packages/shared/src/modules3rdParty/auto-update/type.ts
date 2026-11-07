@@ -27,7 +27,12 @@ export type IDownloadPackage = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent | null>;
 
-export type IInstallPackage = (params: IAppUpdateInfo) => Promise<boolean>;
+export type IInstallPackage = (
+  params: IAppUpdateInfo & {
+    userInitiated?: boolean;
+    installSource?: 'capsule' | 'quit' | 'startup' | 'legacy';
+  },
+) => Promise<boolean>;
 
 export enum EAppUpdatePackageAvailabilityStatus {
   available = 'available',
@@ -105,6 +110,14 @@ export interface IAppUpdate {
   downloadASC: IDownloadASC;
   checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
+  prepareMacInstall?: (params: IAppUpdateInfo) => Promise<void>;
+  prepareQuitInstall?: (
+    params?: IAppUpdateInfo,
+    expectedTarget?: Pick<
+      IDownloadPackageParams,
+      'latestVersion' | 'downloadUrl'
+    >,
+  ) => Promise<void>;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;
   /**
@@ -187,7 +200,7 @@ export interface IBundleUpdate {
    * `BackgroundThread.restart(mode=all, reason='ota.restart')`; on desktop it
    * calls `app.relaunch`.
    */
-  restart: () => void;
+  restart: () => Promise<void>;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   /**
    * Delete every OTA bundle artifact (extracted dir, download staging,

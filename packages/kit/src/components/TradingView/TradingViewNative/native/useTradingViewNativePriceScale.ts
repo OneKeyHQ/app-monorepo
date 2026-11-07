@@ -9,7 +9,11 @@ import {
 
 import { I18nManager, useWindowDimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
-import { cancelAnimation, useSharedValue } from 'react-native-reanimated';
+import {
+  cancelAnimation,
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
@@ -179,12 +183,40 @@ export function useTradingViewNativePriceScale({
     setIsAutoScale(nextIsAuto);
   }, []);
 
+  const handleMainPriceScaleReset = useCallback(() => {
+    // Navigation resets the main axis without changing the selected indicator.
+    if (activePaneId === null) setIsAutoScale(true);
+  }, [activePaneId]);
+
   const restoreControls = useCallback(
     (isAuto: boolean, priceScaleMode: ITradingViewNativePriceScaleMode) => {
       setIsAutoScale(isAuto);
       setMode(priceScaleMode);
     },
     [],
+  );
+
+  useAnimatedReaction(
+    () => chartRuntime.value.candleIntervalSeconds,
+    (interval, previousInterval) => {
+      if (previousInterval !== null && interval !== previousInterval) {
+        const runtime = chartRuntime.value;
+        const scale =
+          activePaneId === null
+            ? undefined
+            : runtime.subIndicatorPriceScales[activePaneId];
+        scheduleOnRN(
+          restoreControls,
+          activePaneId === null
+            ? runtime.pinnedPriceRange === null
+            : !scale?.pinnedPriceRange,
+          activePaneId === null
+            ? runtime.priceScaleMode
+            : (scale?.mode ?? 'linear'),
+        );
+      }
+    },
+    [activePaneId, chartRuntime, restoreControls],
   );
 
   useEffect(() => {
@@ -741,6 +773,7 @@ export function useTradingViewNativePriceScale({
     activePaneId,
     handleAutoScalePress,
     handleLogScalePress,
+    handleMainPriceScaleReset,
     handlePointerLeave,
     handlePointerMove,
     handleTouchStart,

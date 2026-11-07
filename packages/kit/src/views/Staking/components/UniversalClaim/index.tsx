@@ -19,6 +19,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -83,6 +84,7 @@ export const UniversalClaim = ({
   estimateFeeResp,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
@@ -277,6 +279,8 @@ export const UniversalClaim = ({
             value: currentValue,
             currency: currentValue ? symbol : undefined,
           }}
+          usePercentageKeyboardAccessory
+          onAmountFocusChange={onAmountFocusChange}
           onSelectPercentageStage={onSelectPercentageStage}
         />
         {!editable ? (
@@ -382,9 +386,12 @@ export const UniversalClaim = ({
             disabled: isDisable,
           }}
         />
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {platformEnv.isNativeIOSPhone ? null : (
+          <PercentageStageOnKeyboard
+            isAmountFocused={isAmountFocused && editable}
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        )}
       </Page.Footer>
     </StakingFormWrapper>
   );

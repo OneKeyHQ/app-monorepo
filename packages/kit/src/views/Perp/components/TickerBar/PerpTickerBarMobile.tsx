@@ -344,7 +344,6 @@ export function PerpTickerBarMobile({
         <PerpSettingsButton
           testID={PerpTestIDs.MobileSettingsButton}
           disabled={shouldRedirectOnboardingToTravelMode()}
-          mr="$-4"
           showActivityCenterEntry
           showChartPositionSetting
           showGuideEntry

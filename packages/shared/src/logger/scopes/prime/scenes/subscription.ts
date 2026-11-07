@@ -2,6 +2,8 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { sanitizeCaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
+import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 import type {
   IPrimeFreeTrialAttemptParams,
   IPrimeFreeTrialResultParams,
@@ -245,6 +247,11 @@ export type IPrimeGiftStageParams =
     };
 
 export class PrimeSubscriptionScene extends BaseScene {
+  @LogToLocal()
+  public emailOtpCaptchaDiagnostic(params: ICaptchaDiagnostic) {
+    return sanitizeCaptchaDiagnostic(params) ?? NO_LOG_OUTPUT;
+  }
+
   /**
    * Prime feature entry click
    * Triggered when a user clicks on any Prime feature entry point.

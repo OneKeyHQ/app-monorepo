@@ -13,6 +13,7 @@ import type {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketNativeSnapshot } from '../components/MarketNativeList/marketNativeListRows';
 
@@ -36,6 +37,8 @@ type IMockListContainerProps = {
 
 type IMockPagerProps = {
   children?: ReactNode;
+  header?: ReactNode;
+  headerHeight: number;
   stickyHeader?: ReactNode;
   initialPage?: number;
   onLayout?: (event: IMockLayoutEvent) => void;
@@ -92,6 +95,7 @@ let mockUseRealTabsLogic = false;
 let mockPerpDisabled = false;
 const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
+let mockHighlights: IMarketHighlight[] = [];
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
 let mockPreferences: IMarketHomePreferences;
@@ -154,6 +158,7 @@ jest.mock('react-native-pager-view', () => {
         }));
         return (
           <div ref={hostRef}>
+            {props.header}
             {props.stickyHeader}
             {props.children}
           </div>
@@ -254,6 +259,15 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
   },
 }));
+jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
+  useMarketHighlights: () => ({ items: mockHighlights }),
+}));
+jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 62,
+  MarketHighlightStrip: ({ highlight }: { highlight: IMarketHighlight }) => (
+    <div>{highlight.title}</div>
+  ),
+}));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
   useMarketBannerState: () => ({
@@ -321,7 +335,10 @@ jest.mock('../components/MarketPerpsList/MarketPerpsCategorySelector', () => ({
 }));
 jest.mock(
   '../components/MarketTokenList/hooks/useMarketWatchlistTokenList',
-  () => ({ useIsWatchlistTokenCacheReady: () => true }),
+  () => ({
+    marketWatchlistDataCacheRef: { current: undefined },
+    useIsWatchlistTokenCacheReady: () => true,
+  }),
 );
 jest.mock('../components/MarketTokenList/MarketStockCategorySelector', () => ({
   MarketStockCategorySelector: (props: IMockCategorySelectorProps) => {
@@ -387,6 +404,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockInsetCommits.length = 0;
   mockPagerProps = undefined;
+  mockHighlights = [];
   mockStickyHeaderLayout = undefined;
   mockListContainerProps = undefined;
   mockCategorySelectorProps = undefined;
@@ -410,6 +428,43 @@ function pressNativeTab(key: string) {
 }
 
 describe('native market home tab presses', () => {
+  it.each([
+    ['jumpToTab', true, 4, 'Perps', false],
+    ['setIndex', true, 4, 'Perps', false],
+    ['jumpToTab', true, 1, 'Trending', true],
+    ['jumpToTab', false, 4, 'Perps', true],
+    ['setIndex', false, 4, 'Perps', true],
+  ] as const)(
+    '%s keeps iOS=%s selection of tab %s (%s) animated=%s',
+    (command, isIOS, index, tabName, animated) => {
+      jest.replaceProperty(platformEnv, 'isNativeIOS', isIOS);
+      jest.replaceProperty(platformEnv, 'isNativeAndroid', !isIOS);
+      const tabsRef = createRef<IAppPagerRef>();
+      render(
+        <MobileLayout
+          filterBarProps={filterBarProps}
+          selectedNetworkId="evm--1"
+          onTabChange={jest.fn()}
+          tabsRef={tabsRef}
+        />,
+      );
+
+      act(() => {
+        if (command === 'jumpToTab') tabsRef.current?.jumpToTab(tabName);
+        else tabsRef.current?.setIndex(index);
+      });
+
+      expect(tabsRef.current?.getFocusedTab()).toBe(tabName);
+      if (animated) {
+        expect(mockSetPage).toHaveBeenCalledWith(index);
+        expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+      } else {
+        expect(mockSetPageWithoutAnimation).toHaveBeenCalledWith(index);
+        expect(mockSetPage).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('commits a press immediately and ignores stale non-drag selection callbacks', () => {
     const tabsRef = createRef<IAppPagerRef>();
     render(
@@ -585,6 +640,41 @@ describe('native market home selection restoration', () => {
     expect(mockNativeSelections.stocks).toBe('consumer-tech');
     expect(mockSelection.selectedTopCoinsCategory).toBe('defi');
   });
+});
+
+it('reserves room for a hotspot that arrives without banners', () => {
+  const { queryByText, getByText, rerender } = renderLayout();
+  const title = 'Market hotspot';
+  expect(queryByText(title)).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(1);
+
+  mockHighlights = [
+    {
+      highlightId: 'highlight-1',
+      title,
+      description: 'An editorial summary',
+      publishedAt: '2026-11-04T02:00:00Z',
+      assets: [
+        {
+          type: 'asset',
+          assetId: 'bitcoin',
+          symbol: 'BTC',
+          favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+        },
+      ],
+      links: [],
+    },
+  ];
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+
+  expect(getByText(title)).toBeTruthy();
+  expect(mockPagerProps?.headerHeight).toBe(62);
 });
 
 describe('external header inset ownership', () => {

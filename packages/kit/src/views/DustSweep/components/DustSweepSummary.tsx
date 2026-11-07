@@ -21,6 +21,7 @@ import {
   Divider,
   IconButton,
   NumberSizeableText,
+  Popover,
   ScrollView,
   SizableText,
   Skeleton,
@@ -43,7 +44,7 @@ import {
 
 import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepFiatFormatter } from '../hooks/useDustSweepFiatFormatter';
-import { getDustSweepPresentation } from '../stateMachine';
+import { EDustSweepPhase, getDustSweepPresentation } from '../stateMachine';
 
 import { DustSweepResultBreakdown } from './DustSweepResultBreakdown';
 import { DustSweepSlippage } from './DustSweepSlippage';
@@ -319,7 +320,7 @@ export function DustSweepResult({
     success: ETranslations.title_dust_swept,
   }[outcome];
   let title = intl.formatMessage({ id: resultTitleId });
-  const working = converting && state.phase !== 'paused';
+  const working = converting && state.phase !== EDustSweepPhase.Paused;
   if (working)
     title = intl.formatMessage({
       id: ETranslations.dust_sweep_converting__title,
@@ -327,6 +328,9 @@ export function DustSweepResult({
   else if (converting)
     title = intl.formatMessage({ id: ETranslations.sweep_dust_sweep_paused });
   const token = state.snapshot?.nativeToken;
+  const estimateDescription = intl.formatMessage({
+    id: ETranslations.dust_description_network_limit_estimate,
+  });
   let value = formatFiat('0');
   if (totals.receiptUnavailable || (!converting && !hasSuccess)) value = '—';
   else if (hasSuccess)
@@ -367,7 +371,10 @@ export function DustSweepResult({
             key={graphicStatus}
             entering={animateLayout ? graphicEntering : undefined}
           >
-            <SwapTransactionResultStatus status={graphicStatus} />
+            <SwapTransactionResultStatus
+              status={graphicStatus}
+              paused={state.phase === EDustSweepPhase.Paused}
+            />
           </Animated.View>
           <XStack
             testID="dust-sweep-result-title"
@@ -409,14 +416,47 @@ export function DustSweepResult({
                   />
                 )}
               </Stack>
-              <SizableText
-                size="$bodyLgMedium"
-                color="$textSubdued"
+              <XStack
+                alignItems="center"
+                gap="$1"
                 height={24}
                 mt={desktop ? 4 : 6}
               >
-                {value}
-              </SizableText>
+                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                  {value}
+                </SizableText>
+                {totals.receivedAmountEstimated &&
+                !totals.receiptUnavailable ? (
+                  <Popover
+                    title={intl.formatMessage({
+                      id: ETranslations.sign_swap_estimate_receive,
+                    })}
+                    mountNativePortalBeforeOpen
+                    renderTrigger={
+                      <IconButton
+                        testID="dust-sweep-result-estimate-help"
+                        icon="InfoCircleOutline"
+                        iconProps={{ color: '$iconSubdued', size: '$4' }}
+                        size="small"
+                        variant="tertiary"
+                        hotKey
+                        p={0}
+                        m={0}
+                        width={20}
+                        height={20}
+                        minHeight={20}
+                        hitSlop={12}
+                        accessibilityLabel={estimateDescription}
+                      />
+                    }
+                    renderContent={
+                      <SizableText p="$4" size="$bodyMd">
+                        {estimateDescription}
+                      </SizableText>
+                    }
+                  />
+                ) : null}
+              </XStack>
             </>
           )}
           <Divider width="100%" mt="$6" mb="$4" />
@@ -515,7 +555,7 @@ export function DustSweepSummary({
   } else if (unknown) {
     label = intl.formatMessage({ id: ETranslations.global_details });
     onPress = onDetails;
-  } else if (state.phase === 'paused') {
+  } else if (state.phase === EDustSweepPhase.Paused) {
     label = intl.formatMessage({ id: ETranslations.global_continue });
     onPress = session.resume;
   } else if (assetSyncError) {
@@ -719,7 +759,7 @@ export function DustSweepSummary({
           </Button>
         ) : null}
         {/* Paused: Stop gives up the remaining tokens, Continue resumes. */}
-        {state.phase === 'paused' && !unknown ? (
+        {state.phase === EDustSweepPhase.Paused && !unknown ? (
           <Button
             testID="dust-sweep-stop"
             flex={1}
@@ -741,7 +781,9 @@ export function DustSweepSummary({
             // Pause stays quiet while tokens convert; every other step is the
             // primary action.
             variant={
-              converting && state.phase !== 'paused' ? 'secondary' : 'primary'
+              converting && state.phase !== EDustSweepPhase.Paused
+                ? 'secondary'
+                : 'primary'
             }
             loading={assetsLoading}
             childrenAsText={!assetsLoading}
@@ -754,7 +796,7 @@ export function DustSweepSummary({
               assetsLoading ||
               session.leaving ||
               model.stopping ||
-              state.phase === 'left' ||
+              state.phase === EDustSweepPhase.Left ||
               (selecting && loadStatus !== 'ready') ||
               (selecting && !canStart && !assetSyncError)
             }

@@ -11,7 +11,6 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Divider,
@@ -47,16 +46,30 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
-import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
-import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import { useInviteRewardScopes } from '../../hooks/useInviteRewardScopes';
+import {
+  BenefitsTabPlaceholder,
+  useBenefitsBindStatus,
+} from '../InviteReward/components/BenefitsTabPlaceholder';
+import {
+  INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
+  getInviteRewardScopeDescription,
+  getInviteRewardScopeItems,
+} from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+} from '../InviteReward/components/RewardScopeInfo';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -75,10 +88,11 @@ import {
   usePerksBannerItems,
 } from './PerksCampaignBanner';
 
+import type { IInviteRewardSubject } from '../InviteReward/components/getInviteRewardRows';
+
 type IRewardModule = keyof IInviteeRewardsOverview;
 
-// Perks copy. Perks speaks of rewards, like its "My Rewards" entry in the
-// activity hub; the invite tab speaks of commission.
+// Perks copy. Perks speaks of rewards; the invite tab speaks of commission.
 function useBuildMyRewardsCopy() {
   const intl = useIntl();
   return useMemo(() => {
@@ -121,20 +135,15 @@ function useMyRewardsCopy() {
   return copy;
 }
 
-const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
-  perps: INVITE_REWARD_SUBJECT_ICON.perps,
-  swap: INVITE_REWARD_SUBJECT_ICON.swap,
-  earn: INVITE_REWARD_SUBJECT_ICON.defi,
-};
-
-// Same product names as the invite tab's breakdown.
-const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  earn: ETranslations.referral_referred_type_2,
-};
-
 const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
+
+// The invite breakdown's product for each module: its icon, name and
+// reward-scope copy are the product's, so both tabs read the same.
+const MODULE_SUBJECT: Record<IRewardModule, IInviteRewardSubject> = {
+  perps: 'perps',
+  swap: 'swap',
+  earn: 'defi',
+};
 
 // Desktop rows bleed 12px past the text, like the invite tab's breakdown, so
 // the text lines up with the section title.
@@ -144,10 +153,11 @@ const DESKTOP_ROW_BLEED_PROPS = {
   borderRadius: '$3',
 } as const;
 
-// A paid or unpaid figure: a token amount, or the server-formatted Earn text.
+// A paid or unpaid figure: a dollar amount, or token text. Token text keeps
+// the dollar part it holds (its stable coins) for the summary totals.
 type IRewardValue =
   | { kind: 'amount'; amount: string }
-  | { kind: 'text'; text: IEarnText; extraCount: number };
+  | { kind: 'text'; text: IEarnText; extraCount: number; usdPart: string };
 
 interface IModuleRow {
   module: IRewardModule;
@@ -212,9 +222,17 @@ function getPerksHomeStatus(
   return 'has_rewards';
 }
 
-// Earn list titles arrive as token amounts, like "0.3976 USDC".
+// Earn list titles arrive as token amounts, like "0.3976 USDC". Tiny ones
+// come in subscript form: "0.0<subscripts>5</subscripts>3 USDT" is 0.000003,
+// the subscript counting the zeros after the decimal point.
 function readUsdAmount(text: string | undefined) {
-  const match = text?.trim().match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
+  const plain = text
+    ?.trim()
+    .replace(
+      /^0\.0<subscripts>(\d+)<\/subscripts>/,
+      (_, zeros: string) => `0.${'0'.repeat(Number(zeros))}`,
+    );
+  const match = plain?.match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
   if (!match) {
     return undefined;
   }
@@ -222,12 +240,54 @@ function readUsdAmount(text: string | undefined) {
   return amount.isFinite() ? amount : undefined;
 }
 
-function isUsdcSymbol(symbol: string | undefined) {
-  return symbol?.toUpperCase() === 'USDC';
+// Dollar stable coins that rewards are paid in. Each counts 1:1 as USD, so
+// mixed payouts (USDC plus DAI, say) still add up to one total.
+const USD_STABLECOIN_SYMBOLS = new Set([
+  'USDC',
+  'USDC.E',
+  'USDBC',
+  'USDT',
+  'USDT0',
+  'DAI',
+  'USDS',
+  'USDE',
+  'PYUSD',
+  'FDUSD',
+  'USD1',
+  'RLUSD',
+]);
+
+function isUsdStablecoinSymbol(symbol: string | undefined) {
+  return Boolean(symbol && USD_STABLECOIN_SYMBOLS.has(symbol.toUpperCase()));
 }
 
-// USDC quantities are shown as wallet-currency dollars. Any other token stays
-// in its own units, so it cannot be added into the dollar total.
+function readServerUsd(value: string | null | undefined) {
+  if (value === undefined || value === null || value.trim() === '') {
+    return undefined;
+  }
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? amount : undefined;
+}
+
+type IEarnRewardItem =
+  | IEarnSummaryV2['distributed'][number]
+  | IEarnSummaryV2['undistributed'][number];
+
+// Server USD wins. A stable coin without one counts its amount, then its
+// title, at 1:1. Any other token without a server price is left out.
+function readEarnItemUsd(item: IEarnRewardItem): BigNumber | undefined {
+  const serverUsd = readServerUsd(item.usdValue);
+  if (serverUsd !== undefined) {
+    return serverUsd;
+  }
+  if (!isUsdStablecoinSymbol(item.token?.symbol)) {
+    return undefined;
+  }
+  return readServerUsd(item.amount) ?? readUsdAmount(item.title.text);
+}
+
+// Stablecoin quantities are shown as wallet-currency dollars. Any other token
+// stays in its own units, so it cannot be added into the dollar total.
 function getTokenAmountValue(
   raw: string,
   symbol: string | undefined,
@@ -236,13 +296,14 @@ function getTokenAmountValue(
   if (!amount.isFinite() || !amount.gt(0)) {
     return undefined;
   }
-  if (isUsdcSymbol(symbol)) {
+  if (isUsdStablecoinSymbol(symbol)) {
     return { kind: 'amount', amount: amount.toFixed() };
   }
   return {
     kind: 'text',
     text: { text: symbol ? `${amount.toFixed()} ${symbol}` : amount.toFixed() },
     extraCount: 0,
+    usdPart: '0',
   };
 }
 
@@ -252,23 +313,24 @@ function getEarnValue(
   if (!items.length) {
     return undefined;
   }
-  // Only USDC titles are USD. "0.5 ETH" must stay in token units, and mixed
-  // tokens must not be added together.
-  const amounts = items.map((item) =>
-    isUsdcSymbol(item.token?.symbol)
-      ? readUsdAmount(item.title.text)
-      : undefined,
+  // One dollar figure only when every item has one. Otherwise the first
+  // title stays visible, and usdPart is the dollars already known.
+  const values = items.map((item) => readEarnItemUsd(item));
+  const usdPart = values.reduce<BigNumber>(
+    (sum, value) => (value === undefined ? sum : sum.plus(value)),
+    new BigNumber(0),
   );
-  if (amounts.every((amount): amount is BigNumber => amount !== undefined)) {
-    const total = amounts.reduce(
-      (sum, amount) => sum.plus(amount),
-      new BigNumber(0),
-    );
-    return total.gt(0)
-      ? { kind: 'amount', amount: total.toFixed() }
+  if (values.every((value) => value !== undefined)) {
+    return usdPart.gt(0)
+      ? { kind: 'amount', amount: usdPart.toFixed() }
       : undefined;
   }
-  return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
+  return {
+    kind: 'text',
+    text: items[0].title,
+    extraCount: items.length - 1,
+    usdPart: usdPart.toFixed(),
+  };
 }
 
 function getModuleRow(
@@ -321,12 +383,17 @@ type IRewardTotals =
   | { status: 'unavailable' }
   | { status: 'ready'; total: string; paid: string; unpaid: string };
 
-function sumAmount(value: IRewardValue | undefined) {
-  return value?.kind === 'amount' ? new BigNumber(value.amount) : undefined;
+function usdOf(value: IRewardValue | undefined) {
+  if (!value) {
+    return new BigNumber(0);
+  }
+  return new BigNumber(value.kind === 'amount' ? value.amount : value.usdPart);
 }
 
-// The summary only adds up dollar amounts. A failed product, or a figure that
-// is still in token units, leaves the total unknown rather than understated.
+// The summary adds up dollar amounts only: stable coins count 1:1, and other
+// tokens are left out until the server prices them (they are converted to
+// USDC at market value when paid, and are usually dust). A failed product
+// leaves the total unknown rather than understated.
 function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
   if (rows.some((row) => row.status === 'loading')) {
     return { status: 'loading' };
@@ -337,13 +404,8 @@ function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
     if (row.status !== 'ready') {
       return { status: 'unavailable' };
     }
-    const rowPaid = row.paid ? sumAmount(row.paid) : new BigNumber(0);
-    const rowUnpaid = row.unpaid ? sumAmount(row.unpaid) : new BigNumber(0);
-    if (!rowPaid || !rowUnpaid) {
-      return { status: 'unavailable' };
-    }
-    paid = paid.plus(rowPaid);
-    unpaid = unpaid.plus(rowUnpaid);
+    paid = paid.plus(usdOf(row.paid));
+    unpaid = unpaid.plus(usdOf(row.unpaid));
   }
   return {
     status: 'ready',
@@ -401,8 +463,9 @@ function getPayoutToken(
   };
 }
 
-// The token and network rewards are paid in, and the payout rules, behind an
-// info icon beside the address.
+// The token and network rewards are paid in, and the per-address rule, behind
+// an info icon beside the address. When unpaid rewards arrive is told at the
+// Unpaid figure instead.
 function PayoutInfo({
   payout,
   iconSize = '$4',
@@ -442,22 +505,44 @@ function PayoutInfo({
           <SizableText size="$bodyMd" color="$textSubdued">
             {copy.addressRule}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {copy.payoutSchedule}
-          </SizableText>
         </YStack>
       }
     />
   );
 }
 
-// Pointer layouts: where the rewards land, on the right of the account row.
+// When unpaid rewards are paid, behind an info icon after the Unpaid label.
+function UnpaidInfo({ label }: { label: string }) {
+  const copy = useMyRewardsCopy();
+  return (
+    <Popover
+      title={label}
+      hoverable
+      placement="bottom-start"
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={
+        <Stack testID="my-rewards-unpaid-info" hitSlop={NATIVE_HIT_SLOP}>
+          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        </Stack>
+      }
+      renderContent={
+        <SizableText p="$4" size="$bodyMd" color="$textSubdued">
+          {copy.payoutSchedule}
+        </SizableText>
+      }
+    />
+  );
+}
+
+// Pointer layouts: where the rewards land, right after the account switch.
 // Kept to the address alone; the token and network sit behind the info icon
 // next to it, so the row stays short.
 function PayoutDestination({ address }: { address?: string }) {
   const copy = useMyRewardsCopy();
   return (
-    <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
+    // 12px gaps: the address's hover surface bleeds 8px past its text, so it
+    // must not run into the label.
+    <XStack testID="my-rewards-payout-destination" ai="center" gap="$3">
       <SizableText size="$bodyMd" color="$textSubdued">
         {copy.paidTo}
       </SizableText>
@@ -582,8 +667,9 @@ function RewardsAccountRow({
     <XStack
       testID="my-rewards-address-card"
       ai="center"
-      jc="space-between"
-      gap="$2"
+      // The trailing part stays next to the account, so the account and
+      // where its rewards go read as one line.
+      gap="$4"
       minWidth={0}
     >
       {/* A long account name truncates first, so the trailing part stays. */}
@@ -679,6 +765,7 @@ function CompactPerksSummaryCard({
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" size="$bodyMdMedium" />
         </CompactFieldRow>
@@ -726,7 +813,8 @@ function PerksSummaryCard({
       <RewardsAccountRow
         unsupported={unsupported}
         trailing={
-          <XStack ai="center" gap="$1" flexShrink={0}>
+          // Clear of the address's 8px hover bleed, like the label.
+          <XStack ai="center" gap="$3" flexShrink={0}>
             <PayoutDestination address={address} />
             <PayoutInfo payout={payout} />
           </XStack>
@@ -749,6 +837,7 @@ function PerksSummaryCard({
           share={1}
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" />
         </InviteStatCell>
@@ -801,7 +890,10 @@ function ProductTile({ module }: { module: IRewardModule }) {
       jc="center"
       flexShrink={0}
     >
-      <Icon name={MODULE_ICON[module]} size="$5" />
+      <Icon
+        name={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[module]]}
+        size="$5"
+      />
     </Stack>
   );
 }
@@ -809,11 +901,13 @@ function ProductTile({ module }: { module: IRewardModule }) {
 function DesktopRow({
   row,
   title,
+  scopeDescription,
   noRewardLabel,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   noRewardLabel: string;
   onPress: () => void;
 }) {
@@ -878,9 +972,11 @@ function DesktopRow({
     >
       <DesktopCell first>
         <ProductTile module={row.module} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={MODULE_SUBJECT[row.module]}
+          description={scopeDescription}
+        />
       </DesktopCell>
       {renderValues()}
       <Icon
@@ -899,11 +995,13 @@ function DesktopRow({
 function CompactRow({
   row,
   title,
+  scopeDescription,
   labels,
   onPress,
 }: {
   row: IModuleRow;
   title: string;
+  scopeDescription: string | null;
   labels: { unpaid: string; noReward: string };
   onPress: () => void;
 }) {
@@ -942,10 +1040,19 @@ function CompactRow({
     <ListItem
       testID={`my-rewards-module-${row.module}`}
       {...COMPACT_ROW_BLEED_PROPS}
-      icon={MODULE_ICON[row.module]}
+      icon={INVITE_REWARD_SUBJECT_ICON[MODULE_SUBJECT[row.module]]}
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={MODULE_SUBJECT[row.module]}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -1046,6 +1153,7 @@ function MyRewardsContentBody({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const rewardScopes = useInviteRewardScopes();
   const {
     activeAccount: { account, indexedAccount, ready: accountReady },
   } = useActiveAccount({ num: 0 });
@@ -1095,9 +1203,18 @@ function MyRewardsContentBody({
       : undefined;
 
   const walletAddress = earnAccount?.accountAddress;
+  // Started here, beside the overview, so an empty Perks tab does not wait on
+  // it once the overview lands.
+  const bindStatus = useBenefitsBindStatus();
 
+  // Overviews this mount fetched. A cached one paints first but is not what
+  // this visit loaded, so the analytics below wait for one of these.
+  const fetchedOverviewResultsRef = useRef(
+    new WeakSet<{ address: string; overview: IInviteeRewardsOverview }>(),
+  );
   const {
     result: overviewResult,
+    setResult: setOverviewResult,
     isLoading: isLoadingOverview,
     run: reloadOverview,
   } = usePromiseResult(
@@ -1110,14 +1227,33 @@ function MyRewardsContentBody({
         await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview({
           walletAddress: address,
         });
-      return { address, overview };
+      const fetched = { address, overview };
+      fetchedOverviewResultsRef.current.add(fetched);
+      return fetched;
     },
     [walletAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      // The cached overview paints while the fresh one loads, so the product
+      // skeleton does not collapse into the empty card on every open. The
+      // address check below keeps another address's overview out; it
+      // compares lowercased, like the key, so a cache entry written under
+      // another casing of the same address still paints.
+      swrKey: walletAddress
+        ? swrKeys.referralPerksOverview({ walletAddress })
+        : undefined,
+      // A failed product would reopen on its error row before the retry.
+      swrShouldPersist: (result) =>
+        result !== undefined &&
+        Object.values(result.overview).every(
+          (module) => module.status === 'success',
+        ),
+    },
   );
   // A just-switched account still has the previous overview for one render.
   const overview =
-    overviewResult && overviewResult.address === walletAddress
+    overviewResult &&
+    overviewResult.address.toLowerCase() === walletAddress?.toLowerCase()
       ? overviewResult.overview
       : undefined;
 
@@ -1145,7 +1281,14 @@ function MyRewardsContentBody({
       return;
     } else if (isUnsupported) {
       status = 'no_evm';
-    } else if (isLoadingOverview || !overview) {
+    } else if (
+      isLoadingOverview ||
+      !overview ||
+      !overviewResult ||
+      !fetchedOverviewResultsRef.current.has(overviewResult)
+    ) {
+      // A cached overview reports nothing: the address would be marked as
+      // reported before the fetched one could say what it holds.
       return;
     } else {
       status = getPerksHomeStatus(overview);
@@ -1168,6 +1311,7 @@ function MyRewardsContentBody({
     hasAccount,
     isLoadingOverview,
     overview,
+    overviewResult,
     walletAddress,
   ]);
 
@@ -1188,13 +1332,15 @@ function MyRewardsContentBody({
     (!hasAccount && isAccountPending) ||
     (hasAccount && earnAccount === undefined);
   const isUnsupported = hasAccount && !isResolving && !earnAccount;
-  const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
+  const isLoading = isResolving || !overview;
   const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
     getModuleRow(module, isLoading, overview),
   );
   const handleRowPress = (row: IModuleRow) => {
     if (row.status === 'error') {
+      // Back to the skeleton while the retry runs.
+      setOverviewResult(undefined);
       void reloadOverview();
       return;
     }
@@ -1206,7 +1352,17 @@ function MyRewardsContentBody({
     }
   };
   const titleFor = (module: IRewardModule) =>
-    intl.formatMessage({ id: MODULE_TITLE[module] });
+    intl.formatMessage({
+      id: INVITE_REWARD_SUBJECT_TITLE[MODULE_SUBJECT[module]],
+    });
+  const scopeFor = (module: IRewardModule) =>
+    getInviteRewardScopeDescription(MODULE_SUBJECT[module], rewardScopes);
+  const scopeItems = getInviteRewardScopeItems(
+    MODULES.map((module) => ({
+      subject: MODULE_SUBJECT[module],
+      scopeDescription: scopeFor(module),
+    })),
+  );
   const sectionTitle = intl.formatMessage({
     id: ETranslations.referral_earnings_by_product__title,
   });
@@ -1228,7 +1384,12 @@ function MyRewardsContentBody({
       );
     }
     if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder />;
+      return (
+        <BenefitsTabPlaceholder
+          bindStatus={bindStatus}
+          scopeItems={scopeItems}
+        />
+      );
     }
     if (md) {
       return (
@@ -1238,6 +1399,7 @@ function MyRewardsContentBody({
               key={row.module}
               row={row}
               title={titleFor(row.module)}
+              scopeDescription={scopeFor(row.module)}
               labels={labels}
               onPress={() => handleRowPress(row)}
             />
@@ -1265,6 +1427,7 @@ function MyRewardsContentBody({
             key={row.module}
             row={row}
             title={titleFor(row.module)}
+            scopeDescription={scopeFor(row.module)}
             noRewardLabel={labels.noReward}
             onPress={() => handleRowPress(row)}
           />
@@ -1354,7 +1517,21 @@ function MyRewardsContentBody({
       </XStack>
       {/* A group gap: the summary scopes the table but is not part of it. */}
       <YStack px="$pagePadding" pt="$8" gap="$3">
-        <SizableText size="$headingLg">{sectionTitle}</SizableText>
+        {/* Whose rewards these are, beside the rewards they describe rather
+            than alone across from the tabs. */}
+        <XStack ai="center" gap="$3" minWidth={0}>
+          <SizableText size="$headingLg" flexShrink={0}>
+            {sectionTitle}
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {tabCopy.perksIntro}
+          </SizableText>
+        </XStack>
         {renderBreakdown()}
       </YStack>
       {crossLink}

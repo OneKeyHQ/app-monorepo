@@ -86,4 +86,29 @@ describe('MobileMarketStockListItem', () => {
       expect(screen.queryByTestId('stock-volume')).toBeNull();
     },
   );
+
+  it('keeps missing wide quote values as plain placeholders', () => {
+    render(
+      <MobileMarketStockListItem
+        item={{ ...stock, price: '', volume24h: undefined }}
+        onPress={jest.fn()}
+        bannerColumnMode="three"
+      />,
+    );
+    expect(screen.queryByTestId('stock-price')).toBeNull();
+    expect(screen.queryByTestId('stock-volume')).toBeNull();
+    expect(screen.getAllByText('--')).toHaveLength(2);
+  });
+
+  it('keeps the company name and shows volume once in three-column mode', () => {
+    render(
+      <MobileMarketStockListItem
+        item={stock}
+        onPress={jest.fn()}
+        bannerColumnMode="three"
+      />,
+    );
+    expect(screen.getByTestId('stock-name').textContent).toBe('NVIDIA');
+    expect(screen.getAllByTestId('stock-volume')).toHaveLength(1);
+  });
 });

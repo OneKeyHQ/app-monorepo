@@ -4,7 +4,10 @@ import { isNil } from 'lodash';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
-import { EOnChainHistoryTxStatus } from '../../types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxStatus,
+} from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 import { ETranslations } from '../locale';
@@ -19,10 +22,27 @@ import type {
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
+  IOnChainHistoryTxTransfer,
 } from '../../types/history';
 
 // usd
 const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
+
+export function getOnChainHistoryTransferDisplayAddress({
+  transfer,
+  endpoint,
+}: {
+  transfer: IOnChainHistoryTxTransfer;
+  endpoint: 'from' | 'to';
+}): string {
+  if (transfer.type === EOnChainHistoryTransferType.Shielded) {
+    // Only a real address; the indexer may put the label there.
+    return transfer.address && transfer.address !== transfer.label
+      ? transfer.address
+      : '';
+  }
+  return transfer[endpoint];
+}
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,
@@ -178,8 +198,8 @@ export function getHistoryTxDetailInfo({
   const gasFee = txDetails?.gasFee ?? decodedTx?.totalFeeInNative;
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx?.totalFeeFiatValue;
-  const confirmations = txDetails?.confirmations;
-  const blockHeight = txDetails?.block;
+  const confirmations = txDetails?.confirmations ?? decodedTx?.confirmations;
+  const blockHeight = txDetails?.block ?? decodedTx?.block;
 
   return {
     date,
@@ -422,4 +442,43 @@ export function filterHistoryTxs({
     }
     return true;
   });
+}
+
+/**
+ * The amount a UTXO history row should display. The server's `value` is the
+ * account's net change, so it is `0` when every input and output belongs to
+ * the account — a transfer between two of its own addresses (fresh receive
+ * address to fresh receive address). Show what actually moved instead: the
+ * owned outputs the server does not explicitly mark as change. A transaction
+ * whose owned outputs are all change has no recipient, so it keeps the net
+ * value rather than presenting the change as a payment.
+ */
+export function getUtxoHistoryDisplayValue({
+  value,
+  sends,
+  receives,
+}: Pick<IOnChainHistoryTx, 'value' | 'sends' | 'receives'>): string {
+  const valueBN = new BigNumber(value ?? '');
+  if (!valueBN.isNaN() && !valueBN.isZero()) {
+    return value;
+  }
+  if (!sends?.length || !receives?.length) {
+    return value;
+  }
+  const isSelfTransfer =
+    sends.every((send) => send.isOwn === true) &&
+    receives.every((receive) => receive.isOwn === true);
+  if (!isSelfTransfer) {
+    return value;
+  }
+  const moved = receives
+    .filter((receive) => receive.isChange !== true)
+    .reduce(
+      (sum, receive) => sum.plus(new BigNumber(receive.amount ?? 0)),
+      new BigNumber(0),
+    );
+  if (moved.isNaN() || moved.isZero()) {
+    return value;
+  }
+  return moved.toFixed();
 }

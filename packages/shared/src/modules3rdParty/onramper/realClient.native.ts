@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 
-import { OnramperClient } from '@onramper/onramper-react-native';
-
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
+
+import { hasVerifiedOnramperUserInfo } from './utils';
 
 import type {
   ICreateOnramperClientParams,
@@ -20,6 +20,12 @@ import type {
   OnramperLogLevel,
   OnramperState,
 } from '@onramper/onramper-react-native';
+
+const OnramperClient = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (
+      require('@onramper/onramper-react-native') as typeof import('@onramper/onramper-react-native')
+    ).OnramperClient;
 
 // Flattens an SDK checkout event to the event-agnostic IOnramperEvent shape
 // the kit layer consumes (the SDK nests per-variant data, e.g. the failure
@@ -98,6 +104,7 @@ function toOnramperState(s: OnramperState): IOnramperState {
       return {
         kind: s.kind,
         requirementTypes: s.requirements.map((r) => r.type),
+        hasVerifiedUserInfo: hasVerifiedOnramperUserInfo(s.requirements),
       };
     case 'rendering':
       return {
@@ -183,7 +190,7 @@ function withRecoveredErrorCode(error: unknown): unknown {
 // SDK has no getter and the read must never take the client down with it.
 function readNativeSdkVersion(): string | undefined {
   try {
-    const version: unknown = OnramperClient.sdkVersion;
+    const version: unknown = OnramperClient?.sdkVersion;
     return typeof version === 'string' && version ? version : undefined;
   } catch {
     return undefined;
@@ -208,6 +215,11 @@ export function createRealOnramperClient(
   if (!params.apiKey || !params.clientId) {
     throw new OneKeyLocalError(
       'Onramper credentials missing: fill ONRAMPER_API_KEY / ONRAMPER_CLIENT_ID in realClient.native.ts',
+    );
+  }
+  if (!OnramperClient) {
+    throw new OneKeyLocalError(
+      'Onramper Headless SDK is unavailable on Mac Catalyst',
     );
   }
   const { onLog } = params;

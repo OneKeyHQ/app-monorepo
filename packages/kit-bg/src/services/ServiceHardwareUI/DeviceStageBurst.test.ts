@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
+  EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
 import {
@@ -45,6 +46,7 @@ import {
 import type {
   IDeviceStageState,
   IHardwareUiPayload,
+  IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
 
 jest.mock('../../states/jotai/atoms', () => {
@@ -1065,6 +1067,117 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token });
   });
 
+  it('carries the QR fallback reason the card knows, and only on its own ask', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    for (const [reason, expected] of [
+      ['wallet-mismatch', 'wallet-mismatch'],
+      ['device-locked', 'device-locked'],
+      ['usb-unavailable', 'usb-unavailable'],
+      ['payload-too-large', 'payload-too-large'],
+      ['something-new', undefined],
+      [undefined, undefined],
+    ] as const) {
+      await scope.onThirdPartyState({
+        ui: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          payload: { requestId: 'fallback', reason },
+        },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('qrFallback');
+      expect(stage?.qrFallbackReason).toBe(expected);
+    }
+    // Another ask's reason (e.g. a reconnect request) never reaches the card.
+    await scope.onThirdPartyState({
+      ui: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.requestDeviceNotFound,
+        payload: { reason: 'wallet-mismatch' },
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.qrFallbackReason).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
+  it('names the app on openApp only for a wallet-match check', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.ledger,
+    });
+    const openApp = (
+      payload?: IThirdPartyHardwareUiState['payload'],
+      action = EThirdPartyHardwareUiAction.openApp,
+    ) =>
+      scope.onThirdPartyState({
+        ui: { vendor: EHardwareVendor.ledger, action, payload },
+        install: undefined,
+        batch: undefined,
+      });
+
+    await openApp({ appName: 'Bitcoin', openAppReason: 'walletMatch' });
+    expect(stage?.step).toBe('openApp');
+    expect(stage?.appName).toBe('Bitcoin');
+    expect(stage?.openAppReason).toBe('walletMatch');
+
+    for (const payload of [
+      undefined,
+      { appName: 'Bitcoin' },
+      { openAppReason: 'walletMatch' as const },
+    ]) {
+      await openApp(payload);
+      expect(stage?.step).toBe('openApp');
+      expect(stage?.appName).toBeUndefined();
+      expect(stage?.openAppReason).toBeUndefined();
+    }
+
+    // Another ask carrying the same payload never names an app.
+    await openApp(
+      { appName: 'Bitcoin', openAppReason: 'walletMatch' },
+      EThirdPartyHardwareUiAction.unlockDevice,
+    );
+    expect(stage?.step).toBe('unlockDevice');
+    expect(stage?.appName).toBeUndefined();
+    expect(stage?.openAppReason).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
+  it('carries only the current QR fallback request id through the stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    for (const requestId of ['fallback-first', 'fallback-next', undefined]) {
+      await scope.onThirdPartyState({
+        ui: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          payload: requestId ? { requestId } : undefined,
+        },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('qrFallback');
+      expect(stage?.thirdPartyRequestId).toBe(requestId);
+    }
+    await scope.onThirdPartyState({
+      ui: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.processing,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.thirdPartyRequestId).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
   it('keeps a yielded stage off the Trezor BLE binding list until the device asks', async () => {
     // OK-63224: the flow's SDK call waits on the binding list, the stage
     // yields to it, and neither the probe's own waits (connecting,
@@ -1115,6 +1228,57 @@ describe('DeviceStageBurstScope', () => {
     // Lifted for good: the rail's own ending plays, ✓ then off.
     await scope.endExplicit({ token });
     expect(stage?.step).toBe('done');
+  });
+
+  it("carries a code's note across the scan and back, and drops it with the code", async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    const valueUr = { type: 'bytes', cbor: 'a0' };
+    const notice = { key: ETranslations.keystone_account_export__desc };
+
+    await scope.qrShowCode({ valueUr, sessionId: 1, notice });
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrNoticeI18n).toEqual(notice);
+
+    await scope.qrProceedToScan();
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrNoticeI18n).toEqual(notice);
+
+    await scope.qrBackToShow();
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrNoticeI18n).toEqual(notice);
+
+    // A newer code without a note does not inherit the old one.
+    await scope.qrShowCode({ valueUr, sessionId: 2 });
+    expect(stage?.qrNoticeI18n).toBeUndefined();
+
+    await scope.qrShowCode({ valueUr, sessionId: 3, notice });
+    await scope.qrNoteScanCompleted();
+    expect(stage?.step).toBe('processing');
+    expect(stage?.qrNoticeI18n).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
+  it('starts a camera-only session without retaining a previous request code or back target', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    await scope.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'a0' },
+      sessionId: 1,
+      notice: { key: ETranslations.keystone_account_export__desc },
+    });
+    await scope.qrStartScan({ sessionId: 2 });
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrSessionId).toBe(2);
+    expect(stage?.qrValueUr).toBeUndefined();
+    expect(stage?.qrNoticeI18n).toBeUndefined();
+    await scope.qrBackToShow();
+    expect(stage?.step).toBe('scanQr');
+    await scope.endExplicit({ token });
   });
 
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {
@@ -1697,6 +1861,41 @@ describe('DeviceStageBurstScope', () => {
     releaseAskRead?.();
     await ask;
     expect(stage?.step).toBe('off');
+  });
+
+  it('drops completed transfer progress when a later processing step has no payload', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const payload: IHardwareUiPayload = {
+      uiRequestType: EHardwareUiStateAction.DEVICE_PROGRESS,
+      eventType: 'ui',
+      deviceType: EDeviceType.Pro2,
+      deviceId: 'stage-test-device',
+      connectId: CONNECT_ID,
+      deviceMode: EOneKeyDeviceMode.normal,
+      rawPayload: undefined,
+      requestPinType: 'PinEntry',
+      deviceProgress: {
+        progress: 100,
+        totalBytes: 1024,
+        transferredBytes: 1024,
+      },
+    };
+    await scope.noteStep('processing', { payload });
+    expect(stage?.payload?.deviceProgress?.progress).toBe(100);
+
+    await scope.noteStep('processing');
+    expect(stage?.payload?.deviceProgress).toBeUndefined();
+    expect(stage?.payload?.requestPinType).toBe('PinEntry');
+
+    await scope.noteStep('processing', {
+      payload: {
+        ...payload,
+        deviceProgress: { progress: 50, totalBytes: 1024 },
+      },
+    });
+    expect(stage?.payload?.deviceProgress?.progress).toBe(50);
   });
 
   it('keeps an ask on stage when a detached wait note lands after it', async () => {

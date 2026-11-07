@@ -29,6 +29,8 @@ function MarketDetailResponsiveLayoutBase({
   marketTokenCategory,
   showFavoriteButton,
   disableTrade,
+  initialSection,
+  onInitialSectionShown,
 }: IMarketDetailResponsiveLayoutProps) {
   if (isDesktopLayout) {
     // The favorites sidebar wraps both states so resolving a token picked from
@@ -64,6 +66,8 @@ function MarketDetailResponsiveLayoutBase({
             marketTokenCategory={marketTokenCategory}
             disableTrade={disableTrade}
             showFavoriteButton={showFavoriteButton}
+            initialSection={initialSection}
+            onInitialSectionShown={onInitialSectionShown}
           />
         )}
       </MarketDetailWatchlistSidebarFrame>

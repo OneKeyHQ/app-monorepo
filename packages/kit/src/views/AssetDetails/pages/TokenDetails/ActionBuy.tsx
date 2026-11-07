@@ -29,7 +29,12 @@ import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 
 import type { IActionProps } from './type';
 
-type IActionBuyContentProps = Omit<IActionProps, 'isTabView'> & {
+type IActionBuyProps = IActionProps & {
+  inList?: boolean;
+  onClose?: () => void;
+};
+
+type IActionBuyContentProps = Omit<IActionBuyProps, 'isTabView'> & {
   focusParam: boolean;
 };
 
@@ -126,6 +131,8 @@ function ActionBuyContent({
   disabled,
   source,
   focusParam,
+  inList = false,
+  onClose = () => {},
   ...rest
 }: IActionBuyContentProps) {
   const intl = useIntl();
@@ -238,6 +245,41 @@ function ActionBuyContent({
   const iconName = 'CurrencyDollarOutline' as const;
   const actionItemIcon =
     source === 'earn' && rest.showButtonStyle ? null : iconName;
+
+  if (inList) {
+    if (bothSupported) {
+      return (
+        <>
+          <ActionList.Item
+            testID="token-details-more-buy"
+            icon="PlusLargeOutline"
+            label={intl.formatMessage({ id: ETranslations.global_buy })}
+            disabled={effectiveDisabled || loading}
+            onClose={onClose}
+            onPress={() => openFiatUrl('buy')}
+          />
+          <ActionList.Item
+            testID="token-details-more-sell"
+            icon="MinusLargeOutline"
+            label={intl.formatMessage({ id: ETranslations.global_cash_out })}
+            disabled={effectiveDisabled || loading}
+            onClose={onClose}
+            onPress={() => openFiatUrl('sell')}
+          />
+        </>
+      );
+    }
+    return (
+      <ActionList.Item
+        testID="token-details-more-buy"
+        icon={iconName}
+        label={label}
+        disabled={effectiveDisabled || loading}
+        onClose={onClose}
+        onPress={handleDirectPress}
+      />
+    );
+  }
 
   // Single-action or loading: buy-only or sell-only → direct URL, use ActionItem
   if (!bothSupported || rest.showButtonStyle) {
@@ -369,13 +411,13 @@ function ActionBuyContent({
   );
 }
 
-function ActionBuyWithTabFocus(props: Omit<IActionProps, 'isTabView'>) {
+function ActionBuyWithTabFocus(props: Omit<IActionBuyProps, 'isTabView'>) {
   const { isFocused } = useTabIsRefreshingFocused();
 
   return <ActionBuyContent {...props} focusParam={isFocused} />;
 }
 
-function ActionBuy(props: IActionProps) {
+function ActionBuy(props: IActionBuyProps) {
   const { isTabView, ...contentProps } = props;
 
   if (isTabView) {

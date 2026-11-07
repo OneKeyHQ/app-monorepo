@@ -54,24 +54,25 @@ function PerpNativeCandles({
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  const { baseName, coin, mode } = useActiveTradeDisplay();
+  const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const fullscreenHeader = useMemo(
     () =>
       platformEnv.isNative ? (
         <TradingViewNativeTokenHeader
-          name={baseName}
+          name={mode === 'spot' ? displayName : `${displayName}USDC`}
           {...(mode === 'spot'
             ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
             : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
         />
       ) : undefined,
-    [baseName, coin, mode],
+    [baseName, coin, displayName, mode],
   );
   return (
     <TradingViewNative
       {...props}
       {...metadata}
       {...orderMenu}
+      isPricePrecisionLoading={metadata.priceDecimalPlaces === undefined}
       nativeChartFullscreenHeader={fullscreenHeader}
       chartComponents={chartComponents}
       onReferenceLineAction={
@@ -86,10 +87,12 @@ export function PerpCandles({
   collapseChartExpandSignal,
   onTouchScroll,
   onInteractionOverlayOpenChange,
+  nativeChartGrowsWithSubIndicators,
 }: {
   // The workspace owns the selector when it supplies a chart mode.
   chartMode?: ITradingViewChartMode;
   collapseChartExpandSignal?: number;
+  nativeChartGrowsWithSubIndicators?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
@@ -97,16 +100,15 @@ export function PerpCandles({
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
-  const [
-    { chartMode: savedChartMode = 'tradingView' },
-    setPerpsCustomSettings,
-  ] = usePerpsCustomSettingsAtom();
+  const [{ chartMode: savedChartMode = 'native' }, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
   const isTradingViewNative = (chartMode ?? savedChartMode) === 'native';
   const showChartModeSelect = chartMode === undefined;
   const [isMobileChartFullscreen, setIsMobileChartFullscreen] = useState(false);
   const [isChartInteracting, setIsChartInteracting] = useState(false);
   const { gtMd } = useMedia();
   const isDesktopLayout = gtMd && !platformEnv.isNative;
+  const enableNativeChartControls = isDesktopLayout || platformEnv.isNative;
   // Perp layouts remount at this breakpoint; keep the legacy WebView URL stable.
   const [enablePerpsTradingUi] = useState(isDesktopLayout);
   const source = useMemo<ITradingViewNativeSource>(
@@ -176,7 +178,7 @@ export function PerpCandles({
     setIsChartInteracting(false);
     void setPerpsCustomSettings((current) => ({
       ...current,
-      chartMode: current.chartMode === 'native' ? 'tradingView' : 'native',
+      chartMode: current.chartMode === 'tradingView' ? 'native' : 'tradingView',
     }));
   }, [
     handleFullscreenChange,
@@ -197,7 +199,9 @@ export function PerpCandles({
 
   const content = (
     <Stack w="100%" h="100%" flex={1} minHeight={0}>
-      {!isTradingViewNative && showChartModeSelect && !isDesktopLayout ? (
+      {!isTradingViewNative &&
+      showChartModeSelect &&
+      !enableNativeChartControls ? (
         <XStack
           h={TRADING_VIEW_CHART_CONTROLS_HEIGHT}
           px="$2"
@@ -223,9 +227,11 @@ export function PerpCandles({
           onInteractionChange={setIsChartInteracting}
           enableNativeChartSettings
           enableDrawings={!platformEnv.isNative}
+          prioritizePageScroll={platformEnv.isNativeIOS}
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
           showNativeIndicatorQuickBar={platformEnv.isNative}
+          nativeChartGrowsWithSubIndicators={nativeChartGrowsWithSubIndicators}
           onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
           isNativeChartFullscreen={
             isDesktopLayout ? chartExpanded : isMobileChartFullscreen
@@ -238,7 +244,7 @@ export function PerpCandles({
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
-          enableNativeChartControls={isDesktopLayout}
+          enableNativeChartControls={enableNativeChartControls}
           isNativeChartFullscreen={chartExpanded}
           onNativeChartFullscreenChange={
             isDesktopLayout ? handleFullscreenChange : undefined

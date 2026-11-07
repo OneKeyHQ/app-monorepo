@@ -38,6 +38,8 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
+import { LocalWalletFrozenLines } from '../../../AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
+
 import type { IntlShape } from 'react-intl';
 
 const detailsBlockStyles: ComponentProps<typeof Stack> = {
@@ -101,6 +103,7 @@ function BalanceDetailsContent({
       effectiveMergeDeriveAssetsEnabled,
       showDeriveItems: s,
       networkAccounts: n,
+      isLocalWallet: !!vaultSettings.localWallet,
     };
   }, [
     networkId,
@@ -115,7 +118,20 @@ function BalanceDetailsContent({
     effectiveMergeDeriveAssetsEnabled,
     showDeriveItems,
     networkAccounts,
+    isLocalWallet,
   } = result ?? {};
+
+  // Privacy chains say why each part is frozen, and offer the password check
+  // when that is what is missing.
+  const { result: localWalletFrozen, run: refreshLocalWalletFrozen } =
+    usePromiseResult(async () => {
+      if (!isLocalWallet || !accountId) return undefined;
+      const balance =
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountBalance(
+          { networkId, accountId },
+        );
+      return balance?.frozen;
+    }, [isLocalWallet, accountId, networkId]);
 
   const {
     result: { overview, network, account } = {
@@ -273,26 +289,36 @@ function BalanceDetailsContent({
     return (
       <YStack {...(detailsBlockStyles as IYStackProps)}>
         <XStack justifyContent="space-between" alignItems="center">
-          <XStack>
-            <Button
-              testID="home-render-frozen-balance-btn"
-              variant="tertiary"
-              iconAfter="QuestionmarkOutline"
-              color="$textSubdued"
-              onPress={() => {
-                if (platformEnv.isDesktop || platformEnv.isNative) {
-                  onClose?.();
-                  openUrlInDiscovery({ url: whatIsFrozenBalanceUrl });
-                } else {
-                  openUrlExternal(whatIsFrozenBalanceUrl);
-                }
-              }}
-            >
+          {isLocalWallet ? (
+            // Scanned chains freeze funds for their own reasons; the ordinals
+            // label and article below are about Bitcoin inscriptions only.
+            <SizableText size="$bodyLg" color="$textSubdued" flex={1} pr="$3">
               {intl.formatMessage({
-                id: ETranslations.balance_detail_protected_ordinals,
+                id: ETranslations.privacy_balance_frozen__title,
               })}
-            </Button>
-          </XStack>
+            </SizableText>
+          ) : (
+            <XStack>
+              <Button
+                testID="home-render-frozen-balance-btn"
+                variant="tertiary"
+                iconAfter="QuestionmarkOutline"
+                color="$textSubdued"
+                onPress={() => {
+                  if (platformEnv.isDesktop || platformEnv.isNative) {
+                    onClose?.();
+                    openUrlInDiscovery({ url: whatIsFrozenBalanceUrl });
+                  } else {
+                    openUrlExternal(whatIsFrozenBalanceUrl);
+                  }
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.balance_detail_protected_ordinals,
+                })}
+              </Button>
+            </XStack>
+          )}
           {isLoading ? (
             <Skeleton.BodyLg />
           ) : (
@@ -303,6 +329,20 @@ function BalanceDetailsContent({
             </SizableText>
           )}
         </XStack>
+        {isLocalWallet && accountId ? (
+          <YStack mt="$3">
+            <LocalWalletFrozenLines
+              networkId={networkId}
+              accountId={accountId}
+              frozen={localWalletFrozen}
+              symbol={network?.symbol}
+              onVerified={() => {
+                void refreshDetails();
+                void refreshLocalWalletFrozen();
+              }}
+            />
+          </YStack>
+        ) : null}
         {showDeriveItems && networkAccounts ? (
           <YStack gap="$2" mt="$3">
             {networkAccounts.map((item, index) => {
@@ -406,6 +446,10 @@ function BalanceDetailsContent({
     showDeriveItems,
     whatIsFrozenBalanceUrl,
     intl,
+    isLocalWallet,
+    accountId,
+    localWalletFrozen,
+    refreshLocalWalletFrozen,
   ]);
 
   return (

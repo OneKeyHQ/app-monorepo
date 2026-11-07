@@ -9,7 +9,8 @@ import {
   GOOGLE_LOGO_URL,
   SEARCH_ITEM_ID,
 } from '@onekeyhq/shared/src/consts/discovery';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM, IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -39,6 +40,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { PERPS_ASSET_TYPE_VERSION } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IRpcProxyResponse } from '@onekeyhq/shared/types/proxy';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
@@ -153,6 +155,7 @@ class ServiceUniversalSearch extends ServiceBase {
               return {
                 type: EUniversalSearchType.V2MarketToken as const,
                 payload: {
+                  assetId: configToken.assetId,
                   name: batchItem?.name ?? configToken.name,
                   symbol: batchItem?.symbol ?? configToken.symbol,
                   price: batchItem?.price ?? '0',
@@ -609,11 +612,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     // Execute account name search in parallel
     const accountNameResults = await accountNameSearchPromise;
@@ -920,6 +922,55 @@ class ServiceUniversalSearch extends ServiceBase {
     return items;
   }
 
+  private nearSearchAccountExists = memoizee(
+    async (networkId: string, address: string): Promise<boolean> => {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<IRpcProxyResponse<{ amount: string }>>(
+        '/wallet/v1/proxy/wallet',
+        {
+          networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'query',
+                params: {
+                  request_type: 'view_account',
+                  account_id: address,
+                  finality: 'final',
+                },
+              },
+            },
+          ],
+        },
+        { timeout: timerUtils.getTimeDurationMs({ seconds: 3 }) },
+      );
+      const response = resp.data.data.data?.[0];
+      const error = response?.error;
+      if (error && 'cause' in error) {
+        const { cause } = error;
+        if (
+          cause &&
+          typeof cause === 'object' &&
+          'name' in cause &&
+          cause.name === 'UNKNOWN_ACCOUNT'
+        ) {
+          return false;
+        }
+      }
+      if (error || typeof response?.result?.amount !== 'string') {
+        // Reject transient/malformed responses so memoizee does not cache them.
+        throw new OneKeyLocalError('NEAR search account lookup failed');
+      }
+      return true;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 100,
+      promise: true,
+    },
+  );
+
   private async findExternalAddresses({
     input,
     networkId,
@@ -950,6 +1001,20 @@ class ServiceUniversalSearch extends ServiceBase {
         );
 
         if (network && localValidateResult.isValid) {
+          if (
+            network.impl === IMPL_NEAR &&
+            localValidateResult.encoding === EAddressEncodings.REGISTER_ACCOUNT
+          ) {
+            // A syntactically valid name can also be an ordinary web domain.
+            const exists = await this.nearSearchAccountExists(
+              batchNetworkId,
+              localValidateResult.normalizedAddress,
+            ).catch(() => false);
+            if (!exists) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+          }
           const dedupeKey = this.buildAddressImplDedupeKey(
             localValidateResult.displayAddress,
             batchNetworkId,
@@ -1000,11 +1065,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     if (!batchValidateResult.isValid) {
       return { items: [] } as IUniversalSearchSingleResult;
