@@ -137,6 +137,21 @@ body {
     var(--bgApp);
 }
 
+[data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  border-radius: 2px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-corner {
+  background: var(--bgApp);
+}
+
 .show-scrollbar ::-webkit-scrollbar {
   width: 8px;
   height: unset;
@@ -310,6 +325,20 @@ textarea {
     [data-native-list-account-control='createAddress']
   ) {
   cursor: default;
+}
+
+/* Watchlist rows stay reorderable but keep the default cursor. */
+[data-testid='market-watchlist-list']
+  .ok-native-list-item[data-native-list-reorderable='true']
+  > .ok-native-list-row {
+  cursor: default;
+}
+
+/* NFT tiles signal hover by dimming the image, without a tile background. */
+[data-testid='home-nft-list']
+  .ok-native-list-item[data-native-list-row-press-enabled='true']:hover
+  .ok-native-list-media-image {
+  opacity: 0.8;
 }
 
 /* The package centers the index rail inside its host container through an

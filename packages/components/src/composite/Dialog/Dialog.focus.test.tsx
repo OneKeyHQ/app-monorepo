@@ -17,6 +17,10 @@ import {
 } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Keyboard } from '../../content/Keyboard';
+
 import { renderToContainer } from './renderToContainer';
 
 import type { IDialogContainerProps, IDialogInstance } from './type';
@@ -24,6 +28,7 @@ import type { IDialogContainerProps, IDialogInstance } from './type';
 let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
 const mockPeriodInput = <input aria-label="Period" />;
+const mockLowerDialogBody = <span>lower dialog</span>;
 const mockNoopDialogClose = async () => undefined;
 const mockNestedDialog = (
   <DialogContainer
@@ -806,3 +811,87 @@ afterEach(() => {
     .querySelectorAll('[data-dialog-draft-trigger]')
     .forEach((node) => node.remove());
 });
+
+describe.each(['ios', 'android', 'web'] as const)(
+  'Dialog close keyboard ownership on %s',
+  (platform) => {
+    it('preserves another input only on iOS through close and native exit', async () => {
+      const original = {
+        isNative: platformEnv.isNative,
+        isNativeIOS: platformEnv.isNativeIOS,
+        isNativeAndroid: platformEnv.isNativeAndroid,
+      };
+      Object.assign(platformEnv, {
+        isNative: platform !== 'web',
+        isNativeIOS: platform === 'ios',
+        isNativeAndroid: platform === 'android',
+      });
+      const dismissKeyboard = jest.mocked(Keyboard.dismissWithDelay);
+      dismissKeyboard.mockReset();
+      dismissKeyboard.mockImplementation(async () => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      });
+      let mounted: ReturnType<typeof render> | undefined;
+      try {
+        const onClose = jest.fn();
+        const onCloseStart = jest.fn();
+        const dialog = Dialog.show({
+          onClose,
+          onCloseStart,
+          dialogContainer: ({ ref }) => (
+            <DialogContainer
+              ref={ref}
+              showHeader={false}
+              showFooter={false}
+              renderContent={mockLowerDialogBody}
+              onClose={mockNoopDialogClose}
+            />
+          ),
+        });
+        // Opening retains its existing global keyboard dismissal behavior.
+        expect(dismissKeyboard).toHaveBeenCalledTimes(1);
+        const element = jest.mocked(renderToContainer).mock.calls.at(-1)?.[1];
+        mounted = render(
+          <div>
+            <input aria-label="surviving dialog input" />
+            {element}
+          </div>,
+        );
+        const survivor = screen.getByRole('textbox', {
+          name: 'surviving dialog input',
+        });
+        survivor.focus();
+        dismissKeyboard.mockClear();
+        let closing!: Promise<void>;
+        act(() => {
+          closing = Promise.resolve(dialog.close());
+        });
+        await waitFor(() => expect(onCloseStart).toHaveBeenCalledTimes(1));
+        expect(dismissKeyboard).toHaveBeenCalledTimes(
+          platform === 'ios' ? 0 : 1,
+        );
+        if (platform === 'ios') expect(document.activeElement).toBe(survivor);
+        act(() => mockPresentation?.onExited?.());
+        await act(async () => {
+          await closing;
+        });
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(dismissKeyboard).toHaveBeenCalledTimes(
+          platform === 'ios' ? 0 : 2,
+        );
+        if (platform === 'ios') expect(document.activeElement).toBe(survivor);
+        act(() => mockPresentation?.onExited?.());
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(dismissKeyboard).toHaveBeenCalledTimes(
+          platform === 'ios' ? 0 : 2,
+        );
+      } finally {
+        mounted?.unmount();
+        Object.assign(platformEnv, original);
+        dismissKeyboard.mockReset();
+      }
+    });
+  },
+);

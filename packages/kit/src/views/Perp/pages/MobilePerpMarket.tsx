@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -49,6 +50,7 @@ import {
   requestHideTabBar,
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '../../../components/TabPageHeader/headerLayout';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { PerpFundingChart } from '../components/MarketDetail/PerpFundingChart';
@@ -80,10 +82,12 @@ import {
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
+import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
+
 // Native sub-indicator panes extend the chart downward; the price pane keeps
 // its height.
 function useMobilePerpChartLayout() {
-  const [{ chartMode = 'tradingView' }] = usePerpsCustomSettingsAtom();
+  const [{ chartMode = 'native' }] = usePerpsCustomSettingsAtom();
   const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
   const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
   return {
@@ -308,6 +312,7 @@ function MobilePerpMarket() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const [activeTab, setActiveTab] = useState<IMobilePerpMarketTab>(initialTab);
   const [hasInfoTabMounted, setHasInfoTabMounted] = useState(
@@ -592,6 +597,33 @@ function MobilePerpMarket() {
     [activeTradeInstrument.coin, mode],
   );
 
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  const isTitleInLeftItem = isFoldableIPhone();
+  const buildHeaderLeftItems = useCallback(
+    (): NativeStackHeaderItem[] => [
+      {
+        type: 'button',
+        label: intl.formatMessage({ id: ETranslations.global_back }),
+        accessibilityLabel: intl.formatMessage({
+          id: ETranslations.global_back,
+        }),
+        icon: { type: 'sfSymbol', name: 'chevron.backward' },
+        identifier: 'perp-market-back',
+        onPress: () => navigation.pop(),
+      },
+      {
+        type: 'custom' as const,
+        element: (
+          <XStack width={FOLDABLE_IPHONE_TITLE_ITEM_WIDTH}>
+            {renderHeaderTitle()}
+          </XStack>
+        ),
+        hidesSharedBackground: true,
+      },
+    ],
+    [intl, navigation, renderHeaderTitle],
+  );
+
   // In split-view detail (SUB) pane the page is rendered inline rather than
   // as a navigator screen, so `Page.Header` (which goes through
   // navigation.setOptions) is a no-op and the user loses the pair selector +
@@ -607,13 +639,23 @@ function MobilePerpMarket() {
       ) : (
         <Page.Header
           headerShown
-          headerTitle={renderHeaderTitle}
           headerRight={renderHeaderRight}
+          {...(isTitleInLeftItem
+            ? {
+                headerTitle: '',
+                unstable_headerLeftItems: buildHeaderLeftItems,
+              }
+            : { headerTitle: renderHeaderTitle })}
         />
       ),
-    [isSplitDetailActive, renderHeaderTitle, renderHeaderRight],
+    [
+      buildHeaderLeftItems,
+      isSplitDetailActive,
+      isTitleInLeftItem,
+      renderHeaderTitle,
+      renderHeaderRight,
+    ],
   );
-  const { top: safeAreaTop } = useSafeAreaInsets();
   const inlineHeader = useMemo(
     () =>
       isSplitDetailActive ? (

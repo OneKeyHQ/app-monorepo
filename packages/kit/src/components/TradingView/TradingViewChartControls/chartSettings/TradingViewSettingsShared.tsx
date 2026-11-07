@@ -247,13 +247,21 @@ export function useSettingsDraftValue<TValue>({
     [onChange],
   );
 
-  const commitDraftValue = useCallback(() => {
-    setIsDraftDirty(false);
-    committedValueRef.current = draftValueRef.current;
-    if (value === undefined) {
-      setInnerCommittedValue(draftValueRef.current);
-    }
-  }, [value]);
+  // Pass the value that was actually persisted when the draft stays editable
+  // during an async save: edits made after it was captured remain a dirty
+  // draft instead of being marked as saved.
+  const commitDraftValue = useCallback(
+    (persistedValue?: TValue) => {
+      const nextCommittedValue =
+        persistedValue === undefined ? draftValueRef.current : persistedValue;
+      setIsDraftDirty(!Object.is(draftValueRef.current, nextCommittedValue));
+      committedValueRef.current = nextCommittedValue;
+      if (value === undefined) {
+        setInnerCommittedValue(nextCommittedValue);
+      }
+    },
+    [value],
+  );
 
   const cancelDraftValue = useCallback(() => {
     const restoredValue = committedValueRef.current;

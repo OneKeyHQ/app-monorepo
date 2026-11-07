@@ -11,11 +11,13 @@ import {
   historySectionKey,
   prepareHomeNativeListSnapshot,
 } from './homeNativeListSnapshot';
+import { NFT_WEB_ROW_FILL_THEME } from './NFTListView/nativeNFTRows';
 
 import type {
   ActivityRow,
   MediaTileRow,
   NativeListSnapshot,
+  NativeListTheme,
 } from '@onekeyfe/react-native-native-list';
 
 let mockValidationDevelopmentMode = true;
@@ -274,6 +276,33 @@ describe('Home NativeList snapshot boundaries', () => {
     expect(prepared.rows.map((row) => row.key)).toEqual(['normal']);
     expect(() => serializeSnapshot(prepared)).not.toThrow();
   });
+
+  it.each([true, false])(
+    'keeps NFT tiles and their clear row fills with development mode %s',
+    (developmentMode) => {
+      mockValidationDevelopmentMode = developmentMode;
+
+      const prepared = prepareHomeNativeListSnapshot({
+        schemaVersion: 1,
+        generation: 1,
+        layout: { kind: 'grid', gridColumns: 2 },
+        theme: NFT_WEB_ROW_FILL_THEME as NativeListTheme,
+        rows: [
+          {
+            key: 'nft',
+            type: 'mediaTile',
+            variant: 'gallery',
+            title: 'NFT',
+            subtitle: 'Collection',
+            imageState: 'error',
+          },
+        ],
+      });
+
+      expect(prepared.rows.map((row) => row.key)).toEqual(['nft']);
+      expect(prepared.theme).toMatchObject(NFT_WEB_ROW_FILL_THEME);
+    },
+  );
 
   it('bounds NFT names and collection names before serializing mixed tiles', () => {
     const longTile: MediaTileRow = {

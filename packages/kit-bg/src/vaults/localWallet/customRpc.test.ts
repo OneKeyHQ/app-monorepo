@@ -1,8 +1,8 @@
 /* eslint-disable import/first */
 // cspell:ignore lightd stagenet
 jest.mock('../../dbs/local/localDbInstance');
-jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch', () => ({
-  xmrHostFetch: jest.fn(),
+jest.mock('@onekeyhq/core/src/utils/privacyChainNodeFetch', () => ({
+  privacyChainNodeFetch: jest.fn(),
 }));
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
@@ -11,12 +11,21 @@ jest.mock(
       typeof import('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect')
     >('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect'),
     fetchZcashLightdInfoDirect: jest.fn(),
+    fetchZcashChainTipDirect: jest.fn(),
   }),
 );
 
-import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
+import {
+  XMR_MAINNET_GENESIS_HASH,
+  XMR_STAGENET_GENESIS_HASH,
+  XMR_TESTNET_GENESIS_HASH,
+} from '@onekeyhq/core/src/chains/xmr/xmrNodeDirect';
 import { ZCASH_LIGHTWALLETD_MAINNET } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { fetchZcashLightdInfoDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import {
+  fetchZcashChainTipDirect,
+  fetchZcashLightdInfoDirect,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 import { XMR_BUILT_IN_NODE_URLS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -24,7 +33,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 
 import ServiceCustomRpc from '../../services/ServiceCustomRpc';
@@ -34,16 +43,22 @@ import ZcashVault from '../impls/zcash/Vault';
 import { localWalletText } from './messages';
 import { setLocalWalletRemoteConfigs } from './remoteConfig';
 
-const hostFetch = jest.mocked(xmrHostFetch!);
+const nodeFetch = jest.mocked(privacyChainNodeFetch);
+const jsonReply = (body: unknown) => new Response(JSON.stringify(body));
+const requestedUrls = () => nodeFetch.mock.calls.map(([url]) => String(url));
 const lightdInfo = jest.mocked(fetchZcashLightdInfoDirect);
+const directTip = jest.mocked(fetchZcashChainTipDirect);
 const HEIGHT = 3_512_327;
+// `/get_height` counts blocks; the app reports the top block's number.
+const TOP_BLOCK = HEIGHT - 1;
 
 beforeEach(() => setLocalWalletRemoteConfigs({}));
 
 afterEach(() => {
   jest.restoreAllMocks();
-  hostFetch.mockReset();
+  nodeFetch.mockReset();
   lightdInfo.mockReset();
+  directTip.mockReset();
   setLocalWalletRemoteConfigs({});
 });
 
@@ -186,6 +201,22 @@ describe('privacy chain node resolution', () => {
       await expect(resolve(service)).resolves.toBe(builtIn);
     });
 
+    // The default shown beside a custom node is the one used once it is off.
+    it('names the default a custom node replaces by the same rule', async () => {
+      const { service } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://custom.example', true),
+      });
+      await expect(service.resolveDefaultRpcUrl({ networkId })).resolves.toBe(
+        builtIn,
+      );
+      setLocalWalletRemoteConfigs({
+        [networkId]: { nodeUrls: ['https://remote.example'] },
+      });
+      await expect(service.resolveDefaultRpcUrl({ networkId })).resolves.toBe(
+        'https://remote.example',
+      );
+    });
+
     it('falls back to the built-in node when the custom node is off', async () => {
       const { service } = createNodeStore({
         [networkId]: customRpcRow(networkId, 'https://custom.example', false),
@@ -241,13 +272,14 @@ describe('privacy chain node resolution', () => {
 describe('XMR custom RPC', () => {
   const createVault = () => Object.create(XmrVault.prototype) as XmrVault;
 
-  it('probes the configured URL through the scanner host relay', async () => {
+  it('probes the configured URL through the node transport', async () => {
     const vault = createVault();
-    hostFetch.mockResolvedValue(
-      bufferUtils.utf8ToBytes(
-        JSON.stringify({
-          height: HEIGHT,
-        }),
+    jest.spyOn(vault, 'getXmrNetwork').mockResolvedValue('mainnet');
+    nodeFetch.mockImplementation(async (url) =>
+      jsonReply(
+        String(url).endsWith('/get_height')
+          ? { height: HEIGHT }
+          : { result: XMR_MAINNET_GENESIS_HASH },
       ),
     );
     await expect(
@@ -255,30 +287,27 @@ describe('XMR custom RPC', () => {
         rpcUrl: ' https://node.example/proxy/// ',
         validateChainId: true,
       }),
-    ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
-    expect(hostFetch).toHaveBeenCalledWith(
+    ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
+    expect(requestedUrls()).toEqual([
       'https://node.example/proxy/get_height',
-      'application/json',
-      new Uint8Array(),
-    );
+      'https://node.example/proxy/json_rpc',
+    ]);
   });
 
-  it('rejects non-HTTP protocols before invoking the relay', async () => {
+  it('rejects non-HTTP protocols before any request', async () => {
     await expect(
       createVault().getCustomRpcEndpointStatus({
         rpcUrl: 'file:///tmp/node',
         validateChainId: true,
       }),
     ).rejects.toThrow('http or https');
-    expect(hostFetch).not.toHaveBeenCalled();
+    expect(nodeFetch).not.toHaveBeenCalled();
   });
 
   it.each([{}, { height: 0 }, { height: -1 }, { height: '100' }])(
     'rejects a response without a usable height: %j',
     async (body) => {
-      hostFetch.mockResolvedValue(
-        bufferUtils.utf8ToBytes(JSON.stringify(body)),
-      );
+      nodeFetch.mockResolvedValue(jsonReply(body));
       await expect(
         createVault().getCustomRpcEndpointStatus({
           rpcUrl: 'https://node.example',
@@ -290,27 +319,62 @@ describe('XMR custom RPC', () => {
     },
   );
 
-  it('preserves relay failures without retrying renderer fetch', async () => {
+  it('reports a node error status as unreachable', async () => {
+    nodeFetch.mockResolvedValue(new Response('', { status: 502 }));
+    await expect(
+      createVault().getCustomRpcEndpointStatus({
+        rpcUrl: 'https://node.example',
+        validateChainId: true,
+      }),
+    ).rejects.toThrow(
+      localWalletText(ETranslations.privacy_error_node_unreachable__msg),
+    );
+  });
+
+  it('preserves a transport failure as is', async () => {
     const failure = new Error('node certificate rejected');
-    hostFetch.mockRejectedValue(failure);
-    const rendererFetch = jest.spyOn(globalThis, 'fetch');
+    nodeFetch.mockRejectedValue(failure);
     await expect(
       createVault().getCustomRpcEndpointStatus({
         rpcUrl: 'https://node.example',
         validateChainId: true,
       }),
     ).rejects.toBe(failure);
-    expect(rendererFetch).not.toHaveBeenCalled();
+  });
+
+  // Phones block cleartext, which arrives as a bare network error.
+  it('asks for https when a phone cannot reach a plain http node', async () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    nodeFetch.mockRejectedValue(new TypeError('Network request failed'));
+    await expect(
+      createVault().getCustomRpcEndpointStatus({
+        rpcUrl: 'http://node.example:18081',
+      }),
+    ).rejects.toThrow('needs an https node');
+    nodeFetch.mockResolvedValue(new Response('', { status: 404 }));
+    await expect(
+      createVault().getCustomRpcEndpointStatus({
+        rpcUrl: 'http://node.example:18081',
+      }),
+    ).rejects.toThrow(
+      localWalletText(ETranslations.privacy_error_node_unreachable__msg),
+    );
   });
 
   describe('network check', () => {
-    function mockNode(info: (() => Uint8Array) | Record<string, unknown>) {
-      hostFetch.mockImplementation(async (url) => {
-        if (url.endsWith('/get_height')) {
-          return bufferUtils.utf8ToBytes(JSON.stringify({ height: HEIGHT }));
+    // Serves the height, and the genesis reply or failure for the network check.
+    function mockNode(genesis: (() => Response) | Record<string, unknown>) {
+      nodeFetch.mockImplementation(async (url, init) => {
+        if (String(url).endsWith('/get_height')) {
+          return jsonReply({ height: HEIGHT });
         }
-        if (typeof info === 'function') return info();
-        return bufferUtils.utf8ToBytes(JSON.stringify(info));
+        expect(String(url)).toMatch(/\/json_rpc$/);
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          method: 'on_get_block_hash',
+          params: [0],
+        });
+        if (typeof genesis === 'function') return genesis();
+        return jsonReply(genesis);
       });
     }
 
@@ -320,67 +384,88 @@ describe('XMR custom RPC', () => {
       return vault;
     }
 
-    it.each([
-      { nettype: 'stagenet' },
-      { nettype: 'testnet' },
-      { mainnet: false, stagenet: true },
-    ])('rejects a node on another network: %j', async (info) => {
-      mockNode(info);
-      await expect(
-        createMainnetVault().getCustomRpcEndpointStatus({
-          rpcUrl: 'https://node.example/',
-          validateChainId: true,
-        }),
-      ).rejects.toThrow('different network');
-      expect(hostFetch).toHaveBeenLastCalledWith(
-        'https://node.example/get_info',
-        'application/json',
-        new Uint8Array(),
-      );
-    });
+    it.each([XMR_MAINNET_GENESIS_HASH, XMR_MAINNET_GENESIS_HASH.toUpperCase()])(
+      'accepts a node whose genesis block is mainnet: %s',
+      async (result) => {
+        mockNode({ result });
+        await expect(
+          createMainnetVault().getCustomRpcEndpointStatus({
+            rpcUrl: 'https://node.example',
+            validateChainId: true,
+          }),
+        ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
+      },
+    );
 
-    it.each([
-      { nettype: 'mainnet', mainnet: true },
-      { mainnet: true },
-      {},
-      { nettype: 'Mainnet' },
-    ])('accepts a mainnet or silent node: %j', async (info) => {
-      mockNode(info);
-      await expect(
-        createMainnetVault().getCustomRpcEndpointStatus({
-          rpcUrl: 'https://node.example',
-          validateChainId: true,
-        }),
-      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
-    });
+    it.each([XMR_TESTNET_GENESIS_HASH, XMR_STAGENET_GENESIS_HASH])(
+      'rejects a node on another network: %s',
+      async (result) => {
+        mockNode({ result });
+        await expect(
+          createMainnetVault().getCustomRpcEndpointStatus({
+            rpcUrl: 'https://node.example/',
+            validateChainId: true,
+          }),
+        ).rejects.toThrow('different network');
+      },
+    );
 
-    it('accepts a node whose /get_info is unavailable or not JSON', async () => {
-      for (const info of [
+    // The runtime refuses such a node, so the form does too.
+    it('rejects a node that does not confirm its network', async () => {
+      for (const genesis of [
+        { result: 'ab'.repeat(32) },
+        { error: { code: -32_601 } },
+        {},
         () => {
-          throw new OneKeyLocalError('404');
+          throw new OneKeyLocalError('offline');
         },
-        () => bufferUtils.utf8ToBytes('<html>not found</html>'),
-        () => bufferUtils.utf8ToBytes('null'),
+        () => new Response('', { status: 404 }),
+        () => new Response('<html>not found</html>'),
       ]) {
-        mockNode(info);
+        mockNode(genesis);
         // eslint-disable-next-line no-await-in-loop
         await expect(
           createMainnetVault().getCustomRpcEndpointStatus({
             rpcUrl: 'https://node.example',
             validateChainId: true,
           }),
-        ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+        ).rejects.toThrow('did not confirm');
       }
     });
 
     it('skips the check when chain validation is not requested', async () => {
-      mockNode({ nettype: 'stagenet' });
+      mockNode({ result: XMR_STAGENET_GENESIS_HASH });
       await expect(
         createMainnetVault().getCustomRpcEndpointStatus({
           rpcUrl: 'https://node.example',
         }),
-      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
-      expect(hostFetch).toHaveBeenCalledTimes(1);
+      ).resolves.toMatchObject({ bestBlockNumber: TOP_BLOCK });
+      expect(nodeFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('latest height', () => {
+    function createNodeVault() {
+      const vault = createVault();
+      jest
+        .spyOn(vault, 'resolveXmrNodeUrl')
+        .mockResolvedValue('https://node.example/');
+      return vault;
+    }
+
+    it('reads the configured node height with a plain request', async () => {
+      nodeFetch.mockResolvedValue(jsonReply({ height: HEIGHT }));
+      await expect(
+        createNodeVault().getLocalWalletLatestHeight(),
+      ).resolves.toBe(TOP_BLOCK);
+      expect(requestedUrls()).toEqual(['https://node.example/get_height']);
+    });
+
+    it('reports no height for a reply without one', async () => {
+      nodeFetch.mockResolvedValue(jsonReply({}));
+      await expect(
+        createNodeVault().getLocalWalletLatestHeight(),
+      ).resolves.toBeNull();
     });
   });
 });
@@ -388,37 +473,28 @@ describe('XMR custom RPC', () => {
 describe('Zcash custom RPC', () => {
   const createVault = () => Object.create(ZcashVault.prototype) as ZcashVault;
 
-  function withTip(vault: ZcashVault, tip: number | null) {
-    const getChainTip = jest.fn(async () => tip);
-    type IZcashApi = Awaited<ReturnType<ZcashVault['zcashGetApi']>>;
-    const api: Pick<IZcashApi, 'getChainTip'> = { getChainTip };
-    jest.spyOn(vault, 'zcashGetApi').mockResolvedValue(api as IZcashApi);
-    return getChainTip;
-  }
-
-  it('uses the scanner SDK to measure a root lightwalletd endpoint', async () => {
+  it('measures a root lightwalletd endpoint', async () => {
     const vault = createVault();
-    const getChainTip = withTip(vault, HEIGHT);
+    directTip.mockResolvedValue(HEIGHT);
+    lightdInfo.mockResolvedValue({ chainName: 'main' });
     await expect(
       vault.getCustomRpcEndpointStatus({
         rpcUrl: ' https://node.example:8443/ ',
         validateChainId: true,
       }),
     ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
-    expect(getChainTip).toHaveBeenCalledWith({
-      network: 'main',
+    expect(directTip).toHaveBeenCalledWith({
       lightwalletdUrl: 'https://node.example:8443',
     });
   });
 
   it('preserves the reverse-proxy path used by the scanner', async () => {
     const vault = createVault();
-    const getChainTip = withTip(vault, HEIGHT);
+    directTip.mockResolvedValue(HEIGHT);
     await expect(
       vault.zcashTestLightwalletdUrl(' https://node.example/proxy/// '),
     ).resolves.toMatchObject({ ok: true });
-    expect(getChainTip).toHaveBeenCalledWith({
-      network: 'main',
+    expect(directTip).toHaveBeenCalledWith({
       lightwalletdUrl: 'https://node.example/proxy',
     });
   });
@@ -429,21 +505,17 @@ describe('Zcash custom RPC', () => {
     'not-a-url',
     'https://node.example/?key=example',
     'https://node.example/#fragment',
-  ])(
-    'rejects an unsupported endpoint before loading the SDK: %s',
-    async (url) => {
-      const vault = createVault();
-      const getApi = jest.spyOn(vault, 'zcashGetApi');
-      await expect(vault.zcashTestLightwalletdUrl(url)).resolves.toMatchObject({
-        ok: false,
-      });
-      expect(getApi).not.toHaveBeenCalled();
-    },
-  );
+  ])('rejects an unsupported endpoint before any request: %s', async (url) => {
+    const vault = createVault();
+    await expect(vault.zcashTestLightwalletdUrl(url)).resolves.toMatchObject({
+      ok: false,
+    });
+    expect(directTip).not.toHaveBeenCalled();
+  });
 
   it('rejects an endpoint returning no chain tip', async () => {
     const vault = createVault();
-    withTip(vault, null);
+    directTip.mockResolvedValue(null);
     await expect(
       vault.getCustomRpcEndpointStatus({
         rpcUrl: 'https://node.example',
@@ -454,7 +526,7 @@ describe('Zcash custom RPC', () => {
 
   it('rejects a height below mainnet shielded-pool activation', async () => {
     const vault = createVault();
-    withTip(vault, 100);
+    directTip.mockResolvedValue(100);
     await expect(
       vault.zcashTestLightwalletdUrl('https://node.example'),
     ).resolves.toEqual({
@@ -468,7 +540,7 @@ describe('Zcash custom RPC', () => {
     'rejects a lightwalletd reporting chain %s',
     async (chainName) => {
       const vault = createVault();
-      withTip(vault, HEIGHT);
+      directTip.mockResolvedValue(HEIGHT);
       lightdInfo.mockResolvedValue({ chainName });
       await expect(
         vault.getCustomRpcEndpointStatus({
@@ -482,28 +554,55 @@ describe('Zcash custom RPC', () => {
     },
   );
 
-  it.each([{ chainName: 'main' }, { chainName: 'mainnet' }, null])(
-    'accepts main, an unknown name, or no answer: %j',
-    async (info) => {
-      const vault = createVault();
-      withTip(vault, HEIGHT);
-      lightdInfo.mockResolvedValue(info);
-      await expect(
-        vault.getCustomRpcEndpointStatus({
-          rpcUrl: 'https://node.example',
-          validateChainId: true,
-        }),
-      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
-    },
-  );
+  it('accepts a lightwalletd that confirms mainnet', async () => {
+    const vault = createVault();
+    directTip.mockResolvedValue(HEIGHT);
+    lightdInfo.mockResolvedValue({ chainName: 'main' });
+    await expect(
+      vault.getCustomRpcEndpointStatus({
+        rpcUrl: 'https://node.example',
+        validateChainId: true,
+      }),
+    ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+  });
+
+  // The runtime refuses a node whose chain it cannot confirm, so the form does too.
+  it.each([
+    [{ chainName: 'mainnet' }, 'wrong-chain'],
+    [null, 'unconfirmed-chain'],
+  ])('rejects an unknown chain name or no answer: %j', async (info, reason) => {
+    const vault = createVault();
+    directTip.mockResolvedValue(HEIGHT);
+    lightdInfo.mockResolvedValue(info);
+    await expect(
+      vault.getCustomRpcEndpointStatus({
+        rpcUrl: 'https://node.example',
+        validateChainId: true,
+      }),
+    ).rejects.toThrow(reason);
+  });
 
   it('skips the chain name check when validation is not requested', async () => {
     const vault = createVault();
-    withTip(vault, HEIGHT);
+    directTip.mockResolvedValue(HEIGHT);
     lightdInfo.mockResolvedValue({ chainName: 'test' });
     await expect(
       vault.getCustomRpcEndpointStatus({ rpcUrl: 'https://node.example' }),
     ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
     expect(lightdInfo).not.toHaveBeenCalled();
+  });
+
+  it('reads the chain tip from the configured node, without the scanner', async () => {
+    const vault = createVault();
+    const getApi = jest.spyOn(vault, 'zcashGetApi');
+    jest
+      .spyOn(vault, 'zcashResolveLightwalletdUrl')
+      .mockResolvedValue('https://node.example');
+    directTip.mockResolvedValue(HEIGHT);
+    await expect(vault.getLocalWalletChainTip()).resolves.toBe(HEIGHT);
+    expect(directTip).toHaveBeenCalledWith({
+      lightwalletdUrl: 'https://node.example',
+    });
+    expect(getApi).not.toHaveBeenCalled();
   });
 });

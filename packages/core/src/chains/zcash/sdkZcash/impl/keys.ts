@@ -14,7 +14,6 @@ import type {
   IZcashDeriveAddressFromUfvkParams,
   IZcashDeriveAddressFromUfvkResult,
   IZcashDeriveTransparentXpubFromUfvkParams,
-  IZcashGetChainTipParams,
   IZcashInspectTransactionParams,
   IZcashInspectedTransaction,
   IZcashNetwork,
@@ -368,18 +367,5 @@ export async function finalizeTransparentHardwarePczt(
     signed.fill(0);
     combined?.fill(0);
     proved?.fill(0);
-  }
-}
-
-export async function getChainTip(
-  params: IZcashGetChainTipParams,
-): Promise<number | null> {
-  try {
-    const rt = await getRuntime();
-    return await rt.chainTipAt(params.lightwalletdUrl);
-  } catch (error) {
-    if (error instanceof WebAssembly.RuntimeError) throw error;
-    // Contract: null on failure, not a throw - callers must handle it when offline.
-    return null;
   }
 }

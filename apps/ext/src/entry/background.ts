@@ -43,9 +43,6 @@ function installOffscreenApiProxyEarly() {
 
 function installPrivacyChainNodeRequestLate() {
   // Lets the offscreen document reach nodes that send no CORS headers.
-  void import('../background/privacyChainNodeRequest').then((m) =>
-    m.installPrivacyChainNodeRequestListener(),
-  );
   void import('../background/fetchStream').then((m) =>
     m.installFetchStreamListener(),
   );
