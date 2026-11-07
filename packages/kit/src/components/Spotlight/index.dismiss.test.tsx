@@ -93,6 +93,10 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => {
 });
 
 jest.mock('react-native', () => ({
+  Platform: {
+    select: (specifics: { ios: boolean; default: boolean }) =>
+      mockIsNativeIOS ? specifics.ios : specifics.default,
+  },
   useWindowDimensions: () => mockWindowDimensions,
   I18nManager: {
     get isRTL() {
@@ -563,6 +567,128 @@ describe('Spotlight dismissal', () => {
     expect(screen.getByTestId('spotlight-card').getAttribute('data-top')).toBe(
       '270',
     );
+  });
+
+  it.each(['width', 'height', 'portal layout'] as const)(
+    'refreshes the iOS window offset after a %s change with an unchanged anchor',
+    async (change) => {
+      mockIsNative = true;
+      mockIsNativeIOS = true;
+      const renderSpotlight = () => (
+        <SpotlightView
+          visible
+          alignCardToAnchorEnd
+          content={<span>Guide</span>}
+        >
+          <span>More</span>
+        </SpotlightView>
+      );
+      const view = render(renderSpotlight());
+      await advanceTime(0);
+      act(() => lastOverlayProps.onWindowOffset?.({ x: 0, y: 162 }));
+      await advanceTime(0);
+      const request = lastOverlayProps.windowOffsetRequest ?? 0;
+
+      if (change === 'portal layout') {
+        act(() => mockPortalLayout?.());
+      } else {
+        mockWindowDimensions = {
+          ...mockWindowDimensions,
+          [change]: mockWindowDimensions[change] + 100,
+        };
+        view.rerender(renderSpotlight());
+      }
+      await advanceTime(0);
+
+      expect(lastOverlayProps.windowOffsetRequest).toBeGreaterThan(request);
+      act(() => lastOverlayProps.onWindowOffset?.({ x: 30, y: 62 }));
+      expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('94');
+      expect(screen.getByTestId('spotlight-highlight').dataset.left).toBe('42');
+      expect(getCard().dataset.top).toBe('170');
+    },
+  );
+
+  it('preserves the iOS offset through exit and waits for a fresh offset on reopen', async () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    mockDeferOverlayExit = true;
+    const renderSpotlight = (visible: boolean) => (
+      <SpotlightView
+        visible={visible}
+        alignCardToAnchorEnd
+        content={<span>Guide</span>}
+      >
+        <span>More</span>
+      </SpotlightView>
+    );
+    const view = render(renderSpotlight(true));
+    await advanceTime(0);
+    act(() => lastOverlayProps.onWindowOffset?.({ x: 0, y: 162 }));
+    await advanceTime(0);
+    const oldOffsetCallback = lastOverlayProps.onWindowOffset;
+    const request = lastOverlayProps.windowOffsetRequest ?? 0;
+
+    view.rerender(renderSpotlight(false));
+    await advanceTime(0);
+    act(() => oldOffsetCallback?.({ x: 0, y: 0 }));
+    expect(lastOverlayProps.visible).toBe(false);
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('194');
+    expect(getCard().dataset.top).toBe('270');
+
+    // Reopen before the previous exit completes, while the content still exists.
+    view.rerender(renderSpotlight(true));
+    await advanceTime(0);
+    expect(lastOverlayProps.visible).toBe(false);
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('194');
+    expect(getCard().dataset.top).toBe('270');
+    expect(lastOverlayProps.windowOffsetRequest).toBeGreaterThan(request);
+    act(() => oldOffsetCallback?.({ x: 0, y: 162 }));
+    expect(lastOverlayProps.visible).toBe(false);
+    act(() => lastOverlayProps.onWindowOffset?.({ x: 0, y: 62 }));
+    await advanceTime(0);
+    expect(lastOverlayProps.visible).toBe(true);
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('94');
+    expect(getCard().dataset.top).toBe('170');
+
+    view.rerender(renderSpotlight(false));
+    await advanceTime(0);
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('94');
+    expect(getCard().dataset.top).toBe('170');
+    act(() => mockFinishOverlayExit?.());
+    expect(screen.queryByTestId('spotlight-content')).toBeNull();
+  });
+
+  it('ignores the old iOS offset when anchor-end alignment is disabled', async () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    const renderSpotlight = (alignCardToAnchorEnd: boolean) => (
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd={alignCardToAnchorEnd}
+        content={<span>Guide</span>}
+      >
+        <span>More</span>
+      </SpotlightView>
+    );
+    const view = render(renderSpotlight(true));
+    await advanceTime(0);
+    act(() => lastOverlayProps.onWindowOffset?.({ x: 30, y: 162 }));
+    await advanceTime(0);
+
+    view.rerender(renderSpotlight(false));
+    await advanceTime(0);
+    expect(lastOverlayProps.visible).toBe(true);
+    expect(lastOverlayProps.onWindowOffset).toBeUndefined();
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('32');
+    expect(screen.getByTestId('spotlight-highlight').dataset.left).toBe('12');
+    expect(getCard().dataset.top).toBe('108');
+
+    view.rerender(renderSpotlight(true));
+    await advanceTime(0);
+    expect(lastOverlayProps.visible).toBe(false);
+    act(() => lastOverlayProps.onWindowOffset?.({ x: 0, y: 62 }));
+    expect(lastOverlayProps.visible).toBe(true);
+    expect(screen.getByTestId('spotlight-highlight').dataset.top).toBe('94');
   });
 
   it('does not wait for a window offset outside native iOS', async () => {

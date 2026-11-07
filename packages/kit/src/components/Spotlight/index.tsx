@@ -20,7 +20,7 @@ import {
   useNestedOverlayLevel,
 } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
-import { I18nManager, useWindowDimensions } from 'react-native';
+import { I18nManager, Platform, useWindowDimensions } from 'react-native';
 
 import {
   Button,
@@ -168,6 +168,46 @@ function SpotlightContent({
     height: 0,
   });
 
+  // Keep the closing guide's offset, but require a fresh report on every
+  // opening (including a reopen before the previous exit finishes).
+  const correctAnchorByWindowOffset = Platform.select({
+    ios: Boolean(usePortalCoordinates),
+    default: false,
+  });
+  const needsWindowOffset = visible && correctAnchorByWindowOffset;
+  const offsetCycleRef = useRef({ active: false, id: 0 });
+  if (needsWindowOffset && !offsetCycleRef.current.active) {
+    offsetCycleRef.current.id += 1;
+  }
+  offsetCycleRef.current.active = needsWindowOffset;
+  const offsetCycle = offsetCycleRef.current.id;
+  const [reportedOffset, setReportedOffset] = useState<{
+    cycle: number;
+    x: number;
+    y: number;
+  }>();
+  const anchorWindowOffset = reportedOffset;
+  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  const handleAnchorWindowOffset = useCallback(
+    (offset: { x: number; y: number }) => {
+      if (
+        !offsetCycleRef.current.active ||
+        offsetCycleRef.current.id !== offsetCycle
+      )
+        return;
+      setReportedOffset((previous) =>
+        previous?.cycle === offsetCycle &&
+        previous.x === offset.x &&
+        previous.y === offset.y
+          ? previous
+          : { ...offset, cycle: offsetCycle },
+      );
+    },
+    [offsetCycle],
+  );
+  const anchorWindowOffsetReady =
+    !correctAnchorByWindowOffset || reportedOffset?.cycle === offsetCycle;
+
   const md = useMedia();
 
   const measureTriggerInWindow = useCallback(() => {
@@ -179,6 +219,14 @@ function SpotlightContent({
       const extraY = noNativeNavigator ? -30 : 0;
 
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        // The modal origin can move while the trigger keeps the same local rect.
+        if (
+          needsWindowOffset &&
+          offsetCycleRef.current.active &&
+          offsetCycleRef.current.id === offsetCycle
+        ) {
+          setWindowOffsetRequest((request) => request + 1);
+        }
         if (
           floatingPosition.x === x &&
           floatingPosition.y === y + extraY &&
@@ -195,40 +243,11 @@ function SpotlightContent({
         });
       });
     }
-  }, [initProps.triggerRef, floatingPosition]);
+  }, [initProps.triggerRef, floatingPosition, needsWindowOffset, offsetCycle]);
 
   useLayoutEffect(() => {
     measureTriggerInWindow();
-  }, [md, measureTriggerInWindow, windowWidth]);
-
-  // iOS reports a JS-measured anchor inside a native screen/modal in that
-  // screen's space, while the overlay draws in window space, so the rect can be
-  // off by the screen origin. Ask the host for the correction and hold the guide
-  // until it arrives. Android keeps its own pane offset; other platforms measure
-  // in window space already.
-  const correctAnchorByWindowOffset =
-    platformEnv.isNativeIOS && usePortalCoordinates;
-  const [anchorWindowOffset, setAnchorWindowOffset] = useState<{
-    x: number;
-    y: number;
-  }>();
-  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
-  const handleAnchorWindowOffset = useCallback(
-    (offset: { x: number; y: number }) => {
-      setAnchorWindowOffset(offset);
-    },
-    [],
-  );
-  useEffect(() => {
-    if (!correctAnchorByWindowOffset) return;
-    if (!visible) {
-      setAnchorWindowOffset(undefined);
-      return;
-    }
-    setWindowOffsetRequest((request) => request + 1);
-  }, [correctAnchorByWindowOffset, visible]);
-  const anchorWindowOffsetReady =
-    !correctAnchorByWindowOffset || !!anchorWindowOffset;
+  }, [md, measureTriggerInWindow, windowHeight, windowWidth]);
 
   useLayoutEffect(() => {
     if (triggerPropsRef.current) {
@@ -282,13 +301,14 @@ function SpotlightContent({
   const anchorLeftProperty =
     usePortalCoordinates && I18nManager.isRTL ? 'end' : 'left';
   const anchorPosition = useMemo(() => {
-    if (!anchorWindowOffset) return floatingPosition;
+    if (!correctAnchorByWindowOffset || !anchorWindowOffset)
+      return floatingPosition;
     return {
       ...floatingPosition,
       x: floatingPosition.x + anchorWindowOffset.x,
       y: floatingPosition.y + anchorWindowOffset.y,
     };
-  }, [anchorWindowOffset, floatingPosition]);
+  }, [correctAnchorByWindowOffset, anchorWindowOffset, floatingPosition]);
   const shouldMeasurePortal = usePortalCoordinates && overlayVisible;
   const measurePortalInWindow = useCallback(() => {
     if (!usePortalCoordinates) return;
