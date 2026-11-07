@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { Badge, Icon, Stack, XStack, YStack } from '@onekeyhq/components';
 import type {
@@ -38,6 +38,7 @@ import {
 } from './settingsDisplay';
 import {
   type ISettingsSectionPresentation,
+  resolveSettingsRowHoverMaskColor,
   resolveSettingsSectionSurface,
 } from './settingsSurface';
 import { useIsTabNavigator, useSettingsLayout } from './useIsTabNavigator';
@@ -46,20 +47,23 @@ type ISettingsSectionProps = IStackProps & {
   presentation?: ISettingsSectionPresentation;
 };
 
-const TabSettingsSectionBackgroundContext = createContext<
-  | ReturnType<typeof resolveSettingsSectionSurface>['backgroundColor']
-  | undefined
->(undefined);
+const TabSettingsRowHoverMaskContext = createContext<string | undefined>(
+  undefined,
+);
 
 export function TabSettingsSection({
   presentation = 'flat',
   ...props
 }: ISettingsSectionProps) {
   const surface = resolveSettingsSectionSurface(presentation);
+  const hoverMaskColor = Platform.select({
+    web: resolveSettingsRowHoverMaskColor(
+      props.bg ?? props.backgroundColor ?? surface.backgroundColor,
+    ),
+    default: undefined,
+  });
   return (
-    <TabSettingsSectionBackgroundContext.Provider
-      value={surface.backgroundColor}
-    >
+    <TabSettingsRowHoverMaskContext.Provider value={hoverMaskColor}>
       <YStack
         backgroundColor={surface.backgroundColor}
         overflow="hidden"
@@ -69,7 +73,7 @@ export function TabSettingsSection({
         borderColor={surface.borderColor}
         {...(props as IYStackProps)}
       />
-    </TabSettingsSectionBackgroundContext.Provider>
+    </TabSettingsRowHoverMaskContext.Provider>
   );
 }
 
@@ -90,23 +94,18 @@ export function TabSettingsListItem({
     analyticsSource?: ISettingsEntrySurface;
   }) {
   const { isMobileLayout } = useSettingsLayout();
-  const sectionBackground = useContext(TabSettingsSectionBackgroundContext);
+  const hoverMaskColor = useContext(TabSettingsRowHoverMaskContext);
   // Inset dividers use the same color as the hover background but skip the
   // icon column, so a touching divider makes the highlight look 1px taller
   // beside the text. Paint over both neighbors with the section background.
   // The hover color is translucent, so it cannot cover them on its own.
   const hoverMaskProps =
-    sectionBackground &&
-    props.onPress &&
-    !props.disabled &&
-    !platformEnv.isNative
+    hoverMaskColor && props.onPress && !props.disabled
       ? {
           hoverStyle: {
             ...listItemPressStyle.hoverStyle,
             zIndex: 1,
-            boxShadow: `0 0 0 ${
-              StyleSheet.hairlineWidth
-            }px var(--${sectionBackground.slice(1)})`,
+            boxShadow: `0 0 0 ${StyleSheet.hairlineWidth}px ${hoverMaskColor}`,
             ...props.hoverStyle,
           },
         }
