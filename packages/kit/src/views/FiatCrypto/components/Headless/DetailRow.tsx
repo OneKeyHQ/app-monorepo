@@ -1,9 +1,16 @@
 import type { ReactNode } from 'react';
 
+import Animated from 'react-native-reanimated';
+
 import { SizableText, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+
+import {
+  MOTION_MICRO_ENTERING_AFTER_EXIT,
+  MOTION_ROW_LAYOUT,
+} from './motionTokens';
 
 // Rows sit on a 20pt text line inside a card with a 12pt row gap. A tappable
 // row grows its pressed fill by 6pt each way (inner padding cancelled by a
@@ -67,6 +74,23 @@ export function DetailRow({
         {children}
       </XStack>
     </XStack>
+  );
+}
+
+// Wraps every row of a card whose rows can come and go (a late row on the
+// review card, a status change on the order card): the rows around a change
+// glide instead of jumping, and a new row fades in once they have made room
+// (see MOTION_ROW_LAYOUT). Wrap the always-present rows too — they are the
+// ones that move. Rows mounted with the card should not fade on their own:
+// put the card's rows under a LayoutAnimationConfig skipEntering.
+export function DetailRowMotion({ children }: { children: ReactNode }) {
+  return (
+    <Animated.View
+      entering={MOTION_MICRO_ENTERING_AFTER_EXIT}
+      layout={MOTION_ROW_LAYOUT}
+    >
+      {children}
+    </Animated.View>
   );
 }
 

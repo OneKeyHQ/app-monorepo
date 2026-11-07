@@ -1,4 +1,9 @@
-import { Easing } from 'react-native-reanimated';
+import {
+  Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 
 // Motion hierarchy for the Headless buy flow. Three rules everything follows:
 // exits are FASTER than enters (the outgoing block gets out of the way, the
@@ -18,3 +23,24 @@ export const MOTION_MICRO_MS = 120;
 // front-load the movement.
 export const MOTION_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 export const MOTION_EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
+
+// Small things that swap in a fixed slot (the input step's CTA slot)
+// crossfade: in over MICRO, out over EXIT. Shapes blend for a frame at most.
+export const MOTION_MICRO_ENTERING =
+  FadeIn.duration(MOTION_MICRO_MS).easing(MOTION_EASE_OUT);
+export const MOTION_MICRO_EXITING =
+  FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_OUT);
+// Text is different: two lines cross-fading in one spot (the line under the
+// amount), or a new card row fading in while its neighbors glide across its
+// spot, double-print for a few frames (seen on device). There the newcomer
+// waits EXIT ms — the old line gone, the glide nearly done — then fades in.
+export const MOTION_MICRO_ENTERING_AFTER_EXIT = FadeIn.duration(MOTION_MICRO_MS)
+  .delay(MOTION_EXIT_MS)
+  .easing(MOTION_EASE_OUT);
+
+// Rows inside a card: a leaving row goes at once (it would print over the
+// rows gliding into its place), the rest glide, and a new row fades in after
+// them (MOTION_MICRO_ENTERING_AFTER_EXIT). One definition for the review and
+// order cards.
+export const MOTION_ROW_LAYOUT =
+  LinearTransition.duration(MOTION_MICRO_MS).easing(MOTION_EASE_IN_OUT);

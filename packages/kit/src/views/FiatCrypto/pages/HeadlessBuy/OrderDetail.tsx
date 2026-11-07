@@ -3,6 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { AccessibilityInfo } from 'react-native';
+import Animated, {
+  FadeIn,
+  LayoutAnimationConfig,
+  ZoomIn,
+} from 'react-native-reanimated';
 
 import {
   Button,
@@ -40,8 +45,15 @@ import {
   DETAIL_CARD_PROPS,
   DetailAddressValue,
   DetailRow,
+  DetailRowMotion,
   formatPrice,
 } from '../../components/Headless/DetailRow';
+import {
+  MOTION_EASE_OUT,
+  MOTION_ENTER_MS,
+  MOTION_MICRO_EXITING,
+  MOTION_ROW_LAYOUT,
+} from '../../components/Headless/motionTokens';
 import { formatHeadlessBuyOrderTime } from '../../components/Headless/orderFormat';
 import {
   OrderStatusBadge,
@@ -55,6 +67,18 @@ import { RateRow } from '../../components/Headless/RateRow';
 import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 
 import type { RouteProp } from '@react-navigation/core';
+
+// A status that changes while the page is open (the poll below) swaps its
+// block in place: the old one fades out over EXIT, the new one in over ENTER,
+// and the new badge settles in from 95% — the eye lands on what changed.
+// Scaled from its left edge, where it is anchored; never from 0, which reads
+// as a pop rather than a change.
+const STATUS_BLOCK_ENTERING =
+  FadeIn.duration(MOTION_ENTER_MS).easing(MOTION_EASE_OUT);
+const STATUS_BADGE_ENTERING = ZoomIn.withInitialValues({ scale: 0.95 })
+  .duration(MOTION_ENTER_MS)
+  .easing(MOTION_EASE_OUT);
+const STATUS_BADGE_ORIGIN = { transformOrigin: 'left center' } as const;
 
 // Detail page poll cadence while focused and the order is not terminal. The
 // lookup endpoint is rate limited per IP (10/min), so stay well under it.
@@ -231,180 +255,236 @@ function HeadlessBuyOrderDetailPage() {
           />
         ) : null}
         {order ? (
-          <YStack gap="$6" pt="$2">
-            <YStack gap="$3" ai="flex-start">
-              <OrderStatusBadge status={order.status} badgeSize="lg" />
-              {/* Stale note sits right under the label, ahead of the sentence. */}
-              {order.lastCheckOk === false ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.buy_order_status_stale__msg,
-                  })}
-                </SizableText>
-              ) : null}
-              {sentenceId ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: sentenceId },
-                    { token: order.tokenSymbol },
-                  )}
-                </SizableText>
-              ) : null}
-              {showSupport ? (
-                <Button
-                  testID="headless-buy-order-support"
-                  size="small"
-                  variant="secondary"
-                  icon="BubbleAnnotationOutline"
-                  // 30pt small button → 44pt target; nothing else is
-                  // pressable within 7pt of it.
-                  hitSlop={{ top: 7, bottom: 7 }}
-                  onPress={contactSupport}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.swap_ch_status_hold,
-                  })}
-                </Button>
-              ) : null}
-            </YStack>
-            {/* Same card and weights as the review breakdown: values are
-                regular, only what the user gets (received / est. receive)
-                is emphasized. */}
-            <YStack {...DETAIL_CARD_PROPS}>
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.buy_order_amount_paid__title,
-                })}
+          // Mounted with the order, so the page opens still: only what
+          // changes while it is open moves.
+          <LayoutAnimationConfig skipEntering skipExiting>
+            <YStack gap="$6" pt="$2">
+              <Animated.View
+                key={order.status}
+                entering={STATUS_BLOCK_ENTERING}
+                exiting={MOTION_MICRO_EXITING}
               >
-                <SizableText size="$bodyMd">
-                  {formatPrice(order.fiatAmount)}
-                </SizableText>
-              </DetailRow>
-              {showReceived ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.buy_order_amount_received__title,
-                  })}
-                >
-                  <NumberSizeableText
-                    size="$bodyMdMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: order.tokenSymbol }}
+                <YStack gap="$3" ai="flex-start">
+                  <Animated.View
+                    entering={STATUS_BADGE_ENTERING}
+                    style={STATUS_BADGE_ORIGIN}
                   >
-                    {order.outAmount}
-                  </NumberSizeableText>
-                </DetailRow>
-              ) : null}
-              {!hideQuoteRows && !showReceived && order.payout !== undefined ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.earn_est_receive,
-                  })}
-                >
-                  <XStack
-                    ai="center"
-                    jc="flex-end"
-                    flexWrap="wrap"
-                    columnGap="$1"
-                  >
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="balance"
-                      formatterOptions={{ tokenSymbol: order.tokenSymbol }}
-                    >
-                      {order.payout}
-                    </NumberSizeableText>
-                    {pricing ? (
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {`(≈${formatPrice(pricing.payoutFiatValue)})`}
-                      </SizableText>
-                    ) : null}
-                  </XStack>
-                </DetailRow>
-              ) : null}
-              {!hideQuoteRows && pricing ? (
-                <RateRow
-                  tokenSymbol={order.tokenSymbol}
-                  impliedPrice={pricing.impliedPrice}
-                  providerName={order.providerName}
-                />
-              ) : null}
-              {order.providerName ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.swap_history_detail_provider,
-                  })}
-                >
-                  <XStack ai="center" gap="$1.5">
-                    <ProviderLogo provider={order.providerName} />
-                    <SizableText size="$bodyMd">
-                      {getProviderDisplayName(order.providerName)}
-                    </SizableText>
-                  </XStack>
-                </DetailRow>
-              ) : null}
-              <DetailRow
-                label={intl.formatMessage({ id: ETranslations.global_network })}
-              >
-                <XStack ai="center" gap="$1.5">
-                  <NetworkAvatar networkId={order.networkId} size="$5" />
-                  <SizableText size="$bodyMd">
-                    {order.networkName ?? ''}
-                  </SizableText>
-                </XStack>
-              </DetailRow>
-              {order.address ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.receive_address__title,
-                  })}
-                >
-                  <DetailAddressValue
-                    address={order.address}
-                    accountName={order.accountName}
-                  />
-                </DetailRow>
-              ) : null}
-              {/* Visual spec: the hash follows the address, ahead of time. */}
-              {isDelivered && order.transactionHash ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.global_transaction_id,
-                  })}
-                  onPress={openTxHash}
-                >
-                  <XStack ai="center" gap="$1.5">
-                    <SizableText size="$bodyMd">
-                      {accountUtils.shortenAddress({
-                        address: order.transactionHash,
+                    <OrderStatusBadge status={order.status} badgeSize="lg" />
+                  </Animated.View>
+                  {/* Stale note sits right under the label, ahead of the sentence. */}
+                  {order.lastCheckOk === false ? (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.buy_order_status_stale__msg,
                       })}
                     </SizableText>
-                    <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-                  </XStack>
-                </DetailRow>
-              ) : null}
-              <DetailRow
-                label={intl.formatMessage({ id: ETranslations.global_time })}
-              >
-                <SizableText size="$bodyMd">
-                  {formatHeadlessBuyOrderTime(order)}
-                </SizableText>
-              </DetailRow>
-              <DetailRow
-                label={intl.formatMessage({
-                  id: ETranslations.buy_order_id__title,
-                })}
-                onPress={copyOrderId}
-              >
-                <XStack ai="center" gap="$1.5">
-                  <SizableText size="$bodyMd">
-                    {accountUtils.shortenAddress({ address: transactionId })}
-                  </SizableText>
-                  <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-                </XStack>
-              </DetailRow>
+                  ) : null}
+                  {sentenceId ? (
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage(
+                        { id: sentenceId },
+                        { token: order.tokenSymbol },
+                      )}
+                    </SizableText>
+                  ) : null}
+                  {showSupport ? (
+                    <Button
+                      testID="headless-buy-order-support"
+                      size="small"
+                      variant="secondary"
+                      icon="BubbleAnnotationOutline"
+                      // 30pt small button → 44pt target; nothing else is
+                      // pressable within 7pt of it.
+                      hitSlop={{ top: 7, bottom: 7 }}
+                      onPress={contactSupport}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.swap_ch_status_hold,
+                      })}
+                    </Button>
+                  ) : null}
+                </YStack>
+              </Animated.View>
+              {/* Same card and weights as the review breakdown: values are
+                regular, only what the user gets (received / est. receive)
+                is emphasized. Rows that come and go with the status fade in
+                place; the card and the rows around them glide. */}
+              <Animated.View layout={MOTION_ROW_LAYOUT}>
+                <YStack {...DETAIL_CARD_PROPS}>
+                  <DetailRowMotion>
+                    <DetailRow
+                      label={intl.formatMessage({
+                        id: ETranslations.buy_order_amount_paid__title,
+                      })}
+                    >
+                      <SizableText size="$bodyMd">
+                        {formatPrice(order.fiatAmount)}
+                      </SizableText>
+                    </DetailRow>
+                  </DetailRowMotion>
+                  {showReceived ? (
+                    <DetailRowMotion>
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: ETranslations.buy_order_amount_received__title,
+                        })}
+                      >
+                        <NumberSizeableText
+                          size="$bodyMdMedium"
+                          formatter="balance"
+                          formatterOptions={{ tokenSymbol: order.tokenSymbol }}
+                        >
+                          {order.outAmount}
+                        </NumberSizeableText>
+                      </DetailRow>
+                    </DetailRowMotion>
+                  ) : null}
+                  {!hideQuoteRows &&
+                  !showReceived &&
+                  order.payout !== undefined ? (
+                    <DetailRowMotion>
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: ETranslations.earn_est_receive,
+                        })}
+                      >
+                        <XStack
+                          ai="center"
+                          jc="flex-end"
+                          flexWrap="wrap"
+                          columnGap="$1"
+                        >
+                          <NumberSizeableText
+                            size="$bodyMdMedium"
+                            formatter="balance"
+                            formatterOptions={{
+                              tokenSymbol: order.tokenSymbol,
+                            }}
+                          >
+                            {order.payout}
+                          </NumberSizeableText>
+                          {pricing ? (
+                            <SizableText size="$bodyMd" color="$textSubdued">
+                              {`(≈${formatPrice(pricing.payoutFiatValue)})`}
+                            </SizableText>
+                          ) : null}
+                        </XStack>
+                      </DetailRow>
+                    </DetailRowMotion>
+                  ) : null}
+                  {!hideQuoteRows && pricing ? (
+                    <DetailRowMotion>
+                      <RateRow
+                        tokenSymbol={order.tokenSymbol}
+                        impliedPrice={pricing.impliedPrice}
+                        providerName={order.providerName}
+                      />
+                    </DetailRowMotion>
+                  ) : null}
+                  {order.providerName ? (
+                    <DetailRowMotion>
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: ETranslations.swap_history_detail_provider,
+                        })}
+                      >
+                        <XStack ai="center" gap="$1.5">
+                          <ProviderLogo provider={order.providerName} />
+                          <SizableText size="$bodyMd">
+                            {getProviderDisplayName(order.providerName)}
+                          </SizableText>
+                        </XStack>
+                      </DetailRow>
+                    </DetailRowMotion>
+                  ) : null}
+                  <DetailRowMotion>
+                    <DetailRow
+                      label={intl.formatMessage({
+                        id: ETranslations.global_network,
+                      })}
+                    >
+                      <XStack ai="center" gap="$1.5">
+                        <NetworkAvatar networkId={order.networkId} size="$5" />
+                        <SizableText size="$bodyMd">
+                          {order.networkName ?? ''}
+                        </SizableText>
+                      </XStack>
+                    </DetailRow>
+                  </DetailRowMotion>
+                  {order.address ? (
+                    <DetailRowMotion>
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: ETranslations.receive_address__title,
+                        })}
+                      >
+                        <DetailAddressValue
+                          address={order.address}
+                          accountName={order.accountName}
+                        />
+                      </DetailRow>
+                    </DetailRowMotion>
+                  ) : null}
+                  {/* Visual spec: the hash follows the address, ahead of time. */}
+                  {isDelivered && order.transactionHash ? (
+                    <DetailRowMotion>
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: ETranslations.global_transaction_id,
+                        })}
+                        onPress={openTxHash}
+                      >
+                        <XStack ai="center" gap="$1.5">
+                          <SizableText size="$bodyMd">
+                            {accountUtils.shortenAddress({
+                              address: order.transactionHash,
+                            })}
+                          </SizableText>
+                          <Icon
+                            name="OpenOutline"
+                            size="$4"
+                            color="$iconSubdued"
+                          />
+                        </XStack>
+                      </DetailRow>
+                    </DetailRowMotion>
+                  ) : null}
+                  <DetailRowMotion>
+                    <DetailRow
+                      label={intl.formatMessage({
+                        id: ETranslations.global_time,
+                      })}
+                    >
+                      <SizableText size="$bodyMd">
+                        {formatHeadlessBuyOrderTime(order)}
+                      </SizableText>
+                    </DetailRow>
+                  </DetailRowMotion>
+                  <DetailRowMotion>
+                    <DetailRow
+                      label={intl.formatMessage({
+                        id: ETranslations.buy_order_id__title,
+                      })}
+                      onPress={copyOrderId}
+                    >
+                      <XStack ai="center" gap="$1.5">
+                        <SizableText size="$bodyMd">
+                          {accountUtils.shortenAddress({
+                            address: transactionId,
+                          })}
+                        </SizableText>
+                        <Icon
+                          name="Copy3Outline"
+                          size="$4"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    </DetailRow>
+                  </DetailRowMotion>
+                </YStack>
+              </Animated.View>
             </YStack>
-          </YStack>
+          </LayoutAnimationConfig>
         ) : null}
       </Page.Body>
       {fromCheckout ? (

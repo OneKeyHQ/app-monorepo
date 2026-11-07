@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from 'react-native-reanimated';
+import { LayoutAnimationConfig } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -25,15 +21,10 @@ import {
   DetailAddressValue,
   DetailEmptyValue,
   DetailRow,
+  DetailRowMotion,
   INFO_TRIGGER_HIT_SLOP,
   formatPrice,
 } from './DetailRow';
-import {
-  MOTION_EASE_IN_OUT,
-  MOTION_EASE_OUT,
-  MOTION_EXIT_MS,
-  MOTION_MICRO_MS,
-} from './motionTokens';
 import { ProviderLogo, getProviderDisplayName } from './ProviderLogo';
 import { RateRow } from './RateRow';
 
@@ -281,20 +272,14 @@ export function CheckoutInfoCard({
 
   return (
     <YStack {...DETAIL_CARD_PROPS}>
-      {rows.map((row) => (
-        // Keys keep surviving rows mounted when a late row (network,
-        // address) arrives; the layout prop glides them out of its way.
-        <Animated.View
-          key={row.key}
-          entering={FadeIn.duration(MOTION_MICRO_MS).easing(MOTION_EASE_OUT)}
-          exiting={FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_OUT)}
-          layout={LinearTransition.duration(MOTION_MICRO_MS).easing(
-            MOTION_EASE_IN_OUT,
-          )}
-        >
-          {row.node}
-        </Animated.View>
-      ))}
+      {/* Rows that mount with the card arrive with the review block's own
+          fade; only a row that lands later (network, address) fades in. */}
+      <LayoutAnimationConfig skipEntering>
+        {rows.map((row) => (
+          // Keys keep surviving rows mounted when a late row arrives.
+          <DetailRowMotion key={row.key}>{row.node}</DetailRowMotion>
+        ))}
+      </LayoutAnimationConfig>
     </YStack>
   );
 }

@@ -12,8 +12,10 @@ import { AccessibilityInfo } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
+  LayoutAnimationConfig,
   LinearTransition,
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -67,6 +69,9 @@ import {
   MOTION_EASE_OUT,
   MOTION_ENTER_MS,
   MOTION_EXIT_MS,
+  MOTION_MICRO_ENTERING,
+  MOTION_MICRO_ENTERING_AFTER_EXIT,
+  MOTION_MICRO_EXITING,
   MOTION_MICRO_MS,
 } from '../../components/Headless/motionTokens';
 import { PresetRow } from '../../components/Headless/PresetRow';
@@ -642,23 +647,33 @@ function HeadlessBuyPage() {
     ? LinearTransition.duration(MOTION_ENTER_MS).easing(MOTION_EASE_IN_OUT)
     : undefined;
 
-  // Always-mounted fade for the error line — the slot is fixed-height (two
-  // $bodySm lines: error copy wraps, and appearance still never shifts the
-  // hero layout), so only opacity moves; the last message is retained so the
-  // text doesn't blank out mid-fade.
-  const lastHeroErrorRef = useRef<string | undefined>(undefined);
-  if (heroError) {
-    lastHeroErrorRef.current = heroError;
-  }
-  const heroErrorStyle = useAnimatedStyle(
-    () => ({
-      opacity: withTiming(heroError ? 1 : 0, {
-        duration: MOTION_MICRO_MS,
-        easing: MOTION_EASE_OUT,
-      }),
-    }),
-    [heroError],
-  );
+  // In review the amount is a way back to editing it: pressing it presses
+  // the number itself in a little (the overlay below has no fill of its own).
+  const amountPressed = useSharedValue(false);
+  const amountPressStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withTiming(amountPressed.value ? 0.97 : 1, {
+          duration: MOTION_MICRO_MS,
+          easing: MOTION_EASE_OUT,
+        }),
+      },
+    ],
+  }));
+  const handleAmountPressIn = useCallback(() => {
+    amountPressed.value = true;
+  }, [amountPressed]);
+  const handleAmountPressOut = useCallback(() => {
+    amountPressed.value = false;
+  }, [amountPressed]);
+  // The overlay unmounts with review: a press it never saw end (e.g. an
+  // amount error sending the page back to input) must not leave the amount
+  // pressed in.
+  useEffect(() => {
+    if (mode !== 'review') {
+      amountPressed.value = false;
+    }
+  }, [mode, amountPressed]);
 
   // Same-token order still processing (direct entries skip the Buy tab's
   // banner, and this is where a repeat purchase is most likely). Shown in the
@@ -824,8 +839,24 @@ function HeadlessBuyPage() {
   // The one line under the amount. A quote error comes first; then the slow
   // wait, which only lasts until the pending answer lands; then the reminder
   // of a same-token order, which matters once there is something to pay.
-  let heroNotice: ReactNode;
-  if (slowWaitText) {
+  // Each kind fades out, then the next fades in, in place (keyed by kind
+  // below); the slot is fixed-height, so a swap never moves the amount.
+  let heroNoticeKind: 'error' | 'slow' | 'reminder' | undefined;
+  let heroNotice: ReactNode = null;
+  if (heroError) {
+    heroNoticeKind = 'error';
+    heroNotice = (
+      <SizableText
+        size="$bodySm"
+        color="$textCritical"
+        textAlign="center"
+        numberOfLines={2}
+      >
+        {heroError}
+      </SizableText>
+    );
+  } else if (slowWaitText) {
+    heroNoticeKind = 'slow';
     heroNotice = (
       <SizableText
         testID="headless-buy-slow-wait"
@@ -837,7 +868,8 @@ function HeadlessBuyPage() {
         {slowWaitText}
       </SizableText>
     );
-  } else if (!heroError && sameTokenOrder) {
+  } else if (sameTokenOrder) {
+    heroNoticeKind = 'reminder';
     heroNotice = (
       <XStack
         testID="headless-buy-order-reminder"
@@ -868,19 +900,6 @@ function HeadlessBuyPage() {
         />
       </XStack>
     );
-  } else {
-    heroNotice = (
-      <Animated.View style={heroErrorStyle}>
-        <SizableText
-          size="$bodySm"
-          color="$textCritical"
-          textAlign="center"
-          numberOfLines={2}
-        >
-          {lastHeroErrorRef.current ?? ''}
-        </SizableText>
-      </Animated.View>
-    );
   }
 
   return (
@@ -909,36 +928,57 @@ function HeadlessBuyPage() {
               inner wrapper alone is what makes the centered amount glide. */}
           <Stack flex={1} jc="center">
             <Animated.View layout={heroLayout}>
-              <SendAutoSizeAmountInput
-                value={amountText}
-                onChange={handleAmountChange}
-                justifyContent="center"
-                inputProps={{
-                  placeholder: '0',
-                  // The keypad below is the input path. iPads also take a
-                  // hardware keyboard, which needs a focusable field; there
-                  // a tap on the amount without one attached brings up the
-                  // system keyboard too. Review locks it: the amount there
-                  // is a way back to editing (overlay below), and disabling
-                  // the field ends any editing in progress.
-                  editable:
-                    Boolean(platformEnv.isNativeIOSPad) && mode === 'input',
-                  keyboardType: 'decimal-pad',
-                  leftAddOnProps: { label: '$', pr: '$0', pl: '$0', mr: '$-2' },
-                }}
-                valueProps={estimateValueProps}
-                extraContent={
-                  // alignSelf breaks out of the root Stack's ai="center":
-                  // without a definite slot width the text measures unbounded
-                  // and a long message runs off-screen instead of wrapping.
-                  // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
-                  // numberOfLines truncates copy that outgrows the slot.
-                  <Stack h="$8" jc="center" alignSelf="stretch">
-                    {heroNotice}
-                  </Stack>
-                }
-                width="100%"
-              />
+              {/* Separate from the layout-animated wrapper above: the press
+                  scale must not fight the hero's glide. */}
+              <Animated.View style={amountPressStyle}>
+                <SendAutoSizeAmountInput
+                  value={amountText}
+                  onChange={handleAmountChange}
+                  justifyContent="center"
+                  inputProps={{
+                    placeholder: '0',
+                    // The keypad below is the input path. iPads also take a
+                    // hardware keyboard, which needs a focusable field; there
+                    // a tap on the amount without one attached brings up the
+                    // system keyboard too. Review locks it: the amount there
+                    // is a way back to editing (overlay below), and disabling
+                    // the field ends any editing in progress.
+                    editable:
+                      Boolean(platformEnv.isNativeIOSPad) && mode === 'input',
+                    keyboardType: 'decimal-pad',
+                    leftAddOnProps: {
+                      label: '$',
+                      pr: '$0',
+                      pl: '$0',
+                      mr: '$-2',
+                    },
+                  }}
+                  valueProps={estimateValueProps}
+                  extraContent={
+                    // alignSelf breaks out of the root Stack's ai="center":
+                    // without a definite slot width the text measures unbounded
+                    // and a long message runs off-screen instead of wrapping.
+                    // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
+                    // numberOfLines truncates copy that outgrows the slot.
+                    <Stack h="$8" jc="center" alignSelf="stretch">
+                      {/* The line the page opens with is part of the page;
+                        only later changes fade. */}
+                      <LayoutAnimationConfig skipEntering>
+                        {heroNoticeKind ? (
+                          <Animated.View
+                            key={heroNoticeKind}
+                            entering={MOTION_MICRO_ENTERING_AFTER_EXIT}
+                            exiting={MOTION_MICRO_EXITING}
+                          >
+                            {heroNotice}
+                          </Animated.View>
+                        ) : null}
+                      </LayoutAnimationConfig>
+                    </Stack>
+                  }
+                  width="100%"
+                />
+              </Animated.View>
               {mode === 'review' ? (
                 // In review the amount is a way back to editing it — where
                 // the eye already is, same move as the header's back arrow.
@@ -951,14 +991,13 @@ function HeadlessBuyPage() {
                   left={0}
                   right={0}
                   bottom="$8"
-                  borderRadius="$3"
                   role="button"
                   aria-label={intl.formatMessage({
                     id: ETranslations.global_edit,
                   })}
                   cursor="pointer"
-                  hoverStyle={{ bg: '$bgHover' }}
-                  pressStyle={{ bg: '$bgActive' }}
+                  onPressIn={handleAmountPressIn}
+                  onPressOut={handleAmountPressOut}
                   onPress={exitReview}
                 />
               ) : null}
@@ -1027,22 +1066,38 @@ function HeadlessBuyPage() {
                     (tapping one jumps straight to review); a typed amount
                     morphs the slot into the preview CTA. Clearing the amount
                     brings the presets back. Both render at the large-button
-                    height, so the swap never reflows the keypad below. */}
-                {amount > 0 ? (
-                  <Button
-                    testID="headless-buy-review"
-                    size="large"
-                    variant="primary"
-                    disabled={hasAmountError}
-                    onPress={enterReview}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_review_order,
-                    })}
-                  </Button>
-                ) : (
-                  <PresetRow onSelect={handlePresetSelect} />
-                )}
+                    height, so the swap never reflows the keypad below, and
+                    each fades in place. Not when the whole input block
+                    arrives: it fades in as one. */}
+                <LayoutAnimationConfig skipEntering>
+                  {amount > 0 ? (
+                    <Animated.View
+                      key="review-cta"
+                      entering={MOTION_MICRO_ENTERING}
+                      exiting={MOTION_MICRO_EXITING}
+                    >
+                      <Button
+                        testID="headless-buy-review"
+                        size="large"
+                        variant="primary"
+                        disabled={hasAmountError}
+                        onPress={enterReview}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_review_order,
+                        })}
+                      </Button>
+                    </Animated.View>
+                  ) : (
+                    <Animated.View
+                      key="presets"
+                      entering={MOTION_MICRO_ENTERING}
+                      exiting={MOTION_MICRO_EXITING}
+                    >
+                      <PresetRow onSelect={handlePresetSelect} />
+                    </Animated.View>
+                  )}
+                </LayoutAnimationConfig>
                 <NativeAmountKeypad
                   onKeyPress={handleKeyPress}
                   onBackspaceLongPress={handleBackspaceLongPress}
