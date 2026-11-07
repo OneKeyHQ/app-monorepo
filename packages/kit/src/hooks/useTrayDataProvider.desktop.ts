@@ -35,6 +35,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -1175,6 +1179,10 @@ export function useTrayDataProvider() {
             screen: ETabRoutes.Home,
           });
         } else if (action.route === TRAY_ROUTE_MARKET) {
+          // Same rule as the tab bars: already on Market is not an entry.
+          if (willTabFocusTransition(ETabRoutes.Market)) {
+            markMarketHomeEntry(EMarketHomeEntrySource.Tray);
+          }
           resetAboveMainRoute();
           setTimeout(resetAboveMainRoute, 120);
           void switchTabAsync(ETabRoutes.Market).then(() => {
