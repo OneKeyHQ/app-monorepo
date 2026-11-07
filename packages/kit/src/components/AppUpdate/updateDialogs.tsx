@@ -58,15 +58,22 @@ export function LottieViewIcon({
     };
   }, [themeVariant]);
 
+  // The animation loads asynchronously, so the delay starts once it is ready.
   useEffect(() => {
+    if (!source) {
+      return;
+    }
     const timer = setTimeout(() => {
       lottieViewRef.current?.play?.();
     }, 550);
     return () => clearTimeout(timer);
-  }, []);
+  }, [source]);
 
   return (
     <YStack
+      // iOS derives the shadow from the translucent animation pixels unless
+      // this view has a solid background.
+      bg="$bg"
       borderRadius="$5"
       borderCurve="continuous"
       borderWidth={StyleSheet.hairlineWidth}
