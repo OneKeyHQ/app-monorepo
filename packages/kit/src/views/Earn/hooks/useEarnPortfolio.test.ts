@@ -14,6 +14,7 @@ const mockStaking = {
   getEarnAvailableAccountsParams: jest.fn(),
   fetchInvestmentBatchDetail: jest.fn(),
   fetchInvestmentDetailV2: jest.fn(),
+  fetchAirdropInvestmentDetail: jest.fn(),
 };
 const mockCache: Record<string, IEarnPortfolioInvestment[]> = {};
 const mockSetCache = jest.fn();
@@ -205,7 +206,6 @@ describe('useEarnPortfolio batch refresh', () => {
       items: [investment('market-a', '15')],
       errors: [{ symbol: 'sUSDe', vault: 'market-b', errorCode: 'TIMEOUT' }],
     },
-    { items: [investment('market-a', '15')], errors: [] },
     {
       items: [investment('market-a', '15'), investment(undefined, '99')],
       errors: [],
@@ -221,6 +221,125 @@ describe('useEarnPortfolio batch refresh', () => {
       expect(mockStaking.fetchInvestmentDetailV2).not.toHaveBeenCalled();
     },
   );
+
+  it.each(['full', 'partial'] as const)(
+    'removes a missing Pendle vault after a successful %s refresh',
+    async (scope) => {
+      const { result } = renderHook(() => useEarnPortfolio());
+      await act(async () => result.current.refresh());
+      mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+        items: [investment('market-a', '15')],
+        errors: [],
+      });
+      await act(async () =>
+        result.current.refresh(
+          scope === 'partial' ? { provider: 'pendle' } : undefined,
+        ),
+      );
+      expect(result.current.earnTotalFiatValue.toFixed()).toBe('15');
+      expect(
+        result.current.investments.flatMap((item) =>
+          item.assets.map((asset) => asset.metadata?.protocol.vault),
+        ),
+      ).toEqual(['market-a']);
+      expect(mockStaking.fetchInvestmentDetailV2).not.toHaveBeenCalled();
+    },
+  );
+
+  it('retains existing positions if the batch request fails', async () => {
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockStaking.fetchInvestmentBatchDetail.mockRejectedValueOnce(
+        new Error('request failed'),
+      );
+      await act(async () => result.current.refresh());
+      expect(result.current.earnTotalFiatValue.toFixed()).toBe('20');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('retains a vault when a returned item has the same vault but a different symbol', async () => {
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    const mismatched = investment('market-b');
+    mismatched.protocol.symbol = 'other';
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [investment('market-a', '15'), mismatched],
+      errors: [],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('25');
+  });
+
+  it('clears Pendle positions when the successful batch is empty', async () => {
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [],
+      errors: [],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('0');
+    expect(result.current.investments).toHaveLength(0);
+  });
+
+  it('keeps missing positions for other providers', async () => {
+    const morpho = (vault: string, value = '10') => {
+      const item = investment(vault, value);
+      return {
+        ...item,
+        protocol: {
+          ...item.protocol,
+          providerDetail: { ...item.protocol.providerDetail, code: 'morpho' },
+        },
+      };
+    };
+    mockStaking.getAvailableAssetsV2.mockResolvedValue(
+      assets.map((asset) => ({ ...asset, provider: 'morpho' })),
+    );
+    mockStaking.fetchInvestmentBatchDetail
+      .mockResolvedValueOnce({
+        items: [morpho('market-a'), morpho('market-b')],
+        errors: [],
+      })
+      .mockResolvedValueOnce({ items: [morpho('market-a', '15')], errors: [] });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('25');
+  });
+
+  it('keeps airdrop assets when the corresponding normal position disappears', async () => {
+    const normal = investment('market-a');
+    mockStaking.getAvailableAssetsV2.mockResolvedValue([
+      assets[0],
+      { ...assets[0], type: 'airdrop' },
+    ]);
+    mockStaking.fetchInvestmentBatchDetail
+      .mockResolvedValueOnce({ items: [normal], errors: [] })
+      .mockResolvedValueOnce({ items: [], errors: [] });
+    mockStaking.fetchAirdropInvestmentDetail.mockResolvedValue({
+      totalFiatValue: '1',
+      protocol: normal.protocol,
+      network: normal.network,
+      assets: [
+        {
+          token: normal.assets[0].token,
+          airdropAssets: [{ title: { text: 'Claimable' } }],
+        },
+      ],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('0');
+    expect(result.current.investments).toHaveLength(1);
+    expect(result.current.investments[0].assets).toHaveLength(0);
+    expect(result.current.investments[0].airdropAssets).toHaveLength(1);
+  });
 
   it('removes a vault only when a matching successful response confirms zero', async () => {
     const { result } = renderHook(() => useEarnPortfolio());
