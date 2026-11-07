@@ -746,6 +746,7 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    navigationAction?: 'push';
     extras?: {
       params?: {
         coin?: string;
