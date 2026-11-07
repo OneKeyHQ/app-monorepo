@@ -75,6 +75,8 @@ import type {
   IEarnRegisterSignMessageResponse,
   IEarnRewardsPortfolioResponse,
   IEarnRewardsPortfolioStage,
+  IEarnServerOrderDetail,
+  IEarnServerOrderWaitResult,
   IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
@@ -2140,10 +2142,17 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTx;
+    tx: IStakeTx | null;
     internalDappType: EInternalDappEnum;
     stakingAction?: EInternalStakingAction;
   }) {
+    if (!tx) {
+      // Server-executed order (Unitas): the caller must poll the order with
+      // waitForServerExecutedOrder instead of building a transaction.
+      throw new OneKeyLocalError(
+        'Order is executed by the protocol, no transaction to sign',
+      );
+    }
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildInternalDappEncodedTx({
       internalDappTx: tx as any,
@@ -2151,6 +2160,72 @@ class ServiceStaking extends ServiceBase {
       stakingAction,
     });
     return encodedTx;
+  }
+
+  @backgroundMethod()
+  async getEarnOrderDetail({
+    networkId,
+    accountId,
+    orderId,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+  }): Promise<IEarnServerOrderDetail> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const resp = await client.get<{ data: IEarnServerOrderDetail }>(
+      '/earn/v1/orders/detail',
+      {
+        params: { networkId, accountAddress: account.address, orderId },
+      },
+    );
+    return resp.data.data;
+  }
+
+  /**
+   * Polls a server-executed order (OK-61790, Unitas Booster) until it settles.
+   * Transient request errors are ignored; a timeout is not a failure because
+   * the server keeps tracking the order.
+   */
+  @backgroundMethod()
+  async waitForServerExecutedOrder({
+    networkId,
+    accountId,
+    orderId,
+    intervalMs = 3000,
+    timeoutMs = 5 * 60 * 1000,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<IEarnServerOrderWaitResult> {
+    const deadline = Date.now() + timeoutMs;
+    let order: IEarnServerOrderDetail | undefined;
+    for (;;) {
+      try {
+        order = await this.getEarnOrderDetail({
+          networkId,
+          accountId,
+          orderId,
+        });
+      } catch {
+        // transient network error: keep polling until the deadline
+      }
+      if (order?.status === 'success') {
+        return { status: 'success', order };
+      }
+      if (order?.status === 'failed') {
+        return { status: 'failed', order };
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout', order };
+      }
+      await timerUtils.wait(intervalMs);
+    }
   }
 
   @backgroundMethod()

@@ -196,7 +196,18 @@ export type IStakeProviderInfo = {
   eventEndTime?: number;
 };
 
-export type IStakeBaseParams = {
+/**
+ * Campaign attribution carried from an Earn link into the stake / unstake
+ * request. The server forwards it to partners that report by campaign
+ * (Unitas) and fills in a default source / medium when the link had none.
+ */
+export type IEarnUtmParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+export type IStakeBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -231,7 +242,7 @@ export type IStakeBaseParams = {
   stakeType?: IEarnStakeType;
 };
 
-export type IWithdrawBaseParams = {
+export type IWithdrawBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -358,8 +369,38 @@ export type IStakeTxStakefishExitBroadcast = {
 };
 
 export type IStakeTxResponse = {
-  tx: IStakeTx;
+  /**
+   * null when the protocol executes the order itself (Unitas Booster): the
+   * client polls the order with orderId instead of signing a transaction.
+   */
+  tx: IStakeTx | null;
   orderId?: string;
+};
+
+// Server-executed order (OK-61790): GET /earn/v1/orders/detail
+export type IEarnServerOrderStatus =
+  | 'created'
+  | 'pending'
+  | 'success'
+  | 'failed';
+
+export type IEarnServerOrderDetail = {
+  orderId: string;
+  provider: string;
+  networkId: string;
+  action: string;
+  status: IEarnServerOrderStatus;
+  txId?: string;
+  extStatus?: string;
+  extRequestId?: string;
+  extClaimableAt?: number;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type IEarnServerOrderWaitResult = {
+  status: 'success' | 'failed' | 'timeout';
+  order?: IEarnServerOrderDetail;
 };
 
 // Babylon
@@ -1982,6 +2023,19 @@ export type IClaimableListItem = {
   extra?: IClaimableListItemExtra;
 };
 
+/**
+ * Approval a claim needs before its transaction (OK-61790, Unitas USDu): the
+ * claimed USDu is converted back to USDT by the protocol afterwards, so the
+ * server asks for an allowance of the claimed amount up front.
+ */
+export type IClaimApproveInfo = {
+  approveType: EApproveType;
+  approveTarget: string;
+  tokenAddress: string;
+  symbol: string;
+  decimals: number;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -1993,6 +2047,7 @@ export type IClaimableListResponse = {
   description?: {
     text: string;
   };
+  claimApprove?: IClaimApproveInfo;
 };
 
 export interface IEarnAccountToken {
