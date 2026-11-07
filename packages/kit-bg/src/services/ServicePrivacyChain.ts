@@ -22,7 +22,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PRIVACY_CHAIN_TIP_POLL_MS,
   getPrivacyChainBlocksLeft,
+  getPrivacyChainFurthestBlocksLeft,
   getPrivacyChainTimeWindowBlocks,
+  isPrivacyChainLongCatchUp,
   nextPrivacyChainScanRate,
   shouldStartBoost,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
@@ -402,6 +404,10 @@ class ServicePrivacyChain extends ServiceBase {
   // one.
   foregroundBoostRequestedByNetwork: Record<string, boolean> = {};
 
+  // Boosts the light shows: lit once any account has a long catch-up, kept until the request ends,
+  // so a short Sync runs at the foreground pace without the light flashing.
+  private boostLitNetworkIds?: Set<string>;
+
   boostPausedByNetwork: Record<string, boolean> = {};
 
   // Groups whose last turns failed skip picks until `untilMs` (`watchedUntilMs` while the user
@@ -735,18 +741,15 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   // Blocks left to scan, from the last published position. Null means not known yet.
+  // Any account's long catch-up starts the light, not only the one on screen.
   async getPublishedRemainingBlocks({
     networkId,
-    accountId,
   }: {
     networkId: string;
-    accountId: string | undefined;
   }): Promise<number | null> {
-    if (!accountId) {
-      return null;
-    }
-    return getPrivacyChainBlocksLeft(
-      (await privacyChainAtom.get()).progress[`${networkId}:${accountId}`],
+    return getPrivacyChainFurthestBlocksLeft(
+      (await privacyChainAtom.get()).progress,
+      networkId,
     );
   }
 
@@ -768,7 +771,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
     const remainingBlocks = await this.getPublishedRemainingBlocks({
       networkId,
-      accountId,
     });
     if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) {
       return;
@@ -5094,8 +5096,23 @@ class ServicePrivacyChain extends ServiceBase {
     const requested = Object.keys(
       this.foregroundBoostRequestedByNetwork,
     ).filter((id) => !remotePausedNetworkIds.includes(id));
-    const boostingNetworkIds = requested.filter((id) =>
-      this.isNetworkForegroundHot(id),
+    const { progress } = await privacyChainAtom.get();
+    const lit = (this.boostLitNetworkIds ??= new Set());
+    for (const id of lit) {
+      if (!this.foregroundBoostRequestedByNetwork[id]) lit.delete(id);
+    }
+    for (const id of requested) {
+      if (
+        isPrivacyChainLongCatchUp(
+          getPrivacyChainFurthestBlocksLeft(progress, id),
+        )
+      ) {
+        lit.add(id);
+      }
+    }
+    // Pace and light differ: only a lit boost is shown (and keeps the screen awake).
+    const boostingNetworkIds = requested.filter(
+      (id) => this.isNetworkForegroundHot(id) && lit.has(id),
     );
     // All paused networks, regardless of whether a boost was ever requested:
     // pausing must stay visible even after that request clears.
@@ -5174,6 +5191,14 @@ class ServicePrivacyChain extends ServiceBase {
           remainingBlocks: mostRemaining,
         });
     if (wanted === wasRequested) {
+      // A Sync that turned out long lights the light now, not on the next request.
+      if (
+        wanted &&
+        !this.boostLitNetworkIds?.has(networkId) &&
+        isPrivacyChainLongCatchUp(mostRemaining)
+      ) {
+        await this.publishBoostingNetworks();
+      }
       return;
     }
     if (wanted) {
