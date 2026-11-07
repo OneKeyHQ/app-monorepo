@@ -73,7 +73,7 @@ export function LottieViewIcon({
     <YStack
       // iOS derives the shadow from the translucent animation pixels unless
       // this view has a solid background.
-      bg="$bg"
+      bg={platformEnv.isNativeIOS ? '$bg' : undefined}
       borderRadius="$5"
       borderCurve="continuous"
       borderWidth={StyleSheet.hairlineWidth}
