@@ -185,12 +185,14 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
+import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
+import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ScrollViewInstance } from 'react-native';
 
@@ -1886,7 +1888,7 @@ const SwapMainLoad = ({
   );
 
   const pageContent = (
-    <>
+    <StockReceiveSnapshotProvider>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID={SwapTestIDs.pageContainer}
@@ -1903,38 +1905,40 @@ const SwapMainLoad = ({
         >
           {renderSwapHeader()}
           {shouldRenderDesktopSwapHeader ? (
-            <YStack
-              flex={1}
-              minHeight={0}
-              width="100%"
-              overflow="hidden"
-              $gtMd={{
-                flex: 'unset',
-              }}
-            >
+            <SwapRevealSnapshotProvider>
               <YStack
-                key={swapContentVersion}
                 flex={1}
                 minHeight={0}
                 width="100%"
-                transition="quick"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                enterStyle={
-                  fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
-                }
+                overflow="hidden"
                 $gtMd={{
                   flex: 'unset',
                 }}
               >
-                {swapContent}
+                <YStack
+                  key={swapContentVersion}
+                  flex={1}
+                  minHeight={0}
+                  width="100%"
+                  transition="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={
+                    fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
+                  }
+                  $gtMd={{
+                    flex: 'unset',
+                  }}
+                >
+                  {swapContent}
+                </YStack>
               </YStack>
-            </YStack>
+            </SwapRevealSnapshotProvider>
           ) : (
             swapContent
           )}
         </YStack>
       </Page.Container>
-    </>
+    </StockReceiveSnapshotProvider>
   );
   return pageContent;
 };

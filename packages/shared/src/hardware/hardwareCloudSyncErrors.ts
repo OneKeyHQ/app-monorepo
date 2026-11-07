@@ -1,6 +1,42 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { OneKeyLocalError } from '../errors';
 import { normalizeErrorProps } from '../errors/utils/errorUtils';
 import { ETranslations } from '../locale';
+
+import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from './deviceStageErrorCodes';
+
+import type { IOneKeyError } from '../errors/types/errorTypes';
+
+export const HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED = 'standardPinRequired';
+export const HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN = 'directSdk';
+
+export function isHardwareCloudSyncDirectSdkDialogError(error: unknown) {
+  const failure = error as
+    | IOneKeyError<{ hardwareCloudSyncErrorOrigin?: string }>
+    | undefined;
+  return (
+    failure?.$isHardwareError === true &&
+    typeof failure.code === 'number' &&
+    DEVICE_STAGE_DEDICATED_DIALOG_CODES.some((code) => code === failure.code) &&
+    failure.info?.hardwareCloudSyncErrorOrigin ===
+      HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN
+  );
+}
+
+// A UI-only context set when the standard-wallet session rejects its PIN
+// type. The original SDK error code, class and payload remain intact.
+export function isHardwareCloudSyncStandardPinRequired(error: unknown) {
+  const failure = error as
+    | IOneKeyError<{ hardwareCloudSyncRefusal?: string }>
+    | undefined;
+  return (
+    failure?.$isHardwareError === true &&
+    failure.code === HardwareErrorCode.DeviceCheckUnlockTypeError &&
+    failure.info?.hardwareCloudSyncRefusal ===
+      HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED
+  );
+}
 
 const prerequisiteMessages = {
   // Developer settings only, so it stays in English.

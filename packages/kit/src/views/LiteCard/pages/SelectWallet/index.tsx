@@ -31,10 +31,10 @@ export default function SelectWalletPage() {
       RouteProp<ILiteCardParamList, ELiteCardRoutes.LiteCardSelectWallet>
     >();
 
-  const { onPick } = route.params;
+  const { onPick, onCancel } = route.params;
 
   return (
-    <Page>
+    <Page onClose={onCancel}>
       <WalletListView
         walletList={walletList}
         onPick={onPick}
