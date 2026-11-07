@@ -1,4 +1,4 @@
-import type { ContextType } from 'react';
+import type { ContextType, ReactNode } from 'react';
 import {
   useCallback,
   useEffect,
@@ -36,6 +36,7 @@ import {
   useTokenDetailPreviewAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,6 +70,7 @@ import {
   BtcMetadataProvider,
   StockDetailProvider,
   useAutoRefreshTokenDetail,
+  useResolvedMarketAssetRouteIdentity,
   useStockDetail,
 } from './hooks';
 import { MarketSimpleChartRangeChangeProvider } from './hooks/MarketSimpleChartRangeChangeContext';
@@ -96,6 +98,34 @@ function normalizeRouteBooleanParam(
     return value === 'true';
   }
   return value ?? defaultValue;
+}
+
+// A selector/list placeholder for an Asset entry carries no chain identity and
+// can hold a fake precision (0). Re-targeting such a placeholder to the resolved
+// variant would let the detail request treat that precision as the route's, so
+// only previews that already knew the chain identity are re-targeted.
+export function resolveMarketAssetTokenDetailPreview({
+  preview,
+  identity,
+}: {
+  preview?: IMarketTokenDetailPreview;
+  identity?: { isNative: boolean; networkId: string; tokenAddress: string };
+}): IMarketTokenDetailPreview | undefined {
+  if (!preview || !identity) {
+    return preview;
+  }
+  const previewHasChainIdentity = Boolean(
+    preview.networkId && (preview.address || preview.isNative),
+  );
+  if (!previewHasChainIdentity) {
+    return preview;
+  }
+  return {
+    ...preview,
+    address: identity.tokenAddress,
+    networkId: identity.networkId,
+    isNative: identity.isNative,
+  };
 }
 
 function LegacyTokenPreviewInitializer({
@@ -193,12 +223,16 @@ function MarketDetail({
     rootRoutersLength > focusedRootRoutersLengthRef.current &&
     ownsEmbeddedSwapRef.current;
   const usesRetainedMarketDetailRoutes = Boolean(
-    platformEnv.isDesktop || platformEnv.isWeb,
+    platformEnv.isDesktop ||
+    platformEnv.isWeb ||
+    platformEnv.isExtensionUiExpandTab,
   );
-  const shouldOwnSharedMarketDetailState =
-    !usesRetainedMarketDetailRoutes ||
-    isRouteFocused ||
-    shouldKeepEmbeddedSwapMounted;
+  // Shared detail atoms are a single writer resource: the focused route owns
+  // them. A retained/blurred page (another detail opened above, tab switch, or
+  // a hidden Desktop/Web/extension route) must not poll or write them, or its
+  // stale asset overwrites the focused asset. The embedded Swap panel below is
+  // kept mounted separately for UI continuity.
+  const shouldOwnSharedMarketDetailState = isRouteFocused;
   const routeNetwork = ('network' in params ? params.network : '') ?? '';
   const routeNetworkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: routeNetwork }) ||
@@ -254,17 +288,57 @@ function MarketDetail({
     return () => controller.abort();
   }, [lookupScope, lookupAttempt, navigation]);
   const isResolvingSwapAsset = swapTokenSymbol !== undefined;
-  const networkId = selectedTokenVariant?.networkId ?? routeNetworkId;
-  const tokenAddress =
-    selectedTokenVariant?.contractAddress ?? routeTokenAddress;
-  const isNativeBoolean = routeIsNative;
-  const disableTrade = params.disableTrade;
-  const marketTokenId =
+  const shouldResolveMarketAsset = normalizeRouteBooleanParam(
+    'resolveMarketAsset' in params ? params.resolveMarketAsset : false,
+    false,
+  );
+  const marketTokenSymbol =
+    'marketTokenSymbol' in params ? params.marketTokenSymbol : undefined;
+  const routeMarketTokenId =
     'marketTokenId' in params ? params.marketTokenId : undefined;
-  const marketVariantId =
-    'marketVariantId' in params ? params.marketVariantId : undefined;
-  const marketTokenCategory =
+  const routeMarketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  // Entries that only know a CoinGecko asset id navigate without a chain
+  // identity; the detail request must resolve the real variant itself.
+  const isAssetOnlyRoute = Boolean(
+    routeMarketTokenId &&
+    routeMarketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
+    !routeNetworkId &&
+    !routeTokenAddress,
+  );
+  const {
+    identity: symbolResolvedMarketAssetIdentity,
+    shouldSkipMarketDataFetch,
+  } = useResolvedMarketAssetRouteIdentity({
+    enabled: shouldResolveMarketAsset,
+    active: shouldOwnSharedMarketDetailState,
+    tokenAddress: routeTokenAddress,
+    networkId: routeNetworkId,
+    symbol: marketTokenSymbol,
+    isNative: routeIsNative,
+  });
+  const requestNetworkId = isAssetOnlyRoute
+    ? routeNetworkId
+    : (symbolResolvedMarketAssetIdentity?.networkId ??
+      selectedTokenVariant?.networkId ??
+      routeNetworkId);
+  const requestTokenAddress = isAssetOnlyRoute
+    ? routeTokenAddress
+    : (symbolResolvedMarketAssetIdentity?.tokenAddress ??
+      selectedTokenVariant?.contractAddress ??
+      routeTokenAddress);
+  const requestIsNative =
+    symbolResolvedMarketAssetIdentity?.isNative ?? routeIsNative;
+  const disableTrade = params.disableTrade;
+  const requestMarketTokenId =
+    symbolResolvedMarketAssetIdentity?.marketTokenId ?? routeMarketTokenId;
+  const requestMarketVariantId =
+    symbolResolvedMarketAssetIdentity?.marketVariantId ??
+    ('marketVariantId' in params ? params.marketVariantId : undefined);
+  const requestMarketTokenCategory = symbolResolvedMarketAssetIdentity
+    ? MARKET_TOP_COINS_CATEGORY_ID
+    : (routeMarketTokenCategory ??
+      (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -299,13 +373,56 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
+  const {
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    isInitialTokenDetailPending,
+    resolvedMarketAssetIdentity: assetOnlyResolvedIdentity,
+    hasAssetError: assetIdentityError,
+    retryAssetDetail: retryAssetIdentity,
+  } = useAutoRefreshTokenDetail({
+    active: shouldOwnSharedMarketDetailState,
+    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
+    tokenAddress: requestTokenAddress,
+    networkId: requestNetworkId,
+    isNative: requestIsNative,
+    skipMarketDataFetch:
+      skipMarketDataFetch || shouldSkipMarketDataFetch || isResolvingSwapAsset,
+    marketTokenId: requestMarketTokenId,
+    marketVariantId: requestMarketVariantId,
+    marketTokenCategory: requestMarketTokenCategory,
+  });
+  useEffect(() => {
+    if (assetIdentityError && isChartFullscreen) {
+      onChartFullscreenChange(false);
+    }
+  }, [assetIdentityError, isChartFullscreen, onChartFullscreenChange]);
+
+  const resolvedMarketAssetIdentity =
+    assetOnlyResolvedIdentity ?? symbolResolvedMarketAssetIdentity;
+  const networkId = resolvedMarketAssetIdentity?.networkId ?? requestNetworkId;
+  const tokenAddress =
+    resolvedMarketAssetIdentity?.tokenAddress ?? requestTokenAddress;
+  const isNativeBoolean =
+    resolvedMarketAssetIdentity?.isNative ?? requestIsNative;
+  const marketTokenId =
+    resolvedMarketAssetIdentity?.marketTokenId ?? requestMarketTokenId;
+  const marketTokenCategory = requestMarketTokenCategory;
+  const resolvedTokenDetailPreview = useMemo(
+    () =>
+      resolveMarketAssetTokenDetailPreview({
+        preview: tokenDetailPreview,
+        identity: resolvedMarketAssetIdentity,
+      }),
+    [resolvedMarketAssetIdentity, tokenDetailPreview],
+  );
   // Stock navigation carries a separate stock preview instead of the token
   // preview atom. It already provides enough content for the native shell to
   // render while the stock variant and token detail requests settle.
   const hasValidInitialContentPreview = hasValidMarketDetailPreview({
     isStockRoute,
     stockPreview,
-    previews: [tokenDetailPreview, currentTokenDetailPreview],
+    previews: [resolvedTokenDetailPreview, currentTokenDetailPreview],
     tokenAddress,
     networkId,
   });
@@ -317,23 +434,6 @@ function MarketDetail({
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Refresh metadata, initialize the quote, and recover it when chart updates stop.
-  // Use actualNetworkId (converted from shortcode if needed) for API calls
-  const {
-    marketAssetDetail,
-    isMarketAssetDetailLoading,
-    isInitialTokenDetailPending,
-  } = useAutoRefreshTokenDetail({
-    active: shouldOwnSharedMarketDetailState,
-    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch: skipMarketDataFetch || isResolvingSwapAsset,
-    marketTokenId,
-    marketVariantId,
-    marketTokenCategory,
-  });
   // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
@@ -382,12 +482,80 @@ function MarketDetail({
     });
   }, [isDesktopLayout, isStockRoute]);
 
+  let detailBody: ReactNode;
+  if (isResolvingSwapAsset && lookupError === lookupScope) {
+    detailBody = (
+      <Stack flex={1} alignItems="center" justifyContent="center" gap="$3">
+        <SizableText>
+          {intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+        </SizableText>
+        <Button
+          testID="market-asset-lookup-retry"
+          onPress={() => {
+            setLookupError(undefined);
+            setLookupAttempt((attempt) => attempt + 1);
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      </Stack>
+    );
+  } else if (assetIdentityError) {
+    detailBody = (
+      <Stack flex={1} alignItems="center" justifyContent="center" gap="$2">
+        <SizableText color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          })}
+        </SizableText>
+        <Button testID="market-asset-detail-retry" onPress={retryAssetIdentity}>
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      </Stack>
+    );
+  } else {
+    detailBody = (
+      <MarketDetailResponsiveLayout
+        active={shouldOwnSharedMarketDetailState}
+        isLayoutPending={
+          isResolvingSwapAsset ||
+          shouldSkipMarketDataFetch ||
+          (isAssetOnlyRoute && !resolvedMarketAssetIdentity)
+        }
+        disablePerpsBanner={skipMarketDataFetch}
+        isInitialContentPending={
+          !hasValidInitialContentPreview &&
+          (isTokenVariantPending || isInitialTokenDetailPending)
+        }
+        isDesktopLayout={isDesktopLayout}
+        isChartFullscreen={isChartFullscreen}
+        isTradingViewNative={isTradingViewNative}
+        onChartSwitch={onChartSwitch}
+        onChartFullscreenChange={onChartFullscreenChange}
+        isNative={isNativeBoolean}
+        networkId={networkId}
+        tokenAddress={tokenAddress}
+        isTokenDetailRequestPending={isInitialTokenDetailPending}
+        marketTokenId={marketTokenId}
+        marketAssetDetail={marketAssetDetail}
+        isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+        marketTokenCategory={marketTokenCategory}
+        showFavoriteButton={showFavoriteButton}
+        disableTrade={shouldDisableTrade}
+        initialSection={initialSection}
+        onInitialSectionShown={handleInitialSectionShown}
+      />
+    );
+  }
+
   return (
     <BtcMetadataProvider>
       <MarketCurrentTokenLiveDataSync />
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
-        preview={tokenDetailPreview}
+        preview={resolvedTokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
         retainedTokenTarget={tokenDetailTarget}
       />
@@ -407,56 +575,7 @@ function MarketDetail({
           opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
-          {isResolvingSwapAsset && lookupError === lookupScope ? (
-            <Stack
-              flex={1}
-              alignItems="center"
-              justifyContent="center"
-              gap="$3"
-            >
-              <SizableText>
-                {intl.formatMessage({
-                  id: ETranslations.global_an_error_occurred,
-                })}
-              </SizableText>
-              <Button
-                testID="market-asset-lookup-retry"
-                onPress={() => {
-                  setLookupError(undefined);
-                  setLookupAttempt((attempt) => attempt + 1);
-                }}
-              >
-                {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-            </Stack>
-          ) : (
-            <MarketDetailResponsiveLayout
-              active={shouldOwnSharedMarketDetailState}
-              isLayoutPending={isResolvingSwapAsset}
-              disablePerpsBanner={skipMarketDataFetch}
-              isInitialContentPending={
-                !hasValidInitialContentPreview &&
-                (isTokenVariantPending || isInitialTokenDetailPending)
-              }
-              isDesktopLayout={isDesktopLayout}
-              isChartFullscreen={isChartFullscreen}
-              isTradingViewNative={isTradingViewNative}
-              onChartSwitch={onChartSwitch}
-              onChartFullscreenChange={onChartFullscreenChange}
-              isNative={isNativeBoolean}
-              networkId={networkId}
-              tokenAddress={tokenAddress}
-              isTokenDetailRequestPending={isInitialTokenDetailPending}
-              marketTokenId={marketTokenId}
-              marketAssetDetail={marketAssetDetail}
-              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-              marketTokenCategory={marketTokenCategory}
-              showFavoriteButton={showFavoriteButton}
-              disableTrade={shouldDisableTrade}
-              initialSection={initialSection}
-              onInitialSectionShown={handleInitialSectionShown}
-            />
-          )}
+          {detailBody}
         </Page.Body>
       </Page>
     </BtcMetadataProvider>

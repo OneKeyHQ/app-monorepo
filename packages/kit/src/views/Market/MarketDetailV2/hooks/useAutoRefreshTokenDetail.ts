@@ -5,10 +5,15 @@ import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useTokenDetailActions,
+  useTokenDetailIdentityAtom,
   useTokenDetailLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
+import {
+  type IMarketAssetRouteIdentity,
+  resolveMarketAssetRouteIdentity,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -27,10 +32,83 @@ interface IUseMarketDetailDataProps {
   marketTokenCategory?: string;
 }
 
+interface IUseResolvedMarketAssetRouteIdentityProps {
+  enabled: boolean;
+  active?: boolean;
+  tokenAddress: string;
+  networkId: string;
+  symbol?: string;
+  isNative: boolean;
+}
+
+type IMarketAssetRouteIdentityResult = Omit<
+  IUseResolvedMarketAssetRouteIdentityProps,
+  'enabled'
+> & {
+  identity?: IMarketAssetRouteIdentity;
+};
+
 function toFiniteNumber(value?: string | number) {
   if (value === undefined || value === null || value === '') return undefined;
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
+}
+
+export function useResolvedMarketAssetRouteIdentity({
+  enabled,
+  active = true,
+  tokenAddress,
+  networkId,
+  symbol,
+  isNative,
+}: IUseResolvedMarketAssetRouteIdentityProps) {
+  const [result, setResult] = useState<IMarketAssetRouteIdentityResult>();
+  const isCurrentResult = Boolean(
+    result &&
+    result.tokenAddress === tokenAddress &&
+    result.networkId === networkId &&
+    result.symbol === symbol &&
+    result.isNative === isNative,
+  );
+
+  const hasResolvedIdentity = isCurrentResult && Boolean(result?.identity);
+
+  useEffect(() => {
+    // Keep the canonical identity for this route across focus changes.
+    if (!enabled || !active || !symbol || hasResolvedIdentity) {
+      return;
+    }
+
+    let isActive = true;
+    void resolveMarketAssetRouteIdentity({
+      tokenAddress,
+      networkId,
+      symbol,
+      isNative,
+    }).then((identity) => {
+      if (isActive) {
+        setResult({ tokenAddress, networkId, symbol, isNative, identity });
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    active,
+    enabled,
+    hasResolvedIdentity,
+    isNative,
+    networkId,
+    symbol,
+    tokenAddress,
+  ]);
+
+  return {
+    identity: enabled && isCurrentResult ? result?.identity : undefined,
+    isResolving: Boolean(enabled && active && symbol && !isCurrentResult),
+    shouldSkipMarketDataFetch: Boolean(enabled && symbol && !isCurrentResult),
+  };
 }
 
 // Keep live quote mirroring in a leaf so price ticks do not render the page.
@@ -77,9 +155,17 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const fetchMarketAssetTokenDetail = useMarketAssetTokenDetailAction();
   const currencyInfo = useCurrency();
   const [isTokenDetailLoading] = useTokenDetailLoadingAtom();
+  // Computed atom: only re-renders when the detail identity changes, not on
+  // every price tick.
+  const [storeTokenDetailIdentity] = useTokenDetailIdentityAtom();
   const isMarketAssetRequest = Boolean(
     data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
     data.marketTokenId,
+  );
+  // Asset entries navigate before the variant is known, so the route has no
+  // chain identity until the detail request resolves one.
+  const isAssetOnlyRequest = Boolean(
+    isMarketAssetRequest && !data.networkId && !data.tokenAddress,
   );
   const locale = useLocaleVariant().toLowerCase();
   // The response carries currency-converted and localized fields.
@@ -101,6 +187,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
           locale,
         })
       : undefined;
+  // The request key identifies the asset, not the display settings: currency and
+  // locale are dependencies that refresh data without invalidating the resolved
+  // asset identity of the current route.
   const tokenDetailRequestKey = [
     isMarketAssetRequest ? 'asset' : 'token',
     data.marketTokenId ?? '',
@@ -132,6 +221,28 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       }
     | undefined
   >(undefined);
+  const resolvedVariantRef = useRef<
+    | {
+        requestKey: string;
+        variantId: string;
+      }
+    | undefined
+  >(undefined);
+  const [assetErrorRequestKey, setAssetErrorRequestKey] = useState<string>();
+  // A successful overview can keep the page readable while a later poll fails,
+  // but it cannot restore the token detail that an asset switch already cleared.
+  const cachedMarketAssetDetail =
+    successfulMarketAssetDetailRef.current?.requestKey === tokenDetailRequestKey
+      ? successfulMarketAssetDetailRef.current.assetDetail
+      : undefined;
+  const cachedMarketAssetVariant = cachedMarketAssetDetail?.selectedVariant;
+  const storeHandlesCachedDetail = Boolean(
+    cachedMarketAssetVariant &&
+    storeTokenDetailIdentity ===
+      `${cachedMarketAssetVariant.networkId}|${cachedMarketAssetVariant.tokenAddress.toLowerCase()}`,
+  );
+  const storeHandlesCachedDetailRef = useRef(storeHandlesCachedDetail);
+  storeHandlesCachedDetailRef.current = storeHandlesCachedDetail;
 
   // Track previous price scope to avoid showing stale token or currency data.
   const prevTokenRef = useRef<
@@ -150,14 +261,21 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   useLayoutEffect(() => {
     if (!active) return;
     const prevToken = prevTokenRef.current;
-    const isTokenChanged =
+    const isTokenIdentityChanged =
       prevToken &&
       (prevToken.tokenAddress !== data.tokenAddress ||
         prevToken.networkId !== data.networkId ||
-        prevToken.currencyId !== currencyInfo.id ||
         prevToken.marketTokenId !== data.marketTokenId ||
         prevToken.marketVariantId !== data.marketVariantId);
-    if (isTokenChanged) {
+    // A display-currency change only refreshes prices. Asset-only overview data
+    // is requested in USD and identifies the same variant, so keep the resolved
+    // detail instead of dropping the route identity (a failed refresh must not
+    // collapse the page into its error state).
+    const isCurrencyChangedWithoutAssetIdentity =
+      prevToken &&
+      !isAssetOnlyRequest &&
+      prevToken.currencyId !== currencyInfo.id;
+    if (isTokenIdentityChanged || isCurrencyChangedWithoutAssetIdentity) {
       // The preview atom remains available for seamless list-to-detail
       // transitions, but a full detail response must never cross identities.
       tokenDetailActions.setTokenDetail(undefined);
@@ -180,6 +298,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     data.marketVariantId,
     data.tokenAddress,
     data.networkId,
+    isAssetOnlyRequest,
     tokenDetailActions,
   ]);
 
@@ -188,6 +307,15 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
     if (!active) return;
+    // The resolved asset identity already owns the atoms; resetting them to the
+    // empty route identity would drop the detail while the route is reused.
+    if (
+      isAssetOnlyRequest &&
+      successfulMarketAssetDetailRef.current?.requestKey ===
+        tokenDetailRequestKey
+    ) {
+      return;
+    }
     tokenDetailActions.setTokenAddress(data.tokenAddress);
     tokenDetailActions.setNetworkId(data.networkId);
     tokenDetailActions.setIsNative(data.isNative);
@@ -196,6 +324,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     data.tokenAddress,
     data.networkId,
     data.isNative,
+    isAssetOnlyRequest,
+    tokenDetailRequestKey,
     tokenDetailActions,
   ]);
 
@@ -221,8 +351,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     const canFetch = Boolean(
       !data.skipMarketDataFetch &&
       currencyInfo.id &&
-      data.networkId &&
-      (data.tokenAddress || data.isNative),
+      (isAssetOnlyRequest ||
+        (data.networkId && (data.tokenAddress || data.isNative))),
     );
     if (!canFetch) {
       tokenDetailActions.setTokenDetailLoading(false);
@@ -234,10 +364,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     data.networkId,
     data.skipMarketDataFetch,
     data.tokenAddress,
+    isAssetOnlyRequest,
     tokenDetailActions,
   ]);
 
-  const { result } = usePromiseResult<
+  const { result, run } = usePromiseResult<
     { requestKey: string; assetDetail: IMarketAssetDetailData } | undefined
   >(
     async () => {
@@ -245,8 +376,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         !active ||
         data.skipMarketDataFetch ||
         !currencyInfo.id ||
-        !data.networkId ||
-        (!data.tokenAddress && !data.isNative)
+        (!isAssetOnlyRequest &&
+          (!data.networkId || (!data.tokenAddress && !data.isNative)))
       ) {
         return;
       }
@@ -255,11 +386,21 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
           try {
             const assetDetail = await fetchMarketAssetTokenDetail({
               assetId: data.marketTokenId,
-              variantId: data.marketVariantId,
+              variantId:
+                data.marketVariantId ??
+                (resolvedVariantRef.current?.requestKey ===
+                tokenDetailRequestKey
+                  ? resolvedVariantRef.current.variantId
+                  : undefined),
               tokenAddress: data.tokenAddress,
               networkId: data.networkId,
+              isCurrentRequest: () =>
+                requestScopeRef.current.generation === requestGeneration &&
+                currentTokenDetailRequestKeyRef.current ===
+                  tokenDetailRequestKey,
             });
             if (
+              requestScopeRef.current.generation !== requestGeneration ||
               currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
             ) {
               return;
@@ -268,16 +409,34 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
               requestKey: tokenDetailRequestKey,
               assetDetail,
             };
+            if (assetDetail.selectedVariant?.variantId) {
+              resolvedVariantRef.current = {
+                requestKey: tokenDetailRequestKey,
+                variantId: assetDetail.selectedVariant.variantId,
+              };
+            }
+            setAssetErrorRequestKey(undefined);
             successfulMarketAssetDetailRef.current = requestResult;
             return requestResult;
           } catch (_error) {
             if (
+              requestScopeRef.current.generation !== requestGeneration ||
               currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
             ) {
               return;
             }
-            return successfulMarketAssetDetailRef.current?.requestKey ===
-              tokenDetailRequestKey
+            const hasCachedDetail =
+              successfulMarketAssetDetailRef.current?.requestKey ===
+              tokenDetailRequestKey;
+            // Suppress the failure only while the shared store can still render
+            // this asset; otherwise the page would silently lose its detail.
+            const canSuppressError =
+              hasCachedDetail &&
+              (!isAssetOnlyRequest || storeHandlesCachedDetailRef.current);
+            if (!canSuppressError) {
+              setAssetErrorRequestKey(tokenDetailRequestKey);
+            }
+            return canSuppressError
               ? successfulMarketAssetDetailRef.current
               : undefined;
           }
@@ -308,6 +467,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       data.skipMarketDataFetch,
       fetchMarketAssetTokenDetail,
       isMarketAssetRequest,
+      isAssetOnlyRequest,
       tokenDetailActions,
       tokenDetailRequestKey,
       tokenDetailSwrKey,
@@ -328,19 +488,77 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     },
   );
 
-  const marketAssetDetail =
-    !data.skipMarketDataFetch && result?.requestKey === tokenDetailRequestKey
-      ? result.assetDetail
+  // Localized asset fields (description, about) come back with the response, so
+  // a locale change has to request the asset overview again. The token-detail
+  // path already re-runs through its locale-scoped SWR key.
+  const previousLocaleRef = useRef(locale);
+  useEffect(() => {
+    if (previousLocaleRef.current === locale) return;
+    previousLocaleRef.current = locale;
+    if (isMarketAssetRequest) {
+      void run();
+    }
+  }, [isMarketAssetRequest, locale, run]);
+
+  const hasAssetError =
+    isAssetOnlyRequest && assetErrorRequestKey === tokenDetailRequestKey;
+  let marketAssetDetail: IMarketAssetDetailData | undefined;
+  if (!data.skipMarketDataFetch && !hasAssetError) {
+    if (result?.requestKey === tokenDetailRequestKey) {
+      marketAssetDetail = result.assetDetail;
+    } else if (
+      successfulMarketAssetDetailRef.current?.requestKey ===
+      tokenDetailRequestKey
+    ) {
+      marketAssetDetail = successfulMarketAssetDetailRef.current.assetDetail;
+    }
+  }
+  const resolvedVariant = isAssetOnlyRequest
+    ? marketAssetDetail?.selectedVariant
+    : undefined;
+  const resolvedMarketAssetIdentity =
+    resolvedVariant && data.marketTokenId
+      ? {
+          isNative: resolvedVariant.isNative,
+          marketTokenId: data.marketTokenId,
+          marketVariantId: resolvedVariant.variantId,
+          networkId: resolvedVariant.networkId,
+          tokenAddress: resolvedVariant.tokenAddress,
+        }
       : undefined;
+  // Another detail page may have taken over the shared atoms while this route
+  // was hidden; restoring the address/network is not enough because the cleared
+  // token detail may still be empty, so check the detail identity as well.
+  let expectedDetailIdentity: string | undefined =
+    `${data.networkId}|${data.tokenAddress.toLowerCase()}`;
+  if (isAssetOnlyRequest) {
+    expectedDetailIdentity = resolvedMarketAssetIdentity
+      ? `${resolvedMarketAssetIdentity.networkId}|${resolvedMarketAssetIdentity.tokenAddress.toLowerCase()}`
+      : undefined;
+  }
+  const storeHasDetailForRoute = Boolean(
+    expectedDetailIdentity &&
+    storeTokenDetailIdentity === expectedDetailIdentity,
+  );
 
   return {
     marketAssetDetail,
+    resolvedMarketAssetIdentity,
+    hasAssetError,
+    retryAssetDetail: () => {
+      setAssetErrorRequestKey(undefined);
+      void run();
+    },
     isInitialTokenDetailPending: Boolean(
       active &&
       !data.skipMarketDataFetch &&
-      data.networkId &&
-      (data.tokenAddress || data.isNative) &&
-      settledRequestGeneration !== requestGeneration,
+      (isAssetOnlyRequest ||
+        (data.networkId && (data.tokenAddress || data.isNative))) &&
+      // Re-entering the same route (tab switch, modal close) is not a first
+      // load while the store still renders its detail; a cleared/overwritten
+      // detail or a new request scope still waits for the fresh response.
+      settledRequestGeneration !== requestGeneration &&
+      !storeHasDetailForRoute,
     ),
     isMarketAssetDetailLoading:
       data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&

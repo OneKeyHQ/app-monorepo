@@ -133,6 +133,9 @@ interface IMarketAssetTokenDetailPayload {
   variantId?: string;
   tokenAddress: string;
   networkId: string;
+  // Checks that the detail route still owns the shared store. Asset-only routes
+  // pass it so an unmounted/hidden route cannot write another page's atoms.
+  isCurrentRequest?: () => boolean;
 }
 
 async function fetchMarketAssetTokenDetail(
@@ -140,30 +143,62 @@ async function fetchMarketAssetTokenDetail(
   set: IJotaiSetter,
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
-  const { assetId, variantId, tokenAddress, networkId } = payload;
+  const { assetId, variantId, tokenAddress, networkId, isCurrentRequest } =
+    payload;
   const requestStartedAt = Date.now();
+  // Asset-only routes carry no chain identity until the asset response resolves
+  // a variant; the request must not guess it from the shared store.
+  const isAssetOnly = !tokenAddress && !networkId;
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
-  const previousResolution = get(marketPerpsResolutionAtom());
-  const resolution = { networkId, tokenAddress, requestId };
-  const sameResolutionIdentity =
-    previousResolution?.networkId === networkId &&
-    previousResolution.tokenAddress === tokenAddress &&
-    previousResolution.requestId === requestId - 1;
-  set(marketPerpsResolutionAtom(), {
-    ...resolution,
-    lookupRequestId: sameResolutionIdentity
-      ? previousResolution?.lookupRequestId
-      : undefined,
-    status: sameResolutionIdentity
-      ? (previousResolution?.status ?? 'pending')
-      : 'pending',
-  });
+  const resolution:
+    | { networkId: string; tokenAddress: string; requestId: number }
+    | undefined = isAssetOnly
+    ? undefined
+    : { networkId, tokenAddress, requestId };
+  if (resolution) {
+    const previousResolution = get(marketPerpsResolutionAtom());
+    const sameResolutionIdentity =
+      previousResolution?.networkId === networkId &&
+      previousResolution.tokenAddress === tokenAddress &&
+      previousResolution.requestId === requestId - 1;
+    set(marketPerpsResolutionAtom(), {
+      ...resolution,
+      lookupRequestId: sameResolutionIdentity
+        ? previousResolution?.lookupRequestId
+        : undefined,
+      status: sameResolutionIdentity
+        ? (previousResolution?.status ?? 'pending')
+        : 'pending',
+    });
+  }
   let isStale = false;
-  const isCurrentIdentity = () =>
+  let resolvedIdentity:
+    | {
+        tokenAddress: string;
+        networkId: string;
+      }
+    | undefined;
+  const requestScopeStillMatches = () =>
     get(tokenDetailRequestIdAtom()) === requestId &&
-    get(tokenAddressAtom()) === tokenAddress &&
-    get(networkIdAtom()) === networkId;
+    (isCurrentRequest?.() ?? true);
+  const isCurrentIdentity = () => {
+    if (!requestScopeStillMatches()) {
+      return false;
+    }
+    if (isAssetOnly) {
+      // Before the variant resolves there is no route identity to compare with.
+      // Afterwards the shared atoms must still point at the resolved token.
+      return resolvedIdentity
+        ? get(tokenAddressAtom()) === resolvedIdentity.tokenAddress &&
+            get(networkIdAtom()) === resolvedIdentity.networkId
+        : true;
+    }
+    return (
+      get(tokenAddressAtom()) === tokenAddress &&
+      get(networkIdAtom()) === networkId
+    );
+  };
 
   try {
     set(tokenDetailLoadingAtom(), true);
@@ -181,6 +216,10 @@ async function fetchMarketAssetTokenDetail(
     }
 
     const { selectedVariant } = assetDetail;
+    const detailTokenAddress = isAssetOnly
+      ? selectedVariant.tokenAddress
+      : tokenAddress;
+    const detailNetworkId = isAssetOnly ? selectedVariant.networkId : networkId;
     const selectedVariantMatchesRoute = equalTokenNoCaseSensitive({
       token1: {
         networkId,
@@ -192,7 +231,10 @@ async function fetchMarketAssetTokenDetail(
       },
     });
     if (
-      !selectedVariantMatchesRoute ||
+      assetDetail.asset.assetId !== assetId ||
+      (!isAssetOnly && !selectedVariantMatchesRoute) ||
+      !networkUtils.getLocalNetworkInfo(selectedVariant.networkId) ||
+      (!selectedVariant.isNative && !selectedVariant.tokenAddress) ||
       (variantId && selectedVariant.variantId !== variantId)
     ) {
       throw new OneKeyLocalError(
@@ -200,11 +242,32 @@ async function fetchMarketAssetTokenDetail(
       );
     }
 
+    // Perps state can only be bound once the route identity is known.
+    const perpsResolution = resolution ?? {
+      networkId: detailNetworkId,
+      tokenAddress: detailTokenAddress,
+      requestId,
+    };
+    if (!resolution) {
+      const previousResolution = get(marketPerpsResolutionAtom());
+      const sameResolutionIdentity =
+        previousResolution?.networkId === perpsResolution.networkId &&
+        previousResolution.tokenAddress === perpsResolution.tokenAddress;
+      set(marketPerpsResolutionAtom(), {
+        ...perpsResolution,
+        lookupRequestId: sameResolutionIdentity
+          ? previousResolution?.lookupRequestId
+          : undefined,
+        status: sameResolutionIdentity
+          ? (previousResolution?.status ?? 'pending')
+          : 'pending',
+      });
+    }
     // Asset polling must not invalidate an in-flight lookup for the same token.
     const currentResolution = get(marketPerpsResolutionAtom());
     if (currentResolution?.lookupRequestId === undefined) {
       set(marketPerpsResolutionAtom(), {
-        ...resolution,
+        ...perpsResolution,
         status: currentResolution?.status ?? 'pending',
         lookupRequestId: requestId,
       });
@@ -212,7 +275,7 @@ async function fetchMarketAssetTokenDetail(
         get,
         set,
         symbol: assetDetail.asset.symbol.toUpperCase(),
-        resolution,
+        resolution: perpsResolution,
       });
     }
 
@@ -221,16 +284,16 @@ async function fetchMarketAssetTokenDetail(
     const currentDecimals =
       isSameMarketTokenDetail({
         tokenDetail: currentTokenDetail,
-        tokenAddress,
-        networkId,
+        tokenAddress: detailTokenAddress,
+        networkId: detailNetworkId,
       }) && currentTokenDetail?.decimalsResolved !== false
         ? currentTokenDetail?.decimals
         : undefined;
     const previewMatchesRoute = tokenDetailPreview
       ? equalTokenNoCaseSensitive({
           token1: {
-            networkId,
-            contractAddress: tokenAddress,
+            networkId: detailNetworkId,
+            contractAddress: detailTokenAddress,
           },
           token2: {
             networkId: tokenDetailPreview.networkId,
@@ -239,24 +302,17 @@ async function fetchMarketAssetTokenDetail(
         })
       : false;
     // Native precision belongs to the chain; listing previews may contain 0.
+    // Selector/list placeholders for asset entries can also carry a fake
+    // precision (0), so asset-only routes only trust the resolved detail.
     const nativeDecimals = selectedVariant.isNative
       ? networkUtils.getLocalNetworkInfo(selectedVariant.networkId)?.decimals
       : undefined;
-    let decimals =
-      nativeDecimals ??
-      (previewMatchesRoute ? tokenDetailPreview?.decimals : currentDecimals);
-
-    if (!isValidTokenDecimals(decimals)) {
-      try {
-        const tokenInfo =
-          await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-          });
-        decimals = tokenInfo?.info?.decimals;
-      } catch {
-        decimals = undefined;
-      }
+    let decimals = nativeDecimals;
+    if (decimals === undefined) {
+      decimals =
+        !isAssetOnly && previewMatchesRoute
+          ? tokenDetailPreview?.decimals
+          : currentDecimals;
     }
 
     if (!isCurrentIdentity()) {
@@ -277,10 +333,58 @@ async function fetchMarketAssetTokenDetail(
       requestStartedAt,
     });
 
+    if (isAssetOnly) {
+      resolvedIdentity = {
+        tokenAddress: selectedVariant.tokenAddress,
+        networkId: selectedVariant.networkId,
+      };
+      set(tokenAddressAtom(), selectedVariant.tokenAddress);
+      set(networkIdAtom(), selectedVariant.networkId);
+    }
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);
+    if (!isValidTokenDecimals(decimals)) {
+      const metadataTokenAddress = selectedVariant.tokenAddress;
+      const metadataNetworkId = selectedVariant.networkId;
+      // Metadata may settle after a newer price poll. Only route ownership and
+      // the still-current token identity decide whether its precision applies.
+      const metadataStillApplies = () =>
+        (isCurrentRequest?.() ?? true) &&
+        get(tokenAddressAtom()) === metadataTokenAddress &&
+        get(networkIdAtom()) === metadataNetworkId;
+      void backgroundApiProxy.serviceToken
+        .fetchTokenInfoOnly({
+          networkId: metadataNetworkId,
+          tokenAddress: metadataTokenAddress,
+        })
+        .then((tokenInfo) => {
+          const resolvedDecimals = tokenInfo?.info?.decimals;
+          if (
+            !isValidTokenDecimals(resolvedDecimals) ||
+            !metadataStillApplies()
+          ) {
+            return;
+          }
+          const latestTokenDetail = get(tokenDetailAtom());
+          if (
+            latestTokenDetail &&
+            isSameMarketTokenDetail({
+              tokenDetail: latestTokenDetail,
+              tokenAddress: metadataTokenAddress,
+              networkId: metadataNetworkId,
+            })
+          ) {
+            set(tokenDetailAtom(), {
+              ...latestTokenDetail,
+              decimals: resolvedDecimals,
+              decimalsResolved: true,
+            });
+          }
+        })
+        .catch(() => undefined);
+    }
 
     return assetDetail;
   } catch (error) {

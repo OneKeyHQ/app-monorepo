@@ -171,6 +171,7 @@ function MobileTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
+        resolveMarketAsset: isFavoritesSelection || Boolean(searchQuery),
         marketTokenCategory:
           isFavoritesSelection || isTopCoinsSelection || searchQuery
             ? undefined

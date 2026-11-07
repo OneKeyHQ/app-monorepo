@@ -339,6 +339,7 @@ function MarketTokenListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory,
+    resolveMarketAsset: isWatchlistMode,
   });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();

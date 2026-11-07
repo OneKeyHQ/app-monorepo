@@ -37,8 +37,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
-import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketToken as IMarketHomeToken } from '../MarketTokenData';
@@ -81,6 +81,10 @@ interface IUseToDetailPageOptions {
    * A different detail route is replaced, while the same route is updated in place.
    */
   replaceCurrentDetail?: boolean;
+  /**
+   * Resolves a search/watchlist token to its canonical Asset route identity.
+   */
+  resolveMarketAsset?: boolean;
 }
 
 // All entry rows navigate the same UI router. A newer selection must also
@@ -109,7 +113,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
     const previewAddress = item.address ?? item.tokenAddress;
 
-    if ((!previewAddress && !item.isNative) || !item.name) {
+    if (
+      (!previewAddress && !item.isNative) ||
+      !item.name ||
+      typeof item.decimals !== 'number'
+    ) {
       return undefined;
     }
 
@@ -125,73 +133,47 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   }, []);
 
   const toMarketDetailPage = useCallback(
-    async (selectedItem: IMarketToken) => {
+    async (selectedItem: IMarketToken | IMarketAssetListItem) => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
         return;
       }
-      let item = selectedItem;
+      const selectedToken = selectedItem as IMarketToken;
+      const hasNoFetchTokenIdentity = Boolean(
+        selectedToken.skipMarketDataFetch &&
+        selectedToken.networkId &&
+        (selectedToken.tokenAddress || selectedToken.isNative),
+      );
+      const isAssetEntry = Boolean(
+        selectedItem.assetId && !hasNoFetchTokenIdentity,
+      );
+      const item: IMarketToken = isAssetEntry
+        ? {
+            assetId: selectedItem.assetId,
+            symbol: selectedItem.symbol,
+            name: selectedItem.name,
+            networkId: '',
+            tokenAddress: '',
+            marketVariantId: selectedToken.marketVariantId,
+            disableTrade: selectedToken.disableTrade,
+            showFavoriteButton: selectedToken.showFavoriteButton,
+          }
+        : selectedToken;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
-      if (item.assetId) {
-        let assetDetailFetched = false;
-        try {
-          const { default: backgroundApiProxy } =
-            await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-          if (navigationGenerationRef.current !== navigationGeneration) return;
-          const detail =
-            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-              assetId: item.assetId,
-              currency: 'usd',
-              autoHandleError: false,
-            });
-          assetDetailFetched = true;
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          const selectedVariant = requireMarketAssetVariant({
-            detail,
-            networkId: item.networkId,
-            tokenAddress: item.tokenAddress,
-            isNative: item.isNative,
-          });
-          item = {
-            ...item,
-            marketTokenId: item.assetId,
-            marketVariantId: selectedVariant.variantId,
-            networkId: selectedVariant.networkId,
-            tokenAddress: selectedVariant.tokenAddress,
-            address: selectedVariant.tokenAddress,
-            isNative: selectedVariant.isNative,
-          };
-        } catch {
-          if (navigationGenerationRef.current !== navigationGeneration) {
-            return;
-          }
-          if (!assetDetailFetched && item.networkId) {
-            // Search rows retain a usable chain identity if asset lookup fails.
-            // A successful response with a missing variant must still fail.
-            item = { ...item, assetId: undefined };
-          } else {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_an_error_occurred,
-              }),
-            });
-            return;
-          }
-        }
-      }
-      const stockId = resolveMarketStockId({
-        stockId: item.stockId,
-        stock: item.stock,
-      });
+      const shouldResolveMarketAsset = Boolean(
+        options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
+      );
       const resolvedItem = item;
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
+      const stockId = resolveMarketStockId({
+        stockId: resolvedItem.stockId,
+        stock: resolvedItem.stock,
+      });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
@@ -207,15 +189,27 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : options?.showFavoriteButton;
 
       const tokenParams = {
-        tokenAddress: resolvedItem.tokenAddress,
-        network: shortCode || resolvedItem.networkId,
+        ...(!isAssetEntry
+          ? {
+              tokenAddress: resolvedItem.tokenAddress,
+              network: shortCode || resolvedItem.networkId,
+            }
+          : undefined),
         isNative: resolvedItem.isNative,
         from: options?.from,
-        ...(resolvedItem.marketTokenId
-          ? { marketTokenId: resolvedItem.marketTokenId }
+        ...(resolvedItem.marketTokenId || resolvedItem.assetId
+          ? {
+              marketTokenId: resolvedItem.marketTokenId ?? resolvedItem.assetId,
+            }
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
+          : undefined),
+        ...(shouldResolveMarketAsset
+          ? {
+              resolveMarketAsset: true,
+              marketTokenSymbol: resolvedItem.symbol,
+            }
           : undefined),
         ...(resolvedItem.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
@@ -231,8 +225,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const stockParams = stockId
         ? {
             stockId,
-            tokenAddress: tokenParams.tokenAddress,
-            network: tokenParams.network,
+            tokenAddress: resolvedItem.tokenAddress,
+            network: shortCode || resolvedItem.networkId,
             isNative: tokenParams.isNative,
             from: options?.from,
             ...(typeof tokenParams.disableTrade === 'boolean'
@@ -291,8 +285,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         if (stockId) {
           await backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
             stockId,
-            tokenAddress: tokenParams.tokenAddress,
-            network: tokenParams.network,
+            tokenAddress: resolvedItem.tokenAddress,
+            network: shortCode || resolvedItem.networkId,
             isNative: tokenParams.isNative,
             disableTrade: tokenParams.disableTrade,
             showFavoriteButton: tokenParams.showFavoriteButton,
@@ -382,7 +376,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
-        if (platformEnv.isNative) {
+        if (platformEnv.isNative && !isAssetEntry) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
@@ -427,6 +421,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,
+      options?.resolveMarketAsset,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,

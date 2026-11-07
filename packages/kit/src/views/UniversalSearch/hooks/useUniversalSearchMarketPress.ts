@@ -38,6 +38,7 @@ export function useUniversalSearchMarketPress({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
+    resolveMarketAsset: true,
   });
 
   return useCallback(

@@ -15,9 +15,16 @@ const mockFetchAssetTokenDetail = jest.fn();
 const mockFetchTokenDetail = jest.fn();
 const mockSetCurrentTokenLiveData = jest.fn();
 const mockSetIsNative = jest.fn();
-const mockSetNetworkId = jest.fn();
+let mockStoreTokenAddress = '';
+let mockStoreNetworkId = '';
+let mockStoreTokenDetailIdentity: string | undefined;
+const mockSetNetworkId = jest.fn((value: string) => {
+  mockStoreNetworkId = value;
+});
 const mockSetPerpsInfo = jest.fn();
-const mockSetTokenAddress = jest.fn();
+const mockSetTokenAddress = jest.fn((value: string) => {
+  mockStoreTokenAddress = value;
+});
 const mockSetTokenDetail = jest.fn();
 const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
@@ -34,9 +41,11 @@ const mockTokenDetailActions = {
   seedTokenDetailFromCache: mockSeedTokenDetailFromCache,
 };
 let promiseFactory: (() => Promise<unknown>) | undefined;
+let promiseDeps: unknown[] | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
 let mockCurrencyId = 'usd';
+let mockLocale = 'en-US';
 let mockTokenDetail: IMarketTokenDetail | undefined;
 let mockNetworkId = '';
 let mockIsFocused = true;
@@ -63,25 +72,35 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
-  useLocaleVariant: () => 'en-US',
+  useLocaleVariant: () => mockLocale,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(
     (
       factory: () => Promise<unknown>,
-      _deps: unknown[],
+      deps: unknown[],
       options: Record<string, unknown>,
     ) => {
       promiseFactory = factory;
+      promiseDeps = deps;
       promiseOptions = options;
-      return { result: promiseResult, isLoading: false };
+      return {
+        result: promiseResult,
+        isLoading: false,
+        run: async () => {
+          await promiseFactory?.();
+        },
+      };
     },
   ),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useNetworkIdAtom: () => [mockStoreNetworkId],
+  useTokenAddressAtom: () => [mockStoreTokenAddress],
   useTokenDetailLoadingAtom: () => [false],
+  useTokenDetailIdentityAtom: () => [mockStoreTokenDetailIdentity],
   useTokenDetailActions: () => ({
     current: mockTokenDetailActions,
   }),
@@ -105,6 +124,13 @@ jest.mock(
   }),
 );
 
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity',
+  () => ({
+    resolveMarketAssetRouteIdentity: jest.fn().mockResolvedValue(undefined),
+  }),
+);
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketCurrentTokenLiveDataAtom: () => [
     undefined,
@@ -116,11 +142,16 @@ describe('useAutoRefreshTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     promiseFactory = undefined;
+    promiseDeps = undefined;
     promiseOptions = undefined;
     promiseResult = undefined;
     mockCurrencyId = 'usd';
+    mockLocale = 'en-US';
     mockTokenDetail = undefined;
     mockNetworkId = '';
+    mockStoreTokenAddress = '';
+    mockStoreNetworkId = '';
+    mockStoreTokenDetailIdentity = undefined;
   });
 
   it('mirrors live prices in a leaf and clears the mirror when its token disappears', () => {
@@ -185,6 +216,7 @@ describe('useAutoRefreshTokenDetail', () => {
       variantId: 'doge-doge--0-1',
       tokenAddress: '',
       networkId: 'doge--0',
+      isCurrentRequest: expect.any(Function),
     });
     expect(mockFetchTokenDetail).not.toHaveBeenCalled();
     expect(promiseOptions).toMatchObject({
@@ -261,6 +293,7 @@ describe('useAutoRefreshTokenDetail', () => {
       variantId: undefined,
       tokenAddress: '',
       networkId: 'doge--0',
+      isCurrentRequest: expect.any(Function),
     });
   });
 
@@ -311,6 +344,61 @@ describe('useAutoRefreshTokenDetail', () => {
         assetDetail,
       });
     });
+  });
+
+  it('shows the Asset error when reselecting a cached asset fails after its detail was cleared', async () => {
+    const assetDetail = {
+      asset: { assetId: 'doge' },
+      selectedVariant: {
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    };
+    mockFetchAssetTokenDetail.mockResolvedValueOnce(assetDetail);
+    const { result, rerender } = renderHook(
+      ({ assetId }: { assetId: string }) =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: '',
+          isNative: false,
+          marketTokenId: assetId,
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        }),
+      { initialProps: { assetId: 'doge' } },
+    );
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.hasAssetError).toBe(false);
+    // The asset action wrote the resolved identity and detail into the store.
+    mockStoreTokenAddress = '0xabc';
+    mockStoreNetworkId = 'evm--1';
+    mockStoreTokenDetailIdentity = 'evm--1|0xabc';
+
+    // Switch to another asset while its request stays pending: the switch
+    // clears the shared detail and no new identity has been written yet.
+    mockFetchAssetTokenDetail.mockReturnValueOnce(new Promise(() => {}));
+    rerender({ assetId: 'btc' });
+    act(() => {
+      void promiseFactory?.();
+    });
+    mockStoreTokenAddress = '';
+    mockStoreNetworkId = '';
+    mockStoreTokenDetailIdentity = undefined;
+
+    // Selecting the cached asset again clears its detail too; its request fails.
+    mockFetchAssetTokenDetail.mockRejectedValueOnce(new Error('offline'));
+    rerender({ assetId: 'doge' });
+    await act(async () => {
+      await promiseFactory?.().catch(() => undefined);
+    });
+
+    // The overview cache cannot restore the header/quote detail, so surface
+    // the retry state instead of silently keeping an empty detail.
+    expect(result.current.hasAssetError).toBe(true);
+    expect(result.current.marketAssetDetail).toBeUndefined();
   });
 
   it('does not let a stale Asset response replace the current overview cache', async () => {
@@ -415,6 +503,121 @@ describe('useAutoRefreshTokenDetail', () => {
     });
     expect(mockSetTokenDetailLoading).toHaveBeenCalledWith(false);
   });
+
+  it('keeps the resolved Asset identity when only the display currency changes', async () => {
+    const assetDetail = {
+      asset: { assetId: 'doge' },
+      selectedVariant: {
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    };
+    promiseResult = { requestKey: 'asset:doge:::', assetDetail };
+
+    const { result, rerender } = renderHook(
+      ({ currencyId }: { currencyId: string }) => {
+        mockCurrencyId = currencyId;
+        return useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: '',
+          isNative: false,
+          marketTokenId: 'doge',
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        });
+      },
+      { initialProps: { currencyId: 'usd' } },
+    );
+
+    // The detail action writes the resolved variant into the atoms.
+    mockStoreTokenAddress = '0xabc';
+    mockStoreNetworkId = 'evm--1';
+    mockStoreTokenDetailIdentity = 'evm--1|0xabc';
+    mockFetchAssetTokenDetail.mockResolvedValue(assetDetail);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+
+    expect(result.current.resolvedMarketAssetIdentity).toMatchObject({
+      marketTokenId: 'doge',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+
+    mockSetTokenDetail.mockClear();
+    rerender({ currencyId: 'cny' });
+
+    // The display currency only refreshes data; it must not invalidate the
+    // identity the route already resolved or clear the shared detail.
+    expect(promiseDeps).toEqual(expect.arrayContaining(['cny']));
+    expect(mockSetTokenDetail).not.toHaveBeenCalledWith(undefined);
+    expect(result.current.resolvedMarketAssetIdentity).toMatchObject({
+      marketTokenId: 'doge',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+
+    // A failed refresh after the currency switch must keep the previous content
+    // instead of collapsing the page into the Asset error state.
+    mockFetchAssetTokenDetail.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => {
+      await promiseFactory?.().catch(() => undefined);
+    });
+    expect(result.current.hasAssetError).toBe(false);
+    expect(result.current.resolvedMarketAssetIdentity).toMatchObject({
+      marketTokenId: 'doge',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('refreshes localized Asset content when the locale changes', async () => {
+    promiseResult = {
+      requestKey: 'asset:doge:::',
+      assetDetail: {
+        asset: { assetId: 'doge' },
+        selectedVariant: {
+          variantId: 'doge-evm--1-0xabc',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          isNative: false,
+        },
+      },
+    };
+    mockStoreTokenAddress = '0xabc';
+    mockStoreNetworkId = 'evm--1';
+    mockFetchAssetTokenDetail.mockResolvedValue({ asset: { assetId: 'doge' } });
+
+    const { result, rerender } = renderHook(
+      ({ locale }: { locale: string }) => {
+        mockLocale = locale;
+        return useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: '',
+          isNative: false,
+          marketTokenId: 'doge',
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        });
+      },
+      { initialProps: { locale: 'en-US' } },
+    );
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledTimes(1);
+
+    // Localized fields come back with the response, so a locale change has to
+    // re-run the request without dropping the resolved identity.
+    await act(async () => {
+      rerender({ locale: 'ja-JP' });
+    });
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledTimes(2);
+    expect(result.current.resolvedMarketAssetIdentity).toBeDefined();
+  });
 });
 
 describe('initial detail layout readiness', () => {
@@ -489,6 +692,33 @@ describe('initial detail layout readiness', () => {
     await act(async () => {
       await promiseFactory?.();
     });
+    rerender(input);
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('waits for a fresh request when another page cleared the retained detail', async () => {
+    const { result, rerender } = renderHook(
+      (props: typeof input & { active?: boolean }) =>
+        useAutoRefreshTokenDetail(props),
+      { initialProps: { ...input, active: true } },
+    );
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    mockStoreTokenDetailIdentity = 'evm--1|0xabc';
+
+    // The route loses focus; another detail page then takes over the shared
+    // store and the returning route only has its address/network restored.
+    rerender({ ...input, active: false });
+    mockStoreTokenDetailIdentity = undefined;
+    rerender({ ...input, active: true });
+
+    // The restored identity alone must not hide the missing detail.
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    await act(async () => {
+      await promiseFactory?.();
+    });
     expect(result.current.isInitialTokenDetailPending).toBe(false);
   });
 
@@ -525,6 +755,7 @@ describe('initial detail layout readiness', () => {
     expect(result.current.isInitialTokenDetailPending).toBe(false);
     expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
     expect(promiseOptions?.resumeOnEffectReconnect).toBe(true);
+    mockStoreTokenDetailIdentity = 'evm--1|0xabc';
 
     mockSetTokenDetailLoading.mockClear();
     rerender({ active: false });
@@ -537,7 +768,8 @@ describe('initial detail layout readiness', () => {
     expect(mockSetTokenDetailLoading).not.toHaveBeenCalled();
 
     rerender({ active: true });
-    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    // Refocusing the same retained route must not flash the initial spinner.
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
     expect(promiseOptions?.pollingInterval).toBe(6000);
     await act(async () => {
       await promiseFactory?.();

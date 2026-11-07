@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -8,7 +8,6 @@ import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Mark
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useToDetailPage } from './useToMarketDetailPage';
 
@@ -164,7 +163,7 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false, isDesktop: false });
+    Object.assign(platformEnv, { isNative: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetRootState.mockReturnValue(undefined);
@@ -204,10 +203,11 @@ describe('useToDetailPage', () => {
     });
   });
 
-  it('consumes failed asset navigation requests and displays an error', async () => {
-    jest
-      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-      .mockRejectedValueOnce(new Error('offline'));
+  it('opens the Asset detail route without waiting for Asset detail', async () => {
+    const fetchMarketAssetDetail = jest.spyOn(
+      backgroundApiProxy.serviceMarket,
+      'fetchMarketAssetDetail',
+    );
     const { result } = renderHook(() => useToDetailPage());
     await act(async () => {
       await expect(
@@ -219,9 +219,15 @@ describe('useToDetailPage', () => {
         }),
       ).resolves.toBeUndefined();
     });
-    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(fetchMarketAssetDetail).not.toHaveBeenCalled();
+    expect(Toast.error).not.toHaveBeenCalled();
     expect(mockNavigationPush).not.toHaveBeenCalled();
-    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+      }),
+    );
   });
 
   it('reports a failed extension handoff without closing the popup', async () => {
@@ -241,47 +247,6 @@ describe('useToDetailPage', () => {
     expect(Toast.error).toHaveBeenCalledTimes(1);
     expect(globalThis.close).not.toHaveBeenCalled();
   });
-
-  it.each([true, false])(
-    'falls back to the searched native token when asset detail fails (extension=%s)',
-    async (extension) => {
-      platformEnv.isExtensionUiPopup = extension;
-      jest
-        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-        .mockRejectedValueOnce(new Error('offline'));
-      const { result } = renderHook(() => useToDetailPage());
-      await act(async () => {
-        await result.current({
-          assetId: 'ethereum',
-          networkId: 'evm--8453',
-          tokenAddress: '',
-          symbol: 'ETH',
-          isNative: true,
-        });
-      });
-      const expectedParams = {
-        network: 'eth',
-        tokenAddress: '',
-        isNative: true,
-      };
-      if (extension) {
-        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith({
-          ...expectedParams,
-          from: EEnterWay.ExtensionPopup,
-          tokenDetailPreview: undefined,
-        });
-      } else {
-        expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
-          ...expectedParams,
-          from: undefined,
-        });
-      }
-      expect(Toast.error).not.toHaveBeenCalled();
-      expect(networkUtils.getNetworkShortCode).toHaveBeenCalledWith({
-        networkId: 'evm--8453',
-      });
-    },
-  );
 
   it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
     mockTravelMode = true;
@@ -326,46 +291,6 @@ describe('useToDetailPage', () => {
     tokenAddress: '0xtoken',
     symbol: 'TOKEN',
   };
-  const assetDetail = {
-    about: '',
-    asset: { assetId: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', logoUrl: '' },
-    variants: [],
-    selectedVariant: {
-      variantId: 'bitcoin-native',
-      networkId: 'btc--0',
-      tokenAddress: '',
-      networkName: 'Bitcoin',
-      networkSymbol: 'BTC',
-      networkLogoUrl: '',
-      isNative: true,
-      isDefault: true,
-    },
-    market: {
-      price: '',
-      priceChange24h: '',
-      priceChange24hPercent: '',
-      marketCap: '',
-      marketCapRank: null,
-      volume24h: '',
-      circulatingSupply: '',
-      fdv: '',
-      totalSupply: '',
-      maxSupply: '',
-    },
-    performance: {
-      priceChange7dPercent: '',
-      price7dAgo: '',
-      priceChange30dPercent: '',
-      price30dAgo: '',
-      priceChange3mPercent: '',
-      price3mAgo: '',
-      priceChange1yPercent: '',
-      price1yAgo: '',
-      allTimeHighChangePercent: '',
-      allTimeHighPrice: '',
-    },
-  };
-
   function deferred<T>() {
     let resolve!: (value: T) => void;
     let reject!: (reason: Error) => void;
@@ -375,129 +300,6 @@ describe('useToDetailPage', () => {
     });
     return { promise, resolve, reject };
   }
-
-  it.each([true, false])(
-    'preserves the searched native variant in extension=%s navigation',
-    async (extension) => {
-      platformEnv.isExtensionUiPopup = extension;
-      const mainnet = {
-        ...assetDetail.selectedVariant,
-        variantId: 'ethereum-mainnet',
-        networkId: 'evm--1',
-      };
-      const base = {
-        ...mainnet,
-        variantId: 'ethereum-base',
-        networkId: 'evm--8453',
-      };
-      jest
-        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-        .mockResolvedValueOnce({
-          ...assetDetail,
-          selectedVariant: mainnet,
-          variants: [mainnet, base],
-        });
-      const { result } = renderHook(() => useToDetailPage());
-      await act(async () => {
-        await result.current({
-          assetId: 'ethereum',
-          networkId: base.networkId,
-          tokenAddress: '',
-          symbol: 'ETH',
-          isNative: true,
-        });
-      });
-      const expected = expect.objectContaining({
-        marketTokenId: 'ethereum',
-        marketVariantId: base.variantId,
-      });
-      if (extension)
-        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith(
-          expected,
-        );
-      else
-        expect(mockNavigationPush).toHaveBeenCalledWith(
-          'MarketDetailV2',
-          expected,
-        );
-    },
-  );
-
-  it('does not substitute the default network when the searched variant is unavailable', async () => {
-    jest
-      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-      .mockResolvedValueOnce(assetDetail);
-    const { result } = renderHook(() => useToDetailPage());
-    await act(async () => {
-      await result.current({
-        assetId: 'bitcoin',
-        networkId: 'btc--unavailable',
-        tokenAddress: '',
-        symbol: 'BTC',
-        isNative: true,
-      });
-    });
-    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
-    expect(mockNavigationPush).not.toHaveBeenCalled();
-    expect(Toast.error).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    ['asset', { ...assetItem, assetId: 'ethereum', symbol: 'ETH' }],
-    ['stock', stockItem],
-    ['token', tokenItem],
-  ])(
-    'ignores a late asset response after selecting another %s',
-    async (_type, nextItem) => {
-      Object.assign(platformEnv, { isExtensionUiPopup: false });
-      const first = deferred<typeof assetDetail>();
-      const fetchAssetDetail = jest
-        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-        .mockImplementationOnce(() => first.promise)
-        .mockResolvedValueOnce(assetDetail);
-      const { result, rerender } = renderHook(() => useToDetailPage());
-      const firstNavigation = result.current(assetItem);
-      await waitFor(() => {
-        expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
-      });
-      rerender();
-      await act(async () => {
-        await result.current(nextItem);
-      });
-      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
-      const lastNavigation = mockNavigationPush.mock.calls[0];
-      await act(async () => {
-        first.resolve(assetDetail);
-        await firstNavigation;
-      });
-      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
-      expect(mockNavigationPush.mock.calls[0]).toEqual(lastNavigation);
-      expect(Toast.error).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each(['', 'btc--0'])(
-    'suppresses superseded asset failures (network=%s)',
-    async (networkId) => {
-      const first = deferred<typeof assetDetail>();
-      const fetchAssetDetail = jest
-        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-        .mockImplementationOnce(() => first.promise);
-      const { result } = renderHook(() => useToDetailPage());
-      const firstNavigation = result.current({ ...assetItem, networkId });
-      await waitFor(() => {
-        expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
-      });
-      await act(async () => {
-        await result.current(stockItem);
-        first.reject(new Error('offline'));
-        await firstNavigation;
-      });
-      expect(Toast.error).not.toHaveBeenCalled();
-      expect(openExtensionMarketStockDetailMock).toHaveBeenCalledTimes(1);
-      expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
-    },
-  );
 
   it('ignores superseded native preload completion', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
@@ -587,6 +389,7 @@ describe('useToDetailPage', () => {
     const { result } = renderHook(() =>
       useToDetailPage({
         switchToMarketTabFirst: true,
+        resolveMarketAsset: true,
       }),
     );
     const ready = deferred<void>();
@@ -616,6 +419,7 @@ describe('useToDetailPage', () => {
           screen: 'MarketDetailV2',
           params: expect.objectContaining({
             legacyTokenPreview: preview,
+            resolveMarketAsset: true,
           }),
         }),
       }),
@@ -677,7 +481,9 @@ describe('useToDetailPage', () => {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -768,7 +574,7 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('falls back to replacing a stock detail when the tab stack is unavailable', async () => {
+  it('replaces the current detail route for a stock selected from detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -1022,7 +828,71 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('opens an ordinary search result directly with its preview', async () => {
+  it.each(['isDesktop', 'isWeb'])(
+    'waits for the Asset shell on %s while its data request stays pending',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isDesktop: platform === 'isDesktop',
+        isWeb: platform === 'isWeb',
+        isExtensionUiPopup: false,
+      });
+      const shell = deferred<void>();
+      jest.mocked(preloadMarketDetailV2Page).mockReturnValueOnce(shell.promise);
+      const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+      const { result } = renderHook(() =>
+        useToDetailPage({ switchToMarketTabFirst: true }),
+      );
+      const navigation = result.current(assetItem);
+      expect(navigate).not.toHaveBeenCalled();
+      await act(async () => {
+        shell.resolve();
+        await navigation;
+      });
+      expect(navigate).toHaveBeenCalledWith(
+        'main',
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ marketTokenId: 'bitcoin' }),
+          }),
+        }),
+      );
+      Object.assign(platformEnv, { isDesktop: false, isWeb: false });
+    },
+  );
+
+  it('keeps Asset entry controls without fetching Asset detail', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const fetchMarketAssetDetail = jest.spyOn(
+      backgroundApiProxy.serviceMarket,
+      'fetchMarketAssetDetail',
+    );
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        symbol: 'BTC',
+        disableTrade: true,
+        showFavoriteButton: false,
+      });
+    });
+
+    expect(fetchMarketAssetDetail).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      isNative: undefined,
+      from: undefined,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-evm--1-0xbtc',
+      marketTokenCategory: 'top_coins',
+      disableTrade: true,
+      showFavoriteButton: false,
+    });
+  });
+
+  it('navigates immediately and defers Asset identity resolution to detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -1036,7 +906,9 @@ describe('useToDetailPage', () => {
       decimals: 8,
       selectedAt: 1,
     };
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -1053,12 +925,14 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: false,
       from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
       legacyTokenPreview: tokenDetailPreview,
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('preserves native search identity without inferring an asset', async () => {
+  it('passes native search identity to detail without waiting for lookup', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -1072,7 +946,9 @@ describe('useToDetailPage', () => {
       decimals: 8,
       selectedAt: 1,
     };
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -1089,18 +965,22 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: true,
       from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
       legacyTokenPreview: tokenDetailPreview,
     });
     expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('does not block a later ordinary token navigation', async () => {
+  it('does not block a later navigation on Asset resolution', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -1122,17 +1002,21 @@ describe('useToDetailPage', () => {
       'MarketDetailV2',
       expect.objectContaining({
         tokenAddress: '0xsecond',
+        resolveMarketAsset: true,
+        marketTokenSymbol: 'SECOND',
       }),
     );
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('keeps chain identity when the backend does not provide an assetId', async () => {
+  it('seeds unresolved Asset identity for the detail lifecycle', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
@@ -1148,11 +1032,13 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: false,
       from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('uses a complete search preview for ordinary token detail', async () => {
+  it('uses a complete search preview while Asset identity is resolving', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
