@@ -6,7 +6,6 @@ import { LayoutAnimationConfig } from 'react-native-reanimated';
 import {
   Icon,
   NumberSizeableText,
-  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -22,9 +21,9 @@ import {
   DetailEmptyValue,
   DetailRow,
   DetailRowMotion,
-  INFO_TRIGGER_HIT_SLOP,
   formatPrice,
 } from './DetailRow';
+import { FeeRow } from './FeeRow';
 import { ProviderLogo, getProviderDisplayName } from './ProviderLogo';
 import { RateRow } from './RateRow';
 
@@ -77,12 +76,9 @@ export function CheckoutInfoCard({
   onSelectProvider,
 }: IProps) {
   const intl = useIntl();
-  const feesLabel = intl.formatMessage({ id: ETranslations.fee_fee });
   const providerLabel = intl.formatMessage({
     id: ETranslations.swap_history_detail_provider,
   });
-  const totalFee = (networkFee ?? 0) + (transactionFee ?? 0);
-  const hasFee = networkFee !== undefined || transactionFee !== undefined;
   // Provider-rate value of the estimated receive (= amount − fees) and the
   // rate itself. Undefined until a full quote is in hand, or when the quote
   // can't be priced — the fiat figures are then hidden rather than replaced
@@ -132,63 +128,6 @@ export function CheckoutInfoCard({
     );
   }
 
-  let feeValue: ReactNode = pendingValue;
-  if (hasFee) {
-    feeValue = (
-      <Popover
-        title={feesLabel}
-        renderTrigger={
-          <XStack
-            ai="center"
-            gap="$1"
-            cursor="pointer"
-            role="button"
-            hitSlop={INFO_TRIGGER_HIT_SLOP}
-          >
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {totalFee}
-            </NumberSizeableText>
-            <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
-          </XStack>
-        }
-        renderContent={
-          // The two rows are the explanation: a sentence naming the same two
-          // fees above them would only repeat them.
-          <YStack p="$5" gap="$3">
-            {networkFee !== undefined ? (
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_history_detail_network_fee,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd">
-                  {formatPrice(networkFee)}
-                </SizableText>
-              </XStack>
-            ) : null}
-            {transactionFee !== undefined ? (
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.buy_transaction_fee__title,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd">
-                  {formatPrice(transactionFee)}
-                </SizableText>
-              </XStack>
-            ) : null}
-          </YStack>
-        }
-      />
-    );
-  }
-
   const rows: { key: string; node: ReactNode }[] = [
     {
       key: 'payout',
@@ -213,7 +152,13 @@ export function CheckoutInfoCard({
     },
     {
       key: 'fee',
-      node: <DetailRow label={feesLabel}>{feeValue}</DetailRow>,
+      node: (
+        <FeeRow
+          networkFee={networkFee}
+          transactionFee={transactionFee}
+          isLoading={isQuoting}
+        />
+      ),
     },
     {
       key: 'provider',

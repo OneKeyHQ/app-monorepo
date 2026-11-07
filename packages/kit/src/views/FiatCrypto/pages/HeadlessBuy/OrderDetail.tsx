@@ -47,6 +47,7 @@ import {
   DetailRowMotion,
   formatPrice,
 } from '../../components/Headless/DetailRow';
+import { FeeRow } from '../../components/Headless/FeeRow';
 import {
   MOTION_BLOCK_ENTERING,
   MOTION_BLOCK_EXITING,
@@ -392,6 +393,19 @@ function HeadlessBuyOrderDetailPage() {
                         tokenSymbol={order.tokenSymbol}
                         impliedPrice={pricing.impliedPrice}
                         providerName={order.providerName}
+                      />
+                    </DetailRowMotion>
+                  ) : null}
+                  {/* Paid minus received is mostly fees (a $10 buy lost a
+                    third to them): without this row nothing on the receipt
+                    accounted for the gap. */}
+                  {!hideQuoteRows &&
+                  (order.networkFee !== undefined ||
+                    order.transactionFee !== undefined) ? (
+                    <DetailRowMotion>
+                      <FeeRow
+                        networkFee={order.networkFee}
+                        transactionFee={order.transactionFee}
                       />
                     </DetailRowMotion>
                   ) : null}
