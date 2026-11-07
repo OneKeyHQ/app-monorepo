@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[35196],{527479(e,a,t){t.r(a);var r=t(361047),u=t(922876);let updatePreview=async(e,a)=>{let t=a?.urlResult;if(t?.data?.urlParamList){let e=t?.data?.origin;if([r.rq,r.$U,r.km].includes(e)&&t?.data?.pathname==="/modal/update/preview")return{type:u.Wb.UPDATE_PREVIEW,data:{}}}return null};t.d(a,{},{default:updatePreview})}}]);
+//# sourceMappingURL=35196.f03702f77c.chunk.js.map

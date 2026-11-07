@@ -1,0 +1,336 @@
+{
+  "schema": 1,
+  "version": "684c203c6f21edb6be863b695a0e1d80d6db1db2-2026110745",
+  "appVersion": "6.7.0",
+  "bundleVersion": "26802480",
+  "buildNumber": "2026110745",
+  "commit": "684c203c6f21edb6be863b695a0e1d80d6db1db2",
+  "buildTime": 1794028151570,
+  "publicUrl": "https://app.onekeytest.com/",
+  "htmlUrl": "/index.html",
+  "generatedAt": "2026-11-07T05:09:11.570Z",
+  "critical": [
+    {
+      "url": "https://app.onekeytest.com/release-meta.js?v=ff6757c56c820d6b",
+      "as": "script",
+      "integrity": "sha384-7DG37Wj/KBxwNqeSGNP+HBjdRfk6eQKWmqGtj3rxRuHsln/5b82DWJxmnc+2fNwl",
+      "crossOrigin": "anonymous",
+      "size": 248
+    },
+    {
+      "url": "https://app.onekeytest.com/runtime.11d422f82e.bundle.js",
+      "as": "script",
+      "integrity": "sha384-IckOtQQyu/PtJ0Y5p5lZogZ/aoPK6117zSMK5pUZP5pq+rUgYe9jXO8vmU+yE9iw",
+      "crossOrigin": "anonymous",
+      "size": 122557
+    },
+    {
+      "url": "https://app.onekeytest.com/vendor-react.09d95bb9.42f0f70fcb.bundle.js",
+      "as": "script",
+      "integrity": "sha384-CP0p5or5+eihDQ4PkQEmDzurwXMhzk66PdJSM8+g2VlS4uuW4CIKkilRHIjBmOhg",
+      "crossOrigin": "anonymous",
+      "size": 262115
+    },
+    {
+      "url": "https://app.onekeytest.com/vendor-react.1.375bb8b648.bundle.js",
+      "as": "script",
+      "integrity": "sha384-lFIfGqCCAczYu/4r4zO3k4Y+nBWzCKB2txz/5laofwOpf0wcfKPYqSblfX/+Fkfg",
+      "crossOrigin": "anonymous",
+      "size": 21264
+    },
+    {
+      "url": "https://app.onekeytest.com/vendor-lodash.312c4c4e2e.bundle.js",
+      "as": "script",
+      "integrity": "sha384-DqAVoYe4rl2bJy9frbxCUZE+29DkZvUHDzYRBW5xDf4Ucm3oh3jhUqmR0rl1UcId",
+      "crossOrigin": "anonymous",
+      "size": 38447
+    },
+    {
+      "url": "https://app.onekeytest.com/vendor-network.6efba6f81a.bundle.js",
+      "as": "script",
+      "integrity": "sha384-o5lyzomLesPJMvkP2XhRwB2yuh+Y5/axbmU2+peYm1gPYNAQWNlmAcvrpQxc6oOY",
+      "crossOrigin": "anonymous",
+      "size": 111683
+    },
+    {
+      "url": "https://app.onekeytest.com/shared-ui-primitives.3990cd8dff.bundle.js",
+      "as": "script",
+      "integrity": "sha384-Zmqrf+w5NRyD0TVcez2PZ5F9/BlTD6wNg8K+lyk/sBKIyVvJp9VKE0ryYza88NZr",
+      "crossOrigin": "anonymous",
+      "size": 34428
+    },
+    {
+      "url": "https://app.onekeytest.com/59762.8a8080e036.bundle.js",
+      "as": "script",
+      "integrity": "sha384-AYrDRyYSZcTjgI5TlDUNyy9ghL4rhrLSW25lYC5ogMXoaB4LoUhdAjnAR/MzDbhu",
+      "crossOrigin": "anonymous",
+      "size": 82386
+    },
+    {
+      "url": "https://app.onekeytest.com/47914.bb9b7a9eb2.bundle.js",
+      "as": "script",
+      "integrity": "sha384-EMpv0YlAYikyNkYOo9SfcB8AgJwOPQEUaThRiX0fC4btJ495Qg32mbZ3/SXeoBF0",
+      "crossOrigin": "anonymous",
+      "size": 84801
+    },
+    {
+      "url": "https://app.onekeytest.com/62726.dc8d8f8926.bundle.js",
+      "as": "script",
+      "integrity": "sha384-qGXGFx4vLMnayEXg1S7gRoJ2p63jGnykejJWUN+SrWMBCMPa01quQUVVfPXcOmaD",
+      "crossOrigin": "anonymous",
+      "size": 182556
+    },
+    {
+      "url": "https://app.onekeytest.com/52476.569eb6fa81.bundle.js",
+      "as": "script",
+      "integrity": "sha384-DzOawmV2Z95ySdGqq5S1bui0C9GPHu83dP8RCtwmKJB1gFIOzVyuFalOWFvcOG6Z",
+      "crossOrigin": "anonymous",
+      "size": 207683
+    },
+    {
+      "url": "https://app.onekeytest.com/46319.15e736549f.bundle.js",
+      "as": "script",
+      "integrity": "sha384-QNe/2sukhT5zMmBkgCByx6F11z1DtkwAtL7m6miz+KJtX9xIxnzznk6anm+RjkA7",
+      "crossOrigin": "anonymous",
+      "size": 70044
+    },
+    {
+      "url": "https://app.onekeytest.com/67360.66edd68a89.bundle.js",
+      "as": "script",
+      "integrity": "sha384-psdPgTdSXfiChR5FT7XTS6pDg6d4QyCuoVfSCzxaOctrKGb0AU2iUYDL1kToFhT5",
+      "crossOrigin": "anonymous",
+      "size": 101225
+    },
+    {
+      "url": "https://app.onekeytest.com/71026.94b26913ce.bundle.js",
+      "as": "script",
+      "integrity": "sha384-XQN505V0gbOBCAdM+FrsmODomnWb1iK+EcgRUpMpFaHyFzFnwIN6disMxVXAlomR",
+      "crossOrigin": "anonymous",
+      "size": 58069
+    },
+    {
+      "url": "https://app.onekeytest.com/98917.2d33650017.bundle.js",
+      "as": "script",
+      "integrity": "sha384-KUv17CdOHqG3N6EjJ2+Dxe1kEQSI0E5l9DiiFqWNTfU+jgDisvT91vHC6a9Evfnr",
+      "crossOrigin": "anonymous",
+      "size": 276305
+    },
+    {
+      "url": "https://app.onekeytest.com/63726.4b687372e6.bundle.js",
+      "as": "script",
+      "integrity": "sha384-901Tq89Dvg+OrjSDBNizm27dK9ejNK2eGGbtGPgPC564aU/EPwwBtoreRFvR/cpB",
+      "crossOrigin": "anonymous",
+      "size": 152694
+    },
+    {
+      "url": "https://app.onekeytest.com/92076.377f0b7b6b.bundle.js",
+      "as": "script",
+      "integrity": "sha384-mHNbdmJPW3YucjkaHLCG4HSHw7dpLKfWLrfpYWJXFkx1ZEoKrLJXTiwI+rrSIvzn",
+      "crossOrigin": "anonymous",
+      "size": 260142
+    },
+    {
+      "url": "https://app.onekeytest.com/8731.796993bf48.bundle.js",
+      "as": "script",
+      "integrity": "sha384-ukETIc/W2NvXFspY5QC4b0I8oe/LuXYWDvZTUtpT802bAdON7cDH0PwIzhc2vSxa",
+      "crossOrigin": "anonymous",
+      "size": 86782
+    },
+    {
+      "url": "https://app.onekeytest.com/55621.1b580433a7.bundle.js",
+      "as": "script",
+      "integrity": "sha384-2gSlrDIfzQVjsMKRWQf6PPXR9w5lyGRKXgww6KhUvPerCACzkatGAMxfWmyeQO3r",
+      "crossOrigin": "anonymous",
+      "size": 248998
+    },
+    {
+      "url": "https://app.onekeytest.com/48862.31ac65cbc0.bundle.js",
+      "as": "script",
+      "integrity": "sha384-DXDFfw0+KBRiy49O6yOXb84lDzh1uKWsNlHSNCXziJe8BQ7hSzvGiTOSu80T0Kw9",
+      "crossOrigin": "anonymous",
+      "size": 212359
+    },
+    {
+      "url": "https://app.onekeytest.com/56802.fc03a17d45.bundle.js",
+      "as": "script",
+      "integrity": "sha384-UkSd1emNAdlE2FAHTKXVfvUeqlUabv7dKbykg5oWAnRnME2752huFs6CWW3KIGWw",
+      "crossOrigin": "anonymous",
+      "size": 105538
+    },
+    {
+      "url": "https://app.onekeytest.com/60561.b2b890d31d.bundle.js",
+      "as": "script",
+      "integrity": "sha384-ozQfEHkuji2OKtuy77OFU4ZxGbjDVYalzFJ+CLUgoba0vMzfdTAU74PFqcLjjikB",
+      "crossOrigin": "anonymous",
+      "size": 51548
+    },
+    {
+      "url": "https://app.onekeytest.com/89367.a677897734.bundle.js",
+      "as": "script",
+      "integrity": "sha384-bb02FpKh4yBi5koG8KbxSwwfACqL4MNkcIyblbob1boA91HB1+rjn1kn6uZIKulE",
+      "crossOrigin": "anonymous",
+      "size": 69377
+    },
+    {
+      "url": "https://app.onekeytest.com/2683.1c4c75fb37.bundle.js",
+      "as": "script",
+      "integrity": "sha384-xXuwaSmr+PBWN/XMzvYVMnnepn3m/TXnW0gk2a9UXnCCAts6kg4l1poOEHsyEZp4",
+      "crossOrigin": "anonymous",
+      "size": 161502
+    },
+    {
+      "url": "https://app.onekeytest.com/81427.88803bd609.bundle.js",
+      "as": "script",
+      "integrity": "sha384-6AHGTIeMEnAbCljHBRZL+uu6SYR27gezFZBSxxBw3QHBJGDYroJBcQW6hLTVs/m8",
+      "crossOrigin": "anonymous",
+      "size": 86875
+    },
+    {
+      "url": "https://app.onekeytest.com/87143.6c28b3990d.bundle.js",
+      "as": "script",
+      "integrity": "sha384-D6PCS3/9p+0jyaUK4KzUy9xXl69TlxRV0fSEICGF33w9pKilU3RMW9w5HKLViopz",
+      "crossOrigin": "anonymous",
+      "size": 63711
+    },
+    {
+      "url": "https://app.onekeytest.com/48874.3999fcb2d5.bundle.js",
+      "as": "script",
+      "integrity": "sha384-Vn68KhfZvSD6OcvDqjShMscKa20Ql4VRMFA9VylIoGGL/7HrpIU7RSjbSrBZ2Afu",
+      "crossOrigin": "anonymous",
+      "size": 121408
+    },
+    {
+      "url": "https://app.onekeytest.com/88995.f8b8fa15b8.bundle.js",
+      "as": "script",
+      "integrity": "sha384-l+AdE4xWm71yilK1wms25zHZGTvB/Gv8/evnMRHfUqr2ut2Yj16GBHVHBLvL/yxU",
+      "crossOrigin": "anonymous",
+      "size": 230087
+    },
+    {
+      "url": "https://app.onekeytest.com/28632.bc462c3bc3.bundle.js",
+      "as": "script",
+      "integrity": "sha384-/21ZjrfAEGFGfoRvIEZ2lThlMmk9DxCmJhvwlvUjnHZ/+rwxhYblaNoIDeBgqP4F",
+      "crossOrigin": "anonymous",
+      "size": 136878
+    },
+    {
+      "url": "https://app.onekeytest.com/81606.0ff4105ad2.bundle.js",
+      "as": "script",
+      "integrity": "sha384-CmZxgFKRCy41PdtOnkYjCdofGZXxHXgOPAnkU/3VL84UgKMj7piQUhHxyI9YS5vl",
+      "crossOrigin": "anonymous",
+      "size": 67352
+    },
+    {
+      "url": "https://app.onekeytest.com/main.0.11e794ddd6.bundle.js",
+      "as": "script",
+      "integrity": "sha384-VzWFvM0JIqa6mtx2wDrwaSHAAV0b5RBgHjU8Zo5gEZpjbu20TYlCEFBTRYabC10j",
+      "crossOrigin": "anonymous",
+      "size": 249571
+    },
+    {
+      "url": "https://app.onekeytest.com/main.1.fc1095e6fd.bundle.js",
+      "as": "script",
+      "integrity": "sha384-g2dGkZKjy2VK+hmwG03QhRHUdpin5vNbvGfBLhip8bKyxnPAQZwNsYUsYstex4X/",
+      "crossOrigin": "anonymous",
+      "size": 144233
+    },
+    {
+      "url": "https://app.onekeytest.com/main.2.c3c753e624.bundle.js",
+      "as": "script",
+      "integrity": "sha384-adjkhE54nwCiFP8E/7uUaGL6q8ez5u3u+S7Qc0XL0SIDTfwZnUWSIPYSCDecSRlX",
+      "crossOrigin": "anonymous",
+      "size": 128794
+    },
+    {
+      "url": "https://app.onekeytest.com/main.4.ebd86920e9.bundle.js",
+      "as": "script",
+      "integrity": "sha384-/reVYLHgHO+8VzD0zSxdS/29HUiEf4xF+R9ZOENOhpYaNNZAoQ3SAK1xZj3ijnUC",
+      "crossOrigin": "anonymous",
+      "size": 192330
+    },
+    {
+      "url": "https://app.onekeytest.com/main.5.3bd0b2daf5.bundle.js",
+      "as": "script",
+      "integrity": "sha384-F6jQmA7gUUMF+nPG7JZshGbh3IB8ea2O9gqZu2m0eC+Q6NgHuXvs3XcqfEm+ouAn",
+      "crossOrigin": "anonymous",
+      "size": 117652
+    },
+    {
+      "url": "https://app.onekeytest.com/main.6.f41f7450cd.bundle.js",
+      "as": "script",
+      "integrity": "sha384-6AJ09uiE9cAerVtkHnv/R6DxU7wNYzKDWS4li5hYOaOqMr3Z8GIONX/vBR8Va3mx",
+      "crossOrigin": "anonymous",
+      "size": 214206
+    },
+    {
+      "url": "https://app.onekeytest.com/main.7.7fa9394811.bundle.js",
+      "as": "script",
+      "integrity": "sha384-JwXMHGmgAFImBcUHt7OpLYdonc6sSJTeGhOD/HE6E+ASN+m5m1wbeKHoaqy5THTn",
+      "crossOrigin": "anonymous",
+      "size": 54128
+    },
+    {
+      "url": "https://app.onekeytest.com/main.8.8eaab9c5b4.bundle.js",
+      "as": "script",
+      "integrity": "sha384-n09jvnIqetIWLy2Zn/bPCdd3HBJcrWtuVaCJsajfoO/U+zFq35o3KihtwZJn9meM",
+      "crossOrigin": "anonymous",
+      "size": 202636
+    },
+    {
+      "url": "https://app.onekeytest.com/main.9.67ac691101.bundle.js",
+      "as": "script",
+      "integrity": "sha384-LCIMOS54vpk5BoNf+ZPPor8NpwVGflui6TVJSOa0b2pJBu7HQ4oU7Q2O3af/8kuT",
+      "crossOrigin": "anonymous",
+      "size": 110861
+    },
+    {
+      "url": "https://app.onekeytest.com/main.10.6faeecedf6.bundle.js",
+      "as": "script",
+      "integrity": "sha384-/W+pWU5SPRvyt7WDVIxYUDwkQ+1dxGSblbQ5nD2uESy20g15cj8gjdVS8JfDXuu6",
+      "crossOrigin": "anonymous",
+      "size": 222776
+    },
+    {
+      "url": "https://app.onekeytest.com/main.11.0ff7de69e9.bundle.js",
+      "as": "script",
+      "integrity": "sha384-jX0hbq2Bc8oFvKebZg5AA2bY67id6tnBOk3/oAT28LRxD9BY2r1ihLHTbqpmhLmw",
+      "crossOrigin": "anonymous",
+      "size": 140105
+    },
+    {
+      "url": "https://app.onekeytest.com/main.12.11e17b7b63.bundle.js",
+      "as": "script",
+      "integrity": "sha384-8j2fvSnWLaEYFpNT6ePUlWx73s4Bjw7BpbjRHYxrpPBzF6BfazmZDmcN9xqEk0uE",
+      "crossOrigin": "anonymous",
+      "size": 51509
+    },
+    {
+      "url": "https://app.onekeytest.com/main.13.30353cb0f8.bundle.js",
+      "as": "script",
+      "integrity": "sha384-JfTsvgABnhCQfHgiCmIw3gxnajWi1rn5PnVKMFHxbNICwSA0r8KyqNnHWGP0lXFU",
+      "crossOrigin": "anonymous",
+      "size": 74912
+    },
+    {
+      "url": "https://app.onekeytest.com/main.14.ba87749b65.bundle.js",
+      "as": "script",
+      "integrity": "sha384-AX8/PUfpC5rlUJBkTav5ITQ9bsqtN572aiRHRW2bp9hOL9mE78HHJkEj6QHHhjbf",
+      "crossOrigin": "anonymous",
+      "size": 69976
+    },
+    {
+      "url": "https://app.onekeytest.com/main.15.b8d6c4a9d6.bundle.js",
+      "as": "script",
+      "integrity": "sha384-0bzSMkY/bdcfHfWdhuA5g4p7FzLkZPNCT0NmNP0YAvJbKGKSp5zF5VekcWxacmr2",
+      "crossOrigin": "anonymous",
+      "size": 181043
+    },
+    {
+      "url": "https://app.onekeytest.com/main.3.aa333862c8.css",
+      "as": "style",
+      "integrity": "sha384-oHEfoDFHSrd1QTrUzFdYA8v6WGo4U6z++rJiFxjKvQ2nX8ML7cylsJvI0of91/cJ",
+      "crossOrigin": "anonymous",
+      "size": 14136
+    }
+  ]
+}

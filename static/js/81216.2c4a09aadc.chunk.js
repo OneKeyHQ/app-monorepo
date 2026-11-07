@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[81216],{190627(e,t,a){var r=a(514041),c=a(355838);function HardwareUiStateAtomWatcherCmp({onShouldMount:e}){let[t]=(0,c.Y_)();return(0,r.useEffect)(()=>{t&&e()},[e,t]),null}let s=(0,r.memo)(HardwareUiStateAtomWatcherCmp);a.d(t,{},{HardwareUiStateAtomWatcher:s})}}]);
+//# sourceMappingURL=81216.2c4a09aadc.chunk.js.map
