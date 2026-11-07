@@ -10,8 +10,6 @@ import {
 import { useIntl } from 'react-intl';
 import { AccessibilityInfo } from 'react-native';
 import Animated, {
-  FadeIn,
-  FadeOut,
   LayoutAnimationConfig,
   LinearTransition,
   useAnimatedStyle,
@@ -65,14 +63,17 @@ import type {
 import { BuyActionZone } from '../../components/Headless/BuyActionZone';
 import { CheckoutInfoCard } from '../../components/Headless/CheckoutInfoCard';
 import {
+  MOTION_BLOCK_ENTERING,
+  MOTION_BLOCK_EXITING,
   MOTION_EASE_IN_OUT,
   MOTION_EASE_OUT,
+  MOTION_EASE_PRESS,
   MOTION_ENTER_MS,
   MOTION_EXIT_MS,
   MOTION_MICRO_ENTERING,
   MOTION_MICRO_ENTERING_AFTER_EXIT,
   MOTION_MICRO_EXITING,
-  MOTION_MICRO_MS,
+  MOTION_PRESS_MS,
 } from '../../components/Headless/motionTokens';
 import { PresetRow } from '../../components/Headless/PresetRow';
 import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
@@ -653,10 +654,18 @@ function HeadlessBuyPage() {
   const amountPressStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        scale: withTiming(amountPressed.value ? 0.97 : 1, {
-          duration: MOTION_MICRO_MS,
-          easing: MOTION_EASE_OUT,
-        }),
+        // Asymmetric: the press-in is the user's, the snap-back the
+        // system's — and short, so it is done before the release's mode
+        // swap glides the amount away.
+        scale: amountPressed.value
+          ? withTiming(0.97, {
+              duration: MOTION_PRESS_MS,
+              easing: MOTION_EASE_PRESS,
+            })
+          : withTiming(1, {
+              duration: MOTION_EXIT_MS,
+              easing: MOTION_EASE_OUT,
+            }),
       },
     ],
   }));
@@ -1006,9 +1015,7 @@ function HeadlessBuyPage() {
           {mode === 'review' ? (
             <Animated.View
               key="review"
-              entering={FadeIn.duration(MOTION_ENTER_MS).easing(
-                MOTION_EASE_OUT,
-              )}
+              entering={MOTION_BLOCK_ENTERING}
               // Deliberately NO exiting fade: the exit snapshot freezes the
               // subtree, and the native SDK button misbehaves inside it — its
               // overflow-drawn consent copy vanishes at once and the SwiftUI
@@ -1056,10 +1063,8 @@ function HeadlessBuyPage() {
           ) : (
             <Animated.View
               key="input"
-              entering={FadeIn.duration(MOTION_ENTER_MS).easing(
-                MOTION_EASE_OUT,
-              )}
-              exiting={FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_OUT)}
+              entering={MOTION_BLOCK_ENTERING}
+              exiting={MOTION_BLOCK_EXITING}
             >
               <YStack gap="$3">
                 {/* One slot, two states: presets while the amount is empty

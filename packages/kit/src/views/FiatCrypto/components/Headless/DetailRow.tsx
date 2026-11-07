@@ -77,12 +77,13 @@ export function DetailRow({
   );
 }
 
-// Wraps every row of a card whose rows can come and go (a late row on the
-// review card, a status change on the order card): the rows around a change
-// glide instead of jumping, and a new row fades in once they have made room
-// (see MOTION_ROW_LAYOUT). Wrap the always-present rows too — they are the
-// ones that move. Rows mounted with the card should not fade on their own:
-// put the card's rows under a LayoutAnimationConfig skipEntering.
+// Wraps every item of a stack whose items can come and go — a card's rows (a
+// late row on the review card, a status change on the order card), the lines
+// under the order status badge: the items around a change glide instead of
+// jumping, and a new item fades in once they have made room (see
+// MOTION_ROW_LAYOUT). Wrap the always-present items too — they are the ones
+// that move. Items mounted with their container should not fade on their
+// own: put them under a LayoutAnimationConfig skipEntering.
 export function DetailRowMotion({ children }: { children: ReactNode }) {
   return (
     <Animated.View

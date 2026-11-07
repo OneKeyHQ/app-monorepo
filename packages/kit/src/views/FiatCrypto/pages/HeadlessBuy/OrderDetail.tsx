@@ -4,7 +4,6 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { AccessibilityInfo } from 'react-native';
 import Animated, {
-  FadeIn,
   LayoutAnimationConfig,
   ZoomIn,
 } from 'react-native-reanimated';
@@ -49,9 +48,10 @@ import {
   formatPrice,
 } from '../../components/Headless/DetailRow';
 import {
+  MOTION_BLOCK_ENTERING,
+  MOTION_BLOCK_EXITING,
   MOTION_EASE_OUT,
   MOTION_ENTER_MS,
-  MOTION_MICRO_EXITING,
   MOTION_ROW_LAYOUT,
 } from '../../components/Headless/motionTokens';
 import { formatHeadlessBuyOrderTime } from '../../components/Headless/orderFormat';
@@ -69,12 +69,10 @@ import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 import type { RouteProp } from '@react-navigation/core';
 
 // A status that changes while the page is open (the poll below) swaps its
-// block in place: the old one fades out over EXIT, the new one in over ENTER,
-// and the new badge settles in from 95% — the eye lands on what changed.
-// Scaled from its left edge, where it is anchored; never from 0, which reads
-// as a pop rather than a change.
-const STATUS_BLOCK_ENTERING =
-  FadeIn.duration(MOTION_ENTER_MS).easing(MOTION_EASE_OUT);
+// block in place: the old one fades out over EXIT, the new one in over ENTER
+// (MOTION_BLOCK_*), and the new badge settles in from 95% — the eye lands on
+// what changed. Scaled from its left edge, where it is anchored; never from
+// 0, which reads as a pop rather than a change.
 const STATUS_BADGE_ENTERING = ZoomIn.withInitialValues({ scale: 0.95 })
   .duration(MOTION_ENTER_MS)
   .easing(MOTION_EASE_OUT);
@@ -261,8 +259,8 @@ function HeadlessBuyOrderDetailPage() {
             <YStack gap="$6" pt="$2">
               <Animated.View
                 key={order.status}
-                entering={STATUS_BLOCK_ENTERING}
-                exiting={MOTION_MICRO_EXITING}
+                entering={MOTION_BLOCK_ENTERING}
+                exiting={MOTION_BLOCK_EXITING}
               >
                 <YStack gap="$3" ai="flex-start">
                   <Animated.View
@@ -271,38 +269,54 @@ function HeadlessBuyOrderDetailPage() {
                   >
                     <OrderStatusBadge status={order.status} badgeSize="lg" />
                   </Animated.View>
-                  {/* Stale note sits right under the label, ahead of the sentence. */}
-                  {order.lastCheckOk === false ? (
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.buy_order_status_stale__msg,
-                      })}
-                    </SizableText>
-                  ) : null}
-                  {sentenceId ? (
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage(
-                        { id: sentenceId },
-                        { token: order.tokenSymbol },
-                      )}
-                    </SizableText>
-                  ) : null}
-                  {showSupport ? (
-                    <Button
-                      testID="headless-buy-order-support"
-                      size="small"
-                      variant="secondary"
-                      icon="BubbleAnnotationOutline"
-                      // 30pt small button → 44pt target; nothing else is
-                      // pressable within 7pt of it.
-                      hitSlop={{ top: 7, bottom: 7 }}
-                      onPress={contactSupport}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.swap_ch_status_hold,
-                      })}
-                    </Button>
-                  ) : null}
+                  {/* These three can change while the status stays (a lookup
+                      that fails, an order running late): they move like the
+                      card's rows — a new one fades in once the rest have
+                      glided — instead of popping in over a gliding card.
+                      Not when the whole block swaps: it fades as one. */}
+                  <LayoutAnimationConfig skipEntering>
+                    {/* Stale note sits right under the label, ahead of the
+                        sentence. */}
+                    {order.lastCheckOk === false ? (
+                      <DetailRowMotion>
+                        <SizableText size="$bodySm" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.buy_order_status_stale__msg,
+                          })}
+                        </SizableText>
+                      </DetailRowMotion>
+                    ) : null}
+                    {sentenceId ? (
+                      // Keyed: a new sentence (e.g. running late) replaces
+                      // the old one rather than rewriting it in place.
+                      <DetailRowMotion key={sentenceId}>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage(
+                            { id: sentenceId },
+                            { token: order.tokenSymbol },
+                          )}
+                        </SizableText>
+                      </DetailRowMotion>
+                    ) : null}
+                    {showSupport ? (
+                      <DetailRowMotion>
+                        <Button
+                          testID="headless-buy-order-support"
+                          size="small"
+                          variant="secondary"
+                          icon="BubbleAnnotationOutline"
+                          // 30pt small button → 44pt target; nothing else
+                          // is pressable within 7pt of it.
+                          hitSlop={{ top: 7, bottom: 7 }}
+                          onPress={contactSupport}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.swap_ch_status_hold,
+                          })}
+                        </Button>
+                      </DetailRowMotion>
+                    ) : null}
+                  </LayoutAnimationConfig>
                 </YStack>
               </Animated.View>
               {/* Same card and weights as the review breakdown: values are
