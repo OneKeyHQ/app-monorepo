@@ -9,6 +9,7 @@ import {
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimeMasterPasswordInvalid,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyErrorPrimeUserBanned,
 } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -16,7 +17,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { takeRequestAuthTokenOfError } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
+import {
+  PRIME_USER_BANNED_CODE,
+  isOneKeyIdFeatureRequest,
+  isPrimeBannedAccountRecoveryRequest,
+  isPrimeUserBannedError,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
+import {
+  stashOneKeyIdRequestContext,
+  takeOneKeyIdRequestContext,
+  takeRequestAuthTokenOfError,
+} from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -25,7 +36,7 @@ import { getEndpointInfo } from '../endpoints';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -67,6 +78,26 @@ export default class ServiceBase {
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
+        if (isOneKeyIdFeatureRequest(config.url)) {
+          // Restriction state is mandatory for OneKey ID features. Independent
+          // wallet requests must not depend on Prime storage being available.
+          const { primePersistAtom } =
+            await import('../states/jotai/atoms/prime');
+          const user = await primePersistAtom.get();
+          const authStateGeneration =
+            await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+          stashOneKeyIdRequestContext(config, {
+            onekeyUserId: user.onekeyUserId,
+            authStateGeneration,
+            requestUrl: config.url,
+          });
+          if (
+            user.isOneKeyIdBanned &&
+            !isPrimeBannedAccountRecoveryRequest(config)
+          ) {
+            throw new OneKeyErrorPrimeUserBanned();
+          }
+        }
         const headers = config.headers as {
           get?: (headerName: string) => unknown;
           set?: (headerName: string, value: string) => void;
@@ -103,9 +134,28 @@ export default class ServiceBase {
         return config;
       });
       client.interceptors.response.use(
-        (response) => {
-          const r = response;
-          return r;
+        async (response) => {
+          // This also covers autoHandleError:false callers before they can
+          // interpret a banned OAuth response as an account ownership conflict.
+          if (Number(response.data?.code) === PRIME_USER_BANNED_CODE) {
+            const headers = response.config.headers;
+            try {
+              await this.backgroundApi.servicePrime.handlePrimeUserBanned({
+                requestAuthToken: String(
+                  headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+                    headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+                    headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE] ||
+                    '',
+                ),
+                requestContext: takeOneKeyIdRequestContext(response.config),
+                requestUrl: response.config.url,
+              });
+            } catch {
+              // A local state failure must not hide the server restriction.
+            }
+            throw new OneKeyErrorPrimeUserBanned();
+          }
+          return response;
         },
         async (error) => {
           const errorData = error as {
@@ -120,6 +170,41 @@ export default class ServiceBase {
           const errorMessage: string | undefined = errorData?.data?.message;
           // check invalid token and logout
           const errorCode: number | undefined = errorData?.data?.code;
+          if (isPrimeUserBannedError(error)) {
+            const failedConfig = (
+              error as { config?: InternalAxiosRequestConfig }
+            ).config;
+            const headers = failedConfig?.headers;
+            const requestAuthToken =
+              takeRequestAuthTokenOfError(error) ||
+              String(
+                headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+                  headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+                  headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE] ||
+                  '',
+              );
+            const requestContext =
+              takeOneKeyIdRequestContext(error) ||
+              (failedConfig
+                ? takeOneKeyIdRequestContext(failedConfig)
+                : undefined);
+            try {
+              await this.backgroundApi.servicePrime.handlePrimeUserBanned({
+                requestAuthToken,
+                requestContext,
+                // SNI errors may record only the service origin as requestUrl.
+                // Preserve the original path to distinguish an incoming OAuth
+                // identity ban from a ban of the signed-in legacy account.
+                requestUrl:
+                  requestContext?.requestUrl ||
+                  failedConfig?.url ||
+                  errorData?.data?.requestUrl,
+              });
+            } catch {
+              // A local state failure must not hide the server restriction.
+            }
+            throw new OneKeyErrorPrimeUserBanned();
+          }
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
           if ([90_002, 90_003].includes(errorCode)) {

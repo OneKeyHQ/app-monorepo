@@ -88,6 +88,7 @@ export function useOneKeyAuthMethods() {
     return {
       isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive:
+        !user?.isOneKeyIdBanned &&
         user?.isLoggedIn &&
         user?.isLoggedInOnServer &&
         user?.primeSubscription?.isActive,
