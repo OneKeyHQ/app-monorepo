@@ -263,8 +263,62 @@ export async function zcashFetchFreshTransparentUtxos(
       Number.isSafeInteger(utxo.confirmations) &&
       utxo.confirmations > 0,
   );
+  // The next block follows the tip (height + confirmations - 1).
+  const targetHeight = confirmedUtxos.reduce(
+    (height, utxo) => Math.max(height, utxo.height + utxo.confirmations),
+    0,
+  );
+  noteZcashChainHeight(vault.networkId, targetHeight - 1);
+  // Same expiry tip as history, so spendable and the frozen line release a dropped send together.
+  await zcashSettleTransparentPendingSends(vault, { accountId: account.id });
+  // Expired unsigned reservations stop blocking inputs; signed journals remain in use until settled.
+  const inUse = new Set(
+    [
+      ...(await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentOutpointsInUse(
+        { accountId: account.id, currentHeight: targetHeight },
+      )),
+    ].map((key) => key.toLowerCase()),
+  );
+  const ownFundedTxids = confirmedUtxos.some(
+    (utxo) =>
+      utxo.confirmations >= TRUSTED_CONFIRMATIONS &&
+      utxo.confirmations < UNTRUSTED_CONFIRMATIONS,
+  )
+    ? await zcashOwnFundedTxids(vault, account)
+    : new Set<string>();
+
+  // Filter before fetching previous transactions: a missing one for an output we wouldn't spend must not block the rest.
+  const seen = new Set<string>();
+  const candidates: { utxo: IUtxoInfo; derivationPath: string }[] = [];
+  for (const utxo of confirmedUtxos) {
+    const key = `${utxo.txid.toLowerCase()}:${utxo.vout}`;
+    if (seen.has(key) || inUse.has(key)) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    seen.add(key);
+    const normalizedPath = zcashNormalizeTransparentPath(vault, {
+      path: utxo.path ?? '',
+      accountIndex,
+    });
+    if (!normalizedPath) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // Change goes to the receive address 0/0, so the path alone can't tell it apart from a deposit.
+    const confirmationsRequired =
+      normalizedPath.internal || ownFundedTxids.has(utxo.txid.toLowerCase())
+        ? TRUSTED_CONFIRMATIONS
+        : UNTRUSTED_CONFIRMATIONS;
+    if (utxo.confirmations < confirmationsRequired) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    candidates.push({ utxo, derivationPath: normalizedPath.derivationPath });
+  }
+
   const txids = [
-    ...new Set(confirmedUtxos.map((utxo) => utxo.txid.toLowerCase())),
+    ...new Set(candidates.map(({ utxo }) => utxo.txid.toLowerCase())),
   ];
   const previousTransactions = new Map<
     string,
@@ -309,40 +363,9 @@ export async function zcashFetchFreshTransparentUtxos(
     }
   }
 
-  // The next block follows the tip (height + confirmations - 1).
-  const targetHeight = confirmedUtxos.reduce(
-    (height, utxo) => Math.max(height, utxo.height + utxo.confirmations),
-    0,
-  );
-  noteZcashChainHeight(vault.networkId, targetHeight - 1);
-  // Same expiry tip as history, so spendable and the frozen line release a dropped send together.
-  await zcashSettleTransparentPendingSends(vault, { accountId: account.id });
-  // Expired unsigned reservations stop blocking inputs; signed journals remain in use until settled.
-  const inUse = new Set(
-    [
-      ...(await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentOutpointsInUse(
-        { accountId: account.id, currentHeight: targetHeight },
-      )),
-    ].map((key) => key.toLowerCase()),
-  );
-  const ownFundedTxids = confirmedUtxos.some(
-    (utxo) =>
-      utxo.confirmations >= TRUSTED_CONFIRMATIONS &&
-      utxo.confirmations < UNTRUSTED_CONFIRMATIONS,
-  )
-    ? await zcashOwnFundedTxids(vault, account)
-    : new Set<string>();
   let coinbaseZat = new BigNumber(0);
-  const seen = new Set<string>();
   const utxos: IZcashTransparentTxRequest['utxos'] = [];
-  for (const utxo of confirmedUtxos) {
-    const key = `${utxo.txid.toLowerCase()}:${utxo.vout}`;
-    if (seen.has(key) || inUse.has(key)) {
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-    seen.add(key);
-
+  for (const { utxo, derivationPath } of candidates) {
     const previous = previousTransactions.get(utxo.txid.toLowerCase());
     const output = previous?.outputs[utxo.vout];
     const value = new BigNumber(utxo.value);
@@ -360,7 +383,7 @@ export async function zcashFetchFreshTransparentUtxos(
       );
     }
     const coinbase = previous.isCoinbase;
-    // Counted before the filter drops it: mining rewards are real funds this path can't move, so the token page must show them.
+    // Mining rewards are real funds this path can't move, so they are reported apart from the spendable set.
     if (coinbase === true) {
       try {
         coinbaseZat = coinbaseZat.plus(utxo.value);
@@ -368,20 +391,9 @@ export async function zcashFetchFreshTransparentUtxos(
         // A malformed value is already excluded from every other total.
       }
     }
-    const normalizedPath = zcashNormalizeTransparentPath(vault, {
-      path: utxo.path ?? '',
-      accountIndex,
-    });
     const { scriptPubKey } = output;
-    // Change goes to the receive address 0/0, so the path alone can't tell it apart from a deposit.
-    const confirmationsRequired =
-      normalizedPath?.internal || ownFundedTxids.has(utxo.txid.toLowerCase())
-        ? TRUSTED_CONFIRMATIONS
-        : UNTRUSTED_CONFIRMATIONS;
     if (
       coinbase !== false ||
-      !normalizedPath ||
-      utxo.confirmations < confirmationsRequired ||
       !ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE.test(scriptPubKey)
     ) {
       // eslint-disable-next-line no-continue
@@ -399,7 +411,7 @@ export async function zcashFetchFreshTransparentUtxos(
       scriptPubKey: scriptPubKey.toLowerCase(),
       isCoinbase: false,
       confirmations: utxo.confirmations,
-      derivationPath: normalizedPath.derivationPath,
+      derivationPath,
     });
   }
   // No UTXOs means no height to report -- that's an empty wallet, not a broken indexer. Prune treats 0 as undefined.
