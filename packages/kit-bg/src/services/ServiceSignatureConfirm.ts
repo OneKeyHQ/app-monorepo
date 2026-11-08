@@ -1,3 +1,4 @@
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -54,6 +55,7 @@ import type {
 } from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
+  EDecodedTxActionType,
   type IDecodedTx,
   type ISendTxBaseParams,
 } from '@onekeyhq/shared/types/tx';
@@ -485,7 +487,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           networkId,
         });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
-      const txDisplayComponents =
+      let txDisplayComponents =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
@@ -495,8 +497,8 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
-      // Signed TON transfer facts and scaled amounts remain local. Server
-      // analysis contributes risk information without replacing those facts.
+      // Signed TON transfer facts and scaled amounts remain local. Partial
+      // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
         ((hasScalingRebaseAction && !shouldUseLocalDisplay) ||
           forceLocalTonTransfer) &&
@@ -509,7 +511,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       // `simulationComponents` are deliberately NOT consumed here: a server
       // Simulation panel carries raw (non-multiplied) server amounts and
       // would reintroduce the display/raw mismatch this mechanism removes —
-      // do not "restore" it for the rebase-forced case.
+      // do not "restore" it for the rebase-forced case. The TON-specific merge
+      // below filters known Jetton amounts before retaining unknown effects.
       const rebaseDisplayExtras = isPayloadForcedLocal
         ? getPermit2ServerDisplayExtras(parsedTx?.display)
         : undefined;
@@ -521,6 +524,22 @@ class ServiceSignatureConfirm extends ServiceBase {
         ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
             .normalizeTonAddress
         : undefined;
+      const mergeUnknownTonEffects =
+        forceLocalTonTransfer &&
+        Boolean(parsedTx?.display) &&
+        decodedTx.actions.some(
+          (action) => action.type === EDecodedTxActionType.UNKNOWN,
+        );
+      if (mergeUnknownTonEffects && parsedTx?.display) {
+        const { mergeTonUnknownServerDisplay } =
+          await import('./utils/tonSignatureConfirmUtils');
+        txDisplayComponents = mergeTonUnknownServerDisplay({
+          decodedTx,
+          encodedTx: decodedTx.encodedTx as IEncodedTxTon | undefined,
+          localComponents: txDisplayComponents,
+          serverComponents: parsedTx.display.components,
+        });
+      }
       const mergedComponents =
         isPayloadForcedLocal || useLocalPermit2Display
           ? mergeServerAddressRiskTagsIntoComponents({
@@ -537,7 +556,10 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       decodedTx.txDisplay = {
         title: '',
-        components: [...mergedComponents, ...serverSimulationComponents],
+        components: [
+          ...mergedComponents,
+          ...(mergeUnknownTonEffects ? [] : serverSimulationComponents),
+        ],
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,

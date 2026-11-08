@@ -21995,6 +21995,7 @@
     "packages/kit-bg/src/services/utils/pollSolTxFinalization.ts": 24562,
     "packages/kit-bg/src/services/utils/swapHistoryStateUtils.ts": 635,
     "packages/kit-bg/src/services/utils/swapHistoryStatusUtils.ts": 4500,
+    "packages/kit-bg/src/services/utils/tonSignatureConfirmUtils.ts": 9495,
     "packages/kit-bg/src/services/walletProfileAnalyticsScheduler.ts": 2033,
     "packages/kit-bg/src/states/jotai/atomNames.ts": 15891,
     "packages/kit-bg/src/states/jotai/atoms/InAppNotification.ts": 20225,

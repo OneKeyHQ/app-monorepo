@@ -536,6 +536,34 @@ describe('TON hardware signing uses the shared transaction parser', () => {
     expect(tonSignMessage.mock.calls[0][2]).not.toHaveProperty('jettonAmount');
   });
 
+  it('preserves an NFT request as a raw hardware payload without adding token verification calls', async () => {
+    const encodedTx = transaction();
+    const payload = beginCell()
+      .storeUint(0x5f_cc_3d_14, 32)
+      .storeUint(0, 64)
+      .storeAddress(Address.parse(RECIPIENT))
+      .storeAddress(Address.parse(FROM))
+      .storeBit(false)
+      .storeCoins(0)
+      .storeBit(false)
+      .endCell()
+      .toBoc()
+      .toString('base64');
+    encodedTx.messages[0].payload = payload;
+    const { keyring, params, tonSignMessage, getData } = setup(encodedTx);
+    const signed = await keyring.signTransaction(params);
+    expect(tonSignMessage.mock.calls[0][2]).toMatchObject({
+      destination: friendly(WALLET),
+      isRawData: true,
+      comment: Buffer.from(payload, 'base64').toString('hex'),
+    });
+    expect(tonSignMessage.mock.calls[0][2]).not.toHaveProperty('jettonAmount');
+    expect(getData).not.toHaveBeenCalled();
+    expect((signed.encodedTx as IEncodedTxTon).messages[0].payload).toBe(
+      payload,
+    );
+  });
+
   it('uses only a matching Classic serialization candidate', async () => {
     const encodedTx = transaction();
     const { keyring, params } = setup(encodedTx, 'classic');
