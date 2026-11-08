@@ -35,7 +35,8 @@ let sessionGeneration = 0;
 let unreadRequestId = 0;
 let unreadCount = 0;
 let currentTheme: IIntercomThemeMode = defaultColorScheme;
-let inAppMessagesVisible = false;
+let inAppMessagesRequested = false;
+let visibilityApplication: Promise<void> = Promise.resolve();
 let unreadPollTimer: ReturnType<typeof setInterval> | undefined;
 let messengerLocked = false;
 const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
@@ -134,21 +135,17 @@ async function loadSdk() {
       const sdk = await import('@intercom/intercom-react-native');
       // Native initialization (BaseMainApplication / OneKeyIntercom.mm) owns
       // the keys and hides the launcher, in-app messages and proactive content
-      // before either JS runtime starts; JS re-enables in-app messages only on
-      // unlocked main tabs.
+      // before either JS runtime starts. In-app messages stay hidden until a
+      // session for the current identity is established.
       await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
-      await sdk.default.setInAppMessageVisibility(
-        toSdkVisibility(sdk, inAppMessagesVisible),
-      );
       // The SDK requires its Android listener before app-owned emitters.
       sdk.default.bootstrapEventListeners();
       const emitter = new NativeEventEmitter(
         NativeModules.IntercomEventEmitter,
       );
       // One listener belongs to the main runtime for the native SDK lifetime.
-      emitter.addListener(
-        sdk.IntercomEvents.IntercomUnreadCountDidChange,
-        () => requestUnreadRefresh(sdk),
+      emitter.addListener(sdk.IntercomEvents.IntercomUnreadCountDidChange, () =>
+        requestUnreadRefresh(sdk),
       );
       // Closing the Messenger marks conversations read.
       emitter.addListener(sdk.IntercomEvents.IntercomWindowDidHide, () =>
@@ -171,20 +168,55 @@ async function loadSdk() {
   return sdkPromise;
 }
 
+function isSessionReady() {
+  return (
+    activeUserId !== undefined &&
+    activeUserId === requestedUserId &&
+    activeSessionGeneration === sessionGeneration
+  );
+}
+
+function shouldShowInAppMessages() {
+  return inAppMessagesRequested && !messengerLocked && isSessionReady();
+}
+
+// The native SDK may still hold a restored or retiring account's session, so
+// messages are shown only once that session matches the current identity.
+// Calls are serialized and each reads the latest state, so the last state
+// change always wins; a hide queued after a pending show lands after it.
+function syncInAppMessageVisibility(): Promise<void> {
+  const pendingSdk = sdkPromise;
+  if (!pendingSdk) {
+    // Native initialization keeps messages GONE until the SDK is loaded.
+    return Promise.resolve();
+  }
+  const run = visibilityApplication
+    .catch(() => undefined)
+    .then(async () => {
+      const sdk = await pendingSdk;
+      const userId = activeUserId;
+      const generation = sessionGeneration;
+      let visible = shouldShowInAppMessages();
+      if (visible && userId !== undefined) {
+        visible =
+          (await isCurrentSession(userId, generation)) &&
+          activeUserId === userId &&
+          shouldShowInAppMessages();
+      }
+      await sdk.default.setInAppMessageVisibility(
+        toSdkVisibility(sdk, visible),
+      );
+    });
+  visibilityApplication = run;
+  return run;
+}
+
 export async function setIntercomInAppMessageVisibility(visible: boolean) {
   if (!platformEnv.isNativeMainThread) {
     return;
   }
-  inAppMessagesVisible = visible;
-  // An unloaded SDK has no session to receive messages; loadSdk applies the
-  // latest visibility once it initializes.
-  if (!canUseNativeSdk() || !sdkPromise) {
-    return;
-  }
-  const sdk = await sdkPromise;
-  await sdk.default.setInAppMessageVisibility(
-    toSdkVisibility(sdk, inAppMessagesVisible),
-  );
+  inAppMessagesRequested = visible;
+  await syncInAppMessageVisibility();
 }
 
 export async function setIntercomMessengerLocked(
@@ -195,6 +227,9 @@ export async function setIntercomMessengerLocked(
     return;
   }
   messengerLocked = locked;
+  void syncInAppMessageVisibility().catch(() => {
+    console.warn('Failed to update Intercom message visibility');
+  });
   if (locked) {
     // Cancel pre-lock opens and allow an immediate deliberate reopen after unlock.
     intercomOpenGuard.reset();
@@ -305,6 +340,10 @@ async function syncSession(
   }
   activeUserId = userId;
   activeSessionGeneration = generation;
+  // A visibility failure must not fail the session; messages stay hidden.
+  await syncInAppMessageVisibility().catch(() => {
+    console.warn('Failed to update Intercom message visibility');
+  });
   await sdk.default.updateUser({
     languageOverride: await getIntercomLanguageOverride(),
   });
@@ -327,6 +366,10 @@ async function syncCurrentSession(userId: IUserId) {
   requestedUserId = userId;
   sessionGeneration += 1;
   const generation = sessionGeneration;
+  // Hide before the previous SDK identity is retired or replaced.
+  void syncInAppMessageVisibility().catch(() => {
+    console.warn('Failed to hide Intercom messages');
+  });
   setUnreadCount(0);
   const previous = sessionPromise ?? Promise.resolve();
   const operation = previous

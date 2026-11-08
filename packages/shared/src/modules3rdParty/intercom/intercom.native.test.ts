@@ -273,6 +273,80 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
   });
 
+  it('keeps a restored previous account hidden until the current session is ready', async () => {
+    // The native SDK restored account A while the wallet now belongs to B.
+    mockLoggedInUser = { userId: 'intercom-A' };
+    mockUserId = 'B';
+    const jwt = deferred<{ token: string }>();
+    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
+    await subject.setIntercomInAppMessageVisibility(true);
+
+    const syncing = subject.initIntercom();
+    await flushEvents();
+    await subject.setIntercomInAppMessageVisibility(true);
+    await flushEvents();
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
+      'VISIBLE',
+    );
+
+    jwt.resolve({ token: createToken('intercom-B') });
+    await syncing;
+    expect(mockLoggedInUser).toEqual(
+      expect.objectContaining({ userId: 'intercom-B' }),
+    );
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
+      'VISIBLE',
+    );
+  });
+
+  it('keeps messages hidden when the current session cannot be established', async () => {
+    mockLoggedInUser = { userId: 'intercom-A' };
+    mockUserId = 'B';
+    mockGetCustomerJWT.mockRejectedValueOnce(new Error('jwt failed'));
+    await subject.setIntercomInAppMessageVisibility(true);
+    await expect(subject.initIntercom()).rejects.toThrow('jwt failed');
+    await subject.setIntercomInAppMessageVisibility(true);
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
+      'VISIBLE',
+    );
+  });
+
+  it('hides messages on account switch and lock before reapplying', async () => {
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.setIntercomInAppMessageVisibility(true);
+    await subject.initIntercom();
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
+      'VISIBLE',
+    );
+
+    await subject.setIntercomMessengerLocked(true);
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    await subject.setIntercomMessengerLocked(false);
+    await flushEvents();
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
+      'VISIBLE',
+    );
+
+    mockUserId = 'B';
+    const jwt = deferred<{ token: string }>();
+    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
+    const switching = subject.initIntercom();
+    await flushEvents();
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    const goneCall =
+      mockSdk.setInAppMessageVisibility.mock.invocationCallOrder.at(-1) ?? 0;
+    expect(goneCall).toBeLessThan(
+      mockSdk.logout.mock.invocationCallOrder.at(-1) ?? 0,
+    );
+
+    jwt.resolve({ token: createToken('intercom-B') });
+    await switching;
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
+      'VISIBLE',
+    );
+  });
+
   it('refreshes unread count on foreground and Messenger close', async () => {
     await subject.initIntercom();
     expect(subject.getIntercomUnreadCount()).toBe(0);
