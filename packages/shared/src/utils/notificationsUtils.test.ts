@@ -3,6 +3,7 @@ import {
   type INotificationPushMessageInfo,
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 import platformEnv from '../platformEnv';
@@ -75,6 +76,8 @@ jest.mock('./extUtils', () => ({
 jest.mock('./timerUtils', () => ({
   __esModule: true,
   default: {
+    ...jest.requireActual<typeof import('./timerUtils')>('./timerUtils')
+      .default,
     wait: jest.fn(async () => undefined),
   },
 }));
@@ -715,7 +718,7 @@ describe('foreground notification page intent', () => {
     }
   });
 
-  it('stops after a consumer error and retries only on a later registration', async () => {
+  it('allows a later registration to recover after a consumer error', async () => {
     const event: INotificationPageNavigationEvent = {
       payload: {
         screen: ERootRoutes.Modal,
@@ -965,6 +968,51 @@ describe('foreground notification page intent', () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['push', undefined] as const)(
+    'preserves an AllNetworks template without account lookup (action: %s)',
+    async (navigationAction) => {
+      const dispatch = jest.fn();
+      const navigate = jest.fn();
+      appGlobals.$navigationRef = {
+        current: { dispatch, navigate, getRootState: jest.fn() },
+      } as never;
+      const getEarnAccount = jest
+        .fn()
+        .mockRejectedValue(
+          new OneKeyLocalError(
+            'Aggregate networks cannot resolve an Earn account',
+          ),
+        );
+      const params = {
+        screen: EModalRoutes.MainModal,
+        params: {
+          screen: EModalAssetDetailRoutes.HistoryDetails,
+          params: {
+            networkId: '{local_networkId}',
+            accountId: '{local_accountId}',
+          },
+        },
+      };
+      await navigateToNotificationDetailByLocalParams({
+        payload: { screen: ERootRoutes.Modal, params },
+        navigationAction,
+        localParams: {
+          networkId: 'onekeyall--0',
+          accountId: 'selected-account',
+        },
+        getEarnAccount,
+      });
+      expect(getEarnAccount).not.toHaveBeenCalled();
+      expect(params.params.params).toEqual({
+        networkId: 'onekeyall--0',
+        accountId: 'selected-account',
+      });
+      expect(
+        navigationAction === 'push' ? dispatch : navigate,
+      ).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('does not let a push marker bypass non-modal WebView URL validation', async () => {
     const dispatch = jest.fn();
     appGlobals.$navigationRef = { current: { dispatch } } as never;
@@ -1010,6 +1058,326 @@ describe('foreground notification page intent', () => {
       EAppEventBusNames.ShowNotificationPageNavigation,
       { payload, extras },
     );
+  });
+});
+
+describe('foreground notification consume retries', () => {
+  const event: INotificationPageNavigationEvent = {
+    payload: {
+      screen: ERootRoutes.Modal,
+      params: { screen: EModalRoutes.NotificationsModal },
+    },
+    navigationAction: 'push',
+  };
+  const consumeError = new OneKeyLocalError('Temporary consume RPC failure');
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('recovers after a transient consume failure without another wake or registration', async () => {
+    const consume = jest
+      .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
+      .mockRejectedValueOnce(consumeError)
+      .mockResolvedValueOnce(event)
+      .mockResolvedValue(undefined);
+    const process = jest.fn();
+    const unregister = registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(consume).toHaveBeenCalledTimes(1);
+      expect(process).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(1);
+      await jest.advanceTimersByTimeAsync(249);
+      expect(consume).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(consume).toHaveBeenCalledTimes(2);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledWith(event);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('recovers the isolated BG pending intent after a pre-take RPC failure with no wake', async () => {
+    const background = await createNativeNavigationRuntime(true);
+    await emitNativeNavigationClick(background, 'modern');
+    const main = await createNativeNavigationRuntime(false);
+    const consumePending = connectNativeNavigationConsumer(background, main);
+    const backgroundRPC = jest.spyOn(
+      main.globals.$backgroundApiProxy.serviceNotification,
+      'consumePendingLegacyNavigation',
+    );
+    const consume = jest
+      .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
+      .mockRejectedValueOnce(consumeError)
+      .mockImplementation(consumePending);
+    const process = jest.fn();
+    const unregister = main.utils.registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(backgroundRPC).not.toHaveBeenCalled();
+      expect(process).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(250);
+      expect(backgroundRPC).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({ screen: ERootRoutes.WebView }),
+          isNativeBackgroundNavigation: true,
+        }),
+      );
+      expect(
+        background.utils.takePendingLegacyNavigationEvent(),
+      ).toBeUndefined();
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('limits permanent failure to the initial attempt plus three delayed retries without spinning', async () => {
+    const consume = jest.fn().mockRejectedValue(consumeError);
+    const process = jest.fn();
+    const unregister = registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(consume).toHaveBeenCalledTimes(1);
+      for (const [index, delay] of [250, 1000, 3000].entries()) {
+        expect(jest.getTimerCount()).toBe(1);
+        await jest.advanceTimersByTimeAsync(delay - 1);
+        expect(consume).toHaveBeenCalledTimes(index + 1);
+        await jest.advanceTimersByTimeAsync(1);
+        expect(consume).toHaveBeenCalledTimes(index + 2);
+      }
+      expect(jest.getTimerCount()).toBe(0);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(consume).toHaveBeenCalledTimes(4);
+      expect(process).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
+  it.each(['wake', 'registration'] as const)(
+    'restarts an exhausted retry budget on a new %s',
+    async (trigger) => {
+      const consume = jest
+        .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
+        .mockRejectedValue(consumeError);
+      const process = jest.fn();
+      let unregister = registerNotificationPageNavigationProcessor(
+        process,
+        consume,
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(4250);
+        expect(consume).toHaveBeenCalledTimes(4);
+        expect(jest.getTimerCount()).toBe(0);
+        consume.mockResolvedValueOnce(event).mockResolvedValue(undefined);
+        if (trigger === 'wake') {
+          foregroundPageListener?.(event);
+        } else {
+          unregister();
+          unregister = registerNotificationPageNavigationProcessor(
+            process,
+            consume,
+          );
+        }
+        await jest.advanceTimersByTimeAsync(0);
+        expect(consume).toHaveBeenCalledTimes(5);
+        expect(process).toHaveBeenCalledTimes(1);
+        expect(process).toHaveBeenCalledWith(event);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        unregister();
+      }
+    },
+  );
+
+  it('cancels a pending retry when its processor unregisters', async () => {
+    const consume = jest.fn().mockRejectedValue(consumeError);
+    const unregister = registerNotificationPageNavigationProcessor(
+      jest.fn(),
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(jest.getTimerCount()).toBe(1);
+      unregister();
+      expect(jest.getTimerCount()).toBe(0);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(consume).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('cancels active backoff and consumes immediately when a new wake arrives', async () => {
+    const consume = jest
+      .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
+      .mockRejectedValueOnce(consumeError)
+      .mockResolvedValueOnce(event)
+      .mockResolvedValue(undefined);
+    const process = jest.fn();
+    const unregister = registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(jest.getTimerCount()).toBe(1);
+      foregroundPageListener?.(event);
+      expect(jest.getTimerCount()).toBe(0);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(consume).toHaveBeenCalledTimes(2);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledWith(event);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(consume).toHaveBeenCalledTimes(2);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('cancels the old registration retry when a new processor replaces it', async () => {
+    const oldConsume = jest.fn().mockRejectedValue(consumeError);
+    const oldProcess = jest.fn();
+    const unregisterOld = registerNotificationPageNavigationProcessor(
+      oldProcess,
+      oldConsume,
+    );
+    let unregisterNew: (() => void) | undefined;
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      expect(jest.getTimerCount()).toBe(1);
+      const newConsume = jest
+        .fn()
+        .mockResolvedValueOnce(event)
+        .mockResolvedValue(undefined);
+      const newProcess = jest.fn();
+      unregisterNew = registerNotificationPageNavigationProcessor(
+        newProcess,
+        newConsume,
+      );
+      expect(jest.getTimerCount()).toBe(0);
+      unregisterOld();
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(oldConsume).toHaveBeenCalledTimes(1);
+      expect(oldProcess).not.toHaveBeenCalled();
+      expect(newProcess).toHaveBeenCalledTimes(1);
+      expect(newProcess).toHaveBeenCalledWith(event);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregisterOld();
+      unregisterNew?.();
+    }
+  });
+
+  it('does not let an old in-flight rejection change the replacement registration retry state', async () => {
+    let rejectOld!: (error: OneKeyLocalError) => void;
+    const oldResponse = new Promise<
+      INotificationPageNavigationEvent | undefined
+    >((_resolve, reject) => {
+      rejectOld = reject;
+    });
+    const oldConsume = jest.fn(() => oldResponse);
+    const unregisterOld = registerNotificationPageNavigationProcessor(
+      jest.fn(),
+      oldConsume,
+    );
+    let unregisterNew: (() => void) | undefined;
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      const newConsume = jest
+        .fn()
+        .mockResolvedValueOnce(event)
+        .mockResolvedValue(undefined);
+      const process = jest.fn();
+      unregisterNew = registerNotificationPageNavigationProcessor(
+        process,
+        newConsume,
+      );
+      rejectOld(consumeError);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(newConsume).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledWith(event);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregisterOld();
+      unregisterNew?.();
+    }
+  });
+
+  it('retains a wake received during a consume await that subsequently rejects', async () => {
+    let rejectFirst!: (error: OneKeyLocalError) => void;
+    const firstResponse = new Promise<
+      INotificationPageNavigationEvent | undefined
+    >((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    const consume = jest
+      .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
+      .mockImplementationOnce(() => firstResponse)
+      .mockResolvedValueOnce(event)
+      .mockResolvedValue(undefined);
+    const process = jest.fn();
+    const unregister = registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(0);
+      foregroundPageListener?.(event);
+      rejectFirst(consumeError);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(consume).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(1);
+      await jest.advanceTimersByTimeAsync(250);
+      expect(consume).toHaveBeenCalledTimes(2);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledWith(event);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('does not retry a processor rejection after successfully consuming an intent', async () => {
+    const consume = jest
+      .fn()
+      .mockResolvedValueOnce(event)
+      .mockResolvedValue(undefined);
+    const process = jest
+      .fn()
+      .mockRejectedValue(new OneKeyLocalError('Navigation failed'));
+    const unregister = registerNotificationPageNavigationProcessor(
+      process,
+      consume,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(consume).toHaveBeenCalledTimes(1);
+      expect(process).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      unregister();
+    }
   });
 });
 

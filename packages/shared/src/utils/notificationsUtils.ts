@@ -32,6 +32,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
+import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
@@ -142,7 +143,11 @@ export async function navigateToNotificationDetailByLocalParams({
             (match, param: string) => localParams[param] || match,
           )
         : undefined;
-    if (networkId && !networkId.includes('{local_')) {
+    if (
+      networkId &&
+      !networkId.includes('{local_') &&
+      !networkUtils.isAllNetwork({ networkId })
+    ) {
       const accountInfos = await getEarnAccount({
         accountId: localParams.accountId || '',
         networkId,
@@ -387,7 +392,11 @@ type IConsumePendingLegacyNavigation = () => Promise<
 type INotificationPageNavigationRegistration = {
   processor: INotificationPageNavigationProcessor;
   consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation;
+  retryCount: number;
+  retryTimer?: ReturnType<typeof setTimeout>;
 };
+
+const LEGACY_NAVIGATION_RETRY_DELAYS = [250, 1000, 3000];
 
 let notificationPageNavigationRegistration: INotificationPageNavigationRegistration | null =
   null;
@@ -404,6 +413,26 @@ export function takePendingLegacyNavigationEvent() {
   const pending = pendingLegacyNavigationEvent;
   pendingLegacyNavigationEvent = undefined;
   return pending;
+}
+
+function scheduleLegacyNavigationRetry(
+  registration: INotificationPageNavigationRegistration,
+) {
+  if (notificationPageNavigationRegistration !== registration) {
+    return;
+  }
+  legacyNavigationDrainDirty = true;
+  const delay = LEGACY_NAVIGATION_RETRY_DELAYS[registration.retryCount];
+  registration.retryCount += 1;
+  if (delay !== undefined) {
+    registration.retryTimer = setTimeout(() => {
+      if (notificationPageNavigationRegistration !== registration) {
+        return;
+      }
+      registration.retryTimer = undefined;
+      startLegacyNavigationDrain();
+    }, delay);
+  }
 }
 
 async function drainPendingLegacyNavigation() {
@@ -424,6 +453,7 @@ async function drainPendingLegacyNavigation() {
           'Failed to consume pending legacy notification navigation',
           error,
         );
+        scheduleLegacyNavigationRetry(registration);
         return;
       }
     } else {
@@ -449,9 +479,13 @@ async function drainPendingLegacyNavigation() {
 }
 
 function startLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
   if (
     legacyNavigationDrainPromise ||
-    !notificationPageNavigationRegistration?.consumePendingLegacyNavigation ||
+    !registration?.consumePendingLegacyNavigation ||
+    registration.retryTimer !== undefined ||
+    // The initial attempt can schedule three retries; the fourth failure stops.
+    registration.retryCount > LEGACY_NAVIGATION_RETRY_DELAYS.length ||
     (!legacyNavigationDrainDirty && !pendingTakenLegacyNavigationEvent)
   ) {
     return;
@@ -465,6 +499,14 @@ function startLegacyNavigationDrain() {
 }
 
 function requestLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
+  if (registration) {
+    registration.retryCount = 0;
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
+  }
   legacyNavigationDrainDirty = true;
   startLegacyNavigationDrain();
 }
@@ -488,7 +530,16 @@ export function registerNotificationPageNavigationProcessor(
   processor: INotificationPageNavigationProcessor,
   consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation,
 ) {
-  const registration = { processor, consumePendingLegacyNavigation };
+  const previousRegistration = notificationPageNavigationRegistration;
+  if (previousRegistration?.retryTimer !== undefined) {
+    clearTimeout(previousRegistration.retryTimer);
+    previousRegistration.retryTimer = undefined;
+  }
+  const registration: INotificationPageNavigationRegistration = {
+    processor,
+    consumePendingLegacyNavigation,
+    retryCount: 0,
+  };
   notificationPageNavigationRegistration = registration;
   const pending = pendingNotificationPageNavigationEvent;
   if (pending) {
@@ -499,6 +550,10 @@ export function registerNotificationPageNavigationProcessor(
     requestLegacyNavigationDrain();
   }
   return () => {
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
     if (notificationPageNavigationRegistration === registration) {
       notificationPageNavigationRegistration = null;
     }
