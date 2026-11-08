@@ -1,5 +1,5 @@
 // cspell:ignore stagenet
-import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
+import { streamingFetch } from '@onekeyhq/shared/src/utils/streamingFetch';
 
 import {
   XMR_MAINNET_GENESIS_HASH,
@@ -10,11 +10,12 @@ import {
   xmrNetworkFromGenesisHash,
 } from './xmrNodeDirect';
 
-jest.mock('@onekeyhq/core/src/utils/privacyChainNodeFetch', () => ({
-  privacyChainNodeFetch: jest.fn(),
+// The platform fetch under the shared node request, so the request's own rules run too.
+jest.mock('@onekeyhq/shared/src/utils/streamingFetch', () => ({
+  streamingFetch: jest.fn(),
 }));
 
-const nodeFetch = jest.mocked(privacyChainNodeFetch);
+const nodeFetch = jest.mocked(streamingFetch);
 
 describe('xmrNodeDirect', () => {
   beforeEach(() => {
@@ -93,6 +94,17 @@ describe('xmrNodeDirect', () => {
       ).resolves.toBeNull();
     },
   );
+
+  it('refuses a get_height reply over the size cap', async () => {
+    nodeFetch.mockResolvedValue(
+      new Response('{"height":3}', {
+        headers: { 'content-length': String(33 * 1024 * 1024) },
+      }),
+    );
+    await expect(
+      fetchXmrNodeHeightDirect({ nodeBase: 'https://node.example' }),
+    ).rejects.toThrow('node response exceeds size limit');
+  });
 
   it('probes network via genesis block hash', async () => {
     nodeFetch.mockResolvedValue(
