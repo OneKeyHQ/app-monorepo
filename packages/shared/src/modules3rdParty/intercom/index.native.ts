@@ -185,14 +185,24 @@ function shouldShowInAppMessages() {
 // Calls are serialized and each reads the latest state, so the last state
 // change always wins; a hide queued after a pending show lands after it.
 function syncInAppMessageVisibility(): Promise<void> {
-  const pendingSdk = sdkPromise;
-  if (!pendingSdk) {
-    // Native initialization keeps messages GONE until the SDK is loaded.
+  if (!canUseNativeSdk()) {
     return Promise.resolve();
   }
+  const pendingSdk = sdkPromise;
   const run = visibilityApplication
     .catch(() => undefined)
     .then(async () => {
+      if (!pendingSdk) {
+        // A restarted main runtime has no SDK state yet, while the
+        // process-wide native SDK may still show messages enabled by the
+        // previous runtime. Hide them without starting a session; the
+        // container calls this on mount, so it runs at runtime startup.
+        const sdkModule = await import('@intercom/intercom-react-native');
+        await sdkModule.default.setInAppMessageVisibility(
+          sdkModule.Visibility.GONE,
+        );
+        return;
+      }
       const sdk = await pendingSdk;
       const userId = activeUserId;
       const generation = sessionGeneration;

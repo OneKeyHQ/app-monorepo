@@ -258,8 +258,13 @@ describe('native Intercom SDK integration', () => {
   });
 
   it('applies in-app message visibility without eagerly loading the SDK', async () => {
+    // A fresh main runtime hides messages a previous runtime left enabled,
+    // without starting an SDK session.
     await subject.setIntercomInAppMessageVisibility(true);
-    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledTimes(1);
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
+    expect(mockSdk.isUserLoggedIn).not.toHaveBeenCalled();
 
     await subject.initIntercom();
     expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
@@ -271,6 +276,18 @@ describe('native Intercom SDK integration', () => {
     mockPlatformEnv.isNativeMainThread = false;
     await subject.setIntercomInAppMessageVisibility(true);
     expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+  });
+
+  it('hides messages over a lock screen after a main runtime restart', async () => {
+    await subject.setIntercomMessengerLocked(true);
+    await flushEvents();
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
+
+    mockNativeModules.OneKeyIntercom.initialized = false;
+    mockSdk.setInAppMessageVisibility.mockClear();
+    await subject.setIntercomInAppMessageVisibility(false);
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
   });
 
   it('keeps a restored previous account hidden until the current session is ready', async () => {
