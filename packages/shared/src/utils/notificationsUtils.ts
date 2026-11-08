@@ -135,10 +135,17 @@ export async function navigateToNotificationDetailByLocalParams({
     );
 
   if (targetParams && (!isLegacyModalPush || hasLocalTemplate)) {
-    if (targetParams?.networkId) {
+    const networkId =
+      typeof targetParams.networkId === 'string'
+        ? targetParams.networkId.replace(
+            /\{local_(\w+)\}/g,
+            (match, param: string) => localParams[param] || match,
+          )
+        : undefined;
+    if (networkId && !networkId.includes('{local_')) {
       const accountInfos = await getEarnAccount({
         accountId: localParams.accountId || '',
-        networkId: targetParams.networkId,
+        networkId,
         indexedAccountId: localParams.indexedAccountId || '',
       });
       if (accountInfos) {
@@ -369,7 +376,7 @@ export type INotificationPageNavigationEvent =
   IAppEventBusPayload[EAppEventBusNames.ShowNotificationPageNavigation];
 
 // Foreground page events are buffered after they reach this JS runtime. Native
-// BG legacy clicks also keep their latest intent in BG until the UI pulls it:
+// BG legacy and page clicks keep their latest intent in one BG slot:
 // SharedRPC writes made before main installs its observer are not replayed.
 type INotificationPageNavigationProcessor = (
   event: INotificationPageNavigationEvent,
@@ -465,7 +472,7 @@ function requestLegacyNavigationDrain() {
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
-  if (event.navigationAction === 'push') {
+  if (event.navigationAction === 'push' || event.isNativeBackgroundNavigation) {
     requestLegacyNavigationDrain();
     return;
   }
@@ -588,10 +595,19 @@ export function parseNotificationPayload(
           // display restrictions (hides attacker-supplied title, etc.).
           leaf.source = 'notification';
         }
-        appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+        const event: INotificationPageNavigationEvent = {
           payload: payloadObj,
           extras,
-        });
+        };
+        if (platformEnv.isNative && platformEnv.isNativeBackgroundThread) {
+          // Main treats this broadcast only as a wake for the BG-owned slot.
+          event.isNativeBackgroundNavigation = true;
+          pendingLegacyNavigationEvent = event;
+        }
+        appEventBus.emit(
+          EAppEventBusNames.ShowNotificationPageNavigation,
+          event,
+        );
         return true;
       } catch (_error) {
         fallbackHandler();
