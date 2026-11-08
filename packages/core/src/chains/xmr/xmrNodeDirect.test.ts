@@ -82,6 +82,18 @@ describe('xmrNodeDirect', () => {
     );
   });
 
+  it.each(['1e400', '3456789.5', '0', '"3456789"', '1e300'])(
+    'refuses a get_height of %s',
+    async (height) => {
+      nodeFetch.mockResolvedValue(
+        new Response(`{"height":${height}}`, { status: 200 }),
+      );
+      await expect(
+        fetchXmrNodeHeightDirect({ nodeBase: 'https://node.example' }),
+      ).resolves.toBeNull();
+    },
+  );
+
   it('probes network via genesis block hash', async () => {
     nodeFetch.mockResolvedValue(
       new Response(JSON.stringify({ result: XMR_MAINNET_GENESIS_HASH }), {

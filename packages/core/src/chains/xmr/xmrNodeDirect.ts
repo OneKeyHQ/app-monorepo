@@ -63,10 +63,14 @@ export async function fetchXmrNodeHeightDirect({
     return null;
   }
   try {
-    const body = JSON.parse(text) as { height?: unknown };
-    return typeof body.height === 'number' && body.height > 0
-      ? body.height - 1
-      : null;
+    const { height } = JSON.parse(text) as { height?: unknown };
+    // JSON can still carry an infinite (1e400) or fractional height.
+    const isBlockCount =
+      typeof height === 'number' && Number.isSafeInteger(height) && height > 0;
+    if (!isBlockCount) {
+      return null;
+    }
+    return height - 1;
   } catch {
     return null;
   }
