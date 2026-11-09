@@ -276,8 +276,12 @@ class ServiceLightning extends ServiceBase {
     };
   }) {
     try {
+      // LNURL services answer with `Access-Control-Allow-Origin: *` (LUD-01),
+      // which browsers refuse to share with a request that carries
+      // credentials, and the payee has no use for our cookies. React Native
+      // sends cookies unless told not to.
       const axiosInstance = axios.create({
-        withCredentials: true,
+        withCredentials: false,
       });
       const response = await axiosInstance.get<ILNURLPaymentInfo | ILNURLError>(
         callback,
