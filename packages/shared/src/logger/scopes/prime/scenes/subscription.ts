@@ -724,10 +724,15 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToLocal()
   public primeRestorePurchaseResult({
     result,
+    source,
   }: {
     result: 'success' | 'noPurchases' | 'failed';
+    // Unset for the restore button. `purchaseExistingSubscription`: the
+    // purchase button got the store account's existing subscription back
+    // instead of a new charge.
+    source?: 'purchaseExistingSubscription';
   }) {
-    return { result };
+    return { result, source };
   }
 
   /**

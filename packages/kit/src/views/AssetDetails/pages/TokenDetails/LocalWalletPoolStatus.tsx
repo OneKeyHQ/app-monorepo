@@ -17,7 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
@@ -125,8 +125,7 @@ export function LocalWalletPoolStatus({
     const formRef = createPrivacyEnableForm({ earliestBirthday });
     Dialog.show({
       title: intl.formatMessage({
-        id: ETranslationsMock.privacy_enable_account__title,
-        defaultMessage: ETranslationsMock.privacy_enable_account__title,
+        id: ETranslations.privacy_enable_account__title,
       }),
       showConfirmButton: true,
       showCancelButton: true,

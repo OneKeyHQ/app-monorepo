@@ -36,6 +36,15 @@ export const PrimeTestIDs = {
   cloudSyncNow: 'prime-cloud-sync-now',
 
   // --- OneKey ID ---
+  oneKeyIdPage: 'prime-onekey-id-page',
+  oneKeyIdProfileCard: 'prime-onekey-id-profile-card',
+  oneKeyIdBannedAlert: 'prime-onekey-id-banned-alert',
+  oneKeyIdPrimeBtn: 'prime-onekey-id-prime-btn',
+  oneKeyIdReferralBtn: 'prime-onekey-id-referral-btn',
+  oneKeyIdDevicesBtn: 'prime-onekey-id-devices-btn',
+  oneKeyIdOrdersBtn: 'prime-onekey-id-orders-btn',
+  oneKeyIdAccountManagementBtn: 'prime-onekey-id-account-management-btn',
+  oneKeyIdDeleteAccountBtn: 'prime-onekey-id-delete-account-btn',
   oneKeyIdEditProfileBtn: 'prime-onekey-id-edit-profile-btn',
   oneKeyIdLogoutBtn: 'prime-onekey-id-logout-btn',
   oneKeyIdProfileNicknameInput: 'prime-onekey-id-profile-nickname-input',
