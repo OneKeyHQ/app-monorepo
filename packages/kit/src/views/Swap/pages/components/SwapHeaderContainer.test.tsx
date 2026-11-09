@@ -318,19 +318,29 @@ describe('SwapHeaderContainer', () => {
       type: ESwapTabSwitchType.STOCK,
     },
     {
-      label: 'native Stock modal',
+      label: 'native Stock modal from Market',
       desktop: false,
       native: true,
       modal: true,
       type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.MARKET,
       hideKLine: true,
     },
     {
-      label: 'native Swap modal',
+      label: 'native Stock modal from Wallet Home',
+      desktop: false,
+      native: true,
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      source: ESwapSource.WALLET_HOME,
+    },
+    {
+      label: 'native Swap modal from Market',
       desktop: false,
       native: true,
       modal: true,
       type: ESwapTabSwitchType.SWAP,
+      source: ESwapSource.MARKET,
     },
     {
       label: 'native Stock page',
@@ -348,7 +358,7 @@ describe('SwapHeaderContainer', () => {
     },
   ])(
     'sets K-line visibility for $label',
-    ({ desktop, native, modal, type, hideKLine = false }) => {
+    ({ desktop, native, modal, type, source, hideKLine = false }) => {
       const originalDesktop = platformEnv.isDesktop;
       platformEnv.isDesktop = desktop;
       platformEnv.isNative = native;
@@ -357,6 +367,7 @@ describe('SwapHeaderContainer', () => {
         const { getByTestId } = render(
           <SwapHeaderContainer
             pageType={modal ? EPageType.modal : undefined}
+            enterFrom={source}
           />,
         );
         expect(
