@@ -1,6 +1,9 @@
 import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+  HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import {
   OneKeyError,
   OneKeyLocalError,
@@ -393,7 +396,7 @@ test('restore diagnostics classify mismatched tombstones and locks without expos
     { pwdHash: 'private-old', dataType: 'Wallet', isDeleted: true },
     {
       pwdHash: 'private-old',
-      dataType: 'HardwareCloudSyncKeyEnvelope',
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
       isDeleted: true,
     },
     { pwdHash: 'private-old', dataType: 'IndexedAccount', isDeleted: false },
@@ -475,4 +478,33 @@ test('diagnostics recognize interceptor-normalized network and HTTP failures', (
     getHardwareCloudSyncErrorDiagnostics(server),
   );
   expect(JSON.stringify(mockLog.mock.calls)).not.toContain('private-');
+});
+
+test('restore envelope category uses the protocol data type for live and deleted records', () => {
+  const counts = summarizeHardwareCloudSyncRestoreItems(
+    [
+      {
+        dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+        pwdHash: 'unknown',
+        isDeleted: false,
+      },
+      {
+        dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+        pwdHash: 'unknown',
+        isDeleted: true,
+      },
+      {
+        dataType: 'HardwareCloudSyncKeyEnvelope',
+        pwdHash: 'unknown',
+        isDeleted: true,
+      },
+    ],
+    new Set(),
+  );
+  expect(counts).toMatchObject({
+    mismatchedEnvelopeCount: 2,
+    mismatchedDeletedEnvelopeCount: 1,
+    mismatchedOtherCount: 1,
+    mismatchedDeletedOtherCount: 1,
+  });
 });

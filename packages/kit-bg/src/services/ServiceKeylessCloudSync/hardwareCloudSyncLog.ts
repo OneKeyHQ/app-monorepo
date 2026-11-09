@@ -2,6 +2,7 @@ import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
   assertHardwareCloudSyncAuthMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -568,7 +569,7 @@ export function summarizeHardwareCloudSyncRestoreItems(
         case 'Lock':
           category = 'Lock';
           break;
-        case 'HardwareCloudSyncKeyEnvelope':
+        case HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE:
           category = 'Envelope';
           break;
         case 'Wallet':
