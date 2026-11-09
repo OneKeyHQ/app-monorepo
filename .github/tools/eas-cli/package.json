@@ -1,0 +1,8 @@
+{
+  "name": "@onekeyhq/ci-eas-cli",
+  "private": true,
+  "packageManager": "yarn@4.12.0",
+  "dependencies": {
+    "eas-cli": "27.2.0"
+  }
+}

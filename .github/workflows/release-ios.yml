@@ -49,7 +49,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
 
@@ -117,7 +117,7 @@ jobs:
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.x
           package-manager-cache: false
@@ -144,7 +144,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -154,48 +154,6 @@ jobs:
       - name: Setup keys secret
         run: |
           echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
-          echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
-
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Setup Credentials
-        run: |
-          mkdir apps/mobile/ios/certs
-          echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > apps/mobile/credentials.json
-          echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > apps/mobile/ios/certs/dist.p12
-          echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
-          echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
-          echo ${{ secrets.ADHOC_APP_CLIP_PROFILE }} | base64 -d > apps/mobile/ios/certs/appclip-profile.mobileprovision
-          python3 << 'PYEOF'
-          import json
-
-          path = 'apps/mobile/credentials.json'
-          with open(path, encoding='utf-8') as file:
-              credentials = json.load(file)
-          ios_credentials = credentials.get('ios')
-          wallet_credentials = (
-              ios_credentials.get('OneKeyWallet')
-              if isinstance(ios_credentials, dict)
-              else None
-          )
-          if not isinstance(wallet_credentials, dict):
-              raise RuntimeError('Missing iOS credentials for OneKeyWallet')
-          distribution_certificate = wallet_credentials.get(
-              'distributionCertificate'
-          )
-          if not isinstance(distribution_certificate, dict):
-              raise RuntimeError('Missing OneKeyWallet distribution certificate')
-          ios_credentials['OneKeyAppClip'] = {
-              'distributionCertificate': distribution_certificate,
-              'provisioningProfilePath': 'ios/certs/appclip-profile.mobileprovision',
-          }
-          with open(path, 'w', encoding='utf-8') as file:
-              json.dump(credentials, file)
-          PYEOF
 
       - name: Modify OneKeyWallet info.plist
         uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -259,46 +217,32 @@ jobs:
       - name: Stage private fonts for EAS
         run: node development/scripts/fonts-sync.js --stage-eas
 
-      - name: Build on EAS And Auto Submit
-        if: ${{ github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-
-          if [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
-            INTERNAL_PROFILE="qa-internal"
-            STORE_PROFILE="qa-internal-store"
-          else
-            INTERNAL_PROFILE="production"
-            STORE_PROFILE="production-store"
-          fi
-
-          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
-          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
-            eas build --profile="${INTERNAL_PROFILE}" --platform ios --non-interactive --no-wait
-          else
-            # eas build --profile=production --platform ios --non-interactive --no-wait
-            # replace APP STORE provision
-            echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-            echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
-            echo ${{ secrets.APPSTORE_APP_CLIP_PROFILE }} | base64 -d > ./ios/certs/appclip-profile.mobileprovision
-
-            eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
-          fi
+      - name: Install locked EAS CLI
+        working-directory: .github/tools/eas-cli
+        run: node ../../../.yarn/releases/yarn-4.12.0.cjs install --immutable
 
       - name: Build on EAS
-        if: ${{ !github.event.workflow_run }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          IS_WORKFLOW_RUN: ${{ github.event_name == 'workflow_run' }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          CREDENTIALS_JSON: ${{ secrets.CREDENTIALS_JSON }}
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          ADHOC_PROFILE: ${{ secrets.ADHOC_PROFILE }}
+          ADHOC_SERVICE_EXTENSION_PROFILE: ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }}
+          ADHOC_APP_CLIP_PROFILE: ${{ secrets.ADHOC_APP_CLIP_PROFILE }}
+          APPSTORE_PROFILE: ${{ secrets.APPSTORE_PROFILE }}
+          APPSTORE_SERVICE_EXTENSION_PROFILE: ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }}
+          APPSTORE_APP_CLIP_PROFILE: ${{ secrets.APPSTORE_APP_CLIP_PROFILE }}
+        run: bash .github/scripts/mobile-release.sh ios
+
+      - name: Clean up signing credentials
+        if: always()
         run: |
-          cd apps/mobile
-          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
-            # Profiling build: forces qa-internal-startup-profile (internal IPA
-            # only, never store-submits). See skill 1k-startup-profile.
-            PROFILE="qa-internal-startup-profile"
-          elif [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
-            PROFILE="qa-internal"
-          else
-            PROFILE="production"
-          fi
-          eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
+          rm -f apps/mobile/AscApiKey.p8 apps/mobile/credentials.json \
+            apps/mobile/ios/certs/dist.p12 apps/mobile/ios/certs/profile.mobileprovision \
+            apps/mobile/ios/certs/serviceextension-profile.mobileprovision \
+            apps/mobile/ios/certs/appclip-profile.mobileprovision
 
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'

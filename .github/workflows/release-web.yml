@@ -104,7 +104,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
@@ -163,7 +163,7 @@ jobs:
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
@@ -190,7 +190,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -320,7 +320,7 @@ jobs:
             exit 0
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
-          npx sentry-cli releases new "$RELEASE" || true
+          yarn exec sentry-cli releases new "$RELEASE" || true
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
@@ -338,8 +338,8 @@ jobs:
           # Without this the maps upload as `~/static/js/*.js` while events report
           # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
           URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
-          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
-          npx sentry-cli releases finalize "$RELEASE" || true
+          yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          yarn exec sentry-cli releases finalize "$RELEASE" || true
           # Upload succeeded (set -e would have aborted before here otherwise):
           # authorize the cleanup step to strip the now-redundant .map files.
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
@@ -363,7 +363,7 @@ jobs:
           fi
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: app-monorepo-test-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
           path: |
@@ -397,7 +397,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
@@ -456,7 +456,7 @@ jobs:
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
@@ -483,7 +483,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -612,7 +612,7 @@ jobs:
             exit 0
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
-          npx sentry-cli releases new "$RELEASE" || true
+          yarn exec sentry-cli releases new "$RELEASE" || true
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
@@ -630,8 +630,8 @@ jobs:
           # Without this the maps upload as `~/static/js/*.js` while events report
           # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
           URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
-          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
-          npx sentry-cli releases finalize "$RELEASE" || true
+          yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          yarn exec sentry-cli releases finalize "$RELEASE" || true
           # Upload succeeded (set -e would have aborted before here otherwise):
           # authorize the cleanup step to strip the now-redundant .map files.
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
@@ -655,7 +655,7 @@ jobs:
           fi
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: app-monorepo-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
           # Hidden files are allowed only at the two exact association paths below.
@@ -700,7 +700,7 @@ jobs:
     if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.checkout_ref || '' }}
 

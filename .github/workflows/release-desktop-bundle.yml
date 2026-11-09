@@ -117,7 +117,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
@@ -243,7 +243,7 @@ jobs:
           echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> .env
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -270,7 +270,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -326,9 +326,9 @@ jobs:
           # Sentry expects a literal tilde URL prefix.
           # shellcheck disable=SC2088
           URL_PREFIX='~/'
-          npx sentry-cli releases new "$RELEASE" || true
-          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/desktop/web-build; then
-            npx sentry-cli releases finalize "$RELEASE" || true
+          yarn exec sentry-cli releases new "$RELEASE" || true
+          if yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/desktop/web-build; then
+            yarn exec sentry-cli releases finalize "$RELEASE" || true
             echo "uploaded=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Desktop bundle Sentry sourcemap upload failed; archiving sourcemaps before stripping them."
@@ -338,7 +338,7 @@ jobs:
       - name: Upload Desktop Bundle Sourcemap Diagnostic Artifact
         if: always() && steps.upload_desktop_bundle_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: desktop-bundle-sourcemaps-${{ github.sha }}
           path: |
@@ -437,7 +437,7 @@ jobs:
           EOF
 
       - name: upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-bundle-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -459,7 +459,7 @@ jobs:
             > ./qa-upload-meta/meta.json
 
       - name: Upload QA metadata artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-bundle-qa-upload-meta-${{ github.run_id }}
           path: ./qa-upload-meta
@@ -500,7 +500,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download QA upload metadata
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: onekey-desktop-bundle-qa-upload-meta-${{ github.run_id }}
           path: ./qa-upload-meta
@@ -522,7 +522,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Download bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ./bundle-zip

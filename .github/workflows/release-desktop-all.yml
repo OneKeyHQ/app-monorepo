@@ -116,7 +116,7 @@ jobs:
       MAS_BUILD_NUMBER: ${{ github.event.inputs.mas_build_number || '' }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
 
@@ -194,7 +194,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -221,7 +221,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -240,7 +240,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -306,7 +306,7 @@ jobs:
 
       - name: Upload Mac autoupdate metadata
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mac-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -314,7 +314,7 @@ jobs:
 
       - name: Upload universal Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -322,7 +322,7 @@ jobs:
 
       - name: Upload x64 Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -330,7 +330,7 @@ jobs:
 
       - name: Upload arm64 Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -338,7 +338,7 @@ jobs:
 
       - name: Upload all Mac ZIPs
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mac-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -416,7 +416,7 @@ jobs:
 
       - name: Upload MAS Artifacts
         if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -493,7 +493,7 @@ jobs:
       WIN_HSM_SIGNING_ENABLED: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
 
@@ -580,7 +580,7 @@ jobs:
           Add-MpPreference -ExclusionPath "${{ runner.temp }}"
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -607,7 +607,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -627,7 +627,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -722,7 +722,7 @@ jobs:
             } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
             $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
           }
-          & npx @builderArgs
+          & yarn exec @builderArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify Windows NSIS signatures
@@ -744,7 +744,7 @@ jobs:
 
       - name: Upload x64 Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -752,7 +752,7 @@ jobs:
 
       - name: Upload arm64 Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -760,7 +760,7 @@ jobs:
 
       - name: Upload universal Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-win-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -770,7 +770,7 @@ jobs:
 
       - name: Upload Windows autoupdate metadata
         if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -866,7 +866,7 @@ jobs:
             } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
             $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
           }
-          & npx @builderArgs
+          & yarn exec @builderArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify Windows Store signatures
@@ -886,7 +886,7 @@ jobs:
 
       - name: Upload WinMS exe
         if: always() && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -947,7 +947,7 @@ jobs:
       YARN_ENABLE_GLOBAL_CACHE: true
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           lfs: true
 
@@ -1050,7 +1050,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -1077,7 +1077,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -1105,7 +1105,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -1139,7 +1139,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apps/desktop
-          npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
+          yarn exec electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Preserve AppImage artifacts until Snap runtime verification
         if: steps.phase1_appimage.outcome == 'success'
@@ -1175,7 +1175,7 @@ jobs:
           SNAP: true
         run: |
           cd apps/desktop
-          npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+          yarn exec electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Install packaged Snap for runtime verification
         id: install_snap_runtime_integrity
@@ -1192,7 +1192,7 @@ jobs:
 
       - name: Upload AppImage
         if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -1200,7 +1200,7 @@ jobs:
 
       - name: Upload Linux autoupdate metadata
         if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -1223,7 +1223,7 @@ jobs:
 
       - name: Upload Snap
         if: always() && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |

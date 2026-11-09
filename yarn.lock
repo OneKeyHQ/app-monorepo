@@ -10612,6 +10612,7 @@ __metadata:
     "@rspack/plugin-react-refresh": "npm:2.0.2"
     "@sentry/babel-plugin-component-annotate": "npm:4.9.1"
     "@sentry/browser": "npm:10.39.0"
+    "@sentry/cli": "npm:2.38.2"
     "@sentry/core": "npm:10.39.0"
     "@sentry/react": "npm:10.39.0"
     "@sentry/webpack-plugin": "npm:^2.22.6"
@@ -16616,6 +16617,43 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@sentry/cli@npm:2.38.2, @sentry/cli@npm:^2.36.1":
+  version: 2.38.2
+  resolution: "@sentry/cli@npm:2.38.2"
+  dependencies:
+    "@sentry/cli-darwin": "npm:2.38.2"
+    "@sentry/cli-linux-arm": "npm:2.38.2"
+    "@sentry/cli-linux-arm64": "npm:2.38.2"
+    "@sentry/cli-linux-i686": "npm:2.38.2"
+    "@sentry/cli-linux-x64": "npm:2.38.2"
+    "@sentry/cli-win32-i686": "npm:2.38.2"
+    "@sentry/cli-win32-x64": "npm:2.38.2"
+    https-proxy-agent: "npm:^5.0.0"
+    node-fetch: "npm:^2.6.7"
+    progress: "npm:^2.0.3"
+    proxy-from-env: "npm:^1.1.0"
+    which: "npm:^2.0.2"
+  dependenciesMeta:
+    "@sentry/cli-darwin":
+      optional: true
+    "@sentry/cli-linux-arm":
+      optional: true
+    "@sentry/cli-linux-arm64":
+      optional: true
+    "@sentry/cli-linux-i686":
+      optional: true
+    "@sentry/cli-linux-x64":
+      optional: true
+    "@sentry/cli-win32-i686":
+      optional: true
+    "@sentry/cli-win32-x64":
+      optional: true
+  bin:
+    sentry-cli: bin/sentry-cli
+  checksum: 10/4595c35461c8a10c32edb38d55b556eef7af1aea20bacc8169dbff68c1b913142ec79d9e65027891e9741d32b2039c4cac331eea17930abf5dcdac8797c9008e
+  languageName: node
+  linkType: hard
+
 "@sentry/cli@npm:3.2.2":
   version: 3.2.2
   resolution: "@sentry/cli@npm:3.2.2"
@@ -16652,43 +16690,6 @@ __metadata:
   bin:
     sentry-cli: bin/sentry-cli
   checksum: 10/9991ff1077779ae6f559180b5bef636b826af71ce48fa273e3273dc19fb039cda29333613850fadecebf6ad0e7fefa645ee407531666c899326fc368404c9fb2
-  languageName: node
-  linkType: hard
-
-"@sentry/cli@npm:^2.36.1":
-  version: 2.38.2
-  resolution: "@sentry/cli@npm:2.38.2"
-  dependencies:
-    "@sentry/cli-darwin": "npm:2.38.2"
-    "@sentry/cli-linux-arm": "npm:2.38.2"
-    "@sentry/cli-linux-arm64": "npm:2.38.2"
-    "@sentry/cli-linux-i686": "npm:2.38.2"
-    "@sentry/cli-linux-x64": "npm:2.38.2"
-    "@sentry/cli-win32-i686": "npm:2.38.2"
-    "@sentry/cli-win32-x64": "npm:2.38.2"
-    https-proxy-agent: "npm:^5.0.0"
-    node-fetch: "npm:^2.6.7"
-    progress: "npm:^2.0.3"
-    proxy-from-env: "npm:^1.1.0"
-    which: "npm:^2.0.2"
-  dependenciesMeta:
-    "@sentry/cli-darwin":
-      optional: true
-    "@sentry/cli-linux-arm":
-      optional: true
-    "@sentry/cli-linux-arm64":
-      optional: true
-    "@sentry/cli-linux-i686":
-      optional: true
-    "@sentry/cli-linux-x64":
-      optional: true
-    "@sentry/cli-win32-i686":
-      optional: true
-    "@sentry/cli-win32-x64":
-      optional: true
-  bin:
-    sentry-cli: bin/sentry-cli
-  checksum: 10/4595c35461c8a10c32edb38d55b556eef7af1aea20bacc8169dbff68c1b913142ec79d9e65027891e9741d32b2039c4cac331eea17930abf5dcdac8797c9008e
   languageName: node
   linkType: hard
 

@@ -165,8 +165,8 @@
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
-    "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
-    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
+    "check:release-age": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts diff",
+    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full"
   },
   "minimumReleaseAge": {
     "days": 7,
@@ -335,6 +335,7 @@
     "@rspack/dev-server": "2.2.1",
     "@rspack/plugin-react-refresh": "2.0.2",
     "@sentry/babel-plugin-component-annotate": "4.9.1",
+    "@sentry/cli": "2.38.2",
     "@sentry/webpack-plugin": "^2.22.6",
     "@swc/core": "^1.5.25",
     "@swc/helpers": "0.5.23",
