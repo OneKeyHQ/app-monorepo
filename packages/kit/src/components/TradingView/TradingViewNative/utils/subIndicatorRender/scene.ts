@@ -5,8 +5,10 @@ import {
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
 } from '../../chartConstants';
+import { getTradingViewNativePriceAtProgress } from '../priceScale';
 
 import {
+  formatTradingViewNativeSubIndicatorReadoutValue,
   formatTradingViewNativeSubIndicatorValue,
   getTradingViewNativeSubIndicatorValueAtY,
   getTradingViewNativeSubIndicatorY,
@@ -649,6 +651,8 @@ function appendAxisCommands({
       if (
         band.style.visible &&
         Number.isFinite(value) &&
+        value >= layout.range.minValue &&
+        value <= layout.range.maxValue &&
         !tickValues.includes(value)
       ) {
         tickValues.push(value);
@@ -678,8 +682,12 @@ function appendAxisCommands({
         progress = index / 2;
       }
       tickValues.push(
-        layout.range.maxValue -
-          (layout.range.maxValue - layout.range.minValue) * progress,
+        getTradingViewNativePriceAtProgress({
+          maxPrice: layout.range.maxValue,
+          minPrice: layout.range.minValue,
+          mode: layout.range.mode ?? 'linear',
+          progress,
+        }),
       );
     }
   }
@@ -711,10 +719,15 @@ function appendAxisCommands({
           layout.pane.format,
         ),
         x: priceAxisX + TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
-        y:
-          y +
-          TRADING_VIEW_NATIVE_AXIS_FONT_SIZE / 2 +
-          TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: Math.min(
+          Math.max(
+            y +
+              TRADING_VIEW_NATIVE_AXIS_FONT_SIZE / 2 +
+              TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
+            layout.top + TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+          ),
+          layout.bottom - 2,
+        ),
       },
     );
   }
@@ -891,5 +904,8 @@ export function getTradingViewNativeSubIndicatorCrosshairValueText({
   });
   return value === null
     ? null
-    : formatTradingViewNativeSubIndicatorValue(value, layout.pane.format);
+    : formatTradingViewNativeSubIndicatorReadoutValue(
+        value,
+        layout.pane.format,
+      );
 }

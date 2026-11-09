@@ -1,5 +1,6 @@
 import {
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativeScaledPriceAxisLabel,
 } from '../utils/chartLayout';
@@ -8,11 +9,13 @@ import {
   PRICE_SCALE_CONTROL_WEB_SIZING,
   getTradingViewNativePriceScaleControlsMinimumAxisWidth,
 } from '../utils/priceScaleControls';
+import { getTradingViewNativeScaledSubIndicatorAxisLabel } from '../utils/subIndicatorPriceScale';
 
 import { getTradingViewNativeCanvasFont } from './chartCanvasRenderer';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type { ITradingViewNativeSubIndicatorPriceScales } from '../utils/subIndicatorPriceScale';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export interface ITradingViewNativeCanvasPriceScale {
@@ -25,6 +28,9 @@ export interface ITradingViewNativeCanvasPriceAxisLabels {
   autoPriceRange: ITradingViewNativePriceRange | null;
   chartComponentPrice: string;
   currentPrice: string;
+  priceDecimalPlaces?: number;
+  subIndicatorPanes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  subIndicatorPriceScales?: ITradingViewNativeSubIndicatorPriceScales;
   widestIndicatorPrice: string;
   widestPrice: string;
   widestSubIndicator: string;
@@ -57,12 +63,19 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
     ? getTradingViewNativeScaledPriceAxisLabel({
         autoPriceRange: priceRange,
         baseLabel: labels.widestPrice,
+        priceDecimalPlaces: labels.priceDecimalPlaces,
         priceRangeScale: priceScale.rangeScale,
         priceScaleMode: priceScale.mode,
       })
     : labels.widestPrice;
   return getTradingViewNativePriceAxisWidth({
-    currentPriceLabelWidth: context.measureText(labels.currentPrice).width,
+    // Reserve widest-digit space so live price kerning cannot resize the plot.
+    currentPriceLabelWidth: context.measureText(
+      getTradingViewNativeCurrentPriceAxisLabel(
+        labels.currentPrice,
+        labels.priceDecimalPlaces,
+      ),
+    ).width,
     minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
       PRICE_SCALE_CONTROL_WEB_SIZING,
     ),
@@ -72,6 +85,12 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
       context.measureText(scaledPriceLabel).width,
       context.measureText(labels.widestIndicatorPrice).width,
       context.measureText(labels.widestSubIndicator).width,
+      context.measureText(
+        getTradingViewNativeScaledSubIndicatorAxisLabel(
+          labels.subIndicatorPanes ?? [],
+          labels.subIndicatorPriceScales ?? {},
+        ),
+      ).width,
     ),
     widestVolumeLabelWidth: context.measureText(labels.widestVolume).width,
   });

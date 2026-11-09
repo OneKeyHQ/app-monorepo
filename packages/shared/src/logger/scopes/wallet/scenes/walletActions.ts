@@ -3,18 +3,30 @@ import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
+// Entry that opened the action. Also carried by the Receive QR page so its
+// own events (receivePageShown / receiveSwitchNetwork) can be split by entry.
+export type IWalletActionSource =
+  | 'homePage'
+  | 'receiveSelector'
+  | 'tokenDetails'
+  | 'homeTokenList'
+  | 'homePopularTrading'
+  | 'earn'
+  | 'swap'
+  | 'accountSelector'
+  | 'network'
+  | 'exchange'
+  | 'copyAddress'
+  | 'borrow'
+  | 'perp'
+  | 'rewardCenter'
+  | 'bulkSend'
+  | 'approval';
+
 export type IWalletActionBaseParams = {
   walletType: string;
   networkId: string;
-  source:
-    | 'homePage'
-    | 'receiveSelector'
-    | 'tokenDetails'
-    | 'homeTokenList'
-    | 'homePopularTrading'
-    | 'earn'
-    | 'swap'
-    | 'accountSelector';
+  source: IWalletActionSource;
   // Optional sub-UI marker within `source`. Currently used by home-page
   // Receive to distinguish the collapsed Add-Money CTA from the full row,
   // so analytics can compare conversion between the two variants.

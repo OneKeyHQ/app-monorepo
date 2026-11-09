@@ -6,6 +6,7 @@ import {
   attachDeviceStageEscapeOwner,
   isDeviceStageAnsweredStep,
   isDeviceStageMachineWaitStep,
+  isDeviceStageNewAppearance,
   resolveDeviceStageExitGrant,
   resolveDeviceStageWaitStall,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -24,7 +25,7 @@ export interface IDeviceStageWaitEnd {
 }
 
 export interface IDeviceStageExitClocks {
-  /** When the stage last appeared (an off → on crossing). */
+  /** When the stage last appeared (see isDeviceStageNewAppearance). */
   appearedAt: number;
   /** When the current machine wait began. */
   waitStartedAt: number;
@@ -83,7 +84,7 @@ export function useDeviceStageExitPolicy({
   const c = ref.current;
   if (c.prevStep !== step) {
     const now = Date.now();
-    if (c.prevStep === 'off') {
+    if (isDeviceStageNewAppearance({ prevStep: c.prevStep, step })) {
       c.appearance += 1;
       c.appearedAt = now;
     }

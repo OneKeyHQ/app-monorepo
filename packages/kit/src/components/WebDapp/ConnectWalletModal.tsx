@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, useMedia } from '@onekeyhq/components';
+import { Page, ScrollView, Stack, useMedia } from '@onekeyhq/components';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -40,7 +40,14 @@ function ConnectWalletContent() {
         })}
       />
       <Page.Body>
-        <Stack flex={1} justifyContent="space-between">
+        {/* Keep long wallet lists within the modal while the header stays fixed. */}
+        <ScrollView
+          showsVerticalScrollIndicator
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'space-between',
+          }}
+        >
           {isMobile ? (
             <Stack p="$5" gap="$4">
               <WalletConnectListItemComponent
@@ -55,12 +62,13 @@ function ConnectWalletContent() {
             <ExternalWalletList impl="evm" />
           )}
           <TermsAndPrivacy
+            messageId={ETranslations.connect_wallet_terms_consent__desc}
             contentContainerProps={{
               pb: '$6',
               $gtMd: { alignSelf: 'center' },
             }}
           />
-        </Stack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );

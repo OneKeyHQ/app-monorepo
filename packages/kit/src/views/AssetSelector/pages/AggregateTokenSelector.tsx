@@ -1,8 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -16,6 +24,12 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { formatNativeSelectorAmount } from '@onekeyhq/kit/src/components/TokenListView/nativeSelectorFormat';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -24,21 +38,25 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
+  IAggregateTokenSelectContext,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
+  mergeAggregateTokenMembers,
   sortTokensByOrder,
   sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCreateAddressForNetwork } from '../../../components/AccountSelector/hooks/useCreateAddressForNetwork';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatarBase } from '../../../components/NetworkAvatar';
@@ -53,14 +71,222 @@ import {
   useAggregateSubTokenFiat,
   useAggregateSubTokenFiatMap,
 } from '../../../states/jotai/contexts/tokenList/cells';
+import { convertFiat } from '../../../utils/fiatConvert';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { useHomeNativeListTheme } from '../../Home/hooks/useHomeNativeListTheme';
 import { AssetSelectorTestIDs } from '../testIDs';
 
+import type {
+  IdentityRow,
+  NativeListSnapshot,
+  RowActionEvent,
+  TrailingAccessory,
+} from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
 
 // Preset LISTED networks, available synchronously. Used to seed networkMap so the
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
+
+type INativeAggregateRowEntry = {
+  row: IdentityRow;
+  onPress: () => void;
+};
+
+function NativeAggregateRowMirror({
+  token,
+  network,
+  tokenInfo,
+  accountId,
+  isAddressMissing,
+  canCreateAddress,
+  loading,
+  showSpinner,
+  isOtherTokenProcessing,
+  hideBalanceAndValue,
+  onPress,
+  onRowChange,
+}: {
+  token: IAccountToken;
+  network?: IServerNetwork;
+  tokenInfo?: ITokenFiat;
+  accountId?: string;
+  isAddressMissing: boolean;
+  canCreateAddress: boolean;
+  loading: boolean;
+  showSpinner: boolean;
+  isOtherTokenProcessing: boolean;
+  hideBalanceAndValue?: boolean;
+  onPress: () => void;
+  onRowChange: (
+    key: string,
+    entry: INativeAggregateRowEntry | undefined,
+  ) => void;
+}) {
+  const intl = useIntl();
+  const theme = useHomeNativeListTheme();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const row = useMemo<IdentityRow | undefined>(() => {
+    if (isAddressMissing && !canCreateAddress) return undefined;
+    const balance = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: tokenInfo?.balanceParsed,
+      balanceMultiplier: tokenInfo?.balanceMultiplier,
+    });
+    const targetCurrency = currencyInfo?.id ?? '';
+    const sourceCurrency = tokenInfo?.currency ?? targetCurrency;
+    const rawFiatValue = tokenInfo
+      ? tokenInfo.fiatValue || '0'
+      : UNAVAILABLE_DISPLAY;
+    const fiatValue =
+      rawFiatValue === UNAVAILABLE_DISPLAY
+        ? UNAVAILABLE_DISPLAY
+        : convertFiat({
+            value: String(rawFiatValue),
+            sourceCurrency,
+            targetCurrency,
+            currencyMap,
+          });
+    const unit =
+      currencyMap[targetCurrency]?.unit ?? currencyMap[sourceCurrency]?.unit;
+    const balanceText =
+      balance === undefined
+        ? { text: '' }
+        : formatNativeSelectorAmount(String(balance), 'balance');
+    const valueText = formatNativeSelectorAmount(
+      String(fiatValue),
+      'value',
+      unit,
+    );
+    const trailing: TrailingAccessory[] = [];
+    if (!hideBalanceAndValue && !isAddressMissing) {
+      trailing.push({
+        kind: 'valuePair',
+        primary: balanceText.text,
+        secondary: valueText.text,
+        primaryTextSegments: balanceText.segments,
+        secondaryTextSegments: valueText.segments,
+      });
+    }
+    if (showSpinner) {
+      trailing.push({ kind: 'spinner' });
+    } else if (!accountId) {
+      trailing.push({
+        kind: 'icon',
+        name: 'PlusLargeOutline',
+        tintColor: theme.iconSubdued,
+      });
+    }
+    return {
+      type: 'identity',
+      key: token.$key,
+      testID: AssetSelectorTestIDs.aggregateTokenListItem,
+      height: 60,
+      // The $bodyLg/$bodyMd line boxes are unscaled, so the row must not take
+      // Android's legacy sub-400dp 0.9 row scale (OK-66072).
+      heightRounding: 'nearest',
+      title: token.networkName || network?.name || '',
+      subtitle: !accountId
+        ? intl.formatMessage({
+            id: loading
+              ? ETranslations.global_creating_address
+              : ETranslations.global_create_address,
+          })
+        : undefined,
+      leading: {
+        kind: 'network',
+        image:
+          !network?.isCustomNetwork && network?.logoURI
+            ? { uri: network.logoURI, width: 40, height: 40 }
+            : undefined,
+        fallbackText: network?.isCustomNetwork
+          ? network.name?.[0]?.toUpperCase()
+          : undefined,
+        fallbackIcon: network?.isCustomNetwork
+          ? undefined
+          : {
+              name: 'GlobusOutline',
+              tintColor: theme.iconSubdued,
+            },
+        backgroundColor: network?.isCustomNetwork
+          ? theme.inverseBackground
+          : undefined,
+        fallbackTextColor: network?.isCustomNetwork
+          ? theme.inverseText
+          : undefined,
+      },
+      trailing,
+      disabled: isOtherTokenProcessing,
+      opacity: isOtherTokenProcessing ? 0.5 : 1,
+      style: {
+        container: TOKEN_ROW_CONTAINER_STYLE,
+        horizontalPadding: 12,
+        verticalPadding: 8,
+        leadingGap: 12,
+        image: { width: 40, height: 40, shape: 'circle' },
+        title: { token: '$bodyLg', fontWeight: 'medium' },
+        subtitle: { token: '$bodyMd', color: theme.secondaryText },
+      },
+    };
+  }, [
+    accountId,
+    canCreateAddress,
+    currencyInfo?.id,
+    currencyMap,
+    hideBalanceAndValue,
+    intl,
+    isAddressMissing,
+    isOtherTokenProcessing,
+    loading,
+    network,
+    showSpinner,
+    theme,
+    token.$key,
+    token.networkName,
+    tokenInfo,
+  ]);
+  useLayoutEffect(() => {
+    onRowChange(token.$key, row ? { row, onPress } : undefined);
+  }, [onPress, onRowChange, row, token.$key]);
+  useEffect(
+    () => () => onRowChange(token.$key, undefined),
+    [onRowChange, token.$key],
+  );
+  return null;
+}
+
+// Account scope the selector looks addresses up in and creates them for. The
+// page's own account (route params) decides where it carries one; the home
+// active account fills in otherwise, as it did before the route carried a
+// scope. Some entries pass an empty string rather than nothing, and an empty
+// scope would resolve every row against the first account of the wallet.
+export function resolveAggregateSelectorAccountScope({
+  routeAccountId,
+  routeIndexedAccountId,
+  activeWalletId,
+  activeIndexedAccountId,
+  activeIndexedAccountWalletId,
+}: {
+  routeAccountId: string | undefined;
+  routeIndexedAccountId: string | undefined;
+  activeWalletId: string | undefined;
+  activeIndexedAccountId: string | undefined;
+  activeIndexedAccountWalletId: string | undefined;
+}): { walletId: string | undefined; indexedAccountId: string | undefined } {
+  const routeWalletId = routeAccountId
+    ? accountUtils.getWalletIdFromAccountId({ accountId: routeAccountId })
+    : undefined;
+  const walletId = routeWalletId || activeWalletId;
+  // The active account only stands in for the wallet the page is about.
+  const activeFallback =
+    activeIndexedAccountWalletId === walletId
+      ? activeIndexedAccountId
+      : undefined;
+  return {
+    walletId,
+    indexedAccountId: routeIndexedAccountId || activeFallback,
+  };
+}
 
 export function AggregateTokenListItem({
   token,
@@ -71,6 +297,12 @@ export function AggregateTokenListItem({
   refreshAllNetworkState,
   processingTokenKey,
   hideBalanceAndValue,
+  walletId,
+  indexedAccountId,
+  fallbackAccountId,
+  createAddressForNetwork,
+  beginSelection,
+  onNativeRowChange,
 }: {
   token: IAccountToken;
   aggKey: string;
@@ -93,6 +325,24 @@ export function AggregateTokenListItem({
   }) => void;
   processingTokenKey: string | null;
   hideBalanceAndValue?: boolean;
+  // Account scope of the page (route params), not the home active account:
+  // a Receive page opened for another wallet must create addresses there.
+  walletId: string | undefined;
+  indexedAccountId: string | undefined;
+  // The page's own account. A wallet without an indexed account (imported,
+  // watch-only, external) has no other address: on a compatible network the
+  // row resolves to it, and nothing can be created for such a wallet.
+  fallbackAccountId?: string;
+  createAddressForNetwork: ReturnType<
+    typeof useCreateAddressForNetwork
+  >['createAddressForNetwork'];
+  // Marks this row as the selector's latest pick; the returned check tells
+  // whether it still is once the row has created its address.
+  beginSelection: () => () => boolean;
+  onNativeRowChange?: (
+    key: string,
+    entry: INativeAggregateRowEntry | undefined,
+  ) => void;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -105,17 +355,28 @@ export function AggregateTokenListItem({
   // read the live cell so a price tick updates the row while the modal is open,
   // NOT a one-shot PULL that would freeze). The modal is a home store mirror.
   const tokenInfo = useAggregateSubTokenFiat(aggKey, token.networkId);
-  const {
-    activeAccount: { wallet, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-
-  const { createAddress } = useAccountSelectorCreateAddress();
 
   // Settles to an object so a pending lookup (undefined) stays distinguishable
   // from a settled "no address on this network" ({ accountId: undefined }).
   const { result: networkAccountLookup, run } = usePromiseResult(async () => {
     if (token.accountId) {
       return { accountId: token.accountId };
+    }
+
+    if (!indexedAccountId) {
+      if (!fallbackAccountId) {
+        return { accountId: undefined };
+      }
+      try {
+        // Throws on a network the account is not compatible with.
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId: fallbackAccountId,
+          networkId: token.networkId ?? '',
+        });
+        return { accountId: account?.id };
+      } catch {
+        return { accountId: undefined };
+      }
     }
 
     const deriveType =
@@ -126,7 +387,7 @@ export function AggregateTokenListItem({
       const account = await backgroundApiProxy.serviceAccount.getNetworkAccount(
         {
           accountId: undefined,
-          indexedAccountId: indexedAccount?.id ?? '',
+          indexedAccountId: indexedAccountId ?? '',
           networkId: token.networkId ?? '',
           deriveType,
         },
@@ -136,8 +397,9 @@ export function AggregateTokenListItem({
     } catch {
       return { accountId: undefined };
     }
-  }, [indexedAccount?.id, token.networkId, token.accountId]);
+  }, [indexedAccountId, fallbackAccountId, token.networkId, token.accountId]);
   const accountId = networkAccountLookup?.accountId;
+  const canCreateAddress = !!indexedAccountId;
   // OK-61879: a network with no created address has no balance to show, so
   // the value column is dropped once the lookup settles without an account.
   // While pending it stays put, so rows that do have an address never blink
@@ -145,6 +407,7 @@ export function AggregateTokenListItem({
   const isAddressMissing = networkAccountLookup !== undefined && !accountId;
 
   const handleOnPress = useCallback(async () => {
+    const isLatestSelection = beginSelection();
     if (accountId) {
       onPress({
         token: {
@@ -152,59 +415,36 @@ export function AggregateTokenListItem({
           accountId,
         },
       });
-    } else {
+    } else if (canCreateAddress) {
       try {
         setLoading(true);
-        const globalDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network?.id ?? '',
-          });
-
-        const createAddressResult = await createAddress({
-          account: {
-            walletId: wallet?.id,
-            networkId: network?.id ?? '',
-            indexedAccountId: indexedAccount?.id,
-            deriveType: globalDeriveType,
-          },
-          selectAfterCreate: false,
-          num: 0,
+        const networkId = token.networkId ?? network?.id ?? '';
+        const isEnabled = isEnabledNetworksInAllNetworks({
+          networkId,
+          disabledNetworks: allNetworksState.disabledNetworks,
+          enabledNetworks: allNetworksState.enabledNetworks,
+          isTestnet: false,
         });
-        if (createAddressResult) {
-          const isEnabled =
-            token.networkId &&
-            isEnabledNetworksInAllNetworks({
-              networkId: token.networkId,
-              disabledNetworks: allNetworksState.disabledNetworks,
-              enabledNetworks: allNetworksState.enabledNetworks,
-              isTestnet: false,
-            });
-
-          if (!isEnabled && token.networkId) {
-            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-              enabledNetworks: { [token.networkId]: true },
-            });
+        const createdAccountId = await createAddressForNetwork({
+          walletId,
+          indexedAccountId,
+          networkId,
+          isNetworkEnabled: isEnabled,
+        });
+        if (createdAccountId) {
+          if (!isEnabled) {
             void refreshAllNetworkState({ alwaysSetState: true });
           }
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.swap_page_toast_address_generated,
-            }),
-            message: isEnabled
-              ? ''
-              : intl.formatMessage({
-                  id: ETranslations.network_also_enabled,
-                }),
-          });
-          onPress({
-            token: {
-              ...token,
-              accountId: createAddressResult.accounts[0]?.id,
-            },
-            enabledInAllNetworks: true,
-          });
+          // Creating an address takes a while: by now another network may
+          // have been picked, or the selector may be gone. Reporting this
+          // row then would undo the later choice.
+          if (isLatestSelection()) {
+            onPress({
+              token: { ...token, accountId: createdAccountId },
+              enabledInAllNetworks: true,
+            });
+          }
           void run();
-          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         }
       } finally {
         setLoading(false);
@@ -212,20 +452,45 @@ export function AggregateTokenListItem({
     }
   }, [
     accountId,
+    beginSelection,
+    canCreateAddress,
     onPress,
     token,
     network?.id,
-    createAddress,
-    wallet?.id,
-    indexedAccount?.id,
+    createAddressForNetwork,
+    walletId,
+    indexedAccountId,
     allNetworksState.disabledNetworks,
     allNetworksState.enabledNetworks,
-    intl,
     run,
     refreshAllNetworkState,
   ]);
 
   const showSpinner = loading || isCurrentTokenProcessing;
+
+  // No address here and none can be created: the row would only fail on tap.
+  if (onNativeRowChange) {
+    return (
+      <NativeAggregateRowMirror
+        token={token}
+        network={network}
+        tokenInfo={tokenInfo}
+        accountId={accountId}
+        isAddressMissing={isAddressMissing}
+        canCreateAddress={canCreateAddress}
+        loading={loading}
+        showSpinner={showSpinner}
+        isOtherTokenProcessing={isOtherTokenProcessing}
+        hideBalanceAndValue={hideBalanceAndValue}
+        onPress={handleOnPress}
+        onRowChange={onNativeRowChange}
+      />
+    );
+  }
+
+  if (isAddressMissing && !canCreateAddress) {
+    return null;
+  }
 
   return (
     <ListItem
@@ -306,6 +571,8 @@ function AggregateTokenSelector() {
 
   const {
     title,
+    accountId,
+    indexedAccountId: routeIndexedAccountId,
     aggregateToken,
     aggregateSubTokenList,
     searchPlaceholder,
@@ -319,6 +586,35 @@ function AggregateTokenSelector() {
   } = route.params;
 
   const intl = useIntl();
+  const {
+    activeAccount: {
+      wallet: activeWallet,
+      indexedAccount: activeIndexedAccount,
+    },
+  } = useActiveAccount({ num: 0 });
+  const { walletId, indexedAccountId } = resolveAggregateSelectorAccountScope({
+    routeAccountId: accountId,
+    routeIndexedAccountId,
+    activeWalletId: activeWallet?.id,
+    activeIndexedAccountId: activeIndexedAccount?.id,
+    activeIndexedAccountWalletId: activeIndexedAccount?.walletId,
+  });
+  const { createAddressForNetwork } = useCreateAddressForNetwork();
+
+  // One pick is live at a time across the selector, and none once it is gone.
+  const selectionSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const beginSelection = useCallback(() => {
+    selectionSeqRef.current += 1;
+    const seq = selectionSeqRef.current;
+    return () => isMountedRef.current && seq === selectionSeqRef.current;
+  }, []);
 
   const [searchKey, setSearchKey] = useState('');
   const navigation = useAppNavigation();
@@ -341,12 +637,14 @@ function AggregateTokenSelector() {
     contextTokenListMap: undefined,
   });
 
-  // Resolve the networks behind the aggregate tokens. getNetworksByIds reads the
-  // full dynamic network list (preset + server-fetched) with delisted (TRASH)
-  // networks already filtered out, so valid server-fetched networks are kept
-  // while removed ones are dropped. The preset-only listed map cannot see
-  // server-fetched networks and would wrongly drop their tokens.
-  const { result: existingNetworks } = usePromiseResult(async () => {
+  // Resolve the networks behind the aggregate tokens and, in the same trip,
+  // which of them the wallet cannot use. The compatibility lookup reads the
+  // full dynamic network registry (preset + server-fetched, delisted dropped),
+  // so valid server-fetched networks are kept while removed ones are dropped;
+  // `unavailableItems` are the networks an imported / watch-only / external /
+  // QR wallet or BTC-only hardware firmware cannot create an address on, and
+  // such a row would only fail on tap.
+  const { result: networkResolution } = usePromiseResult(async () => {
     const networkIds = Array.from(
       new Set(
         [...aggregateTokens, ...(allAggregateTokenList ?? [])]
@@ -355,14 +653,26 @@ function AggregateTokenSelector() {
       ),
     );
     if (!networkIds.length) {
-      return [];
+      return { networks: [], incompatibleNetworkIds: new Set<string>() };
     }
-    const { networks } =
-      await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-        networkIds,
-      });
-    return networks;
-  }, [aggregateTokens, allAggregateTokenList]);
+    const { mainnetItems, testnetItems, unavailableItems } =
+      await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          accountId,
+          walletId,
+          networkIds,
+          excludeTestNetwork: false,
+        },
+      );
+    return {
+      networks: [...mainnetItems, ...testnetItems, ...unavailableItems],
+      incompatibleNetworkIds: new Set(
+        unavailableItems.map((network) => network.id),
+      ),
+    };
+  }, [aggregateTokens, allAggregateTokenList, accountId, walletId]);
+  const existingNetworks = networkResolution?.networks;
+  const incompatibleNetworkIds = networkResolution?.incompatibleNetworkIds;
 
   // Merge the synchronously available preset LISTED networks with the resolved
   // server-fetched networks. Seeding with the preset map keeps the list from
@@ -405,13 +715,21 @@ function AggregateTokenSelector() {
       token: IAccountToken;
       enabledInAllNetworks?: boolean;
     }) => {
+      const selectContext: IAggregateTokenSelectContext = {
+        aggregateToken,
+        aggregateSubTokenList: aggregateTokens,
+        allAggregateTokenList,
+        network: networkMap.get(token.networkId ?? ''),
+        // Rows only set this flag on the create-address path.
+        createdAddress: !!enabledInAllNetworks,
+      };
       if (exchangeFilter) {
         updateProcessingTokenState({
           isProcessing: true,
           token,
         });
         try {
-          await onSelect(token);
+          await onSelect(token, selectContext);
         } finally {
           updateProcessingTokenState({
             isProcessing: false,
@@ -419,7 +737,7 @@ function AggregateTokenSelector() {
           });
         }
       } else {
-        void onSelect(token);
+        void onSelect(token, selectContext);
       }
 
       if (enableNetworkAfterSelect) {
@@ -459,6 +777,10 @@ function AggregateTokenSelector() {
       refreshAllNetworkState,
       updateProcessingTokenState,
       exchangeFilter,
+      aggregateToken,
+      aggregateTokens,
+      allAggregateTokenList,
+      networkMap,
     ],
   );
 
@@ -476,18 +798,23 @@ function AggregateTokenSelector() {
       });
     }
 
-    let result = uniqBy(
-      [
-        ...tokens,
-        ...sortTokensByOrder({ tokens: allAggregateTokenList ?? [] }),
-      ],
-      (token) => token.networkId,
-    );
+    let result = mergeAggregateTokenMembers({
+      aggregateSubTokenList: tokens,
+      allAggregateTokenList: sortTokensByOrder({
+        tokens: allAggregateTokenList ?? [],
+      }),
+    });
 
     // Drop tokens whose network is no longer listed (delisted/removed). Their
     // metadata is missing from networkMap, so they would otherwise render as
     // blank rows with a broken icon and empty name.
     result = result.filter((token) => networkMap.has(token.networkId ?? ''));
+
+    if (incompatibleNetworkIds?.size) {
+      result = result.filter(
+        (token) => !incompatibleNetworkIds.has(token.networkId ?? ''),
+      );
+    }
 
     if (exchangeFilter?.supportedAssets) {
       result = result.filter((token) => {
@@ -511,6 +838,7 @@ function AggregateTokenSelector() {
     exchangeFilter,
     aggregateToken,
     networkMap,
+    incompatibleNetworkIds,
   ]);
 
   const filteredAggregateTokens = useMemo(() => {
@@ -533,44 +861,92 @@ function AggregateTokenSelector() {
       ? (processingTokenState.token?.$key ?? null)
       : null;
 
-  const renderAggregateTokensList = useCallback(() => {
-    if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {
-      if (searchKey) {
-        return <EmptySearch mt="24%" />;
-      }
-      return <Empty mt="24%" />;
+  const [nativeRowsByKey, setNativeRowsByKey] = useState<
+    Map<string, IdentityRow>
+  >(() => new Map());
+  const nativeRowActions = useRef(new Map<string, () => void>());
+  const handleNativeRowChange = useCallback(
+    (key: string, entry: INativeAggregateRowEntry | undefined) => {
+      if (entry) nativeRowActions.current.set(key, entry.onPress);
+      else nativeRowActions.current.delete(key);
+      setNativeRowsByKey((current) => {
+        if (isEqual(current.get(key), entry?.row)) return current;
+        if (!entry && !current.has(key)) return current;
+        const next = new Map(current);
+        if (entry) next.set(key, entry.row);
+        else next.delete(key);
+        return next;
+      });
+    },
+    [],
+  );
+  const handleNativeRowAction = useCallback((event: RowActionEvent) => {
+    if (event.actionKey === 'press' && event.rowKey) {
+      nativeRowActions.current.get(event.rowKey)?.();
     }
-
-    return filteredAggregateTokens.map((token) => (
-      <AggregateTokenListItem
-        key={token.$key}
-        token={token}
-        aggKey={aggregateToken.$key}
-        network={networkMap.get(token.networkId ?? '')}
-        onPress={handleOnPressToken}
-        allNetworksState={allNetworksState}
-        refreshAllNetworkState={refreshAllNetworkState}
-        processingTokenKey={processingTokenKey}
-        hideBalanceAndValue={hideBalanceAndValue}
-      />
-    ));
-  }, [
-    filteredAggregateTokens,
-    aggregateToken.$key,
-    networkMap,
-    handleOnPressToken,
-    searchKey,
-    allNetworksState,
-    refreshAllNetworkState,
-    processingTokenKey,
-    hideBalanceAndValue,
-  ]);
+  }, []);
+  const nativeTheme = useHomeNativeListTheme();
+  const nativeSnapshot = useMemo<NativeListSnapshot>(
+    () => ({
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'linear', contentPaddingHorizontal: 8 },
+      rows: filteredAggregateTokens.flatMap((token) => {
+        const row = nativeRowsByKey.get(token.$key);
+        return row ? [row] : [];
+      }),
+      theme: nativeTheme,
+    }),
+    [filteredAggregateTokens, nativeRowsByKey, nativeTheme],
+  );
+  const nativeRowControllers = useMemo(
+    () =>
+      filteredAggregateTokens.map((token) => (
+        <AggregateTokenListItem
+          key={token.$key}
+          token={token}
+          aggKey={aggregateToken.$key}
+          network={networkMap.get(token.networkId ?? '')}
+          onPress={handleOnPressToken}
+          allNetworksState={allNetworksState}
+          refreshAllNetworkState={refreshAllNetworkState}
+          processingTokenKey={processingTokenKey}
+          hideBalanceAndValue={hideBalanceAndValue}
+          walletId={walletId}
+          indexedAccountId={indexedAccountId}
+          fallbackAccountId={accountId}
+          createAddressForNetwork={createAddressForNetwork}
+          beginSelection={beginSelection}
+          onNativeRowChange={handleNativeRowChange}
+        />
+      )),
+    [
+      filteredAggregateTokens,
+      aggregateToken.$key,
+      networkMap,
+      handleOnPressToken,
+      allNetworksState,
+      refreshAllNetworkState,
+      processingTokenKey,
+      hideBalanceAndValue,
+      walletId,
+      indexedAccountId,
+      accountId,
+      createAddressForNetwork,
+      beginSelection,
+      handleNativeRowChange,
+    ],
+  );
 
   const aggregateTokenSymbol =
     aggregateToken.commonSymbol || aggregateToken.symbol;
+  let listEmpty;
+  if (filteredAggregateTokens.length === 0) {
+    listEmpty = searchKey ? <EmptySearch mt="24%" /> : <Empty mt="24%" />;
+  }
 
   return (
-    <Page scrollEnabled safeAreaEnabled>
+    <Page safeAreaEnabled>
       <Page.Header
         title={
           title ||
@@ -593,11 +969,20 @@ function AggregateTokenSelector() {
         }}
       />
       <Page.Body
+        flex={1}
         $platform-web={{
           pb: '$3',
         }}
       >
-        {renderAggregateTokensList()}
+        {nativeRowControllers}
+        <NativeList
+          style={{ flex: 1 }}
+          snapshot={nativeSnapshot}
+          listEmpty={listEmpty}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          onRowAction={handleNativeRowAction}
+        />
       </Page.Body>
     </Page>
   );

@@ -5,10 +5,13 @@ import {
   FIRMWARE_UPDATE_BRIDGE_GUIDE,
   FIRMWARE_UPDATE_FULL_RES_GUIDE,
   FIRMWARE_UPDATE_WEB_TOOLS_URL,
+  HARDWARE_TROUBLESHOOTING_URL,
+  LINUX_UDEV_HELP_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
   ECustomOneKeyHardwareError,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
@@ -16,6 +19,7 @@ import {
   shouldHideFirmwareUpdateInternalError,
 } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
@@ -96,6 +100,41 @@ export function resolveFirmwareUpdateErrorPresentation({
     return build(
       t(ETranslations.update_download_failed),
       t(ETranslations.update_check_connection_try_again),
+      retry,
+    );
+  }
+  if (is(HardwareErrorCode.BridgeNeedsPermission)) {
+    return build(
+      t(ETranslations.device_grant_usb_access),
+      undefined,
+      platformEnv.isDesktopLinux
+        ? {
+            kind: 'link',
+            url: LINUX_UDEV_HELP_URL,
+            text: t(ETranslations.global_view_tutorial),
+          }
+        : retry,
+    );
+  }
+  if (is(ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE)) {
+    return build(
+      t(ETranslations.global_connection_failed_usb_help_text),
+      undefined,
+      retry,
+      HARDWARE_TROUBLESHOOTING_URL,
+    );
+  }
+  if (is(HardwareErrorCode.BlePoweredOff)) {
+    return build(
+      t(ETranslations.hardware_bluetooth_need_turned_on_error),
+      undefined,
+      retry,
+    );
+  }
+  if (is(HardwareErrorCode.BleUnsupported)) {
+    return build(
+      t(ETranslations.hardware_third_party_transport_not_available),
+      undefined,
       retry,
     );
   }

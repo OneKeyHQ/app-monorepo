@@ -167,6 +167,24 @@ export type IFetchAccountTokensResp = {
   aggregateTokenMap?: Record<string, ITokenFiat>;
 };
 
+export type IAccountTokensCacheScope = {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+};
+
+/** Display seed only: neither query coverage nor spendable balances are guaranteed. */
+export type ICachedAccountTokens = IAccountTokensCacheScope &
+  Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  > & {
+    capturedAt?: number;
+    source: 'home-token-list' | 'dust-sweep' | 'persisted';
+    coverage: 'partial';
+  };
+
 export type IFetchTokenDetailParams = {
   accountId: string;
   networkId: string;

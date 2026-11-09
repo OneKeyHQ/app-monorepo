@@ -1,13 +1,10 @@
 import { useIntl } from 'react-intl';
 
 import { Button, IconButton, useMedia } from '@onekeyhq/components';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { REFERRAL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  openUrlExternal,
-  openUrlInDiscovery,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
@@ -15,17 +12,17 @@ export function RulesButton() {
   const intl = useIntl();
   const { md } = useMedia();
 
-  const handlePress = () => {
-    if (platformEnv.isDesktop || platformEnv.isNative) {
-      openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
-    } else {
-      openUrlExternal(REFERRAL_HELP_LINK);
-    }
-  };
-
   const label = intl.formatMessage({
     id: ETranslations.referral_global_rules,
   });
+  // The in-app web view stacks on the current screen (the referral modal on
+  // phones), so closing it returns to the page; web opens a new tab. Links
+  // that leave the help site go to Discovery and its URL risk checks.
+  const handlePress = () => {
+    openUrlInApp(REFERRAL_HELP_LINK, label, {
+      redirectExternalNavigation: true,
+    });
+  };
 
   if (md) {
     return (
@@ -33,6 +30,7 @@ export function RulesButton() {
         testID={ReferFriendsTestIDs.rulesBtn}
         variant="tertiary"
         icon="QuestionmarkOutline"
+        hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
         onPress={handlePress}
         title={label}
       />
@@ -43,7 +41,9 @@ export function RulesButton() {
     <Button
       testID={ReferFriendsTestIDs.rulesBtn}
       variant="tertiary"
-      size={platformEnv.isWeb ? 'small' : undefined}
+      // Small on every platform so it matches the level pill beside it
+      // (same text size and hover box).
+      size="small"
       icon="QuestionmarkOutline"
       onPress={handlePress}
     >

@@ -2,12 +2,14 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -42,7 +44,6 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -50,14 +51,22 @@ export async function navigateToMarketTokenDetail(
   let token = selectedToken;
   let marketVariantId: string | undefined;
   if (token.assetId) {
+    let assetDetailFetched = false;
     try {
-      const { selectedVariant } =
+      const detail =
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
           assetId: token.assetId,
           currency: 'usd',
           autoHandleError: false,
         });
+      assetDetailFetched = true;
       if (!isCurrentRequest()) return;
+      const selectedVariant = requireMarketAssetVariant({
+        detail,
+        networkId: token.networkId,
+        tokenAddress: token.address,
+        isNative: token.isNative,
+      });
       token = {
         ...token,
         address: selectedVariant.tokenAddress,
@@ -66,22 +75,24 @@ export async function navigateToMarketTokenDetail(
       };
       marketVariantId = selectedVariant.variantId;
     } catch {
-      if (isCurrentRequest()) opts.onError?.();
-      return;
+      if (!isCurrentRequest()) return;
+      if (!assetDetailFetched && token.networkId) {
+        // Preserve the searched chain when the optional asset lookup is offline.
+        token = { ...token, assetId: undefined };
+      } else {
+        opts.onError?.();
+        return;
+      }
     }
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
-  const shortCode = networkUtils.getNetworkShortCode({
-    networkId: token.networkId,
-  });
-
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
   });
-  const shouldResolveMarketAsset = Boolean(
-    opts.resolveMarketAsset && !token.assetId && !stockId,
-  );
+  const shortCode = networkUtils.getNetworkShortCode({
+    networkId: token.networkId,
+  });
 
   if (stockId) {
     opts.tokenDetailActions.current.prepareStockTokenDetail({
@@ -89,14 +100,6 @@ export async function navigateToMarketTokenDetail(
       networkId: token.networkId,
       isNative: token.isNative,
     });
-  } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
-    } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
-    }
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -106,9 +109,7 @@ export async function navigateToMarketTokenDetail(
     });
   }
 
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const targetTab = ETabRoutes.Market;
   const tokenParams = {
     ...(token.assetId
       ? {
@@ -120,15 +121,8 @@ export async function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
-    ...(shouldResolveMarketAsset
-      ? {
-          resolveMarketAsset: true,
-          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
-          legacyTokenPreview: opts.tokenDetailPreview,
-        }
-      : undefined),
-    ...(!shouldResolveMarketAsset &&
-    !stockId &&
+    from: EEnterWay.DetailSwitch,
+    ...(!stockId &&
     opts.tokenDetailPreview &&
     (platformEnv.isDesktop || platformEnv.isWeb)
       ? { legacyTokenPreview: opts.tokenDetailPreview }

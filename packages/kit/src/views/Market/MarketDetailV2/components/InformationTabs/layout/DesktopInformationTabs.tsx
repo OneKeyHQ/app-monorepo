@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -45,12 +46,8 @@ function DesktopInformationTabsHeader({
   holdersTabLabel: string;
   holdersTabName: string;
 }) {
-  const { tabNames } = props;
   const [realtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const intl = useIntl();
-  const firstTabName = useMemo(() => {
-    return tabNames[0];
-  }, [tabNames]);
   const hasBufferedUpdates =
     realtimePauseState.isPaused && realtimePauseState.bufferedCount > 0;
   const updatesAmount = realtimePauseState.hasBufferOverflow
@@ -110,7 +107,7 @@ function DesktopInformationTabsHeader({
           </Badge.Text>
         </Badge>
       ) : null}
-      <StickyHeader firstTabName={firstTabName} />
+      <StickyHeader />
       {hasBufferedUpdates ? (
         <XStack
           position="absolute"
@@ -155,6 +152,9 @@ function DesktopInformationTabsHeader({
 interface IDesktopInformationTabsProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork?: boolean;
   tokenLogoUrl?: string;
 }
@@ -162,6 +162,8 @@ interface IDesktopInformationTabsProps {
 export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
+  isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   tokenLogoUrl,
 }: IDesktopInformationTabsProps) {
@@ -213,10 +215,14 @@ export function DesktopInformationTabs({
         })}
       >
         <Portfolio
+          isStock={isStockToken}
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
+          isPending={isPortfolioPending}
+          isFailed={isPortfolioFailed}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          isMarketDetail
         />
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
@@ -251,6 +257,8 @@ export function DesktopInformationTabs({
     tokenAddress,
     portfolioData,
     isRefreshing,
+    isPortfolioPending,
+    isPortfolioFailed,
     holdersTabName,
     isNative,
     tokenLogoUrl,
@@ -259,7 +267,18 @@ export function DesktopInformationTabs({
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
+  const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     ({ ...props }: any) => (
@@ -284,6 +303,9 @@ export function DesktopInformationTabs({
     <Tabs.Container
       key={tabsKey}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
       disableScroll={!platformEnv.isNative}
     >

@@ -195,6 +195,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
         void installPackage(
           () => {},
           () => showUpdateInCompleteDialog({}),
+          { userInitiated: true, installSource: 'legacy' },
         );
         return;
       }
@@ -206,7 +207,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     }
     // Major version (appShell). App Store builds open the store; direct-channel
     // builds start the download (when still at notify) and open the modal.
-    if (appUpdateInfo.storeUrl) {
+    if (appUpdateInfo.storeUrl?.startsWith('https://')) {
       // Server-driven store URL must reach the store app via the system
       // browser; in-app browsers never trigger universal links.
       openUrlExternal(appUpdateInfo.storeUrl, { useSystemBrowser: true });
@@ -272,11 +273,6 @@ export {
   isToolboxUpdateIndicatorRedundant,
 } from './updateStrategy';
 export { useDownloadPackage } from './useDownloadPackage';
-export {
-  sanitizeUpdateErrorMessage,
-  extractUpdateErrorCode,
-  isUnrecoverableDownloadError,
-} from './updateErrorTaxonomy';
 export {
   computeDownloadRetryDelayMs,
   runDownloadWithRetry,

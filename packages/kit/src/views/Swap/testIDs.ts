@@ -12,6 +12,7 @@ export const SwapTestIDs = {
   fromAmountInput: 'swap-from-amount-input',
   toAmountInput: 'swap-to-amount-input',
   maxButton: 'swap-max-button',
+  balanceRefreshButton: 'swap-balance-refresh-button',
 
   // Actions
   swapButton: 'swap-action-button',
@@ -50,6 +51,8 @@ export const SwapTestIDs = {
   stockEstimatedReceive: 'swap-stock-estimated-receive',
   stockMobileContainer: 'swap-stock-mobile-container',
   stockMarketTokenHeader: 'swap-stock-market-token-header',
+  stockMobileVariantRow: 'swap-stock-mobile-variant-row',
+  stockVariantRetry: 'swap-stock-variant-retry',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
   stockTokenDetails: 'swap-stock-token-details',

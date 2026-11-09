@@ -1,16 +1,16 @@
 import { useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   DelayedFreeze,
-  HeaderScrollGestureWrapper,
   Skeleton,
   Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IAppPagerTabBarProps } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,8 +20,11 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
+import { useStockDetail } from '../../../hooks/StockDetailContext';
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -33,25 +36,41 @@ import {
 import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 import { useNetworkAccountAddress } from '../hooks/useNetworkAccountAddress';
 
+import { MarketDetailPager } from './MarketDetailPager';
+import {
+  MarketDetailHeaderGesture,
+  MarketDetailScrollView,
+} from './MarketDetailScroll';
+import {
+  MobileStockFinancialsPanel,
+  MobileStockOverviewPanel,
+  MobileTopCoinsOverviewPanel,
+  MobileTrendingOverviewPanel,
+} from './MobileDetailOverviewPanels';
 import { StickyHeader } from './StickyHeader';
 
-import type {
-  CollapsibleProps,
-  TabBarProps,
-} from 'react-native-collapsible-tab-view';
+import type { IMarketMobileDetailKind } from '../../../utils/marketMobileDetailKind';
+
+function getStickyHeaderHeight(tabKey: string) {
+  // Reserve the destination's column header before iOS displays its list.
+  return tabKey === 'transactions' ||
+    tabKey === 'portfolio' ||
+    tabKey === 'holders'
+    ? 89
+    : 45;
+}
 
 function MobileInformationTabsHeader({
   holdersTabLabel,
   holdersTabName,
+  detailKind,
   ...props
-}: TabBarProps<string> & {
+}: IAppPagerTabBarProps & {
   holdersTabLabel: string;
   holdersTabName: string;
+  detailKind: IMarketMobileDetailKind;
 }) {
-  const { tabNames, focusedTab, onTabPress } = props;
-  const firstTabName = useMemo(() => {
-    return tabNames[0];
-  }, [tabNames]);
+  const { focusedTab, onTabPress } = props;
 
   const handleTabPress = useCallback(
     (tabName: string) => {
@@ -81,17 +100,19 @@ function MobileInformationTabsHeader({
   );
 
   return (
-    <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
+    <MarketDetailHeaderGesture panActiveOffsetY={[-4, 4]} scrollScale={1}>
       <YStack bg="$bgApp" pointerEvents="box-none">
         <Tabs.TabBar
           {...props}
-          textSize="$bodyMdMedium"
+          scrollable
+          keepFocusedTabVisible
+          textSize="$bodyLgMedium"
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
         />
-        <StickyHeader firstTabName={firstTabName} />
+        <StickyHeader detailKind={detailKind} />
       </YStack>
-    </HeaderScrollGestureWrapper>
+    </MarketDetailHeaderGesture>
   );
 }
 
@@ -118,29 +139,45 @@ function PendingInformationTabs() {
 
 export function MobileInformationTabs({
   containerWidth,
+  initialHeaderHeight,
   renderHeader,
   pendingHeader,
   onScrollEnd,
   portfolioData,
+  hasPortfolioAccount,
   isRefreshing,
+  isPortfolioPending,
+  isPortfolioFailed,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
+  detailKind = 'trending',
+  marketAssetDetail,
+  isMarketAssetDetailLoading,
 }: {
   containerWidth?: number;
-  renderHeader: CollapsibleProps['renderHeader'];
+  initialHeaderHeight?: number;
+  renderHeader: () => ReactElement | null;
   // Shown in place of the tabs until the token's network is known.
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
+  hasPortfolioAccount?: boolean;
   isRefreshing?: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
+  detailKind?: IMarketMobileDetailKind;
+  marketAssetDetail?: IMarketAssetDetailData;
+  isMarketAssetDetailLoading?: boolean;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
     useTokenDetail();
+  const { stockId } = useStockDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = intl.formatMessage({
@@ -164,13 +201,83 @@ export function MobileInformationTabs({
     containerWidth ?? (tabContainerWidth as number);
 
   const tabs = useMemo(() => {
-    // Check if current network supports holders tab (not available for native tokens)
+    const overviewName = intl.formatMessage({
+      id: ETranslations.global_overview,
+    });
+    const portfolioTab = (
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
+        <DelayedFreeze freeze={freezeContent}>
+          <Portfolio
+            isStock={detailKind === 'stock' || isStockToken}
+            portfolioData={portfolioData}
+            hasAccount={hasPortfolioAccount}
+            isRefreshing={!!isRefreshing}
+            isPending={isPortfolioPending}
+            isFailed={isPortfolioFailed}
+            accountAddress={accountAddress}
+            tokenLogoUrl={tokenLogoUrl}
+            isMarketDetail
+            scrollEnabled={scrollEnabled}
+          />
+        </DelayedFreeze>
+      </Tabs.Tab>
+    );
+
+    if (detailKind === 'topCoin') {
+      return [
+        <Tabs.Tab key="overview" name={overviewName}>
+          <DelayedFreeze freeze={freezeContent}>
+            <MobileTopCoinsOverviewPanel
+              scrollEnabled={scrollEnabled}
+              assetDetail={marketAssetDetail}
+              isAssetDetailLoading={isMarketAssetDetailLoading}
+            />
+          </DelayedFreeze>
+        </Tabs.Tab>,
+        portfolioTab,
+      ];
+    }
+
+    if (detailKind === 'stock') {
+      return [
+        <Tabs.Tab key="overview" name={overviewName}>
+          <DelayedFreeze freeze={freezeContent}>
+            <MobileStockOverviewPanel scrollEnabled={scrollEnabled} />
+          </DelayedFreeze>
+        </Tabs.Tab>,
+        stockId ? (
+          <Tabs.Tab
+            key="financials"
+            name={intl.formatMessage({
+              id: ETranslations.market_stock_financials__title,
+            })}
+          >
+            <DelayedFreeze freeze={freezeContent}>
+              <MobileStockFinancialsPanel scrollEnabled={scrollEnabled} />
+            </DelayedFreeze>
+          </Tabs.Tab>
+        ) : null,
+        portfolioTab,
+      ].filter(Boolean);
+    }
+
+    // The footer summarizes the current token. The portfolio tab still lists
+    // every position row.
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
-    // BTC network doesn't show transactions tab
     const shouldShowTransactionsTab = !isBTCNetwork;
     const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
 
-    const items = [
+    return [
+      <Tabs.Tab key="overview" name={overviewName}>
+        <DelayedFreeze freeze={freezeContent}>
+          <MobileTrendingOverviewPanel scrollEnabled={scrollEnabled} />
+        </DelayedFreeze>
+      </Tabs.Tab>,
       shouldShowTransactionsTab && (
         <Tabs.Tab
           key="transactions"
@@ -188,22 +295,7 @@ export function MobileInformationTabs({
           </DelayedFreeze>
         </Tabs.Tab>
       ),
-      <Tabs.Tab
-        key="portfolio"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_myposition,
-        })}
-      >
-        <DelayedFreeze freeze={freezeContent}>
-          <Portfolio
-            portfolioData={portfolioData}
-            isRefreshing={!!isRefreshing}
-            accountAddress={accountAddress}
-            tokenLogoUrl={tokenLogoUrl}
-            scrollEnabled={scrollEnabled}
-          />
-        </DelayedFreeze>
-      </Tabs.Tab>,
+      portfolioTab,
       shouldShowLiquidityPoolsTab && (
         <Tabs.Tab
           key="liquidityPools"
@@ -212,7 +304,7 @@ export function MobileInformationTabs({
           })}
         >
           <DelayedFreeze freeze={freezeContent}>
-            <Tabs.ScrollView scrollEnabled={scrollEnabled}>
+            <MarketDetailScrollView scrollEnabled={scrollEnabled}>
               <TokenLiquidityPools
                 showTitle={false}
                 variant="mobile"
@@ -220,7 +312,7 @@ export function MobileInformationTabs({
                 pt="$0"
                 pb="$20"
               />
-            </Tabs.ScrollView>
+            </MarketDetailScrollView>
           </DelayedFreeze>
         </Tabs.Tab>
       ),
@@ -236,7 +328,6 @@ export function MobileInformationTabs({
         </Tabs.Tab>
       ),
     ].filter(Boolean);
-    return items;
   }, [
     intl,
     tokenAddress,
@@ -245,35 +336,62 @@ export function MobileInformationTabs({
     holdersTabName,
     accountAddress,
     portfolioData,
+    hasPortfolioAccount,
     isRefreshing,
+    isPortfolioPending,
+    isPortfolioFailed,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
     isStockToken,
     scrollEnabled,
     freezeContent,
+    detailKind,
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    stockId,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
+  const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
-    (props: TabBarProps<string>) => (
+    (props: IAppPagerTabBarProps) => (
       <MobileInformationTabsHeader
         {...props}
         holdersTabName={holdersTabName}
         holdersTabLabel={holdersTabLabel}
+        detailKind={detailKind}
       />
     ),
-    [holdersTabLabel, holdersTabName],
+    [detailKind, holdersTabLabel, holdersTabName],
   );
 
-  // Generate unique key based on tabs composition
-  const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
+  // Reset native header and page offsets when switching tokens. Stock network
+  // hydration must not remount the chart for the same stock.
+  const tokenKey =
+    detailKind === 'stock'
+      ? `stock:${stockId ?? ''}`
+      : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
+  const tabsKey = useMemo(
+    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [tabKeys, tokenKey],
+  );
 
-  // The tab set depends on the network, so hold only the header until the
-  // stock variant resolves instead of mounting tabs that remount right away.
-  if (!networkId) {
+  // Stock tabs are independent of the selected token network. Other tab sets
+  // wait for it so their header does not remount when the network resolves.
+  if (!networkId && detailKind !== 'stock') {
     return pendingHeader ? (
       <YStack>
         {pendingHeader}
@@ -282,19 +400,29 @@ export function MobileInformationTabs({
     ) : null;
   }
 
+  const initialStickyHeight = getStickyHeaderHeight(
+    preferPosition ? 'portfolio' : 'overview',
+  );
   return (
-    <Tabs.Container
+    <MarketDetailPager
       key={tabsKey}
+      initialHeaderHeight={initialHeaderHeight}
+      initialStickyHeaderHeight={
+        initialHeaderHeight === undefined ? undefined : initialStickyHeight
+      }
+      getStickyHeaderHeight={
+        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
+      }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
-      headerContainerStyle={{
-        width: '100%',
-        shadowColor: 'transparent',
-      }}
+      scrollEnabled={scrollEnabled}
       renderHeader={renderHeader}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
     >
       {tabs}
-    </Tabs.Container>
+    </MarketDetailPager>
   );
 }

@@ -38,10 +38,12 @@ import {
   EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -62,8 +64,16 @@ import {
   type IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import {
+  areAccountSelectorActiveSelectionsEqual,
+  getAccountSelectorLatestSelectionIntent,
+  getAccountSelectorWriteIntentEpoch,
+  recordAccountSelectorSelectionIntent,
+  runAccountSelectorPersistenceExclusive,
+} from '../dbs/simple/entity/accountSelectorPersistenceGuard';
 import { providerApiLoaders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -72,6 +82,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
+import type { IAccountSelectorPersistenceLockToken } from '../dbs/simple/entity/accountSelectorPersistenceGuard';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
@@ -85,7 +96,9 @@ import type {
 import type { Verify } from '@walletconnect/types';
 
 // 4901 = Chain Disconnected analog for unsupported networks.
-function canonicalizeBtcNetworkId(networkId: string): string {
+function canonicalizeBtcNetworkId(
+  networkId: string,
+): IDeriveContextHashKeyringParams['canonicalNetworkName'] {
   switch (networkId) {
     case 'btc--0':
       return 'bitcoin-mainnet';
@@ -103,6 +116,10 @@ function canonicalizeBtcNetworkId(networkId: string): string {
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
+
+  if (isWalletConnectRequest && !params.walletConnectTopic) {
+    throw web3Errors.provider.unauthorized('WalletConnect topic is required');
+  }
 
   const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
@@ -122,6 +139,13 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
     networkImpls,
   };
 }
+
+type IHomeAccountApprovalAlignment = {
+  expectedSelectedAccount: IAccountSelectorSelectedAccount;
+  previousSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+  selectedAccount: IAccountSelectorSelectedAccount;
+  writeIntentEpoch: number;
+};
 
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
@@ -155,6 +179,18 @@ class ServiceDApp extends ServiceBase {
   >();
 
   private static readonly DERIVE_CONTEXT_HASH_TTL_MS = 5 * 60 * 1000;
+
+  private static readonly CONNECTION_APPROVAL_INVALIDATION_TTL_MS =
+    // ServicePromise scans its 30-minute TTL on a 30-minute interval, so a
+    // newly-created callback can remain observable for almost 60 minutes.
+    timerUtils.getTimeDurationMs({ minute: 65 });
+
+  private invalidatedConnectionApprovalIds = new Set<string>();
+
+  private connectionApprovalInvalidationTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -202,19 +238,28 @@ class ServiceDApp extends ServiceBase {
           // request.data so that no extra plumbing through each chain
           // provider is needed; hoist it back out so the modal sees it as a
           // first-class field instead of digging through the RPC data.
-          const walletConnectVerifyContext = (
-            request.data as
-              | { walletConnectVerifyContext?: Verify.Context }
-              | undefined
-          )?.walletConnectVerifyContext;
+          const walletConnectData = request.isWalletConnectRequest
+            ? (request.data as
+                | {
+                    walletConnectVerifyContext?: Verify.Context;
+                    walletConnectDisplayOrigin?: string;
+                    walletConnectTopic?: string;
+                  }
+                | undefined)
+            : undefined;
           const $sourceInfo: IDappSourceInfo = {
             id,
             origin: request.origin,
+            displayOrigin: request.isWalletConnectRequest
+              ? (walletConnectData?.walletConnectDisplayOrigin ?? '')
+              : undefined,
             hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
             scope: request.scope,
             data: request.data as any,
             isWalletConnectRequest: !!request.isWalletConnectRequest,
-            walletConnectVerifyContext,
+            walletConnectTopic: walletConnectData?.walletConnectTopic,
+            walletConnectVerifyContext:
+              walletConnectData?.walletConnectVerifyContext,
           };
 
           this.existingWindowOrigin = request.origin;
@@ -565,7 +610,8 @@ class ServiceDApp extends ServiceBase {
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
-    if (!account.pub) {
+    const connectedPubkey = account.pub;
+    if (!connectedPubkey) {
       throw new OneKeyLocalError(
         'Connected BTC account is missing a public key',
       );
@@ -573,18 +619,38 @@ class ServiceDApp extends ServiceBase {
 
     // Password-prompt cancel throws PasswordPromptDialogCancel; the modal
     // treats it as a sub-prompt cancel and leaves the staged entry for retry.
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
       });
 
-    const result = await vault.keyring.deriveContextHash({
-      password,
-      appName,
-      canonicalNetworkName,
-      connectedPubkey: account.pub,
-      context,
-    });
+    const derive = () =>
+      vault.keyring.deriveContextHash({
+        password,
+        deviceParams,
+        appName,
+        canonicalNetworkName,
+        connectedPubkey,
+        context,
+      });
+    let result: string | undefined;
+    if (deviceParams) {
+      // Keep the secret out of the processing wrapper's completion log.
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          result = await derive();
+        },
+        {
+          deviceParams,
+          debugMethodName: 'serviceDApp.executeDeriveContextHash',
+        },
+      );
+    } else {
+      result = await derive();
+    }
+    if (result === undefined) {
+      throw new OneKeyLocalError('Context hash derivation returned no result');
+    }
 
     // Consume only on success so the user can retry after a derivation error.
     await this.completeDeriveContextHashRequest(nonce);
@@ -610,6 +676,8 @@ class ServiceDApp extends ServiceBase {
     if (!accountId || !networkId) {
       throw new OneKeyLocalError('accountId and networkId required');
     }
+    if (networkUtils.isBTCNetwork(networkId) && 'message' in unsignedMessage)
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     return this.openModal({
       request,
       screens: [
@@ -744,45 +812,20 @@ class ServiceDApp extends ServiceBase {
       params.origin,
       networkImpls,
       storageType,
+      params.walletConnectTopic,
     );
-  }
-
-  @backgroundMethod()
-  async deleteExistSessionBeforeConnect({
-    origin,
-    storageType,
-  }: {
-    origin: string;
-    storageType: IConnectionStorageType;
-  }) {
-    const rawData =
-      await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    if (
-      storageType === 'walletConnect' &&
-      rawData?.data.injectedProvider?.[origin]
-    ) {
-      await this.disconnectWebsite({
-        origin,
-        storageType: 'injectedProvider',
-        beforeConnect: true,
-      });
-    } else if (rawData?.data.walletConnect?.[origin]) {
-      await this.disconnectWebsite({
-        origin,
-        storageType: 'walletConnect',
-        beforeConnect: true,
-      });
-    }
   }
 
   @backgroundMethod()
   async saveConnectionSession({
     origin,
+    displayOrigin,
     accountsInfo,
     storageType,
     walletConnectTopic,
   }: {
     origin: string;
+    displayOrigin?: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IConnectionStorageType;
     walletConnectTopic?: string;
@@ -791,11 +834,15 @@ class ServiceDApp extends ServiceBase {
       throw new OneKeyLocalError('walletConnectTopic is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
-    await this.deleteExistSessionBeforeConnect({ origin, storageType });
+    const iconOrigin =
+      storageType === 'walletConnect' ? (displayOrigin ?? '') : origin;
     await simpleDb.dappConnection.upsertConnection({
       origin,
+      displayOrigin,
       accountsInfo,
-      imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
+      imageURL: iconOrigin
+        ? await serviceDiscovery.buildWebsiteIconUrl(iconOrigin, 128)
+        : '',
       storageType,
       walletConnectTopic,
     });
@@ -807,6 +854,7 @@ class ServiceDApp extends ServiceBase {
         address: i.address,
       })),
     });
+    if (storageType === 'walletConnect') return;
     void this.syncDappAccountIfPrimaryMode({ origin });
     // If alignPrimaryAccountMode is AlwaysUsePrimaryAccount,
     // we need to notify the dapp accounts changed after connected
@@ -816,14 +864,311 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async recordConnectionSelectionIntent({
+    accountSelectorNum,
+    origin,
+    selectedAccount,
+  }: {
+    accountSelectorNum: number;
+    origin: string;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }) {
+    return recordAccountSelectorSelectionIntent(
+      {
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: origin,
+        num: accountSelectorNum,
+      },
+      selectedAccount,
+    );
+  }
+
+  private async isConnectionApprovalAccountAvailable(
+    accountInfo: IConnectionAccountInfo,
+  ) {
+    if (!accountInfo.networkId) {
+      return false;
+    }
+    try {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId: accountInfo.accountId,
+        networkId: accountInfo.networkId,
+      });
+      const addressMatches = networkUtils.isEvmNetwork({
+        networkId: accountInfo.networkId,
+      })
+        ? account.address.toLowerCase() === accountInfo.address.toLowerCase()
+        : account.address === accountInfo.address;
+      return account.id === accountInfo.accountId && addressMatches;
+    } catch {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async approveConnectionSession({
+    accountInfo,
+    accountSelectorNum,
+    approvalId,
+    expectedSelectedAccount,
+    mode,
+    origin,
+    preselectKeylessProvider,
+    requestId,
+  }: {
+    accountInfo: IConnectionAccountInfo;
+    accountSelectorNum: number;
+    approvalId: string;
+    expectedSelectedAccount: IAccountSelectorSelectedAccount;
+    mode: 'save' | 'update';
+    origin: string;
+    preselectKeylessProvider?: EOAuthSocialLoginProvider;
+    requestId: number | string;
+  }): Promise<{
+    approved: boolean;
+    reason?: 'request-settled' | 'selection-changed';
+  }> {
+    const persistenceScope = {
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl: origin,
+      num: accountSelectorNum,
+    };
+    const homeWriteIntentEpoch = getAccountSelectorWriteIntentEpoch({
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+    });
+    // Capture before the first await: an account-changing intent arriving while
+    // the icon request is pending belongs to this approval's cancellation window.
+    if (!getAccountSelectorLatestSelectionIntent(persistenceScope)) {
+      // Establish an identity baseline before the first await, even if the
+      // renderer's first autosave has not reached background yet.
+      recordAccountSelectorSelectionIntent(
+        persistenceScope,
+        expectedSelectedAccount,
+      );
+    }
+    const approvalEpoch = getAccountSelectorWriteIntentEpoch(persistenceScope);
+    const matchesLatestSelectionIntent = () => {
+      const latestSelectionIntent =
+        getAccountSelectorLatestSelectionIntent(persistenceScope);
+      return (
+        !latestSelectionIntent ||
+        areAccountSelectorActiveSelectionsEqual(
+          latestSelectionIntent,
+          expectedSelectedAccount,
+        )
+      );
+    };
+    const isApprovalCurrent = () =>
+      getAccountSelectorWriteIntentEpoch(persistenceScope) === approvalEpoch &&
+      matchesLatestSelectionIntent() &&
+      !this.invalidatedConnectionApprovalIds.has(approvalId) &&
+      this.backgroundApi.servicePromise.hasCallback(requestId);
+    let approvalResult: {
+      approved: boolean;
+      reason?: 'request-settled' | 'selection-changed';
+    };
+    try {
+      const imageURL =
+        mode === 'save'
+          ? await this.backgroundApi.serviceDiscovery.buildWebsiteIconUrl(
+              origin,
+              128,
+            )
+          : undefined;
+      approvalResult = await runAccountSelectorPersistenceExclusive(
+        async (lockToken) => {
+          // Discover selections are intentionally ephemeral. The renderer's
+          // click snapshot establishes the initial intent; any later selector
+          // save intent or account observation invalidates it in background.
+          if (!isApprovalCurrent()) {
+            return {
+              approved: false,
+              reason: 'selection-changed' as const,
+            };
+          }
+
+          let homeAccountAlignment: IHomeAccountApprovalAlignment | undefined;
+          const restoreHomeAccountAlignment = async () => {
+            if (!homeAccountAlignment) {
+              return;
+            }
+            await this.backgroundApi.simpleDb.accountSelector.restoreSelectedAccountIfCurrent(
+              {
+                expectedSelectedAccount: homeAccountAlignment.selectedAccount,
+                expectedWriteIntentEpoch: homeAccountAlignment.writeIntentEpoch,
+                previousSelectedAccount:
+                  homeAccountAlignment.previousSelectedAccount,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+              lockToken,
+            );
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          };
+          const transaction = await this.backgroundApi.simpleDb.dappConnection
+            .commitConnectionApproval({
+              accountInfo,
+              accountSelectorNum,
+              afterPublish: () => {
+                if (!isApprovalCurrent()) {
+                  return false;
+                }
+                return this.backgroundApi.servicePromise.resolveCallbackSync({
+                  id: requestId,
+                  data: accountInfo,
+                });
+              },
+              beforePublish: async (connectedAccountInfos) => {
+                if (
+                  !isApprovalCurrent() ||
+                  !(await this.isConnectionApprovalAccountAvailable(
+                    accountInfo,
+                  ))
+                ) {
+                  return false;
+                }
+                const finalizeApproval = async () => {
+                  if (!isApprovalCurrent()) {
+                    return false;
+                  }
+                  const accountAvailable =
+                    await this.isConnectionApprovalAccountAvailable(
+                      accountInfo,
+                    );
+                  // Drain cancellation messages that reached the background
+                  // while the final account lookup was in flight. After this
+                  // task boundary, the guard, cache publish, and callback
+                  // resolution run without another asynchronous gap.
+                  await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 0);
+                  });
+                  return accountAvailable && isApprovalCurrent();
+                };
+                if (mode === 'save' || preselectKeylessProvider) {
+                  return this.syncDappAccountIfPrimaryModeInternal({
+                    accountSelectorPersistenceLockToken: lockToken,
+                    connectedAccountInfos,
+                    expectedHomeWriteIntentEpoch: homeWriteIntentEpoch,
+                    finalizeApproval,
+                    onHomeSelectionPersisted: (alignment) => {
+                      homeAccountAlignment = alignment;
+                    },
+                    origin,
+                    shouldContinue: isApprovalCurrent,
+                  });
+                }
+                return finalizeApproval();
+              },
+              imageURL,
+              mode,
+              origin,
+              shouldCommit: isApprovalCurrent,
+              storageType: 'injectedProvider',
+            })
+            .catch(async (error: unknown) => {
+              await restoreHomeAccountAlignment();
+              throw error;
+            });
+          if (!transaction.committed) {
+            await restoreHomeAccountAlignment();
+            return {
+              approved: false,
+              reason: this.backgroundApi.servicePromise.hasCallback(requestId)
+                ? ('selection-changed' as const)
+                : ('request-settled' as const),
+            };
+          }
+          if (homeAccountAlignment) {
+            try {
+              appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+                expectedSelectedAccount:
+                  homeAccountAlignment.expectedSelectedAccount,
+                selectedAccount: homeAccountAlignment.selectedAccount,
+              });
+            } catch {
+              // Persistence succeeded; event delivery remains best-effort.
+            }
+            setTimeout(() => {
+              void this.setIsAlignPrimaryAccountProcessing({
+                processing: false,
+              });
+            }, 200);
+          }
+          return { approved: true };
+        },
+      );
+    } finally {
+      const invalidationTimer =
+        this.connectionApprovalInvalidationTimers.get(approvalId);
+      if (invalidationTimer) {
+        clearTimeout(invalidationTimer);
+        this.connectionApprovalInvalidationTimers.delete(approvalId);
+      }
+      this.invalidatedConnectionApprovalIds.delete(approvalId);
+    }
+
+    if (!approvalResult.approved) {
+      return approvalResult;
+    }
+    if (mode === 'save') {
+      try {
+        appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+      } catch {
+        // Approval is already resolved; observer failures cannot change it.
+      }
+      setTimeout(() => {
+        void this.notifyDAppAccountsChangedAfterConnected({ origin }).catch(
+          () => undefined,
+        );
+      }, 300);
+    }
+    void this.backgroundApi.serviceSignature
+      .addConnectedSite({
+        url: origin,
+        items: [
+          {
+            networkId: accountInfo.networkId ?? '',
+            address: accountInfo.address,
+          },
+        ],
+      })
+      .catch(() => undefined);
+    return approvalResult;
+  }
+
+  @backgroundMethod()
+  async invalidateConnectionApproval({ approvalId }: { approvalId: string }) {
+    this.invalidatedConnectionApprovalIds.add(approvalId);
+    const previousTimer =
+      this.connectionApprovalInvalidationTimers.get(approvalId);
+    if (previousTimer) {
+      clearTimeout(previousTimer);
+    }
+    const timer = setTimeout(() => {
+      this.invalidatedConnectionApprovalIds.delete(approvalId);
+      this.connectionApprovalInvalidationTimers.delete(approvalId);
+    }, ServiceDApp.CONNECTION_APPROVAL_INVALIDATION_TTL_MS);
+    this.connectionApprovalInvalidationTimers.set(approvalId, timer);
+  }
+
+  @backgroundMethod()
   async updateConnectionSession(params: {
     origin: string;
+    walletConnectTopic?: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
     storageType: IConnectionStorageType;
   }) {
-    const { origin, accountSelectorNum, updatedAccountInfo, storageType } =
-      params;
+    const {
+      origin,
+      walletConnectTopic,
+      accountSelectorNum,
+      updatedAccountInfo,
+      storageType,
+    } = params;
     if (storageType === 'walletConnect') {
       await this.updateWalletConnectSession(params);
     }
@@ -833,6 +1178,7 @@ class ServiceDApp extends ServiceBase {
         accountSelectorNum,
         updatedAccountInfo,
         storageType,
+        walletConnectTopic,
       },
     );
     await this.backgroundApi.serviceSignature.addConnectedSite({
@@ -848,18 +1194,23 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async updateWalletConnectSession({
-    origin,
+    walletConnectTopic,
     accountSelectorNum,
     updatedAccountInfo,
   }: {
     origin: string;
+    walletConnectTopic?: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
     storageType: IConnectionStorageType;
   }) {
-    const rawData =
-      await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    const connectionItem = rawData?.data?.walletConnect?.[origin];
+    if (!walletConnectTopic) {
+      throw new OneKeyLocalError('WalletConnect topic is required');
+    }
+    const connectionItem =
+      await this.backgroundApi.simpleDb.dappConnection.getWalletConnectConnection(
+        walletConnectTopic,
+      );
     if (connectionItem && connectionItem.walletConnectTopic) {
       const updatedConnectionMap = {
         ...connectionItem.connectionMap,
@@ -877,35 +1228,36 @@ class ServiceDApp extends ServiceBase {
   async disconnectWebsite({
     origin,
     storageType,
+    walletConnectTopic,
     beforeConnect = false,
     entry,
   }: {
     origin: string;
     storageType: IConnectionStorageType;
+    walletConnectTopic?: string;
     beforeConnect?: boolean;
     entry?: 'Browser' | 'SettingModal' | 'ExtPanel' | 'ExtFloatingTrigger';
   }) {
     const { simpleDb, serviceWalletConnect } = this.backgroundApi;
     // disconnect walletConnect
     if (storageType === 'walletConnect') {
-      const rawData =
-        await this.backgroundApi.simpleDb.dappConnection.getRawData();
-      const walletConnectTopic =
-        rawData?.data?.walletConnect?.[origin].walletConnectTopic;
-      if (walletConnectTopic) {
-        try {
-          await serviceWalletConnect.walletConnectDisconnect(
-            walletConnectTopic,
-          );
-        } catch (e) {
-          // ignore error
-          console.error('wallet connect disconnect error: ', e);
-        }
+      if (!walletConnectTopic) {
+        throw new OneKeyLocalError('WalletConnect topic is required');
+      }
+      try {
+        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+      } catch (e) {
+        // The SDK may already have removed the session after a peer delete.
+        console.error('wallet connect disconnect error: ', e);
       }
     }
-    await simpleDb.dappConnection.deleteConnection(origin, storageType);
+    await simpleDb.dappConnection.deleteConnection(
+      origin,
+      storageType,
+      walletConnectTopic,
+    );
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
-    if (!beforeConnect) {
+    if (!beforeConnect && storageType === 'injectedProvider') {
       await this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(origin);
     }
     if (entry) {
@@ -946,12 +1298,14 @@ class ServiceDApp extends ServiceBase {
     origin,
     scope,
     isWalletConnectRequest,
+    walletConnectTopic,
     options,
   }: IGetDAppAccountInfoParams) {
     const { storageType, networkImpls } = getQueryDAppAccountParams({
       origin,
       scope,
       isWalletConnectRequest,
+      walletConnectTopic,
       options,
     });
     const shouldAlignPrimaryAccount = await this.shouldAlignPrimaryAccount({
@@ -965,6 +1319,7 @@ class ServiceDApp extends ServiceBase {
           origin,
           storageType,
           networkImpl,
+          walletConnectTopic,
         );
       if (Array.isArray(accountsInfo) && accountsInfo.length) {
         if (shouldAlignPrimaryAccount) {
@@ -1031,6 +1386,10 @@ class ServiceDApp extends ServiceBase {
       origin: request.origin ?? '',
       scope: request.scope,
       isWalletConnectRequest: request.isWalletConnectRequest,
+      walletConnectTopic: request.isWalletConnectRequest
+        ? (request.data as { walletConnectTopic?: string } | undefined)
+            ?.walletConnectTopic
+        : undefined,
     });
     if (
       !accountsInfo ||
@@ -1183,10 +1542,11 @@ class ServiceDApp extends ServiceBase {
           value.walletConnectTopic &&
           !activeSessionTopics.has(value.walletConnectTopic),
       )
-      .map(([key]) =>
+      .map(([key, value]) =>
         this.disconnectWebsite({
-          origin: key,
+          origin: value.origin,
           storageType: 'walletConnect',
+          walletConnectTopic: value.walletConnectTopic,
         }).catch((error) =>
           console.error(`Failed to disconnect ${key}:`, error),
         ),
@@ -1205,6 +1565,10 @@ class ServiceDApp extends ServiceBase {
       origin: request.origin ?? '',
       scope: request.scope,
       isWalletConnectRequest: request.isWalletConnectRequest,
+      walletConnectTopic: request.isWalletConnectRequest
+        ? (request.data as { walletConnectTopic?: string } | undefined)
+            ?.walletConnectTopic
+        : undefined,
     });
     if (!accountsInfo) {
       // console.log('getConnectedNetworks: ===> Network not found');
@@ -1251,10 +1615,15 @@ class ServiceDApp extends ServiceBase {
         params.origin,
         networkImpls,
         storageType,
+        params.walletConnectTopic,
       );
     const map =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorMap({
-        sceneUrl: params.origin,
+        sceneUrl: params.walletConnectTopic
+          ? accountSelectorUtils.buildWalletConnectSceneUrl({
+              topic: params.walletConnectTopic,
+            })
+          : params.origin,
       });
     const existSelectedAccount = map?.[accountSelectorNum];
     let updatedAccountInfo: IConnectionAccountInfo | null = null;
@@ -1291,6 +1660,7 @@ class ServiceDApp extends ServiceBase {
           accountSelectorNum,
           updatedAccountInfo,
           storageType,
+          walletConnectTopic: params.walletConnectTopic,
         },
       );
     } else {
@@ -1299,6 +1669,7 @@ class ServiceDApp extends ServiceBase {
         network.impl,
         newNetworkId,
         storageType,
+        params.walletConnectTopic,
       );
     }
 
@@ -1306,7 +1677,11 @@ class ServiceDApp extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.DAppNetworkUpdate, {
         networkId: newNetworkId,
         sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: params.origin,
+        sceneUrl: params.walletConnectTopic
+          ? accountSelectorUtils.buildWalletConnectSceneUrl({
+              topic: params.walletConnectTopic,
+            })
+          : params.origin,
         num: accountSelectorNum,
       });
     }, 200);
@@ -1719,24 +2094,64 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
+    const ready = privateProvider?.getWebEmbedApiReadyState().ready;
     defaultLogger.app.webembed.privateProviderStatus({
       init: Boolean(privateProvider),
-      isWebEmbedApiReady: privateProvider?.isWebEmbedApiReady,
+      isWebEmbedApiReady: ready,
     });
-    return Promise.resolve(privateProvider?.isWebEmbedApiReady);
+    return Promise.resolve(ready);
   }
 
-  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
-  // host tears down. Without this, the flag stays sticky-true from the first
-  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
-  // stale BG ready into the next mount before that page has actually replayed
-  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  reserveWebEmbedRequest(requestId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.reserveWebEmbedRequest(requestId) ?? { ready: false },
+    );
+  }
+
+  @backgroundMethod()
+  activateWebEmbedMount(params: {
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.activateWebEmbedMount(params) ?? false,
+    );
+  }
+
+  @backgroundMethod()
+  deactivateWebEmbedMount(mountId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    privateProvider?.deactivateWebEmbedMount(mountId);
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  getWebEmbedApiReadyState() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.getWebEmbedApiReadyState() ?? { ready: false },
+    );
+  }
+
+  // Legacy hosts may reset readiness when no owned API mount is active.
   @backgroundMethod()
   markWebEmbedApiNotReady() {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
-    return privateProvider?.webEmbedApiNotReady() ?? Promise.resolve();
+    return privateProvider?.setWebEmbedApiNotReady() ?? Promise.resolve();
   }
 
   @backgroundMethod()
@@ -1969,51 +2384,153 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async syncDappAccountIfPrimaryMode({ origin }: { origin: string }) {
+    await this.syncDappAccountIfPrimaryModeInternal({ origin });
+  }
+
+  private async syncDappAccountIfPrimaryModeInternal({
+    accountSelectorPersistenceLockToken,
+    connectedAccountInfos,
+    expectedHomeWriteIntentEpoch,
+    finalizeApproval,
+    onHomeSelectionPersisted,
+    origin,
+    shouldContinue,
+  }: {
+    accountSelectorPersistenceLockToken?: IAccountSelectorPersistenceLockToken;
+    connectedAccountInfos?: IConnectionAccountInfo[];
+    expectedHomeWriteIntentEpoch?: number;
+    finalizeApproval?: () => Promise<boolean>;
+    onHomeSelectionPersisted?: (
+      alignment: IHomeAccountApprovalAlignment,
+    ) => void;
+    origin: string;
+    shouldContinue?: () => boolean;
+  }): Promise<boolean> {
+    const homeWriteIntentEpochAtRequest =
+      expectedHomeWriteIntentEpoch ??
+      getAccountSelectorWriteIntentEpoch({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    const runFinalizeApproval = async () => {
+      if (shouldContinue && !shouldContinue()) {
+        return false;
+      }
+      return finalizeApproval ? finalizeApproval() : true;
+    };
     const currentSettings = await settingsPersistAtom.get();
     if (
       currentSettings.alignPrimaryAccountMode !==
       EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
     ) {
-      return;
+      return runFinalizeApproval();
     }
     void this.setIsAlignPrimaryAccountProcessing({
       processing: true,
     });
-    const connectedAccount = await this.findInjectedAccountByOrigin(origin);
+    try {
+      const connectedAccount =
+        connectedAccountInfos ??
+        (await this.findInjectedAccountByOrigin(origin));
 
-    const { simpleDb } = this.backgroundApi;
-    const newSelectedAccount = await this.buildHomeSelectedAccountByDappAccount(
-      {
-        dAppAccountInfos: connectedAccount,
-      },
-    );
-    if (newSelectedAccount) {
-      await simpleDb.accountSelector.saveSelectedAccount({
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-        selectedAccount: newSelectedAccount,
-      });
-      appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
-        selectedAccount: newSelectedAccount,
-      });
-      // force reset processing to false after 200ms
-      setTimeout(() => {
-        void this.setIsAlignPrimaryAccountProcessing({
-          processing: false,
+      const { simpleDb } = this.backgroundApi;
+      const homeSelectedAccount =
+        await simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
         });
-      }, 200);
-    } else {
+      const expectedHomeSelectedAccount = homeSelectedAccount ?? {
+        deriveType: undefined,
+        focusedWallet: undefined,
+        indexedAccountId: undefined,
+        networkId: undefined,
+        othersWalletAccountId: undefined,
+        walletId: undefined,
+      };
+      const newSelectedAccount =
+        await this.buildHomeSelectedAccountByDappAccount({
+          dAppAccountInfos: connectedAccount,
+          homeSelectedAccount: expectedHomeSelectedAccount,
+        });
+      if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
+        let saveResult: { persisted: boolean };
+        if (shouldContinue) {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfCurrent(
+              {
+                beforePublish: finalizeApproval
+                  ? runFinalizeApproval
+                  : undefined,
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+                shouldCommit: shouldContinue,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        } else {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+              {
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        }
+        if (!saveResult.persisted) {
+          void this.setIsAlignPrimaryAccountProcessing({
+            processing: false,
+          });
+          return false;
+        }
+        if (onHomeSelectionPersisted) {
+          onHomeSelectionPersisted({
+            expectedSelectedAccount: expectedHomeSelectedAccount,
+            previousSelectedAccount: homeSelectedAccount,
+            selectedAccount: newSelectedAccount,
+            writeIntentEpoch: homeWriteIntentEpochAtRequest,
+          });
+        } else {
+          try {
+            appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+              expectedSelectedAccount: expectedHomeSelectedAccount,
+              selectedAccount: newSelectedAccount,
+            });
+          } catch {
+            // Persistence succeeded; event delivery remains best-effort.
+          }
+          // force reset processing to false after 200ms
+          setTimeout(() => {
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          }, 200);
+        }
+        return true;
+      }
       void this.setIsAlignPrimaryAccountProcessing({
         processing: false,
       });
+      return runFinalizeApproval();
+    } catch (error) {
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
+      });
+      throw error;
     }
   }
 
   @backgroundMethod()
   async buildHomeSelectedAccountByDappAccount({
     dAppAccountInfos,
+    homeSelectedAccount,
   }: {
     dAppAccountInfos: IConnectionAccountInfo[] | null;
+    homeSelectedAccount?: IAccountSelectorSelectedAccount;
   }) {
     if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
       return null;
@@ -2030,10 +2547,11 @@ class ServiceDApp extends ServiceBase {
     } = dAppAccount;
     let newSelectedAccount: IAccountSelectorSelectedAccount;
     const homeAccountSelectorInfo =
-      await simpleDb.accountSelector.getSelectedAccount({
+      homeSelectedAccount ??
+      (await simpleDb.accountSelector.getSelectedAccount({
         sceneName: EAccountSelectorSceneName.home,
         num: 0,
-      });
+      }));
     const isOtherWallet = accountUtils.isOthersAccount({
       accountId,
     });

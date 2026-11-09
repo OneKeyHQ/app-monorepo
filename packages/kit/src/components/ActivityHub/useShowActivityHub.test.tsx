@@ -30,33 +30,23 @@ jest.mock('./ActivityHubContent', () => ({
   ActivityHubContent: () => null,
 }));
 
-import { getActivityHubLayout } from './layout';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { ACTIVITY_HUB_PANEL_WIDTH } from './layout';
 import { useShowActivityHub } from './useShowActivityHub';
 
-import type { IActivityHubCampaign } from './types';
-
-const CAMPAIGNS: IActivityHubCampaign[] = [
-  {
-    id: 'campaign-1',
-    title: 'campaign title',
-    subtitle: 'campaign subtitle',
-    url: 'https://onekey.so',
-  },
-];
-
-function showHub(campaigns?: IActivityHubCampaign[]) {
+function showHub() {
   const { result } = renderHook(() => useShowActivityHub());
 
   result.current({
     source: 'Swap',
-    copyAsUrl: true,
-    onOpenInviteeReward: jest.fn(),
-    campaigns,
+    onOpenReferral: jest.fn(),
   });
 
   return mockDialogShow.mock.calls[0][0] as {
+    title: string;
     floatingPanelProps?: { width: number };
-    renderContent: ReactElement<{ isCompactPanel: boolean }>;
+    renderContent: ReactElement;
   };
 }
 
@@ -66,38 +56,23 @@ describe('useShowActivityHub', () => {
     mockGtMd = true;
   });
 
-  // Unlike a Popover, a Dialog keeps rendering a floating panel above the md
-  // breakpoint on native tablets too, so nothing here may be gated on platform.
   it.each([
     {
-      panel: 'compact above md without campaigns',
+      panel: 'a floating panel above md',
       gtMd: true,
-      campaigns: undefined,
-      floatingPanelProps: { width: getActivityHubLayout(false).panelWidth },
-      isCompactPanel: true,
-    },
-    {
-      panel: 'wide above md with campaigns',
-      gtMd: true,
-      campaigns: CAMPAIGNS,
-      floatingPanelProps: { width: getActivityHubLayout(true).panelWidth },
-      isCompactPanel: false,
+      floatingPanelProps: { width: ACTIVITY_HUB_PANEL_WIDTH },
     },
     {
       panel: 'an unsized sheet below md',
       gtMd: false,
-      campaigns: undefined,
       floatingPanelProps: undefined,
-      isCompactPanel: false,
     },
-  ])('is $panel', ({ gtMd, campaigns, ...expected }) => {
+  ])('is $panel', ({ gtMd, floatingPanelProps }) => {
     mockGtMd = gtMd;
 
-    const options = showHub(campaigns);
+    const options = showHub();
 
-    expect(options.floatingPanelProps).toEqual(expected.floatingPanelProps);
-    expect(options.renderContent.props.isCompactPanel).toBe(
-      expected.isCompactPanel,
-    );
+    expect(options.floatingPanelProps).toEqual(floatingPanelProps);
+    expect(options.title).toBe(ETranslations.referral_home__title);
   });
 });

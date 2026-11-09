@@ -92,7 +92,10 @@ interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
 }
 
 function MarkPrice({ coin }: { coin: string }) {
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    allowActiveAssetFallback: true,
+  });
   return (
     <SizableText size="$bodyMdMedium">{midFormattedByDecimals}</SizableText>
   );
@@ -196,7 +199,11 @@ const SetTpslForm = memo(
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const ensureTradingEnabled = useEnsureTradingEnabled();
-    const { mid: midPrice } = usePerpsMidPrice({ coin });
+    const { mid: midPrice } = usePerpsMidPrice({
+      coin,
+      szDecimals,
+      allowActiveAssetFallback: true,
+    });
 
     const activePositions = usePerpsAccountScopedActivePositions();
     const [activeAccount] = usePerpsActiveAccountAtom();
@@ -834,7 +841,7 @@ const SetTpslForm = memo(
                     segments={4}
                     snapTapToSegment
                     sliderHeight={4}
-                    showBubble={false}
+                    showBubble
                   />
                 </YStack>
               </YStack>

@@ -1,4 +1,5 @@
 import appGlobals from '../../appGlobals';
+import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 import { getLoggerExtension } from '../extensions';
 import { loggerConfig } from '../loggerConfig';
@@ -52,6 +53,12 @@ function handleServerLog(
       ...eventProps,
     });
   }
+  if (
+    !appGlobals?.$analytics &&
+    entry.metadataList.some((metadata) => metadata.enqueueImmediately)
+  ) {
+    throw new OneKeyLocalError('Analytics is unavailable');
+  }
   appGlobals?.$analytics?.trackEvent(entry.methodName, {
     ...eventProps,
   });
@@ -83,7 +90,10 @@ function processEntry(entry: ILogEntry) {
   let needsColorful = false;
   const pendingServerLogs: Promise<void>[] = [];
 
-  for (const metadata of entry.metadataList) {
+  const enabledMetadataList = entry.metadataList.filter(
+    (metadata) => !metadata.devOnly || platformEnv.isDev,
+  );
+  for (const metadata of enabledMetadataList) {
     switch (metadata.type) {
       case 'local':
         // Dedup is handled per-platform in the transport layer:
@@ -144,6 +154,12 @@ function processEntry(entry: ILogEntry) {
 }
 
 export const logFn = (entry: ILogEntry) => {
+  if (entry.metadataList.some((metadata) => metadata.enqueueImmediately)) {
+    // Process-level flags may be committed only after this handoff succeeds.
+    // Do not defer it to a timer that a React runtime reload can discard.
+    loggerRuntime.enqueueOrProcess(loggerConfig.isReady, entry, processEntry);
+    return undefined;
+  }
   const waitForServer = entry.metadataList.some(
     (metadata) => metadata.type === 'server' && metadata.waitForServer,
   );

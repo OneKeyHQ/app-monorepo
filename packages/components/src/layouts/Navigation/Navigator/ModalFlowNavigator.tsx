@@ -14,6 +14,10 @@ import createWebViewNavigator from '../Modal/createWebViewNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
+import {
+  renderModalHorizontalSafeAreaScreen,
+  shouldApplyHorizontalSafeArea,
+} from './ModalHorizontalSafeArea';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { IModalNavigationOptions } from '../ScreenProps';
@@ -142,7 +146,14 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   );
   return (
     <PageTypeContext.Provider value={contextValue}>
-      <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>
+      <ModalStackComponent.Navigator
+        screenOptions={makeScreenOptions}
+        screenLayout={
+          shouldApplyHorizontalSafeArea
+            ? renderModalHorizontalSafeAreaScreen
+            : undefined
+        }
+      >
         {config.map(
           ({
             name,

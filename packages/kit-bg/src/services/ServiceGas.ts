@@ -19,6 +19,8 @@ import type {
 import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import { fetchLocalWalletNativeTokenPrice } from '../vaults/localWallet/nativeTokenPrice';
 
 import ServiceBase from './ServiceBase';
 
@@ -38,8 +40,35 @@ class ServiceGas extends ServiceBase {
     }
   }
 
+  // Headers for the Gas Account estimate/send endpoints: the wallet-type
+  // header plus the OneKey ID login token (OK-64746). The token lets the
+  // Wallet BFF resolve the member identity for sponsorship; it is read per
+  // request from the current session, so a logged-out user sends none and an
+  // account switch picks up the new session on the next request. Only the
+  // single request is authenticated — never the shared Wallet client.
+  async getGasAccountRequestHeaders(params: {
+    accountId: string;
+  }): Promise<Record<string, string>> {
+    const { accountId } = params;
+    return {
+      ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      })),
+      ...(await this.getOneKeyIdAuthHeaders()),
+    };
+  }
+
   @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
+    if (
+      await isLocalWalletNetwork({
+        networkId: params.networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transaction fees must be estimated locally',
+      );
+    }
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
@@ -54,10 +83,7 @@ class ServiceGas extends ServiceBase {
       },
       {
         signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: await this.getGasAccountRequestHeaders({ accountId }),
       },
     );
 
@@ -91,7 +117,8 @@ class ServiceGas extends ServiceBase {
     // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
     // to opt out of sponsored gas. Backend then returns no quote and
     // downstream code naturally falls back to user-paid.
-    const { useGasAccountByDefault } = await settingsPersistAtom.get();
+    const { useGasAccountByDefault, currencyInfo } =
+      await settingsPersistAtom.get();
     if (useGasAccountByDefault === false) {
       rest.gasAccountEnabled = false;
     }
@@ -105,6 +132,17 @@ class ServiceGas extends ServiceBase {
     this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
+    let nativeTokenPrice = feeInfo.nativeTokenPrice?.price;
+    if (
+      nativeTokenPrice === undefined &&
+      (await isLocalWalletNetwork({ networkId: params.networkId }))
+    ) {
+      nativeTokenPrice = await fetchLocalWalletNativeTokenPrice({
+        backgroundApi: this.backgroundApi,
+        networkId: params.networkId,
+        requestCurrency: currencyInfo?.id ?? 'usd',
+      });
+    }
 
     const feeResult = {
       common: {
@@ -113,7 +151,7 @@ class ServiceGas extends ServiceBase {
         feeSymbol: feeInfo.feeSymbol,
         nativeDecimals: feeInfo.nativeDecimals,
         nativeSymbol: feeInfo.nativeSymbol,
-        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
+        nativeTokenPrice,
       },
       gas: feeInfo.gas,
       gasEIP1559: feeInfo.gasEIP1559,
@@ -169,6 +207,7 @@ class ServiceGas extends ServiceBase {
       gasAccountEligible: feeInfo.gasAccountEligible,
       gasAccountQuote: feeInfo.gasAccountQuote,
       gasAccountScenarioReason: feeInfo.gasAccountScenarioReason,
+      gasAccountSkipReason: feeInfo.gasAccountSkipReason,
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic

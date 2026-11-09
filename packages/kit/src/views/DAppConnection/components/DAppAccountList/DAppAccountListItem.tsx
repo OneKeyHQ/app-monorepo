@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -24,7 +24,10 @@ import { useAccountSelectorAvailableNetworks } from '@onekeyhq/kit/src/component
 import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger/NetworkSelectorTriggerDApp';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IAccountSelectorAvailableNetworks,
+  IAccountSelectorAvailableNetworksMap,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorSyncLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type {
@@ -35,6 +38,7 @@ import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/ba
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -54,10 +58,12 @@ type IReadonlyDAppAccountData = {
 };
 
 function DAppAccountListInitFromKeylessProvider({
+  initialAvailableNetworks,
   num,
   provider,
   shouldSyncFromHomeOnFallback,
 }: {
+  initialAvailableNetworks?: IAccountSelectorAvailableNetworks;
   num: number;
   provider: EOAuthSocialLoginProvider;
   shouldSyncFromHomeOnFallback: boolean;
@@ -65,8 +71,12 @@ function DAppAccountListInitFromKeylessProvider({
   const [, setSyncLoading] = useAccountSelectorSyncLoadingAtom();
   const actions = useAccountSelectorActions();
   const availableNetworks = useAccountSelectorAvailableNetworks({ num });
-  const availableNetworksRef = useRef(availableNetworks);
-  availableNetworksRef.current = availableNetworks;
+  const availableNetworksRef = useRef(
+    initialAvailableNetworks || availableNetworks,
+  );
+  availableNetworksRef.current = availableNetworks.networkIds?.length
+    ? availableNetworks
+    : initialAvailableNetworks || availableNetworks;
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +111,7 @@ function DAppAccountListInitFromKeylessProvider({
               sceneNum: 0,
             },
             num,
+            targetSceneName: EAccountSelectorSceneName.discover,
             withNetworkSync: true,
             availableNetworks: availableNetworksRef.current,
           });
@@ -170,9 +181,11 @@ function DAppAccountListInitFromKeylessProvider({
 }
 
 function DAppAccountListInitFromHome({
+  initialAvailableNetworks,
   num,
   shouldSyncFromHome,
 }: {
+  initialAvailableNetworks?: IAccountSelectorAvailableNetworks;
   num: number;
   shouldSyncFromHome: boolean;
 }) {
@@ -182,8 +195,12 @@ function DAppAccountListInitFromHome({
   const availableNetworks = useAccountSelectorAvailableNetworks({
     num,
   });
-  const availableNetworksRef = useRef(availableNetworks);
-  availableNetworksRef.current = availableNetworks;
+  const availableNetworksRef = useRef(
+    initialAvailableNetworks || availableNetworks,
+  );
+  availableNetworksRef.current = availableNetworks.networkIds?.length
+    ? availableNetworks
+    : initialAvailableNetworks || availableNetworks;
 
   useEffect(() => {
     void (async () => {
@@ -206,6 +223,7 @@ function DAppAccountListInitFromHome({
               sceneNum: 0,
             },
             num, // TODO multiple account selector of wallet connect
+            targetSceneName: EAccountSelectorSceneName.discover,
             withNetworkSync: true,
             availableNetworks: availableNetworksRef.current,
           });
@@ -252,6 +270,7 @@ const getLoadingDuration = ({
 };
 
 function DAppAccountListItem({
+  availableNetworks,
   num,
   handleAccountChanged,
   readonly,
@@ -267,6 +286,7 @@ function DAppAccountListItem({
   // switch handlers additionally run checkIsWalletNotBackedUp as a hard gate.
   hideNonBackedUpWallet = true,
 }: {
+  availableNetworks?: IAccountSelectorAvailableNetworks;
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
@@ -323,12 +343,14 @@ function DAppAccountListItem({
       </YGroup>
       {shouldPreselectKeyless && preselectKeylessProvider ? (
         <DAppAccountListInitFromKeylessProvider
+          initialAvailableNetworks={availableNetworks}
           num={num}
           provider={preselectKeylessProvider}
           shouldSyncFromHomeOnFallback={shouldSyncFromHome}
         />
       ) : (
         <DAppAccountListInitFromHome
+          initialAvailableNetworks={availableNetworks}
           num={num}
           shouldSyncFromHome={shouldSyncFromHome}
         />
@@ -419,6 +441,7 @@ function DAppAccountListStandAloneItem({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
       isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+      walletConnectTopic: $sourceInfo.walletConnectTopic,
     });
     if (
       Array.isArray(accountsInfo) &&
@@ -436,6 +459,7 @@ function DAppAccountListStandAloneItem({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
       isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+      walletConnectTopic: $sourceInfo.walletConnectTopic,
     });
 
     return {
@@ -447,6 +471,7 @@ function DAppAccountListStandAloneItem({
     $sourceInfo?.origin,
     $sourceInfo?.scope,
     $sourceInfo?.isWalletConnectRequest,
+    $sourceInfo?.walletConnectTopic,
     serviceDApp,
     serviceNetwork,
   ]);
@@ -466,6 +491,26 @@ function DAppAccountListStandAloneItem({
 
   const accountSelectorNum = result?.accountSelectorNum;
   const networkIds = result?.networkIds;
+  const accountSelectorConfig = useMemo(
+    () => ({
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl: $sourceInfo?.walletConnectTopic
+        ? accountSelectorUtils.buildWalletConnectSceneUrl({
+            topic: $sourceInfo.walletConnectTopic,
+          })
+        : $sourceInfo?.origin,
+    }),
+    [$sourceInfo?.origin, $sourceInfo?.walletConnectTopic],
+  );
+  const availableNetworksMap = useMemo(
+    () =>
+      typeof accountSelectorNum === 'number' && Array.isArray(networkIds)
+        ? {
+            [accountSelectorNum]: { networkIds },
+          }
+        : undefined,
+    [accountSelectorNum, networkIds],
+  );
   const canRenderAccountCard =
     typeof accountSelectorNum === 'number' && Array.isArray(networkIds);
   // result is undefined only while the accountSelectorNum lookup is in flight
@@ -508,17 +553,13 @@ function DAppAccountListStandAloneItem({
             {...(isCardVisible ? {} : { top: 0, left: 0, right: 0 })}
           >
             <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: $sourceInfo?.origin,
-                // networks: scopeNetworks,
-              }}
+              config={accountSelectorConfig}
               enabledNum={[accountSelectorNum]}
-              availableNetworksMap={{
-                [accountSelectorNum]: { networkIds },
-              }}
+              perfDebugName="dapp-connection-modal"
+              availableNetworksMap={availableNetworksMap}
             >
               <DAppAccountListItem
+                availableNetworks={availableNetworksMap?.[accountSelectorNum]}
                 initFromHome={!result?.existConnectedAccount}
                 num={accountSelectorNum}
                 handleAccountChanged={handleAccountChangedWithReady}
@@ -685,6 +726,7 @@ function WalletConnectAccountTriggerList({
             {sessionAccountsInfo.map((i) => (
               <Stack key={i.accountSelectorNum}>
                 <DAppAccountListItem
+                  availableNetworks={availableNetworksMap[i.accountSelectorNum]}
                   initFromHome
                   num={i.accountSelectorNum}
                   handleAccountChanged={handleAccountChanged}

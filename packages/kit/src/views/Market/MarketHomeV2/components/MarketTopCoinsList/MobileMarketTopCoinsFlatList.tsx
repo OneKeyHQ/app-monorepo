@@ -8,11 +8,16 @@ import {
   Tabs,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { buildTopCoinMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { TokenListItem } from '../MarketTokenList/components/TokenListItem';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
@@ -98,6 +103,35 @@ function MobileMarketTopCoinsFlatListBase({
       </Stack>
     );
   }, [intl, showSkeleton]);
+
+  const handleWebPressIn = useCallback((item: IMarketAssetListItem) => {
+    const token = toMobileMarketToken(item);
+    void preloadMarketDetailV2Page({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: Boolean(resolveMarketStockId(token)),
+      layout: 'mobile',
+    });
+    prewarmMarketTokenImages(token);
+  }, []);
+  const handleWebItemPress = useCallback(
+    (item: IMarketAssetListItem) => {
+      if (!shouldSuppressItemPress?.()) void handleItemPress(item);
+    },
+    [handleItemPress, shouldSuppressItemPress],
+  );
+  if (!platformEnv.isNative) {
+    return (
+      <WebMarketCompactList<IMarketAssetListItem>
+        data={showSkeleton ? EMPTY_DATA : data}
+        buildRow={buildTopCoinMarketRow}
+        onPress={handleWebItemPress}
+        onPressIn={handleWebPressIn}
+        empty={ListEmptyComponent}
+        contentPaddingBottom={tabBarHeight}
+      />
+    );
+  }
 
   return (
     <Tabs.FlatList<IMarketAssetListItem>

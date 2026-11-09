@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList } from 'react-native';
@@ -12,10 +12,13 @@ import { MobileMarketStockListItem } from '../MarketHomeV2/components/MarketStoc
 import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
-import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import {
+  BannerDetailListColumnHeader,
+  resolveBannerDetailColumnMode,
+} from './BannerDetailListColumnHeader';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
-import type { FlatListProps } from 'react-native';
+import type { FlatListProps, LayoutChangeEvent } from 'react-native';
 
 type IBannerDetailStockFlatListProps = {
   items: IMarketStockPublicItem[];
@@ -37,6 +40,11 @@ export function BannerDetailStockFlatList({
 }: IBannerDetailStockFlatListProps) {
   const intl = useIntl();
   const tabBarHeight = useTabBarHeight();
+  const [listWidth, setListWidth] = useState(0);
+  const columnMode = resolveBannerDetailColumnMode(listWidth);
+  const onListLayout = useCallback((event: LayoutChangeEvent) => {
+    setListWidth(event.nativeEvent.layout.width);
+  }, []);
 
   const sortedItems = useMemo(
     () =>
@@ -51,9 +59,13 @@ export function BannerDetailStockFlatList({
   const renderItem: FlatListProps<IMarketStockPublicItem>['renderItem'] =
     useCallback(
       ({ item }) => (
-        <MobileMarketStockListItem item={item} onPress={onItemPress} />
+        <MobileMarketStockListItem
+          item={item}
+          onPress={onItemPress}
+          bannerColumnMode={columnMode}
+        />
       ),
-      [onItemPress],
+      [columnMode, onItemPress],
     );
 
   const keyExtractor = useCallback(
@@ -75,7 +87,7 @@ export function BannerDetailStockFlatList({
   }, [intl, isLoading]);
 
   return (
-    <Stack flex={1}>
+    <Stack flex={1} onLayout={onListLayout}>
       <BannerDetailListColumnHeader
         // Same label as the mobile home lists: the row's second line is the
         // company name and the volume.
@@ -89,9 +101,10 @@ export function BannerDetailStockFlatList({
           id: ETranslations.market_stock_change__title,
         })}
         onChangeSortPress={onChangeSortPress}
+        columnMode={columnMode}
       />
       {isLoading && sortedItems.length === 0 ? (
-        <TokenListSkeleton count={15} />
+        <TokenListSkeleton count={15} bannerColumnMode={columnMode} />
       ) : (
         <FlatList<IMarketStockPublicItem>
           style={{ flex: 1 }}
@@ -102,7 +115,7 @@ export function BannerDetailStockFlatList({
           initialNumToRender={15}
           maxToRenderPerBatch={20}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
-          ListEmptyComponent={emptyComponent}
+          ListEmptyComponent={emptyComponent ?? undefined}
         />
       )}
     </Stack>

@@ -1,13 +1,99 @@
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+
 import {
   ESwapProAccountStatus,
   ESwapProErrorAlertAction,
   buildSwapProAccountScope,
   getSwapProAccountForCurrentScope,
+  getSwapProDepositAccountInfo,
   getSwapProErrorAlertAction,
+  getSwapProPositionsAccountScope,
   resolveSwapProAccountIdentity,
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
 } from './swapProAccountUtils';
+
+describe('Swap Pro deposit identity', () => {
+  const activeAccount = {
+    account: { id: 'account-a' },
+    dbAccount: { id: 'account-a' },
+    indexedAccount: { id: 'indexed-a' },
+    wallet: { id: 'hw-a', type: 'hw' },
+  } as unknown as IAccountSelectorActiveAccountInfo;
+  const networkAccount = { id: 'account-a-bnb' } as INetworkAccount;
+  const inputs = {
+    activeAccount,
+    networkAccount,
+    indexedAccountId: 'indexed-a',
+    accountId: undefined,
+    selectedWalletId: 'hw-a',
+  };
+
+  it('keeps wallet and indexed metadata with the matched network account', () => {
+    expect(getSwapProDepositAccountInfo(inputs)).toEqual({
+      ...activeAccount,
+      account: networkAccount,
+      dbAccount: undefined,
+    });
+  });
+
+  it('waits for Pro network resolution even when active metadata matches', () => {
+    expect(
+      getSwapProDepositAccountInfo({ ...inputs, networkAccount: undefined }),
+    ).toBeUndefined();
+  });
+
+  it('rejects account B with metadata still belonging to account A', () => {
+    expect(
+      getSwapProDepositAccountInfo({
+        ...inputs,
+        indexedAccountId: 'indexed-b',
+        networkAccount: { id: 'account-b-bnb' } as INetworkAccount,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('requires wallet metadata and rejects a different selected wallet', () => {
+    expect(
+      getSwapProDepositAccountInfo({
+        ...inputs,
+        activeAccount: { ...activeAccount, wallet: undefined },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapProDepositAccountInfo({ ...inputs, selectedWalletId: 'hw-b' }),
+    ).toBeUndefined();
+  });
+
+  it('retains the wallet for a network-only selection using the current identity', () => {
+    expect(
+      getSwapProDepositAccountInfo({ ...inputs, selectedWalletId: undefined })
+        ?.wallet,
+    ).toBe(activeAccount.wallet);
+  });
+
+  it('matches singleton accounts and removes unrelated indexed metadata', () => {
+    expect(
+      getSwapProDepositAccountInfo({
+        ...inputs,
+        indexedAccountId: undefined,
+        accountId: 'account-a',
+      }),
+    ).toEqual({
+      ...activeAccount,
+      account: networkAccount,
+      indexedAccount: undefined,
+    });
+    expect(
+      getSwapProDepositAccountInfo({
+        ...inputs,
+        indexedAccountId: undefined,
+        accountId: 'account-b',
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('Swap Pro account state', () => {
   const accountScope = buildSwapProAccountScope({
@@ -300,5 +386,60 @@ describe('shouldSyncSwapProAccountNetwork', () => {
         isSingletonAccountCompatible: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe('positions account scope', () => {
+  const activeAccount = {
+    ready: true,
+    deriveType: 'default',
+    indexedAccount: { id: 'indexed-a' },
+    network: { id: 'evm--1' },
+    account: { id: 'account-a', address: 'address-a' },
+  };
+  const inputs = {
+    indexedAccountId: 'indexed-a',
+    activeAccount,
+    selectedDeriveType: 'default',
+  };
+  it('changes scope when the same indexed account changes its address or derive type', () => {
+    const original = getSwapProPositionsAccountScope(inputs);
+    expect(original).toBeDefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        activeAccount: {
+          ...activeAccount,
+          account: { ...activeAccount.account, address: 'address-b' },
+        },
+      }),
+    ).not.toBe(original);
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        selectedDeriveType: 'ledgerLive',
+        activeAccount: { ...activeAccount, deriveType: 'ledgerLive' },
+      }),
+    ).not.toBe(original);
+  });
+  it('waits for the selected account and derive type to synchronize', () => {
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        indexedAccountId: 'indexed-b',
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        selectedDeriveType: 'ledgerLive',
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        activeAccount: { ...activeAccount, ready: false },
+      }),
+    ).toBeUndefined();
   });
 });

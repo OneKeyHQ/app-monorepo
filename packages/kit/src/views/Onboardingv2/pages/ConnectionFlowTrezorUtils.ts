@@ -27,11 +27,13 @@ export function getTrezorSearchTransportType(
 }
 
 export function shouldRequestTrezorWebUsbPermissionBeforeListing({
-  isDesktop: _isDesktop,
+  isDesktop,
   isExtension,
+  isWeb,
 }: {
   isDesktop: boolean;
   isExtension: boolean;
+  isWeb: boolean;
 }) {
-  return isExtension;
+  return isExtension || (isWeb && !isDesktop);
 }

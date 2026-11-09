@@ -35,6 +35,7 @@ import {
   EChainSelectorPages as EChainSelectorPagesEnum,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
@@ -48,6 +49,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
 import { ChainSelectorTestIDs } from '../../testIDs';
+import {
+  buildRecentNetworksSwrKey,
+  prependRecentNetworkToSwrCache,
+} from '../recentNetworksCache';
 import { TabSwitcher } from '../UnifiedNetworkSelector/TabSwitcher';
 
 import { NetworkContentV2 } from './NetworkContentV2';
@@ -57,7 +62,7 @@ import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
@@ -198,8 +203,8 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
-  const portfolioWebSectionIndexContainerRef = useRef<View>(null);
-  const networkWebSectionIndexContainerRef = useRef<View>(null);
+  const portfolioWebSectionIndexContainerRef = useRef<ViewInstance>(null);
+  const networkWebSectionIndexContainerRef = useRef<ViewInstance>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);
@@ -437,6 +442,19 @@ function UnifiedNetworkSelectorV2() {
     };
   }, [refreshNetworkMeta]);
 
+  // The slot the network tab's RecentNetworks chips paint from
+  // (NetworkContentV2 renders them with the All Networks chip enabled).
+  const recentNetworksSwrKey = useMemo(
+    () =>
+      buildRecentNetworksSwrKey({
+        scope: EAppSWRCacheScopes.editableChainSelector,
+        showAllNetwork: true,
+        walletId,
+        accountId,
+      }),
+    [accountId, walletId],
+  );
+
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
     async (item: IServerNetwork) => {
@@ -450,6 +468,13 @@ function UnifiedNetworkSelectorV2() {
       if (recordNetworkHistoryEnabled && activeNetwork) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
+        });
+        // The chips here never list All Networks (NetworkContentV2 hands
+        // them mainnet/testnet items only), so leaving it writes nothing.
+        prependRecentNetworkToSwrCache({
+          swrKey: recentNetworksSwrKey,
+          network: activeNetwork,
+          includeAllNetwork: false,
         });
       }
 
@@ -466,7 +491,14 @@ function UnifiedNetworkSelectorV2() {
         resetChainSelectorModal();
       }
     },
-    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
+    [
+      actions,
+      num,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      recentNetworksSwrKey,
+      sceneName,
+    ],
   );
 
   const handleAddCustomNetwork = useCallback(() => {
@@ -590,7 +622,9 @@ function UnifiedNetworkSelectorV2() {
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
 
-      // 4. Switch to All Networks if not already on it
+      // 4. Switch to All Networks if not already on it. Recorded in the DB
+      // only: this selector's recent chips never list All Networks, so the
+      // SWR slot is left as the fetch will return it.
       if (!networkUtils.isAllNetwork({ networkId })) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: getNetworkIdsMap().onekeyall,

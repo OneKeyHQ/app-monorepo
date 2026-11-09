@@ -285,7 +285,7 @@ const DesktopWebView = forwardRef(
         const innerHandleDidStartNavigationNavigation = (
           event: DidStartNavigationEvent,
         ) => {
-          const { isMainFrame, url } = event ?? {};
+          const { isMainFrame, isInPlace, url } = event ?? {};
           if (isMainFrame && onShouldStartLoadWithRequest && url) {
             const shouldLoad = onShouldStartLoadWithRequest({
               url,
@@ -296,7 +296,8 @@ const DesktopWebView = forwardRef(
               return;
             }
           }
-          if (isMainFrame) {
+          // In-page navigation keeps the current document and emits no new dom-ready.
+          if (isMainFrame && !isInPlace) {
             lastMainFrameLoadErrorRef.current = undefined;
             setDesktopLoadError(false);
             setDesktopLoadErrorCode(undefined);

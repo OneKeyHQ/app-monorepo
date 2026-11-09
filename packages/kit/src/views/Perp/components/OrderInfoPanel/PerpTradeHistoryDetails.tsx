@@ -23,14 +23,17 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -51,6 +54,7 @@ import {
   getTradeFillClosePnlBN,
   getTradeFillDisplayInfo,
   getTradeFillExtraRows,
+  getTradeHistoryPairName,
 } from './Components/tradeFillDisplay';
 import { getFillDirectionDisplayInfo } from './utils';
 
@@ -74,41 +78,57 @@ function TradeHistoryDetails() {
   const [switchingAsset, setSwitchingAsset] = useState(false);
   const { copyText } = useClipboard();
   const {
-    params: { fill, builderFeeRate },
+    params: { fill, builderFeeRate, pairName: routePairName },
   } =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradeHistoryDetails>
     >();
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
+  const [spotPairDisplayMap] = useSpotPairDisplayNameMapAtom();
   const shareTrade = useShareTradeHistory();
   const assetSymbol = isSpotInstrument(fill.coin)
     ? spotDisplayMap[fill.coin] ||
       getSpotTokenDisplayName(fill.coin.split('/')[0])
     : parseDexCoin(fill.coin).displayName;
   const isSpot = isSpotInstrument(fill.coin);
-  const { result: pair } = usePromiseResult(async () => {
-    if (isSpot) {
-      const { universes } =
-        await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-      const universe = universes.find((item) => item.name === fill.coin);
+  const initialPairName =
+    routePairName ||
+    getTradeHistoryPairName({ coin: fill.coin, spotPairDisplayMap });
+  const { result: pair } = usePromiseResult(
+    async () => {
+      if (initialPairName) {
+        return { coin: fill.coin, name: initialPairName };
+      }
+      if (isSpot) {
+        const { universes } =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        const universe = universes.find((item) => item.name === fill.coin);
+        return {
+          coin: fill.coin,
+          name: universe
+            ? formatSpotPairDisplayName(universe.baseName, universe.quoteName)
+            : fill.coin,
+        };
+      }
+      const tokens =
+        await backgroundApiProxy.serviceHyperliquid.getFundingHistoryPaymentTokens(
+          { coins: [fill.coin] },
+        );
       return {
         coin: fill.coin,
-        name: universe
-          ? formatSpotPairDisplayName(universe.baseName, universe.quoteName)
-          : fill.coin,
+        name: getTradeHistoryPairName({
+          coin: fill.coin,
+          paymentTokens: tokens,
+        }),
       };
-    }
-    const tokens =
-      await backgroundApiProxy.serviceHyperliquid.getFundingHistoryPaymentTokens(
-        { coins: [fill.coin] },
-      );
-    const quote = tokens[fill.coin];
-    return {
-      coin: fill.coin,
-      name: quote ? `${assetSymbol}/${quote}` : assetSymbol,
-    };
-  }, [assetSymbol, fill.coin, isSpot]);
-  const pairName = pair?.coin === fill.coin ? pair.name : assetSymbol;
+    },
+    [initialPairName, fill.coin, isSpot],
+    { undefinedResultIfError: true },
+  );
+  const pairName =
+    initialPairName ||
+    (pair?.coin === fill.coin ? pair.name : undefined) ||
+    assetSymbol;
   const direction = getFillDirectionDisplayInfo({ fill, intl });
   const directionText = fill.liquidation
     ? `${intl.formatMessage({
@@ -167,9 +187,7 @@ function TradeHistoryDetails() {
   const rows = [
     {
       label: ETranslations.perp_open_orders_time,
-      value: formatTime(new Date(fill.time), {
-        formatTemplate: 'yyyy-LL-dd HH:mm:ss',
-      }),
+      value: formatDate(new Date(fill.time)),
     },
     {
       label: ETranslations.perp_trades_history_price,

@@ -55,8 +55,10 @@ export interface IEstimateLiquidationPriceParams {
   side: 'long' | 'short';
   orderSize: BigNumber;
   priceMode: IPerpsLiquidationPriceMode;
-  // Limit price; market orders are priced at mark.
+  // Limit price used as the liquidation reference.
   orderPrice?: BigNumber;
+  // Optional execution boundary for resulting-position notional only.
+  estimatedClearingPrice?: BigNumber;
   markPrice: BigNumber;
   reduceOnly?: boolean;
   marginMode: 'cross' | 'isolated';
@@ -521,6 +523,22 @@ function formatHlSize(size: BigNumber.Value, szDecimals: number): string {
   if (!bn.isFinite() || bn.lte(0)) return '';
   const out = _truncateToDecimals(bn.toFixed(), Math.max(0, szDecimals));
   return out === '0' ? '' : out;
+}
+
+function getMinimumOrderSize({
+  price,
+  szDecimals,
+  minimumNotional,
+}: {
+  price: BigNumber.Value;
+  szDecimals: number;
+  minimumNotional: number;
+}): BigNumber | undefined {
+  const priceBN = new BigNumber(price);
+  if (!priceBN.isFinite() || priceBN.lte(0)) return undefined;
+  return new BigNumber(minimumNotional)
+    .dividedBy(priceBN)
+    .decimalPlaces(szDecimals, BigNumber.ROUND_CEIL);
 }
 
 function getValidPerpsPrice(price?: string | null): string | undefined {
@@ -1156,8 +1174,8 @@ function solveLiquidationPrice({
 
 /**
  * Pre-trade liquidation price, following Hyperliquid's order ticket estimate:
- * the resulting position is priced at mark (or a resting limit price) with
- * equity measured at mark, so the entry price never enters the formula.
+ * equity uses the reference price, while an optional execution boundary prices
+ * the resulting-position notional. Existing callers keep reference-price notional.
  */
 function estimateLiquidationPrice(
   params: IEstimateLiquidationPriceParams,
@@ -1167,6 +1185,7 @@ function estimateLiquidationPrice(
     orderSize,
     priceMode,
     orderPrice,
+    estimatedClearingPrice,
     markPrice,
     reduceOnly = false,
     marginMode,
@@ -1210,7 +1229,9 @@ function estimateLiquidationPrice(
   }
   const safeLeverage = leverage > 0 ? leverage : maxLeverage;
   const tiers = resolveMarginTiers(marginTiers, maxLeverage);
-  const notional = price.multipliedBy(resultingSize.abs());
+  const notionalPrice = estimatedClearingPrice ?? price;
+  if (!notionalPrice.isFinite() || notionalPrice.lte(0)) return null;
+  const notional = notionalPrice.multipliedBy(resultingSize.abs());
 
   if (marginMode === 'isolated') {
     const hasExistingPosition = !existingPositionSize.isZero();
@@ -2487,6 +2508,7 @@ export {
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
+  getMinimumOrderSize,
   formatHlPrice,
   getHlPriceTick,
   snapHlPriceToGrid,
@@ -2558,6 +2580,7 @@ export default {
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatHlSize,
+  getMinimumOrderSize,
   formatHlPrice,
   getHlPriceTick,
   snapHlPriceToGrid,

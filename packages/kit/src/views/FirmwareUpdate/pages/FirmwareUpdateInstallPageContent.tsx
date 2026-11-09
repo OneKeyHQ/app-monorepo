@@ -78,6 +78,7 @@ async function recheckFirmwareRelease(
   const transport =
     await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
       connectId: result.originalConnectId,
+      features: platformEnv.isDesktop ? result.features : undefined,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
   const firmware = result.updateInfos.firmware;
@@ -249,7 +250,6 @@ export function FirmwareUpdateInstallPageContent({
     if (!retryInfo) {
       return;
     }
-    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
     setStepInfo({
       step: EFirmwareUpdateSteps.updateStart,
       payload: {

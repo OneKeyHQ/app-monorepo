@@ -27,6 +27,7 @@ import {
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
+import { MarketDetailWatchlistSidebarToggle } from '../WatchlistSidebar/MarketDetailWatchlistSidebarContext';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 import { ShareButton } from './ShareButton';
@@ -239,10 +240,13 @@ export function TokenDetailHeaderLeft({
   if (isTrendingDesktop) {
     return (
       <XStack ai="center" flex={1} gap="$5" minWidth={0}>
-        <MarketTokenSelector
-          defaultCategory="trending"
-          renderTrigger={trendingSelectorTrigger}
-        />
+        <XStack ai="center" gap="$3.5" minWidth={0} flexShrink={1}>
+          <MarketDetailWatchlistSidebarToggle />
+          <MarketTokenSelector
+            defaultCategory="trending"
+            renderTrigger={trendingSelectorTrigger}
+          />
+        </XStack>
 
         <XStack flex={1} minWidth={0} ai="center" gap="$2" py="$0.5">
           {/* Tokenized stocks reach this branch through the DEX token path, so
@@ -323,13 +327,16 @@ export function TokenDetailHeaderLeft({
         ) : (
           <>
             {desktopRedesign ? null : marketStar}
-            <MarketTokenSelector
-              variant={desktopRedesign ? 'large' : 'default'}
-              showName={desktopDetailVariant === 'topCoins'}
-              defaultCategory={
-                desktopDetailVariant === 'topCoins' ? 'top_coins' : 'trending'
-              }
-            />
+            <XStack ai="center" gap="$3.5" minWidth={0} flexShrink={1}>
+              <MarketDetailWatchlistSidebarToggle />
+              <MarketTokenSelector
+                variant={desktopRedesign ? 'large' : 'default'}
+                showName={desktopDetailVariant === 'topCoins'}
+                defaultCategory={
+                  desktopDetailVariant === 'topCoins' ? 'top_coins' : 'trending'
+                }
+              />
+            </XStack>
           </>
         )}
 

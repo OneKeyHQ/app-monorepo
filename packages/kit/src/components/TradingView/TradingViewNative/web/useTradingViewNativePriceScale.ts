@@ -60,7 +60,9 @@ export function useTradingViewNativePriceScale({
 }) {
   const pointerDragStateRef = useRef<IPriceAxisPointerDragState | null>(null);
   const isHoveredRef = useRef(false);
-  const [isAutoScale, setIsAutoScale] = useState(true);
+  const [isAutoScale, setIsAutoScale] = useState(
+    () => modelRef.current.pinnedPriceRange === null,
+  );
   const [isHovered, setIsHovered] = useState(false);
   const [mode, setMode] = useState<ITradingViewNativePriceScaleMode>(
     modelRef.current.mode,
@@ -233,7 +235,16 @@ export function useTradingViewNativePriceScale({
     [],
   );
 
+  const handlePriceRangePan = useCallback(
+    (priceRange: ITradingViewNativePriceRange) => {
+      modelRef.current.pinnedPriceRange = priceRange;
+      setIsAutoScale(false);
+    },
+    [modelRef],
+  );
+
   return {
+    handlePriceRangePan,
     finishPointerDrag,
     handleAutoScalePress,
     handleDoubleClick,

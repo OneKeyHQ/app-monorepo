@@ -21,6 +21,7 @@ export interface ITabPageHeaderProp {
   customToolbarItems?: ReactNode;
   hideSearch?: boolean;
   hideHeaderLeft?: boolean;
+  disableHomeHeaderGlass?: boolean;
   headerPx?: string;
   pageScrollPosition?: SharedValue<number>;
 }

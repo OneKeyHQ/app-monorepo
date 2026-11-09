@@ -15,11 +15,7 @@ import {
   type IWebViewPageParams,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import {
-  isAllowedAppClipCampaignEntryUrl,
-  isAllowedAppClipCampaignNavigationUrl,
-  isAllowedWebViewUrl,
-} from '@onekeyhq/shared/src/utils/webViewUrlSafety';
+import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 
 import AddressBar from '../components/AddressBar';
 import WebViewHeader from '../components/Header';
@@ -53,13 +49,7 @@ function WebViewPageContent() {
   // directly without going through `openWebView()` — without it, the address
   // bar would briefly display the unsafe URL before onShouldStartLoadWithRequest
   // blocks the actual load.
-  const initialUrl = (
-    params.appClipCampaign
-      ? isAllowedAppClipCampaignEntryUrl(params.url)
-      : isAllowedWebViewUrl(params.url)
-  )
-    ? params.url
-    : '';
+  const initialUrl = isAllowedWebViewUrl(params.url) ? params.url : '';
 
   const { webviewRef, setWebViewRef } = useWebViewBridge();
 
@@ -322,11 +312,9 @@ function WebViewPageContent() {
   const onShouldStartLoadWithRequest = useCallback(
     (event: ShouldStartLoadRequest): boolean => {
       if (event?.isTopFrame === false) return true;
-      return params.appClipCampaign
-        ? isAllowedAppClipCampaignNavigationUrl(event?.url)
-        : isAllowedWebViewUrl(event?.url);
+      return isAllowedWebViewUrl(event?.url);
     },
-    [params.appClipCampaign],
+    [],
   );
 
   // Popup safety guard. `onShouldStartLoadWithRequest` only fires for the
@@ -338,17 +326,12 @@ function WebViewPageContent() {
   // `window.open('https://127.0.0.1/')` and escape the policy. We run the
   // same `isAllowedWebViewUrl` here and route allowed popups to the system
   // browser (matching normal `_blank` semantics).
-  const onOpenWindow = useCallback(
-    (event: WebViewOpenWindowEvent) => {
-      const targetUrl = event?.nativeEvent?.targetUrl;
-      const isAllowed = params.appClipCampaign
-        ? isAllowedAppClipCampaignNavigationUrl(targetUrl)
-        : isAllowedWebViewUrl(targetUrl);
-      if (!isAllowed) return;
-      openUrlExternal(targetUrl, { useSystemBrowser: true });
-    },
-    [params.appClipCampaign],
-  );
+  const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
+    const targetUrl = event?.nativeEvent?.targetUrl;
+    const isAllowed = isAllowedWebViewUrl(targetUrl);
+    if (!isAllowed) return;
+    openUrlExternal(targetUrl, { useSystemBrowser: true });
+  }, []);
 
   // External entries (deeplink / notification) cannot suppress the header,
   // pass a caller-supplied title, or hide the address bar — those params are
@@ -406,7 +389,6 @@ function WebViewPageContent() {
         <ProgressBar progress={progress} />
         <WebView
           src={initialUrl}
-          disableBridge={params.appClipCampaign}
           onWebViewRef={onWebViewRef}
           onProgress={setProgress}
           onNavigationStateChange={onNavigationStateChange}

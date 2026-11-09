@@ -1,6 +1,23 @@
 // Shared by the stock and Top Coins detail charts so the two toolbars cannot
 // drift apart: a resizable chart block, then a 40px toolbar row under it.
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import type { IStockSimpleChartRange } from '../../components/StockSimpleChart';
+
+export const MARKET_SIMPLE_CHART_RANGE_LABEL_IDS: Record<
+  IStockSimpleChartRange,
+  ETranslations
+> = {
+  '1H': ETranslations.market_1h,
+  '1D': ETranslations.market_1d,
+  '1W': ETranslations.market_1w,
+  '1M': ETranslations.market_1m,
+  '1Y': ETranslations.market_1y,
+  '5Y': ETranslations.market_5y,
+  All: ETranslations.global_all,
+};
+
 // Pro's remaining overlay controls (chart type, fullscreen) sit on the
 // TradingView widget's own interval row, inset 4px from the top of the chart
 // block so they land on the widget's line.

@@ -768,7 +768,7 @@ const AddPositionForm = memo(
             disabled={isSubmitting || !isTargetAssetReady}
             segments={4}
             snapTapToSegment
-            showBubble={false}
+            showBubble
             sliderHeight={4}
           />
           <YStack gap="$2">

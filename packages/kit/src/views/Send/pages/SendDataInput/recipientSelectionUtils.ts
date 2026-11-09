@@ -1,4 +1,5 @@
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
@@ -50,20 +51,68 @@ export function getSendAddressRiskCheckButtonState({
   currentNetworkId,
   supportNetworkId,
   isSupported,
-  isPrimeUser,
+  canRunCheck,
   resolvedAddress,
   isPending,
 }: {
   currentNetworkId: string;
   supportNetworkId: string;
   isSupported: boolean;
-  isPrimeUser: boolean;
+  // Prime, a logged-in free user with the feature open (uses left or not), or
+  // a logged-out user who logs in on the press: the press checks the address.
+  // Otherwise the press opens the dashboard and the button stays enabled.
+  canRunCheck: boolean;
   resolvedAddress?: string;
   isPending?: boolean;
 }) {
   if (supportNetworkId !== currentNetworkId) return 'loading';
   if (!isSupported) return 'hidden';
-  if (!isPrimeUser) return 'enabled';
+  if (!canRunCheck) return 'enabled';
   if (!resolvedAddress?.trim() || isPending) return 'disabled';
   return 'enabled';
+}
+
+type ILocalWalletAddressFormEntry = {
+  account: { id: string };
+  deriveType?: string;
+  addressForm?: { labelId: ETranslations; address?: string };
+};
+
+// Each account as its public entry, plus a private entry when its private
+// address may be handed out (Zcash). The form names stand in for derive types.
+export function splitLocalWalletAddressForms<
+  TItem extends ILocalWalletAddressFormEntry,
+  TGroup extends { accounts: TItem[] },
+>({
+  groups,
+  privateAddresses,
+  publicLabel,
+  privateLabel,
+}: {
+  groups: TGroup[];
+  privateAddresses: Record<string, string>;
+  publicLabel: ETranslations;
+  privateLabel: ETranslations;
+}): TGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    accounts: group.accounts.flatMap((item): TItem[] => {
+      const entries: TItem[] = [
+        {
+          ...item,
+          deriveType: 'public',
+          addressForm: { labelId: publicLabel },
+        },
+      ];
+      const privateAddress = privateAddresses[item.account.id];
+      if (privateAddress) {
+        entries.push({
+          ...item,
+          deriveType: 'private',
+          addressForm: { labelId: privateLabel, address: privateAddress },
+        });
+      }
+      return entries;
+    }),
+  }));
 }

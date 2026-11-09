@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
@@ -19,29 +20,24 @@ import {
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
+  hasUnsafeUrlChars,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EModalRoutes,
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isAllowedAppClipCampaignEntryUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -51,7 +47,6 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../../views/Market/marketUtils';
-import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
@@ -105,6 +100,22 @@ async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
   await redeemBitcoinVoucherOpenTask;
 }
 
+async function openPrimeInfiniSubscriptionFromDeepLink({
+  navigation,
+}: {
+  navigation: NonNullable<typeof appGlobals.$rootAppNavigation>;
+}) {
+  await whenAppUnlocked();
+  const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
+  // Logged-out users land on the dashboard, which continues to Infini after login.
+  navigation.pushModal(
+    EModalRoutes.PrimeModal,
+    isLoggedIn
+      ? { screen: EPrimePages.PrimeInfiniSubscription }
+      : { screen: EPrimePages.PrimeDashboard, params: { fromDeepLink: true } },
+  );
+}
+
 function getOneKeyDeepLinkPath({ hostname, path, scheme }: Linking.ParsedURL) {
   if (scheme !== ONEKEY_APP_DEEP_LINK && scheme !== ONEKEY_APP_DEEP_LINK_NAME) {
     return undefined;
@@ -122,8 +133,10 @@ async function handleReferralLandingAppDeepLink({
   }
 
   const { queryParams } = parsedUrl;
-  const { code, page } =
+  const query =
     queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invited_by_friend];
+  const code = getStringQueryParam(query?.code);
+  const page = getStringQueryParam(query?.page);
   if (!isValidReferralCode(code)) {
     return true;
   }
@@ -147,7 +160,6 @@ type IOneKeyAppLinkTarget =
       network: string;
       isNative?: boolean;
     }
-  | { type: 'appClipWeb'; url: string }
   | {
       // Earn protocol detail universal link, mirroring the web route
       // /earn/:network/:symbol/:provider?vault= (EarnProtocolDetailsShare)
@@ -176,19 +188,6 @@ const ONEKEY_APP_CLIP_HANDOFF_PATH = 'app-clip';
 // expo-linking returns "swap" while the jest URL polyfill returns "/swap".
 function normalizeAppLinkPath(path?: string | null) {
   return path?.replace(/^\/+|\/+$/gu, '').toLowerCase() ?? '';
-}
-
-function parseAppClipWebUrl(value: unknown): string | undefined {
-  const rawUrl = getStringQueryParam(value);
-  if (!rawUrl || !isAllowedAppClipCampaignEntryUrl(rawUrl)) {
-    return undefined;
-  }
-  try {
-    const url = new URL(rawUrl);
-    return url.toString();
-  } catch {
-    return undefined;
-  }
 }
 
 function parseAppClipMarketTarget(
@@ -262,10 +261,6 @@ function parseOneKeyAppLinkTarget({
   if (normalizedPath === 'clip/market') {
     return parseAppClipMarketTarget(queryParams);
   }
-  if (normalizedPath === 'clip/web' || normalizedPath.startsWith('clip/web/')) {
-    const url = parseAppClipWebUrl(queryParams?.web_url);
-    return url ? { type: 'appClipWeb', url } : undefined;
-  }
   // Earn detail page universal link: /earn/:network/:symbol/:provider?vault=.
   // Cannot use normalizeAppLinkPath (it lowercases): server-side matching of
   // symbol/provider/vault is case-sensitive, so preserve the original casing.
@@ -319,9 +314,7 @@ async function processOneKeyAppUniversalLink(
   if (
     times === 0 &&
     platformEnv.isNativeIOS &&
-    (normalizedPath === 'clip/market' ||
-      normalizedPath === 'clip/web' ||
-      normalizedPath.startsWith('clip/web/'))
+    normalizedPath === 'clip/market'
   ) {
     void reportInstallAttribution().catch(() => undefined);
   }
@@ -362,37 +355,17 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
-    // Mirrors useNavigateToMarketTab: on native the Market tab is hidden and
-    // merged into Discovery, so land on Discovery's market sub tab there;
-    // elsewhere reset the Market tab stack back to TabMarket.
-    if (platformEnv.isNative) {
-      navigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Discovery,
-        params: {
-          screen: ETabDiscoveryRoutes.TabDiscovery,
-          params: {
-            defaultTab: ETranslations.global_market,
-          },
-        },
-      });
-      setTimeout(() => {
-        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-          tab: ETranslations.global_market,
-        });
-      }, 150);
-    } else {
-      navigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.TabMarket,
-        },
-      });
-    }
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.TabMarket,
+      },
+    });
     return true;
   }
   if (target.type === 'marketDetail') {
     navigation.navigate(ERootRoutes.Main, {
-      screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      screen: ETabRoutes.Market,
       params: {
         screen: ETabMarketRoutes.MarketDetailV2,
         params: {
@@ -416,14 +389,6 @@ async function processOneKeyAppUniversalLink(
     });
     return true;
   }
-  if (target.type === 'appClipWeb') {
-    openWebView({
-      appClipCampaign: true,
-      url: target.url,
-      source: 'deeplink',
-    });
-    return true;
-  }
   const perpsTabRoute = await getPerpsAppLinkTabRoute();
   if (perpsTabRoute) {
     // switchTabAsync serializes overlay dismiss and tab switch; the sync
@@ -442,17 +407,17 @@ async function processAppClipHandoff(
     return false;
   }
   const canonicalUrl = getStringQueryParam(params.parsedUrl.queryParams?.url);
-  if (!canonicalUrl || canonicalUrl.length > 4096) {
+  if (
+    !canonicalUrl ||
+    canonicalUrl.length > 4096 ||
+    hasUnsafeUrlChars(canonicalUrl)
+  ) {
     return true;
   }
   try {
     const parsedUrl = Linking.parse(canonicalUrl);
     const normalizedPath = normalizeAppLinkPath(parsedUrl.path);
-    if (
-      normalizedPath !== 'clip/market' &&
-      normalizedPath !== 'clip/web' &&
-      !normalizedPath.startsWith('clip/web/')
-    ) {
+    if (normalizedPath !== 'clip/market') {
       return true;
     }
     if (!parseOneKeyAppLinkTarget(parsedUrl)) {
@@ -482,7 +447,6 @@ async function processDeepLinkUrlAccount(
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
-      console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
       if (!navigation) {
         setTimeout(() => {
@@ -494,12 +458,14 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
-          if (navigation) {
+          const networkId = getStringQueryParam(query?.networkCode)?.trim();
+          const address = getStringQueryParam(query?.address)?.trim();
+          if (navigation && networkId && address) {
             await urlAccountNavigation.pushUrlAccountPageFromDeeplink(
               navigation,
               {
-                networkId: query.networkCode,
-                address: query.address,
+                networkId,
+                address,
               },
             );
           }
@@ -507,9 +473,10 @@ async function processDeepLinkUrlAccount(
         }
         case EOneKeyDeepLinkPath.market_detail:
           {
-            const { coinGeckoId } =
+            const query =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.market_detail];
-            if (navigation) {
+            const coinGeckoId = getStringQueryParam(query?.coinGeckoId)?.trim();
+            if (navigation && coinGeckoId) {
               await marketNavigation.pushDetailPageFromDeeplink(navigation, {
                 coinGeckoId,
               });
@@ -518,8 +485,11 @@ async function processDeepLinkUrlAccount(
           break;
         case EOneKeyDeepLinkPath.invite_share:
           {
-            const { utm_source: utmSource, code } =
+            const query =
               queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
+            const utmSource =
+              getStringQueryParam(query?.utm_source)?.trim() ?? '';
+            const code = getStringQueryParam(query?.code)?.trim() ?? '';
             if (navigation) {
               // Navigate to Tab page instead of modal
               navigation.switchTab(ETabRoutes.ReferFriends);
@@ -552,6 +522,17 @@ async function processDeepLinkUrlAccount(
             await openRedeemBitcoinVoucherDialog(initialCode);
           }
           break;
+        case EOneKeyDeepLinkPath.prime_subscription:
+          await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
+          break;
+        case EOneKeyDeepLinkPath.prime_purchase_complete: {
+          // Return from the hosted card checkout. Only a hint to re-check
+          // RevenueCat; the purchase is never confirmed from the link.
+          const { notifyPrimeWebCheckoutReturned } =
+            await import('../../../views/Prime/hooks/primeHostedCardCheckout');
+          await notifyPrimeWebCheckoutReturned();
+          break;
+        }
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
@@ -594,6 +575,8 @@ async function processDeepLinkWalletConnect({
     const { hostname, path, queryParams, scheme } = parsedUrl;
 
     let wcUri = '';
+    const uriParam = getStringQueryParam(queryParams?.uri)?.trim();
+    const symKeyParam = getStringQueryParam(queryParams?.symKey)?.trim();
     // define deeplink schema at
     //  - packages/web/validation/deeplink.ios.json
     //  - packages/app/app.json
@@ -607,10 +590,8 @@ async function processDeepLinkWalletConnect({
       hostname === universalLinkHost &&
       path === WalletConnectUniversalLinkPath
     ) {
-      if (queryParams?.uri) {
-        wcUri = `${queryParams.uri as string}${
-          queryParams?.symKey ? `&symKey=${queryParams?.symKey as string}` : ''
-        }`;
+      if (uriParam) {
+        wcUri = `${uriParam}${symKeyParam ? `&symKey=${symKeyParam}` : ''}`;
       }
     }
 
@@ -628,12 +609,8 @@ async function processDeepLinkWalletConnect({
         (path === `/${WALLET_CONNECT_DEEP_LINK_NAME}` && !hostname) ||
         (hostname === WALLET_CONNECT_DEEP_LINK_NAME && !path)
       ) {
-        if (queryParams?.uri) {
-          wcUri = `${queryParams.uri as string}${
-            queryParams?.symKey
-              ? `&symKey=${queryParams?.symKey as string}`
-              : ''
-          }`;
+        if (uriParam) {
+          wcUri = `${uriParam}${symKeyParam ? `&symKey=${symKeyParam}` : ''}`;
         }
       }
     }
@@ -655,12 +632,37 @@ async function processDeepLinkWalletConnect({
       // V2
 
       // oxlint-disable-next-line @cspell/spellchecker
-      if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
+      if (getStringQueryParam(queryParams?.['relay-protocol']) && symKeyParam) {
         wcUri = url;
       }
     }
 
-    if (wcUri) {
+    if (wcUri && (wcUri.length > 4096 || hasUnsafeUrlChars(wcUri))) {
+      return;
+    }
+
+    // ** WalletConnect Pay links must be routed to the payment flow BEFORE
+    // pairing; pair() would fail on them. Any scheme can carry a direct
+    // payment link (plain https included), so the raw url is always offered
+    // to the strict isPaymentLink verdict; non-pay links fall through.
+    // Loaded on demand: the pay entry stays off the main startup graph.
+    const payLinkCandidate = wcUri || url;
+    if (payLinkCandidate) {
+      const { handleWalletConnectPayLink } =
+        await import('./walletConnectPayLink');
+      const payResult = await handleWalletConnectPayLink({
+        url,
+        payLinkCandidate,
+      });
+      if (payResult) {
+        return payResult;
+      }
+    }
+
+    if (
+      wcUri &&
+      wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
+    ) {
       await connectWalletConnectToDapp(wcUri);
       return {
         type: 'walletConnect',
@@ -679,29 +681,27 @@ const processDeepLinkUrl = memoizee(
     url: string | undefined,
   ): Promise<IDeepLinkUrlParsedResult | undefined> => {
     // handle deepLink URL
-    if (!url) return;
+    if (
+      !url ||
+      typeof url !== 'string' ||
+      url.length > 4096 ||
+      hasUnsafeUrlChars(url)
+    ) {
+      return;
+    }
 
     try {
       // An open SFSafariViewController would cover any navigation this deep
       // link triggers; close it first (iOS-only, no-op elsewhere).
       dismissNativeInAppBrowser();
-      console.log('processDeepLinkUrl: >>>>> ', url);
-      captureAndReportLoggerUtmParamsFromUrl(url);
+      if (!url.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)) {
+        captureAndReportLoggerUtmParamsFromUrl(url);
+      }
       if (await handleReferralLandingUrl({ url })) {
         return;
       }
 
       const parsedUrl = Linking.parse(url);
-      const { hostname, path, queryParams, scheme } = parsedUrl;
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('processDeepLinkUrl details >>>> ', {
-          url,
-          hostname,
-          path,
-          queryParams,
-          scheme,
-        });
-      }
       if (await handleReferralLandingAppDeepLink({ url, parsedUrl })) {
         return;
       }
@@ -734,6 +734,14 @@ const processDeepLinkUrl = memoizee(
 export const tryHandleOneKeyUniversalLink = async (
   url: string,
 ): Promise<boolean> => {
+  if (
+    !url ||
+    typeof url !== 'string' ||
+    url.length > 4096 ||
+    hasUnsafeUrlChars(url)
+  ) {
+    return false;
+  }
   try {
     const parsedUrl = Linking.parse(url);
     return await processOneKeyAppUniversalLink({ url, parsedUrl });
@@ -743,11 +751,21 @@ export const tryHandleOneKeyUniversalLink = async (
 };
 
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
-  const urls = [data.url, ...(data.argv ?? [])].filter(
-    (item) => !!item && isString(item),
+  // Prefer the validated `data.url` from the main process; only fall back to
+  // `data.argv` if `data.url` is absent, and deduplicate to avoid double execution.
+  const candidates = data.url ? [data.url] : (data.argv ?? []);
+  const urls = Array.from(
+    new Set(
+      candidates.filter(
+        (item): item is string =>
+          !!item &&
+          isString(item) &&
+          item.length <= 4096 &&
+          !hasUnsafeUrlChars(item),
+      ),
+    ),
   );
   urls.forEach((url) => {
-    console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });
 };

@@ -1,8 +1,8 @@
 import {
   DEFAULT_INVITEE_DISCOUNT_TEXT,
-  formatCommissionRateText,
   formatInviteeDiscountFromConfig,
   formatInviteeDiscountText,
+  getCommissionRateParts,
   isInviteeDiscountDeclined,
   shouldShowInviteeDiscount,
   sortCommissionRateItems,
@@ -13,17 +13,19 @@ describe('commissionRateUtils', () => {
     expect(shouldShowInviteeDiscount(0)).toBe(false);
     expect(shouldShowInviteeDiscount(undefined)).toBe(false);
     expect(formatInviteeDiscountText(0)).toBe('-');
-    expect(formatCommissionRateText({ rebate: 12, discount: 0 })).toBe(
-      '12% / -',
-    );
+    expect(getCommissionRateParts({ rebate: 12, discount: 0 })).toEqual({
+      you: '12%',
+      invitee: undefined,
+    });
   });
 
   it('keeps positive invitee discounts', () => {
     expect(shouldShowInviteeDiscount(10)).toBe(true);
     expect(formatInviteeDiscountText(10)).toBe('10%');
-    expect(formatCommissionRateText({ rebate: 12, discount: 10 })).toBe(
-      '12% / 10%',
-    );
+    expect(getCommissionRateParts({ rebate: 12, discount: 10 })).toEqual({
+      you: '12%',
+      invitee: '10%',
+    });
   });
 
   it('sorts rebate modules as hardware, perps, swap, then defi', () => {

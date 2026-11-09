@@ -1,0 +1,35 @@
+import type { ReactElement, ReactNode } from 'react';
+
+import { Tabs } from '@onekeyhq/components';
+import type {
+  IAppPagerChange,
+  IAppPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/AppPager/types';
+
+export type IMarketDetailPagerProps = {
+  children: ReactElement<{ name: string; children: ReactNode }>[];
+  width?: number;
+  initialTabName?: string;
+  renderHeader: () => ReactElement | null;
+  renderTabBar: (props: IAppPagerTabBarProps) => ReactElement;
+  onTabChange: (event: IAppPagerChange) => void;
+  scrollEnabled?: boolean;
+  initialHeaderHeight?: number;
+  initialStickyHeaderHeight?: number;
+  getStickyHeaderHeight?: (tabKey: string) => number;
+};
+
+export function MarketDetailPager({
+  scrollEnabled: _scrollEnabled,
+  initialHeaderHeight: _initialHeaderHeight,
+  initialStickyHeaderHeight: _initialStickyHeaderHeight,
+  getStickyHeaderHeight: _getStickyHeaderHeight,
+  ...props
+}: IMarketDetailPagerProps) {
+  return (
+    <Tabs.Container
+      {...props}
+      headerContainerStyle={{ width: '100%', shadowColor: 'transparent' }}
+    />
+  );
+}

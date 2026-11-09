@@ -98,6 +98,7 @@ describe('SimpleDbEntityLocalTokens.removeOrphanData', () => {
       tokenListMap: { 'evm--1_0xbob': {} }, // orphan
       tokenListValue: {},
       tokenListCurrency: {},
+      tokenListHasAssets: { 'evm--1_0xalice': true, 'evm--1_0xbob': false },
     };
     const builder = await captureBuilder(entity, existing, {
       validOwners: ['0xalice'],
@@ -114,6 +115,7 @@ describe('SimpleDbEntityLocalTokens.removeOrphanData', () => {
     // per-account maps orphan-filtered
     expect(Object.keys(result.tokenList)).toEqual(['evm--1_0xalice']);
     expect(result.tokenListMap).toEqual({});
+    expect(result.tokenListHasAssets).toEqual({ 'evm--1_0xalice': true });
   });
 
   test('does NOT resurrect cleared cache when store is cleared mid-flight', async () => {

@@ -124,3 +124,143 @@ describe('accountSelectorUtils buildMergedSelectedAccount', () => {
     expect(result.deriveType).toBe('BIP86');
   });
 });
+
+describe('WalletConnect account selector identity', () => {
+  it('isolates session and proposal selectors while retaining website origin validation', () => {
+    const sceneName = EAccountSelectorSceneName.discover;
+    const a = accountSelectorUtils.buildWalletConnectSceneUrl({
+      topic: 'a'.repeat(64),
+    });
+    const b = accountSelectorUtils.buildWalletConnectSceneUrl({
+      topic: 'b'.repeat(64),
+    });
+    const proposal = accountSelectorUtils.buildWalletConnectSceneUrl({
+      proposalId: 123,
+    });
+    const ids = [a, b, proposal, 'https://help.onekey.so'].map((sceneUrl) =>
+      accountSelectorUtils.buildAccountSelectorSceneId({ sceneName, sceneUrl }),
+    );
+    expect(new Set(ids).size).toBe(4);
+    expect(() =>
+      accountSelectorUtils.buildAccountSelectorSceneId({
+        sceneName,
+        sceneUrl: 'https://help.onekey.so/path',
+      }),
+    ).toThrow('full url is not allowed');
+    expect(() =>
+      accountSelectorUtils.buildAccountSelectorSceneId({
+        sceneName,
+        sceneUrl: 'walletconnect:session:invalid',
+      }),
+    ).toThrow('full url is not allowed');
+  });
+});
+
+describe('accountSelectorUtils shouldResetDeriveTypeFromGlobal', () => {
+  const hd = {
+    walletId: 'hd-1',
+    indexedAccountId: 'hd-1--0',
+    othersWalletAccountId: undefined,
+    networkId: 'btc--0',
+    deriveType: 'BIP44' as const,
+    focusedWallet: 'hd-1',
+  };
+  const watching = {
+    walletId: 'watching',
+    indexedAccountId: undefined,
+    othersWalletAccountId: 'watching--btc--1',
+    networkId: 'btc--0',
+    deriveType: 'default' as const,
+    focusedWallet: 'watching',
+  };
+
+  it('resets when returning from a watching account with its placeholder', () => {
+    expect(
+      accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+        oldSelectedAccount: watching,
+        newSelectedAccount: { ...hd, deriveType: 'default' },
+      }),
+    ).toBe(true);
+  });
+
+  it('resets when the network changes and the derive type was carried over', () => {
+    expect(
+      accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+        oldSelectedAccount: {
+          ...hd,
+          networkId: 'evm--1',
+          deriveType: 'default',
+        },
+        newSelectedAccount: { ...watching },
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps a derive type the caller changed on purpose', () => {
+    expect(
+      accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+        oldSelectedAccount: watching,
+        newSelectedAccount: { ...hd, deriveType: 'BIP86' },
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the derive type between HD accounts on the same network', () => {
+    expect(
+      accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+        oldSelectedAccount: hd,
+        newSelectedAccount: { ...hd, indexedAccountId: 'hd-1--1' },
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the derive type when moving into a watching account on the same network', () => {
+    expect(
+      accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+        oldSelectedAccount: hd,
+        newSelectedAccount: { ...watching, deriveType: 'BIP44' },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('accountSelectorUtils getGlobalDeriveTypeFromMap', () => {
+  it('reads the saved derive type by network impl', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'btc--0',
+        globalDeriveTypesMap: { btc: 'BIP44' },
+      }),
+    ).toBe('BIP44');
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'evm--1',
+        globalDeriveTypesMap: { evm: 'default' },
+      }),
+    ).toBe('default');
+  });
+
+  it('defaults BTC networks to Taproot when nothing was saved', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'btc--0',
+        globalDeriveTypesMap: {},
+      }),
+    ).toBe('BIP86');
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'tbtc--0',
+        globalDeriveTypesMap: undefined,
+      }),
+    ).toBe('BIP86');
+  });
+
+  it('leaves other networks unresolved when nothing was saved', () => {
+    expect(
+      accountSelectorUtils.getGlobalDeriveTypeFromMap({
+        networkId: 'evm--1',
+        globalDeriveTypesMap: {},
+      }),
+    ).toBeUndefined();
+  });
+});

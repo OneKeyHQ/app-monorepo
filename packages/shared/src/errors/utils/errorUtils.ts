@@ -1,7 +1,7 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
 import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import appGlobals from '../../appGlobals';
 import { appLocale } from '../../locale/appLocale';

@@ -579,6 +579,7 @@ const ClosePositionForm = memo(
           segments={4}
           snapTapToSegment
           sliderHeight={4}
+          showBubble
         />
 
         <XStack justifyContent="space-between" gap="$1">

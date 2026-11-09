@@ -1,3 +1,9 @@
+import type {
+  IInviteRewardRouteParams,
+  IPerksOpenEntry,
+  IReferralPageTab,
+} from './referFriends';
+
 export enum ETabReferFriendsRoutes {
   TabReferAFriend = 'TabReferAFriend',
   TabInviteReward = 'TabInviteReward',
@@ -14,12 +20,10 @@ export type ITabReferFriendsParamList = {
   TabReferAFriend: {
     utmSource?: string;
     code?: string;
+    tab?: IReferralPageTab;
+    perksEntry?: IPerksOpenEntry;
   };
-  TabInviteReward:
-    | {
-        showRewardDistributionHistory?: boolean;
-      }
-    | undefined;
+  TabInviteReward: IInviteRewardRouteParams | undefined;
   TabYourReferred: undefined;
   TabHardwareSalesReward:
     | {

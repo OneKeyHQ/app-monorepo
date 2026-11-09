@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
@@ -35,12 +35,14 @@ export function useMarketKlineLivePrice({
   marketAssetId,
   networkId,
   tokenAddress,
+  updateMarketDetail = true,
 }: {
   enabled: boolean;
   marketAssetId?: string;
   networkId: string;
   tokenAddress: string;
-}): void {
+  updateMarketDetail?: boolean;
+}): string | undefined {
   const actions = useTokenDetailActions();
   const { store } = useMarketV2ContextData();
   const lastWrittenAtRef = useRef(0);
@@ -49,9 +51,19 @@ export function useMarketKlineLivePrice({
   // shared atom as a side effect, which no nonce can roll back. The scope this
   // request was started for has to be re-checked once it resolves.
   const requestScope = useMemo(
-    () => ({ enabled, networkId, tokenAddress, marketAssetId }),
-    [enabled, networkId, tokenAddress, marketAssetId],
+    () => ({
+      enabled,
+      networkId,
+      tokenAddress,
+      marketAssetId,
+      updateMarketDetail,
+    }),
+    [enabled, networkId, tokenAddress, marketAssetId, updateMarketDetail],
   );
+  const [liveQuote, setLiveQuote] = useState<{
+    scope: typeof requestScope;
+    price: string;
+  }>();
   const requestScopeRef = useRef<typeof requestScope | null>(null);
   useLayoutEffect(() => {
     // Returning to the same asset must not reactivate its previous requests.
@@ -120,6 +132,10 @@ export function useMarketKlineLivePrice({
       }
       appliedSeqRef.current = requestSeq;
 
+      const formattedPrice = formatMarketKlineLivePrice(price);
+      setLiveQuote({ scope: requestScope, price: formattedPrice });
+      if (!updateMarketDetail) return;
+
       // The header price cache drops any write that is not strictly newer than
       // the one it holds, so a quote timestamp is only useful while it stays
       // ahead of both the polled snapshot's and this hook's previous write.
@@ -136,7 +152,7 @@ export function useMarketKlineLivePrice({
       actions.current.applyChartPriceUpdate({
         networkId,
         tokenAddress,
-        price: formatMarketKlineLivePrice(price),
+        price: formattedPrice,
         lastUpdated,
       });
     },
@@ -149,6 +165,7 @@ export function useMarketKlineLivePrice({
       requestScope,
       store,
       tokenAddress,
+      updateMarketDetail,
     ],
     {
       pollingInterval: MARKET_KLINE_LIVE_PRICE_POLLING_MS,
@@ -160,4 +177,7 @@ export function useMarketKlineLivePrice({
       checkIsFocused: false,
     },
   );
+  return enabled && liveQuote?.scope === requestScope
+    ? liveQuote.price
+    : undefined;
 }

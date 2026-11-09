@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,50 @@ interface IRoundLoadingItemProps {
   onRetry: () => void;
 }
 
+export const SwapStepStatusIcon = ({
+  isLoading,
+  success,
+  failed,
+}: {
+  isLoading: boolean;
+  success: boolean;
+  failed: boolean;
+}) => {
+  if (success)
+    return (
+      <Image
+        width={18}
+        height={18}
+        source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
+      />
+    );
+  if (failed)
+    return (
+      <Image
+        width={18}
+        height={18}
+        source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
+      />
+    );
+  if (isLoading)
+    return (
+      <LottieView
+        width="$5"
+        height="$5"
+        autoPlay
+        loop
+        source={require('@onekeyhq/kit/assets/animations/round-loading.json')}
+      />
+    );
+  return (
+    <Image
+      width={18}
+      height={18}
+      source={require('@onekeyhq/kit/assets/preSwapStepReady.png')}
+    />
+  );
+};
+
 const RoundLoadingItem = ({
   stepTitle,
   isLoading,
@@ -40,45 +84,14 @@ const RoundLoadingItem = ({
   onRetry,
   failed,
 }: IRoundLoadingItemProps) => {
-  const ref = useRef<any>(null);
   const intl = useIntl();
 
   const statusComponent = useMemo(() => {
-    if (success) {
-      return (
-        <Image
-          width={18}
-          height={18}
-          source={require('@onekeyhq/kit/assets/preSwapStepSuccess.png')}
-        />
-      );
-    }
-    if (failed) {
-      return (
-        <Image
-          width={18}
-          height={18}
-          source={require('@onekeyhq/kit/assets/preSwapStepFailed.png')}
-        />
-      );
-    }
-    if (isLoading) {
-      return (
-        <LottieView
-          ref={ref}
-          width="$5"
-          height="$5"
-          autoPlay={isLoading}
-          loop={isLoading}
-          source={require('@onekeyhq/kit/assets/animations/round-loading.json')}
-        />
-      );
-    }
     return (
-      <Image
-        width={18}
-        height={18}
-        source={require('@onekeyhq/kit/assets/preSwapStepReady.png')}
+      <SwapStepStatusIcon
+        isLoading={isLoading}
+        success={success}
+        failed={failed}
       />
     );
   }, [success, failed, isLoading]);

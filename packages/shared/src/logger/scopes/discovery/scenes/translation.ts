@@ -14,6 +14,7 @@ export class TranslationScene extends BaseScene {
     engine: ETranslateEngine;
     targetLang: string;
     displayMode: ETranslateDisplayMode;
+    // Host name only, never the full URL.
     dappDomain: string;
   }) {
     return params;

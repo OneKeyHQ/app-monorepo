@@ -17,8 +17,11 @@ import {
   ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
+  PRIME_PURCHASE_COMPLETE_PATH,
   PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
@@ -274,8 +277,16 @@ export const buildAllowList = (
         showUrl: true,
         showParams: true,
       },
-    // pagePath() strips inner slashes, so this two-segment public URL would
-    // not match getPathFromState. Keep the email path as a literal allowlist key.
+    // pagePath() strips inner slashes, so these two-segment public URLs would
+    // not match getPathFromState. Keep the email paths as literal allowlist keys.
+    [PRIME_SUBSCRIPTION_LANDING_PATH]: {
+      showUrl: true,
+      showParams: false,
+    },
+    [PRIME_PURCHASE_COMPLETE_PATH]: {
+      showUrl: true,
+      showParams: false,
+    },
     [PRIME_REDEEM_LANDING_PATH]: {
       showUrl: true,
       showParams: true,
@@ -299,6 +310,12 @@ export const buildAllowList = (
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isExtension) {
+    rules[
+      pagePath`${ERootRoutes.Modal}${EModalRoutes.PrimeModal}${EPrimePages.PrimeCloudSync}`
+    ] = {
+      showUrl: true,
+      showParams: false,
+    };
     // Permission WebUSB
     rules[pagePath`${ERootRoutes.PermissionWebDevice}`] = {
       showUrl: true,

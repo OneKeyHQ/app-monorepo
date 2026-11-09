@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "security-center",
+      "titleKey": "feature.security.title",
+      "descriptionKey": "feature.security.description"
+    },
+    {
+      "id": "cross-platform",
+      "titleKey": "feature.crossPlatform.title",
+      "descriptionKey": "feature.crossPlatform.description"
+    },
+    {
+      "id": "release-highlights",
+      "titleKey": "feature.release.title",
+      "descriptionKey": "feature.release.description"
+    }
+  ]
+}

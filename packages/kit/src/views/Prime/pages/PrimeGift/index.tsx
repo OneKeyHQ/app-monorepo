@@ -9,6 +9,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -122,6 +123,9 @@ export default function PrimeGiftPage() {
   const navigation = useAppNavigation();
   const reasonMessage = usePrimeGiftReasonMessage();
   const claim = usePrimeGiftClaim(params);
+  const handleLogout = useConfirmOneKeyIdLogout({
+    reason: 'PrimeGift Logout Button',
+  });
   const closePage = useCallback(() => {
     navigation.pop();
   }, [navigation]);
@@ -236,6 +240,7 @@ export default function PrimeGiftPage() {
             }}
             isPendingPaymentConfirm={claim.isPendingPaymentConfirm}
             error={reasonMessage(claim.error)}
+            onLogout={handleLogout}
             primaryLabel={primaryLabel}
             isProcessing={claim.isSubmitting || claim.isQuerying}
             onSubmit={() => {

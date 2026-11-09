@@ -12,6 +12,11 @@ import {
   type EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 
+import {
+  getExtExpandTabHashParams,
+  stripExtExpandTabHashParams,
+} from '../../utils/extExpandTabHashParams';
+
 export interface IExtOneKeyIdAuthFlowInfo {
   flow: EExtOneKeyIdAuthFlow;
   toOneKeyIdPageOnLoginSuccess?: boolean;
@@ -72,15 +77,10 @@ export async function redirectKeylessOneKeyIdAuthToExtExpandTab({
 export function consumeExtOneKeyIdAuthFlowFromUrl():
   | IExtOneKeyIdAuthFlowInfo
   | undefined {
-  if (!platformEnv.isExtensionUiExpandTab) {
+  const searchParams = getExtExpandTabHashParams();
+  if (!searchParams) {
     return undefined;
   }
-  const hash = globalThis.location?.hash ?? '';
-  const queryIndex = hash.indexOf('?');
-  if (queryIndex < 0) {
-    return undefined;
-  }
-  const searchParams = new URLSearchParams(hash.slice(queryIndex + 1));
   const flow = searchParams.get(EXT_ONEKEY_ID_AUTH_FLOW_PARAM);
   if (
     flow !== EExtOneKeyIdAuthFlow.Login &&
@@ -97,24 +97,11 @@ export function consumeExtOneKeyIdAuthFlowFromUrl():
       ? providerParam
       : undefined;
 
-  try {
-    searchParams.delete(EXT_ONEKEY_ID_AUTH_FLOW_PARAM);
-    searchParams.delete(EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM);
-    searchParams.delete(EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM);
-    const restQuery = searchParams.toString();
-    const newHash = `${hash.slice(0, queryIndex)}${
-      restQuery ? `?${restQuery}` : ''
-    }`;
-    globalThis.history?.replaceState?.(
-      globalThis.history?.state ?? null,
-      '',
-      `${globalThis.location.pathname}${globalThis.location.search}${
-        newHash || '#/'
-      }`,
-    );
-  } catch {
-    // URL cleanup is best-effort only; the flow info is already extracted.
-  }
+  stripExtExpandTabHashParams([
+    EXT_ONEKEY_ID_AUTH_FLOW_PARAM,
+    EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM,
+    EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM,
+  ]);
 
   return { flow, toOneKeyIdPageOnLoginSuccess, provider };
 }

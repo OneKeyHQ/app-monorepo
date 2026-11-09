@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
-import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
+import {
+  buildEarnProtocolInfo,
+  buildEarnTokenInfo,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IEarnTokenInfo,
-  IEarnWithdrawActionIcon,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
@@ -153,60 +154,33 @@ export function useProtocolDetailData({
     }
   }, [derivedAddress, run]);
 
-  const tokenInfo = useMemo<IEarnTokenInfo | undefined>(() => {
-    if (detailInfo?.subscriptionValue?.token) {
-      const protocolVault = detailInfo.protocol?.vault ?? vault;
-      const balanceBN = new BigNumber(
-        detailInfo.subscriptionValue.balance || '0',
-      );
-      const balanceParsed = balanceBN.isNaN() ? '0' : balanceBN.toFixed();
-
-      return {
-        balanceParsed,
-        token: detailInfo.subscriptionValue.token.info,
-        price: detailInfo.subscriptionValue.token.price,
+  // Shared with the positions card's Redeem, which reads the detail itself
+  // to open the order picker.
+  const tokenInfo = useMemo<IEarnTokenInfo | undefined>(
+    () =>
+      buildEarnTokenInfo({
+        detailInfo,
         networkId,
         provider,
-        vault: protocolVault,
+        vault,
         accountId: accountId ?? '',
-      };
-    }
-    return undefined;
-  }, [detailInfo, networkId, provider, vault, accountId]);
-
-  const protocolInfo = useMemo<IProtocolInfo | undefined>(() => {
-    if (!detailInfo?.protocol || !earnAccount) {
-      return undefined;
-    }
-
-    const withdrawAction = detailInfo?.actions?.find(
-      (i) => i.type === 'withdraw',
-    ) as IEarnWithdrawActionIcon;
-
-    return {
-      ...detailInfo.protocol,
-      apyDetail: detailInfo.apyDetail,
-      earnAccount,
-      activeBalance: withdrawAction?.data?.balance,
-      eventEndTime: detailInfo?.countDownAlert?.endTime,
-      stakeTag: buildLocalTxStatusSyncId({
-        providerName: provider,
-        tokenSymbol: symbol,
-        protocolVault: detailInfo.protocol.vault ?? vault,
       }),
-      overflowBalance: detailInfo.nums?.overflow,
-      maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
-      minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
-      minTransactionFee: detailInfo.nums?.minTransactionFee,
-      remainingCap: detailInfo.nums?.remainingCap,
-      claimable: detailInfo.nums?.claimable,
-      withdrawApprove: detailInfo.withdrawApprove,
-      receiptTokenRate:
-        detailInfo.protocol.receiptTokenRate ??
-        detailInfo.protocol.morphoTokenRate,
-      morphoTokenRate: detailInfo.protocol.morphoTokenRate,
-    };
-  }, [detailInfo, earnAccount, provider, symbol, vault]);
+    [detailInfo, networkId, provider, vault, accountId],
+  );
+
+  const protocolInfo = useMemo<IProtocolInfo | undefined>(
+    () =>
+      earnAccount
+        ? buildEarnProtocolInfo({
+            detailInfo,
+            earnAccount,
+            provider,
+            symbol,
+            vault,
+          })
+        : undefined,
+    [detailInfo, earnAccount, provider, symbol, vault],
+  );
 
   // No result yet for the current inputs and no fetch has settled for them:
   // the fetch is either in flight or waiting for focus. Reported as loading

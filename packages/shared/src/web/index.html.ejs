@@ -99,7 +99,13 @@
     </script>
     <% } %>
 
+      <% if ( (platform === 'desktop' || platform === 'web-embed') && !isDev && typeof releaseMetaUrl !== 'undefined' ) { %>
+          <script defer src="<%= releaseMetaUrl %>"></script>
+      <% } %>
       <% if ( platform === 'ext' ) { %>
+      <% if ( !isDev ) { %>
+          <script src="/release-meta.js"></script>
+      <% } %>
       <!--    <script>-->
       <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
       <!--    </script>-->

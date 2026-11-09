@@ -27,12 +27,12 @@ import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
 
@@ -204,12 +204,14 @@ export function buildTrezorBtcSignMessageParams({
   if (message.type === 'bip322-simple') {
     throw new ThirdPartyMethodNotSupported();
   }
+  const messageHex = Buffer.from(message.message).toString('hex');
+  assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
   const noScriptType =
     message.sigOptions?.noScriptType ||
     (message.type === 'ecdsa' && message.payload?.isFromDApp);
   return {
     path,
-    message: Buffer.from(message.message).toString('hex'),
+    message: messageHex,
     coin,
     hex: true,
     ...(noScriptType ? { noScriptType: true } : {}),
@@ -230,10 +232,6 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
   override coreApi = coreChainApi.btc.hd;
 
   override hwSdkNetwork: IHwSdkNetwork = 'btc';
-
-  private getBleFallbackOptions() {
-    return buildTrezorBleFallbackOptions(this.backgroundApi);
-  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -275,18 +273,15 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
 
           const pubKeyResult =
             allNetworkItem ||
-            (await callTrezorWithBleFallback(
-              dbDevice,
-              (connectId) =>
-                adapter.hw.btcGetPublicKey(connectId, dbDevice.deviceId, {
-                  path: accountPath,
-                  coin: networkInfo.networkChainCode ?? 'btc',
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                  ...thirdPartyPassphraseParamsFromDeviceParams(
-                    params.deviceParams,
-                  ),
-                }),
-              this.getBleFallbackOptions(),
+            (await callTrezorWithDevice(dbDevice, (connectId) =>
+              adapter.hw.btcGetPublicKey(connectId, dbDevice.deviceId, {
+                path: accountPath,
+                coin: networkInfo.networkChainCode ?? 'btc',
+                showOnDevice: params.isVerifyAddressAction ?? false,
+                ...thirdPartyPassphraseParamsFromDeviceParams(
+                  params.deviceParams,
+                ),
+              }),
             ));
 
           if (!pubKeyResult.success) {
@@ -332,17 +327,12 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
           // signer. getAddressFromXpub only emits a bare tr(xpub).
           let xpubSegwit = bareXpubSegwit;
           if (addressEncoding === EAddressEncodings.P2TR) {
-            const fpResult = await callTrezorWithBleFallback(
-              dbDevice,
-              (connectId) =>
-                adapter.hw.btcGetMasterFingerprint(
-                  connectId,
-                  dbDevice.deviceId,
-                  thirdPartyPassphraseParamsFromDeviceParams(
-                    params.deviceParams,
-                  ),
-                ),
-              this.getBleFallbackOptions(),
+            const fpResult = await callTrezorWithDevice(dbDevice, (connectId) =>
+              adapter.hw.btcGetMasterFingerprint(
+                connectId,
+                dbDevice.deviceId,
+                thirdPartyPassphraseParamsFromDeviceParams(params.deviceParams),
+              ),
             );
             if (fpResult.success && fpResult.payload.masterFingerprint) {
               xpubSegwit = `tr([${
@@ -410,22 +400,19 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
     const prevTxs: Record<string, string> =
       await vault.collectTxsByApi(prevTxids);
 
-    const result = await callTrezorWithBleFallback(
-      dbDevice,
-      (connectId) =>
-        adapter.hw.btcSignTransaction(connectId, dbDevice.deviceId, {
-          ...buildTrezorBtcSignTransactionPayload({
-            coin: coinName,
-            encodedTx,
-            prevTxs: getTrezorBtcRawPrevTxsToParse({
-              rawPrevTxs: prevTxs,
-              origRefTxs: encodedTx.origRefTxs,
-            }),
-            signers,
+    const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+      adapter.hw.btcSignTransaction(connectId, dbDevice.deviceId, {
+        ...buildTrezorBtcSignTransactionPayload({
+          coin: coinName,
+          encodedTx,
+          prevTxs: getTrezorBtcRawPrevTxsToParse({
+            rawPrevTxs: prevTxs,
+            origRefTxs: encodedTx.origRefTxs,
           }),
-          ...thirdPartyPassphraseParamsFromDeviceParams(params.deviceParams),
+          signers,
         }),
-      this.getBleFallbackOptions(),
+        ...thirdPartyPassphraseParamsFromDeviceParams(params.deviceParams),
+      }),
     );
 
     if (!result.success) {
@@ -459,6 +446,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
     const { dbDevice } = checkIsDefined(params.deviceParams);
     const dbAccount = await this.vault.getAccount();
     const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
@@ -476,20 +467,15 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
     for (const message of params.messages as IUnsignedMessageBtc[]) {
       const res =
         // eslint-disable-next-line no-await-in-loop
-        await callTrezorWithBleFallback(
-          dbDevice,
-          (connectId) =>
-            adapter.hw.btcSignMessage(connectId, dbDevice.deviceId, {
-              ...buildTrezorBtcSignMessageParams({
-                path: fullPath,
-                coin: coinName,
-                message,
-              }),
-              ...thirdPartyPassphraseParamsFromDeviceParams(
-                params.deviceParams,
-              ),
+        await callTrezorWithDevice(dbDevice, (connectId) =>
+          adapter.hw.btcSignMessage(connectId, dbDevice.deviceId, {
+            ...buildTrezorBtcSignMessageParams({
+              path: fullPath,
+              coin: coinName,
+              message,
             }),
-          this.getBleFallbackOptions(),
+            ...thirdPartyPassphraseParamsFromDeviceParams(params.deviceParams),
+          }),
         );
       if (!res.success) {
         throw convertThirdPartyDeviceError(res.payload, {
@@ -529,17 +515,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
       }
 
       // The Trezor adapter derives the address from the full path + scriptType.
-      const result = await callTrezorWithBleFallback(
-        dbDevice,
-        (connectId) =>
-          adapter.hw.btcGetAddress(connectId, dbDevice.deviceId, {
-            path: fullPath,
-            coin: coinName,
-            scriptType: getTrezorBtcScriptTypeFromPath(fullPath),
-            showOnDevice,
-            ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
-          }),
-        this.getBleFallbackOptions(),
+      const result = await callTrezorWithDevice(dbDevice, (connectId) =>
+        adapter.hw.btcGetAddress(connectId, dbDevice.deviceId, {
+          path: fullPath,
+          coin: coinName,
+          scriptType: getTrezorBtcScriptTypeFromPath(fullPath),
+          showOnDevice,
+          ...thirdPartyPassphraseParamsFromDeviceParams(deviceParams),
+        }),
       );
 
       if (!result.success) {

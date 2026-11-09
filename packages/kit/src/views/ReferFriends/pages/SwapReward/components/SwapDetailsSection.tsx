@@ -341,7 +341,9 @@ function DesktopRecordsTable({
           field="reward"
           width={columnWidths.rewards}
           justifyContent="flex-end"
-          label={intl.formatMessage({ id: ETranslations.earn_rewards })}
+          label={intl.formatMessage({
+            id: ETranslations.referral_order_reward,
+          })}
           {...props}
         />
       </XStack>

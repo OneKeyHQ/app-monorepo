@@ -36,6 +36,7 @@ import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
   PerpAccountDebugInfo,
   PerpAccountPanel,
+  PerpAccountPanelTitle,
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { PerpTestIDs } from '../testIDs';
@@ -149,10 +150,8 @@ function PerpDesktopLayout() {
 
   const tradingPanel = useMemo(() => {
     return (
-      <YStack h="100%" style={{ overflowY: 'auto' }}>
-        <YStack minHeight={layout.marketContentHeight} pb="$4">
-          <PerpTradingPanel />
-        </YStack>
+      <YStack minHeight={layout.marketContentHeight} flexShrink={0} pb="$4">
+        <PerpTradingPanel />
       </YStack>
     );
   }, [layout.marketContentHeight]);
@@ -163,11 +162,7 @@ function PerpDesktopLayout() {
         <YStack>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_account_overview,
-                })}
-              </SizableText>
+              <PerpAccountPanelTitle />
             </XStack>
           </XStack>
           <YStack pb="$4">
@@ -177,7 +172,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl]);
+  }, []);
 
   const marketPanel = (
     <XStack h="100%" overflow="hidden">
@@ -348,9 +343,7 @@ function PerpDesktopLayout() {
                 borderLeftColor="$borderSubdued"
                 overflow="hidden"
               >
-                <YStack h={layout.marketContentHeight} overflow="hidden">
-                  {tradingPanel}
-                </YStack>
+                {tradingPanel}
                 <YStack
                   testID={PerpTestIDs.DesktopAccountBoundary}
                   minHeight={layout.bottomPanelHeight}

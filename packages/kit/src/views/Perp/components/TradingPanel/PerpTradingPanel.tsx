@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -35,7 +36,7 @@ import { useOrderPrice } from '../../hooks/useOrderPrice';
 import { usePerpsAccountDisplayState } from '../../hooks/usePerpsAccountDisplayState';
 import { shouldShowOrderConfirm } from '../../utils/aggressiveLimitPrice';
 import { getPerpsFormLeverage } from '../../utils/leverageDisplay';
-import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
+import { isBelowMinimumOrderValue } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -62,6 +63,7 @@ function PerpTradingDisabledPlaceOrderButton({
   isMobile?: boolean;
 }) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -94,16 +96,6 @@ function PerpTradingDisabledPlaceOrderButton({
   }, [activeAssetData?.maxTradeSzs, formData.side]);
 
   const isMinimumOrderNotMet = useMemo(() => {
-    if (
-      !shouldApplyMinimumOrderGuard({
-        isSpot: tradingMode === 'spot',
-        orderMode: formData.orderMode,
-        orderType: formData.type,
-        hasBboPriceMode: Boolean(formData.bboPriceMode),
-      })
-    ) {
-      return false;
-    }
     if (!computedSizeBN.isFinite()) return false;
     if (computedSizeBN.lte(0)) return false;
 
@@ -111,15 +103,8 @@ function PerpTradingDisabledPlaceOrderButton({
     if (!priceBN.isFinite() || priceBN.lte(0)) return false;
 
     const orderValue = computedSizeBN.multipliedBy(priceBN);
-    return orderValue.lt(10);
-  }, [
-    computedSizeBN,
-    effectivePriceBN,
-    formData.bboPriceMode,
-    formData.orderMode,
-    formData.type,
-    tradingMode,
-  ]);
+    return isBelowMinimumOrderValue(orderValue);
+  }, [computedSizeBN, effectivePriceBN]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (
@@ -178,7 +163,11 @@ function PerpTradingDisabledPlaceOrderButton({
         aggressiveLimitPriceWarning,
       })
     ) {
-      showOrderConfirmDialog({ intl, aggressiveLimitPriceWarning });
+      showOrderConfirmDialog({
+        sourcePage,
+        intl,
+        aggressiveLimitPriceWarning,
+      });
     } else {
       void handleConfirm();
     }
@@ -190,6 +179,7 @@ function PerpTradingDisabledPlaceOrderButton({
     perpsCustomSettings.skipOrderConfirm,
     handleConfirm,
     intl,
+    sourcePage,
   ]);
 
   return (

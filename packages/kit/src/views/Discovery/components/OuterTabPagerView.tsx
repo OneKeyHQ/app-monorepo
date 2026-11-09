@@ -28,10 +28,8 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
-// Keep Android at one retained page to limit ViewPager2 native-view memory.
-// Browser (index 2) may detach while Market (index 0) is active, so changing
-// this trade-off requires Android memory data and the full DApp regression.
-const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = platformEnv.isNativeAndroid ? 1 : 2;
+// Two outer pages: DeFi (index 0) and Browser (index 1).
+const OUTER_PAGER_OFFSCREEN_PAGE_LIMIT = 1;
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -47,13 +45,11 @@ const styles = StyleSheet.create({
 // --- Tab <-> Index mapping ---
 
 const TAB_TO_INDEX: Record<string, number> = {
-  [ETranslations.global_market]: 0,
-  [ETranslations.global_earn]: 1,
-  [ETranslations.global_browser]: 2,
+  [ETranslations.global_earn]: 0,
+  [ETranslations.global_browser]: 1,
 };
 
 const INDEX_TO_TAB: ETranslations[] = [
-  ETranslations.global_market,
   ETranslations.global_earn,
   ETranslations.global_browser,
 ];
@@ -95,11 +91,9 @@ function usePageScrollHandler(
 interface IOuterTabPagerViewProps {
   selectedHeaderTab: ETranslations;
   showDiscoveryPage: boolean;
-  marketContent: React.ReactNode;
   earnContent: React.ReactNode;
   browserContent: React.ReactNode;
   onPageSelectedBySwipe?: () => void;
-  marketTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
   pageScrollPosition?: SharedValue<number>;
@@ -107,6 +101,7 @@ interface IOuterTabPagerViewProps {
       host can show a page's content the moment it becomes visible rather than
       waiting for the swipe to commit (OK-60300) */
   onVisiblePagesChange?: (pages: number[]) => void;
+  onTransitioningChange?: (transitioning: boolean) => void;
 }
 
 // --- Component ---
@@ -114,17 +109,16 @@ interface IOuterTabPagerViewProps {
 function OuterTabPagerViewComponent({
   selectedHeaderTab,
   showDiscoveryPage,
-  marketContent,
   earnContent,
   browserContent,
   onPageSelectedBySwipe,
-  marketTabsRef,
   earnTabsRef,
   earnBorrowPagerRef,
   pageScrollPosition,
   onVisiblePagesChange,
+  onTransitioningChange,
 }: IOuterTabPagerViewProps) {
-  const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
+  const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 1;
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
@@ -166,13 +160,28 @@ function OuterTabPagerViewComponent({
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
   selectedHeaderTabRef.current = selectedHeaderTab;
 
-  const setTransitioning = useCallback((value: boolean) => {
-    if (isOuterPageTransitioningRef.current === value) {
-      return;
+  const setTransitioning = useCallback(
+    (value: boolean) => {
+      if (isOuterPageTransitioningRef.current === value) {
+        return;
+      }
+      isOuterPageTransitioningRef.current = value;
+      onTransitioningChange?.(value);
+      setIsOuterPageTransitioning(value);
+    },
+    [onTransitioningChange],
+  );
+
+  useEffect(() => {
+    if (isOuterPageTransitioningRef.current) {
+      onTransitioningChange?.(true);
     }
-    isOuterPageTransitioningRef.current = value;
-    setIsOuterPageTransitioning(value);
-  }, []);
+    return () => {
+      if (isOuterPageTransitioningRef.current) {
+        onTransitioningChange?.(false);
+      }
+    };
+  }, [onTransitioningChange]);
 
   const setVisiblePair = useCallback((pair: [number, number] | null) => {
     const prev = visiblePagePairRef.current;
@@ -425,47 +434,21 @@ function OuterTabPagerViewComponent({
       }
 
       if (activePageIndex === 0) {
-        marketTabsRef?.current?.syncCurrentPage();
-      } else if (activePageIndex === 1) {
         earnBorrowPagerRef?.current?.syncCurrentPage();
         earnTabsRef?.current?.syncCurrentPage();
       }
     });
     return () => cancelAnimationFrame(rafId);
-  }, [
-    activePageIndex,
-    outerPagerRef,
-    marketTabsRef,
-    earnTabsRef,
-    earnBorrowPagerRef,
-  ]);
-
-  const marketPage = useMemo(
-    () =>
-      isPageMounted(0) ? (
-        <View key="market" style={styles.page}>
-          {platformEnv.isNativeIOS ? (
-            marketContent
-          ) : (
-            <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
-          )}
-        </View>
-      ) : (
-        <View key="market" style={styles.page}>
-          <Stack flex={1} />
-        </View>
-      ),
-    [isPageMounted, shouldFreezePage, marketContent],
-  );
+  }, [activePageIndex, outerPagerRef, earnTabsRef, earnBorrowPagerRef]);
 
   const earnPage = useMemo(
     () =>
-      isPageMounted(1) ? (
+      isPageMounted(0) ? (
         <View key="earn" style={styles.page}>
           {platformEnv.isNativeIOS ? (
             earnContent
           ) : (
-            <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
+            <Freeze freeze={shouldFreezePage(0)}>{earnContent}</Freeze>
           )}
         </View>
       ) : (
@@ -478,12 +461,10 @@ function OuterTabPagerViewComponent({
 
   const browserPage = useMemo(
     () =>
-      isPageMounted(2) ? (
+      isPageMounted(1) ? (
         <View key="browser" style={styles.page}>
           {/* Keep Browser out of react-freeze so its React subtree survives
-          DApp minimization and outer tab switches. Native attachment still
-          follows OUTER_PAGER_OFFSCREEN_PAGE_LIMIT; Android may detach Browser
-          across Market (index 0) and Browser (index 2). */}
+          DApp minimization and outer tab switches. */}
           {browserContent}
         </View>
       ) : (
@@ -508,7 +489,6 @@ function OuterTabPagerViewComponent({
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
     >
-      {marketPage}
       {earnPage}
       {browserPage}
     </AnimatedPagerView>

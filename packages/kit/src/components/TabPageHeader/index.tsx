@@ -136,7 +136,7 @@ function BaseDesktopTabPageHeader({
             px="$5"
             alignItems={platformEnv.isDesktop ? 'center' : undefined}
           >
-            <GiftAction copyAsUrl />
+            <GiftAction />
           </XStack>
         ) : null}
         {tabRoute === ETabRoutes.Discovery ? (
@@ -164,6 +164,7 @@ function BaseDesktopTabPageHeader({
       <Page.Header
         headerShown
         headerTitleAlign="center"
+        headerContainerBackgroundColor={theme.bgSubdued.val}
         headerStyle={desktopHeaderStyle}
         headerTitle={renderUniversalSearchInput}
         headerRight={renderDesktopModeRightButtons}
@@ -188,6 +189,7 @@ export function TabPageHeader({
   customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
+  disableHomeHeaderGlass = false,
   headerPx,
   pageScrollPosition,
 }: ITabPageHeaderProp) {
@@ -220,6 +222,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        disableHomeHeaderGlass={disableHomeHeaderGlass}
         pageScrollPosition={pageScrollPosition}
       />
     );

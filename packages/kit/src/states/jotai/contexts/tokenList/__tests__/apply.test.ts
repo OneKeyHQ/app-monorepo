@@ -507,6 +507,7 @@ describe('applyValuationFrame', () => {
         throwingDeps,
       ),
     ).toThrow('write failed');
+    expect(store.get(projection.valuationUpdating)).toBe(false);
     expect(store.get(aggregate)?.balance).toBe('1');
     store.set(failedCell, makeFiat({ balance: '2' }));
     expect(store.get(aggregate)?.balance).toBe('3');

@@ -8,6 +8,12 @@
 // backoff timer are mocked so this runs in milliseconds and never resolves the
 // `@onekeyhq/components` package (keeps it independent of the RN component harness).
 
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+
 import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
 
 import type { IDownloadRetryOptions } from './updateRetry';
@@ -26,9 +32,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { appUpdate: { log: () => {} } } },
 }));
 
-// A transient (recoverable) failure: not an unrecoverable code, so the loop
-// retries it up to DOWNLOAD_RETRY_MAX_ATTEMPTS.
-const transientError = () => new Error('network blip');
+// A transient, classified network failure retries up to the attempt limit.
+const transientError = () =>
+  createUpdateError({ code: EUpdateErrorCode.networkError, step: 'download' });
 
 // Budget hooks backed by a shared in-memory store, modeling multiple
 // runDownloadWithRetry() calls within one bg service instance.
@@ -68,7 +74,7 @@ describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
 
     // Invocation #1 spends 6 attempts (0..MAX), each recorded in the shared
     // service-instance budget. The cap (8) is not yet hit, so it ends by
-    // throwing the raw transport error rather than a give-up.
+    // throwing the classified transport error rather than a give-up.
     await expect(
       runDownloadWithRetry(op, 'ctx', budgetHooks(store, 8)),
     ).rejects.not.toBeInstanceOf(DownloadGaveUpError);
@@ -84,8 +90,39 @@ describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
     }
     expect(caught).toBeInstanceOf(DownloadGaveUpError);
     expect((caught as DownloadGaveUpError).reason).toBe('maxAttempts');
+    expect(getUpdateError(caught, 'download')).toEqual({
+      code: EUpdateErrorCode.networkError,
+      step: 'download',
+    });
     expect(store.count).toBe(8);
   });
+
+  test.each([
+    { code: EUpdateErrorCode.networkError },
+    { code: EUpdateErrorCode.timeout },
+    { code: EUpdateErrorCode.httpError, httpStatus: 429 },
+  ])(
+    'preserves the last retryable cause when the budget ends: $code',
+    async (dto) => {
+      const store = { count: 0 };
+      const op = jest
+        .fn()
+        .mockRejectedValue(createUpdateError({ ...dto, step: 'download' }));
+
+      const error = await runDownloadWithRetry(
+        op,
+        'ctx',
+        budgetHooks(store, 2),
+      ).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DownloadGaveUpError);
+      expect(getUpdateError(error, 'download')).toEqual({
+        ...dto,
+        step: 'download',
+      });
+      expect(op).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('success clears the service-instance budget so the next target starts fresh', async () => {
     const store = { count: 0 };
@@ -131,7 +168,7 @@ describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
     expect((caught as DownloadGaveUpError).reason).toBe('fallbackFailed');
   });
 
-  test('without budget hooks it is the legacy loop: raw error after the in-memory attempts, no give-up wrapping', async () => {
+  test('without budget hooks the bounded loop returns the classified error after its in-memory attempts', async () => {
     const op = jest.fn(async () => {
       throw transientError();
     });

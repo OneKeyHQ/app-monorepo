@@ -18,7 +18,12 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'ios' },
 }));
 
-jest.mock('expo-device', () => ({ deviceType: 2, DeviceType: { TABLET: 2 } }));
+jest.mock('expo-device', () => ({
+  get deviceType() {
+    return mockIsPad ? 2 : 1;
+  },
+  DeviceType: { PHONE: 1, TABLET: 2 },
+}));
 jest.mock('expo-screen-orientation', () => ({
   addOrientationChangeListener: jest.fn(),
 }));
@@ -30,7 +35,7 @@ jest.mock('@onekeyfe/react-native-device-utils', () => ({
   },
 }));
 
-function loadMedia() {
+function loadMedia(query = '(min-width: 900px)') {
   const driverPath = path.join(
     path.dirname(
       require.resolve('@tamagui/react-native-media-driver/package.json'),
@@ -46,7 +51,7 @@ function loadMedia() {
   const control = jest.requireActual<
     typeof import('./nativeTabletRealWidthMedia.native')
   >('./nativeTabletRealWidthMedia.native');
-  return { media: new NativeMediaQueryList('(min-width: 900px)'), ...control };
+  return { media: new NativeMediaQueryList(query), ...control };
 }
 
 describe('native tablet real-width media', () => {
@@ -96,9 +101,29 @@ describe('native tablet real-width media', () => {
 
   it('does not acquire real width outside iPad', () => {
     mockIsPad = false;
+    mockWindow.width = 402;
+    mockWindow.height = 874;
     const { media, acquireNativeTabletRealWidthMedia: acquire } = loadMedia();
     acquire();
     expect(globalThis.$$onekeyNativeMedia?.useRealWidth).toBe(false);
     expect(media.matches).toBe(false);
+  });
+
+  it('keeps iPhone width breakpoints mobile through system rotation', () => {
+    mockIsPad = false;
+    mockWindow.width = 402;
+    mockWindow.height = 874;
+    const { media } = loadMedia('(max-width: 639px)');
+    const { media: shortWindow } = loadMedia('(max-height: 820px)');
+    const { media: landscape } = loadMedia('(orientation: landscape)');
+    expect(media.matches).toBe(true);
+    expect(shortWindow.matches).toBe(false);
+    expect(landscape.matches).toBe(false);
+
+    mockWindow.width = 874;
+    mockWindow.height = 402;
+    expect(media.matches).toBe(true);
+    expect(shortWindow.matches).toBe(true);
+    expect(landscape.matches).toBe(true);
   });
 });

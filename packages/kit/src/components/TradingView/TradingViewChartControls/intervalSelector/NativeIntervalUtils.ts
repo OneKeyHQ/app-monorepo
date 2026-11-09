@@ -10,6 +10,7 @@ export const INTERVAL_GRID_COLUMN_COUNT = 4;
 
 const PREFERRED_INTERVAL_STORAGE_KEY =
   'trading_view_native_preferred_intervals_v1';
+let cachedPreferredIntervalValues: string[] | null | undefined;
 const DEFAULT_PREFERRED_INTERVAL_LABELS = ['1m', '15m', '1H', '4H'];
 const ALL_INTERVAL_OPTION_TEMPLATES = [
   { label: '1m', fallbackValue: '1' },
@@ -366,16 +367,29 @@ function parseStoredPreferredIntervalValues(rawValue: string | null) {
   }
 }
 
+export function getCachedPreferredIntervalValues() {
+  return cachedPreferredIntervalValues;
+}
+
 export async function readStoredPreferredIntervalValues() {
+  if (cachedPreferredIntervalValues !== undefined) {
+    return cachedPreferredIntervalValues;
+  }
   try {
     const rawValue = await appStorage.getItem(PREFERRED_INTERVAL_STORAGE_KEY);
-    return parseStoredPreferredIntervalValues(rawValue);
+    // A user edit made while storage was loading owns the newer preference.
+    if (cachedPreferredIntervalValues === undefined) {
+      cachedPreferredIntervalValues =
+        parseStoredPreferredIntervalValues(rawValue);
+    }
+    return cachedPreferredIntervalValues;
   } catch {
     return null;
   }
 }
 
 export async function saveStoredPreferredIntervalValues(values: string[]) {
+  cachedPreferredIntervalValues = [...values];
   try {
     await appStorage.setItem(
       PREFERRED_INTERVAL_STORAGE_KEY,

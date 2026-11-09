@@ -56,6 +56,7 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.PerpTradeHistoryDetails]: {
     fill: IFill;
     builderFeeRate?: number;
+    pairName?: string;
   };
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }

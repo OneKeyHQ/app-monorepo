@@ -42,6 +42,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -63,6 +64,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -73,6 +75,11 @@ import type {
   IIdentityExitOAuthHandoff,
   IKeylessOAuthSessionRollbackHandle,
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
+import type {
+  IPrimeFreeTrialError,
+  IPrimeFreeTrialQuota,
+  IPrimeFreeTrialUserInfoField,
+} from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type {
   IPrimeGiftClaimParams,
   IPrimeGiftClaimResult,
@@ -93,6 +100,7 @@ import type {
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
   IPrimeInfiniPaymentSource,
+  IPrimeInfiniPendingPaymentLookup,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
@@ -488,12 +496,29 @@ async function withIdentityNetworkTimeout<T>(
   }
 }
 
-type IOneKeyIdAuthSnapshot = {
+export type IOneKeyIdAuthSnapshot = {
   expectedOneKeyUserId: string;
   requestAuthToken: string;
   authSessionSource: EPrimeAuthSessionSource;
   authStateGeneration: number;
 };
+
+// A non-boolean is not a decision. GET /user/info turns an omitted field
+// into false before this runs; other payloads keep the same user's value.
+function resolveInviteProfilePublic({
+  incoming,
+  previous,
+  isSameUser,
+}: {
+  incoming: unknown;
+  previous: boolean | undefined;
+  isSameUser: boolean;
+}): boolean | undefined {
+  if (typeof incoming === 'boolean') {
+    return incoming;
+  }
+  return isSameUser ? previous : undefined;
+}
 
 class ServicePrime extends ServiceBase {
   private primeGiftMutex = new Semaphore(1);
@@ -733,6 +758,13 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  private createInviteProfilePublicUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Invite profile consent user changed',
+      autoToast: false,
+    });
+  }
+
   /**
    * Pin the OneKey ID login a user-consented, account-scoped operation was
    * started against, so every later step can prove it is still acting for
@@ -847,6 +879,39 @@ class ServicePrime extends ServiceBase {
         'X-Onekey-Request-Token': snapshot.requestAuthToken,
       },
     };
+  }
+
+  // Background-only (not exposed to the UI): lets other services pin the
+  // OneKey ID session an account-scoped request belongs to, e.g. free-trial
+  // usage reports that must never be sent as a different user.
+  async captureOneKeyIdAuthRequestConfig({
+    expectedOneKeyUserId,
+    createStateChangedError,
+  }: {
+    expectedOneKeyUserId: string;
+    createStateChangedError: () => Error;
+  }) {
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    return {
+      snapshot,
+      requestConfig: this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    };
+  }
+
+  async assertOneKeyIdAuthSnapshotUnchanged({
+    snapshot,
+    createStateChangedError,
+  }: {
+    snapshot: IOneKeyIdAuthSnapshot;
+    createStateChangedError: () => Error;
+  }) {
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
   }
 
   private async captureInfiniPurchaseAuthSnapshot(
@@ -1068,8 +1133,21 @@ class ServicePrime extends ServiceBase {
     targetLang: string;
     engine?: ETranslateEngine;
     testFlag?: string;
-  }): Promise<{ translations: Array<string | null> }> {
+  }): Promise<{
+    translations: Array<string | null>;
+    // Free-trial quota exhausted (90600) or not open (normalized 90601) on at
+    // least one batch. Returned instead of thrown so translations of the
+    // other, already billed batches are kept.
+    freeTrialError?: IPrimeFreeTrialError;
+    // At least one batch was translated by the server (and so billed).
+    hasBilledBatch: boolean;
+  }> {
     const client = await this.getPrimeClient();
+    const primeUser = await primePersistAtom.get();
+    // A locally active subscription keeps the original behavior (original
+    // text, no free-trial stop), even when the server already sees it as
+    // lapsed and the local state has not caught up yet.
+    const isLocalPrimeActive = Boolean(primeUser.primeSubscription?.isActive);
     // API limit: max 4 texts per translate request
     const batches = chunk(texts, 4);
     const requestConfig: Parameters<typeof client.post>[2] & {
@@ -1077,7 +1155,10 @@ class ServicePrime extends ServiceBase {
     } = {
       autoHandleError: false,
     };
-    const results: Array<Array<string | null>> = await Promise.all(
+    let freeTrialError: IPrimeFreeTrialError | undefined;
+    let hasBilledBatch = false;
+    // allSettled: one batch failing must not drop the other batches' results.
+    const settledResults = await Promise.allSettled(
       batches.map(async (batch): Promise<Array<string | null>> => {
         try {
           const res = await client.post<{
@@ -1110,6 +1191,7 @@ class ServicePrime extends ServiceBase {
             });
           }
 
+          hasBilledBatch = true;
           const translations = res?.data?.data?.translations;
 
           return Array.isArray(translations) ? translations : batch;
@@ -1117,6 +1199,17 @@ class ServicePrime extends ServiceBase {
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
+          }
+
+          const batchFreeTrialError = isLocalPrimeActive
+            ? undefined
+            : this.backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError({
+                error,
+                featureId: EPrimeFeatures.DAppTranslate,
+              });
+          if (batchFreeTrialError) {
+            freeTrialError = freeTrialError ?? batchFreeTrialError;
+            return batch;
           }
 
           console.error(
@@ -1127,7 +1220,23 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
-    return { translations: results.flat() };
+    const rejected = settledResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    if (rejected) {
+      // Keep the existing 90104 / 90105 AI-unavailable behavior.
+      throw rejected.reason;
+    }
+    const results = settledResults.map((result, index) =>
+      result.status === 'fulfilled' ? result.value : batches[index],
+    );
+    if (freeTrialError) {
+      await this.backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer(
+        freeTrialError,
+        { onekeyUserId: primeUser.onekeyUserId },
+      );
+    }
+    return { translations: results.flat(), freeTrialError, hasBilledBatch };
   }
 
   async deleteOneKeyIdAccountOnServer({
@@ -1617,7 +1726,7 @@ class ServicePrime extends ServiceBase {
         await this.assertOneKeyIdLoggedOutForInteractiveLogin(
           'ServicePrime.apiEmailOtpLogin',
         );
-        allowAuthSessionStorageWritesBySessionSource(
+        await allowAuthSessionStorageWritesBySessionSource(
           EPrimeAuthSessionSource.LegacyEmailSupabase,
         );
         const client = await getSupabaseClientBySessionSource(
@@ -1639,6 +1748,8 @@ class ServicePrime extends ServiceBase {
               reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
                 error,
               )}`,
+              trigger: 'interactive',
+              error,
             });
           }
         }
@@ -1654,6 +1765,7 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
               response.error,
             )}`,
+            trigger: 'interactive',
           });
           markOneKeyIdFailureServerLogged(error);
           throw error;
@@ -1677,6 +1789,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'interactive',
+          error,
         });
         markOneKeyIdFailureServerLogged(error);
       }
@@ -1973,6 +2087,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -1988,6 +2103,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2003,6 +2119,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2915,6 +3032,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt upgrade state read failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -2945,6 +3064,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt OneKey ID refresh failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -2979,6 +3100,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt credential upgrade failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -2996,6 +3119,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt bind requirement check failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -3011,6 +3136,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt state write failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3034,6 +3161,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt claim failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -4465,7 +4594,12 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async callApiFetchPrimeUserInfo(): Promise<IPrimeServerUserInfoWithProfile> {
+  async callApiFetchPrimeUserInfo({
+    onFreeTrial,
+  }: {
+    // Background-internal only; a UI caller cannot pass a function.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
+  } = {}): Promise<IPrimeServerUserInfoWithProfile> {
     // Snapshot the token AND pin it as the explicit request header (the
     // ServiceBase interceptor respects a pre-set header). Without pinning,
     // the interceptor would re-read the active token at send time, so a
@@ -4481,13 +4615,18 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.getActiveAuthToken();
     return this.callApiFetchPrimeUserInfoWithRequestToken({
       requestAuthToken,
+      onFreeTrial,
     });
   }
 
   private async callApiFetchPrimeUserInfoWithRequestToken({
     requestAuthToken,
+    onFreeTrial,
   }: {
     requestAuthToken: string;
+    // Receives `freeTrial` of /user/info, split off before the merge so it
+    // never leaks into IPrimeServerUserInfo. undefined means unknown.
+    onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
   }): Promise<IPrimeServerUserInfoWithProfile> {
     const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
@@ -4500,7 +4639,9 @@ class ServicePrime extends ServiceBase {
     };
     type IProfileApiResponse =
       IPrimeApiClientResponse<IOneKeyIdProfileResponse>;
-    type IUserInfoApiResponse = IPrimeApiClientResponse<IPrimeServerUserInfo>;
+    type IUserInfoApiResponse = IPrimeApiClientResponse<
+      IPrimeServerUserInfo & IPrimeFreeTrialUserInfoField
+    >;
     const profileRequest = client
       .get<IProfileApiResponse>('/prime/v1/account/profile', requestConfig)
       .then((response) =>
@@ -4531,20 +4672,30 @@ class ServicePrime extends ServiceBase {
 
     const profile =
       profileResult.status === 'fulfilled' ? profileResult.value : undefined;
-    const serverUserInfo =
-      serverUserInfoResult.status === 'fulfilled'
-        ? serverUserInfoResult.value
-        : undefined;
+    let serverUserInfo: IPrimeServerUserInfo | undefined;
+    if (serverUserInfoResult.status === 'fulfilled') {
+      const { freeTrial, ...restServerUserInfo } = serverUserInfoResult.value;
+      serverUserInfo = restServerUserInfo;
+      onFreeTrial?.(freeTrial);
+    }
 
     if (serverUserInfo) {
-      return this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
+      return {
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
+        }),
+        // Only this response decides consent. An omitted field is off, and
+        // a profile value must not replace it.
+        inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+      };
     }
 
     if (this.isCompletePrimeServerUserInfo(profile)) {
-      return profile;
+      return {
+        ...profile,
+        inviteProfilePublic: undefined,
+      };
     }
 
     if (serverUserInfoResult.status === 'rejected') {
@@ -4648,6 +4799,16 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
+        // Only a boolean is a decision. GET /user/info already normalized an
+        // omitted field to false; other callers leave a non-boolean untouched.
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: serverUserInfo?.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser:
+            Boolean(serverUserId) &&
+            (v.onekeyUserId === serverUserId ||
+              v.onekeyAccount?.onekeyUserId === serverUserId),
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4675,9 +4836,10 @@ class ServicePrime extends ServiceBase {
     void this.trackOneKeyIdIdentityLinked({ onekeyUserId: serverUserId });
     this.enqueuePrimeProfileAnalyticsReport();
 
-    if (serverUserInfo?.inviteCode) {
+    if (serverUserInfo?.inviteCode && serverUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         serverUserInfo.inviteCode,
+        serverUserId,
       );
     }
 
@@ -4735,6 +4897,11 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: loginResponse.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser,
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -4767,6 +4934,7 @@ class ServicePrime extends ServiceBase {
     if (loginResponse.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         loginResponse.inviteCode,
+        onekeyAccount.onekeyUserId,
       );
     }
   }
@@ -4914,7 +5082,14 @@ class ServicePrime extends ServiceBase {
           : undefined,
       };
     }
-    const serverUserInfo = await this.callApiFetchPrimeUserInfo();
+    const freeTrialQuotaRequestSeq =
+      this.backgroundApi.servicePrimeFreeTrial.allocateQuotaRequestSeq();
+    let freeTrialFromUserInfo: IPrimeFreeTrialQuota | null | undefined;
+    const serverUserInfo = await this.callApiFetchPrimeUserInfo({
+      onFreeTrial: (freeTrial) => {
+        freeTrialFromUserInfo = freeTrial;
+      },
+    });
 
     // Re-check auth token after the network request returns. If the user
     // logged out while this request was in flight, the simpleDb token will
@@ -5005,6 +5180,15 @@ class ServicePrime extends ServiceBase {
       const { primeSubscription } = await this.updatePrimeAtomByServerUserInfo({
         serverUserInfo,
       });
+      // Only atom writes happen here, so it is safe inside loginMutex.
+      await this.backgroundApi.servicePrimeFreeTrial.applyQuotaFromPrimeUserInfo(
+        {
+          freeTrial: freeTrialFromUserInfo,
+          onekeyUserId: localUserInfoBeforeFetch.onekeyUserId,
+          requestSeq: freeTrialQuotaRequestSeq,
+          isPrimeSubscriptionActive: Boolean(primeSubscription?.isActive),
+        },
+      );
       const serverPasswordUUID = serverUserInfo?.pwdHash;
       const isServerMasterPasswordSet = Boolean(
         serverPasswordUUID &&
@@ -5201,6 +5385,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiSendEmailVerificationCode failed and returned legacy fallback success: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
 
@@ -5235,6 +5421,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiPrimeLogin failed and returned legacy fallback failure: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
     return { success: false };
@@ -5533,12 +5721,28 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{
         resendAt: number;
+        canResendAt?: number;
         uuid: string;
       }>
     >('/prime/v1/general/emailOTP', {
       scene,
     });
-    return result?.data?.data;
+    const data = result?.data?.data;
+    const headerDate = result?.headers?.date;
+    const responseTime =
+      typeof headerDate === 'string' ? Date.parse(headerDate) : NaN;
+    const serverTime = Number.isFinite(responseTime)
+      ? responseTime
+      : systemTimeUtils.getEstimatedServerTime();
+    // Convert to a relative delay before crossing the background bridge.
+    const retryAfterSeconds =
+      typeof data?.canResendAt === 'number' &&
+      Number.isSafeInteger(data.canResendAt) &&
+      typeof serverTime === 'number' &&
+      Number.isFinite(serverTime)
+        ? Math.ceil((data.canResendAt - serverTime) / 1000)
+        : undefined;
+    return { ...data, retryAfterSeconds };
   }
 
   @backgroundMethod()
@@ -5879,6 +6083,7 @@ class ServicePrime extends ServiceBase {
     token,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext: flowContext
@@ -5889,6 +6094,7 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.post<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
@@ -5963,6 +6169,115 @@ class ServicePrime extends ServiceBase {
         failureReason: 'localPersistenceFailed',
       });
     }
+  }
+
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    )
+      throw this.createInfiniPurchaseUserChangedError();
+  }
+
+  @backgroundMethod()
+  async apiGetInfiniPendingPayment({
+    expectedOneKeyUserId,
+    authContext,
+  }: {
+    expectedOneKeyUserId: string;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<IPrimeInfiniPendingPaymentLookup> {
+    const snapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    this.assertInfiniPaymentRequestAuthContext(snapshot, authContext);
+    const lookup: IPrimeInfiniPendingPaymentLookup = {
+      authContext: {
+        onekeyUserId: snapshot.expectedOneKeyUserId,
+        authSessionSource: snapshot.authSessionSource,
+        authStateGeneration: snapshot.authStateGeneration,
+      },
+    };
+    try {
+      const client = await this.getPrimeClient();
+      const result = await client.get<
+        IApiClientResponse<{
+          payments: Array<
+            IPrimeInfiniPaymentApiResponse & {
+              plan?: unknown;
+              transactions?: unknown;
+            }
+          >;
+        }>
+      >('/prime/v1/infini/payment/pending', {
+        ...this.getInfiniPurchaseRequestConfig(snapshot),
+        timeout: 5000,
+      });
+      if (
+        !result?.data ||
+        result.data.code !== 0 ||
+        !result.data.data ||
+        typeof result.data.data !== 'object' ||
+        Array.isArray(result.data.data) ||
+        !Array.isArray(result.data.data.payments)
+      )
+        throw new OneKeyLocalError('Invalid Infini pending response');
+      const { payments } = result.data.data;
+      for (const pending of payments) {
+        if (
+          !pending ||
+          typeof pending !== 'object' ||
+          Array.isArray(pending) ||
+          !isString(pending.paymentId) ||
+          !pending.paymentId.trim()
+        )
+          throw new OneKeyLocalError('Invalid Infini pending payment identity');
+        // Warn for every known order, but only one order can be a recovery candidate.
+        if (payments.length === 1) {
+          let payment: IPrimeInfiniPayment | undefined;
+          try {
+            payment = validateInfiniPaymentResponse(pending);
+          } catch {
+            /* Warn without offering recovery when fields are incomplete. */
+          }
+          const hasTransactions = Array.isArray(pending.transactions)
+            ? pending.transactions.length > 0
+            : undefined;
+          const plan = pending.plan === 'annual' ? 'yearly' : pending.plan;
+          lookup.pendingPayment = {
+            paymentId: pending.paymentId,
+            payment,
+            plan: plan === 'monthly' || plan === 'yearly' ? plan : undefined,
+            hasTransactions,
+          };
+          lookup.pendingPayment.hasLocalSendEvidence =
+            await this.backgroundApi.simpleDb.prime.hasInfiniPaymentLocalSendEvidence(
+              {
+                onekeyUserId: snapshot.expectedOneKeyUserId,
+                paymentId: pending.paymentId,
+              },
+            );
+        }
+      }
+      lookup.hasPendingPayments = payments.length > 0;
+    } catch (error) {
+      if (error instanceof OneKeyErrorPrimeLoginInvalidToken) throw error;
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'remotePendingLookupFailed',
+      });
+      // Advisory discovery cannot prove there is no old order on failure.
+      lookup.status = 'unavailable';
+    }
+    // Authentication failures are outside the advisory failure path.
+    await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+    return lookup;
   }
 
   @backgroundMethod()
@@ -6225,6 +6540,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async apiRemovePrimeForTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'apiRemovePrimeForTest');
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError('OneKey ID changed; reopen the confirmation');
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    // The server enforces the test environment and email allowlist. Use the
+    // configured Prime client so authentication and API errors stay standard.
+    await client.post(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    );
+    this.clearPrimeUserInfoCache();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    const { serverUserInfo, primeSubscription } =
+      await this.apiFetchPrimeUserInfo({
+        forceRefresh: true,
+      });
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    if (!serverUserInfo || primeSubscription?.isActive) {
+      throw new OneKeyLocalError(
+        'Removal requested, but Prime removal could not be confirmed. Refresh the account and try again.',
+      );
+    }
+  }
+
   // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
   // entry is reachable from a production build, so a dev-only decorator would
   // be a wrong description of it. Its password wrapper also only guards the
@@ -6297,6 +6661,56 @@ class ServicePrime extends ServiceBase {
       void this.apiFetchPrimeUserInfo();
     });
     return result.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async updateInviteProfilePublic({
+    enabled,
+    expectedOneKeyUserId,
+  }: {
+    enabled: boolean;
+    expectedOneKeyUserId: string;
+  }) {
+    const createStateChangedError = () =>
+      this.createInviteProfilePublicUserChangedError();
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    // Send only this field. Omitted avatar and nickname stay unchanged.
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        inviteProfilePublic: enabled,
+      },
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
+    );
+    if (result.data.code !== 0) {
+      return false;
+    }
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    await primePersistAtom.set((current) => {
+      if (current.onekeyUserId !== expectedOneKeyUserId) {
+        return current;
+      }
+      return {
+        ...current,
+        inviteProfilePublic: enabled,
+      };
+    });
+    this.clearPrimeUserInfoCache();
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return true;
   }
 }
 

@@ -5,6 +5,14 @@ const path = require('path');
 
 const fs = require('fs-extra');
 
+jest.mock('child_process', () => {
+  const actual = jest.requireActual('child_process');
+  return {
+    ...actual,
+    spawnSync: jest.fn((...args) => actual.spawnSync(...args)),
+  };
+});
+
 const devVendorConfig = require('../../dev-vendor.config');
 const {
   computeConfigInputsDigest,
@@ -12,7 +20,6 @@ const {
   computeModulesDigest,
   computeNativeContractKey,
   getNativeContractInputPaths,
-  getNativePackageAbiInputPaths,
   getPlatformOutputDirectory,
   sha256,
 } = require('../../plugins/devVendor');
@@ -41,7 +48,42 @@ const {
   withCacheLock,
 } = require('../metro-dev-prebundle');
 
+afterEach(() => {
+  jest.restoreAllMocks();
+  spawnSync.mockReset();
+  spawnSync.mockImplementation(jest.requireActual('child_process').spawnSync);
+});
+
 function createTemporaryRepo() {
+  // Transport tests keep native inputs fixed; devVendor.test.js covers real ABIs.
+  jest.replaceProperty(devVendorConfig, 'nativeContractDependencies', {
+    android: [],
+    ios: [],
+    shared: [],
+  });
+  jest.replaceProperty(devVendorConfig, 'nativeContractDirectories', {
+    android: [],
+    ios: [],
+    shared: [],
+  });
+  jest.replaceProperty(devVendorConfig, 'nativeContractFiles', {
+    android: ['apps/mobile/android/gradle.properties'],
+    ios: [
+      'apps/mobile/ios/Podfile.lock',
+      'apps/mobile/ios/Podfile.properties.json',
+    ],
+    shared: [],
+  });
+  const actualSpawnSync = jest.requireActual('child_process').spawnSync;
+  spawnSync.mockImplementation((file, args, options) => {
+    if (
+      ['hermesc', 'hermesc.exe'].includes(path.basename(file)) &&
+      args?.[0] === '-version'
+    ) {
+      return { status: 0, stdout: 'HBC bytecode version: 1', stderr: '' };
+    }
+    return actualSpawnSync(file, args, options);
+  });
   const repoRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'onekey-metro-dev-prebundle-'),
   );
@@ -60,28 +102,12 @@ function createTemporaryRepo() {
   for (const relativeDirectory of devVendorConfig.fingerprintDirectories) {
     fs.ensureDirSync(path.join(repoRoot, relativeDirectory));
   }
-  const nativeDependencies = new Set([
-    ...devVendorConfig.nativeContractDependencies.shared,
-    ...devVendorConfig.nativeContractDependencies.android,
-    ...devVendorConfig.nativeContractDependencies.ios,
-  ]);
-  const nativeAbiInputs = new Set();
-  for (const platform of ['android', 'ios']) {
-    for (const name of nativeDependencies) {
-      for (const relativePath of getNativePackageAbiInputPaths(
-        name,
-        platform,
-        REPO_ROOT,
-      )) {
-        nativeAbiInputs.add(relativePath);
-      }
-    }
-  }
-  for (const relativePath of nativeAbiInputs) {
-    const destination = path.join(repoRoot, relativePath);
-    fs.ensureDirSync(path.dirname(destination));
-    fs.copyFileSync(path.join(REPO_ROOT, relativePath), destination);
-  }
+  const hermesPackageRoot = path.join(repoRoot, 'node_modules/hermes-compiler');
+  fs.ensureDirSync(hermesPackageRoot);
+  fs.writeJsonSync(path.join(hermesPackageRoot, 'package.json'), {
+    name: 'hermes-compiler',
+    version: 'test',
+  });
   const modulePath = 'node_modules/react/index.js';
   const moduleId = loadRegistry().modules[modulePath];
   if (!moduleId) {
@@ -653,6 +679,22 @@ describe('metro-dev-prebundle release transport', () => {
         ios: expect.any(Object),
       });
       expect(releaseManifest.tagName).toMatch(/^metro-dev-prebundle-v2-/);
+      expect(() =>
+        verifyReleaseManifest({
+          manifest: {
+            ...releaseManifest,
+            devVendor: {
+              ...releaseManifest.devVendor,
+              nativeContractKeys: {
+                ...releaseManifest.devVendor.nativeContractKeys,
+                ios: '0'.repeat(64),
+              },
+            },
+          },
+          platform: 'ios',
+          repoRoot: fixture.repoRoot,
+        }),
+      ).toThrow('Release build inputs do not match this checkout');
       expect(
         await fs.readFile(
           path.join(outputDirectory, THIRD_PARTY_NOTICES_NAME),

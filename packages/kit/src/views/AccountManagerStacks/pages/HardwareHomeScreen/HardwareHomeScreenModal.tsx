@@ -53,13 +53,12 @@ import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { DimensionValue } from 'react-native';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
 type IAspectRatioInfo = {
   ratio: number;
-  flexBasis: DimensionValue | undefined;
+  flexBasis: string | undefined;
 };
 
 type IWallpaperCategory = {
@@ -75,7 +74,7 @@ function useAspectRatioInfo(params: {
   const { sizeInfo, deviceType } = params;
   const media = useMedia();
   return useMemo(() => {
-    let flexBasis: DimensionValue | undefined = '25%';
+    let flexBasis: string | undefined = '25%';
     let ratio = (sizeInfo?.width ?? 1) / (sizeInfo?.height ?? 1);
     if (
       [
@@ -93,7 +92,7 @@ function useAspectRatioInfo(params: {
   }, [sizeInfo?.width, sizeInfo?.height, deviceType, media.gtMd]);
 }
 
-const getCountByFlexBasis = (flexBasis: DimensionValue | undefined) => {
+const getCountByFlexBasis = (flexBasis: string | undefined) => {
   if (flexBasis === '25%') {
     return 8;
   }
@@ -456,8 +455,19 @@ function WallpaperCustomCategorySection({
     const data = await ImageCrop.openPicker({
       width: config.size?.width,
       height: config.size?.height,
+    }).catch((error: unknown) => {
+      const isCancelled =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'E_PICKER_CANCELLED';
+      if (!isCancelled) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      }
+      return undefined;
     });
-    if (!data.data) {
+    if (!data?.data) {
       return;
     }
 
@@ -853,7 +863,9 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: customBlurScreenHex,
                 } = await deviceHomeScreenUtils.buildCustomScreenHex({
                   dbDeviceId: device.id,
-                  url: selectedItem.uri || selectedItem.url,
+                  url: await UploadedHomeScreenCache.getOriginalImageUri(
+                    selectedItem.uri || selectedItem.url,
+                  ),
                   deviceType: device.deviceType,
                   isUserUpload,
                   config: deviceInfo?.config,

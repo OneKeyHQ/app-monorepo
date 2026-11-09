@@ -1,4 +1,5 @@
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { getMarketSwapDefaultPair } from '@onekeyhq/kit/src/views/Swap/utils/marketSwapDefaultPair';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapInitParams,
@@ -26,34 +27,50 @@ export function buildMarketEmbeddedSwapInitParams({
     : (inputDraft?.toToken ?? swapToken);
   const draftFromToken =
     inputDraft?.fromToken &&
-    inputDraft.fromToken.networkId === importToToken.networkId &&
+    (!swapToken.isStock ||
+      inputDraft.fromToken.networkId === importToToken.networkId) &&
     !equalTokenNoCaseSensitive({
       token1: inputDraft.fromToken,
       token2: importToToken,
     })
       ? inputDraft.fromToken
       : undefined;
+  const defaultPair = getMarketSwapDefaultPair({
+    token: importToToken,
+    defaultTokens,
+  });
   const importFromToken =
     draftFromToken ??
-    defaultTokens.find(
-      (token) =>
-        !equalTokenNoCaseSensitive({
-          token1: token,
-          token2: importToToken,
-        }),
-    );
+    (swapToken.isStock
+      ? defaultTokens.find(
+          (token) =>
+            !equalTokenNoCaseSensitive({
+              token1: token,
+              token2: importToToken,
+            }),
+        )
+      : defaultPair.fromToken);
 
-  if (!importFromToken) {
+  if (!importFromToken && swapToken.isStock) {
     return undefined;
   }
 
+  let swapTabSwitchType = ESwapTabSwitchType.SWAP;
+  if (importToToken.isStock) {
+    swapTabSwitchType = ESwapTabSwitchType.STOCK;
+  } else if (
+    importFromToken &&
+    importFromToken.networkId !== importToToken.networkId
+  ) {
+    swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
+  }
   return {
     importFromToken,
-    importNetworkId: importFromToken.networkId,
+    importNetworkId: importFromToken?.networkId,
     importToToken,
     swapSource: ESwapSource.MARKET,
-    swapTabSwitchType: importToToken.isStock
-      ? ESwapTabSwitchType.STOCK
-      : ESwapTabSwitchType.SWAP,
+    marketSwapDirection:
+      !swapToken.isStock && !draftFromToken ? 'to' : undefined,
+    swapTabSwitchType,
   };
 }

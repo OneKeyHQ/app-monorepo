@@ -10,6 +10,7 @@ import {
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   Page,
+  SELECT_SEARCHABLE_PANEL_HEIGHT,
   Select,
   SizableText,
   XStack,
@@ -24,11 +25,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
-
-// Constants for performance optimization
-const DESKTOP_DRAGGABLE_STYLE = {
-  WebkitAppRegion: 'drag',
-} as any;
 
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -76,7 +72,8 @@ const OnboardingLayoutLanguageSelector = memo(() => {
         value={value}
         onChange={handleLanguageChange}
         placement="bottom-end"
-        floatingPanelProps={{ maxHeight: 280 }}
+        searchable
+        floatingPanelProps={{ maxHeight: SELECT_SEARCHABLE_PANEL_HEIGHT }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         renderTrigger={({ label }) =>
           gtMd ? (
@@ -319,18 +316,6 @@ const OnboardingLayoutRoot = memo(
           p: '$10',
         }}
       >
-        {/* Draggable area for desktop window */}
-        {platformEnv.isDesktop ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h={80}
-            zIndex={9999}
-            style={DESKTOP_DRAGGABLE_STYLE}
-          />
-        ) : null}
         <YStack
           h="100%"
           w="100%"

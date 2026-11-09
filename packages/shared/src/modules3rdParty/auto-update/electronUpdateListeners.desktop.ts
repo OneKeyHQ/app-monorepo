@@ -1,7 +1,10 @@
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppUpdate';
 
-import type { IElectronUpdateListeners, IUpdateDownloadedEvent } from './type';
+import type {
+  IElectronUpdateListeners,
+  IUpdateDownloadedEvent,
+  IUpdateProgressUpdate,
+} from './type';
 
 export const electronUpdateListeners: IElectronUpdateListeners = {
   onProgressUpdate: (callback: (params: IUpdateProgressUpdate) => void) => {

@@ -1,13 +1,36 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
+import { View } from 'react-native';
+import { CollapsiblePagerView } from 'react-native-pager-view';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Icon, Page, SizableText, Toast, XStack } from '@onekeyhq/components';
+import {
+  type IElement,
+  Icon,
+  Page,
+  SearchBar,
+  SegmentControl,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -37,7 +60,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IAggregateTokenSelectContext,
+  IAssetSelectorParamList,
+  ITokenSelectorSecondaryTabListProps,
+} from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,6 +76,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   extractCrossNetworkSearchQuery,
+  isAddressLikeTokenSearchKeywords,
   tokenizeTokenSearchKeywords,
 } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
@@ -59,6 +88,7 @@ import {
 import {
   buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
+  mergeAggregateTokenMembers,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -79,9 +109,67 @@ import {
 
 import type { ITokenSelectorSearchTokenList } from '../utils/tokenSelectorSearchUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type { TextInputFocusEventData } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 const num = 0;
+
+const PAGER_SECONDARY_LIST_PROPS: ITokenSelectorSecondaryTabListProps = {
+  onScroll: () => undefined,
+  scrollEventThrottle: 16,
+  contentContainerStyle: { pt: 0 },
+};
+
+// `onLayout` answers after the first paint (react-native-web waits for a
+// ResizeObserver tick plus a timer; native sends an async event), so anything
+// positioned from a measured height paints once in the wrong place. A node is
+// already laid out when its ref attaches, and a state update made there lands
+// before that first paint.
+function readMountedHeight(node: IElement): number | undefined {
+  if (platformEnv.isNative) {
+    let height: number | undefined;
+    // Fabric answers measure() synchronously during the commit.
+    (node as ViewInstance).measure((_x, _y, _width, measuredHeight) => {
+      height = measuredHeight;
+    });
+    return height;
+  }
+  // Same source react-native-web's onLayout reads; unlike
+  // getBoundingClientRect() it ignores the modal's entry scale.
+  return (node as HTMLElement).offsetHeight;
+}
+
+const SEGMENT_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
+
+// Frame for the list of one segment. Its pager page mounts it only while
+// active, so `fadeIn` plays an opacity-only entrance
+// like the segmented forms in onboarding: no slide, which would promise a
+// swipe, and no exit, which would need both lists mounted at once. A selector
+// without segments gets its list unwrapped.
+function SegmentContent({
+  segmented,
+  fadeIn,
+  children,
+}: {
+  segmented: boolean;
+  fadeIn: boolean;
+  children: ReactNode;
+}) {
+  if (!segmented) {
+    return children;
+  }
+  return (
+    <YStack
+      flex={1}
+      overflow="hidden"
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={fadeIn ? SEGMENT_CONTENT_ENTER_STYLE : undefined}
+    >
+      {children}
+    </YStack>
+  );
+}
 
 type ISelectorTokenListRequestContext = {
   accountId: string;
@@ -117,6 +205,9 @@ type ITokenSelectorScopedViewSnapshot = {
 };
 
 const TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS = 300;
+// Stable identity: an inline object would re-render the memoized list on
+// every page render.
+const TOKEN_SELECTOR_EMPTY_PROPS = { mt: '18%' } as const;
 
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
@@ -393,6 +484,8 @@ function TokenSelector() {
     hideBalanceAndValue,
     onSwitchNetwork,
     showDeFiTokenSwitch,
+    hideDeFiTokens,
+    secondaryTab,
   } = route.params;
 
   const {
@@ -405,6 +498,11 @@ function TokenSelector() {
   });
 
   const [searchKey, setSearchKey] = useState('');
+  // Secondary body segment (see ITokenSelectorSecondaryTab). The search box
+  // stays mounted across segments, so its text carries over.
+  const [isSecondaryTabActive, setIsSecondaryTabActive] = useState(false);
+  const hasSecondaryTab = !!secondaryTab;
+  const showSecondaryTab = hasSecondaryTab && isSecondaryTabActive;
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   // Derive all-networks mode synchronously from the networkId: `network` loads
@@ -415,7 +513,11 @@ function TokenSelector() {
     isAllNetworks,
     networkId,
   });
-  const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
+  const isDeFiTokenFilterRequested = !!showDeFiTokenSwitch || !!hideDeFiTokens;
+  const isDeFiEnabled = useIsDeFiEnabled(
+    network?.id,
+    isDeFiTokenFilterRequested,
+  );
   // `network` loads async, but the filter support check short-circuits on
   // `isAllNetworks` alone, so probe with a synchronous stand-in in all-networks
   // mode: otherwise `showLpTokensOnly` flips after mount and the normal
@@ -438,12 +540,16 @@ function TokenSelector() {
     };
   }
   const showTokenSelectorFilter =
-    !!showDeFiTokenSwitch &&
+    isDeFiTokenFilterRequested &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
       network: filterProbeNetwork,
       isDeFiEnabled,
     });
-  const showLpTokensOnly = showTokenSelectorFilter
+  // `hideDeFiTokens` pins the wallet-token side: no switch, and the persisted
+  // DeFi-only preference (shared with Send) is never read.
+  const showDeFiTokenFilterSwitch =
+    showTokenSelectorFilter && !!showDeFiTokenSwitch;
+  const showLpTokensOnly = showDeFiTokenFilterSwitch
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
   // Cross-network search (main Receive): under a single-network scope, search
@@ -750,7 +856,10 @@ function TokenSelector() {
   );
 
   const executeOnSelect = useCallback(
-    async (selectedToken: IAccountToken) => {
+    async (
+      selectedToken: IAccountToken,
+      selectContext?: IAggregateTokenSelectContext,
+    ) => {
       if (!onSelect) return;
       if (exchangeFilter) {
         updateProcessingTokenState({
@@ -758,7 +867,7 @@ function TokenSelector() {
           token: selectedToken,
         });
         try {
-          await onSelect(selectedToken);
+          await onSelect(selectedToken, selectContext);
         } finally {
           updateProcessingTokenState({
             isProcessing: false,
@@ -766,7 +875,7 @@ function TokenSelector() {
           });
         }
       } else {
-        void onSelect(selectedToken);
+        void onSelect(selectedToken, selectContext);
       }
 
       if (enableNetworkAfterSelect && selectedToken.networkId) {
@@ -804,27 +913,36 @@ function TokenSelector() {
   const handleTokenOnPress = useCallback(
     async (pressedToken: IAccountToken) => {
       let token = pressedToken;
+      // Multi-chain members ride along with the selection so the Receive
+      // page can offer its in-page network switch on every aggregate path
+      // (single member, single chain with balance, picked on the network
+      // page), not only when the network page was shown.
+      let selectContext: IAggregateTokenSelectContext | undefined;
       if (token.isAggregateToken) {
         const allAggregateTokenList =
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
         const aggregateTokenList =
           selectorAggregateTokenListMap[token.$key]?.tokens ?? [];
+        selectContext = {
+          aggregateToken: pressedToken,
+          aggregateSubTokenList: aggregateTokenList,
+          allAggregateTokenList,
+        };
         // Merge owned members with global config members before branching:
         // a stale cache filtered by listed networks can leave a single
         // survivor in either list (e.g. one global member with no owned
         // copy), and neither per-list length check would catch it — the tap
         // would fall through and keep the `aggregate--0` descriptor for
-        // account lookup and onSelect. Dedupe by networkId with owned tokens
-        // first, matching AggregateTokenSelector's merge.
-        const mergedAggregateTokenList = uniqBy(
-          [...aggregateTokenList, ...allAggregateTokenList],
-          (t) => t.networkId,
-        );
+        // account lookup and onSelect. Same merge as AggregateTokenSelector.
+        const mergedAggregateTokenList = mergeAggregateTokenMembers({
+          aggregateSubTokenList: aggregateTokenList,
+          allAggregateTokenList,
+        });
         if (mergedAggregateTokenList.length === 1) {
           const singleAggregateToken = mergedAggregateTokenList[0];
           // An owned survivor already carries its accountId.
           if (singleAggregateToken.accountId) {
-            await executeOnSelect(singleAggregateToken);
+            await executeOnSelect(singleAggregateToken, selectContext);
             return;
           }
           // A lone survivor sourced from the global wallet config has no
@@ -850,7 +968,7 @@ function TokenSelector() {
             });
 
           if (tokenHasBalance && tokenHasBalanceCount === 1) {
-            await executeOnSelect(tokenHasBalance);
+            await executeOnSelect(tokenHasBalance, selectContext);
             return;
           }
 
@@ -980,10 +1098,13 @@ function TokenSelector() {
         );
 
         if (matchedAccount?.accountId) {
-          await executeOnSelect({
-            ...token,
-            accountId: matchedAccount.accountId,
-          });
+          await executeOnSelect(
+            {
+              ...token,
+              accountId: matchedAccount.accountId,
+            },
+            selectContext,
+          );
         } else if (account) {
           // Key the creating-address indicator to the pressed row: for the
           // aggregate fall-through above, `token` is the member while the
@@ -1024,10 +1145,13 @@ function TokenSelector() {
             });
 
             if (resp) {
-              await executeOnSelect({
-                ...token,
-                accountId: resp.accounts[0]?.id,
-              });
+              await executeOnSelect(
+                {
+                  ...token,
+                  accountId: resp.accounts[0]?.id,
+                },
+                selectContext,
+              );
             }
           } catch (_e) {
             updateCreateAccountState({
@@ -1036,10 +1160,10 @@ function TokenSelector() {
             });
           }
         } else if (vaultSettings?.mergeDeriveAssetsEnabled) {
-          await executeOnSelect(token);
+          await executeOnSelect(token, selectContext);
         }
       } else {
-        await executeOnSelect(token);
+        await executeOnSelect(token, selectContext);
       }
 
       if (closeAfterSelect) {
@@ -1091,7 +1215,7 @@ function TokenSelector() {
       onChangeText: ({
         nativeEvent,
       }: {
-        nativeEvent: TextInputFocusEventData;
+        nativeEvent: SearchBarTextEventData;
       }) => {
         liveSearchKeyRef.current = nativeEvent.text;
         debounceUpdateSearchKey(nativeEvent.text);
@@ -1102,12 +1226,14 @@ function TokenSelector() {
 
   const headerRight = useMemo(() => {
     const shouldShowNetworkSwitch = !!onSwitchNetwork && !!network?.name;
-    if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) return undefined;
+    if (!showDeFiTokenFilterSwitch && !shouldShowNetworkSwitch) {
+      return undefined;
+    }
 
     return function RenderTokenSelectorHeaderRight() {
       return (
         <TokenSelectorHeaderRight
-          showDeFiTokenSwitch={showTokenSelectorFilter}
+          showDeFiTokenSwitch={showDeFiTokenFilterSwitch}
           loading={isLpTokenSwitchLoading}
           onLpTokenFilterChange={handleLpTokenFilterChange}
           onSwitchNetwork={onSwitchNetwork}
@@ -1122,7 +1248,7 @@ function TokenSelector() {
     handleLpTokenFilterChange,
     isLpTokenSwitchLoading,
     onSwitchNetwork,
-    showTokenSelectorFilter,
+    showDeFiTokenFilterSwitch,
     network?.name,
     network?.shortname,
     network?.logoURI,
@@ -1183,11 +1309,9 @@ function TokenSelector() {
         // fetched here rather than on mount (getAllNetworks is memoized in the
         // background service).
         const trimmedKeywords = keywords.trim();
-        const isAddressLikeKeywords =
-          trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
         const keywordStrippingEnabled =
           (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
-          !isAddressLikeKeywords &&
+          !isAddressLikeTokenSearchKeywords(trimmedKeywords) &&
           tokenizeTokenSearchKeywords(trimmedKeywords).length >= 2;
         const crossNetworkQuery = keywordStrippingEnabled
           ? extractCrossNetworkSearchQuery({
@@ -1221,7 +1345,10 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        if (showTokenSelectorFilter) {
+        // Search follows the switch only where the switch exists. Under
+        // `hideDeFiTokens` there is no other way to reach a DeFi token, so
+        // search matches every token.
+        if (showDeFiTokenFilterSwitch) {
           result = filterTokenSelectorTokensByDappTokenFilterParams({
             tokens: result,
             tokenSelectorFilterParams,
@@ -1262,8 +1389,8 @@ function TokenSelector() {
       isSelectorAllNetworks,
       networkId,
       othersAccountForNetworkFilter,
+      showDeFiTokenFilterSwitch,
       showLpTokensOnly,
-      showTokenSelectorFilter,
       tokenSelectorFilterParams,
       tokenSelectorSearchFilterContext,
     ],
@@ -1952,7 +2079,28 @@ function TokenSelector() {
   // not sit out the typing debounce — the pre-split effect fired at once.
   const scheduledSearchKeyRef = useRef('');
 
+  // Secondary segment: the token search neither runs nor clears. Returning
+  // to the token list re-runs the effect, but only re-requests when the key
+  // changed meanwhile (results for the current key are still held).
+  const wasSecondaryTabActiveRef = useRef(false);
+  // Key of the results currently held, read through a ref: as a dependency
+  // it would re-run the effect on the effect's own results and send the same
+  // request again, past the debounce.
+  const heldSearchResultKeyRef = useRef(searchTokenList.searchKey);
+  heldSearchResultKeyRef.current = searchTokenList.searchKey;
   useEffect(() => {
+    const returnedFromSecondaryTab =
+      wasSecondaryTabActiveRef.current && !showSecondaryTab;
+    wasSecondaryTabActiveRef.current = showSecondaryTab;
+    if (showSecondaryTab) {
+      return;
+    }
+    if (
+      returnedFromSecondaryTab &&
+      heldSearchResultKeyRef.current === searchKey
+    ) {
+      return;
+    }
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       // The list re-filters on the live key right away: drop results that
       // belong to another query and show the trailing loader until the
@@ -1991,6 +2139,7 @@ function TokenSelector() {
     }
   }, [
     debounceSearchTokensBySearchKey,
+    showSecondaryTab,
     searchAll,
     searchKey,
     // Identity changes when the scope gates flip (e.g. `network` resolves
@@ -2000,8 +2149,104 @@ function TokenSelector() {
     tokenSelectorSearchFilterContext,
   ]);
 
+  // Body search box (secondary-tab layout): same two-stage debounce as the
+  // header search bar, uncontrolled so a keystroke does not re-render the
+  // page.
+  const handleBodySearchTextChange = useCallback(
+    (text: string) => {
+      liveSearchKeyRef.current = text;
+      debounceUpdateSearchKey(text);
+    },
+    [debounceUpdateSearchKey],
+  );
+
+  // The pager connects each vertical list to one collapsible segment header
+  // and one pinned search bar without relying on per-frame JS scroll events.
+  const pagerRef = useRef<CollapsiblePagerView>(null);
+  const [segmentHeight, setSegmentHeight] = useState(0);
+  const [searchBarHeight, setSearchBarHeight] = useState(0);
+  const handleSegmentLayout = useCallback((event: LayoutChangeEvent) => {
+    setSegmentHeight(event.nativeEvent.layout.height);
+  }, []);
+  const handleSegmentRef = useCallback((node: IElement | null) => {
+    const height = node ? readMountedHeight(node) : undefined;
+    if (height) setSegmentHeight(height);
+  }, []);
+  const handleSearchBarLayout = useCallback((event: LayoutChangeEvent) => {
+    setSearchBarHeight(event.nativeEvent.layout.height);
+  }, []);
+  const handleSearchBarRef = useCallback((node: IElement | null) => {
+    const height = node ? readMountedHeight(node) : undefined;
+    if (height) setSearchBarHeight(height);
+  }, []);
+
+  // A segment's list fades in only when the user switches to it: the first
+  // list arrives with the page's own entrance.
+  const [hasSwitchedSegment, setHasSwitchedSegment] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const fadeInSegmentContent = hasSwitchedSegment && !reducedMotion;
+
+  const handleSegmentChange = useCallback(
+    (value: string | number) => {
+      const toSecondary = value === 'secondary';
+      if (toSecondary === isSecondaryTabActive) {
+        return;
+      }
+      secondaryTab?.onTabChange?.({ toSecondary });
+      setHasSwitchedSegment(true);
+      setIsSecondaryTabActive(toSecondary);
+    },
+    [isSecondaryTabActive, secondaryTab],
+  );
+  useLayoutEffect(() => {
+    if (hasSecondaryTab) {
+      pagerRef.current?.setPageWithoutAnimation(isSecondaryTabActive ? 1 : 0);
+    }
+  }, [hasSecondaryTab, isSecondaryTabActive]);
+
+  const tokenListContent = (
+    <TokenListView
+      testID={AssetSelectorTestIDs.tokenSelectorList}
+      tokenItemTestIDPrefix={AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix}
+      accountId={accountId}
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
+      showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
+      scopedActiveAccountTokenList={scopedActiveTokenList}
+      scopedActiveAccountTokenListState={scopedActiveTokenListState}
+      scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
+      tokenSelectorTokenList={selectorTokenList}
+      tokenSelectorTokenListMap={selectorTokenListMap}
+      tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
+      tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
+      tokenSelectorInitialized={selectorInitialized}
+      onPressToken={handleTokenOnPress}
+      isAllNetworks={isSelectorAllNetworks}
+      withNetwork={isSelectorAllNetworks}
+      searchAll={searchAll}
+      footerTipText={footerTipText}
+      isTokenSelector
+      tokenSelectorSearchKey={searchKey}
+      tokenSelectorSearchTokenState={searchTokenState}
+      tokenSelectorSearchTokenList={searchTokenList}
+      crossNetworkSearchEnabled={crossNetworkSearchEnabled}
+      onSearchTokensRetry={retrySearchTokens}
+      browseEmptyTitle={browseEmptyTitle}
+      allAggregateTokenMap={allAggregateTokenMap}
+      hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
+      hideDeFiMarkedTokens={
+        showTokenSelectorFilter ? !showLpTokensOnly : undefined
+      }
+      keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+      showNetworkIcon={isSelectorAllNetworks}
+      exchangeFilter={exchangeFilter}
+      hideBalanceAndValue={hideBalanceAndValue}
+      emptyProps={TOKEN_SELECTOR_EMPTY_PROPS}
+    />
+  );
+
   return (
-    <Page lazyLoad onClose={clearSearchKey} onUnmounted={clearSearchKey}>
+    <Page onClose={clearSearchKey} onUnmounted={clearSearchKey}>
       <Page.Header
         title={
           title ??
@@ -2009,53 +2254,96 @@ function TokenSelector() {
             id: ETranslations.global_select_crypto,
           })
         }
-        headerSearchBarOptions={headerSearchBarOptions}
+        headerSearchBarOptions={
+          secondaryTab ? undefined : headerSearchBarOptions
+        }
         headerRight={headerRight}
         headerRightNoGlass
       />
       <Page.Body>
-        <TokenListView
-          testID={AssetSelectorTestIDs.tokenSelectorList}
-          tokenItemTestIDPrefix={
-            AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
-          }
-          accountId={accountId}
-          networkId={networkId}
-          indexedAccountId={indexedAccountId}
-          showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
-          scopedActiveAccountTokenList={scopedActiveTokenList}
-          scopedActiveAccountTokenListState={scopedActiveTokenListState}
-          scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
-          tokenSelectorTokenList={selectorTokenList}
-          tokenSelectorTokenListMap={selectorTokenListMap}
-          tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
-          tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
-          tokenSelectorInitialized={selectorInitialized}
-          onPressToken={handleTokenOnPress}
-          isAllNetworks={isSelectorAllNetworks}
-          withNetwork={isSelectorAllNetworks}
-          searchAll={searchAll}
-          footerTipText={footerTipText}
-          isTokenSelector
-          tokenSelectorSearchKey={searchKey}
-          tokenSelectorSearchTokenState={searchTokenState}
-          tokenSelectorSearchTokenList={searchTokenList}
-          crossNetworkSearchEnabled={crossNetworkSearchEnabled}
-          onSearchTokensRetry={retrySearchTokens}
-          browseEmptyTitle={browseEmptyTitle}
-          allAggregateTokenMap={allAggregateTokenMap}
-          hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
-          hideDeFiMarkedTokens={
-            showTokenSelectorFilter ? !showLpTokensOnly : undefined
-          }
-          keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
-          showNetworkIcon={isSelectorAllNetworks}
-          exchangeFilter={exchangeFilter}
-          hideBalanceAndValue={hideBalanceAndValue}
-          emptyProps={{
-            mt: '18%',
-          }}
-        />
+        {secondaryTab ? (
+          <CollapsiblePagerView
+            ref={pagerRef}
+            style={{ flex: 1 }}
+            initialPage={0}
+            scrollEnabled={false}
+            nativeSmoothHeaderScrollEnabled
+            pageRetentionDistance={1}
+            headerHeight={segmentHeight}
+            stickyHeaderHeight={searchBarHeight}
+            header={
+              <Stack
+                ref={handleSegmentRef}
+                bg="$bgApp"
+                px="$5"
+                pb="$3"
+                onLayout={handleSegmentLayout}
+              >
+                <SegmentControl
+                  testID={secondaryTab.testIDs?.segment}
+                  fullWidth
+                  value={isSecondaryTabActive ? 'secondary' : 'tokens'}
+                  onChange={handleSegmentChange}
+                  options={[
+                    {
+                      label: secondaryTab.tokensTabLabel,
+                      value: 'tokens',
+                      testID: secondaryTab.testIDs?.tokensTab,
+                    },
+                    {
+                      label: secondaryTab.label,
+                      value: 'secondary',
+                      testID: secondaryTab.testIDs?.secondaryTab,
+                    },
+                  ]}
+                />
+              </Stack>
+            }
+            stickyHeader={
+              <Stack
+                ref={handleSearchBarRef}
+                bg="$bgApp"
+                px="$5"
+                pb="$3"
+                onLayout={handleSearchBarLayout}
+              >
+                <SearchBar
+                  testID={secondaryTab.testIDs?.searchBar}
+                  size={platformEnv.isNative ? 'large' : undefined}
+                  placeholder={
+                    isSecondaryTabActive
+                      ? secondaryTab.searchPlaceholder
+                      : (searchPlaceholder ??
+                        intl.formatMessage({
+                          id: ETranslations.send_token_selector_search_placeholder,
+                        }))
+                  }
+                  onChangeText={handleBodySearchTextChange}
+                />
+              </Stack>
+            }
+          >
+            <View key="tokens" collapsable={false} style={{ flex: 1 }}>
+              {showSecondaryTab ? null : (
+                <SegmentContent segmented fadeIn={fadeInSegmentContent}>
+                  {tokenListContent}
+                </SegmentContent>
+              )}
+            </View>
+            <View key="secondary" collapsable={false} style={{ flex: 1 }}>
+              {showSecondaryTab ? (
+                <SegmentContent segmented fadeIn={fadeInSegmentContent}>
+                  {secondaryTab.renderContent(
+                    searchKey,
+                    PAGER_SECONDARY_LIST_PROPS,
+                  )}
+                </SegmentContent>
+              ) : null}
+            </View>
+          </CollapsiblePagerView>
+        ) : (
+          tokenListContent
+        )}
       </Page.Body>
     </Page>
   );

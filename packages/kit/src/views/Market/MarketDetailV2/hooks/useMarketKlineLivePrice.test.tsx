@@ -106,6 +106,19 @@ describe('useMarketKlineLivePrice', () => {
     mockRunLivePrice = undefined;
   });
 
+  it('returns live quotes to Swap without changing Market state and discards old token quotes', async () => {
+    const { result, store, rerender } = renderLivePrice({
+      ...props,
+      updateMarketDetail: false,
+    });
+    mockFetchAssetKline.mockResolvedValueOnce(response(110));
+    await act(async () => mockRunLivePrice?.());
+    expect(result.current).toBe('110');
+    expect(store.get(tokenDetailAtom())?.price).toBe(detail.price);
+    rerender({ ...props, marketAssetId: 'bitcoin', updateMarketDetail: false });
+    expect(result.current).toBeUndefined();
+  });
+
   it('updates the header from the aggregate asset K-line feed on successive refreshes', async () => {
     const { store } = renderLivePrice();
     mockFetchAssetKline.mockResolvedValueOnce(response(0.3));

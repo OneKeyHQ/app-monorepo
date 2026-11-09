@@ -89,6 +89,7 @@ export const OnboardingTestIDs = {
 
   // iCloud backup details
   iCloudBackupDetailsPage: 'onboarding-icloud-backup-details-page',
+  iCloudBackupDetailsRetryBtn: 'onboarding-icloud-backup-details-retry-btn',
   iCloudBackupDetailsBackupNowBtn:
     'onboarding-icloud-backup-details-backup-now-btn',
   iCloudBackupDetailsSettingsBtn:
@@ -154,11 +155,20 @@ export const OnboardingTestIDs = {
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
   connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
+  connectYourDeviceList: 'onboarding-connect-your-device-list',
   connectYourDeviceItem: (key: string) =>
     `onboarding-connect-your-device-item-${key}`,
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
+  connectionFlowLedgerUsbTab: 'onboarding-connection-flow-ledger-usb-tab',
+  connectionFlowLedgerBleTab: 'onboarding-connection-flow-ledger-ble-tab',
+  connectionFlowLedgerDeviceOption: (index: number) =>
+    `onboarding-connection-flow-ledger-device-${index}`,
+  connectionFlowKeystoneUsbBtn: 'onboarding-connection-flow-keystone-usb-btn',
+  connectionFlowKeystoneQrBtn: 'onboarding-connection-flow-keystone-qr-btn',
+  connectionFlowKeystoneDeviceOption: (index: number) =>
+    `onboarding-connection-flow-keystone-device-${index}`,
 
   // Import phrase / private key
   importPhraseConfirmBtn: 'onboarding-import-phrase-confirm-btn',

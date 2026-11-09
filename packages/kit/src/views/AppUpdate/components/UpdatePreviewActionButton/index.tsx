@@ -16,15 +16,20 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { AppUpdateTestIDs } from '../../testIDs';
 
 import type { IUpdatePreviewActionButton } from './type';
 
 export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
   isForceUpdate,
+  onContactSupport,
 }: {
   isForceUpdate?: boolean;
+  onContactSupport?: () => void;
 }) => {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
@@ -40,14 +45,17 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const shouldOpenStore =
     updateFileType === EUpdateFileType.appShell &&
-    !!appUpdateInfo.data?.storeUrl;
+    !!appUpdateInfo.data?.storeUrl?.startsWith('https://');
 
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {
       defaultLogger.app.appUpdate.changelogUpdateClicked({
         action: shouldOpenStore ? 'store' : 'download',
       });
-      if (shouldOpenStore && appUpdateInfo.data.storeUrl) {
+      if (
+        shouldOpenStore &&
+        appUpdateInfo.data.storeUrl?.startsWith('https://')
+      ) {
         // Server-driven store URL must reach the store app via the system
         // browser; in-app browsers never trigger universal links.
         openUrlExternal(appUpdateInfo.data.storeUrl, {
@@ -72,10 +80,40 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
     navigation,
     shouldOpenStore,
   ]);
+  const handleContactSupport = useCallback(() => {
+    if (onContactSupport) {
+      onContactSupport();
+      return;
+    }
+    void showIntercom();
+  }, [onContactSupport]);
+
   return (
     <Page.Footer>
       <YStack>
         <Page.FooterActions
+          stacked={isForceUpdate}
+          onCancelText={
+            isForceUpdate
+              ? intl.formatMessage({
+                  id: ETranslations.swap_review_tx_failed_2,
+                })
+              : undefined
+          }
+          onCancel={
+            isForceUpdate
+              ? (_close) => {
+                  handleContactSupport();
+                }
+              : undefined
+          }
+          cancelButtonProps={
+            isForceUpdate
+              ? {
+                  testID: AppUpdateTestIDs.contactUsBtn,
+                }
+              : undefined
+          }
           onConfirmText={intl.formatMessage({
             id: shouldOpenStore
               ? ETranslations.update_update_now

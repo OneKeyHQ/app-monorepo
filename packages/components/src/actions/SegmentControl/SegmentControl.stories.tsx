@@ -71,3 +71,15 @@ export const WithDisabledOption: Story = {
     value: 'market',
   },
 };
+
+// Passing `activeBackgroundColor` opts out of the floating thumb: the
+// highlight is flat and the control keeps its pre-thumb geometry, text colors
+// and hover states. The highlight still slides.
+export const FlatHighlight: Story = {
+  args: {
+    slotBackgroundColor: '$transparent',
+    activeBackgroundColor: '$bgActive',
+    activeTextColor: '$text',
+    inactiveTextColor: '$textSubdued',
+  },
+};

@@ -42,6 +42,10 @@ import type {
 // ever revived.
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
+import type {
+  IJotaiContextStoreRegistrationUpdate,
+  IJotaiContextStoreRegistrationUpdateResult,
+} from '../states/jotai/atoms/jotaiContextStoreMap';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -120,6 +124,8 @@ export class BackgroundApiProxyBase
         params: {
           channel: 'dapp' | 'webEmbed';
           bridge: JsBridgeBase | null;
+          mountId?: string;
+          mountSequence?: number;
         },
         localFallback: () => Promise<any>,
       ) => Promise<any>;
@@ -170,6 +176,8 @@ export class BackgroundApiProxyBase
   private async connectLocalBackgroundBridge(
     channel: 'dapp' | 'webEmbed',
     bridge: JsBridgeBase | null,
+    mountId?: string,
+    mountSequence?: number,
   ) {
     const backgroundApi = await this.ensureLocalBackgroundApi();
     if (!backgroundApi) {
@@ -177,7 +185,7 @@ export class BackgroundApiProxyBase
     }
 
     if (channel === 'webEmbed') {
-      backgroundApi.connectWebEmbedBridge(bridge);
+      backgroundApi.connectWebEmbedBridge(bridge, mountId, mountSequence);
     } else {
       backgroundApi.connectBridge(bridge);
     }
@@ -419,6 +427,12 @@ export class BackgroundApiProxyBase
     return this.callBackground('setAtomValue', atomName, value);
   }
 
+  async updateJotaiContextStoreRegistration(
+    update: IJotaiContextStoreRegistrationUpdate,
+  ): Promise<IJotaiContextStoreRegistrationUpdateResult> {
+    return this.callBackground('updateJotaiContextStoreRegistration', update);
+  }
+
   async emitEvent<T extends keyof IAppEventBusPayload>(
     type: T,
     payload: IAppEventBusPayload[T],
@@ -479,7 +493,11 @@ export class BackgroundApiProxyBase
     }
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+  connectWebEmbedBridge(
+    bridge: JsBridgeBase | null,
+    mountId?: string,
+    mountSequence?: number,
+  ) {
     const hasTransport = !!this.getNativeBackgroundThreadTransport();
     defaultLogger.app.webembed.connectWebEmbedBridgeEntry({
       isMainThread: !!platformEnv.isNativeMainThread,
@@ -525,8 +543,16 @@ export class BackgroundApiProxyBase
               {
                 channel: 'webEmbed',
                 bridge,
+                mountId,
+                mountSequence,
               },
-              () => this.connectLocalBackgroundBridge('webEmbed', bridge),
+              () =>
+                this.connectLocalBackgroundBridge(
+                  'webEmbed',
+                  bridge,
+                  mountId,
+                  mountSequence,
+                ),
             );
           })
           .then(() => {
@@ -543,18 +569,21 @@ export class BackgroundApiProxyBase
     }
     defaultLogger.app.webembed.connectWebEmbedBridgeDirect();
     if (this.backgroundApi) {
-      this.backgroundApi.connectWebEmbedBridge(bridge);
+      this.backgroundApi.connectWebEmbedBridge(bridge, mountId, mountSequence);
       return;
     }
     if (!platformEnv.isExtensionUi) {
-      void this.connectLocalBackgroundBridge('webEmbed', bridge).catch(
-        (error) => {
-          defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
-            error: String(error),
-          });
-          console.error('connectWebEmbedBridge local failed', error);
-        },
-      );
+      void this.connectLocalBackgroundBridge(
+        'webEmbed',
+        bridge,
+        mountId,
+        mountSequence,
+      ).catch((error) => {
+        defaultLogger.app.webembed.connectWebEmbedBridgeSyncError({
+          error: String(error),
+        });
+        console.error('connectWebEmbedBridge local failed', error);
+      });
     }
   }
 

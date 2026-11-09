@@ -9,8 +9,10 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { RewardSummaryCard } from '@onekeyhq/kit/src/views/ReferFriends/components/RewardSummaryCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -29,11 +31,27 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
+  const { md } = useMedia();
 
   const isMinDisplay = useMemo(() => {
     const bn = new BigNumber(value);
     return bn.isGreaterThan(0) && bn.isLessThan(MIN_DISPLAY_AMOUNT);
   }, [value]);
+
+  if (md) {
+    // Same summary card as the other reward pages on compact layouts.
+    return (
+      <YStack testID="UndistributedRewardCard" {...rest}>
+        <RewardSummaryCard
+          title={intl.formatMessage({
+            id: ETranslations.referral_undistributed,
+          })}
+          value={String(value)}
+          valueText={isMinDisplay ? `< $${MIN_DISPLAY_AMOUNT}` : undefined}
+        />
+      </YStack>
+    );
+  }
 
   return (
     <YStack gap="$1" testID="UndistributedRewardCard" {...rest}>
@@ -45,7 +63,7 @@ export const UndistributedRewardCard: FC<IUndistributedRewardCardProps> = ({
       >
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.referral_reward_undistributed,
+            id: ETranslations.referral_undistributed,
           })}
         </SizableText>
         {showIcon ? (

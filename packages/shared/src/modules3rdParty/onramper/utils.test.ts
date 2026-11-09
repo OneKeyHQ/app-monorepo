@@ -1,0 +1,345 @@
+import {
+  annotateOnramperSdkErrorMessage,
+  getErrorMessageForLog,
+  getOnramperErrorFieldsForLog,
+  getOnramperSignedInFromState,
+  hasVerifiedOnramperUserInfo,
+  isSelfHealingOnramperError,
+  isStructuralOnramperError,
+  isUserCancelledOnramperError,
+  sanitizeOnramperLogRecord,
+} from './utils';
+
+import type { IOnramperLogRecord, IOnramperStateKind } from './type';
+
+describe('onramper failure classes', () => {
+  it('treats a closed OnramperID sign-in as a user cancellation only', () => {
+    expect(isUserCancelledOnramperError({ code: 'oidcFlowCancelled' })).toBe(
+      true,
+    );
+    expect(isUserCancelledOnramperError({ code: 'oidcFlowFailed' })).toBe(
+      false,
+    );
+    expect(isUserCancelledOnramperError(undefined)).toBe(false);
+  });
+
+  it('marks stale-intent and state errors as self-healing', () => {
+    [
+      'intentInvalidated',
+      'intentAlreadyConsumed',
+      'invalidState',
+      'invalidStateTransition',
+    ].forEach((code) => {
+      expect(isSelfHealingOnramperError({ code })).toBe(true);
+    });
+    // A fresh checkout cannot fix these: they keep their own handling.
+    [
+      'paymentFailed',
+      'providerFailed',
+      'networkError',
+      'quoteUnavailable',
+    ].forEach((code) => {
+      expect(isSelfHealingOnramperError({ code })).toBe(false);
+    });
+    expect(isSelfHealingOnramperError({})).toBe(false);
+  });
+
+  it('keeps the three classes disjoint', () => {
+    ['oidcFlowCancelled', 'intentInvalidated', 'invalidState'].forEach(
+      (code) => {
+        expect(isStructuralOnramperError({ code })).toBe(false);
+      },
+    );
+    expect(isUserCancelledOnramperError({ code: 'intentInvalidated' })).toBe(
+      false,
+    );
+    expect(isSelfHealingOnramperError({ code: 'oidcFlowCancelled' })).toBe(
+      false,
+    );
+  });
+});
+
+describe('annotateOnramperSdkErrorMessage', () => {
+  it('appends the BFFRecoveryError case name behind the NSError index', () => {
+    const raw =
+      'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)';
+    expect(annotateOnramperSdkErrorMessage(raw)).toBe(
+      'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1 = sdkSessionRejected.)',
+    );
+  });
+
+  it('maps every pinned BFFRecoveryError index', () => {
+    const cases = [
+      'configurationError',
+      'sdkSessionRejected',
+      'userTokenRejected',
+      'attestationRejected',
+      'dpopProofRejected',
+      'dpopNonceRequired',
+      'deviceBlocked',
+    ];
+    cases.forEach((name, index) => {
+      expect(
+        annotateOnramperSdkErrorMessage(
+          `(OnramperSDK.BFFRecoveryError error ${index}.)`,
+        ),
+      ).toBe(`(OnramperSDK.BFFRecoveryError error ${index} = ${name}.)`);
+    });
+  });
+
+  it('leaves unknown enums and out-of-range indexes untouched', () => {
+    const unknownEnum = '(OnramperSDK.SomeOtherError error 1.)';
+    expect(annotateOnramperSdkErrorMessage(unknownEnum)).toBe(unknownEnum);
+    const outOfRange = '(OnramperSDK.BFFRecoveryError error 99.)';
+    expect(annotateOnramperSdkErrorMessage(outOfRange)).toBe(outOfRange);
+  });
+
+  it('leaves messages without an SDK enum untouched', () => {
+    const plain = 'quoteUnavailable(debugInfo: "OnramperBackend-40003")';
+    expect(annotateOnramperSdkErrorMessage(plain)).toBe(plain);
+    expect(annotateOnramperSdkErrorMessage('')).toBe('');
+  });
+});
+
+describe('getErrorMessageForLog', () => {
+  it('annotates SDK enum indexes', () => {
+    const raw =
+      'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)';
+    expect(getErrorMessageForLog({ message: raw })).toBe(
+      'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1 = sdkSessionRejected.)',
+    );
+    expect(getErrorMessageForLog(new Error(raw))).toContain(
+      'sdkSessionRejected',
+    );
+  });
+
+  it('still truncates long messages', () => {
+    const long = 'x'.repeat(400);
+    expect(getErrorMessageForLog(long)).toBe(`${'x'.repeat(300)}…`);
+  });
+
+  it('keeps the case name when the marker ends exactly at the cap', () => {
+    const marker = '(OnramperSDK.BFFRecoveryError error 1.)';
+    const raw = `${'x'.repeat(300 - marker.length)}${marker}`;
+    expect(raw).toHaveLength(300);
+    expect(getErrorMessageForLog(raw)).toBe(
+      `${'x'.repeat(300 - marker.length)}(OnramperSDK.BFFRecoveryError error 1 = sdkSessionRejected.)`,
+    );
+  });
+
+  it('leaves a marker that the cap splits unannotated', () => {
+    const marker = '(OnramperSDK.BFFRecoveryError error 1.)';
+    const raw = `${'x'.repeat(301 - marker.length)}${marker}`;
+    expect(getErrorMessageForLog(raw)).toBe(
+      `${'x'.repeat(301 - marker.length)}${marker.slice(0, -1)}…`,
+    );
+  });
+
+  it('returns undefined for empty input', () => {
+    expect(getErrorMessageForLog(undefined)).toBeUndefined();
+    expect(getErrorMessageForLog(null)).toBeUndefined();
+    expect(getErrorMessageForLog({ message: '' })).toBeUndefined();
+  });
+
+  it('never stringifies an object that carries no message', () => {
+    // goWebFallback passes { code } without a message; String({}) would log
+    // "[object Object]" instead of leaving the field empty.
+    expect(
+      getErrorMessageForLog({ code: 'initializationFailed' }),
+    ).toBeUndefined();
+    expect(getErrorMessageForLog({})).toBeUndefined();
+  });
+});
+
+describe('getOnramperErrorFieldsForLog', () => {
+  it('carries the annotated message alongside code and info', () => {
+    const fields = getOnramperErrorFieldsForLog({
+      code: 'initializationFailed',
+      message:
+        'SDK initialization failed: The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)',
+      info: { status: 401 },
+    });
+    expect(fields.errorCode).toBe('initializationFailed');
+    expect(fields.errorMessage).toContain('error 1 = sdkSessionRejected');
+    expect(fields.errorInfo).toBe('{"status":401}');
+  });
+});
+
+describe('sanitizeOnramperLogRecord', () => {
+  const record: IOnramperLogRecord = {
+    timestamp: 1_700_000_000_000,
+    level: 'info',
+    category: 'checkout',
+    event: 'providerEvent',
+    message: 'Coinbase rejected card for jane@example.com',
+    context: {
+      transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+      statusCode: '402',
+      durationMs: '1532',
+      status: 'payment_failed',
+      path: '/v2/{sessionApiKey}/client-sessions',
+      host: 'api.onramper.com',
+      email: 'jane@example.com',
+      phone: '+1 415 555 0100',
+      error: 'Card declined for Jane Doe',
+      sessionId: 'sess_123',
+    },
+  };
+
+  it('keeps only allow-listed keys whose values match their strict format and drops the message by default', () => {
+    expect(sanitizeOnramperLogRecord(record, { keepMessage: false })).toEqual({
+      level: 'info',
+      category: 'checkout',
+      event: 'providerEvent',
+      context: {
+        transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+        statusCode: '402',
+        durationMs: '1532',
+        status: 'payment_failed',
+        path: '/v2/{sessionApiKey}/client-sessions',
+        host: 'api.onramper.com',
+      },
+    });
+  });
+
+  it('keeps the message only when asked (dev builds)', () => {
+    expect(
+      sanitizeOnramperLogRecord(record, { keepMessage: true }).message,
+    ).toBe(record.message);
+  });
+
+  it('drops allow-listed keys whose values are free-form or look like personal data', () => {
+    const { context } = sanitizeOnramperLogRecord(
+      {
+        ...record,
+        context: {
+          // Free text in an identifier / token slot.
+          transactionId: 'Jane Doe',
+          status: 'declined: contact Jane Doe',
+          // Card and phone numbers, with and without formatting.
+          supportCode: '4242 4242 4242 4242',
+          code: '4242424242424242',
+          intentId: 'someone@example.com',
+          // Non-numeric where a number is required, and an over-long route.
+          statusCode: 'four-oh-two',
+          path: `/v2/${'x'.repeat(200)}`,
+          // Still fine.
+          errorCode: 'providerFailed',
+        },
+      },
+      { keepMessage: false },
+    );
+    expect(context).toEqual({ errorCode: 'providerFailed' });
+  });
+
+  it('omits an empty context', () => {
+    expect(
+      sanitizeOnramperLogRecord(
+        { ...record, context: { email: 'a@b.c' } },
+        { keepMessage: false },
+      ).context,
+    ).toBeUndefined();
+  });
+});
+
+describe('hasVerifiedOnramperUserInfo', () => {
+  it('finds a user_info field the backend already holds', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: true }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it('finds none when nobody is signed in', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: false }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(false);
+    expect(hasVerifiedOnramperUserInfo([])).toBe(false);
+  });
+});
+
+describe('getOnramperSignedInFromState', () => {
+  it('reads a prepared checkout that needs no login as signed in', () => {
+    expect(getOnramperSignedInFromState({ kind: 'readyToCheckout' })).toBe(
+      true,
+    );
+  });
+
+  it('reads a login that starts from nothing as signed out', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'user_info'],
+        hasVerifiedUserInfo: false,
+      }),
+    ).toBe(false);
+  });
+
+  // The sign-out action must stay reachable for a user who cannot finish
+  // these, e.g. after losing the verified phone number.
+  it('keeps a known user signed in while more is asked of them', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['user_info'],
+        hasVerifiedUserInfo: true,
+      }),
+    ).toBe(true);
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['reverification'],
+      }),
+    ).toBe(true);
+  });
+
+  it('learns nothing from requirements that involve no identity', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'amount_limit'],
+      }),
+    ).toBeUndefined();
+  });
+
+  // A login made through the checkout button is only visible here: the
+  // checkout was prepared as `requireLogin` and no `readyToCheckout` has to
+  // follow the OnramperID flow.
+  it('reads a checkout that is being paid as signed in', () => {
+    const paying: IOnramperStateKind[] = [
+      'finalizing',
+      'rendering',
+      'paymentPending',
+      'completed',
+    ];
+    paying.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBe(true);
+    });
+  });
+
+  it('learns nothing from the other states', () => {
+    const silent: IOnramperStateKind[] = [
+      'idle',
+      'initializing',
+      'ready',
+      'checkoutPreparing',
+      // The OnramperID flow was opened, not finished.
+      'authenticating',
+      'failed',
+    ];
+    silent.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBeUndefined();
+    });
+  });
+});

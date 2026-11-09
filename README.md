@@ -119,6 +119,7 @@ Run these commands from the root directory:
 - Report suspected vulnerabilities privately to **dev@onekey.so** or via [BugRap](https://bugrap.io/bounties/OneKey).
 - Please do **NOT** create publicly viewable issues for suspected security vulnerabilities.
 - As an open source project, although we are not yet profitable, we try to give some rewards to white hat hackers who disclose vulnerabilities to us in a timely manner.
+- Verify what you download: releases are signed with the OneKey release signing key, fingerprint `EB68 AE54 4F1F DD8C D264  624F B369 A67A 90BF 387B`. See [Verifying OneKey App Downloads](SECURITY.md#verifying-onekey-app-downloads).
 - See [SECURITY.md](SECURITY.md) for full details.
 
 ## 💬 Docs in Your Languages

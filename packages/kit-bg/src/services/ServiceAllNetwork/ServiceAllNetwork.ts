@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,6 +26,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { isAddressWithheldFromBackend } from '../../vaults/localWallet/isLocalWalletNetwork';
 import ServiceBase from '../ServiceBase';
 
 import {
@@ -1066,12 +1069,22 @@ class ServiceAllNetwork extends ServiceBase {
       excludeTestNetwork: params.excludeTestNetwork ?? false,
     });
 
-    const allNetworkAccounts = accountsInfo.map((acc) => ({
-      accountId: params.withoutAccountId ? undefined : acc.accountId,
-      networkId: acc.networkId,
-      accountAddress: acc.apiAddress,
-      accountXpub: acc.accountXpub,
-    }));
+    const withheldNetworkIds = new Set<string>();
+    await Promise.all(
+      uniq(accountsInfo.map((acc) => acc.networkId)).map(async (networkId) => {
+        if (await isAddressWithheldFromBackend({ networkId })) {
+          withheldNetworkIds.add(networkId);
+        }
+      }),
+    );
+    const allNetworkAccounts = accountsInfo
+      .filter((acc) => !withheldNetworkIds.has(acc.networkId))
+      .map((acc) => ({
+        accountId: params.withoutAccountId ? undefined : acc.accountId,
+        networkId: acc.networkId,
+        accountAddress: acc.apiAddress,
+        accountXpub: acc.accountXpub,
+      }));
 
     if (params.excludeIncompatibleWithWalletAccounts) {
       const compatibleResp =

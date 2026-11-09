@@ -12,11 +12,16 @@ import type { PropsWithChildren } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSwapStockIssuerPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -28,20 +33,29 @@ import {
   resolveStockTokenVariantSelection,
 } from '../utils/stockTokenVariant';
 
+import { useStockPriceSourceState } from './stockPriceSourceState';
+
 export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
 
 type IStockDetailContextValue = {
   stockId?: string;
+  priceSource: ReturnType<typeof useStockPriceSourceState>;
   isStockRoute: boolean;
   stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
+  isStockDetailReady: boolean;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
+  isStockDetailStatusError: boolean;
   retryStockDetail: () => Promise<void>;
   tokenVariants: IMarketStockTokenVariant[];
   isTokenVariantsLoading: boolean;
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
+  // True once this mount fetched the current stock's list from the network;
+  // a cached snapshot alone can be stale about which variants still trade.
+  isTokenVariantsFresh: boolean;
+  defaultTokenId?: string;
   retryTokenVariants: () => Promise<void>;
   selectedTokenId?: string;
   selectedTokenVariant?: IMarketStockTokenVariant;
@@ -53,14 +67,23 @@ type IStockDetailContextValue = {
 };
 
 const StockDetailContext = createContext<IStockDetailContextValue>({
+  priceSource: {
+    priceMode: 'token',
+    sharePriceAvailable: false,
+    isPriceSourceReady: true,
+    handlePriceModeChange: () => undefined,
+  },
   isStockRoute: false,
+  isStockDetailReady: false,
   isStockDetailLoading: false,
   isStockDetailError: false,
+  isStockDetailStatusError: false,
   retryStockDetail: async () => undefined,
   tokenVariants: [],
   isTokenVariantsLoading: false,
   isTokenVariantPending: false,
   isTokenVariantsError: false,
+  isTokenVariantsFresh: false,
   retryTokenVariants: async () => undefined,
   setSelectedTokenId: () => undefined,
 });
@@ -69,14 +92,36 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
 // refreshing while the page stays open. 15s: a stock quote does not need the
 // 6s cadence the on-chain token detail polls at.
 const STOCK_DETAIL_POLLING_INTERVAL = 15 * 1000;
+// Four polling ticks tolerate transient failures without trusting an old session.
+const STOCK_DETAIL_STATUS_TTL_MS = 60 * 1000;
+const stockDetailSessionId = generateUUID();
 
-type IStockDetailRequestResult = {
+export type IStockDetailRequestResult = {
   stockId?: string;
   data?: IMarketStockPublicDetail | null;
   failed?: boolean;
+  requestFailed?: boolean;
+  // SWR re-stamps fallback writes, so freshness belongs to the real response.
+  fetchedAt?: number;
+  fetchedInSession?: string;
 };
 
-type IStockTokenVariantsRequestResult = {
+function isStockDetailStatusFresh(
+  result?: IStockDetailRequestResult,
+  now = Date.now(),
+) {
+  const age = now - (result?.fetchedAt ?? 0);
+  return Boolean(
+    result?.data &&
+    !result.failed &&
+    result.fetchedInSession === stockDetailSessionId &&
+    result.fetchedAt !== undefined &&
+    age >= 0 &&
+    age < STOCK_DETAIL_STATUS_TTL_MS,
+  );
+}
+
+export type IStockTokenVariantsRequestResult = {
   stockId?: string;
   items: IMarketStockTokenVariant[];
   defaultTokenId?: string;
@@ -92,12 +137,15 @@ export function StockDetailProvider({
   initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
+  preserveInitialToken = false,
   children,
 }: PropsWithChildren<{
   stockId?: string;
   initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
+  // Trading pages must keep showing the actual selected token even when paused.
+  preserveInitialToken?: boolean;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const stockPreview =
@@ -106,6 +154,8 @@ export function StockDetailProvider({
       : undefined;
   // Stock copy (about, trading-hour reasons) is localized.
   const locale = useLocaleVariant().toLowerCase();
+  const [{ issuer: preferredIssuer }] =
+    useSwapStockIssuerPreferencePersistAtom();
   const stockDetailSwrKey = normalizedStockId
     ? swrKeys.marketStockDetail({ stockId: normalizedStockId, locale })
     : undefined;
@@ -136,6 +186,7 @@ export function StockDetailProvider({
       defaultTokenId: cached.defaultTokenId,
       routeNetworkId: initialNetworkId,
       routeTokenAddress: initialTokenAddress,
+      preferredIssuer,
     })?.tokenId;
   });
   const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
@@ -161,12 +212,13 @@ export function StockDetailProvider({
       : undefined;
     if (
       normalizedStockId &&
+      stockDetailSwrKey &&
       cached &&
       !cached.failed &&
       cached.data &&
       cached.stockId === normalizedStockId
     ) {
-      seeded.set(normalizedStockId, cached);
+      seeded.set(stockDetailSwrKey, cached);
     }
     return seeded;
   });
@@ -179,14 +231,16 @@ export function StockDetailProvider({
       : undefined;
     if (
       normalizedStockId &&
+      tokenVariantsSwrKey &&
       cached &&
       !cached.failed &&
       cached.stockId === normalizedStockId
     ) {
-      seeded.set(normalizedStockId, cached);
+      seeded.set(tokenVariantsSwrKey, cached);
     }
     return seeded;
   });
+  const stockDetailRequestNonceRef = useRef(0);
 
   const {
     result: stockDetailResult,
@@ -194,7 +248,9 @@ export function StockDetailProvider({
     run: retryStockDetail,
   } = usePromiseResult<IStockDetailRequestResult>(
     async () => {
-      if (!normalizedStockId) return {};
+      if (!normalizedStockId || !stockDetailSwrKey) return {};
+      stockDetailRequestNonceRef.current += 1;
+      const requestNonce = stockDetailRequestNonceRef.current;
       try {
         const data =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
@@ -203,22 +259,35 @@ export function StockDetailProvider({
         if (data === null) {
           return { stockId: normalizedStockId, failed: true };
         }
-        const result = { stockId: normalizedStockId, data };
-        successfulStockDetails.set(normalizedStockId, result);
+        const result: IStockDetailRequestResult = {
+          stockId: normalizedStockId,
+          data,
+          fetchedAt: Date.now(),
+          fetchedInSession: stockDetailSessionId,
+        };
+        // Retry can finish before an older request; only its result owns fallback.
+        if (requestNonce === stockDetailRequestNonceRef.current) {
+          successfulStockDetails.set(stockDetailSwrKey, result);
+        }
         return result;
       } catch (_error) {
-        // A polling tick that fails must not turn a loaded page into an error
-        // page: keep the last good payload and retry silently on the next
-        // tick. Only a stock we never loaded surfaces the retryable error.
-        const lastStockDetail = successfulStockDetails.get(normalizedStockId);
+        // Preserve display data, but a fallback must not refresh its successful
+        // timestamp or grant status readiness to a cold or expired snapshot.
+        const cached =
+          swrCacheUtils.get<IStockDetailRequestResult>(stockDetailSwrKey);
+        const lastStockDetail =
+          successfulStockDetails.get(stockDetailSwrKey) ??
+          (cached?.stockId === normalizedStockId && !cached.failed
+            ? cached
+            : undefined);
         if (lastStockDetail) {
-          return lastStockDetail;
+          return { ...lastStockDetail, requestFailed: true };
         }
         return { stockId: normalizedStockId, failed: true };
       }
     },
     // The map is useState-stable, so naming it here never re-runs the request.
-    [normalizedStockId, successfulStockDetails],
+    [normalizedStockId, stockDetailSwrKey, successfulStockDetails],
     {
       watchLoading: true,
       // `checkIsFocused` stays at the repo default (true). It is what gates the
@@ -235,9 +304,10 @@ export function StockDetailProvider({
       pollingInterval: normalizedStockId
         ? STOCK_DETAIL_POLLING_INTERVAL
         : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
       revalidateOnReconnect: true,
       swrKey: stockDetailSwrKey,
-      swrShouldPersist: (r) => !r.failed && Boolean(r.data),
+      swrShouldPersist: (r) => !r.failed && !r.requestFailed && Boolean(r.data),
     },
   );
 
@@ -247,7 +317,7 @@ export function StockDetailProvider({
     run: retryTokenVariants,
   } = usePromiseResult<IStockTokenVariantsRequestResult>(
     async () => {
-      if (!normalizedStockId) return { items: [] };
+      if (!normalizedStockId || !tokenVariantsSwrKey) return { items: [] };
       try {
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
@@ -258,11 +328,20 @@ export function StockDetailProvider({
           items: response.items,
           defaultTokenId: response.defaultTokenId,
         };
-        successfulTokenVariants.set(normalizedStockId, result);
+        successfulTokenVariants.set(tokenVariantsSwrKey, result);
         fetchedTokenVariantsStockIdRef.current = normalizedStockId;
         return result;
       } catch (_error) {
-        const cachedResult = successfulTokenVariants.get(normalizedStockId);
+        const cached = tokenVariantsSwrKey
+          ? swrCacheUtils.get<IStockTokenVariantsRequestResult>(
+              tokenVariantsSwrKey,
+            )
+          : undefined;
+        const cachedResult =
+          successfulTokenVariants.get(tokenVariantsSwrKey) ??
+          (cached?.stockId === normalizedStockId && !cached.failed
+            ? cached
+            : undefined);
         return {
           stockId: normalizedStockId,
           items: cachedResult?.items ?? [],
@@ -271,7 +350,7 @@ export function StockDetailProvider({
         };
       }
     },
-    [normalizedStockId, successfulTokenVariants],
+    [normalizedStockId, successfulTokenVariants, tokenVariantsSwrKey],
     {
       watchLoading: true,
       // Same focus contract as the detail request above, and `revalidateOnFocus`
@@ -280,6 +359,7 @@ export function StockDetailProvider({
       pollingInterval: normalizedStockId
         ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
         : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
       revalidateOnReconnect: true,
       swrKey: tokenVariantsSwrKey,
       swrShouldPersist: (r) => !r.failed,
@@ -290,6 +370,36 @@ export function StockDetailProvider({
     stockDetailResult?.stockId === normalizedStockId
       ? stockDetailResult?.data
       : undefined;
+  const [statusNow, setStatusNow] = useState(() => Date.now());
+  const stockDetailStatusNow = Math.max(statusNow, Date.now());
+  const isStockDetailReady = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    isStockDetailStatusFresh(stockDetailResult, stockDetailStatusNow),
+  );
+  const statusFetchedAt = stockDetailResult?.fetchedAt;
+  useEffect(() => {
+    if (!isStockDetailReady || statusFetchedAt === undefined) return;
+    // Expire status even when the next request hangs instead of settling a poll.
+    const timer = setTimeout(
+      () => setStatusNow(Date.now()),
+      Math.max(0, statusFetchedAt + STOCK_DETAIL_STATUS_TTL_MS - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [isStockDetailReady, statusFetchedAt, stockDetailSwrKey]);
+  const isStockDetailStatusExpired = Boolean(
+    stockDetailResult?.fetchedInSession === stockDetailSessionId &&
+    statusFetchedAt !== undefined &&
+    stockDetailStatusNow - statusFetchedAt >= STOCK_DETAIL_STATUS_TTL_MS,
+  );
+  const isStockDetailStatusError = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    !isStockDetailReady &&
+    (stockDetailResult.failed ||
+      stockDetailResult.requestFailed ||
+      isStockDetailStatusExpired),
+  );
   const hasCurrentTokenVariants =
     tokenVariantResult?.stockId === normalizedStockId;
   const tokenVariants = useMemo(
@@ -298,6 +408,7 @@ export function StockDetailProvider({
   );
 
   useEffect(() => {
+    if (preserveInitialToken) return;
     if (!normalizedStockId) {
       appliedTokenRouteRef.current = undefined;
       setSelectedTokenId(undefined);
@@ -324,12 +435,15 @@ export function StockDetailProvider({
         defaultTokenId: tokenVariantResult?.defaultTokenId,
         routeNetworkId: initialNetworkId,
         routeTokenAddress: initialTokenAddress,
+        preferredIssuer,
       })?.tokenId,
     );
   }, [
     hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
+    preferredIssuer,
+    preserveInitialToken,
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
@@ -339,8 +453,34 @@ export function StockDetailProvider({
   ]);
 
   const selectedTokenVariant = useMemo(
-    () => tokenVariants.find((item) => item.tokenId === selectedTokenId),
-    [selectedTokenId, tokenVariants],
+    () =>
+      tokenVariants.find((item) =>
+        preserveInitialToken
+          ? equalTokenNoCaseSensitive({
+              token1: item,
+              token2: {
+                networkId: initialNetworkId,
+                contractAddress: initialTokenAddress,
+              },
+            })
+          : item.tokenId === selectedTokenId,
+      ),
+    [
+      initialNetworkId,
+      initialTokenAddress,
+      preserveInitialToken,
+      selectedTokenId,
+      tokenVariants,
+    ],
+  );
+  const isPreservedTokenResolutionPending = Boolean(
+    preserveInitialToken &&
+    initialNetworkId &&
+    initialTokenAddress &&
+    !tokenVariantResult?.failed &&
+    tokenVariants.some(isStockTokenVariantTradable) &&
+    !selectedTokenVariant &&
+    fetchedTokenVariantsStockIdRef.current !== normalizedStockId,
   );
   const handleSetSelectedTokenId = useCallback(
     (tokenId: string) => {
@@ -352,26 +492,38 @@ export function StockDetailProvider({
     [tokenVariants],
   );
 
+  const isStockDetailError = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    stockDetailResult.failed,
+  );
+  const priceSource = useStockPriceSourceState({
+    stockId: normalizedStockId,
+    stockDetail: currentStockDetail,
+    isStockDetailError,
+  });
+
   const value = useMemo<IStockDetailContextValue>(
     () => ({
       stockId: normalizedStockId,
+      priceSource,
       isStockRoute: Boolean(normalizedStockId),
       stockPreview,
       stockDetail: currentStockDetail,
+      isStockDetailReady,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
-      isStockDetailError: Boolean(
-        normalizedStockId &&
-        stockDetailResult?.stockId === normalizedStockId &&
-        stockDetailResult.failed,
-      ),
+      isStockDetailError,
+      isStockDetailStatusError,
       retryStockDetail,
       tokenVariants,
       isTokenVariantPending: Boolean(
         normalizedStockId &&
         (!hasCurrentTokenVariants ||
-          (!tokenVariantResult?.failed &&
+          (!preserveInitialToken &&
+            !tokenVariantResult?.failed &&
             tokenVariants.some(isStockTokenVariantTradable) &&
-            !selectedTokenVariant)),
+            !selectedTokenVariant) ||
+          isPreservedTokenResolutionPending),
       ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
@@ -381,8 +533,17 @@ export function StockDetailProvider({
         tokenVariantResult?.stockId === normalizedStockId &&
         tokenVariantResult.failed,
       ),
+      isTokenVariantsFresh: Boolean(
+        normalizedStockId &&
+        hasCurrentTokenVariants &&
+        !tokenVariantResult?.failed &&
+        fetchedTokenVariantsStockIdRef.current === normalizedStockId,
+      ),
+      defaultTokenId: tokenVariantResult?.defaultTokenId,
       retryTokenVariants,
-      selectedTokenId,
+      selectedTokenId: preserveInitialToken
+        ? selectedTokenVariant?.tokenId
+        : selectedTokenId,
       selectedTokenVariant,
       setSelectedTokenId: handleSetSelectedTokenId,
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
@@ -391,16 +552,21 @@ export function StockDetailProvider({
       hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
+      isStockDetailError,
+      priceSource,
+      isStockDetailReady,
+      isStockDetailStatusError,
       isTokenVariantsLoading,
+      isPreservedTokenResolutionPending,
       handleSetSelectedTokenId,
       normalizedStockId,
+      preserveInitialToken,
       retryStockDetail,
       retryTokenVariants,
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
-      stockDetailResult?.failed,
-      stockDetailResult?.stockId,
+      tokenVariantResult?.defaultTokenId,
       tokenVariantResult?.failed,
       tokenVariantResult?.stockId,
       currentStockDetail,

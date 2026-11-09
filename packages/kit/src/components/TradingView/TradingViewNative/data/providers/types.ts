@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketKLinePointType } from '../../../utils/fetchMarketKLineData';
+import type { ITradingViewNativeCandleTimeMode } from '../../types';
 import type {
   ITradingViewNativeChartInterval,
   ITradingViewNativeKLineInterval,
@@ -47,6 +48,10 @@ export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResp
 }
 
 export interface ITradingViewNativeHistoryDataProvider {
+  getCandleTimeMode?: () => ITradingViewNativeCandleTimeMode;
+  getInitialHistoryRequestCandleCount?: (
+    interval: ITradingViewNativeKLineInterval,
+  ) => number;
   getHistoryRequestCandleCount: (
     interval: ITradingViewNativeKLineInterval,
   ) => number;

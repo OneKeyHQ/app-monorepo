@@ -6,6 +6,7 @@ import {
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
 } from '../chartConstants';
 
+import { getTradingViewNativeCandleTimestampAtOffset } from './candleTime';
 import { getTradingViewNativePriceY } from './chartLayout';
 
 import type { ITradingViewNativeChartRuntimeCrosshair } from './chartRuntime';
@@ -16,6 +17,7 @@ import type {
 } from './chartScene';
 import type { ITradingViewNativePrimarySeriesPriceSource } from './chartType';
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
 } from '../types';
@@ -31,10 +33,12 @@ export function getTradingViewNativeTradeMarkPointIndex({
   points,
   timestamp,
   candleIntervalSeconds,
+  candleTimeMode,
 }: {
   points: readonly IMarketTokenKLineDataPoint[];
   timestamp: number;
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
 }): number | null {
   'worklet';
 
@@ -57,16 +61,12 @@ export function getTradingViewNativeTradeMarkPointIndex({
   if (!point) {
     return null;
   }
-  let end = point.t + candleIntervalSeconds;
-  if (candleIntervalSeconds === 30 * 24 * 60 * 60) {
-    const date = new Date(point.t * 1000);
-    const monthStart =
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000;
-    // CoinGecko uses fixed 30-day Unix buckets instead of calendar months.
-    if (point.t === monthStart) {
-      end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) / 1000;
-    }
-  }
+  const end = getTradingViewNativeCandleTimestampAtOffset({
+    timestamp: point.t,
+    candleIntervalSeconds,
+    candleTimeMode,
+    offset: 1,
+  });
   // Do not attach trades in a missing candle to the preceding candle.
   return time < Math.min(end, points[index + 1]?.t ?? end) ? index : null;
 }
@@ -165,6 +165,7 @@ function appendTradeMarkTooltip({
 
 export function appendTradingViewNativeTradeMarkCommands({
   candleIntervalSeconds,
+  candleTimeMode,
   commands,
   components,
   crosshair,
@@ -178,8 +179,10 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceChartHeight,
   priceScaleMode,
   priceSource,
+  tooltipCommands,
 }: {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   commands: ITradingViewNativeChartSceneCommand[];
   components: readonly ITradingViewNativeChartLeafComponent[];
   crosshair: ITradingViewNativeChartRuntimeCrosshair;
@@ -196,6 +199,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceChartHeight: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   priceSource: ITradingViewNativePrimarySeriesPriceSource;
+  tooltipCommands?: ITradingViewNativeChartSceneCommand[];
 }): ITradingViewNativeTradeMarkLayout[] {
   'worklet';
 
@@ -215,6 +219,7 @@ export function appendTradingViewNativeTradeMarkCommands({
       ids.add(mark.id);
       const index = getTradingViewNativeTradeMarkPointIndex({
         candleIntervalSeconds,
+        candleTimeMode,
         points,
         timestamp: mark.time,
       });
@@ -296,7 +301,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   });
   if (hoveredMark?.text) {
     appendTradeMarkTooltip({
-      commands,
+      commands: tooltipCommands ?? commands,
       mark: hoveredMark,
       measureTextWidth,
       priceAxisX,

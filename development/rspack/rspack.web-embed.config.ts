@@ -33,6 +33,8 @@ export function createWebEmbedConfig({
       /node_modules[\\/]@sentry(-internal)?[\\/]/,
       /node_modules[\\/]@onekeyfe[\\/]kaspa-wasm/,
       /node_modules[\\/]@revenuecat[\\/]purchases-js/,
+      /node_modules[\\/]@onekeyfe[\\/]zcash-(runtime|keys)/,
+      /node_modules[\\/]@onekeyfe[\\/]monero-runtime/,
     ],
   });
   const entryConfig: RspackOptions = {
@@ -43,28 +45,46 @@ export function createWebEmbedConfig({
   };
 
   switch (nodeEnv) {
-    case 'production':
-      return merge(
+    case 'production': {
+      const config = merge(
         baseConfig,
         createProductionConfig({
           platform,
           basePath,
         }),
         {
-          optimization: {
-            splitChunks: false,
-          },
           output: {
             publicPath: publicUrl || './',
             path: path.join(basePath, 'web-build'),
             assetModuleFilename:
               'static/media/web-embed.[name].[contenthash][ext]',
             uniqueName: 'web',
-            filename: 'web-embed.[contenthash:10].js',
+            filename: 'web-embed.[name].[contenthash:10].js',
           },
         },
         entryConfig,
       );
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+        chunkIds: 'deterministic',
+        runtimeChunk: 'single',
+        splitChunks: {
+          chunks: 'initial',
+          cacheGroups: {
+            default: false,
+            defaultVendors: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendor',
+              chunks: 'initial',
+              enforce: true,
+              priority: 10,
+            },
+          },
+        },
+      };
+      return config;
+    }
     case 'development':
     default:
       return merge(

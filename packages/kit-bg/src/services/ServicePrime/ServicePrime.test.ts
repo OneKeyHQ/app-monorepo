@@ -1,9 +1,17 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import { AxiosError as InfiniAxiosError } from 'axios';
+
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IOneKeyIdOAuthLoginResponse,
+  IPrimeServerUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
@@ -237,6 +245,9 @@ const mockPersistKeylessAuthSession = jest.fn(
 );
 const mockClearAllSupabaseAuthSessions = jest.fn(async () => undefined);
 const mockVerifyEmailOtp = jest.fn();
+const mockAllowEmailSessionWrites = jest.fn(
+  async (_source: unknown) => undefined,
+);
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
@@ -251,7 +262,8 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
-  allowAuthSessionStorageWritesBySessionSource: jest.fn(),
+  allowAuthSessionStorageWritesBySessionSource: (source: unknown) =>
+    mockAllowEmailSessionWrites(source),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
   getAuthTokenBySessionSource: (source: unknown) =>
     mockGetAuthTokenBySessionSource(source),
@@ -359,6 +371,7 @@ const REQUEST_TOKEN = 'request-token';
 
 function createService() {
   const simpleDbPrime = {
+    hasInfiniPaymentLocalSendEvidence: jest.fn(async () => false),
     recordInfiniPaymentValidation: jest.fn(async () => undefined),
     getAuthSessionSource: jest.fn(async () => undefined as unknown),
     getAuthSessionCommitId: jest.fn(
@@ -445,6 +458,12 @@ function createService() {
     servicePrimeCloudSync: {
       showAlertDialogIfServerPasswordNotSet: jest.fn(async () => undefined),
       showAlertDialogIfServerPasswordChanged: jest.fn(async () => undefined),
+    },
+    servicePrimeFreeTrial: {
+      allocateQuotaRequestSeq: jest.fn(() => 1),
+      applyQuotaFromPrimeUserInfo: jest.fn(async () => undefined),
+      normalizeFreeTrialError: jest.fn(() => undefined),
+      handleFreeTrialErrorFromServer: jest.fn(async () => undefined),
     },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => undefined),
@@ -539,6 +558,106 @@ function createDeferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
+
+describe('ServicePrime.sendEmailOTP', () => {
+  const serverTime = Date.parse('2026-10-15T12:00:00.000Z');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([-120_000, 0, 120_000])(
+    'uses the response clock with a %sms device clock offset',
+    async (clockOffset) => {
+      jest.spyOn(Date, 'now').mockReturnValue(serverTime + clockOffset);
+      const { service } = createService();
+      const post = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            canResendAt: serverTime + 60_001,
+            resendAt: 300,
+            uuid: 'otp-id',
+          },
+        },
+        headers: { date: new Date(serverTime).toUTCString() },
+      });
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ post });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 61,
+        resendAt: 300,
+        uuid: 'otp-id',
+      });
+      expect(post).toHaveBeenCalledWith('/prime/v1/general/emailOTP', {
+        scene: EPrimeEmailOTPScene.DeleteOneKeyId,
+      });
+    },
+  );
+
+  test.each([26_500, 61_000, 300_000])(
+    'preserves and rounds up a %sms server interval',
+    async (delay) => {
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + delay } },
+          headers: { date: new Date(serverTime).toUTCString() },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: Math.ceil(delay / 1000),
+      });
+    },
+  );
+
+  test.each([undefined, 'invalid date'])(
+    'uses the existing server time estimate when the response date is %s',
+    async (date) => {
+      jest
+        .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+        .mockReturnValue(serverTime);
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + 26_500 } },
+          headers: { date },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 27,
+      });
+    },
+  );
+
+  test('leaves the delay unset when no reliable server time is available', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(serverTime + 120_000);
+    jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(undefined);
+    const { service } = createService();
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+      post: jest.fn().mockResolvedValue({
+        data: { data: { canResendAt: serverTime + 60_000, uuid: 'otp-id' } },
+        headers: {},
+      }),
+    });
+
+    await expect(
+      service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+    ).resolves.toMatchObject({
+      retryAfterSeconds: undefined,
+      uuid: 'otp-id',
+    });
+  });
+});
 
 describe('ServicePrime.apiFetchPrimeUserInfo', () => {
   it('refreshes an expired legacy access token through the SDK before profile recovery', async () => {
@@ -897,6 +1016,166 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
       callerName: 'ServicePrime.apiLogoutPrimeUserDevice',
       expectedOneKeyUserId: 'onekey-user-a',
     });
+  });
+});
+
+describe('ServicePrime.apiRemovePrimeForTest', () => {
+  const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+  const params = { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD };
+  const confirmingUser = { expectedOneKeyUserId: 'user-a' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createRemovalService() {
+    const result = createService();
+    const { service, simpleDbPrime } = result;
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const refresh = jest.fn(async () => ({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: false },
+    }));
+    service.apiFetchPrimeUserInfo = refresh;
+    return { ...result, post, refresh };
+  }
+
+  it('posts without a body using the confirming session, then refreshes the entitlement', async () => {
+    const { service, post, refresh } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).resolves.toBeUndefined();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(refresh).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(
+      refresh.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('rejects direct calls outside developer mode', async () => {
+    const { service, post } = createRemovalService();
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Developer mode is required');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the developer password in the method body', async () => {
+    const { service, post } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(
+        { $$devOnlyPassword: 'wrong-password' },
+        confirmingUser,
+      ),
+    ).rejects.toThrow(/devOnlyPassword is wrong/);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects an account switch after opening the confirmation', async () => {
+    const { service, post } = createRemovalService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the session after obtaining the client and before sending', async () => {
+    const { service, simpleDbPrime, post } = createRemovalService();
+    service.getPrimeClient = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { post };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('propagates server allowlist errors without refreshing or claiming success', async () => {
+    const { service, post, refresh } = createRemovalService();
+    post.mockRejectedValueOnce(new Error('Email not allowed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Email not allowed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not refresh a replacement session when the user changes during removal', async () => {
+    const { service, simpleDbPrime, post, refresh } = createRemovalService();
+    post.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('propagates a failed refresh instead of claiming removal was confirmed', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockRejectedValueOnce(new Error('Refresh failed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Refresh failed');
+  });
+
+  it('rejects success when the refreshed subscription remains active', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockResolvedValueOnce({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: true },
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Prime removal could not be confirmed');
+  });
+
+  it('rejects a session change while refreshing the entitlement', async () => {
+    const { service, simpleDbPrime, refresh } = createRemovalService();
+    refresh.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return {
+        serverUserInfo: { userId: 'user-a' },
+        primeSubscription: { isActive: false },
+      };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
   });
 });
 
@@ -1536,6 +1815,297 @@ describe('ServicePrime Infini payment APIs', () => {
     result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
     return result;
   }
+
+  function pendingResponse(payments: unknown) {
+    return {
+      data: { code: 0, message: 'success', data: { payments } },
+    };
+  }
+
+  it.each(['monthly', 'yearly', 'annual', undefined])(
+    'discovers account-scoped pending data with plan %s',
+    async (plan) => {
+      const { service } = createInfiniService();
+      const get = jest.fn(async () =>
+        pendingResponse([{ ...payment, plan, transactions: [] }]),
+      );
+      service.getPrimeClient = jest.fn(async () => ({ get }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.plan).toBe(
+        plan === 'annual' ? 'yearly' : plan,
+      );
+      expect(get).toHaveBeenCalledWith('/prime/v1/infini/payment/pending', {
+        headers: { 'X-Onekey-Request-Token': 'token-a' },
+        timeout: 5000,
+      });
+      expect(JSON.stringify(result)).not.toContain('token-a');
+    },
+  );
+
+  it.each([false, true])(
+    'keeps pending visible when local send evidence lookup fails=%s',
+    async (fails) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      if (fails)
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockRejectedValue(
+          new Error('storage unavailable'),
+        );
+      else
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence.mockResolvedValue(true);
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () =>
+          pendingResponse([{ ...payment, plan: 'monthly', transactions: [] }]),
+        ),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toMatchObject({
+        payment,
+        hasTransactions: false,
+      });
+      expect(result.pendingPayment?.hasLocalSendEvidence).toBe(
+        fails ? undefined : true,
+      );
+      expect(result.status).toBe(fails ? 'unavailable' : undefined);
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).toHaveBeenCalledWith({
+        onekeyUserId: 'user-a',
+        paymentId: payment.paymentId,
+      });
+    },
+  );
+
+  it('confirms absence only for a successful payments empty array', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => pendingResponse([])),
+    }));
+    const result = await service.apiGetInfiniPendingPayment({
+      expectedOneKeyUserId: 'user-a',
+    });
+    expect(result).toEqual({
+      hasPendingPayments: false,
+      authContext: {
+        onekeyUserId: 'user-a',
+        authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        authStateGeneration: 3,
+      },
+    });
+    expect(
+      simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [payment, { ...payment, paymentId: 'other-order', amountConfirming: '1' }],
+    [{ ...payment, paymentId: 'other-order', amountConfirming: '1' }, payment],
+    [payment, payment],
+    [{ paymentId: 'remote-id' }, payment],
+  ])(
+    'never chooses a recovery from multiple orders: %j',
+    async (...payments) => {
+      const { service, simpleDbPrime } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse(payments)),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBeUndefined();
+      expect(result.hasPendingPayments).toBe(true);
+      expect(result.pendingPayment).toBeUndefined();
+      expect(
+        simpleDbPrime.hasInfiniPaymentLocalSendEvidence,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'])(
+    'returns unknown status, never confirmed absence, on %s',
+    async (code) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw new InfiniAxiosError('secret-token private-address', code);
+        }),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result).toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /secret-token|private-address/,
+      );
+      expect(
+        JSON.stringify(mockPrimeCryptoPaymentFlowLog.mock.calls),
+      ).not.toMatch(/secret-token|private-address/);
+    },
+  );
+
+  it.each([
+    undefined,
+    { data: {} },
+    ...[null, undefined, false, 0, '', [], {}, payment].map((data) => ({
+      data: { code: 0, data },
+    })),
+    ...[null, undefined, false, 0, '', {}, '[]'].map(pendingResponse),
+    ...[
+      null,
+      undefined,
+      false,
+      1,
+      '',
+      [],
+      {},
+      { paymentId: '' },
+      { paymentId: ' ' },
+      { paymentId: null },
+      { paymentId: 1 },
+    ].map((item) => pendingResponse([item])),
+    { data: { code: 1, data: { payments: [] } } },
+    { data: { data: { payments: [] } } },
+    pendingResponse([payment, null]),
+    pendingResponse([null, payment]),
+  ])(
+    'warns instead of blocking a new purchase on invalid discovery: %j',
+    async (response) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => response),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.status).toBe('unavailable');
+      expect(result.pendingPayment).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { paymentId: 'remote-id' },
+    {
+      paymentId: 'remote-id',
+      status: 'pending',
+      amountConfirmed: '0',
+      amountConfirming: '0',
+      amountRemaining: '29.99',
+      expiresAt: payment.expiresAt,
+      lastQuotedAt: payment.expiresAt - 1_800_000,
+    },
+  ])(
+    'warns without reconstructing a quote from order-only data: %j',
+    async (pending) => {
+      const { service } = createInfiniService();
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => pendingResponse([pending])),
+      }));
+      const result = await service.apiGetInfiniPendingPayment({
+        expectedOneKeyUserId: 'user-a',
+      });
+      expect(result.pendingPayment).toEqual({
+        paymentId: 'remote-id',
+        payment: undefined,
+        plan: undefined,
+        hasTransactions: undefined,
+        hasLocalSendEvidence: false,
+      });
+    },
+  );
+
+  it('keeps identity changes blocking even when discovery has failed', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        throw new InfiniAxiosError('timeout', 'ECONNABORTED');
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it('rejects an account change even after a successful empty lookup', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+        return pendingResponse([]);
+      }),
+    }));
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).rejects.toThrow('Prime purchase user changed');
+  });
+
+  it.each([401, 403])(
+    'keeps endpoint HTTP%s advisory while the pinned account lifecycle is unchanged',
+    async (httpStatusCode) => {
+      const { service } = createInfiniService();
+      const error = new OneKeyServerApiError({
+        httpStatusCode,
+        message: 'auth rejected',
+      });
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async () => {
+          throw error;
+        }),
+      }));
+      await expect(
+        service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+      ).resolves.toMatchObject({
+        status: 'unavailable',
+        authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+      });
+    },
+  );
+
+  it('keeps unavailable discovery client setup advisory under the same authenticated identity', async () => {
+    const { service } = createInfiniService();
+    service.getPrimeClient = jest.fn(async () => {
+      throw new OneKeyLocalError('discovery client unavailable');
+    });
+    await expect(
+      service.apiGetInfiniPendingPayment({ expectedOneKeyUserId: 'user-a' }),
+    ).resolves.toMatchObject({
+      status: 'unavailable',
+      authContext: { onekeyUserId: 'user-a', authStateGeneration: 3 },
+    });
+  });
+
+  it('still refuses creating after the consent auth lifecycle has changed', async () => {
+    const { service } = createInfiniService();
+    const authContext = {
+      onekeyUserId: 'user-a',
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 2,
+    };
+    const post = jest.fn();
+    const get = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ get, post }));
+    await expect(
+      service.apiCreateInfiniPayment({
+        plan: 'monthly',
+        chain: 'ETHEREUM',
+        token: 'USDC',
+        expectedOneKeyUserId: 'user-a',
+        authContext,
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+    expect(post).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
 
   it('loads supported payment options', async () => {
     const { service } = createInfiniService();
@@ -4140,6 +4710,38 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     jest.clearAllMocks();
   });
 
+  it('reopens the email storage slot before OTP verification can persist a new session', async () => {
+    const { service } = createService();
+    let allowWrites!: () => void;
+    let noteReopen!: () => void;
+    const reopening = new Promise<void>((resolve) => {
+      noteReopen = resolve;
+    });
+    mockAllowEmailSessionWrites.mockImplementationOnce(() => {
+      noteReopen();
+      return new Promise<undefined>((resolve) => {
+        allowWrites = () => resolve(undefined);
+      });
+    });
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+    const login = service.apiEmailOtpLogin({
+      email: 'next@example.com',
+      otp: '111111',
+    });
+    await reopening;
+    expect(mockAllowEmailSessionWrites).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    allowWrites();
+    await expect(login).resolves.toEqual({ success: true });
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+  });
+
   it('records an email OTP verification failure once in the background runtime', async () => {
     const { service } = createService();
     mockVerifyEmailOtp.mockResolvedValue({
@@ -4176,6 +4778,7 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       reason: expect.stringContaining(
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
+      trigger: 'interactive',
     });
   });
 
@@ -4209,6 +4812,8 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
+      trigger: 'interactive',
+      error: expect.objectContaining({ message: 'Prime login commit failed' }),
     });
   });
 
@@ -5408,6 +6013,7 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(mockToastIfErrorMethods).toContain('apiOAuthLogin');
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('OneKey ID is already logged in'),
+      trigger: 'interactive',
     });
     expect(
       simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
@@ -7840,5 +8446,517 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     expect(legacyRead).not.toHaveBeenCalled();
     expect(legacyWrite).not.toHaveBeenCalled();
     expect(giftEventSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime.apiTranslate free-trial batches', () => {
+  const ServicePrimeFreeTrial =
+    require('../ServicePrimeFreeTrial/ServicePrimeFreeTrial').default;
+
+  // 9 texts -> batches of 4, 4 and 1.
+  const texts = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4', 'c1'];
+
+  function translated(batch: string[]) {
+    return batch.map((text) => `T(${text})`);
+  }
+
+  function createTranslateService(
+    replyOfBatch: (batch: string[]) => { code: number; data?: unknown },
+  ) {
+    const { service, backgroundApi } = createService();
+    // The real normalization (raw 90005 -> 90601, 90600 business data).
+    backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError = jest.fn(
+      (params: unknown) =>
+        ServicePrimeFreeTrial.prototype.normalizeFreeTrialError.call(
+          {},
+          params,
+        ),
+    );
+    const post = jest.fn(async (_url: string, body: { texts: string[] }) => {
+      const reply = replyOfBatch(body.texts);
+      return {
+        status: 200,
+        data: { message: `code ${reply.code}`, ...reply },
+      };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, backgroundApi, post };
+  }
+
+  function translate(service: any) {
+    return service.apiTranslate({
+      texts,
+      sourceLang: 'auto',
+      targetLang: 'zh',
+      engine: 'ai',
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: false },
+    });
+  });
+
+  it('keeps the billed batches when another batch is exhausted', async () => {
+    const { service, backgroundApi, post } = createTranslateService((batch) =>
+      batch[0] === 'b1'
+        ? {
+            code: 90_600,
+            data: { featureId: 'DAppTranslate', resetAt: 2000 },
+          }
+        : { code: 0, data: { translations: translated(batch) } },
+    );
+
+    const result = await translate(service);
+
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(result.translations).toEqual([
+      ...translated(['a1', 'a2', 'a3', 'a4']),
+      'b1',
+      'b2',
+      'b3',
+      'b4',
+      ...translated(['c1']),
+    ]);
+    expect(result.hasBilledBatch).toBe(true);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', remaining: 0, resetAt: 2000 },
+    });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a 90600 over for the user the requests were sent as', async () => {
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', resetAt: 2000 },
+    }));
+    mockPrimePersistAtom.get
+      .mockResolvedValueOnce({
+        isLoggedIn: true,
+        onekeyUserId: 'user-a',
+        primeSubscription: { isActive: false },
+      })
+      // Another user is logged in by the time the replies arrive.
+      .mockResolvedValue({
+        isLoggedIn: true,
+        onekeyUserId: 'user-b',
+        primeSubscription: { isActive: false },
+      });
+
+    await translate(service);
+
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledWith(expect.objectContaining({ code: 90_600 }), {
+      onekeyUserId: 'user-a',
+    });
+  });
+
+  it('normalizes a raw 90005 to the client not-open code', async () => {
+    const { service } = createTranslateService(() => ({ code: 90_005 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_601,
+      data: { featureId: 'DAppTranslate' },
+    });
+  });
+
+  it('lets 90104 win over 90600 and skips the quota update', async () => {
+    const { service, backgroundApi } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_600,
+    }));
+
+    await expect(translate(service)).rejects.toMatchObject({ code: 90_104 });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps the original fallback for a locally active subscription', async () => {
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: true },
+    });
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_005,
+    }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.freeTrialError).toBeUndefined();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports no billed batch when every batch falls back', async () => {
+    const { service } = createTranslateService(() => ({ code: 500 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toBeUndefined();
+  });
+});
+
+describe('ServicePrime inviteProfilePublic', () => {
+  const originalPrimeAtomGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalPrimeAtomSet = mockPrimePersistAtom.set.getMockImplementation();
+  const restoreSpies: Array<{ mockRestore: () => void }> = [];
+
+  function installPrimeAtom(initial: Record<string, unknown>) {
+    let stored = initial;
+    mockPrimePersistAtom.get.mockImplementation(async () => stored);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      if (typeof update === 'function') {
+        stored = (
+          update as (value: Record<string, unknown>) => Record<string, unknown>
+        )(stored);
+        return undefined;
+      }
+      stored = update as Record<string, unknown>;
+      return undefined;
+    });
+    return {
+      read: () => stored,
+    };
+  }
+
+  afterEach(() => {
+    for (const spy of restoreSpies) {
+      spy.mockRestore();
+    }
+    restoreSpies.length = 0;
+    mockPrimePersistAtom.get.mockImplementation(
+      originalPrimeAtomGet ?? (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalPrimeAtomSet ?? (async () => undefined),
+    );
+    jest.useRealTimers();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function pinInviteAuth(
+    simpleDbPrime: ReturnType<typeof createService>['simpleDbPrime'],
+  ) {
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  }
+
+  function loggedInConsent(inviteProfilePublic: boolean) {
+    return {
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+      inviteProfilePublic,
+    };
+  }
+
+  it('updates only the invite consent flag and keeps it on the same user', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const atom = installPrimeAtom(loggedInConsent(false));
+    restoreSpies.push(
+      jest
+        .spyOn(service, 'apiFetchPrimeUserInfo')
+        .mockResolvedValue({} as never),
+    );
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(true);
+
+    expect(put).toHaveBeenCalledWith(
+      '/prime/v1/user/info',
+      { inviteProfilePublic: true },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(atom.read().inviteProfilePublic).toBe(true);
+    jest.runOnlyPendingTimers();
+  });
+
+  it('rejects the consent write when the visible account is no longer current', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    installPrimeAtom(loggedInConsent(false));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the account changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      atom.read().onekeyUserId = 'user-b';
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const refresh = jest
+      .spyOn(service, 'apiFetchPrimeUserInfo')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().onekeyUserId).toBe('user-b');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the auth generation changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('leaves the flag unchanged when the server rejects the consent write', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => ({ data: { code: 1 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(false);
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('stores an explicit consent flag and keeps it when a non-user-info payload omits it', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const profile = {
+      avatar: 'https://example.com/cat.png',
+      nickname: 'eric',
+      isPrime: false,
+      emails: ['eric@example.com'],
+    };
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: true,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: false,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(false);
+
+    atom.read().inviteProfilePublic = true;
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-b',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+  });
+
+  it('lets only a successful user-info response decide invite consent', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    const completeProfile = {
+      userId: 'user-a',
+      emails: ['a@example.com'],
+      isPrime: false,
+      primeExpiredAt: 1_800_000_000_000,
+      level: 'NORMAL',
+      salt: 'salt',
+      pwdHash: 'hash',
+      inviteCode: 'CODE',
+    };
+    const respond = (routes: Record<string, unknown>) => {
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async (url: string) => ({
+          status: 200,
+          data: { code: 0, data: routes[url] },
+        })),
+      }));
+    };
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: 'true' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: true },
+      '/prime/v1/account/profile': {
+        userId: 'user-a',
+        inviteProfilePublic: false,
+      },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: true,
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        if (url === '/prime/v1/user/info') {
+          return Promise.reject(new OneKeyLocalError('user info unavailable'));
+        }
+        return {
+          status: 200,
+          data: { code: 0, data: completeProfile },
+        };
+      }),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: undefined,
+    });
+  });
+
+  it('does not carry invite consent across an account switch', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-b',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-b',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+    expect(atom.read().onekeyUserId).toBe('user-b');
+  });
+
+  it('keeps the same user consent when the login payload omits the field', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(true);
+  });
+
+  it('uses an explicit false from the login payload', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      inviteProfilePublic: false,
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(false);
   });
 });

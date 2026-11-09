@@ -24,6 +24,7 @@ import {
 import {
   clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
+  readSwrCacheKeysByPrefix,
   removeSwrCacheByPrefix,
   removeSwrCacheEntries,
   swrKeyPrefix,
@@ -706,6 +707,17 @@ function get<T>(key: string): T | undefined {
   return lookupEntry<T>(key)?.d;
 }
 
+/** Discover candidates without loading payloads. Read through `get` to apply deletions. */
+function keysByPrefix(prefix: string): string[] {
+  if (!isValidSWRCacheKey(prefix)) return [];
+  return Array.from(
+    new Set([
+      ...Object.keys(_cache ?? {}).filter((key) => key.startsWith(prefix)),
+      ...readSwrCacheKeysByPrefix(prefix),
+    ]),
+  );
+}
+
 function getWithTimestamp<T>(
   key: string,
 ): { data: T; updatedAt: number } | undefined {
@@ -1127,8 +1139,11 @@ export const swrKeys = {
   // sorted chainSelectorNetworks + account balances + DeFi overview into one
   // result object. Balances/DeFi are included despite being volatile because
   // the sorted list itself depends on them — caching them together lets the
-  // first render match the final UI. walletId + accountId in the key
-  // guarantees each account sees its own snapshot.
+  // first render match the final UI. Callers build the key through
+  // `buildNetworkContentSwrKey` (kit ChainSelector), which keeps accountId
+  // only for others wallets: for HD/HW the data follows wallet + indexed
+  // account, and a per-account slot was cold after every cross-coin-type
+  // switch (OK-65230). v4 orphans those per-account v3 entries.
   networkContentData: ({
     walletId,
     accountId,
@@ -1149,7 +1164,7 @@ export const swrKeys = {
     // stable across sessions. Old v2 (empty-freq) entries are orphaned.
     [
       NS.networkContentData,
-      'v3',
+      'v4',
       walletId ?? '',
       accountId ?? '',
       indexedAccountId ?? '',
@@ -1164,10 +1179,12 @@ export const swrKeys = {
   // — its transient values are safe to ignore for cache identity.
   //
   // walletId/accountId ARE in the key: the fetcher passes availableNetworks
-  // (derived from the account) to bg for filtering, so the cached result is
-  // account-specific. Without wallet/account in the key, switching accounts
-  // would leak one account's recent chips into another's first paint. v2
-  // bumps the version to orphan the old (account-agnostic) v1 entries.
+  // to bg for filtering, so the cached result follows that filter. Callers go
+  // through `buildRecentNetworksSwrKey` (kit ChainSelector), which passes the
+  // account only for others wallets: for HD/HW wallets the filter depends on
+  // the wallet alone, and the account id changes with the network's coin
+  // type, so per-account slots were stale or empty right after every network
+  // switch (OK-65230). v3 orphans those per-account v2 entries.
   recentNetworks: ({
     scope,
     showAllNetwork,
@@ -1181,7 +1198,7 @@ export const swrKeys = {
   }) =>
     [
       NS.recentNetworks,
-      'v2',
+      'v3',
       scope,
       showAllNetwork ? '1' : '0',
       walletId ?? '',
@@ -1193,6 +1210,21 @@ export const swrKeys = {
   // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
   homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
     [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
+  // Home Tron energy / bandwidth card, one entry per account (OK-64027). An
+  // account switch paints that account's last figures at once — never the
+  // previous account's, never a 0/0 placeholder — while the fresh read lands.
+  tronAccountResources: ({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) => [NS.tronAccountResources, 'v1', networkId, accountId].join(':'),
+  // Perks tab rewards overview, one entry per EVM address (OK-66043). A
+  // reopen paints the last result — the product list or the empty state —
+  // instead of the product-list skeleton collapsing into the empty card.
+  referralPerksOverview: ({ walletAddress }: { walletAddress: string }) =>
+    [NS.referralPerksOverview, 'v1', walletAddress.toLowerCase()].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
@@ -1416,6 +1448,11 @@ export const swrKeys = {
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // The stock identity behind a swap stock token (contract -> stockId). Only
+  // tokens persisted before `stockId` existed need the lookup, and persisting
+  // what it resolves keeps that round trip off the next mount's critical path.
+  swapStockTokenIdentity: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenIdentity, 'v1', tokenScope].join(':'),
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
@@ -1444,7 +1481,7 @@ export const swrKeys = {
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
-    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+    [NS.swapStockPayTokenDetails, 'v2', scope].join(':'),
   borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
   borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
     buildBorrowScopedSWRKey(NS.borrowReserves, params),
@@ -1693,6 +1730,7 @@ function getSizeStats() {
  */
 export const swrCacheUtils = {
   get,
+  keysByPrefix,
   getWithTimestamp,
   getFreshPerpsL2BookSnapshot,
   set,

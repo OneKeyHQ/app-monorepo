@@ -108,6 +108,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
@@ -142,6 +143,88 @@ describe('usePromiseResult', () => {
     globalNetInfo.listeners = [];
     globalNetInfo.state = { isInternetReachable: null };
     globalNetInfo.prevIsInternetReachable = false;
+  });
+
+  it('keeps optional data after a failed revalidation and can recover', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        watchLoading: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+
+    method.mockRejectedValueOnce(new Error('optional config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBe('cached');
+    expect(result.current.isLoading).toBe(false);
+
+    method.mockResolvedValueOnce('recovered');
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.result).toBe('recovered');
+  });
+
+  it('still rejects errors when keeping optional data was not requested', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() => usePromiseResult(method, []));
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    const failure = new Error('required data unavailable');
+    method.mockRejectedValueOnce(failure);
+    await act(async () => {
+      await expect(result.current.run()).rejects.toBe(failure);
+    });
+    expect(result.current.result).toBe('cached');
+  });
+
+  it('keeps defaults on a cold-start failure and retries on reconnect', async () => {
+    globalNetInfo.state = { isInternetReachable: false };
+    let recovered = false;
+    const method = jest.fn(async () => {
+      if (!recovered) {
+        throw new OneKeyLocalError('optional config unavailable');
+      }
+      return 'recovered';
+    });
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        initResult: 'default',
+        keepResultIfError: true,
+        watchLoading: true,
+        revalidateOnReconnect: true,
+      }),
+    );
+    await waitFor(() => {
+      expect(method).toHaveBeenCalled();
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.result).toBe('default');
+
+    recovered = true;
+    act(() => {
+      globalNetInfo.updateState({ isInternetReachable: true });
+    });
+    await waitFor(() => expect(result.current.result).toBe('recovered'));
+  });
+
+  it('gives undefinedResultIfError precedence over keepResultIfError', async () => {
+    const method = jest.fn(async () => 'cached');
+    const { result } = renderHook(() =>
+      usePromiseResult(method, [], {
+        keepResultIfError: true,
+        undefinedResultIfError: true,
+      }),
+    );
+    await waitFor(() => expect(result.current.result).toBe('cached'));
+    method.mockRejectedValueOnce(new Error('config unavailable'));
+    await act(async () => {
+      await expect(result.current.run()).resolves.toBeUndefined();
+    });
+    expect(result.current.result).toBeUndefined();
   });
 
   it('does not rerender on netinfo updates when reconnect revalidation is disabled', async () => {
@@ -576,6 +659,50 @@ describe('usePromiseResult', () => {
       });
     };
 
+    it.each([false, true])(
+      'preserves one polling chain with immediate mount enabled=%s',
+      async (runImmediatelyOnMount) => {
+        const method = jest.fn(async () => 'ok');
+        const { unmount } = renderHook(() =>
+          usePromiseResult(method, [], {
+            pollingInterval: POLLING_MS,
+            runImmediatelyOnMount,
+          }),
+        );
+
+        expect(method).toHaveBeenCalledTimes(runImmediatelyOnMount ? 1 : 0);
+        await tick(0);
+        expect(method).toHaveBeenCalledTimes(1);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(2);
+        await tick(POLLING_MS);
+        expect(method).toHaveBeenCalledTimes(3);
+        unmount();
+      },
+    );
+
+    it('keeps interval-change scheduling after an immediate mount', async () => {
+      const method = jest.fn(() => new Promise<string>(() => undefined));
+      const { rerender, unmount } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { pollingInterval: number }
+      >(
+        ({ pollingInterval }) =>
+          usePromiseResult(method, [], {
+            pollingInterval,
+            runImmediatelyOnMount: true,
+          }),
+        { initialProps: { pollingInterval: POLLING_MS } },
+      );
+      expect(method).toHaveBeenCalledTimes(1);
+      rerender({ pollingInterval: POLLING_MS * 2 });
+      await tick(POLLING_MS * 2 - 1);
+      expect(method).toHaveBeenCalledTimes(1);
+      await tick(1);
+      expect(method).toHaveBeenCalledTimes(2);
+      unmount();
+    });
+
     it('skips the next polling tick once setStopPolling(true) is called', async () => {
       const method = jest.fn(async () => 'ok');
 
@@ -672,6 +799,28 @@ describe('usePromiseResult', () => {
 
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
+    });
+
+    it('can run immediately when a polling interval becomes active', async () => {
+      const method = jest.fn(async () => 'ok');
+      const { rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { pollingInterval?: number }
+      >(
+        ({ pollingInterval }) =>
+          usePromiseResult(method, [pollingInterval], {
+            pollingInterval,
+            runImmediatelyOnPollingIntervalChange: true,
+          }),
+        { initialProps: {} },
+      );
+
+      await tick(0);
+      expect(method).toHaveBeenCalledTimes(1);
+
+      rerender({ pollingInterval: POLLING_MS });
+      await tick(0);
+      expect(method).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -5,7 +5,10 @@ import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
 } from '../../types/prime/primeTransferTypes';
-import type { IPrimeServerUserInfo } from '../../types/prime/primeTypes';
+import type {
+  IPrimeInfiniCheckoutAuthContext,
+  IPrimeServerUserInfo,
+} from '../../types/prime/primeTypes';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
@@ -55,6 +58,11 @@ export type IPrimeParamList = {
   [EPrimePages.PrimeDashboard]: {
     networkId?: string;
     fromFeature?: EPrimeFeatures;
+    // Set when a free-trial entry opened the dashboard (analytics only)
+    freeTrialReason?: 'exhausted' | 'notOpen';
+    fromDeepLink?: boolean;
+    // Preselected plan, e.g. a card checkout handed off from the extension popup
+    selectedSubscriptionPeriod?: ISubscriptionPeriod;
   };
   [EPrimePages.PrimeDeviceLimit]: {
     isExceedDeviceLimit?: boolean;
@@ -89,6 +97,10 @@ export type IPrimeParamList = {
     selectedSubscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     createNewPayment?: boolean;
+    remotePaymentResumeIntent?: {
+      paymentId: string;
+      authContext: IPrimeInfiniCheckoutAuthContext;
+    };
     networkId?: string;
   };
   [EPrimePages.PrimeInfiniSubscription]: undefined;

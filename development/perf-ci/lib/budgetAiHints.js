@@ -279,6 +279,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       failedHealthChecks: (scenario.healthChecks || []).filter(
         (check) => !check.pass,
       ),
+      blockedRequests: (scenario.blockedRequests || []).slice(0, 20),
       representativeRunIndex: run?.runIndex || null,
       scriptCount: run?.scriptCount ?? null,
       rawResourceCount: run?.rawResourceCount ?? null,
@@ -326,15 +327,16 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       report.legacyTopLevelFieldsNote ||
         'Use scenarios[] as the source of truth. Top-level summary/budgetChecks/runs are legacy-compatible fields for the first scenario only.',
       report.metricDefinitions?.resourceCount ||
-        'resourceCount is the raw PerformanceResourceTiming resource entry count used by the hard budget gate.',
+        'resourceCount counts static assets once per URL (including query parameters) and API requests individually.',
       report.metricDefinitions?.scriptCount ||
-        'scriptCount is the raw PerformanceResourceTiming JavaScript resource entry count used by the hard budget gate.',
+        'scriptCount counts JavaScript entries after static-resource URL de-duplication.',
       report.metricDefinitions?.jsDecodedBytes ||
         'jsDecodedBytes is the sum of decodedBodySize for raw JavaScript resource entries.',
       report.metricDefinitions?.uniqueScriptCount ||
         'uniqueScriptCount is the count of distinct normalized JavaScript resource URLs after de-duplication.',
       'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
       'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
+      `Network mode: ${report.network?.mode || 'live'}. In fixtures mode API calls are answered from development/perf-ci/fixtures/web-cold-api.json; scenarios[].blockedRequests lists outbound requests with no fixture and fails the blockedRequests health check. If a page now depends on one of them, re-record with yarn perf:web:cold:record (a new endpoint must first be reviewed and added to RECORDABLE_ENDPOINTS in development/perf-ci/lib/webColdNetwork.js) instead of changing budgets.`,
     ],
     reportPath: report.reportPath || null,
     buildDir,
@@ -345,7 +347,7 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       'Fix the OneKey web cold/startup budget without relaxing thresholds.',
       'Use scenarios[] as the source of truth; top-level summary/budgetChecks/runs are legacy-compatible first-scenario fields.',
       'Start from failedOrWarnBudgetChecks, then inspect duplicateScripts, scenarioOnlyScriptCandidates, and smallScriptCandidates.',
-      'scriptCount/resourceCount/jsDecodedBytes are raw hard-gate metrics; use uniqueResourceCount, uniqueScriptCount, uniqueJsDecodedBytes, and duplicateScripts to inspect repeated preload/script/cache entries.',
+      'resourceCount/scriptCount deduplicate static assets by URL, preserving query parameters; API requests remain per-request. jsDecodedBytes remains a raw byte metric. Use rawResourceCount/rawScriptEntryCount to inspect repeated static requests, and uniqueResourceCount/uniqueScriptCount/uniqueJsDecodedBytes for URL-normalized diagnostics.',
       'Do not assume only the home page can fail: any change entering the global shell, shared modules, first-screen synchronous imports, or lazy loads auto-mounted within the cold-start window can affect this budget.',
       'For scriptCount/resourceCount failures, prefer merging related lazy import() boundaries or delaying non-first-screen providers.',
       'Do not edit development/perf-ci/thresholds or workflow budget env values to silence a regression.',
@@ -650,6 +652,12 @@ function renderAiHintsMarkdown(hints) {
       if (scenario.failedHealthChecks?.length) {
         lines.push('- failed health checks:');
         lines.push(markdownHealthRows(scenario.failedHealthChecks));
+      }
+      if (scenario.blockedRequests?.length) {
+        lines.push('- blocked outbound requests (no fixture):');
+        for (const item of limitRows(scenario.blockedRequests, 10)) {
+          lines.push(`  - ${item.count}x ${item.request}`);
+        }
       }
       const scriptMetrics = [
         `budget scripts(raw): ${scenario.scriptCount ?? 'n/a'}`,

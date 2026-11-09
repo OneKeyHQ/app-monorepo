@@ -1,12 +1,21 @@
+import {
+  getSafeErrorIdentifiers,
+  getSwapErrorMessage,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { ESwapEventAPIStatus } from './swapEstimateFee';
+import { ESwapEventAPIStatus } from './swapEstimateFee';
 
 export class SwapSendTxScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapSendTx({
+    reviewSessionId,
+    quoteId,
+    swapSource,
     swapType,
     slippage,
     router,
@@ -19,7 +28,7 @@ export class SwapSendTxScene extends BaseScene {
     provider,
     providerName,
     status,
-    message,
+    error,
     orderId,
     networkId,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -32,8 +41,14 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: _toAddress,
     quoteToTokenAmount,
   }: {
+    reviewSessionId?: string;
+    quoteId?: string;
+    // Entry that opened the trade, from the review analytics context.
+    swapSource?: ESwapSource;
     status: ESwapEventAPIStatus;
-    message?: string;
+    // The raw error stays here: only fixed categories and allowlisted
+    // identifiers derived from it reach the server.
+    error?: unknown;
     orderId: string;
     swapType: string;
     slippage: string;
@@ -54,8 +69,16 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: string;
   }) {
     return {
+      reviewSessionId,
+      quoteId,
+      swapSource,
       status,
-      message,
+      ...(status === ESwapEventAPIStatus.FAIL
+        ? {
+            message: getSwapErrorMessage(error),
+            ...getSafeErrorIdentifiers(error),
+          }
+        : undefined),
       swapType,
       slippage,
       router,

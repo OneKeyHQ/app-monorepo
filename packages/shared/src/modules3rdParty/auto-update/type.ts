@@ -1,5 +1,4 @@
 import type { IDesktopEventUnSubscribe } from '@onekeyhq/desktop/app/preload';
-import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppUpdate';
 
 import type { IAppUpdateInfo } from '../../appUpdate';
 
@@ -11,27 +10,29 @@ export interface IDownloadPackageParams {
   fileSize?: number;
   sha256?: string;
   signature?: string;
-  downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
-  /** Desktop only: electron-updater was prepared from its persisted cache. */
-  isUpdaterRehydrated?: boolean;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
   skipGPGVerification?: boolean;
 }
 
 export type IUpdateDownloadedEvent =
-  | (IDownloadPackageParams & {
-      downloadedFile?: string;
-      signature?: string;
-    })
+  | Pick<
+      IDownloadPackageParams,
+      'latestVersion' | 'downloadUrl' | 'bundleVersion' | 'sha256' | 'signature'
+    >
   | undefined;
 
 export type IDownloadPackage = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent | null>;
 
-export type IInstallPackage = (params: IAppUpdateInfo) => Promise<boolean>;
+export type IInstallPackage = (
+  params: IAppUpdateInfo & {
+    userInitiated?: boolean;
+    installSource?: 'capsule' | 'quit' | 'startup' | 'legacy';
+  },
+) => Promise<boolean>;
 
 export enum EAppUpdatePackageAvailabilityStatus {
   available = 'available',
@@ -69,13 +70,32 @@ export type ICheckPackageAvailability = (
   params: IAppUpdateInfo,
 ) => Promise<IAppUpdatePackageAvailability>;
 
-export type IDownloadASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IUpdateOperationParams =
+  | (NonNullable<IUpdateDownloadedEvent> & {
+      skipGPGVerification?: boolean;
+    })
+  | undefined;
 
-export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IDownloadASC = (params: IUpdateOperationParams) => Promise<void>;
 
-export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IVerifyASC = (params: IUpdateOperationParams) => Promise<void>;
 
-export type IUseDownloadProgress = () => number;
+export type IVerifyPackage = (params: IUpdateOperationParams) => Promise<void>;
+
+export type IDownloadProgressScope = Pick<
+  IDownloadPackageParams,
+  'latestVersion' | 'bundleVersion'
+>;
+
+export interface IUpdateProgressUpdate extends IDownloadProgressScope {
+  percent: number;
+  delta: number;
+  bytesPerSecond: number;
+  total: number;
+  transferred: number;
+}
+
+export type IUseDownloadProgress = (scope?: IDownloadProgressScope) => number;
 
 export type IClearPackage = () => Promise<void>;
 
@@ -90,6 +110,14 @@ export interface IAppUpdate {
   downloadASC: IDownloadASC;
   checkPackageAvailability: ICheckPackageAvailability;
   installPackage: IInstallPackage;
+  prepareMacInstall?: (params: IAppUpdateInfo) => Promise<void>;
+  prepareQuitInstall?: (
+    params?: IAppUpdateInfo,
+    expectedTarget?: Pick<
+      IDownloadPackageParams,
+      'latestVersion' | 'downloadUrl'
+    >,
+  ) => Promise<void>;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;
   /**
@@ -121,19 +149,18 @@ export type IDownloadBundle = (
 ) => Promise<IUpdateDownloadedEvent>;
 
 export type IBundleUpdateDownloadedEvent = {
-  downloadedFile?: string;
   latestVersion?: string;
   downloadUrl?: string;
 };
 
-export type IVerifyBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IVerifyBundle = (params: IUpdateOperationParams) => Promise<void>;
 export type IVerifyBundleASC = (
-  params: IUpdateDownloadedEvent,
+  params: IUpdateOperationParams,
 ) => Promise<void>;
 export type IDownloadBundleASC = (
-  params: IUpdateDownloadedEvent,
+  params: IUpdateOperationParams,
 ) => Promise<void>;
-export type IInstallBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IInstallBundle = (params: IUpdateOperationParams) => Promise<void>;
 export type IClearBundle = () => Promise<void>;
 
 export type ITestDeleteJsBundle = (
@@ -173,7 +200,7 @@ export interface IBundleUpdate {
    * `BackgroundThread.restart(mode=all, reason='ota.restart')`; on desktop it
    * calls `app.relaunch`.
    */
-  restart: () => void;
+  restart: () => Promise<void>;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   /**
    * Delete every OTA bundle artifact (extracted dir, download staging,

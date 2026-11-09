@@ -11,6 +11,7 @@ import {
   BaseMarketTokenPrice,
   MarketTokenPrice,
 } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -18,6 +19,10 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import {
   MARKET_CAP_FORMATTER,
@@ -30,6 +35,10 @@ import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
+import { resolveDisplayedPriceChange } from './stockMobilePriceChange';
+import { StockMobilePriceHeader } from './StockMobilePriceHeader';
+
+import type { IMarketMobileDetailKind } from '../../utils/marketMobileDetailKind';
 
 // 4pt top padding plus the 16pt stock badges.
 const STOCK_TAG_ROW_MIN_HEIGHT = 20;
@@ -152,12 +161,20 @@ function HeaderStatRows({
   );
 }
 
-export function InformationPanel() {
+export function InformationPanel({
+  mobileDetailKind,
+}: {
+  mobileDetailKind?: IMarketMobileDetailKind;
+}) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
     useMarketDetailDisplayData();
   const btcMetadata = useBtcMetadataContext();
+  const isMobileLayout = platformEnv.isNative || mobileDetailKind !== undefined;
+  // Read before the early returns below; only the mobile header shows it.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange('token');
+  const priceChangeLabelId = useMarketPriceChangeLabelId('token');
   const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
@@ -165,18 +182,21 @@ export function InformationPanel() {
     networkId: networkId ?? '',
   });
 
+  if (isMobileLayout && (isStockToken || mobileDetailKind === 'stock')) {
+    return <StockMobilePriceHeader />;
+  }
+
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
   const {
     name = '',
     symbol = '',
     price: currentPrice = '--',
-    priceChange24hPercent = '--',
+    priceChange24hPercent: tokenPriceChange24hPercent = '--',
     marketCap,
     liquidity,
     priceConverted,
     holders = 0,
-    address = '',
     communityRecognized,
     stock,
   } = tokenDetail;
@@ -196,8 +216,19 @@ export function InformationPanel() {
     MARKET_CAP_FORMATTER,
   );
 
+  const mobileRangePriceChange = isMobileLayout ? rangePriceChange : undefined;
+  const priceChange24hPercent =
+    mobileRangePriceChange?.priceChangePercent ?? tokenPriceChange24hPercent;
   const { color: priceChangeColor, display: priceChangeDisplay } =
     formatPriceChangeDisplay(priceChange24hPercent);
+
+  const priceChangeValue = isMobileLayout
+    ? resolveDisplayedPriceChange({
+        price: currentPrice,
+        priceChangePercent: priceChange24hPercent,
+        reportedPriceChangeValue: mobileRangePriceChange?.priceChangeValue,
+      })?.toFixed()
+    : undefined;
 
   return (
     <XStack
@@ -236,9 +267,54 @@ export function InformationPanel() {
               {priceConverted}
             </NumberSizeableText>
           ) : null}
-          <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
-            {priceChangeDisplay}
-          </SizableText>
+          <XStack pt="$1" ai="center" gap="$1.5">
+            {priceChangeValue !== undefined ? (
+              <NumberSizeableText
+                testID="market-mobile-price-change-value"
+                size="$bodyMdMedium"
+                color={priceChangeColor}
+                formatter="price"
+                formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+              >
+                {priceChangeValue}
+              </NumberSizeableText>
+            ) : null}
+            {isMobileLayout ? (
+              // A range move is a full-precision string that can run to many
+              // digits (1Y, All), so it goes through the capped number
+              // formatter rather than the 24h figure's character cut.
+              <XStack alignItems="baseline">
+                {priceChangeValue !== undefined ? (
+                  <SizableText size="$bodyMdMedium" color={priceChangeColor}>
+                    (
+                  </SizableText>
+                ) : null}
+                <PriceChangePercentage size="$bodyMdMedium">
+                  {priceChange24hPercent}
+                </PriceChangePercentage>
+                {priceChangeValue !== undefined ? (
+                  <SizableText size="$bodyMdMedium" color={priceChangeColor}>
+                    )
+                  </SizableText>
+                ) : null}
+              </XStack>
+            ) : (
+              <SizableText size="$bodyLgMedium" color={priceChangeColor}>
+                {priceChangeDisplay}
+              </SizableText>
+            )}
+            {isMobileLayout ? (
+              <SizableText
+                testID="market-mobile-price-change-label"
+                // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+                ml="$1"
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({ id: priceChangeLabelId })}
+              </SizableText>
+            ) : null}
+          </XStack>
         </YStack>
         <XStack
           ai="center"
@@ -258,46 +334,47 @@ export function InformationPanel() {
         </XStack>
       </YStack>
 
-      <YStack gap="$1" width="$40" pt="$1">
-        <HeaderStatRows
-          isStockToken={Boolean(isStockToken)}
-          isPreview={isPreviewTokenDetail}
-          stock={stock}
-          btcMetadata={btcMetadata}
-          fallback={{
-            marketCap: formattedMarketCap,
-            liquidity: formattedLiquidity,
-            holders: formattedHolders,
-          }}
-        />
-        {/* Reserve the native risk row before its separate request settles.
-            A stock route learns its contract address after the first frame. */}
-        {(networkId && address && (platformEnv.isNative || securityData)) ||
-        (platformEnv.isNative && isStockToken) ? (
-          <XStack
-            testID="market-detail-security-row"
-            gap="$1"
-            ai="center"
-            width="100%"
-            jc="space-between"
-          >
-            <SizableText
-              pointerEvents="none"
-              size="$bodySm"
-              color="$textSubdued"
+      {isMobileLayout &&
+      (mobileDetailKind === 'trending' ||
+        (!platformEnv.isNative && mobileDetailKind === 'topCoin')) &&
+      securityData ? (
+        <XStack testID="market-detail-security-row" py="$1">
+          <TokenSecurityAlert variant="badge" />
+        </XStack>
+      ) : null}
+      {isMobileLayout ? null : (
+        <YStack gap="$1" width="$40" pt="$1">
+          <HeaderStatRows
+            isStockToken={Boolean(isStockToken)}
+            isPreview={isPreviewTokenDetail}
+            stock={stock}
+            btcMetadata={btcMetadata}
+            fallback={{
+              marketCap: formattedMarketCap,
+              liquidity: formattedLiquidity,
+              holders: formattedHolders,
+            }}
+          />
+          {securityData ? (
+            <XStack
+              testID="market-detail-security-row"
+              gap="$1"
+              ai="center"
+              width="100%"
+              jc="space-between"
             >
-              {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-            </SizableText>
-            {securityData ? (
-              <TokenSecurityAlert />
-            ) : (
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                --
+              <SizableText
+                pointerEvents="none"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
               </SizableText>
-            )}
-          </XStack>
-        ) : null}
-      </YStack>
+              <TokenSecurityAlert />
+            </XStack>
+          ) : null}
+        </YStack>
+      )}
     </XStack>
   );
 }

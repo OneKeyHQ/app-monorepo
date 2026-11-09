@@ -629,6 +629,23 @@ export function sortTokensByName({
   });
 }
 
+// Members of a multi-chain token: owned members first so their accountId /
+// balance win over the global config copy of the same network.
+export function mergeAggregateTokenMembers({
+  aggregateSubTokenList,
+  allAggregateTokenList,
+}: {
+  aggregateSubTokenList?: IAccountToken[];
+  allAggregateTokenList?: IAccountToken[];
+}): IAccountToken[] {
+  return uniqBy(
+    [...(aggregateSubTokenList ?? []), ...(allAggregateTokenList ?? [])].filter(
+      (token) => !!token.networkId,
+    ),
+    (token) => token.networkId,
+  );
+}
+
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
   return tokens.toSorted((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
@@ -1874,6 +1891,37 @@ export function filterAccountTokenListByLimit({
   };
 }
 
+export type ITokenKeyMissingFromMap = {
+  group: 'tokens' | 'smallBalanceTokens' | 'riskTokens';
+  $key: string;
+  symbol: string;
+};
+
+/**
+ * Rows of a token-list response that have no entry in their own group's
+ * `map`. Home renders such a row with a "--" price and an empty balance /
+ * value column (OK-66042), and nothing on the client side can recover the
+ * missing fiat, so the mismatch is worth logging at the response boundary.
+ */
+export function findTokenKeysMissingFromMap(
+  resp: Pick<
+    IFetchAccountTokensResp,
+    'tokens' | 'smallBalanceTokens' | 'riskTokens'
+  >,
+): ITokenKeyMissingFromMap[] {
+  const missing: ITokenKeyMissingFromMap[] = [];
+  (['tokens', 'smallBalanceTokens', 'riskTokens'] as const).forEach((group) => {
+    const tokenData = resp[group];
+    const map = tokenData?.map ?? {};
+    (tokenData?.data ?? []).forEach((token) => {
+      if (token.$key && !map[token.$key]) {
+        missing.push({ group, $key: token.$key, symbol: token.symbol ?? '' });
+      }
+    });
+  });
+  return missing;
+}
+
 export function calculateAccountTokensValue({
   accountId,
   networkId,
@@ -1902,6 +1950,31 @@ export function calculateAccountTokensValue({
 
   const key = accountUtils.buildAccountValueKey({ accountId, networkId });
   return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
+}
+
+/**
+ * The All Networks worth map restricted to the accounts of the current run.
+ *
+ * Per-network settles merge their key into the map and only an `updateAll`
+ * commit replaces it, so after an enabled-network change the disabled
+ * network's key survives until that commit — and for good when the run's
+ * cache probe misses and every request then fails. Returns `worth` itself
+ * when no key is dropped, so callers can skip the write.
+ */
+export function retainAccountsWorth({
+  worth,
+  accountValueKeys,
+}: {
+  worth: Record<string, string>;
+  accountValueKeys: ReadonlySet<string>;
+}): Record<string, string> {
+  const entries = Object.entries(worth);
+  if (entries.every(([key]) => accountValueKeys.has(key))) {
+    return worth;
+  }
+  return Object.fromEntries(
+    entries.filter(([key]) => accountValueKeys.has(key)),
+  );
 }
 
 export function validateTokenAmount({

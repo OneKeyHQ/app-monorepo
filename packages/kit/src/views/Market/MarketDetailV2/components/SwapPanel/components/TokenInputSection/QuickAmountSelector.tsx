@@ -3,6 +3,7 @@ import { Fragment, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
@@ -18,6 +19,7 @@ export interface IQuickAmountSelectorProps {
   selectedTokenDecimals?: number;
   selectedTokenNetworkId?: string;
   selectedTokenIsNative?: boolean;
+  selectedTokenContractAddress?: string;
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
 }
 
@@ -38,6 +40,7 @@ export function QuickAmountSelector({
   swapNativeTokenReserveGas,
   selectedTokenNetworkId,
   selectedTokenIsNative,
+  selectedTokenContractAddress,
 }: IQuickAmountSelectorProps) {
   const amounts =
     tradeType === ESwapDirection.BUY ? buyAmounts : sellPercentages;
@@ -66,7 +69,14 @@ export function QuickAmountSelector({
           (item) => item.networkId === selectedTokenNetworkId,
         )?.reserveGas;
         let calculatedAmountBN = sellBalance.multipliedBy(percentageBN);
-        if (selectedTokenIsNative && reserveGas) {
+        if (
+          shouldReserveSwapGas({
+            networkId: selectedTokenNetworkId,
+            contractAddress: selectedTokenContractAddress,
+            isNative: selectedTokenIsNative,
+          }) &&
+          reserveGas
+        ) {
           calculatedAmountBN = BigNumber.max(
             0,
             calculatedAmountBN.minus(new BigNumber(reserveGas)),
@@ -90,6 +100,7 @@ export function QuickAmountSelector({
       balance,
       swapNativeTokenReserveGas,
       selectedTokenIsNative,
+      selectedTokenContractAddress,
       selectedTokenDecimals,
       onSelect,
       selectedTokenNetworkId,

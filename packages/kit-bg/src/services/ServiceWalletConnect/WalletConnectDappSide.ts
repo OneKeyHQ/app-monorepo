@@ -22,6 +22,7 @@ import {
   WC_DAPP_SIDE_METHODS_EVM,
   implToNamespaceMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { getWalletConnectAttemptBaseline } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 import type { IWalletConnectDappConnectionProgress } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 import type {
   IWalletConnectConnectParams,
@@ -41,9 +42,9 @@ import externalWalletFactory from '../../connectors/externalWalletFactory';
 import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
-import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import { dappSideWalletConnectDiagnostics } from './WalletConnectDiagnostics';
 
+import type { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBExternalAccount } from '../../dbs/local/types';
 
@@ -297,6 +298,10 @@ export class WalletConnectDappSide {
     if (!provider) {
       const client = await this.getSharedClient();
 
+      // loaded on demand: the provider module extends UniversalProvider and
+      // must stay out of the background startup graph
+      const { WalletConnectDappSideProvider } =
+        await import('./WalletConnectDappSideProvider');
       provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
@@ -479,15 +484,8 @@ export class WalletConnectDappSide {
     const attempt: IWalletConnectConnectAttempt = {
       attemptId: generation,
       // Include an in-flight reconnect, but exclude previous interactions.
-      connectionAttemptsBeforeStart: Math.max(
-        0,
-        initialConnection.connectionAttempts -
-          (initialConnection.connecting ||
-          initialConnection.providerConnecting ||
-          initialConnection.relaySwitchPending
-            ? 1
-            : 0),
-      ),
+      connectionAttemptsBeforeStart:
+        getWalletConnectAttemptBaseline(initialConnection),
       connectionSuccessesBeforeStart: initialConnection.connectionSuccesses,
     };
     this.activeConnectAttempt = attempt;

@@ -34,7 +34,7 @@ concurrency:
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
-  JEST_SHARD_TOTAL: 5
+  JEST_SHARD_TOTAL: 3
   JEST_COVERAGE_THRESHOLD_JSON: '{"statements":10,"branches":35,"functions":10}'
 
 permissions:
@@ -43,16 +43,16 @@ permissions:
 
 jobs:
   unittest:
-    name: Unit Tests (${{ matrix.shard }}/5)
+    name: Unit Tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
-    # Include a cold install and first-time image publication; benchmarks keep the slow baseline observable.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 13 }}
+    # Allow a cold immutable install and the heaviest shard to finish.
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
         node-version: [24.x]
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v4
@@ -67,33 +67,6 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           check-latest: true
           scope: '@onekeyhq'
-
-      - name: Locate Yarn cache
-        id: yarn-cache
-        shell: bash
-        run: |
-          node <<'NODE'
-          // Match the repository's Yarn 4 cache path without executing checkout plugins.
-          const fs = require('node:fs');
-          const os = require('node:os');
-          const path = require('node:path');
-          const base = process.platform === 'win32'
-            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
-            : process.env.XDG_DATA_HOME
-              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
-              : path.join(os.homedir(), '.yarn', 'berry');
-          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
-            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
-          NODE
-
-      - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ steps.yarn-cache.outputs.path }}
-          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Write unit test AI prompt
         run: |
@@ -118,8 +91,9 @@ jobs:
           BENCHMARK_WORKERS: ${{ inputs.max_workers }}
         run: |
           mkdir -p ci-ai
-          # Three workers also exceeded prebundle deadlines on a cold four-core runner.
-          test_command=(yarn test --maxWorkers=2)
+          # Cold four-core runners have missed prebundle deadlines with three
+          # workers; drop back to two if that recurs.
+          test_command=(yarn test --maxWorkers=3)
           if [ -n "$BENCHMARK_WORKERS" ]; then
             node <<'NODE' > ci-ai/runner.json
           const os = require('node:os');
@@ -138,16 +112,23 @@ jobs:
               --cacheDirectory="$RUNNER_TEMP/jest-worker-benchmark"
               --json --outputFile=ci-ai/test-results.json)
           fi
+          # Pushes collect coverage for the merged threshold check; PR runs
+          # skip the instrumentation cost.
+          coverage_args=()
+          if [ "${{ github.event_name }}" = "push" ]; then
+            coverage_args=(
+              --coverage
+              --coverageDirectory=coverage/shard-${{ matrix.shard }}
+              --coverageReporters=text
+              --coverageReporters=lcov
+              --coverageReporters=json-summary
+              --coverageReporters=json
+              --coverageThreshold='{}'
+            )
+          fi
           set +e
-          "${test_command[@]}" \
-            --coverage \
+          "${test_command[@]}" "${coverage_args[@]}" \
             --shard="${{ matrix.shard }}/${JEST_SHARD_TOTAL}" \
-            --coverageDirectory=coverage/shard-${{ matrix.shard }} \
-            --coverageReporters=text \
-            --coverageReporters=lcov \
-            --coverageReporters=json-summary \
-            --coverageReporters=json \
-            --coverageThreshold='{}' \
             2>&1 | tee ci-ai/jest-shard-${{ matrix.shard }}.log
           status=${PIPESTATUS[0]}
           set -e
@@ -174,7 +155,7 @@ jobs:
 
       - name: Upload Coverage Shard
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && github.event_name == 'push'
         with:
           name: coverage-report-${{ github.sha }}-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }}
           path: coverage/shard-${{ matrix.shard }}/
@@ -223,25 +204,30 @@ jobs:
             exit 1
           fi
 
+      # PR runs gate on the shard results only; pushes also merge coverage
+      # and check its thresholds.
       - name: Use Node.js 24.x
+        if: github.event_name == 'push'
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
           check-latest: true
 
       - name: Download Coverage Shards
+        if: github.event_name == 'push'
         uses: actions/download-artifact@v4
         with:
           pattern: coverage-report-${{ github.sha }}-shard-*
           path: coverage-shards
 
       - name: Merge Coverage Reports
+        if: github.event_name == 'push'
         run: |
           node development/scripts/merge-jest-coverage.js coverage-shards coverage "${JEST_SHARD_TOTAL}"
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && github.event_name == 'push'
         with:
           name: coverage-report-${{ github.sha }}
           path: coverage/

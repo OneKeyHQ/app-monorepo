@@ -18,7 +18,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, StyleSheet, type View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Page,
@@ -73,6 +73,7 @@ import {
 } from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 interface IWalletListProps {
   num: number;
@@ -352,7 +353,7 @@ export function AccountSelectorWalletListSideBarV2({
         : { width, height },
     );
   }, []);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const tooltipTokenRef = useRef<string | undefined>(undefined);
   const [walletTooltip, setWalletTooltip] = useState<{
     anchor: NativeListActionAnchor;

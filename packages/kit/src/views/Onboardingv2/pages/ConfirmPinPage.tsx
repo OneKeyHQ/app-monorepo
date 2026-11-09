@@ -3,7 +3,10 @@ import { useCallback, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
+import {
+  EKeylessFinalizeAction,
+  KEYLESS_PIN_LENGTH,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EOnboardingPagesV2,
@@ -50,8 +53,8 @@ function ConfirmPinPage() {
       setIsValid(false);
       setErrorMessage('');
 
-      // Auto-validate when 4 digits entered
-      if (filteredText.length === 4) {
+      // Auto-validate once the full PIN is entered
+      if (filteredText.length === KEYLESS_PIN_LENGTH) {
         const originalPin = await getKeylessOnboardingPin();
         // Ignore validation for input that was changed or cleared on submit.
         if (validationRequestId !== validationRequestIdRef.current) {
@@ -113,7 +116,9 @@ function ConfirmPinPage() {
     <PinInputLayout
       testID={OnboardingTestIDs.confirmPinPage}
       inputTestID={OnboardingTestIDs.confirmPasscodeInput}
-      title={intl.formatMessage({ id: ETranslations.confirm_your_pin })}
+      title={intl.formatMessage({
+        id: ETranslations.confirm_recovery_pin__title,
+      })}
       description={intl.formatMessage({
         id: ETranslations.confirm_your_pin_desc,
       })}

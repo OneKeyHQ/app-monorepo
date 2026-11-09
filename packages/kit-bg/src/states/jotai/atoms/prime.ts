@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { cloneDeep } from 'lodash';
 
+import type { IHardwareCloudSyncKeySource } from '@onekeyhq/shared/types/keylessCloudSync';
+import type { IPrimeFreeTrialAtomData } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IPrimeTransferNetworkProgress,
@@ -44,6 +46,7 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   subscriptionManageUrl: undefined,
   nickname: undefined,
   avatar: undefined,
+  inviteProfilePublic: undefined,
 };
 export const {
   target: primePersistAtom, // persist
@@ -64,6 +67,10 @@ export type IPrimeCloudSyncPersistAtomData = {
 
   isCloudSyncEnabledKeyless?: boolean;
   currentCloudSyncKeylessWalletId?: string | null;
+  hardwareCloudSyncKeySource?: IHardwareCloudSyncKeySource;
+  // Highest hardware Cloud key generation accepted, by credentialId. Kept when
+  // the key is removed, so a server cannot roll a reset back later.
+  hardwareCloudSyncKeyGenerations?: Record<string, number>;
 };
 export const {
   target: primeCloudSyncPersistAtom,
@@ -239,4 +246,16 @@ export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
       importProgress: undefined,
       refreshQrcodeHook: undefined,
     },
+  });
+
+export const primeFreeTrialAtomInitialValue: IPrimeFreeTrialAtomData = {
+  config: { status: 'idle' },
+  quota: { status: 'idle' },
+};
+// Free-trial display snapshot. Not persisted: the background refreshes it on
+// login, feature entry and metering; the server stays the source of truth.
+export const { target: primeFreeTrialAtom, use: usePrimeFreeTrialAtom } =
+  globalAtom<IPrimeFreeTrialAtomData>({
+    name: EAtomNames.primeFreeTrialAtom,
+    initialValue: cloneDeep(primeFreeTrialAtomInitialValue),
   });

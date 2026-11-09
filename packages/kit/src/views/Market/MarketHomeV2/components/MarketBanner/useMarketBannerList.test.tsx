@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EMarketBannerType,
   type IMarketBannerItem,
@@ -24,6 +25,10 @@ let mockRequest: () => Promise<unknown>;
 let mockHydrate: () => Promise<unknown>;
 let mockEnabled = false;
 let mockLiveResult: unknown;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isWeb: true, isDesktop: false },
+}));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
     request: () => Promise<unknown>,
@@ -76,6 +81,7 @@ const makeBanner = (
 });
 
 beforeEach(() => {
+  (platformEnv as { isDesktop: boolean }).isDesktop = false;
   mockEnabled = false;
   mockLiveResult = undefined;
   mockResult = undefined;
@@ -223,6 +229,7 @@ it('keeps stock-backed index assets on the stock list endpoint', async () => {
           logo: '',
           name: 'Index Asset',
           symbol: 'INDEX',
+          stockId: 'stock-index',
           price: '100',
           priceChange24hPercent: '1',
         },
@@ -766,4 +773,227 @@ it('hydrates ticker_perps banners through the token endpoint', async () => {
   );
   expect(fetchMarketBannerStockTokenListForPlatform).not.toHaveBeenCalled();
   expect(hydrated[0].tokens?.[0].price).toBe('100');
+});
+
+describe('desktop banner quote updates', () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: Error) => void;
+    const promise = new Promise<T>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    return { promise, resolve, reject };
+  }
+  const preview = (symbol: string, change: string) => ({
+    ...quote,
+    symbol,
+    name: symbol,
+    logo: `${symbol}.png`,
+    price: '1',
+    priceChange24hPercent: change,
+  });
+  const asset = (symbol: string, change: string, price = '100') => ({
+    ...preview(symbol, change),
+    stockId: symbol,
+    logoUrl: 'remote.png',
+    assetType: 'stock' as const,
+    currency: 'USD' as const,
+    price,
+  });
+  const stock = (id: string, tokens: IMarketBannerItem['tokens']) =>
+    makeBanner({
+      _id: id,
+      type: EMarketBannerType.Stock,
+      tokenListId: id,
+      tokens,
+    });
+  const symbols = (banner: IMarketBannerItem) =>
+    banner.tokens?.map((token) => token.symbol);
+  beforeEach(() => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+  });
+
+  it.each(['stock', 'token', 'evm', 'legacy'])(
+    'does not mix quotes for duplicate symbols (%s identity)',
+    async (kind) => {
+      const isEvm = kind === 'evm';
+      const isToken = isEvm || kind === 'token';
+      const networkId = isEvm ? 'evm--1' : 'sol--101';
+      const addresses = isEvm
+        ? [
+            '0x52908400098527886E0F7030069857D2E4169EE7',
+            '0x8617E340B3D01FA5F11F306F4090FD50E238070D',
+          ]
+        : [
+            'So11111111111111111111111111111111111111112',
+            'so11111111111111111111111111111111111111112',
+          ];
+      const tokens = ['2', '1'].map((change, index) => ({
+        ...preview('SAME', change),
+        stockId: kind === 'stock' ? String(index) : undefined,
+        networkId: isToken ? networkId : undefined,
+        address: isToken ? addresses[index] : undefined,
+        logo: `preview-${index}.png`,
+      }));
+      const quotes = tokens.map((token, index) => ({
+        ...asset('SAME', token.priceChange24hPercent, String((index + 1) * 10)),
+        stockId: String(index),
+        networkId,
+        address: isEvm ? addresses[index].toLowerCase() : addresses[index],
+        decimals: 9,
+        logoUrl: `quote-${index}.png`,
+      }));
+      mockResult = [
+        makeBanner({
+          type: isToken ? EMarketBannerType.Ticker : EMarketBannerType.Stock,
+          tokens,
+        }),
+      ];
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockResolvedValue(quotes);
+      jest
+        .mocked(fetchMarketBannerTokenListForPlatform)
+        .mockResolvedValue(quotes);
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      await act(async () => {
+        await mockHydrate();
+      });
+      expect(result.current.bannerList[0].tokens).toMatchObject(
+        tokens.map((token, index) => ({
+          logo: token.logo,
+          price: kind === 'legacy' ? '1' : String((index + 1) * 10),
+        })),
+      );
+      mockResult = [{ ...mockResult[0] }];
+      rerender();
+      await act(async () => {
+        await mockHydrate();
+      });
+      expect(result.current.bannerList[0].tokens).toMatchObject(
+        quotes.map((token, index) => ({
+          price: token.price,
+          logo: kind === 'legacy' ? token.logoUrl : tokens[index].logo,
+        })),
+      );
+    },
+  );
+
+  it('updates fast cards independently, preserving first rows until the next refresh', async () => {
+    const fast = stock('fast', [
+      preview('B', '2'),
+      preview('A', '3'),
+      preview('C', '1'),
+    ]);
+    const slow = stock('slow', [preview('S', '1')]);
+    mockResult = [fast, slow];
+    const pending = deferred<ReturnType<typeof asset>[]>();
+    const firstQuotes = [asset('A', '0'), asset('B', '10'), asset('D', '20')];
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockImplementation((id) =>
+        id === 'slow' ? pending.promise : Promise.resolve(firstQuotes),
+      );
+    const { result, rerender } = renderHook(() => useMarketBannerList());
+    expect(result.current.isFetched).toBe(true);
+    expect(symbols(result.current.bannerList[0])).toEqual(['A', 'B', 'C']);
+    const hydration = mockHydrate();
+    await waitFor(() =>
+      expect(result.current.bannerList[0].tokens?.[0]).toMatchObject({
+        price: '100',
+        priceChange24hPercent: '0',
+        logo: 'A.png',
+      }),
+    );
+    expect(symbols(result.current.bannerList[0])).toEqual(['A', 'B', 'C']);
+    expect(result.current.bannerList[1].tokens?.[0].price).toBe('1');
+    await act(async () => {
+      pending.reject(new Error('offline'));
+      await hydration;
+    });
+    expect(result.current.bannerList[1].tokens?.[0].price).toBe('1');
+    mockResult = [{ ...fast }, { ...slow }];
+    rerender();
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockResolvedValue(firstQuotes);
+    await act(async () => {
+      await mockHydrate();
+    });
+    expect(symbols(result.current.bannerList[0])).toEqual(['D', 'B', 'A']);
+  });
+
+  it.each([false, true])(
+    'ignores a slow card result after a new response (locale change=%s)',
+    async (changeLocale) => {
+      const old = stock('old', [preview('A', '1')]);
+      mockResult = [old];
+      const pending = deferred<ReturnType<typeof asset>[]>();
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValue([asset('B', '2', '200')]);
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      const oldHydration = mockHydrate();
+      if (changeLocale) {
+        mockLocale = 'zh-CN';
+        mockResultScope = 'zh-CN:false';
+      }
+      mockResult = [{ ...old, tokens: [preview('B', '2')] }];
+      rerender();
+      await act(async () => {
+        await mockHydrate();
+      });
+      await act(async () => {
+        pending.resolve([asset('A', '1')]);
+        await oldHydration;
+      });
+      expect(result.current.bannerList[0].tokens?.[0]).toMatchObject({
+        symbol: 'B',
+        price: '200',
+      });
+    },
+  );
+
+  it('keeps legacy cards without token previews on their existing layout', async () => {
+    mockResult = [makeBanner({ tokenListId: '' })];
+    const { result } = renderHook(() => useMarketBannerList());
+    await act(async () => {
+      await mockHydrate();
+    });
+    expect(result.current.bannerList[0].tokens).toBeUndefined();
+  });
+
+  it('preserves inline perps ordering before and after hydration', async () => {
+    const expected = ['NATGAS', 'BRENT', 'CL'];
+    mockResult = [
+      makeBanner({
+        type: EMarketBannerType.Perps,
+        tokens: [
+          preview('CL', '1'),
+          preview('NATGAS', '3'),
+          preview('BRENT', '2'),
+        ],
+      }),
+    ];
+    const { result } = renderHook(() => useMarketBannerList());
+    expect(symbols(result.current.bannerList[0])).toEqual(expected);
+    await act(async () => {
+      await mockHydrate();
+    });
+    expect(symbols(result.current.bannerList[0])).toEqual(expected);
+  });
+
+  it('shows hydrated rows when the first preview has no tokens', async () => {
+    mockResult = [stock('empty', [])];
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockResolvedValue([asset('A', '1'), asset('B', '2')]);
+    const { result } = renderHook(() => useMarketBannerList());
+    await act(async () => {
+      await mockHydrate();
+    });
+    expect(symbols(result.current.bannerList[0])).toEqual(['B', 'A']);
+  });
 });

@@ -13,5 +13,7 @@ export type {
   ITradingViewNativePriceUpdateData,
   ITradingViewNativeProps,
   ITradingViewNativeReferenceLineComponent,
+  ITradingViewNativeReferenceLineAction,
+  ITradingViewNativeTradeMarksComponent,
   ITradingViewNativeSource,
 } from './types';

@@ -25,7 +25,17 @@ import type {
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
+export const LOGGER_UPLOAD_ORIGINS = Object.freeze([
+  'https://wallet.onekeycn.com',
+  'https://wallet.onekeytest.com',
+]);
+
 class DesktopApiDev {
+  private loggerArchives = new Map<
+    string,
+    { sizeBytes: number; sha256: string }
+  >();
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
   }
@@ -54,7 +64,8 @@ class DesktopApiDev {
     fileBaseName: string;
   }): Promise<{ filePath: string }> {
     const digest = await this.collectLoggerDigest(params);
-    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    const mainWindow =
+      globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new OneKeyLocalError('No active window for download');
     }
@@ -71,8 +82,11 @@ class DesktopApiDev {
     sizeBytes: number;
     sha256: string;
   }> {
-    if (!params.fileBaseName) {
-      throw new OneKeyLocalError('fileBaseName is required');
+    if (
+      typeof params.fileBaseName !== 'string' ||
+      !/^[A-Za-z0-9_-]+$/.test(params.fileBaseName)
+    ) {
+      throw new OneKeyLocalError('Invalid log archive name');
     }
     const baseName = params.fileBaseName;
     // Flush pending dedup state (including pendingRepeatPrefix) so nothing is lost on export
@@ -87,7 +101,7 @@ class DesktopApiDev {
     const zipDir = path.join(path.dirname(logDir), 'logs_zip');
     await fsPromises.mkdir(zipDir, { recursive: true });
 
-    const zipPath = path.join(zipDir, zipName);
+    const zipPath = path.resolve(zipDir, zipName);
 
     // Clean up stale zip files (older than 1 hour) to avoid removing
     // archives that a concurrent upload/download flow may still be using
@@ -122,6 +136,7 @@ class DesktopApiDev {
     const sizeBytes = fileBuffer.length;
     const sha256Hex = createHash('sha256').update(fileBuffer).digest('hex');
 
+    this.loggerArchives.set(zipPath, { sizeBytes, sha256: sha256Hex });
     return {
       filePath: zipPath,
       fileName: zipName,
@@ -137,11 +152,63 @@ class DesktopApiDev {
     headers: Record<string, string>;
     sizeBytes?: number;
   }): Promise<any> {
-    const { uploadUrl, filePath, headers, sizeBytes } = params;
+    const { uploadUrl, headers } = params;
+    let parsedUploadUrl: URL;
+    try {
+      parsedUploadUrl = new URL(uploadUrl);
+    } catch {
+      throw new OneKeyLocalError('Invalid log upload URL');
+    }
+    if (
+      parsedUploadUrl.protocol !== 'https:' ||
+      parsedUploadUrl.username ||
+      parsedUploadUrl.password ||
+      !LOGGER_UPLOAD_ORIGINS.includes(parsedUploadUrl.origin) ||
+      parsedUploadUrl.pathname !== '/wallet/v1/client/log'
+    ) {
+      throw new OneKeyLocalError('Log upload URL is not allowed');
+    }
+    if (typeof params.filePath !== 'string') {
+      throw new OneKeyLocalError('Invalid log archive path');
+    }
+    const filePath = path.resolve(params.filePath);
+    const archiveInfo = this.loggerArchives.get(filePath);
+    if (!archiveInfo || filePath !== params.filePath) {
+      throw new OneKeyLocalError(
+        'Log archive was not collected by the main process',
+      );
+    }
+    const zipDir = path.resolve(
+      path.dirname(this.getLogDirectory()),
+      'logs_zip',
+    );
+    const relative = path.relative(zipDir, filePath);
+    if (
+      path.dirname(filePath) !== zipDir ||
+      !relative.endsWith('.zip') ||
+      path.isAbsolute(relative)
+    ) {
+      throw new OneKeyLocalError('Invalid log archive path');
+    }
+    const stat = await fsPromises.lstat(filePath);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size !== archiveInfo.sizeBytes
+    ) {
+      throw new OneKeyLocalError('Log archive changed after collection');
+    }
+    const sizeBytes = archiveInfo.sizeBytes;
     if (!uploadUrl || !filePath) {
       throw new OneKeyLocalError('uploadUrl and filePath are required');
     }
-    const reqHeaders: Record<string, string> = { ...headers };
+    const reqHeaders: Record<string, string> = Object.fromEntries(
+      Object.entries(headers).filter(
+        ([key]) =>
+          !['content-length', 'content-type'].includes(key.toLowerCase()),
+      ),
+    );
+    reqHeaders['content-type'] = 'application/zip';
     if (sizeBytes !== undefined && !('content-length' in reqHeaders)) {
       reqHeaders['content-length'] = String(sizeBytes);
     }
@@ -167,7 +234,7 @@ class DesktopApiDev {
     }) => {
       try {
         const mainWindow =
-          this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+          globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
             ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
@@ -245,6 +312,7 @@ class DesktopApiDev {
         // Node's native fetch requires duplex for a streaming request body.
         duplex: 'half',
         signal: abortController.signal,
+        redirect: 'error',
       };
       const response = await fetch(uploadUrl, requestInit);
       const text = await response.text();

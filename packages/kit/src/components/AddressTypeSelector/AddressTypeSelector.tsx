@@ -1,5 +1,5 @@
 import type { ContextType, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,11 +21,13 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -36,6 +38,11 @@ import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '../../hooks/useDeriveTypesCollapseState';
+import { useIsMounted } from '../../hooks/useIsMounted';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -90,6 +97,16 @@ type IProps = {
   confirmText?: string;
   offset?: PopoverProps['offset'];
   refreshOnOpen?: boolean;
+  // What to do while the account shows only its default address type (see
+  // deriveTypeCollapseUtils). Unset keeps the selector as it is.
+  // - 'hide': render nothing, also until the answer is known.
+  // - 'skip': for triggers that are an entry point rather than a switch.
+  //   Pressing the trigger picks the default address type straight away
+  //   instead of opening the list. Decided at press time.
+  whenCollapsed?: 'hide' | 'skip';
+  // With 'hide', for pages that stay mounted (bottom tabs): decide again
+  // whenever the page regains focus instead of once per mount.
+  revalidateCollapseOnFocus?: boolean;
   testID?: string;
 };
 
@@ -500,6 +517,9 @@ function AddressTypeSelector(props: IProps) {
     doubleConfirm,
     offset,
     refreshOnOpen = false,
+    whenCollapsed,
+    revalidateCollapseOnFocus = false,
+    onSelect,
     testID,
   } = props;
 
@@ -530,6 +550,16 @@ function AddressTypeSelector(props: IProps) {
 
   const [isFetchingTokenMap, setIsFetchingTokenMap] = useState(false);
   const [isCreatingAddress, setIsCreatingAddress] = useState(false);
+
+  const { isAddressTypeHidden: isHiddenByCollapse } =
+    useDeriveTypesCollapseState({
+      networkId,
+      walletId,
+      indexedAccountId,
+      activeDeriveType,
+      enabled: whenCollapsed === 'hide',
+      revalidateOnFocus: revalidateCollapseOnFocus,
+    });
 
   const { result: networkAccounts, run: refreshNetworkAccounts } =
     usePromiseResult(
@@ -634,6 +664,29 @@ function AddressTypeSelector(props: IProps) {
         mergeDeriveAssetsEnabled: false,
       });
       setTokenMap(tokenListMap);
+    } catch (error) {
+      // Both callers fire this with `void`, so nothing rejecting out of here is
+      // ever handled: it lands as an unhandled rejection. These balances only
+      // decorate the rows, so every failure degrades to a popover without fiat
+      // values instead.
+      //
+      // Aborting is routine — a superseded fetch or a closing selector cancels
+      // these requests — and has two shapes. Desktop and Web run background in
+      // this runtime and reject with the axios instance, which
+      // isUserCancelStyleError detects. Native and extension serialize the
+      // error across runtimes, which drops the axios cancel marker but keeps
+      // `name`. Anything else is a real failure worth a trace.
+      const isAborted =
+        errorToastUtils.isUserCancelStyleError(error) ||
+        (error as Error | undefined)?.name === 'CanceledError';
+      if (!isAborted) {
+        defaultLogger.token.request.fetchAccountTokensFailed({
+          errorMessage: (error as Error | undefined)?.message,
+          errorName: (error as Error | undefined)?.name,
+          flag: 'address-type-selector',
+          networkId,
+        });
+      }
     } finally {
       setIsFetchingTokenMap(false);
     }
@@ -645,10 +698,10 @@ function AddressTypeSelector(props: IProps) {
       return;
     }
 
-    if (!refreshOnOpen) {
+    if (!refreshOnOpen && !isHiddenByCollapse) {
       void fetchTokenMap();
     }
-  }, [tokenMapProp, fetchTokenMap, refreshOnOpen]);
+  }, [tokenMapProp, fetchTokenMap, refreshOnOpen, isHiddenByCollapse]);
 
   useEffect(() => {
     const fn = () => {
@@ -661,6 +714,76 @@ function AddressTypeSelector(props: IProps) {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
   }, [refreshNetworkAccounts]);
+
+  // Only 'skip' needs the open state: the press has to be answered before the
+  // list may open. Everything else stays uncontrolled.
+  const skipWhenCollapsed = whenCollapsed === 'skip';
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  // On narrow web layouts the popover reports a single press twice, which
+  // would run a skipped entry (open a page, start a purchase) twice.
+  const isSkipPressPendingRef = useRef(false);
+  // A lookup answered after the selector left, or moved to another account,
+  // belongs to a press that no longer applies.
+  const isMountedRef = useIsMounted();
+  const accountKey = `${networkId}__${indexedAccountId}`;
+  const accountKeyRef = useRef(accountKey);
+  useEffect(() => {
+    accountKeyRef.current = accountKey;
+  }, [accountKey]);
+
+  const handleOpenChange = async (open: boolean) => {
+    if (
+      open &&
+      skipWhenCollapsed &&
+      indexedAccountId &&
+      canDeriveTypesCollapse({ networkId, walletId })
+    ) {
+      if (isSkipPressPendingRef.current) {
+        return;
+      }
+      isSkipPressPendingRef.current = true;
+      try {
+        const state = await backgroundApiProxy.serviceToken
+          .getDeriveTypesCollapseState({ networkId, indexedAccountId })
+          // A failed lookup falls through to the list, which is always safe.
+          .catch(() => undefined);
+        if (!isMountedRef.current || accountKeyRef.current !== accountKey) {
+          return;
+        }
+        if (state?.collapsed) {
+          try {
+            await onSelect?.(state.defaultNetworkAccount);
+          } catch (error) {
+            // A failed action is reported like any other, never answered with
+            // the list this account no longer shows.
+            errorToastUtils.showToastOfError(error);
+          }
+          return;
+        }
+      } finally {
+        isSkipPressPendingRef.current = false;
+      }
+    }
+    if (skipWhenCollapsed) {
+      setIsPopoverOpen(open);
+    }
+    if (open && refreshOnOpen) {
+      void fetchTokenMap();
+    }
+    if (!open && doubleConfirm) {
+      void backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({
+          networkId,
+        })
+        .then((deriveType) => {
+          setActiveDeriveType(deriveType);
+        });
+    }
+  };
+
+  if (isHiddenByCollapse) {
+    return null;
+  }
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
@@ -699,19 +822,9 @@ function AddressTypeSelector(props: IProps) {
           selectorHelpLink={helpLink}
         />
       }
+      open={skipWhenCollapsed ? isPopoverOpen : undefined}
       onOpenChange={(open) => {
-        if (open && refreshOnOpen) {
-          void fetchTokenMap();
-        }
-        if (!open && doubleConfirm) {
-          void backgroundApiProxy.serviceNetwork
-            .getGlobalDeriveTypeOfNetwork({
-              networkId,
-            })
-            .then((deriveType) => {
-              setActiveDeriveType(deriveType);
-            });
-        }
+        void handleOpenChange(open);
       }}
       floatingPanelProps={{
         width: '$80',

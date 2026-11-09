@@ -3,7 +3,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
-import { debounce, isEqual, noop, upperFirst } from 'lodash';
+import { debounce, isEqual, noop } from 'lodash';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -26,6 +27,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -44,13 +47,20 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  initIntercom,
+  setIntercomTheme,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
@@ -67,6 +77,7 @@ import {
   EMultiTabBrowserRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabDeveloperRoutes,
   ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -92,12 +103,18 @@ import {
 } from '../components/AppUpdate';
 import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
+import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
+import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
+import { showAboutDialog } from './showAboutDialog';
+import { useIPadMainMenu } from './useIPadMainMenu';
 
 import type { IntlShape } from 'react-intl';
 
@@ -109,12 +126,29 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
 
+function PrivacyChainForeground() {
+  const wakeSync = useCallback(() => {
+    void backgroundApiProxy.servicePrivacyChain.wakeLocalWalletSync();
+  }, []);
+  useHandleAppStateActive(wakeSync);
+  return null;
+}
+
 const LazyExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
     ? lazy(async () => {
         const { ExtensionMarketTokenDetailHashNavigation } =
           await import('./useExtensionMarketTokenDetailHashNavigation');
         return { default: ExtensionMarketTokenDetailHashNavigation };
+      })
+    : null;
+
+const LazyExtPrimeSubscriptionHandoffOnMount =
+  platformEnv.isExtensionUiExpandTab
+    ? lazy(async () => {
+        const { ExtPrimeSubscriptionHandoffOnMount } =
+          await import('../routes/config/deeplink/ExtPrimeSubscriptionHandoffOnMount');
+        return { default: ExtPrimeSubscriptionHandoffOnMount };
       })
     : null;
 
@@ -146,6 +180,24 @@ const useDesktopEvents = platformEnv.isDesktop
         }
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
+        if (
+          isNeedUpdate &&
+          response &&
+          getUpdateFileType(response) === EUpdateFileType.appShell &&
+          response.updateStrategy !== EUpdateStrategy.force &&
+          response.updateStrategy !== EUpdateStrategy.seamless &&
+          response.status !== EAppUpdateStatus.manualInstall &&
+          !response.storeUrl &&
+          response.downloadUrl?.startsWith('https://')
+        ) {
+          if (response.status === EAppUpdateStatus.notify) {
+            onUpdateAction();
+          } else {
+            appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+          }
+          isCheckingUpdate.current = false;
+          return;
+        }
         // OTA (silent/seamless) updates download/install transparently in
         // the background. The desktop menu "Check for updates" must not open
         // the download/verify UI for these strategies — that breaks the
@@ -160,6 +212,26 @@ const useDesktopEvents = platformEnv.isDesktop
             response.updateStrategy ?? EUpdateStrategy.manual,
           );
         if (isNeedUpdate && isOtaStrategy) {
+          // Auto-download is a user preference (Settings → Download updates
+          // automatically), and it only applies to desktop appShell full
+          // packages. Keep the gate identical to AppUpdateForeground's
+          // auto-download gates: jsBundle OTA updates must keep downloading
+          // silently regardless of the setting.
+          const canAutoDownload =
+            !platformEnv.isDesktop ||
+            getUpdateFileType(response) !== EUpdateFileType.appShell ||
+            (await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate());
+          if (!canAutoDownload) {
+            // Surface the pending update instead of claiming "up to date": the
+            // setting copy promises "download only after you click Update", and
+            // HeaderUpdateButton already renders the manual Update capsule for
+            // silent appShell updates when auto-download is off. Seamless
+            // updates have no capsule, so this is also the only user feedback
+            // available for that strategy.
+            onUpdateAction();
+            isCheckingUpdate.current = false;
+            return;
+          }
           // serviceAppUpdate.downloadPackage() inside this hook gates on
           // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
           // is a safe no-op. Fire-and-forget — we don't await the download.
@@ -355,11 +427,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
@@ -382,8 +462,13 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabDeveloper:
+            if (!platformEnv.isDev) {
+              break;
+            }
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Developer);
+              navigation.pushModal(EModalRoutes.DeveloperModal, {
+                screen: ETabDeveloperRoutes.TabDeveloper,
+              });
             });
             break;
           case EShortcutEvents.NewTab2:
@@ -414,40 +499,11 @@ const useAboutVersion =
         const intl = useIntl();
         useEffect(() => {
           desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-            const versionString = intl.formatMessage(
-              {
-                id: ETranslations.settings_version_versionnum,
-              },
-              {
-                'versionNum': ` ${process.env.VERSION || 1}(${
-                  platformEnv.buildNumber || 1
-                })`,
-              },
-            );
-            Dialog.show({
-              showFooter: false,
-              renderContent: (
-                <YStack gap={4} alignItems="center" pt="$4">
-                  <Image
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    source={require('../../assets/logo.png')}
-                    size={72}
-                    borderRadius="$full"
-                  />
-                  <YStack gap="$2" pt="$4" alignItems="center">
-                    <SizableText size="$heading2xl">OneKey</SizableText>
-                    <SizableText size="$bodySm">
-                      {`${globalThis.desktopApi.platform}-${
-                        globalThis.desktopApi.arch || 'unknown'
-                      }`}
-                    </SizableText>
-                    <SizableText size="$bodySm">
-                      {upperFirst(versionString)}
-                    </SizableText>
-                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-                  </YStack>
-                </YStack>
-              ),
+            showAboutDialog({
+              intl,
+              platformLabel: `${globalThis.desktopApi.platform}-${
+                globalThis.desktopApi.arch || 'unknown'
+              }`,
             });
           });
           // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,7 +522,10 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     const fetchMarketBasicConfig = () => {
-      void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+      // This only warms a cache; the page owns fallback and reconnect retries.
+      void backgroundApiProxy.serviceMarketV2
+        .fetchMarketBasicConfig()
+        .catch(noop);
     };
     if (platformEnv.isWeb) {
       const timer = setTimeout(fetchMarketBasicConfig, 6000);
@@ -585,21 +644,52 @@ const useLogVersionInfo = () => {
 
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
+  const theme = useThemeVariant();
+  const [{ theme: themeSetting }] = useSettingsPersistAtom();
+  const followSystemTheme = themeSetting === 'system';
+  const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
+  const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
+    void setIntercomTheme(theme, followSystemTheme).catch(() => {
+      console.warn('Failed to update Intercom theme');
+    });
+  }, [theme, followSystemTheme]);
+
+  useEffect(() => {
+    const syncIntercom = () => {
+      void initIntercom().catch(() => {
+        console.warn('Failed to initialize Intercom');
+      });
+    };
+    const previousIdentity = previousIdentityRef.current;
+    const identityChanged =
+      previousIdentity.onekeyUserId !== onekeyUserId ||
+      previousIdentity.isLoggedIn !== isLoggedIn;
+    previousIdentityRef.current = { onekeyUserId, isLoggedIn };
+    // Only the initial sync is delayed. An entry can open the SDK before the
+    // timer fires, so identity changes must retire that session immediately.
+    if (isInitializedRef.current || identityChanged) {
+      isInitializedRef.current = true;
+      syncIntercom();
+      return;
+    }
     const timer = setTimeout(
       () => {
-        if (isInitializedRef.current) {
-          return;
-        }
-        void initIntercom();
         isInitializedRef.current = true;
+        syncIntercom();
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
-  }, []);
+  }, [onekeyUserId, isLoggedIn]);
 };
+
+// Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
+function IntercomSessionSync() {
+  useIntercomInit();
+  return null;
+}
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
@@ -833,6 +923,10 @@ function DesktopTrayDataProvider() {
 // listens for can arrive before this component mounts, and a dropped one
 // leaves a renamed or deleted entity in the snapshot store.
 registerSwrCacheMutationInvalidation();
+// Same for the home token list's per-owner caches: a removal made before the
+// home token list first runs must still drop them.
+registerHomeTokenListOwnerCacheInvalidation();
+registerSwapTokenSelectorCacheInvalidation();
 
 export function Bootstrap() {
   const navigation = useAppNavigation();
@@ -899,6 +993,17 @@ export function Bootstrap() {
         Choose which page to open when launching the app
       */
       const timer = setTimeout(() => {
+        if (
+          (platformEnv.isNative ||
+            platformEnv.isDesktop ||
+            platformEnv.isExtension) &&
+          autoNavigation.selectedTab === ETabRoutes.Developer
+        ) {
+          navigation.pushModal(EModalRoutes.DeveloperModal, {
+            screen: ETabDeveloperRoutes.TabDeveloper,
+          });
+          return;
+        }
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery
@@ -1097,9 +1202,9 @@ export function Bootstrap() {
   useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
+  useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
-  useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
@@ -1110,10 +1215,17 @@ export function Bootstrap() {
           per-mount useEffect that previously lived in
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
+      <PrivacyChainForeground />
+      <IntercomSessionSync />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>
           <LazyExtensionMarketTokenDetailHashNavigation />
+        </Suspense>
+      ) : null}
+      {LazyExtPrimeSubscriptionHandoffOnMount ? (
+        <Suspense fallback={null}>
+          <LazyExtPrimeSubscriptionHandoffOnMount />
         </Suspense>
       ) : null}
       {platformEnv.isDesktopMac ? <DesktopTrayDataProvider /> : null}

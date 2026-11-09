@@ -21,6 +21,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -31,12 +32,16 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
+  buildAggregateTokenListMapKeyForTokenList,
+  buildAggregateTokenMapKeyForAggregateConfig,
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
+  findTokenKeysMissingFromMap,
   getEmptyTokenData,
   getMergedTokenData,
   normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBinancePreOrderParams,
@@ -45,6 +50,8 @@ import type {
 } from '@onekeyhq/shared/types/exchange';
 import type {
   IAccountToken,
+  IAccountTokensCacheScope,
+  ICachedAccountTokens,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailBatchParams,
@@ -63,6 +70,10 @@ import {
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import {
+  AccountTokensSnapshotCache,
+  copyAccountTokenGroup,
+} from '../utils/accountTokensSnapshotCache';
 import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
@@ -75,12 +86,59 @@ import type {
   ISimpleDBLocalTokens,
 } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
+import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
+
+export type IDeriveTypesCollapseState =
+  | { collapsed: false }
+  | {
+      collapsed: true;
+      // The default address type's account: the one every entry point uses
+      // while collapsed.
+      defaultNetworkAccount: {
+        account: INetworkAccount;
+        deriveInfo: IAccountDeriveInfo;
+        deriveType: IAccountDeriveTypes;
+      };
+    };
 
 type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
   homeRequest?: IHomeTokenRequest;
+  isAllNetworks?: boolean;
 };
+
+type IAbortFetchAccountTokensOptions = {
+  // Requests carrying one of these flags survive.
+  excludedFlags?: string[];
+  // Only requests carrying one of these flags are aborted.
+  includedFlags?: string[];
+  // Only requests issued with this `isAllNetworks` value are aborted.
+  isAllNetworks?: boolean;
+};
+
+function shouldKeepFetchAccountTokensController(
+  item: IFetchAccountTokensController,
+  options?: IAbortFetchAccountTokensOptions,
+): boolean {
+  if (item.flag && options?.excludedFlags?.includes(item.flag)) {
+    return true;
+  }
+  const includedFlags = options?.includedFlags ?? [];
+  if (
+    includedFlags.length > 0 &&
+    (!item.flag || !includedFlags.includes(item.flag))
+  ) {
+    return true;
+  }
+  if (
+    options?.isAllNetworks !== undefined &&
+    !!item.isAllNetworks !== options.isAllNetworks
+  ) {
+    return true;
+  }
+  return false;
+}
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -94,6 +152,7 @@ class ServiceToken extends ServiceBase {
       this.fetchTokenInfoOnlyMemo.clear();
       this.getUnblockedTokensMemo.clear();
       this.getBlockedTokensMemo.clear();
+      this.accountTokensSnapshotCache.clear();
       void this._getBinanceSupportedAssetsMemo.clear();
     });
   }
@@ -101,6 +160,8 @@ class ServiceToken extends ServiceBase {
   _fetchAccountTokensControllers: IFetchAccountTokensController[] = [];
 
   _searchTokensControllers: AbortController[] = [];
+
+  private accountTokensSnapshotCache = new AccountTokensSnapshotCache();
 
   private homeTokenContext:
     | {
@@ -226,23 +287,13 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens(options?: {
-    excludedFlags?: string[];
-    includedFlags?: string[];
-  }) {
-    const excludedFlags = options?.excludedFlags ?? [];
-    const includedFlags = options?.includedFlags ?? [];
+  public async abortFetchAccountTokens(
+    options?: IAbortFetchAccountTokensOptions,
+  ) {
     const nextControllers: IFetchAccountTokensController[] = [];
 
     this._fetchAccountTokensControllers.forEach((item) => {
-      if (
-        includedFlags.length > 0 &&
-        (!item.flag || !includedFlags.includes(item.flag))
-      ) {
-        nextControllers.push(item);
-        return;
-      }
-      if (item.flag && excludedFlags.includes(item.flag)) {
+      if (shouldKeepFetchAccountTokensController(item, options)) {
         nextControllers.push(item);
         return;
       }
@@ -265,9 +316,18 @@ class ServiceToken extends ServiceBase {
     tokenListValue: {},
     tokenListMap: {},
     tokenListCurrency: {},
+    tokenListHasAssets: {},
   };
 
+  // Batches of `localAccountTokensCache` being written: no longer pending, not
+  // yet in storage.
+  private localAccountTokensFlushing = new Set<IAccountTokenListCache>();
+
   private homeLocalAccountTokensCache: IAccountTokenListCache | undefined;
+
+  // Home batches being written: no longer pending, not yet in storage. A slow
+  // write can still be running when the next batch starts its own.
+  private homeLocalAccountTokensFlushing = new Set<IAccountTokenListCache>();
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -365,10 +425,22 @@ class ServiceToken extends ServiceBase {
       controller,
       flag: params.flag,
       homeRequest: params.homeRequest,
+      isAllNetworks: !!params.isAllNetworks,
     });
+    const cacheRequest =
+      params.flag === 'home-token-list' ||
+      params.flag === 'dust-sweep' ||
+      params.isManualRefresh
+        ? this.accountTokensSnapshotCache.begin(params, params.isManualRefresh)
+        : undefined;
     try {
-      return await this.fetchAccountTokensInternal(params, controller);
+      return await this.fetchAccountTokensInternal(
+        params,
+        controller,
+        cacheRequest,
+      );
     } finally {
+      if (cacheRequest) this.accountTokensSnapshotCache.finish(cacheRequest);
       this.removeFetchAccountTokensController(controller);
     }
   }
@@ -379,6 +451,7 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
     controller: AbortController,
+    cacheRequest?: ReturnType<AccountTokensSnapshotCache['begin']>,
   ): Promise<IFetchAccountTokensResp> {
     const {
       mergeTokens,
@@ -613,6 +686,31 @@ class ServiceToken extends ServiceBase {
     });
     throwIfRequestAborted();
 
+    // OK-66042: a row listed in `data` without a `map` entry reaches Home as a
+    // "--" price with an empty balance / value column. Log the mismatch at the
+    // response boundary so an intermittent server omission is attributable.
+    const keysMissingFromMap = findTokenKeysMissingFromMap(resp.data.data);
+    if (keysMissingFromMap.length > 0) {
+      const groups: Record<string, number> = {};
+      for (const item of keysMissingFromMap) {
+        groups[item.group] = (groups[item.group] ?? 0) + 1;
+      }
+      defaultLogger.token.request.fetchAccountTokensMapMissingKeys({
+        networkId,
+        flag: flag ?? '',
+        missingCount: keysMissingFromMap.length,
+        groups,
+      });
+      defaultLogger.token.request.fetchAccountTokensMapMissingSymbols({
+        networkId,
+        flag: flag ?? '',
+        symbols: uniq(keysMissingFromMap.map((item) => item.symbol)).slice(
+          0,
+          10,
+        ),
+      });
+    }
+
     const resolvedCurrency = await this.normalizeTokensRespToUsd(
       resp.data.data,
       requestCurrency,
@@ -733,6 +831,15 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.tokens.fiatValue ?? '0')
         .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0');
 
+      const tokenListMap = {
+        ...resp.data.data.tokens.map,
+        ...resp.data.data.smallBalanceTokens.map,
+        ...resp.data.data.riskTokens.map,
+      };
+      // Read before the lists are capped: a holding beyond the cap counts.
+      const hasAssets = deriveTypeCollapseUtils.hasAssetsInTokenListMap({
+        tokenListMap,
+      });
       const {
         filteredTokenList,
         filteredSmallBalanceTokenList,
@@ -743,11 +850,7 @@ class ServiceToken extends ServiceBase {
         smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
         riskyTokenList: resp.data.data.riskTokens.data,
         limit: saveToLocalLimit,
-        tokenListMap: {
-          ...resp.data.data.tokens.map,
-          ...resp.data.data.smallBalanceTokens.map,
-          ...resp.data.data.riskTokens.map,
-        },
+        tokenListMap,
       });
 
       if (isAllNetworks) {
@@ -766,6 +869,7 @@ class ServiceToken extends ServiceBase {
             tokenListValue: {},
             tokenListMap: {},
             tokenListCurrency: {},
+            tokenListHasAssets: {},
           };
           cache = this.homeLocalAccountTokensCache;
         }
@@ -787,6 +891,7 @@ class ServiceToken extends ServiceBase {
           cache.tokenListValue[key] = tokenListValue.toFixed();
           cache.tokenListMap[key] = filteredTokenListMap;
           cache.tokenListCurrency[key] = resolvedCurrency;
+          cache.tokenListHasAssets[key] = hasAssets;
         }
 
         if (homeRequest) {
@@ -810,6 +915,7 @@ class ServiceToken extends ServiceBase {
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
           currency: resolvedCurrency,
+          hasAssets,
         });
       }
     }
@@ -823,6 +929,22 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
+
+    if (cacheRequest && (flag === 'home-token-list' || flag === 'dust-sweep')) {
+      // The persistence cap only slices its own lists. These normalized groups
+      // remain untruncated and have not entered Home's aggregate projection.
+      this.accountTokensSnapshotCache.set(cacheRequest, {
+        accountId,
+        networkId,
+        accountAddress,
+        xpub,
+        source: flag,
+        coverage: 'partial',
+        tokens: resp.data.data.tokens,
+        smallBalanceTokens: resp.data.data.smallBalanceTokens,
+        riskTokens: resp.data.data.riskTokens,
+      });
+    }
 
     if (homeRequest && isAllNetworks && homeContext) {
       const groups = aggregateHomeTokenGroups({
@@ -935,9 +1057,9 @@ class ServiceToken extends ServiceBase {
 
   _updateAccountLocalTokensDebounced = debounce(
     async () => {
-      await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
-        this.localAccountTokensCache,
-      );
+      const pending = this.localAccountTokensCache;
+      // Detach before awaiting storage: responses arriving meanwhile start the
+      // next batch instead of being cleared with this one.
       this.localAccountTokensCache = {
         tokenList: {},
         smallBalanceTokenList: {},
@@ -945,7 +1067,16 @@ class ServiceToken extends ServiceBase {
         tokenListValue: {},
         tokenListMap: {},
         tokenListCurrency: {},
+        tokenListHasAssets: {},
       };
+      this.localAccountTokensFlushing.add(pending);
+      try {
+        await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+          pending,
+        );
+      } finally {
+        this.localAccountTokensFlushing.delete(pending);
+      }
     },
     3000,
     {
@@ -960,6 +1091,7 @@ class ServiceToken extends ServiceBase {
       // Detach before awaiting storage so completion cannot clear a newer batch.
       this.homeLocalAccountTokensCache = undefined;
       if (!pending) return;
+      this.homeLocalAccountTokensFlushing.add(pending);
       try {
         await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
           pending,
@@ -974,6 +1106,8 @@ class ServiceToken extends ServiceBase {
             }`,
           );
         }
+      } finally {
+        this.homeLocalAccountTokensFlushing.delete(pending);
       }
     },
     3000,
@@ -1075,7 +1209,7 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    return result.map((item) => {
+    const normalized = result.map((item) => {
       const tokens = item.tokens.map((token) => ({
         ...token,
         info: {
@@ -1086,6 +1220,11 @@ class ServiceToken extends ServiceBase {
       tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
       return { ...item, tokens };
     });
+
+    // Mirror the single-account path: chains with a native reserve (OK-64709)
+    // must split it here too, or bulk send treats the reserve as spendable.
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    return vault.fillTokensDetailsBatch({ tokensDetailsBatch: normalized });
   }
 
   @backgroundMethod()
@@ -1209,6 +1348,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async clearLocalTokens() {
+    this.accountTokensSnapshotCache.clear();
     return this.backgroundApi.simpleDb.localTokens.clearTokens();
   }
 
@@ -1346,6 +1486,8 @@ class ServiceToken extends ServiceBase {
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    // Whether the complete list held any amount; see tokenListHasAssets.
+    hasAssets: boolean;
   }) {
     const {
       dbAccount,
@@ -1357,6 +1499,7 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      hasAssets,
       homeRequest,
     } = params;
     homeTokenRequestRegistry.assertCurrent(homeRequest);
@@ -1384,8 +1527,54 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      hasAssets,
       homeRequest,
     });
+  }
+
+  @backgroundMethod()
+  public async getCachedAccountTokens({
+    accounts,
+  }: {
+    accounts: IAccountTokensCacheScope[];
+  }): Promise<(ICachedAccountTokens | null)[]> {
+    const result = accounts.map(
+      (account) => this.accountTokensSnapshotCache.get(account) ?? null,
+    );
+    const missing = accounts.flatMap((account, index) =>
+      result[index] ? [] : [{ account, index }],
+    );
+    if (!missing.length) return result;
+    // Cache readers do not claim or retire the active Home request owner.
+    const persisted = await this.getAccountsLocalTokens({
+      accounts: missing.map(({ account }) => account),
+    }).catch(() => []);
+    missing.forEach(({ account, index }, persistedIndex) => {
+      // A live response may have completed during the single disk read.
+      const latest = this.accountTokensSnapshotCache.get(account);
+      if (latest) {
+        result[index] = latest;
+        return;
+      }
+      const local = persisted[persistedIndex];
+      if (!local?.hasCache) return;
+      const group = (data: IAccountToken[]) =>
+        copyAccountTokenGroup({
+          data,
+          keys: '',
+          map: local.tokenListMap,
+          currency: local.currency,
+        });
+      result[index] = {
+        ...account,
+        source: 'persisted',
+        coverage: 'partial',
+        tokens: group(local.tokenList),
+        smallBalanceTokens: group(local.smallBalanceTokenList),
+        riskTokens: group(local.riskyTokenList),
+      };
+    });
+    return result;
   }
 
   @backgroundMethod()
@@ -1649,6 +1838,173 @@ class ServiceToken extends ServiceBase {
     };
   }
 
+  // Whether this account shows only its default address type on the network.
+  // Decided from balances Home has already read (pending or persisted); this
+  // never fetches. Anything unknown or failing resolves to not collapsed, so
+  // the worst case is the existing multi-type UI.
+  @backgroundMethod()
+  public async getDeriveTypesCollapseState({
+    networkId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+  }): Promise<IDeriveTypesCollapseState> {
+    if (
+      !indexedAccountId ||
+      !deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+        networkId,
+      })
+    ) {
+      return { collapsed: false };
+    }
+
+    const { serviceAccount, serviceNetwork, simpleDb } = this.backgroundApi;
+    try {
+      const defaultDeriveType =
+        await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+      const { networkAccounts } =
+        await serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          { networkId, indexedAccountId },
+        );
+      const defaultNetworkAccount = networkAccounts.find(
+        (item) => item.deriveType === defaultDeriveType,
+      );
+      // Every address type needs an account before its balances can be known.
+      // Also a cheap exit before the local tokens blob is read and parsed.
+      if (
+        !defaultNetworkAccount?.account ||
+        networkAccounts.some((item) => !item.account)
+      ) {
+        return { collapsed: false };
+      }
+
+      // Responses waiting for, or in the middle of, the debounced writes are
+      // newer than storage unless storage has since committed a newer write
+      // for the key. Among them the newest write wins, as it does on flush.
+      const pendingSources = [
+        this.homeLocalAccountTokensCache,
+        ...this.homeLocalAccountTokensFlushing,
+        this.localAccountTokensCache,
+        ...this.localAccountTokensFlushing,
+      ].filter((source): source is IAccountTokenListCache => !!source);
+      const hasRecord = (
+        source:
+          | { tokenListHasAssets?: Record<string, boolean> }
+          | null
+          | undefined,
+        key: string,
+      ) => source?.tokenListHasAssets?.[key] !== undefined;
+      const writeOrderOf = (source: IAccountTokenListCache, key: string) =>
+        source.tokenListWriteOrder?.[key] ?? -1;
+      const pendingStates = await Promise.all(
+        networkAccounts.map(async (item) => {
+          const key = accountUtils.buildAccountLocalAssetsKey({
+            networkId,
+            accountAddress: item.account?.address,
+            xpub: accountUtils.pickXpubFromDBAccount(item.account),
+          });
+          const currentSources = await Promise.all(
+            pendingSources.map(async (source) =>
+              hasRecord(source, key) &&
+              !(await simpleDb.localTokens.isStaleAccountTokenListCacheEntry({
+                cache: source,
+                key,
+              }))
+                ? source
+                : undefined,
+            ),
+          );
+          const pendingRecord = currentSources.reduce<
+            IAccountTokenListCache | undefined
+          >(
+            (newest, source) =>
+              source &&
+              (!newest || writeOrderOf(source, key) > writeOrderOf(newest, key))
+                ? source
+                : newest,
+            undefined,
+          );
+          return { deriveType: item.deriveType, key, pendingRecord };
+        }),
+      );
+      // Read only now: a write that made a pending entry stale has committed
+      // by then, so storage already holds it.
+      const storedSource = await simpleDb.localTokens.getRawData();
+      const collapsed = deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
+        defaultDeriveType,
+        deriveTypeStates: pendingStates.map(
+          ({ deriveType, key, pendingRecord }) => {
+            const record =
+              pendingRecord ??
+              (hasRecord(storedSource, key) ? storedSource : undefined);
+            return {
+              deriveType,
+              hasBalanceRecord: !!record,
+              hasAssets: !!record?.tokenListHasAssets?.[key],
+            };
+          },
+        ),
+      });
+      if (collapsed) {
+        return {
+          collapsed: true,
+          defaultNetworkAccount: {
+            ...defaultNetworkAccount,
+            account: defaultNetworkAccount.account,
+          },
+        };
+      }
+    } catch (_error) {
+      // Falls through to not collapsed.
+    }
+    return { collapsed: false };
+  }
+
+  // Exchange deposits take the account from a merged token row, which keeps
+  // whichever derive type answered first. On Bitcoin they always go to the
+  // default address type's account instead, collapsed or not.
+  @backgroundMethod()
+  public async getDefaultDeriveTypeAccountId({
+    networkId,
+    indexedAccountId,
+    accountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+    accountId: string;
+  }): Promise<string> {
+    if (
+      !indexedAccountId ||
+      !deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+        networkId,
+      })
+    ) {
+      return accountId;
+    }
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    try {
+      const defaultDeriveType =
+        await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+      const { networkAccounts } =
+        await serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          { networkId, indexedAccountId },
+        );
+      // Callers may fall back to the Home account's indexedAccountId. Only an
+      // address type of that same account is swapped: an imported account or
+      // another wallet's account being topped up keeps its own address.
+      if (!networkAccounts.some((item) => item.account?.id === accountId)) {
+        return accountId;
+      }
+      return (
+        networkAccounts.find((item) => item.deriveType === defaultDeriveType)
+          ?.account?.id ?? accountId
+      );
+    } catch (_error) {
+      return accountId;
+    }
+  }
+
   @backgroundMethod()
   public async getRiskTokenManagementRawData() {
     return this.backgroundApi.simpleDb.riskTokenManagement.getRawData();
@@ -1865,6 +2221,31 @@ class ServiceToken extends ServiceBase {
     );
   }
 
+  // Networks this build serves, or undefined when the registry is not
+  // authoritative yet (fail open). See getAllAggregateTokenInfo.
+  private async _getAggregateEligibleNetworkIds(): Promise<
+    Set<string> | undefined
+  > {
+    try {
+      const registryFilled =
+        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
+      if (registryFilled) {
+        const { networks: eligibleNetworks } =
+          await this.backgroundApi.serviceNetwork.getAllNetworks({
+            excludeCustomNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        return new Set(eligibleNetworks.map((n) => n.id));
+      }
+      // Kick the fill so the next read is gated; single-flight and
+      // fetch failures are swallowed inside.
+      void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
+    } catch {
+      // fail open
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   public async getAllAggregateTokenInfo() {
     const rawData =
@@ -1885,25 +2266,7 @@ class ServiceToken extends ServiceBase {
     // record first and fail open (skip the filter) when it is unfilled or
     // unreadable. The write path awaits the fill instead; this runs on the
     // token-list hot path and must not block on a network request.
-    let eligibleNetworkIds: Set<string> | undefined;
-    try {
-      const registryFilled =
-        await this.backgroundApi.serviceCustomRpc.isServerNetworkRegistryFilled();
-      if (registryFilled) {
-        const { networks: eligibleNetworks } =
-          await this.backgroundApi.serviceNetwork.getAllNetworks({
-            excludeCustomNetwork: true,
-            excludeAllNetworkItem: true,
-          });
-        eligibleNetworkIds = new Set(eligibleNetworks.map((n) => n.id));
-      } else {
-        // Kick the fill so the next read is gated; single-flight and
-        // fetch failures are swallowed inside.
-        void this.backgroundApi.serviceCustomRpc.ensureServerNetworksFetched();
-      }
-    } catch {
-      eligibleNetworkIds = undefined;
-    }
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
     const allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }> =
       {};
     Object.entries(rawData?.allAggregateTokenMap ?? {}).forEach(
@@ -1924,6 +2287,69 @@ class ServiceToken extends ServiceBase {
         (token) => allAggregateTokenMap[token.$key]?.tokens.length,
       ),
     };
+  }
+
+  // Resolves the multi-chain group a token belongs to from the synced wallet
+  // config, so a Receive page entered with a single-network token (token
+  // details member tab, single-network mode) can offer the same network
+  // switch as the Receive token list. The config map is keyed by
+  // network + lowercased contract address, and native coins are stored under
+  // an empty address. A native coin whose token carries a spelled-out address
+  // (e.g. "uatom") therefore also tries the empty key; a contract token
+  // matches its own address only, or it would resolve to the group of the
+  // network's native coin. One raw read (the entity is uncached) and only the
+  // matched group is filtered by the network registry. Returns undefined when
+  // the config has not synced yet or the token is not part of any group.
+  @backgroundMethod()
+  public async findAggregateGroupByNetworkAndAddress({
+    networkId,
+    address,
+    isNative,
+  }: {
+    networkId: string;
+    address?: string;
+    isNative?: boolean;
+  }): Promise<
+    { aggregateToken: IAccountToken; members: IAccountToken[] } | undefined
+  > {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    const configMap = rawData?.aggregateTokenConfigMap ?? {};
+    const tokenAddress = address ?? '';
+    const candidateAddresses =
+      tokenAddress && isNative ? [tokenAddress, ''] : [tokenAddress];
+    const commonSymbol = candidateAddresses
+      .map(
+        (candidateAddress) =>
+          configMap[
+            buildAggregateTokenMapKeyForAggregateConfig({
+              networkId,
+              tokenAddress: candidateAddress,
+            })
+          ]?.commonSymbol,
+      )
+      .find(Boolean);
+    if (!commonSymbol) {
+      return undefined;
+    }
+    const groupKey = buildAggregateTokenListMapKeyForTokenList({
+      commonSymbol,
+    });
+    const aggregateToken = rawData?.allAggregateTokens?.find(
+      (token) => token.$key === groupKey,
+    );
+    const eligibleNetworkIds = await this._getAggregateEligibleNetworkIds();
+    const members = (
+      rawData?.allAggregateTokenMap?.[groupKey]?.tokens ?? []
+    ).filter(
+      (token) =>
+        !!token.networkId &&
+        (!eligibleNetworkIds || eligibleNetworkIds.has(token.networkId)),
+    );
+    if (!aggregateToken || members.length === 0) {
+      return undefined;
+    }
+    return { aggregateToken, members };
   }
 
   @backgroundMethod()

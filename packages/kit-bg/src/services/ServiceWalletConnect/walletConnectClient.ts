@@ -1,7 +1,4 @@
-import { WalletKit } from '@reown/walletkit';
-import { Core, WALLETCONNECT_CLIENT_ID } from '@walletconnect/core';
 import { KeyValueStorage } from '@walletconnect/keyvaluestorage';
-import SignClient, { SESSION_CONTEXT } from '@walletconnect/sign-client';
 import { isArray, isString } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -11,6 +8,7 @@ import {
   WALLET_CONNECT_RELAY_URL,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { getWalletConnectPayConfig } from '@onekeyhq/shared/src/walletConnect/payConstant';
 import type {
   IWalletConnectSession,
   IWalletConnectSignClient,
@@ -24,7 +22,9 @@ import {
 import { WalletConnectRelayController } from './WalletConnectRelayController';
 
 import type { WalletConnectDiagnostics } from './WalletConnectDiagnostics';
+import type { Core } from '@walletconnect/core';
 import type { CoreTypes } from '@walletconnect/types';
+import type { getSdkError as IGetSdkErrorFn } from '@walletconnect/utils';
 
 const sharedOptions: CoreTypes.Options = {
   projectId: WALLET_CONNECT_V2_PROJECT_ID,
@@ -33,6 +33,11 @@ const sharedOptions: CoreTypes.Options = {
 };
 const DAPP_STORAGE_PREFIX = '1k-wc-dapp-kit';
 const WALLET_STORAGE_PREFIX = '1k-wc-wallet-kit';
+// Mirrors SESSION_CONTEXT from '@walletconnect/sign-client'. Persisted storage
+// keys already embed this value so it is effectively frozen; a local copy lets
+// session probing at background start run without loading the sign-client
+// (and, since walletkit 1.5.x, the bundled @walletconnect/pay) stack.
+const WC_SESSION_STORAGE_CONTEXT = 'session';
 const cores = new Map<string, InstanceType<typeof Core>>();
 
 // TODO remove walletConnectStorage, use sharedStorage instead
@@ -56,6 +61,11 @@ async function coreInit({
   if (!customStoragePrefix) {
     throw new OneKeyLocalError('customStoragePrefix is required');
   }
+  // walletkit/sign-client/core (and the @walletconnect/pay stack bundled in
+  // walletkit since 1.5.x) are loaded on demand to keep them out of the
+  // native background startup graph
+  const { Core: CoreClass, WALLETCONNECT_CLIENT_ID } =
+    await import('@walletconnect/core');
   const options = {
     customStoragePrefix,
     storage,
@@ -65,7 +75,7 @@ async function coreInit({
   // are counted. Preserve Core.init's client-ID storage initialization.
   let coreInstance = cores.get(customStoragePrefix);
   if (!coreInstance) {
-    coreInstance = new Core(options);
+    coreInstance = new CoreClass(options);
     // Retain ownership before any async initialization, including failed starts.
     // Do not depend on the SDK's optional global Core cache for retries.
     cores.set(customStoragePrefix, coreInstance);
@@ -80,6 +90,12 @@ async function coreInit({
   return coreInstance;
 }
 
+// Client getters cache the in-flight init promise (single-flight): e.g.
+// bootstrap session restore and a Pay request arriving via proxy can call
+// concurrently, and a plain instance check before the first await would let
+// both create a Core/WalletKit pair sharing the same storage prefix —
+// duplicate relay connections, listeners and storage races. A failed init
+// clears the cached promise so a later call can retry.
 let signClient: IWalletConnectSignClient | undefined;
 let initializingSignClient: Promise<IWalletConnectSignClient> | undefined;
 async function getDappSideClient(): Promise<IWalletConnectSignClient> {
@@ -91,6 +107,8 @@ async function getDappSideClient(): Promise<IWalletConnectSignClient> {
         customStoragePrefix: DAPP_STORAGE_PREFIX,
         diagnostics: dappSideWalletConnectDiagnostics,
       });
+      const { default: SignClient } =
+        await import('@walletconnect/sign-client');
       signClient = await SignClient.init({
         ...sharedOptions,
         core,
@@ -120,10 +138,12 @@ async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
       });
       walletConnectDiagnostics.record('connection', 'core_initialized');
       walletConnectDiagnostics.record('connection', 'walletkit_initializing');
+      const { WalletKit } = await import('@reown/walletkit');
       web3Wallet = await WalletKit.init({
         ...sharedOptions,
         core,
         metadata: WALLET_CONNECT_CLIENT_META,
+        payConfig: getWalletConnectPayConfig(),
       });
       walletConnectDiagnostics.attachWallet(web3Wallet);
       walletConnectDiagnostics.record('connection', 'walletkit_initialized');
@@ -135,6 +155,15 @@ async function getWalletSideClient(): Promise<IWalletConnectWeb3Wallet> {
   return initializingWallet;
 }
 
+// @walletconnect/utils statically drags ox/@msgpack (and more) into the
+// background startup graph; resolve getSdkError on demand instead
+async function getSdkErrorLazy(
+  ...args: Parameters<typeof IGetSdkErrorFn>
+): Promise<ReturnType<typeof IGetSdkErrorFn>> {
+  const { getSdkError } = await import('@walletconnect/utils');
+  return getSdkError(...args);
+}
+
 async function getStorageSessions({
   storagePrefix,
 }: {
@@ -142,8 +171,8 @@ async function getStorageSessions({
 }): Promise<IWalletConnectSession[]> {
   const storage = getSharedStorage();
   const keys = await storage.getKeys();
-  const endWith1 = `${storagePrefix}:${SESSION_CONTEXT}`; // web saved key
-  const endWith2 = `${storagePrefix}//${SESSION_CONTEXT}`; // native saved key
+  const endWith1 = `${storagePrefix}:${WC_SESSION_STORAGE_CONTEXT}`; // web saved key
+  const endWith2 = `${storagePrefix}//${WC_SESSION_STORAGE_CONTEXT}`; // native saved key
   // console.log('getStorageSessionsKeys======', endWith1, endWith2, keys);
   const sessionKey = keys.find(
     (key) => key.endsWith(endWith1) || key.endsWith(endWith2),
@@ -188,4 +217,5 @@ export default {
   getWalletSideClient,
   getWalletSideStorageSessions,
   getDappSideStorageSessions,
+  getSdkErrorLazy,
 };

@@ -40,6 +40,32 @@ const entries = {
   contentScript: 'content-script',
 } as const;
 
+function createExtensionBootAssetsPlugin(): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'ExtensionBootAssetsPlugin',
+        (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'ExtensionBootAssetsPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(
+                'background.bootstrap.js',
+                new rspack.sources.RawSource(
+                  "importScripts('release-meta.js','background-runtime.bundle.js','background-vendor.bundle.js','background.bundle.js');",
+                ),
+              );
+            },
+          );
+        },
+      );
+    },
+  };
+}
+
 interface IReplacementConfig {
   contentMarker?: string;
   regexToFind: RegExp;
@@ -340,6 +366,33 @@ function disableCodeSplitting(config: RspackOptions): void {
   config.output.chunkLoading = false;
 }
 
+function enableEntryVendorSplit(
+  config: RspackOptions,
+  compilerName: 'background' | 'content-script',
+): void {
+  config.optimization = config.optimization || {};
+  config.optimization.chunkIds = 'deterministic';
+  config.optimization.moduleIds = 'deterministic';
+  config.optimization.runtimeChunk = { name: `${compilerName}-runtime` };
+  config.optimization.splitChunks = {
+    chunks: 'initial',
+    cacheGroups: {
+      default: false,
+      defaultVendors: false,
+      vendor: {
+        test: /[\\/]node_modules[\\/]/,
+        name: `${compilerName}-vendor`,
+        chunks: 'initial',
+        enforce: true,
+      },
+    },
+  };
+  config.output = config.output || {};
+  config.output.asyncChunks = false;
+  config.output.chunkLoading =
+    compilerName === compilerNames.background ? 'import-scripts' : 'jsonp';
+}
+
 function createPagesConfig(basePath: string): RspackOptions {
   const uiHtmlPlugins = [
     'ui-popup',
@@ -365,6 +418,7 @@ function createPagesConfig(basePath: string): RspackOptions {
       createHtmlPlugin({ name: entries.uiPasskey, basePath }),
       createHtmlPlugin({ name: entries.offscreen, basePath }),
       createCopyPlugin(basePath),
+      ...(!isDev ? [createExtensionBootAssetsPlugin()] : []),
     ],
   });
 
@@ -407,15 +461,19 @@ function createBackgroundConfig(basePath: string): RspackOptions {
       [entries.background]: {
         import: path.join(basePath, 'src/entry/background.ts'),
         filename: 'background.bundle.js',
-        runtime: false,
-        chunkLoading: false,
+        ...(isDev ? { runtime: false } : {}),
+        ...(isDev ? { chunkLoading: false } : {}),
         asyncChunks: false,
       },
     },
     plugins: [createHtmlPlugin({ name: entries.background, basePath })],
   });
 
-  disableCodeSplitting(config);
+  if (isDev) {
+    disableCodeSplitting(config);
+  } else {
+    enableEntryVendorSplit(config, compilerNames.background);
+  }
   if (process.env.PERF_MONITOR_ENABLED === '1') {
     config.optimization = config.optimization || {};
     config.optimization.minimize = false;
@@ -434,14 +492,18 @@ function createContentScriptConfig(basePath: string): RspackOptions {
       [entries.contentScript]: {
         import: path.join(basePath, 'src/entry/content-script.ts'),
         filename: 'content-script.bundle.js',
-        runtime: false,
-        chunkLoading: false,
+        ...(isDev ? { runtime: false } : {}),
+        ...(isDev ? { chunkLoading: false } : {}),
         asyncChunks: false,
       },
     },
   });
 
-  disableCodeSplitting(config);
+  if (isDev) {
+    disableCodeSplitting(config);
+  } else {
+    enableEntryVendorSplit(config, compilerNames.contentScript);
+  }
   delete config.devServer;
   return config;
 }

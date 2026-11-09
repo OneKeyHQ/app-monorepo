@@ -3,9 +3,13 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Stack, useMedia } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  type IMarketMobileDetailKind,
+  resolveMobileInformationColumnHeader,
+} from '../../../utils/marketMobileDetailKind';
 import {
   HoldersHeaderNormal,
   HoldersHeaderSmall,
@@ -19,24 +23,39 @@ import {
   TransactionsHeaderSmall,
 } from '../components/TransactionsHistory';
 
-function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
+import { useMarketDetailFocusedTab } from './MarketDetailScroll';
+
+function BaseStickyHeader({
+  detailKind = 'trending',
+}: {
+  detailKind?: IMarketMobileDetailKind;
+}) {
   const intl = useIntl();
   const { gtLg, gtXl } = useMedia();
-  const focusedTab = useFocusedTab();
+  const focusedTab = useMarketDetailFocusedTab();
 
   const transactionsHeader = useMemo(() => {
     return gtXl ? <TransactionsHeaderNormal /> : <TransactionsHeaderSmall />;
   }, [gtXl]);
 
   const portfolioHeader = useMemo(() => {
+    if (platformEnv.isNative && detailKind === 'stock') {
+      return <PortfolioHeaderSmall isStock />;
+    }
     return gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />;
-  }, [gtLg]);
+  }, [detailKind, gtLg]);
 
   const holdersHeader = useMemo(() => {
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
   }, [gtLg]);
 
   // Determine which header to show based on focused tab name
+  const transactionsTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_transactions,
+  });
+  const holdersTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_holders,
+  });
   const portfolioTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_myposition,
   });
@@ -44,15 +63,24 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
     id: ETranslations.global_liquidity,
   });
 
-  let currentHeader = transactionsHeader;
-  if (focusedTab === portfolioTabName) {
-    currentHeader = portfolioHeader;
-  } else if (focusedTab === liquidityPoolsTabName) {
-    // The liquidity table scrolls horizontally (960px min width), so its
-    // column header must live inside that ScrollView to stay aligned with the
-    // rows — it renders in the tab content with a matching 44px zone instead.
+  const columnHeader = resolveMobileInformationColumnHeader({
+    detailKind,
+    focusedTab: focusedTab ?? '',
+    transactionsTabName,
+    holdersTabName,
+    portfolioTabName,
+    liquidityTabName: liquidityPoolsTabName,
+  });
+  // The liquidity table scrolls horizontally (960px min width), so its
+  // column header must live inside that ScrollView. Stock and top-coin
+  // overviews are not tables, so they have no column header either.
+  if (columnHeader === 'none') {
     return null;
-  } else if (focusedTab !== firstTabName) {
+  }
+  let currentHeader = transactionsHeader;
+  if (columnHeader === 'portfolio') {
+    currentHeader = portfolioHeader;
+  } else if (columnHeader === 'holders') {
     currentHeader = holdersHeader;
   }
 

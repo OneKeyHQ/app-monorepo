@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -6,6 +6,7 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
@@ -13,7 +14,7 @@ import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/Jot
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
-import { AppStateLockContainer } from './AppStateLockContainer';
+import { AppLockBoundary } from './AppLockBoundary';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
@@ -27,13 +28,13 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
+import { IntercomNotificationContainer } from './IntercomNotificationContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
-import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
@@ -45,6 +46,24 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+
+// Lazy on purpose: this host is the startup graph's only sync importer of
+// wcPayDialogStore, so deferring it keeps the whole pay entry off the main
+// startup graph. The store holds state (not events): a payment link that lands
+// before the host is resident is picked up on its first render.
+const WalletConnectPayDialogContainerLazy = lazy(() =>
+  import('./WalletConnectPayDialogContainer').then((m) => ({
+    default: m.WalletConnectPayDialogContainer,
+  })),
+);
+
+// Lazy, and never mounted in the web dApp, which holds no keys and states the
+// terms where wallets are connected: the dialog stays off the startup graph.
+const TermsConsentContainerLazy = lazy(() =>
+  import('./TermsConsentContainer').then((m) => ({
+    default: m.TermsConsentContainer,
+  })),
+);
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -58,6 +77,7 @@ function DetailRouter() {
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
+      <IntercomNotificationContainer />
       <Bootstrap />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
@@ -75,6 +95,11 @@ function DetailRouter() {
       <LinuxUdevGuideDialogContainer />
       <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <TermsConsentContainerLazy />
+        </Suspense>
+      )}
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
@@ -86,8 +111,10 @@ function DetailRouter() {
       <ColdStartByNotification />
       <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
-      <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
+      <Suspense fallback={null}>
+        <WalletConnectPayDialogContainerLazy />
+      </Suspense>
     </NavigationContainer>
   );
 }
@@ -116,7 +143,7 @@ export function Container() {
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
-        <AppStateLockContainer>
+        <AppLockBoundary>
           {/* Page.Every must register before routers render their active page. */}
           <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
@@ -132,17 +159,17 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-        </AppStateLockContainer>
+        </AppLockBoundary>
       </RootSiblingParent>
     );
   }
   return (
     <RootSiblingParent>
-      <AppStateLockContainer>
+      <AppLockBoundary>
         {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
         <DetailRouter />
-      </AppStateLockContainer>
+      </AppLockBoundary>
     </RootSiblingParent>
   );
 }

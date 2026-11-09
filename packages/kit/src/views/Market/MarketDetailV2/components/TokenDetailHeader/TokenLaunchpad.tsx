@@ -6,9 +6,11 @@ import { resolveLaunchpadDisplay } from '../../utils/resolveLaunchpadDisplay';
 export function TokenLaunchpad({
   launchpad,
   showLeadingDivider = false,
+  iconOnly = false,
 }: {
   launchpad: IMarketTokenLaunchpad | null | undefined;
   showLeadingDivider?: boolean;
+  iconOnly?: boolean;
 }) {
   const display = resolveLaunchpadDisplay(launchpad);
 
@@ -26,6 +28,7 @@ export function TokenLaunchpad({
         ai="center"
         gap="$1"
         cursor="default"
+        accessibilityLabel={display.name}
       >
         <Image
           width={16}
@@ -33,9 +36,11 @@ export function TokenLaunchpad({
           borderRadius="$full"
           source={{ uri: display.logoUrl }}
         />
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {display.name}
-        </SizableText>
+        {iconOnly ? null : (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {display.name}
+          </SizableText>
+        )}
       </XStack>
     </>
   );

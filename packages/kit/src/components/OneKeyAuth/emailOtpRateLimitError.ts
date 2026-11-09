@@ -12,6 +12,7 @@ const EMAIL_OTP_RATE_LIMIT_SECONDS_PATTERN =
 type IEmailOtpRateLimitErrorData = {
   type: typeof EMAIL_OTP_RATE_LIMIT_ERROR_TYPE;
   retryAfterSeconds: number;
+  isEmailOtpSendFailure?: boolean;
 };
 
 export function parseEmailOtpRateLimitRetryAfterSeconds(error: {
@@ -42,9 +43,11 @@ export function parseEmailOtpRateLimitRetryAfterSeconds(error: {
 export function createEmailOtpRateLimitError({
   message,
   retryAfterSeconds,
+  isEmailOtpSendFailure,
 }: {
   message: string;
   retryAfterSeconds: number;
+  isEmailOtpSendFailure?: boolean;
 }) {
   return new OneKeyLocalError<unknown, IEmailOtpRateLimitErrorData>({
     message,
@@ -53,6 +56,7 @@ export function createEmailOtpRateLimitError({
     data: {
       type: EMAIL_OTP_RATE_LIMIT_ERROR_TYPE,
       retryAfterSeconds,
+      isEmailOtpSendFailure,
     },
   });
 }
@@ -63,11 +67,24 @@ export function getEmailOtpRateLimitRetryAfterSeconds(
   const candidate = error as
     | {
         code?: unknown;
-        data?: Partial<IEmailOtpRateLimitErrorData>;
+        retryAfterSec?: unknown;
+        data?: Partial<IEmailOtpRateLimitErrorData> & {
+          retryAfterSec?: unknown;
+        };
         message?: unknown;
       }
     | undefined;
   const data = candidate?.data;
+  if (candidate?.code === 90_011) {
+    // The request interceptor stores the server response in error.data;
+    // the numeric code and retry delay survive background bridge serialization.
+    const retryAfterSeconds = data?.retryAfterSec ?? candidate.retryAfterSec;
+    return typeof retryAfterSeconds === 'number' &&
+      Number.isSafeInteger(retryAfterSeconds) &&
+      retryAfterSeconds >= 0
+      ? retryAfterSeconds
+      : EMAIL_OTP_COUNTDOWN_SECONDS;
+  }
   if (data?.type === EMAIL_OTP_RATE_LIMIT_ERROR_TYPE) {
     const retryAfterSeconds = data.retryAfterSeconds;
     if (

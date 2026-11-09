@@ -45,8 +45,14 @@ import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
 import { useEarnTxLabel } from '../../hooks/useEarnTxLabel';
 import { capitalizeString } from '../../utils/utils';
 
+import {
+  buildPendingStakeHistory,
+  resolvePendingTokenLogo,
+} from './pendingHistory';
+
 type IHistoryItemProps = {
   item: IStakeHistory;
+  isPending?: boolean;
   network?: { networkId: string; name: string; logoURI: string };
   networks?: IStakeHistoriesResponse['networks'];
   token?: IToken;
@@ -56,6 +62,7 @@ type IHistoryItemProps = {
 
 const HistoryItem = ({
   item,
+  isPending,
   provider,
   token,
   network,
@@ -81,6 +88,9 @@ const HistoryItem = ({
     if (token?.logoURI) {
       return token.logoURI;
     }
+    if (isPending && token) {
+      return resolvePendingTokenLogo({ token, network, networks });
+    }
     if (networks?.length) {
       return networks.find((o) => o.networkId === item.networkId)?.logoURI;
     }
@@ -95,9 +105,10 @@ const HistoryItem = ({
     item.type,
     item.tokenAddress,
     item.networkId,
-    token?.logoURI,
+    isPending,
+    token,
     networks,
-    network?.logoURI,
+    network,
     tokenMap,
   ]);
   const onPress = useCallback(() => {
@@ -210,9 +221,16 @@ const HistoryContent = ({
   onFilterTypeChange,
 }: IHistoryContentProps) => {
   const renderItem = useCallback(
-    ({ item }: { item: IStakeHistory }) => (
+    ({
+      item,
+      section,
+    }: {
+      item: IStakeHistory;
+      section: IHistorySectionItem;
+    }) => (
       <HistoryItem
         item={item}
+        isPending={section.isPending}
         network={network}
         token={item.token?.info}
         tokenMap={tokenMap}
@@ -360,23 +378,14 @@ function HistoryList() {
             networkId,
             stakeTag,
           });
-        const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
-          const action = o.stakingInfo.send ?? o.stakingInfo.receive;
-          return {
-            txHash: o.decodedTx.txid,
-            timestamp: o.decodedTx.createdAt ?? o.decodedTx.updatedAt ?? 0,
-            title: labelFn(o.stakingInfo.label),
-            direction: o.stakingInfo.send ? 'send' : 'receive',
-            amount: action?.amount,
-            networkId: o.stakingInfo?.receive?.token?.networkId ?? '',
-            token: historyResp.tokens.find(
-              (i) =>
-                i?.info?.address === o.stakingInfo?.receive?.token?.address &&
-                i?.info?.networkId === o.stakingInfo?.receive?.token?.networkId,
-            ),
-            tokenAddress: action?.token.address ?? '',
-          };
-        });
+        const localNormalizedItems = localItems.map((item) =>
+          buildPendingStakeHistory({
+            decodedTx: item.decodedTx,
+            stakingInfo: item.stakingInfo,
+            title: labelFn(item.stakingInfo.label),
+            tokens: historyResp.tokens,
+          }),
+        );
         if (localNormalizedItems.length > 0) {
           let direction = '';
           if (filterType === 'stake') {

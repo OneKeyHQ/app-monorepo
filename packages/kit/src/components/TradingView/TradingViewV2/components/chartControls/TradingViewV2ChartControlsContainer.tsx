@@ -1,18 +1,17 @@
-import { type ReactNode, memo, useCallback } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
-import {
-  IndicatorListDialogContent,
-  TradingViewChartControls,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import { Dialog, IconButton } from '@onekeyhq/components';
+import { TradingViewChartControls } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
   ChartSettingsDialogContent,
   showTradingViewChartSettingsDialog,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
 import { TradingViewMobileChartSettingsDialogContent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent';
 
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
+import { useShowNativeIndicatorsDialog } from '../indicatorControls/hooks/useShowNativeIndicatorsDialog';
 
 import { useNativeChartControls } from './hooks/useNativeChartControls';
 
@@ -42,6 +41,7 @@ export type { ITradingViewNativeIndicatorState } from '../indicatorControls/hook
 export type { ITradingViewNativeIntervalControlMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 export type { ICalendarPanelSubmitPayload } from '../calendarControls/CalendarPanelPopover';
 export { useNativeIndicatorActiveValues } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
+export { useShowNativeIndicatorsDialog } from '../indicatorControls/hooks/useShowNativeIndicatorsDialog';
 export {
   getTradingViewNativeSubIndicatorCount,
   getTradingViewNativeSubIndicatorCountFromOptions,
@@ -65,6 +65,7 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  mobileToolbarExtra?: ReactNode;
   chartTimezone: string;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -96,6 +97,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    mobileToolbarExtra,
     chartTimezone,
     isFullscreen = false,
     fullscreenHeader,
@@ -132,7 +134,6 @@ export const TradingViewV2ChartControlsContainer = memo(
       priceMarketCap,
       priceMarketCapSettings,
       priceScale,
-      resetLayout,
       settingsEnabled,
       showChartTypeSelect,
       showChartTypeToggle,
@@ -146,6 +147,26 @@ export const TradingViewV2ChartControlsContainer = memo(
       indicatorControlMode,
       priceMarketCapControlMode,
     });
+    // Match the native chart's mobile toolbar: chart style moves into
+    // settings and indicators open from the bottom quick bar.
+    const shouldHideMobileChartTools =
+      layoutMode === 'mobile' && enableNativeChartSettings;
+    const mobileChartStyle = useMemo(
+      () =>
+        shouldHideMobileChartTools && chartTypes.length > 1
+          ? {
+              chartTypes,
+              activeChartType,
+              onChartTypeChange,
+            }
+          : undefined,
+      [
+        activeChartType,
+        chartTypes,
+        onChartTypeChange,
+        shouldHideMobileChartTools,
+      ],
+    );
 
     const handleNativeIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
@@ -180,31 +201,14 @@ export const TradingViewV2ChartControlsContainer = memo(
       ],
     );
 
-    const showIndicatorsDialog = useCallback(() => {
-      onControlInteraction?.();
-      Dialog.show({
-        title: indicatorsTitle,
-        showFooter: false,
-        testID: 'trading-view-native-indicators-dialog',
-        renderContent: (
-          <IndicatorListDialogContent
-            indicators={indicators}
-            resetLayout={resetLayout}
-            maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
-            onSelect={handleNativeIndicatorSelect}
-            onResetLayout={onResetLayout}
-          />
-        ),
-      });
-    }, [
-      handleNativeIndicatorSelect,
-      indicators,
-      indicatorsTitle,
+    const showIndicatorsDialog = useShowNativeIndicatorsDialog({
+      nativeChartControlsConfig,
+      nativeIndicatorState,
       maxSelectableSubIndicatorCount,
-      onControlInteraction,
+      onIndicatorSelect,
       onResetLayout,
-      resetLayout,
-    ]);
+      onControlInteraction,
+    });
 
     const showChartSettingsDialog = useCallback(() => {
       if (!settingsEnabled) {
@@ -261,9 +265,14 @@ export const TradingViewV2ChartControlsContainer = memo(
         renderContent: (
           <TradingViewMobileChartSettingsDialogContent
             chartMode="tradingView"
+            tradingViewChartStyle={
+              isControlsReady ? mobileChartStyle : undefined
+            }
             onChartSwitch={onChartSwitch}
             onOpenSettings={
-              onOpenChartSettings ?? showTradingViewChartSettingsDialog
+              isControlsReady
+                ? (onOpenChartSettings ?? showTradingViewChartSettingsDialog)
+                : undefined
             }
           />
         ),
@@ -271,6 +280,8 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [
       chartSettingsTitle,
       enableNativeChartSettings,
+      isControlsReady,
+      mobileChartStyle,
       onChartSwitch,
       onControlInteraction,
       onOpenChartSettings,
@@ -302,7 +313,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       if (
         enableNativeChartSettings &&
         layoutMode === 'mobile' &&
-        onChartSwitch
+        (onChartSwitch || mobileChartStyle)
       ) {
         showMobileChartSettingsDialog();
         return;
@@ -323,6 +334,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [
       enableNativeChartSettings,
       layoutMode,
+      mobileChartStyle,
       onChartSwitch,
       onControlInteraction,
       onOpenChartSettings,
@@ -340,21 +352,42 @@ export const TradingViewV2ChartControlsContainer = memo(
         chartTypeToggleIcon={chartTypeToggleIcon}
         chartTypes={chartTypes}
         hasVisibleControls={hasVisibleControls || enableNativeChartSettings}
-        hasVisibleIndicators={hasVisibleIndicators}
+        hasVisibleIndicators={
+          hasVisibleIndicators && !shouldHideMobileChartTools
+        }
         hasVisibleIntervalSelector={hasVisibleIntervalSelector}
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
         nextChartTypeLabel={nextChartTypeLabel}
         priceMarketCap={priceMarketCap}
         settingsEnabled={settingsEnabled || enableNativeChartSettings}
-        showChartTypeSelect={showChartTypeSelect}
-        showChartTypeToggle={showChartTypeToggle}
+        showChartTypeSelect={showChartTypeSelect && !shouldHideMobileChartTools}
+        showChartTypeToggle={showChartTypeToggle && !shouldHideMobileChartTools}
         showIndicatorPopover={showIndicatorPopover}
         showPriceMarketCapSelect={showPriceMarketCapSelect}
         maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
+        rightControl={
+          layoutMode === 'mobile'
+            ? (mobileToolbarExtra ??
+              (!isControlsReady &&
+              enableNativeChartSettings &&
+              onChartSwitch ? (
+                <IconButton
+                  testID="trading-view-loading-chart-settings-trigger"
+                  size="small"
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                  iconSize="$5"
+                  title={chartSettingsTitle}
+                  onPress={showMobileChartSettingsDialog}
+                  {...HEADER_ICON_BUTTON_STYLE_PROPS}
+                />
+              ) : undefined))
+            : undefined
+        }
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}

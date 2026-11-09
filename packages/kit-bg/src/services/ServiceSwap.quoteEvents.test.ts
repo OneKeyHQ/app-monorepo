@@ -223,4 +223,30 @@ describe('ServiceSwap quote event request ownership', () => {
     expect(requestParams).not.toHaveProperty('toTokenAmount');
     await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
+
+  it('preserves Sweep source and merges request restrictions with disabled providers', async () => {
+    const { getUri, service } = createService();
+    jest
+      .spyOn(service, 'getDenySingleSwapProvider')
+      .mockResolvedValue('SwapOKX,SwapLiquidMesh');
+
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('sweep-quote-request'),
+      source: ESwapQuoteSource.SWEEP,
+      denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
+    });
+
+    expect(getUri).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/swap/v1/quote/events',
+        params: expect.objectContaining({
+          source: 'Sweep',
+          protocol: 'Swap',
+          denySingleSwapProvider: 'SwapOKX,SwapLiquidMesh,Swap0x',
+          fromTokenAmount: '1',
+        }),
+      }),
+    );
+    await service.cancelFetchQuoteEvents('sweep-quote-request');
+  });
 });

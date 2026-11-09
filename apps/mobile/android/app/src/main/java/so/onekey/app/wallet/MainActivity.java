@@ -5,12 +5,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Window;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.WindowCompat;
 
 import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
@@ -20,6 +23,7 @@ import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
+import com.facebook.react.views.view.WindowUtilKt;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -129,6 +133,16 @@ public class MainActivity extends ReactActivity {
         // Add custom exit animation listener to catch and handle SurfaceControl crashes
         // This prevents NullPointerException during splash screen transition on OPPO/MIUI devices
         splashScreen.setOnExitAnimationListener(splashScreenView -> {
+          // The AndroidX splash restores the pre-launch decor fitting and theme bar
+          // colors on exit, which turns edge-to-edge back off on Android 12-14.
+          // Undo only those two, like React Native's edge-to-edge setup; bar icon
+          // styles stay owned by JS (androidx EdgeToEdge would override them).
+          if (WindowUtilKt.isEdgeToEdgeFeatureFlagOn()) {
+            Window window = getWindow();
+            WindowCompat.setDecorFitsSystemWindows(window, false);
+            window.setStatusBarColor(Color.TRANSPARENT);
+            window.setNavigationBarColor(Color.TRANSPARENT);
+          }
           try {
             // Immediately remove the splash screen without animation to avoid SurfaceControl issues
             if (splashScreenView != null && splashScreenView.getView() != null) {
@@ -198,8 +212,8 @@ public class MainActivity extends ReactActivity {
     }
     // Manager re-dispatches only to an allowlisted subset of listeners on
     // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
-    // This lets google-signin's bg instance resolve its pending signIn
-    // promise without leaking the event to every other bg module.
+    // This lets Google Sign-In and CloudFs resolve authorization promises
+    // in the runtime that initiated them without notifying unrelated bg modules.
     BackgroundThreadManager.getInstance()
         .dispatchActivityResult(this, requestCode, resultCode, data);
   }

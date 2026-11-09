@@ -1,3 +1,4 @@
+/* cspell:words GOMEMLIMIT tsgo */
 const { execSync, execFileSync } = require('child_process');
 const path = require('path');
 const { exit } = require('process');
@@ -6,6 +7,15 @@ const { parse } = require('@aivenio/tsc-output-parser');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
+
+// CI runs tsc in its own job, so the lint checks job sets this to run the rest
+// of `yarn lint` without a second full type check.
+if (process.env.ONEKEY_LINT_SKIP_TSC === 'true') {
+  console.log(
+    `[${getTimestamp()}] TypeScript check skipped (ONEKEY_LINT_SKIP_TSC=true).`,
+  );
+  exit(0);
+}
 
 console.log(`[${getTimestamp()}] TypeScript check started...`);
 
@@ -48,14 +58,26 @@ try {
   const tsBuildInfoPath = path.join(cacheFolder, '.app-mono-ts-cache');
   const typescriptPackage = require.resolve('@typescript/native/package.json');
   const tscEntry = path.join(path.dirname(typescriptPackage), 'bin', 'tsc');
-  const result = execFileSync(process.execPath, [
-    tscEntry,
-    '-p',
-    tsConfigPath,
-    '--noEmit',
-    '--tsBuildInfoFile',
-    tsBuildInfoPath,
-  ]).toString('utf-8');
+  const result = execFileSync(
+    process.execPath,
+    [
+      tscEntry,
+      '-p',
+      tsConfigPath,
+      '--noEmit',
+      '--tsBuildInfoFile',
+      tsBuildInfoPath,
+    ],
+    {
+      // Cap Go heap growth in @typescript/native (tsgo) so 16 GB CI runners do
+      // not get terminated with SIGTERM (exit code 143) under memory pressure,
+      // while leaving enough headroom above the ~8 GB live AST heap to avoid GC thrashing.
+      env: {
+        ...process.env,
+        GOMEMLIMIT: process.env.GOMEMLIMIT || '11GiB',
+      },
+    },
+  ).toString('utf-8');
   console.log(result);
 } catch (error) {
   const stdout = error.stdout?.toString('utf-8') ?? '';

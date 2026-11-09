@@ -92,6 +92,10 @@ export function createTradingViewNativeMarketDataProvider({
   };
 
   return {
+    getCandleTimeMode: () =>
+      selectedHistorySource === 'fallback'
+        ? (fallbackHistoryProvider.getCandleTimeMode?.() ?? 'calendar')
+        : 'calendar',
     getHistoryRequestCandleCount: (interval) =>
       selectedHistorySource === 'fallback' || primaryHistoryUnavailable
         ? fallbackHistoryProvider.getHistoryRequestCandleCount(interval)

@@ -1,10 +1,11 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper/canUseHeadless';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   EHeadlessBuyEntry,
   IFiatCryptoToken,
@@ -17,19 +18,74 @@ export type ITryOpenHeadlessBuyParams = {
   // Provided when navigating from the token list; direct-buy entries omit it and
   // the token is resolved from the cached list.
   token?: IFiatCryptoToken;
+  // When the list that `token` came from was fetched from the server
+  // (IFiatCryptoTokenListWithNetworks.fetchedAt). The row decides native vs
+  // web only while this is recent, see HEADLESS_BUY_ROW_MAX_AGE_MS.
+  tokenFetchedAt?: number;
   // Launching surface — analytics only.
   entryFrom: EHeadlessBuyEntry;
 };
 
-type IEntryDecisionReason = Parameters<
+type IEntryDecision = Parameters<
   typeof defaultLogger.fiatCrypto.onramper.entryDecided
->[0]['reason'];
+>[0];
+type IEntryDecisionReason = IEntryDecision['reason'];
+type IEntryTokenSource = IEntryDecision['tokenSource'];
+
+// `headlessSupported` is trimmed by the IP of the request that fetched the
+// list, and a list row can be much older than it looks: the buy list paints a
+// persisted snapshot before its own fetch lands, and a list left open is not
+// fetched again. Past this age (or with no fetch time at all) the row no longer
+// decides, and the tap asks the server like a direct-buy entry does.
+const HEADLESS_BUY_ROW_MAX_AGE_MS = 60_000;
+
+function isRecentRow(tokenFetchedAt: number | undefined): boolean {
+  if (tokenFetchedAt === undefined) {
+    return false;
+  }
+  const ageMs = Date.now() - tokenFetchedAt;
+  return ageMs >= 0 && ageMs <= HEADLESS_BUY_ROW_MAX_AGE_MS;
+}
+
+// How long a tap on an older row waits for the server before the row decides
+// after all. A list request takes 1-3 s on device (logs 2026-11-06) but only
+// times out after 30 s: uncapped, a hung connection left the tapped row with
+// nothing on screen for that long, then opened the page after the user had
+// moved on. Direct-buy entries have no row to fall back on and keep waiting.
+const HEADLESS_BUY_ROW_RECHECK_TIMEOUT_MS = 5000;
+
+type IHeadlessBuyTokenLookup =
+  | { answered: true; token: IFiatCryptoToken | undefined }
+  | { answered: false };
+
+// Asks the server for the token as the current request IP sees it. Never
+// rejects: a failed lookup, or one slower than `deadlineMs`, is "not
+// answered".
+function lookUpHeadlessBuyToken(
+  params: { networkId: string; tokenAddress: string; accountId: string },
+  deadlineMs: number | undefined,
+): Promise<IHeadlessBuyTokenLookup> {
+  const ask = (): Promise<IHeadlessBuyTokenLookup> =>
+    backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken(params).then(
+      (token): IHeadlessBuyTokenLookup => ({ answered: true, token }),
+      (): IHeadlessBuyTokenLookup => ({ answered: false }),
+    );
+  if (deadlineMs === undefined) {
+    return ask();
+  }
+  return createTimeoutPromise<IHeadlessBuyTokenLookup>({
+    asyncFunc: ask,
+    timeout: deadlineMs,
+    timeoutResult: { answered: false },
+  });
+}
 
 // The native path is only ever a candidate on iOS; logging the gate on every
 // other platform's buy tap would be pure noise.
 function logEntryDecision(
   params: ITryOpenHeadlessBuyParams,
   reason: IEntryDecisionReason,
+  tokenSource?: IEntryTokenSource,
 ) {
   if (!platformEnv.isNativeIOS) {
     return;
@@ -40,6 +96,7 @@ function logEntryDecision(
     tokenAddress: params.tokenAddress,
     decision: reason === 'ok' ? 'native' : 'web',
     reason,
+    tokenSource,
   });
 }
 
@@ -56,7 +113,14 @@ function logEntryDecision(
 export async function tryOpenHeadlessBuy(
   params: ITryOpenHeadlessBuyParams,
 ): Promise<boolean> {
-  const { networkId, tokenAddress, accountId, token, entryFrom } = params;
+  const {
+    networkId,
+    tokenAddress,
+    accountId,
+    token,
+    tokenFetchedAt,
+    entryFrom,
+  } = params;
   if (!canUseHeadless()) {
     logEntryDecision(params, 'headlessUnavailable');
     return false;
@@ -75,38 +139,46 @@ export async function tryOpenHeadlessBuy(
   // is region-trimmed by request IP, and `onramperNetworkCode` is the network
   // slug the checkout request needs — a token missing either can never quote,
   // so the caller's web-widget flow runs unchanged for it. A caller-provided
-  // token already carries the server fields (same list endpoint), so only
-  // token-less direct-buy entries pay the list lookup.
+  // token carries the server fields (same list endpoint) and skips the list
+  // lookup while its list is recent; token-less direct-buy entries and older
+  // rows pay it.
   let resolvedToken = token;
-  if (resolvedToken === undefined) {
-    try {
-      resolvedToken =
-        await backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken({
-          networkId,
-          tokenAddress,
-          accountId,
-        });
-    } catch {
+  let tokenSource: IEntryTokenSource = 'row';
+  if (resolvedToken === undefined || !isRecentRow(tokenFetchedAt)) {
+    const lookup = await lookUpHeadlessBuyToken(
+      { networkId, tokenAddress, accountId },
+      resolvedToken === undefined
+        ? undefined
+        : HEADLESS_BUY_ROW_RECHECK_TIMEOUT_MS,
+    );
+    if (lookup.answered) {
+      resolvedToken = lookup.token;
+      tokenSource = 'lookup';
+    } else if (resolvedToken === undefined) {
       // The lookup only decides native vs web; a transient list failure must
       // not reject the buy tap — the caller's web-widget flow still runs.
       logEntryDecision(params, 'tokenLookupFailed');
       return false;
+    } else {
+      // The server cannot be asked, or did not answer in time: the row is
+      // the best answer there is.
+      tokenSource = 'staleRow';
     }
   }
   if (!resolvedToken) {
-    logEntryDecision(params, 'tokenNotFound');
+    logEntryDecision(params, 'tokenNotFound', tokenSource);
     return false;
   }
   if (!resolvedToken.headlessSupported) {
-    logEntryDecision(params, 'headlessNotSupported');
+    logEntryDecision(params, 'headlessNotSupported', tokenSource);
     return false;
   }
   if (!resolvedToken.onramperNetworkCode) {
-    logEntryDecision(params, 'noNetworkCode');
+    logEntryDecision(params, 'noNetworkCode', tokenSource);
     return false;
   }
 
-  logEntryDecision(params, 'ok');
+  logEntryDecision(params, 'ok', tokenSource);
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.FiatCryptoModal,
     params: {

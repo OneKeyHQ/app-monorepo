@@ -27,7 +27,16 @@ export class AirGapEthSDK extends KeystoneEthereumSDK implements IAirGapSDK {
 
   generateAddressFromXpub(params: { xpub: string; derivePath: string }) {
     // derivePath: `m/0/0`, `m/0/1` `m/0/2`
-    return generateAddressFromXpub(params.xpub, params.derivePath);
+    const address: unknown = generateAddressFromXpub(
+      params.xpub,
+      params.derivePath,
+    );
+    if (typeof address !== 'string') {
+      throw new TypeError(
+        'Keystone EVM address derivation returned an invalid value',
+      );
+    }
+    return address;
   }
 
   findHDPathFromAddress(params: {

@@ -12,6 +12,7 @@ import {
   useUpdateEffect,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
@@ -27,6 +28,7 @@ import {
   EModalPerpRoutes,
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   ITwapSliceFill,
@@ -42,6 +44,7 @@ import {
   type ITradeHistoryFilters,
   filterTradeHistory,
   getTradeHistoryMarketOptions,
+  getTradeHistoryPairName,
 } from '../Components/tradeFillDisplay';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 import { TRADES_HISTORY_SHARE_ACTION_WIDTH } from '../Components/TradesHistoryShareAction';
@@ -197,6 +200,36 @@ function PerpTradesHistoryList({
     [trades, twapSliceFills],
   );
 
+  const perpCoinsKey = useMemo(
+    () =>
+      JSON.stringify(
+        [
+          ...new Set(
+            nonTwapTrades
+              .map((fill) => fill.coin)
+              .filter((coin) => !isSpotInstrument(coin)),
+          ),
+        ].toSorted(),
+      ),
+    [nonTwapTrades],
+  );
+  const { result: paymentTokens } = usePromiseResult(
+    async () => {
+      if (!isMobile) {
+        return {};
+      }
+      const coins = JSON.parse(perpCoinsKey) as string[];
+      if (coins.length === 0) {
+        return {};
+      }
+      return backgroundApiProxy.serviceHyperliquid.getFundingHistoryPaymentTokens(
+        { coins },
+      );
+    },
+    [isMobile, perpCoinsKey],
+    { undefinedResultIfError: true },
+  );
+
   const marketOptions = useMemo(
     () =>
       getTradeHistoryMarketOptions(
@@ -324,9 +357,14 @@ function PerpTradesHistoryList({
       navigation.push(EModalPerpRoutes.PerpTradeHistoryDetails, {
         fill,
         builderFeeRate,
+        pairName: getTradeHistoryPairName({
+          coin: fill.coin,
+          spotPairDisplayMap,
+          paymentTokens,
+        }),
       });
     },
-    [navigation, builderFeeRate],
+    [navigation, builderFeeRate, spotPairDisplayMap, paymentTokens],
   );
 
   const renderTradesHistoryRow = useCallback(

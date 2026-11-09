@@ -1,5 +1,3 @@
-import type { IAddressRiskCheckResult } from '../../types/addressRiskCheck';
-
 export enum EModalAddressRiskCheckRoutes {
   AddressRiskCheckInput = 'AddressRiskCheckInput',
   AddressRiskCheckResult = 'AddressRiskCheckResult',
@@ -13,21 +11,25 @@ export type IModalAddressRiskCheckParamList = {
         networkId?: string;
       }
     | undefined;
+  // The page shows the loading and runs the check itself.
   [EModalAddressRiskCheckRoutes.AddressRiskCheckResult]:
     | {
-        result: IAddressRiskCheckResult;
-        checkRequest?: never;
-        showMoreAnalysis: boolean;
-        onContinue?: never;
-      }
-    | {
-        result?: never;
         checkRequest: {
           networkId: string;
           address: string;
+          entryPoint: 'sendAddressInput';
         };
         showMoreAnalysis: false;
         onContinue: () => void | Promise<void>;
+      }
+    | {
+        checkRequest: {
+          networkId: string;
+          address: string;
+          entryPoint: 'inputManual' | 'inputRecentList' | 'historyList';
+        };
+        showMoreAnalysis: true;
+        onContinue?: never;
       };
   [EModalAddressRiskCheckRoutes.AddressRiskCheckHistory]: undefined;
 };

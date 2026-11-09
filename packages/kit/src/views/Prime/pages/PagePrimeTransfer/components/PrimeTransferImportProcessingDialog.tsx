@@ -373,7 +373,9 @@ function PrimeTransferImportProcessingDialogContent({
                   color="$textSubdued"
                   textAlign="center"
                 >
-                  Some accounts could not be created.
+                  {intl.formatMessage({
+                    id: ETranslations.transfer_import_some_accounts_failed__msg,
+                  })}
                 </SizableText>
               ) : null}
             </>

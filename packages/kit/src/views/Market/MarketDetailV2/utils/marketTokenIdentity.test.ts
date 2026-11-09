@@ -1,3 +1,5 @@
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
@@ -30,6 +32,36 @@ describe('isMatchingMarketTokenIdentity', () => {
         },
       ),
     ).toBe(true);
+  });
+
+  it('matches the canonical SUI coin type with an empty native route address', () => {
+    expect(
+      isMatchingMarketTokenIdentity(
+        { address: SUI_TYPE_ARG, networkId: getNetworkIdsMap().sui },
+        { tokenAddress: '', networkId: getNetworkIdsMap().sui, isNative: true },
+      ),
+    ).toBe(true);
+  });
+
+  it('does not accept another Move coin type as native SUI', () => {
+    expect(
+      isMatchingMarketTokenIdentity(
+        {
+          address: SUI_TYPE_ARG.replace('::SUI', '::OTHER'),
+          networkId: getNetworkIdsMap().sui,
+        },
+        { tokenAddress: '', networkId: getNetworkIdsMap().sui, isNative: true },
+      ),
+    ).toBe(false);
+  });
+
+  it('does not accept the SUI coin type on another network', () => {
+    expect(
+      isMatchingMarketTokenIdentity(
+        { address: SUI_TYPE_ARG, networkId: 'evm--1' },
+        { tokenAddress: '', networkId: 'evm--1', isNative: true },
+      ),
+    ).toBe(false);
   });
 
   it('does not match a native coin with a contract on the same network', () => {

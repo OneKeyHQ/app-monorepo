@@ -1,64 +1,47 @@
 ---
 name: 1k-defi-module-integration
-description: Navigate and implement OneKey App Earn, Borrow, Staking, and DeFi Portfolio flows. Use for protocol data, portfolio actions, transactions, pending/history, refresh, and Earn routes.
+description: Implement and debug OneKey Earn, Borrow, Staking, and DeFi Portfolio flows, including protocol actions, approval, positions, settlement, and refresh.
 ---
 
 # Earn / DeFi
 
-Use this skill to preserve DeFi ownership and operation boundaries. Start from
-current code, server data, and the real runtime; do not treat the skill as a
-path catalog or an implementation snapshot.
+Use this skill for decisions specific to protocol positions and operations.
+The current route, service contract, and chain result determine the behavior;
+a similar-looking product is a useful comparison only if those semantics match.
 
-## Operation And Refresh Boundary
+## Start With The Failing Step
 
-Keep the full operation scope—account, network, provider, market/reserve,
-position, token/symbol, action, and request id—through setup, business
-transaction, status, and refresh. A seeded approval/allowance or cached
-position is a display/input hint, not proof of current chain state: reconcile
-chain allowance when an approval-sensitive dialog mounts. Preserve native versus
-wrapped assets and server-derived symbols instead of inferring them from a
-provider name.
+Trace the actual entry through:
 
-Treat pending/history metadata as a contract. SpeedUp replacements inherit the
-metadata needed by pending guards; replacement linkage remains available for
-those guards, while Cancel replacements must not render as the original
-collateral/staking action after an indexer merge. Keep display filtering
-separate from operation locks and carry replacement identity through
-local/remote reconciliation.
+`position/data -> capability -> setup -> business action -> settlement -> refresh`
 
-For Earn/Borrow refreshes, distinguish cached, empty, loading, error, and
-settled states. Preserve a complete visible snapshot during refresh and make
-identity changes invalidate the old result. Close a selector/modal at the user
-action boundary, then load the new market/reserve asynchronously.
+Find the first step whose input or result is wrong. Search by the action,
+request endpoint, or refresh event and follow its caller and consumer. An Earn
+page and a wallet DeFi tab can show the same investment through different data
+owners; do not choose an owner from the screen label alone.
 
-## Quick Start
+Before changing behavior, establish the affected platform, account/product
+scope, expected transition, and the evidence that would distinguish the bug
+from a slow or unavailable dependency. For a presentation-only change, keep
+verification on the affected layout and interaction; do not expand it into a
+transaction audit.
 
-1. Reproduce the real entry and affected platform.
-2. Trace `entry -> data/position -> action -> transaction -> status -> refresh`.
-3. Find the first owner whose identity, capability, or transition is wrong.
-4. Reuse a nearby pattern only when its protocol and operation semantics match;
-   then verify the changed path and a relevant sibling.
+## Read Only What The Task Needs
 
-## Choose The Reference
+| Question | Reference |
+| --- | --- |
+| Which surface owns the data, navigation, or loading state? | [Architecture](references/app-architecture.md) |
+| How should approval, setup, confirmation, or funding continue? | [Operation flow](references/operation-flow.md) |
+| Which position may be displayed or acted on, and how is it refreshed? | [Portfolio actions](references/portfolio-actions-guide.md) |
+| Which checks can prove this particular change? | [Validation](references/validation.md) |
 
-Locate the current owner in the live source before editing, then load only the
-reference that matches the failure class:
+Keep domain rules here and follow repository `AGENTS.md` for package boundaries,
+runtime topology, and delivery checks. Use `$1k-trade-swap-market` for quoting
+and trade execution after a funding handoff; DeFi still owns the return action.
 
-- [Architecture](references/app-architecture.md) for surface ownership, hosts,
-  runtime boundaries, and cross-module handoffs.
-- [Operation flow](references/operation-flow.md) for setup, status, async
-  identity, replacement, and refresh behavior.
-- [Portfolio actions](references/portfolio-actions-guide.md) for position
-  read-model and capability/build contracts.
-- [Validation](references/validation.md) for focused checks and platform proof.
-- For a funding handoff, stop DeFi ownership when Swap begins quoting and use
-  `$1k-trade-swap-market` for the remainder.
+## Handoff
 
-## Finish
-
-State the owning surface/service and the identities that matter. Run nearby
-tests and repository-required checks, then prove the affected route reaches the
-intended terminal and refresh state. Report unavailable runtime or server proof.
-
-Related skills: `$1k-trade-swap-market`, `$1k-state-management`,
-`$1k-cross-platform`, `$1k-coding-patterns`.
+Explain the changed contract, the owner that enforces it, and the observed
+result. Separate source tracing, automated tests, and real platform/provider
+proof. A submitted transaction or successful request alone does not prove that
+the position and available actions have settled.
