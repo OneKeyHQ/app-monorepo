@@ -21,6 +21,7 @@ import {
 import { getSwapBalanceInsufficientError } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import type {
   IApproveInfo,
+  ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -370,6 +371,52 @@ function assertDustSweepEvmZeroValue(encodedTx: unknown) {
   throw new DustSweepSkip('unknown');
 }
 
+async function validateDustSweepTransfer(
+  transfer: ITransferInfo,
+  options: IExecutionOptions,
+) {
+  const { snapshot, token } = options;
+  const transferToken = transfer.tokenInfo;
+  const amount = new BigNumber(transfer.amount);
+  const amountDecimals = amount.decimalPlaces();
+  const selectedAmount = new BigNumber(token.amount);
+  if (
+    transfer.from !== snapshot.address ||
+    !transfer.to ||
+    transfer.to !== transfer.to.trim() ||
+    !transferToken ||
+    transferToken.isNative !== false ||
+    token.isNative ||
+    !token.contractAddress ||
+    !transferToken.address ||
+    !Number.isInteger(token.decimals) ||
+    token.decimals < 0 ||
+    transferToken.decimals !== token.decimals ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: {
+        networkId: transferToken.networkId,
+        contractAddress: transferToken.address,
+      },
+    }) ||
+    !amount.isFinite() ||
+    !amount.gt(0) ||
+    !selectedAmount.isFinite() ||
+    amount.gt(selectedAmount) ||
+    amountDecimals === null ||
+    amountDecimals > token.decimals
+  )
+    throw new DustSweepSkip('unknown');
+
+  const addressStatus =
+    await backgroundApiProxy.serviceValidator.validateAddress({
+      networkId: snapshot.networkId,
+      address: transfer.to,
+    });
+  assertCanSubmit(options);
+  if (addressStatus !== 'valid') throw new DustSweepSkip('unknown');
+}
+
 type IPreparedDustSweepItem = {
   buildRes: IFetchBuildTxResponse;
   execution: Awaited<ReturnType<typeof buildMarketExecutionPayload>> & {
@@ -492,9 +539,16 @@ async function prepareDustSweepItem(
       backgroundApiProxy.serviceStaking.buildInternalDappTx(params),
   });
   assertActive(signal);
-  if (execution.skipSendTransAction || !execution.encodedTx)
+  if (
+    execution.skipSendTransAction ||
+    (!execution.encodedTx && !execution.transferInfo) ||
+    (execution.encodedTx && execution.transferInfo)
+  )
     throw new DustSweepSkip('unknown');
-  if (isEvm) assertDustSweepEvmZeroValue(execution.encodedTx);
+  if (execution.transferInfo)
+    await validateDustSweepTransfer(execution.transferInfo, options);
+  if (isEvm && execution.encodedTx)
+    assertDustSweepEvmZeroValue(execution.encodedTx);
   const allowanceQuote =
     buildRes.result.allowanceResult || buildRes.result.approvedInfo
       ? buildRes.result
@@ -814,6 +868,13 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
             for (const unsignedTx of unsignedTxs)
               assertDustSweepEvmZeroValue(unsignedTx.encodedTx);
           }
+          if (
+            execution.transferInfo &&
+            networkUtils.isEvmNetwork({ networkId: snapshot.networkId })
+          ) {
+            if (unsignedTxs?.length !== 1) throw new DustSweepSkip('unknown');
+            assertDustSweepEvmZeroValue(unsignedTxs[0].encodedTx);
+          }
           await checkNativeGasBalance(
             gasInfos,
             options,
@@ -822,6 +883,11 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
           );
           await checkInputAndOtherFeeBalances(buildRes.result, options);
         },
+        validateFinalUnsignedTx:
+          execution.transferInfo &&
+          networkUtils.isEvmNetwork({ networkId: snapshot.networkId })
+            ? (unsignedTx) => assertDustSweepEvmZeroValue(unsignedTx.encodedTx)
+            : undefined,
         onBeforeSignAndSend,
         onBroadcast: (signed) => retainSwapBroadcast(signed.txid),
       });

@@ -1,6 +1,7 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
@@ -749,6 +750,39 @@ describe('marketDirectSendTx', () => {
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+  });
+
+  it('validates the updated unsigned transaction before signing', async () => {
+    const unsignedTx = createUnsignedTx();
+    const updatedUnsignedTx = {
+      ...unsignedTx,
+      encodedTx: 'updated-transaction',
+    };
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockUpdateUnsignedTx.mockResolvedValue(updatedUnsignedTx);
+    const validateFinalUnsignedTx = jest.fn(() => {
+      throw new OneKeyLocalError('Unexpected native value');
+    });
+    const onBeforeSignAndSend = jest.fn();
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+        },
+        validateFinalUnsignedTx,
+        onBeforeSignAndSend,
+      }),
+    ).rejects.toThrow('Unexpected native value');
+    expect(validateFinalUnsignedTx).toHaveBeenCalledWith(updatedUnsignedTx);
+    expect(mockPreActionsBeforeSending).not.toHaveBeenCalled();
+    expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it.each([
