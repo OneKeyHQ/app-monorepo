@@ -464,6 +464,50 @@ describe('readSyncProgress', () => {
     });
   });
 
+  // remainingBlocks already includes the run up to the tip.
+  it('counts the gap to the tip once while this account has pending ranges', () => {
+    const progress = readSyncProgress(
+      createRuntime({
+        accountStatus: {
+          birthdayHeight: 1000,
+          chainTip: 2000,
+          scannedToHeight: 1100,
+          remainingBlocks: 900,
+          isComplete: false,
+        },
+        fullyScannedHeight: 1099,
+      }),
+      'account-uuid',
+    );
+    expect(progress.backfillRemainingBlocks).toBe(900);
+    expect(progress.tipLag).toBe(0);
+    expect(progress.isTipCaughtUp).toBe(false);
+  });
+
+  // The shared scanned mark stops at the slowest account.
+  it('keeps a finished account at the tip while another account backfills older history', () => {
+    const progress = readSyncProgress(
+      createRuntime({
+        accountStatus: {
+          birthdayHeight: 2_500_000,
+          chainTip: 3_000_000,
+          scannedToHeight: 3_000_000,
+          remainingBlocks: 0,
+          isComplete: true,
+        },
+        fullyScannedHeight: 2_000_000,
+      }),
+      'account-uuid',
+    );
+    expect(progress).toMatchObject({
+      tipScannedHeight: 3_000_000,
+      chainTip: 3_000_000,
+      tipLag: 0,
+      isTipCaughtUp: true,
+      isSyncing: false,
+    });
+  });
+
   it('keeps a completed account complete when another account owns older work', () => {
     const rt = createRuntime({
       accountStatus: {

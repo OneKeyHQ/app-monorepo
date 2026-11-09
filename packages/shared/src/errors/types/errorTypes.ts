@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type {
   ETranslations,
   ETranslationsMock,
@@ -71,6 +72,8 @@ export enum EOneKeyErrorClassNames {
   LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
   WrongPassword = 'WrongPassword',
   ReplaceTxNonceConsumed = 'ReplaceTxNonceConsumed',
+  InfiniReplacementUnavailable = 'InfiniReplacementUnavailable',
+  InfiniReplacementExpired = 'InfiniReplacementExpired',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

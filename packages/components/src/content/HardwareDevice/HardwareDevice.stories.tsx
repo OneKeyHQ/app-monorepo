@@ -21,6 +21,7 @@ const meta = {
         'classicpure',
         'pro',
         'pro2',
+        'neo',
         'mini',
         'touch',
         'unknown',
@@ -32,7 +33,15 @@ const meta = {
     },
     color: {
       control: 'select',
-      options: ['Black', 'Silver', 'Orange', 'Transparent'],
+      options: [
+        'Black',
+        'Silver',
+        'Orange',
+        'White',
+        'Green',
+        'Pink',
+        'Transparent',
+      ],
     },
     width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
   },
@@ -54,6 +63,7 @@ const ROUTED: IHardwareDeviceType[] = [
   'pro',
   'touch',
   'pro2',
+  'neo',
   'unknown',
 ];
 
@@ -98,6 +108,17 @@ export const Colors: Story = {
           />
         ))}
       </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        {(['White', 'Black', 'Green', 'Pink'] as const).map((color) => (
+          <HardwareDevice
+            key={color}
+            deviceType="neo"
+            color={color}
+            animation="connecting"
+            width={120}
+          />
+        ))}
+      </XStack>
     </YStack>
   ),
 };
@@ -123,6 +144,11 @@ export const Sizes: Story = {
         <HardwareDevice deviceType="pro2" width={80} />
         <HardwareDevice deviceType="pro2" width={160} />
         <HardwareDevice deviceType="pro2" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="neo" width={80} />
+        <HardwareDevice deviceType="neo" width={160} />
+        <HardwareDevice deviceType="neo" width={240} />
       </XStack>
       <XStack gap="$4" alignItems="flex-start">
         <HardwareDevice deviceType="mini" width={80} />

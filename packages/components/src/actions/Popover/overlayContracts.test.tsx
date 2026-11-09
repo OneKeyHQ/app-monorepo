@@ -13,6 +13,7 @@ import { Popover } from '.';
 
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   renderHook,
@@ -204,12 +205,6 @@ jest.mock('../Trigger', () => {
 jest.mock('./popoverSideEffects', () => ({
   runPopoverOpenSideEffects: jest.fn(),
   runPopoverCloseSideEffects: jest.fn(),
-}));
-jest.mock('./anchoredPopover', () => ({
-  ...jest.requireActual<typeof import('./anchoredPopover')>(
-    './anchoredPopover',
-  ),
-  useHoverOpen: jest.fn(),
 }));
 jest.mock('@floating-ui/dom', () => ({
   ...jest.requireActual<typeof import('@floating-ui/dom')>('@floating-ui/dom'),
@@ -579,4 +574,104 @@ it('leaves focus alone for hover panels', async () => {
   expect(onOpenAutoFocus).not.toHaveBeenCalled();
   view.unmount();
   outside.remove();
+});
+
+describe('hover and trigger press interaction', () => {
+  const hoverable = { delay: { open: 250 } };
+
+  function renderHoverPopover() {
+    render(
+      <Popover
+        title="Rates"
+        hoverable={hoverable}
+        renderTrigger="Rate details"
+        renderContent={<span>Rate breakdown</span>}
+      />,
+    );
+    return screen.getByRole('button', { name: 'Rate details' });
+  }
+
+  function advance(ms: number) {
+    act(() => jest.advanceTimersByTime(ms));
+  }
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
+  });
+
+  it('stays closed after reentering an open trigger and clicking it', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    fireEvent.mouseLeave(trigger);
+    advance(50);
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('stays closed after clicking open and closed before hover finishes', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    advance(50);
+    fireEvent.click(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('does not request reopening after the controlled owner closes', () => {
+    const onOpenChange = jest.fn();
+    const props = {
+      title: 'Rates',
+      hoverable,
+      onOpenChange,
+      renderTrigger: 'Rate details',
+      renderContent: <span>Rate breakdown</span>,
+    };
+    const view = render(<Popover {...props} open />);
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Rate details' }));
+    advance(50);
+    view.rerender(<Popover {...props} open={false} />);
+
+    advance(250);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('accepts a new hover after a controlled close', () => {
+    const onOpenChange = jest.fn();
+    const props = {
+      title: 'Rates',
+      hoverable,
+      onOpenChange,
+      renderTrigger: 'Rate details',
+      renderContent: <span>Rate breakdown</span>,
+    };
+    const view = render(<Popover {...props} open />);
+    const trigger = screen.getByRole('button', { name: 'Rate details' });
+    fireEvent.mouseLeave(trigger);
+    advance(100);
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    view.rerender(<Popover {...props} open={false} />);
+
+    fireEvent.mouseEnter(trigger);
+    advance(249);
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    advance(1);
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    view.rerender(<Popover {...props} open />);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+  });
 });
