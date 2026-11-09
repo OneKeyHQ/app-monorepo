@@ -10,7 +10,10 @@ import {
   shift,
   size,
 } from '@floating-ui/dom';
-import { OVERLAY_LEVEL_ORDER } from '@onekeyfe/react-native-native-overlay';
+import {
+  OVERLAY_LEVEL_ORDER,
+  getAnchoredTransformOrigin,
+} from '@onekeyfe/react-native-native-overlay';
 
 import type { FlipOptions, OffsetOptions, Placement } from '@floating-ui/dom';
 import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
@@ -103,9 +106,18 @@ export function useAnchoredPosition({
             },
           }),
         ],
-      }).then(({ x, y }) => {
+      }).then(({ x, y, placement: resolvedPlacement }) => {
         floating.style.left = `${x}px`;
         floating.style.top = `${y}px`;
+        // The overlay scales the panel from the side facing the trigger and
+        // reads the placement after flip from here. The enter animation can
+        // start before this first position resolves, so also correct the
+        // origin of a run already in flight.
+        floating.dataset.placement = resolvedPlacement;
+        const transformOrigin = getAnchoredTransformOrigin(resolvedPlacement);
+        if (transformOrigin) {
+          floating.style.transformOrigin = transformOrigin;
+        }
       });
     };
     updateRef.current = update;

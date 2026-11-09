@@ -213,7 +213,9 @@ jest.mock('./anchoredPopover', () => ({
 }));
 jest.mock('@floating-ui/dom', () => ({
   ...jest.requireActual<typeof import('@floating-ui/dom')>('@floating-ui/dom'),
-  computePosition: jest.fn().mockResolvedValue({ x: 240, y: 132 }),
+  computePosition: jest
+    .fn()
+    .mockResolvedValue({ x: 240, y: 132, placement: 'bottom-end' }),
   autoUpdate: jest.fn(
     (_reference: Element, _floating: HTMLElement, update: () => void) => {
       update();
@@ -223,6 +225,8 @@ jest.mock('@floating-ui/dom', () => ({
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
+  getAnchoredTransformOrigin: (placement: string) =>
+    placement === 'bottom-end' ? 'right top' : undefined,
   OverlayView: ({
     children,
     visible,
@@ -528,6 +532,9 @@ it.each([false, true])(
       expect(panel?.style.left).toBe('240px');
       expect(panel?.style.top).toBe('132px');
     });
+    // The overlay scales the panel from the resolved placement.
+    expect(panel?.dataset.placement).toBe('bottom-end');
+    expect(panel?.style.transformOrigin).toBe('right top');
   },
 );
 it('focuses actions and forwards both autofocus callbacks', async () => {
