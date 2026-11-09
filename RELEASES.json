@@ -9,5 +9,17 @@
       "#14244"
     ],
     "notes": "fix: retry QA bundle uploads on gateway timeouts (#13732), fix: recover native storage and manual mnemonic backup on v6.6.4 (#13973), chore: sync #14066 and #13836 into release/v6.6.4 (#14244)"
+  },
+  {
+    "seq": 2,
+    "commit": "47c2ceb902feb1c43dfd1d1efa75e0047eff9b26",
+    "date": "2026-11-09T08:37:44Z",
+    "prs": [
+      "#13835",
+      "#14231",
+      "#14323",
+      "#14378"
+    ],
+    "notes": "fix: chase Perps orders at same-side post-only price(OK-63729) (#13835), fix: handle optional walletconnect namespaces (#14231), fix: restore hardware prompt focus and legacy Trezor One signing (#14323), feat: restore Neo device assets and fix desktop onboarding(OK-59935) (#14378)"
   }
 ]
