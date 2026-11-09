@@ -145,6 +145,14 @@ async function advance(ms: number) {
 const QUOTE_DEBOUNCE_MS = 400;
 // refreshQuote defers the SDK reset past the unmount frames.
 const REFRESH_DEFER_MS = 64;
+// A transient quote failure is retried once after this back-off.
+const QUOTE_RETRY_MS = 1000;
+
+// A failed init is retried twice (1 s, then 2 s) before the page gives up.
+async function exhaustInitRetries() {
+  await advance(1000);
+  await advance(2000);
+}
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -289,6 +297,7 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
     mockIsMockClient = false;
     mockFetchOnramperSession.mockRejectedValue(new Error('mint failed'));
     const { result } = await renderCheckout({ amount: 50 });
+    await exhaustInitRetries();
 
     expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
     expect(result.current.canSignOut).toBe(true);
@@ -306,6 +315,7 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
     mockIsMockClient = false;
     mockInitialize.mockRejectedValue({ code: 'initializationFailed' });
     const { result } = await renderCheckout({ amount: 50 });
+    await exhaustInitRetries();
 
     expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
     expect(result.current.canSignOut).toBe(true);
@@ -314,11 +324,14 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
   it('offers sign-out when the first quote fails, until a checkout reports the login', async () => {
     mockGetCheckoutRequirements
       .mockRejectedValueOnce({ code: 'networkError', message: 'offline' })
+      .mockRejectedValueOnce({ code: 'networkError', message: 'offline' })
       .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE });
     const { result } = await renderCheckout({ amount: 50 });
     expect(result.current.canSignOut).toBe(false);
 
+    // The quote and its one automatic retry both fail.
     await advance(QUOTE_DEBOUNCE_MS);
+    await advance(QUOTE_RETRY_MS);
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.canSignOut).toBe(true);
 
@@ -338,6 +351,7 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
     mockIsMockClient = false;
     mockFetchOnramperSession.mockRejectedValue(new Error('mint failed'));
     const { result } = await renderCheckout({ amount: 50 });
+    await exhaustInitRetries();
 
     expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
     expect(result.current.canSignOut).toBe(false);
