@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "续费说明",
   "prime_sandbox_payment_unavailable__msg": "此账户无法使用沙盒支付。",
   "prime_start_new_payment__action": "发起新支付",
+  "prime_subscription_china_storefront__msg": "中国区 App Store 无法购买，请切换至非中国区 App Store 后重试",
   "prime_subscription_management_unsupported__msg": "当前开通方式暂不支持管理订阅。",
   "prime_unfinished_payment__desc": "如果仍有支付在处理中，发起新支付可能导致重复付款",
   "prime_unfinished_payment__title": "未完成的支付",

@@ -205,7 +205,7 @@ function RawPopover({
     offset,
     allowFlip,
   });
-  useHoverOpen({
+  const cancelHover = useHoverOpen({
     hoverable: isSheet ? undefined : (hoverable as IPopoverHoverable),
     triggerRef,
     panel,
@@ -264,12 +264,13 @@ function RawPopover({
   > & { trapFocus?: boolean };
 
   const handleTriggerPress = useCallback(() => {
+    cancelHover();
     if (isOpen) {
       requestClose();
     } else {
       openPopover?.();
     }
-  }, [isOpen, openPopover, requestClose]);
+  }, [cancelHover, isOpen, openPopover, requestClose]);
 
   return (
     <>
