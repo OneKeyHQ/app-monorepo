@@ -175,14 +175,6 @@ export type { IDesktopOpenUrlEventData } from './libs/deepLinkHandler';
 // `.message` is preserved verbatim so the renderer-side counterpart,
 // `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
 // can still recover any `{ message, code, data }` payload encoded in it.
-
-// cspell:ignore pkexec
-// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
-// errors/results so Electron's structured clone never throws "An object could
-// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
-// `.message` is preserved verbatim so the renderer-side counterpart,
-// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
-// can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeResult(result: unknown): unknown {
   try {
     structuredClone(result);
