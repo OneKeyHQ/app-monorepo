@@ -1362,13 +1362,6 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
 **Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
 
-## Case: Private account setup and receive prompts stayed in English (OK-66546, OK-66560)
-**Date**: 2026-11-06 | **Platforms**: Desktop/Web single JS runtime and iOS/Android/extension main UI. Bundled locale messages are loaded in the UI runtime; background scanning and native resources are unchanged.
-**Symptom**: Changing the App language left private-account enablement, sync-start choices, invalid-height feedback and the receive prompt in English.
-**Root Cause**: The UI still referenced temporary English mock messages and default-message fallbacks instead of formal keys in the bundled locale catalogs.
-**Fix**: Created 9 keys in all 19 locales through the approved Monorepo v5 Lokalise workflow, reused the existing full-sync explanation, and replaced mock references throughout setup, receive, account management, recovery controls and UI preview. Generated catalogs and enums come from the official pull; no generated translation was edited manually. A real react-intl regression verifies language switching, preserved sync-start selection and localized invalid-height errors. Native layout acceptance remains a manual check.
-**Catchable by**: Sections 4 and 6: Trace source keys through the bundled locale loader to rendered UI, and test a language change using real catalogs rather than a formatter mock that only returns IDs.
-
 ## Case: Extracted privacy sync effects blocked strict native bundling
 **Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. The effects run in the main UI runtime and report network changes through the background bridge; native wake-lock ownership and separate main/bg JS heaps are unchanged. Web/Desktop single-runtime and extension bundling do not use this native registry.
 **Symptom**: The Native CI job failed before producing its startup reports after the floating privacy sync indicator was replaced with a nonvisual effects component.
@@ -1396,3 +1389,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
 **Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
 **Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
+
+## Case: Private account setup and receive prompts stayed in English (OK-66546, OK-66560)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single JS runtime and iOS/Android/extension main UI. Bundled locale messages are loaded in the UI runtime; background scanning and native resources are unchanged.
+**Symptom**: Changing the App language left private-account enablement, sync-start choices, invalid-height feedback and the receive prompt in English.
+**Root Cause**: The UI still referenced temporary English mock messages and default-message fallbacks instead of formal keys in the bundled locale catalogs.
+**Fix**: Created 9 keys in all 19 locales through the approved Monorepo v5 Lokalise workflow, reused the existing full-sync explanation, and replaced mock references throughout setup, receive, account management, recovery controls and UI preview. Generated catalogs and enums come from the official pull; no generated translation was edited manually. A real react-intl regression verifies language switching, preserved sync-start selection and localized invalid-height errors. Native layout acceptance remains a manual check.
+**Catchable by**: Sections 4 and 6: Trace source keys through the bundled locale loader to rendered UI, and test a language change using real catalogs rather than a formatter mock that only returns IDs.
