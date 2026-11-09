@@ -1,0 +1,1 @@
+export { IntercomNotificationContainer } from './IntercomNotificationContainer';

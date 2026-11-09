@@ -7,10 +7,14 @@ import { IntercomNotificationContainer } from '.';
 import { act, render } from '@testing-library/react';
 
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import { presentIntercomSupportUi } from '@onekeyhq/shared/src/modules3rdParty/intercom/supportUi';
 import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
+import { IntercomNotificationContainer as ExtensionContainer } from './index.ext';
+import { IntercomNotificationContainer as NativeContainer } from './index.native';
 import { IntercomLockGuard } from './IntercomLockGuard';
+import { IntercomLockGuard as ExtensionLockGuard } from './IntercomLockGuard.ext';
 
 import type { IIntercomNavigationState } from './visibility';
 
@@ -21,6 +25,7 @@ let mockRouterChange:
   | undefined;
 let mockReady: (() => void) | undefined;
 const mockRemoveReady = jest.fn();
+const mockNavigate = jest.fn();
 let mockLockDuration = 5;
 let mockLastActivity = 1234;
 const mockSetLocked = jest.fn(
@@ -31,6 +36,10 @@ const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
+      isReady: () => !!mockState,
+      navigate: (params: unknown) => {
+        mockNavigate(params);
+      },
       getRootState: () => mockState,
       addListener: (_event: string, callback: () => void) => {
         mockReady = callback;
@@ -80,10 +89,33 @@ describe('Intercom notification visibility integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsLocked = false;
+    mockLockDuration = 5;
+    mockLastActivity = 1234;
     mockState = main;
     mockRouterChange = undefined;
     mockReady = undefined;
   });
+
+  it.each([
+    ['web', IntercomNotificationContainer],
+    ['native', NativeContainer],
+    ['extension', ExtensionContainer],
+  ])(
+    'registers and cleans up the support presenter on %s',
+    (_platform, Container) => {
+      const screen = render(<Container />);
+      expect(presentIntercomSupportUi({ userId: null })).toBe(true);
+      expect(mockNavigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ params: { userId: '' } }),
+          }),
+        }),
+      );
+      screen.unmount();
+      expect(presentIntercomSupportUi({ userId: null })).toBeUndefined();
+    },
+  );
 
   it('waits for navigation readiness before allowing messages', () => {
     mockState = undefined;
@@ -118,30 +150,33 @@ describe('Intercom notification visibility integration', () => {
     expect(mockSetLocked).not.toHaveBeenCalled();
   });
 
-  it('forwards the wallet lock state to the Messenger guard', () => {
-    const screen = render(<IntercomLockGuard />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(false, {
-      validFromMs: 1234,
-      lockAtMs: 1234 + 5 * 60_000,
-    });
-    mockIsLocked = true;
-    screen.rerender(<IntercomLockGuard />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-      validFromMs: 1234,
-      lockAtMs: 1234 + 5 * 60_000,
-    });
-    mockLastActivity = 5678;
-    mockLockDuration = 30;
-    screen.rerender(<IntercomLockGuard />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-      validFromMs: 5678,
-      lockAtMs: 5678 + 30 * 60_000,
-    });
-    mockLockDuration = Number(ELockDuration.Never);
-    screen.rerender(<IntercomLockGuard />);
-    expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-      validFromMs: 0,
-      lockAtMs: Number.MAX_VALUE,
-    });
-  });
+  it.each([IntercomLockGuard, ExtensionLockGuard])(
+    'forwards the wallet lock state to the Messenger guard (%#)',
+    (Guard) => {
+      const screen = render(<Guard />);
+      expect(mockSetLocked).toHaveBeenLastCalledWith(false, {
+        validFromMs: 1234,
+        lockAtMs: 1234 + 5 * 60_000,
+      });
+      mockIsLocked = true;
+      screen.rerender(<Guard />);
+      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
+        validFromMs: 1234,
+        lockAtMs: 1234 + 5 * 60_000,
+      });
+      mockLastActivity = 5678;
+      mockLockDuration = 30;
+      screen.rerender(<Guard />);
+      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
+        validFromMs: 5678,
+        lockAtMs: 5678 + 30 * 60_000,
+      });
+      mockLockDuration = Number(ELockDuration.Never);
+      screen.rerender(<Guard />);
+      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
+        validFromMs: 0,
+        lockAtMs: Number.MAX_VALUE,
+      });
+    },
+  );
 });

@@ -12,8 +12,8 @@ import {
   isNeverLockDuration,
 } from '@onekeyhq/shared/src/utils/passwordUtils';
 
-// The Messenger is presented outside the RN tree, so the lock screen cannot
-// cover it; close it on lock and keep in-flight opens from reopening it.
+// Cancel support requests on lock and reject operations past the auto-lock
+// deadline, including when the main runtime resumes before the lock UI updates.
 export function useHideIntercomMessengerWhenLocked() {
   const [isLocked] = useAppIsLockedAtom();
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();

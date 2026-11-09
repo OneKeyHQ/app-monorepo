@@ -214,8 +214,8 @@ export function createIntercomOpenGuard(onError: (error: unknown) => void) {
   };
 }
 
-// Native only compares timestamps: the Messenger must close when
-// now < validFromMs or now >= lockAtMs (see passwordUtils auto-lock rule).
+// Requests must stop when now < validFromMs or now >= lockAtMs, even before
+// the main runtime has rendered its lock screen (see passwordUtils).
 export type IIntercomLockPolicy = {
   validFromMs: number;
   lockAtMs: number;

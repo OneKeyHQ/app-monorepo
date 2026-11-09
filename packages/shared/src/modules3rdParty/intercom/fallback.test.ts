@@ -117,40 +117,10 @@ describe('fallback support URLs', () => {
     expect(mockOpenUrlInApp).not.toHaveBeenCalled();
   });
 
-  it('embeds extension support like mobile, with no JWT and no website jump', async () => {
-    const { showIntercom } = await import('./index.ext');
-    await showIntercom({ conversationId: 'conversation-1' });
-    expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
-    const [url, title, options] = mockOpenUrlInApp.mock.calls[0];
-    expect(title).toBe('Support');
-    expect(options).toEqual({
-      hideHeaderRight: true,
-      disableBridge: true,
-      intercomUserId: 'A',
-    });
-    expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
-    expect(url).toContain('language_override=en');
-    expect(url).toMatch(
-      new RegExp(
-        `#bridge=message-channel-v1&parentOrigin=${encodeURIComponent(
-          EXTENSION_ORIGIN,
-        )}$`,
-      ),
-    );
-    expect(url).not.toContain('intercom_user_jwt');
-    expect(url).not.toContain('conversationId');
-    expect(mockApiGetCustomerJWT).not.toHaveBeenCalled();
-    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
-    expect(mockWindowOpen).not.toHaveBeenCalled();
-  });
-
   describe('developer support URL override', () => {
     const previewUrl = 'https://intercom-preview.onekey.test/support/';
 
-    it.each([
-      ['WebView', './webView.native', 'injected-v1'],
-      ['extension', './index.ext', 'message-channel-v1'],
-    ])(
+    it.each([['WebView', './webView.native', 'injected-v1']])(
       'opens the %s support page at the configured URL',
       async (_name, modulePath, bridge) => {
         mockDevSettings = {
@@ -180,22 +150,5 @@ describe('fallback support URLs', () => {
       const [url] = mockOpenUrlInApp.mock.calls[0];
       expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
     });
-  });
-
-  it('does not open extension support when the account changes during metadata loading', async () => {
-    const { showIntercom } = await import('./index.ext');
-    const instanceId = deferred<string | undefined>();
-    mockInstanceId = instanceId.promise;
-    const opening = showIntercom({ conversationId: 'conversation-1' });
-    await flushEvents();
-    mockUserId = 'B';
-    instanceId.resolve('instance');
-    await opening;
-    expect(mockWindowOpen).not.toHaveBeenCalled();
-    expect(mockOpenUrlInApp).not.toHaveBeenCalled();
-    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
-    expect(mockNotifyOpenFailed).toHaveBeenLastCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('changed') }),
-    );
   });
 });

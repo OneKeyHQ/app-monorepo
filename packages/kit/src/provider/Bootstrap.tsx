@@ -667,7 +667,7 @@ export const useIntercomInit = () => {
       previousIdentity.onekeyUserId !== onekeyUserId ||
       previousIdentity.isLoggedIn !== isLoggedIn;
     previousIdentityRef.current = { onekeyUserId, isLoggedIn };
-    // Only the initial sync is delayed. An entry can open the SDK before the
+    // Only the initial sync is delayed. An entry can open support before the
     // timer fires, so identity changes must retire that session immediately.
     if (isInitializedRef.current || identityChanged) {
       isInitializedRef.current = true;

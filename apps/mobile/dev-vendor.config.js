@@ -81,7 +81,6 @@ const nativeContractDependencies = {
   shared: [
     '@expo/dom-webview',
     '@expo/log-box',
-    '@intercom/intercom-react-native',
     '@notifee/react-native',
     '@onekeyfe/react-native-app-update',
     '@onekeyfe/react-native-auto-size-input',
@@ -279,8 +278,6 @@ const shellInputFiles = {
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
     'apps/mobile/scripts/mobile-dev-shell-resource.js',
-    'apps/mobile/scripts/patch-intercom-ios.py',
-    'apps/mobile/scripts/patch-intercom-ios.json',
   ],
   shared: [
     'apps/mobile/native/mmkv/checked-sync.patch',

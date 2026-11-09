@@ -160,7 +160,16 @@ function listShellInputRepoFiles(repoRoot, inputScopes) {
       `[devVendor] Unable to list shell inputs: ${result.stderr || result.error?.message || 'unknown error'}`,
     );
   }
-  return [...new Set(result.stdout.split('\0').filter(Boolean))].toSorted();
+  return [
+    ...new Set(
+      result.stdout
+        .split('\0')
+        .filter(
+          (relativePath) =>
+            relativePath && fs.existsSync(path.join(repoRoot, relativePath)),
+        ),
+    ),
+  ].toSorted();
 }
 
 function getNativePatchInputPaths(

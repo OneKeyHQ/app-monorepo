@@ -1552,6 +1552,7 @@ const MoreActionMoreGrid = () => {
       {
         title: intl.formatMessage({ id: ETranslations.settings_contact_us }),
         icon: 'HelpSupportOutline' as const,
+        testID: 'more-action-support' as const,
         onPress: handleHelpAndSupport,
         trackID: 'wallet-customer-support',
         showUnreadDot: hasUnreadSupportMessages,
