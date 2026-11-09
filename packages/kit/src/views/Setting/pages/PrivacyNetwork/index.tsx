@@ -53,6 +53,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -370,27 +371,14 @@ function PrivacyChainSettingsProgress({
 }) {
   const intl = useIntl();
   const [state] = usePrivacyChainAtom();
-  const [resuming, setResuming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const { result: localWalletSettings } = usePromiseResult(
     async () =>
       (await backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }))
         .localWallet,
     [networkId],
   );
-  // The same chain switch as the sync light's Continue.
-  const resumeChain = useCallback(async () => {
-    setResuming(true);
-    try {
-      await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
-        networkId,
-        trigger: 'manual-sync',
-      });
-    } catch (error) {
-      console.error('[privacyChain] chain resume failed', error);
-    } finally {
-      setResuming(false);
-    }
-  }, [networkId]);
   const accounts = entries.filter(
     (entry) =>
       entry.networkId === networkId &&
@@ -417,6 +405,44 @@ function PrivacyChainSettingsProgress({
       accounts.length > 0 &&
       accounts.every((account) => account.privacyDisabled),
   });
+  const canResume = status === 'chainPaused';
+  const canPause =
+    (state.boostingNetworkIds.includes(networkId) ||
+      state.dataBlockedNetworkIds.includes(networkId)) &&
+    [
+      'preparing',
+      'syncing',
+      'waitingWifi',
+      'error',
+      'storageUnsupported',
+    ].includes(status);
+  const toggleChainPause = useCallback(async () => {
+    if (busyRef.current || (!canResume && !canPause)) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      if (canResume) {
+        await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+          networkId,
+          trigger: 'manual-sync',
+        });
+      } else {
+        await backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
+          networkId,
+        });
+      }
+    } catch {
+      defaultLogger.app.error.log('Privacy chain sync control failed');
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [canPause, canResume, intl, networkId]);
   if (!accounts.length) return null;
   const error =
     status === 'storageUnsupported'
@@ -445,15 +471,22 @@ function PrivacyChainSettingsProgress({
         subtitle={detail}
         subtitleProps={error ? { color: '$textCaution' } : undefined}
       >
-        {status === 'chainPaused' ? (
+        {canResume || canPause ? (
           <Button
-            testID="privacy-sync-resume-btn"
+            testID={
+              canResume ? 'privacy-sync-resume-btn' : 'privacy-sync-pause-btn'
+            }
             size="small"
             variant="secondary"
-            loading={resuming}
-            onPress={() => void resumeChain()}
+            loading={busy}
+            disabled={busy}
+            onPress={() => void toggleChainPause()}
           >
-            {intl.formatMessage({ id: ETranslations.global_resume })}
+            {intl.formatMessage({
+              id: canResume
+                ? ETranslations.global_resume
+                : ETranslations.global_pause,
+            })}
           </Button>
         ) : null}
       </ListItem>

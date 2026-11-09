@@ -15,6 +15,7 @@ import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/T
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
+  TRADING_VIEW_NATIVE_CROSSHAIR_TAP_MAX_DISTANCE,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_LEGEND_TAP_MAX_DISTANCE,
 } from '../chartConstants';
@@ -43,6 +44,7 @@ type IMockGestureHandler = (...args: unknown[]) => void;
 interface IMockGestureBuilder {
   [key: string]: unknown;
   handlers: Record<string, IMockGestureHandler>;
+  enabled: jest.Mock;
   maxDistance: jest.Mock;
   activeOffsetX: jest.Mock;
   failOffsetY: jest.Mock;
@@ -187,7 +189,7 @@ function renderSettingsGesture(
 
   renderHook(() => useTradingViewNativeChartGestures(props));
   const settingsGesture = mockTapGestures.find(
-    (gesture) => gesture.maxDistance.mock.calls.length > 0,
+    (gesture) => gesture.enabled.mock.calls.length === 0,
   );
   expect(settingsGesture).toBeDefined();
   return settingsGesture as IMockGestureBuilder;
@@ -197,10 +199,14 @@ function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
   excludeStartEdgeWidth = 0,
+  isClickInteractionEnabled = true,
+  onChartDragStart,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
   excludeStartEdgeWidth?: number;
+  isClickInteractionEnabled?: boolean;
+  onChartDragStart?: () => void;
 } = {}) {
   const chartRuntime = {
     value: {
@@ -232,8 +238,9 @@ function renderChartGestures({
     chartRuntime,
     decayOffset,
     prioritizePageScroll,
-    isClickInteractionEnabled: true,
+    isClickInteractionEnabled,
     isCrosshairEnabled: true,
+    onChartDragStart,
     onSubIndicatorSettingsPress: jest.fn(),
     priceAxisResetGesture: {},
     priceAxisScaleGesture: {},
@@ -264,7 +271,7 @@ function renderChartGestures({
     decayOffset,
     crosshairGesture: mockPanGestures[initialPanGestureCount],
     tapCrosshairGesture: mockTapGestures.find(
-      (gesture) => gesture.maxDistance.mock.calls.length === 0,
+      (gesture) => gesture.enabled.mock.calls.length > 0,
     ),
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
     pinchGesture: mockPinchGestures[mockPinchGestures.length - 1],
@@ -317,7 +324,7 @@ describe('useTradingViewNativeChartGestures', () => {
       expect(failTimeAxis).toHaveBeenCalledTimes(1);
 
       const settingsGesture = mockTapGestures.find(
-        (gesture) => gesture.maxDistance.mock.calls.length > 0,
+        (gesture) => gesture.enabled.mock.calls.length === 0,
       );
       const failSettings = jest.fn();
       settingsGesture?.handlers.onTouchesDown?.(
@@ -433,7 +440,7 @@ describe('useTradingViewNativeChartGestures', () => {
     renderChartGestures();
     const crosshairGesture = mockPanGestures[0];
     const tapCrosshairGesture = mockTapGestures.find(
-      (gesture) => gesture.maxDistance.mock.calls.length === 0,
+      (gesture) => gesture.enabled.mock.calls.length > 0,
     );
     const failCrosshair = jest.fn();
     const failTapCrosshair = jest.fn();
@@ -472,7 +479,7 @@ describe('useTradingViewNativeChartGestures', () => {
         mockPanGestures[0],
         mockPanGestures[1],
         mockTapGestures.find(
-          (gesture) => gesture.maxDistance.mock.calls.length === 0,
+          (gesture) => gesture.enabled.mock.calls.length > 0,
         ),
       ];
       for (const gesture of gestures) {
@@ -492,6 +499,37 @@ describe('useTradingViewNativeChartGestures', () => {
       }
     },
   );
+
+  it.each(['contentPan', 'timeAxisScale', 'pinch'] as const)(
+    'reports a chart drag when %s starts',
+    (kind) => {
+      const onChartDragStart = jest.fn();
+      const gestures = renderChartGestures({ onChartDragStart });
+      if (kind === 'pinch') {
+        gestures.pinchGesture.handlers.onStart?.({ focalX: 140, scale: 1 });
+      } else {
+        const gesture =
+          kind === 'contentPan'
+            ? gestures.contentPanGesture
+            : gestures.timeAxisScaleGesture;
+        gesture.handlers.onStart?.({ translationX: 0, x: 100 });
+      }
+
+      expect(onChartDragStart).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not report a chart drag for crosshair gestures', () => {
+    const onChartDragStart = jest.fn();
+    const { crosshairGesture, tapCrosshairGesture } = renderChartGestures({
+      onChartDragStart,
+    });
+
+    crosshairGesture.handlers.onStart?.({ x: 100, y: 120 });
+    tapCrosshairGesture?.handlers.onEnd?.({ x: 100, y: 120 }, true);
+
+    expect(onChartDragStart).not.toHaveBeenCalled();
+  });
 
   it('keeps the crosshair visible after the long press ends', () => {
     const { chartRuntime } = renderChartGestures();
@@ -525,6 +563,40 @@ describe('useTradingViewNativeChartGestures', () => {
       x: 100,
       y: 120,
     });
+  });
+
+  it('keeps a tapped crosshair when the unstarted long press fails afterwards', () => {
+    const { chartRuntime, crosshairGesture, tapCrosshairGesture } =
+      renderChartGestures();
+    chartRuntime.value.crosshair.visible = false;
+
+    // Native recognizers report the tap before the long press fails.
+    tapCrosshairGesture?.handlers.onEnd?.({ x: 100, y: 120 }, true);
+    crosshairGesture.handlers.onFinalize?.({}, false);
+
+    expect(chartRuntime.value.crosshair).toEqual({
+      visible: true,
+      x: 100,
+      y: 120,
+    });
+  });
+
+  it('dismisses the crosshair on tap without click interaction', () => {
+    const { chartRuntime, crosshairGesture } = renderChartGestures({
+      isClickInteractionEnabled: false,
+    });
+
+    crosshairGesture.handlers.onFinalize?.({}, false);
+
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
+  });
+
+  it('fails the crosshair tap on drag so the chart can pan', () => {
+    const { tapCrosshairGesture } = renderChartGestures();
+
+    expect(tapCrosshairGesture?.maxDistance).toHaveBeenCalledWith(
+      TRADING_VIEW_NATIVE_CROSSHAIR_TAP_MAX_DISTANCE,
+    );
   });
 
   it.each([true, false])(
