@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 /* eslint-disable max-classes-per-file */
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -86,6 +87,23 @@ export class ReplaceTxNonceConsumedError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.ReplaceTxNonceConsumed;
 
   override autoToast?: boolean | undefined = true;
+}
+
+// A terminal Infini speed-up failure. Keep its identity across the bg/UI bridge.
+export class InfiniReplacementUnavailableError extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Close this window and try again.',
+        defaultKey: ETranslations.prime_close_and_try_again__desc,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.InfiniReplacementUnavailable;
+
+  override name = EOneKeyErrorClassNames.InfiniReplacementUnavailable;
 }
 
 export class IncorrectMasterPassword extends OneKeyAppError {
@@ -1147,6 +1165,13 @@ export class InvoiceExpiredError extends OneKeyAppError {
       }),
     );
   }
+}
+
+// Preserve InvoiceExpiredError behavior while exposing a bridge-safe UI signal.
+export class InfiniReplacementExpiredError extends InvoiceExpiredError {
+  override className = EOneKeyErrorClassNames.InfiniReplacementExpired;
+
+  override name = EOneKeyErrorClassNames.InfiniReplacementExpired;
 }
 
 export class TaprootAddressError extends OneKeyAppError {
