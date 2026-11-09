@@ -608,7 +608,10 @@ export function MobileLayout({
   // the measured viewport while a keyboard is up; its overlays already hide
   // the main tab bar, so they use the actual page viewport.
   const usesMeasuredPageViewport =
-    platformEnv.isNativeIOS || (platformEnv.isNativeAndroid && isModalPage);
+    platformEnv.isNativeIOS ||
+    (platformEnv.isNativeAndroid && isModalPage) ||
+    // The extension's read-only chart modal does not have a trade footer.
+    (platformEnv.isExtension && disableTrade);
   const layoutHeight =
     usesMeasuredPageViewport && pageViewportHeight > 0
       ? pageViewportHeight

@@ -128,7 +128,6 @@ it('Zcash public-pool total request carries the explicitly selected account iden
       getLocalWalletBalance: async () => null,
       zcashFetchFreshTransparentUtxos: async () => ({
         utxos: [],
-        coinbaseZat: '0',
       }),
       backgroundApi: {
         simpleDb: {
