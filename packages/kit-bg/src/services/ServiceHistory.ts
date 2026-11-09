@@ -887,6 +887,74 @@ export function mergeLocalTxDisplayFields({
   };
 }
 
+function getOnlyAssetSend(tx: IAccountHistoryTx) {
+  const transfer = tx.decodedTx.actions?.[0]?.assetTransfer;
+  if (transfer?.sends?.length !== 1 || transfer.receives?.length) {
+    return undefined;
+  }
+  return transfer.sends[0];
+}
+
+// The server reports a Lightning Self-Custody send as one total: the amount
+// paid plus the Spark service provider's fee, which it cannot see. The record
+// this device saved when it sent the payment holds the amount paid, so the
+// fee is the difference. The merged record is saved and becomes the local
+// record of the next merge, so the split survives later refreshes; other
+// devices keep the server total.
+export function mergeLightningSparkSendFee({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  const { decodedTx } = onChainHistoryTx;
+  if (
+    !networkUtils.isLightningSparkNetworkByNetworkId(decodedTx.networkId) ||
+    decodedTx.status !== EDecodedTxStatus.Confirmed
+  ) {
+    return onChainHistoryTx;
+  }
+  const localSend = getOnlyAssetSend(localTx);
+  const onChainSend = getOnlyAssetSend(onChainHistoryTx);
+  if (!localSend || !onChainSend) {
+    return onChainHistoryTx;
+  }
+  const amount = new BigNumber(localSend.amount);
+  const total = new BigNumber(onChainSend.amount);
+  if (
+    !amount.isFinite() ||
+    !total.isFinite() ||
+    amount.lte(0) ||
+    total.lt(amount)
+  ) {
+    return onChainHistoryTx;
+  }
+  const fee = total.minus(amount);
+  const price = new BigNumber(onChainSend.price ?? '');
+  return {
+    ...onChainHistoryTx,
+    decodedTx: {
+      ...decodedTx,
+      totalFeeInNative: fee.toFixed(),
+      ...(price.isFinite()
+        ? { totalFeeFiatValue: fee.times(price).toFixed() }
+        : {}),
+      actions: decodedTx.actions.map((action, index) =>
+        index === 0 && action.assetTransfer
+          ? {
+              ...action,
+              assetTransfer: {
+                ...action.assetTransfer,
+                sends: [{ ...onChainSend, amount: amount.toFixed() }],
+              },
+            }
+          : action,
+      ),
+    },
+  };
+}
+
 // Sentinel value stored inside a merge-derive opaque cursor map to mark a
 // deriveType that has finished paginating. Future pages skip it entirely
 // instead of issuing a request that would just return an empty page.
@@ -2372,11 +2440,14 @@ class ServiceHistory extends ServiceBase {
           if (!localHistoryTx) {
             return onChainHistoryTx;
           }
-          return mergeLocalTxDisplayFields({
+          return mergeLightningSparkSendFee({
             localTx: localHistoryTx,
-            onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+            onChainHistoryTx: mergeLocalTxDisplayFields({
               localTx: localHistoryTx,
-              onChainHistoryTx,
+              onChainHistoryTx: mergePrivateSendLocalDecodedTxFields({
+                localTx: localHistoryTx,
+                onChainHistoryTx,
+              }),
             }),
           });
         },
