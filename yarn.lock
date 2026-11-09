@@ -9841,10 +9841,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/monero-runtime@npm:0.1.0-alpha.13":
-  version: 0.1.0-alpha.13
-  resolution: "@onekeyfe/monero-runtime@npm:0.1.0-alpha.13"
-  checksum: 10/09e23bc49aa1eeebaa51d1aec4e67a0ee8e35c7352f4a26d6e1e904405090f150cb0113575acdfb1564a7d3cbe637caf10705302a2dc8c9bebda2222e02d5433
+"@onekeyfe/monero-runtime@npm:0.1.0-alpha.14":
+  version: 0.1.0-alpha.14
+  resolution: "@onekeyfe/monero-runtime@npm:0.1.0-alpha.14"
+  checksum: 10/f93ee9e1334d728755c027fbc11c2f366fd9b47a6c06a7900243bf24f25274b6e7b70e02cc338ce1dc4356d73b8dd7a6af1c34edc6e1697c53d55f117a7c4314
   languageName: node
   linkType: hard
 
@@ -10861,7 +10861,7 @@ __metadata:
     "@onekeyfe/coinselect": "npm:3.1.17"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
-    "@onekeyfe/monero-runtime": "npm:0.1.0-alpha.13"
+    "@onekeyfe/monero-runtime": "npm:0.1.0-alpha.14"
     "@onekeyfe/zcash-keys": "npm:0.1.0-alpha.16"
     "@onekeyfe/zcash-runtime": "npm:0.1.0-alpha.16"
     "@solana/spl-token": "npm:^0.4.8"
