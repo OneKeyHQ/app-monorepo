@@ -78,6 +78,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     loadStatus,
     refreshStatus,
     partialError,
+    providerInfo,
     freshNetworks,
     suspend,
     resume,
@@ -286,7 +287,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     () =>
       current && selecting && assetsReady
         ? {
-            id: `${current.accountId}:${current.address}:${current.network.networkId}:${slippage}:${selected.map((token) => `${token.key}=${token.amount}`).join('|')}`,
+            id: `${current.accountId}:${current.address}:${current.network.networkId}:${slippage}:${current.denySingleSwapProvider ?? ''}:${selected.map((token) => `${token.key}=${token.amount}`).join('|')}`,
             accountId: current.accountId,
             address: current.address,
             networkId: current.network.networkId,
@@ -294,6 +295,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
             nativeToken: current.nativeToken,
             slippage,
             tokens: selected,
+            denySingleSwapProvider: current.denySingleSwapProvider,
           }
         : undefined,
     [current, selecting, assetsReady, slippage, selected],
@@ -511,6 +513,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     failedNetworks: data.failedNetworks,
     isRefreshing: refreshStatus === 'refreshing' || reconciling,
     autoRefreshTimerActive,
+    providerInfo,
     threshold,
     slippage,
     setSlippage,

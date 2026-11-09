@@ -224,6 +224,17 @@ describe('ServiceSwap quote event request ownership', () => {
     await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
 
+  it('omits provider restrictions for ordinary quote events', async () => {
+    const { getUri, service } = createService();
+    await service.fetchQuotesEvents(
+      createQuoteParams('ordinary-quote-request'),
+    );
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'denySingleSwapProvider',
+    );
+    await service.cancelFetchQuoteEvents('ordinary-quote-request');
+  });
+
   it('preserves Sweep source without sending provider restrictions', async () => {
     const { getUri, service } = createService();
     const getDenySingleSwapProvider = jest
@@ -233,6 +244,7 @@ describe('ServiceSwap quote event request ownership', () => {
     await service.fetchQuotesEvents({
       ...createQuoteParams('sweep-quote-request'),
       source: ESwapQuoteSource.SWEEP,
+      denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
     });
 
     expect(getUri).toHaveBeenCalledWith(

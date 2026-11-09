@@ -1,6 +1,7 @@
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   beginDustSweepNetworksCacheWrite,
@@ -47,6 +48,12 @@ function result(): IDustSweepNetworksResult {
       },
     ],
     partialError: true,
+    providerInfo: {
+      provider: 'SwapOKX',
+      protocol: EProtocolOfExchange.SWAP,
+      providerName: 'OKX',
+      logo: 'https://example.com/okx.png',
+    },
     failedNetworkIds: ['evm--56'],
     failedNetworks: [
       { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
