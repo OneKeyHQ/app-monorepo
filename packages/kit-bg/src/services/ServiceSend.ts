@@ -25,6 +25,8 @@ import {
   SEND_TX_SERVER_ERROR_CODES,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  InfiniReplacementExpiredError,
+  InfiniReplacementUnavailableError,
   InvoiceExpiredError,
   JsonRPCResponseError,
   OneKeyInternalError,
@@ -102,7 +104,6 @@ import type {
 
 import { vaultFactory } from '../vaults/factory';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
-import { getVaultSettings } from '../vaults/settings';
 import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
@@ -224,11 +225,7 @@ class ServiceSend extends ServiceBase {
     ) {
       return undefined;
     }
-    const unavailable = () =>
-      new OneKeyLocalError({
-        key: ETranslations.prime_close_and_try_again__desc,
-        autoToast: true,
-      });
+    const unavailable = () => new InfiniReplacementUnavailableError();
     if (
       await this.backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
         accountId,
@@ -776,16 +773,11 @@ class ServiceSend extends ServiceBase {
           await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
             { networkId: params.networkId, encodedTx: params.encodedTx },
           );
-        const fee = new BigNumber(tx.fee);
-        const { localWallet } = await getVaultSettings({
-          networkId: params.networkId,
-        });
-        // Checked locally until the backend pre-send check supports privacy chains; a mismatched fee or one at least
-        // as large as the payment needs review, unless the protocol sets it.
-        return (
-          !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
-          (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
-        );
+        // Checked locally until the backend pre-send check supports privacy chains; only a fee other than the one
+        // shown needs review, since each runtime already fixes or caps the fee.
+        return !new BigNumber(tx.fee)
+          .shiftedBy(-tx.decimals)
+          .eq(params.feeAmount);
       } catch {
         return true;
       }
@@ -1192,10 +1184,7 @@ class ServiceSend extends ServiceBase {
       // Terminal failures take precedence over warnings and cleanup failures.
       // Replacement screens rely on the shared error toast for feedback.
       if (!quoteFailure) {
-        throw new OneKeyLocalError({
-          key: ETranslations.prime_close_and_try_again__desc,
-          autoToast: true,
-        });
+        throw new InfiniReplacementUnavailableError();
       }
     }
     if (
@@ -1218,7 +1207,7 @@ class ServiceSend extends ServiceBase {
       // Replacement confirmations have no Prime payment screen to display
       // validation failures. Let the shared send error handler show expiry.
       if (mode === 'speedUp' && quoteFailure === 'quoteExpired') {
-        throw new InvoiceExpiredError({
+        throw new InfiniReplacementExpiredError({
           autoToast: true,
           data: { paymentValidationFailure: quoteFailure },
         });
@@ -1619,13 +1608,20 @@ class ServiceSend extends ServiceBase {
           Date.now() >= effectiveBroadcastDeadline
         ) {
           if (beforeBroadcastAction?.type === 'primeInfiniPayment') {
+            const quoteExpired =
+              infiniPaymentExpiresAt !== undefined &&
+              Date.now() >= infiniPaymentExpiresAt;
+            if (replacementContext && quoteExpired) {
+              throw new InfiniReplacementExpiredError({
+                autoToast: true,
+                data: { paymentValidationFailure: 'quoteExpired' },
+              });
+            }
             throw new InvoiceExpiredError({
               data: {
-                paymentValidationFailure:
-                  infiniPaymentExpiresAt !== undefined &&
-                  Date.now() >= infiniPaymentExpiresAt
-                    ? 'quoteExpired'
-                    : 'quoteValidityTooShort',
+                paymentValidationFailure: quoteExpired
+                  ? 'quoteExpired'
+                  : 'quoteValidityTooShort',
               },
             });
           }

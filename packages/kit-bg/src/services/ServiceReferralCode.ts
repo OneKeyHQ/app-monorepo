@@ -93,6 +93,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
@@ -140,7 +141,10 @@ class ServiceReferralCode extends ServiceBase {
         onekeyUserId,
       );
     }
-    return summary.data.data;
+    return {
+      ...summary.data.data,
+      inviteUrl: ensureHttpsPrefix(summary.data.data.inviteUrl),
+    };
   }
 
   // Unauthenticated, so invitees without a OneKey ID login see it too.

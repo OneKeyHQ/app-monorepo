@@ -50,6 +50,7 @@ import {
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
+import { getTokenListFooterLayout } from './tokenListRowLayout';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -435,18 +436,15 @@ function TokenListFooter(props: IProps) {
     };
   }, [run]);
 
+  const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
+
   return (
-    <Stack mx={tableLayout ? undefined : '$2'}>
+    <Stack mx={footerLayout.mx}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
           <XStack
             flexGrow={1}
@@ -530,12 +528,7 @@ function TokenListFooter(props: IProps) {
         <ListItem
           onPress={handleOnPressRiskyTokens}
           userSelect="none"
-          {...(tableLayout && plainMode
-            ? undefined
-            : {
-                px: '$3',
-                mx: 0,
-              })}
+          {...footerLayout.itemProps}
         >
           <XStack alignItems="center" gap="$3" flex={1}>
             <Stack p="$2" borderRadius="$full" bg="$bgStrong">
