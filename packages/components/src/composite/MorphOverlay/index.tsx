@@ -185,6 +185,43 @@ function OverlayLayer({
 }: IStackProps & { ownsFocus: boolean; focusKey: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wasActiveRef = useRef(false);
+  const [reclaimingFocus, setReclaimingFocus] = useState(false);
+  const reclaimFocus = useCallback(() => {
+    const container = containerRef.current;
+    if (
+      !ownsFocus ||
+      !container ||
+      container.contains(document.activeElement)
+    ) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      rect.x + rect.width / 2,
+      rect.y + rect.height / 2,
+    );
+    if (hit && container.contains(hit)) {
+      // A later-mounted dialog can sit below this portal but pause its scope.
+      // Reactivate the scope without remounting the input or clearing its value.
+      setReclaimingFocus(true);
+    }
+  }, [ownsFocus]);
+  useEffect(() => {
+    if (reclaimingFocus) setReclaimingFocus(false);
+  }, [reclaimingFocus]);
+  useEffect(() => {
+    if (!ownsFocus || reclaimingFocus) return;
+    let frame = 0;
+    const handleFocusIn = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(reclaimFocus);
+    };
+    document.addEventListener('focusin', handleFocusIn);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [ownsFocus, reclaimingFocus, reclaimFocus]);
   useEffect(() => {
     const wasActive = wasActiveRef.current;
     wasActiveRef.current = ownsFocus;
@@ -196,17 +233,18 @@ function OverlayLayer({
       document.activeElement !== document.body &&
       !container.contains(document.activeElement)
     ) {
+      reclaimFocus();
       return;
     }
     getFocusCandidates(container)
       .find((element) => element.hasAttribute('data-morph-initial-focus'))
       ?.focus({ preventScroll: true });
-  }, [focusKey, ownsFocus]);
+  }, [focusKey, ownsFocus, reclaimFocus]);
   return (
     <FocusScope
       ref={containerRef}
-      enabled={ownsFocus}
-      trapped={ownsFocus}
+      enabled={ownsFocus && !reclaimingFocus}
+      trapped={ownsFocus && !reclaimingFocus}
       onMountAutoFocus={handleMountAutoFocus}
     >
       <Stack

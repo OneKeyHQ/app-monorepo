@@ -395,7 +395,13 @@ const focusSeats: IMorphOverlayProps<string>['seats'] = [
 ];
 
 describe('MorphOverlay focus ownership', () => {
+  const elementFromPoint = jest.fn<Element | null, [number, number]>();
   beforeEach(() => {
+    elementFromPoint.mockReset().mockReturnValue(null);
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: elementFromPoint,
+    });
     // jsdom has no layout; all visibility changes here use inert.
     const rect = document.body.getBoundingClientRect();
     jest.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue({
@@ -405,7 +411,10 @@ describe('MorphOverlay focus ownership', () => {
       [Symbol.iterator]: () => [rect][Symbol.iterator](),
     });
   });
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+    Reflect.deleteProperty(document, 'elementFromPoint');
+  });
 
   function Harness({
     pose,
@@ -486,22 +495,50 @@ describe('MorphOverlay focus ownership', () => {
     expect(document.activeElement).toBe(details);
   });
 
-  it('does not take initial focus from a dialog opened above the hardware prompt', async () => {
-    const view = render(<Harness pose="capsule" />);
-    const layer = view.getByTestId('morph-overlay-wall').parentElement;
-    await waitFor(() => expect(document.activeElement).toBe(layer));
-    const dialog = render(
-      <FocusScope trapped loop>
-        <div>
-          <button type="button">New dialog action</button>
-        </div>
-      </FocusScope>,
-    );
-    const action = dialog.getByText('New dialog action');
-    await waitFor(() => expect(document.activeElement).toBe(action));
-    view.rerender(<Harness pose="card" />);
-    expect(document.activeElement).toBe(action);
-  });
+  it.each(['above', 'below'] as const)(
+    'keeps focus in the visually top layer when a dialog opens %s the hardware prompt',
+    async (position) => {
+      const view = render(<Harness pose="capsule" />);
+      const layer = view.getByTestId('morph-overlay-wall').parentElement;
+      await waitFor(() => expect(document.activeElement).toBe(layer));
+      const dialog = render(
+        <FocusScope trapped loop>
+          <div>
+            <button type="button">New dialog action</button>
+          </div>
+        </FocusScope>,
+      );
+      const action = dialog.getByText('New dialog action');
+      await waitFor(() => expect(document.activeElement).toBe(action));
+      const input = view.getByLabelText('Passphrase');
+      if (!(input instanceof HTMLInputElement)) {
+        throw new OneKeyLocalError('Missing passphrase input');
+      }
+      elementFromPoint.mockReturnValue(position === 'above' ? action : input);
+      view.rerender(<Harness pose="card" />);
+      await act(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          ),
+      );
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          position === 'above' ? action : input,
+        ),
+      );
+      if (position === 'below') {
+        fireEvent.change(input, { target: { value: 'kept-passphrase' } });
+        // A late autofocus from the covered dialog must not win either.
+        act(() => action.focus());
+        await waitFor(() => expect(document.activeElement).toBe(input));
+        expect(view.getByLabelText('Passphrase')).toBe(input);
+        expect(input.value).toBe('kept-passphrase');
+        view.rerender(<Harness pose="hidden" />);
+        await waitFor(() => expect(document.activeElement).toBe(action));
+      }
+    },
+  );
 
   it('recovers focus when a step parks the focused input, without stealing it after exit', async () => {
     const view = render(<Harness pose="hidden" />);
