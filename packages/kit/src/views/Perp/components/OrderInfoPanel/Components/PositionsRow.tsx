@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 
 import {
   Button,
@@ -503,7 +504,7 @@ const PositionRowDesktopTPSL = memo(
           } else if (kind === 'sl') {
             slPrice = order.triggerPx;
           }
-        } else {
+        } else if (order.reduceOnly && getTpSlKind(order)) {
           hasNonPositionTpslOrder = true;
         }
       });
@@ -1329,31 +1330,52 @@ const PositionRowMobileActions = memo(
         justifyContent="space-between"
         position="relative"
       >
-        {visibleActions.map((action) => (
-          <Button
-            key={action.key}
-            testID={action.testID}
-            size="medium"
-            variant="secondary"
-            onPress={action.onPress}
-            flex={1}
-            flexBasis={0}
-            minWidth={0}
-            childrenAsText={false}
-          >
+        {visibleActions.map((action) => {
+          const label = (
             <SizableText
               size={MOBILE_POSITION_ACTION_TEXT_SIZE}
               width="100%"
               minWidth={0}
               numberOfLines={1}
+              ellipsizeMode="tail"
               adjustsFontSizeToFit
               minimumFontScale={0.75}
               textAlign="center"
+              // iOS keeps a fixed line height's baseline when shrinking the font.
+              // A zero native line height uses natural metrics; the wrapper centers it.
+              style={Platform.select({ ios: { lineHeight: 0 } })}
             >
               {intl.formatMessage({ id: action.label })}
             </SizableText>
-          </Button>
-        ))}
+          );
+          return (
+            <Button
+              key={action.key}
+              testID={action.testID}
+              size="medium"
+              variant="secondary"
+              onPress={action.onPress}
+              flex={1}
+              flexBasis={0}
+              minWidth={0}
+              childrenAsText={false}
+            >
+              {Platform.select({
+                ios: (
+                  <YStack
+                    width="100%"
+                    minWidth={0}
+                    minHeight="$4"
+                    justifyContent="center"
+                  >
+                    {label}
+                  </YStack>
+                ),
+                default: label,
+              })}
+            </Button>
+          );
+        })}
       </XStack>
     );
   },

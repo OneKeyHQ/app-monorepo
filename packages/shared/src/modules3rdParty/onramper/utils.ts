@@ -1,4 +1,62 @@
-import type { IOnramperError, IOnramperLogRecord } from './type';
+import type {
+  IOnramperError,
+  IOnramperLogRecord,
+  IOnramperState,
+  IOnramperStateKind,
+} from './type';
+
+// A user_info field the backend already holds can only belong to a signed-in
+// OnramperID user: nothing is satisfied for an anonymous checkout.
+export function hasVerifiedOnramperUserInfo(
+  requirements: { type: string; fields?: { satisfied: boolean }[] }[],
+): boolean {
+  return requirements.some(
+    (requirement) =>
+      requirement.type === 'user_info' &&
+      requirement.fields?.some((field) => field.satisfied),
+  );
+}
+
+// States a checkout only reaches once the OnramperID login is behind it: it
+// was prepared for a signed-in user (`readyToCheckout`), or it is being paid.
+// The paying states matter for a login made through the button: nothing
+// promises a `readyToCheckout` between `authenticating` and `finalizing`.
+const SIGNED_IN_STATE_KINDS = new Set<IOnramperStateKind>([
+  'readyToCheckout',
+  'finalizing',
+  'rendering',
+  'paymentPending',
+  'completed',
+]);
+
+// The SDK has no "is the OnramperID user signed in" query: its login tokens
+// stay in the Keychain. The checkout state machine is the only signal — every
+// prepared checkout settles on `readyToCheckout` (the button pays without a
+// login) or on `requireLogin` (the button runs the OnramperID flow first), and
+// a checkout that goes on to be paid has the login behind it either way.
+// `requireLogin` alone does not mean signed out: it also covers a signed-in
+// user who has to re-verify or add details, and that user must keep the
+// sign-out action. Only a login that starts from nothing counts. Every other
+// state says nothing about the login: `authenticating` is a flow the user can
+// still cancel, and `failed` can follow any state.
+export function getOnramperSignedInFromState(
+  state: Pick<
+    IOnramperState,
+    'kind' | 'requirementTypes' | 'hasVerifiedUserInfo'
+  >,
+): boolean | undefined {
+  if (SIGNED_IN_STATE_KINDS.has(state.kind)) {
+    return true;
+  }
+  if (state.kind !== 'requireLogin') {
+    return undefined;
+  }
+  const types = state.requirementTypes ?? [];
+  if (state.hasVerifiedUserInfo || types.includes('reverification')) {
+    return true;
+  }
+  return types.includes('user_info') ? false : undefined;
+}
 
 // Structural / non-retryable failures → fall back to the web widget (S5).
 // Everything else is treated as retryable (inline retry, S4).
@@ -20,6 +78,32 @@ export function isStructuralOnramperError(
   error: IOnramperError | undefined,
 ): boolean {
   return Boolean(error?.code && STRUCTURAL_ERROR_CODES.has(error.code));
+}
+
+// The user closed the OnramperID sign-in (email / phone verification). A
+// choice, not a failure: the page prepares a fresh checkout without an error.
+const USER_CANCELLED_ERROR_CODES = new Set(['oidcFlowCancelled']);
+
+export function isUserCancelledOnramperError(
+  error: IOnramperError | undefined,
+): boolean {
+  return Boolean(error?.code && USER_CANCELLED_ERROR_CODES.has(error.code));
+}
+
+// An expired or already-used quote, or a call the SDK refused in its current
+// state: a fresh checkout (reset() + a new quote) fixes these on its own, and
+// the user has nothing to decide, so the page re-prepares without an error.
+const SELF_HEALING_ERROR_CODES = new Set([
+  'intentInvalidated',
+  'intentAlreadyConsumed',
+  'invalidState',
+  'invalidStateTransition',
+]);
+
+export function isSelfHealingOnramperError(
+  error: IOnramperError | undefined,
+): boolean {
+  return Boolean(error?.code && SELF_HEALING_ERROR_CODES.has(error.code));
 }
 
 // Caps for free-form strings that ride on analytics events. Backend messages

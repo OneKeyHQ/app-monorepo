@@ -78,12 +78,6 @@ export type ILocalStore = {
 
 export const instance = store;
 
-export const clear = () => {
-  store.clear();
-  updateStateStore.clear();
-  runtimeStateStore.clear();
-};
-
 export const getUpdateSettings = () =>
   store.get(EDesktopStoreKeys.UpdateSettings, {
     useTestFeedUrl: false,
@@ -365,6 +359,13 @@ export const setBootFailAppVersion = (version: string) =>
 // ==================== MMKV Persistent Store ====================
 const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
 const mmkvDevSettingStore = new Store({ name: 'mmkv-onekey-app-dev-setting' });
+
+export const clear = () => {
+  store.clear();
+  updateStateStore.clear();
+  runtimeStateStore.clear();
+  mmkvDevSettingStore.clear();
+};
 
 export const getDevSettingsEnabled = (): boolean => {
   const devSettingEnabled = mmkvDevSettingStore.get(

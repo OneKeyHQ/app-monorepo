@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -14,7 +16,10 @@ import {
 import {
   convertDeviceError,
   convertDeviceResponse,
+  isHardwareErrorByCode,
+  isOneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -155,9 +160,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!account.pub) {
       throw new OneKeyInternalError('Account pub not found');
     }
+    const publicKey = account.pub;
     const { unsignedTx: rawTx } = await serializeUnsignedTransaction({
       encodedTx,
-      publicKey: account.pub,
+      publicKey,
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
@@ -186,7 +192,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
     const res = await convertDeviceResponse(() =>
       sdk.alephiumSignTransaction(connectId, deviceId, hwParams),
-    );
+    ).catch(async (error: unknown) => {
+      if (
+        !isOneKeyHardwareError(error) ||
+        !isHardwareErrorByCode({ error, code: HardwareErrorCode.TooManyInputs })
+      ) {
+        throw error;
+      }
+      let failure = error;
+      try {
+        const { getAlphHardwareInputLimitError } =
+          await import('./sdkAlph/hardwareInputLimit');
+        failure = await getAlphHardwareInputLimitError({
+          error,
+          unsignedTx: rawTx,
+          encodedTx,
+          backgroundApi: this.vault.backgroundApi,
+          networkId: this.vault.networkId,
+          accountId: account.id,
+        });
+      } catch {
+        defaultLogger.app.error.log(
+          'Failed to load ALPH input-limit amount suggestion',
+        );
+      }
+      throw failure;
+    });
     if (!res.signature) {
       throw new OneKeyInternalError('Failed to sign transaction');
     }

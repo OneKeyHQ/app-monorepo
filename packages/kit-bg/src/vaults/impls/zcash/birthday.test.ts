@@ -1,16 +1,32 @@
 import { ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { findZcashHeightAtTimeDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import {
   ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+  ZCASH_NU7_ACTIVATION_TIMESTAMP_MS,
 } from '@onekeyhq/shared/src/config/zcash';
 
 import {
-  ZCASH_BIRTHDAY_SAFETY_BLOCKS,
-  ZCASH_BLOCKS_PER_DAY,
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
   estimateZcashChainTipFromClock,
+  noteZcashBirthdayPlacement,
+  placeZcashBirthdayHeight,
+  settleZcashBirthdayPlacementTurn,
 } from './birthday';
+
+jest.mock(
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+  () => ({
+    findZcashHeightAtTimeDirect: jest.fn(),
+  }),
+);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 75s blocks before NU7, 25s after.
+const ZCASH_BLOCKS_PER_DAY = 1152;
+const POST_NU7_BLOCKS_PER_DAY = 3456;
+const ZCASH_BIRTHDAY_SAFETY_BLOCKS = ZCASH_BLOCKS_PER_DAY;
 
 describe('estimateZcashBirthdayHeight', () => {
   const now = Date.UTC(2026, 7, 21);
@@ -66,6 +82,43 @@ describe('estimateZcashBirthdayHeight', () => {
         chainTip: 3_000_000,
       }),
     ).toBe(estimateZcashChainTipFromClock(now) - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
+  });
+
+  it('counts 25s blocks after NU7', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 30 * DAY_MS;
+    const tip = estimateZcashChainTipFromClock(later) + 10_000;
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: later - 10 * DAY_MS,
+        now: later,
+        chainTip: tip,
+      }),
+    ).toBe(tip - 11 * POST_NU7_BLOCKS_PER_DAY);
+  });
+
+  it('splits a window that spans NU7 at the activation time', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 2 * DAY_MS;
+    const tip = estimateZcashChainTipFromClock(later) + 10_000;
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: later - 5 * DAY_MS,
+        now: later,
+        chainTip: tip,
+      }),
+    ).toBe(tip - 4 * ZCASH_BLOCKS_PER_DAY - 2 * POST_NU7_BLOCKS_PER_DAY);
+  });
+
+  it('advances the clock tip three times faster after NU7', () => {
+    const later = ZCASH_NU7_ACTIVATION_TIMESTAMP_MS + 10 * DAY_MS;
+    const before =
+      estimateZcashChainTipFromClock(ZCASH_NU7_ACTIVATION_TIMESTAMP_MS) -
+      estimateZcashChainTipFromClock(
+        ZCASH_NU7_ACTIVATION_TIMESTAMP_MS - DAY_MS,
+      );
+    const after =
+      estimateZcashChainTipFromClock(later + DAY_MS) -
+      estimateZcashChainTipFromClock(later);
+    expect(Math.abs(after - 3 * before)).toBeLessThanOrEqual(3);
   });
 
   it('keeps the product floor at Ironwood and above the unsupported Sapling era', () => {
@@ -143,5 +196,83 @@ describe('clampZcashBirthdayHeight', () => {
         chainTip: 3_700_000,
       }),
     ).toBe(3_700_000);
+  });
+});
+
+describe('placeZcashBirthdayHeight', () => {
+  const findHeight = jest.mocked(findZcashHeightAtTimeDirect);
+  const birthdayTimestamp = Date.UTC(2026, 9, 1);
+  const lightwalletdUrl = 'https://lightwalletd.test';
+
+  beforeEach(() => findHeight.mockReset());
+
+  it('searches a day before the date between the floor and the tip', async () => {
+    findHeight.mockResolvedValue(3_480_000);
+    await expect(
+      placeZcashBirthdayHeight({
+        lightwalletdUrl,
+        birthdayTimestamp,
+        chainTip: 3_700_000,
+      }),
+    ).resolves.toBe(3_480_000);
+    expect(findHeight).toHaveBeenCalledWith({
+      lightwalletdUrl,
+      timeSeconds: (birthdayTimestamp - DAY_MS) / 1000,
+      lowHeight: ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET,
+      highHeight: 3_700_000,
+    });
+  });
+
+  it('returns null while the node cannot answer', async () => {
+    findHeight.mockResolvedValue(null);
+    await expect(
+      placeZcashBirthdayHeight({
+        lightwalletdUrl,
+        birthdayTimestamp,
+        chainTip: 3_700_000,
+      }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('noteZcashBirthdayPlacement', () => {
+  const turn = (failed: string[], accountIds = ['a', 'b']) => {
+    for (const accountId of failed) {
+      noteZcashBirthdayPlacement(accountId, false);
+    }
+    return settleZcashBirthdayPlacementTurn(accountIds);
+  };
+
+  afterEach(() => {
+    settleZcashBirthdayPlacementTurn([]);
+  });
+
+  it('tells the user on the third failing turn in a row', () => {
+    expect(turn(['a'])).toBe(false);
+    expect(turn(['a'])).toBe(false);
+    expect(turn(['a'])).toBe(true);
+    expect(turn(['a'])).toBe(true);
+  });
+
+  it('counts a turn once however often it failed in it', () => {
+    expect(turn(['a', 'a', 'a'])).toBe(false);
+  });
+
+  it('starts over after a turn without a failure', () => {
+    turn(['a']);
+    turn(['a']);
+    noteZcashBirthdayPlacement('a', false);
+    noteZcashBirthdayPlacement('a', true);
+    expect(settleZcashBirthdayPlacementTurn(['a'])).toBe(false);
+    expect(turn([])).toBe(false);
+    expect(turn(['a'])).toBe(false);
+  });
+
+  // A paused account keeps its count but does not speak for the scanning ones.
+  it('reports only the given accounts', () => {
+    turn(['c']);
+    turn(['c']);
+    expect(turn(['c'])).toBe(false);
+    expect(turn(['c'], ['c'])).toBe(true);
   });
 });

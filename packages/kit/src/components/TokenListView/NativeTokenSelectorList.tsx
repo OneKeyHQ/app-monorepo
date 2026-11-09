@@ -66,9 +66,11 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
+import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
 import {
   TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
   getTokenRowIconSize,
+  getTokenTableColumnWeights,
 } from './tokenListRowLayoutShared';
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
@@ -424,6 +426,7 @@ export function NativeTokenSelectorList({
     >();
     const targetCurrency = settings.currencyInfo?.id ?? '';
     const iconSize = getTokenRowIconSize(gtMd);
+    const columnWeights = getTokenTableColumnWeights(withSwapAction);
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
@@ -832,6 +835,7 @@ export function NativeTokenSelectorList({
               disabled: !!otherProcessing,
               opacity: otherProcessing ? 0.5 : 1,
               style: {
+                container: TOKEN_ROW_CONTAINER_STYLE,
                 horizontalPadding: 12,
                 verticalPadding: 8,
                 leadingGap: 12,
@@ -874,7 +878,7 @@ export function NativeTokenSelectorList({
                     secondaryText: token.name,
                     titleIcon,
                     secondaryTitleIcon,
-                    weight: 1,
+                    weight: columnWeights.asset,
                   },
                   {
                     key: 'balance',
@@ -883,7 +887,7 @@ export function NativeTokenSelectorList({
                     secondaryText: valueText.text,
                     secondaryTextSegments: valueText.segments,
                     alignment: 'end',
-                    weight: 1,
+                    weight: columnWeights.balance,
                   },
                   {
                     key: 'price',
@@ -893,11 +897,21 @@ export function NativeTokenSelectorList({
                     secondaryTextSegments: priceChangeText.segments,
                     secondaryTone: priceChangeTone,
                     alignment: 'end',
-                    weight: 1,
+                    weight: columnWeights.price,
                   },
+                  ...(columnWeights.swapSpacer
+                    ? [
+                        {
+                          key: 'swapSpacer',
+                          text: '',
+                          weight: columnWeights.swapSpacer,
+                        },
+                      ]
+                    : []),
                 ],
                 trailing: swapAction,
                 style: {
+                  container: TOKEN_ROW_CONTAINER_STYLE,
                   horizontalPadding: 12,
                   verticalPadding: 8,
                   leadingGap: 12,

@@ -6,6 +6,8 @@ import { DeviceStage } from '.';
 
 import { render, screen } from '@testing-library/react';
 
+let mockKeepExitingCapsule = false;
+
 jest.mock('../../content/deviceScene', () => ({
   easeOutFn: (value: number) => value,
 }));
@@ -61,12 +63,32 @@ jest.mock('../../primitives', () => {
     Stack: Box,
     XStack: Box,
     YStack: Box,
-    Haptics: { impact: jest.fn(), error: jest.fn() },
+    Haptics: { impact: jest.fn(), error: jest.fn(), success: jest.fn() },
     ImpactFeedbackStyle: { Light: 'light' },
   };
 });
 jest.mock('../MorphOverlay', () => ({
-  MorphOverlay: ({ capsule }: { capsule: ReactNode }) => capsule,
+  MorphOverlay: ({
+    capsule,
+    capsuleKey,
+  }: {
+    capsule: ReactNode;
+    capsuleKey: string;
+  }) => {
+    const { useRef } = jest.requireActual<typeof import('react')>('react');
+    const previous = useRef({ key: capsuleKey, node: capsule });
+    const exiting = useRef<ReactNode>(undefined);
+    if (previous.current.key !== capsuleKey && mockKeepExitingCapsule) {
+      exiting.current = previous.current.node;
+    }
+    previous.current = { key: capsuleKey, node: capsule };
+    return (
+      <>
+        {mockKeepExitingCapsule ? exiting.current : null}
+        {capsule}
+      </>
+    );
+  },
   useMorphOverlay: ({ value, key }: { value: string; key: string }) => ({
     shown: value,
     shownKey: key,
@@ -139,6 +161,20 @@ it('shows progress only for the file-transfer processing step', () => {
   expect(screen.queryByRole('progressbar')).toBeNull();
   rerender(<DeviceStage step="enterPin" transferProgress={42} />);
   expect(screen.queryByRole('progressbar')).toBeNull();
+});
+
+it('removes the completed transfer bar before the success capsule resizes', () => {
+  mockKeepExitingCapsule = true;
+  try {
+    const { rerender } = render(
+      <DeviceStage step="processing" transferProgress={100} />,
+    );
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    rerender(<DeviceStage step="done" />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  } finally {
+    mockKeepExitingCapsule = false;
+  }
 });
 
 const transferTestMetrics = {

@@ -11,6 +11,15 @@ export type IOnramperLogContext = {
   elapsedMs?: number;
 };
 
+// Which attempt an init or quote step was (1 = the first try) and, on a
+// failure, the back-off before the automatic retry — absent when the failure
+// was final. Retry success rate = attempt > 1 successes over failures that
+// carry `retryInMs`.
+type IOnramperAttemptFields = {
+  attempt?: number;
+  retryInMs?: number;
+};
+
 type IOnramperErrorFields = {
   errorCode?: string;
   // Truncated SDK / backend message. The Nitro bridge folds the backend
@@ -51,6 +60,11 @@ export class OnramperScene extends BaseScene {
       | 'tokenLookupFailed'
       | 'headlessNotSupported'
       | 'noNetworkCode';
+    // Where the token's region flag came from: a list row fetched recently,
+    // the server asked at tap time, or — the server unreachable or slower
+    // than the tap waits — an older row. Absent when the gate stopped before
+    // resolving a token.
+    tokenSource?: 'row' | 'lookup' | 'staleRow';
   }) {
     return params;
   }
@@ -77,6 +91,7 @@ export class OnramperScene extends BaseScene {
     params: IOnramperLogContext & {
       durationMs: number;
       expiresAt?: string;
+      attempt?: number;
     },
   ) {
     return params;
@@ -85,7 +100,8 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'error' })
   public sessionMintFailed(
-    params: IOnramperLogContext & { durationMs: number; errorMessage?: string },
+    params: IOnramperLogContext &
+      IOnramperAttemptFields & { durationMs: number; errorMessage?: string },
   ) {
     return params;
   }
@@ -97,6 +113,7 @@ export class OnramperScene extends BaseScene {
       durationMs: number;
       // Native iOS SDK version actually loaded (SDK 1.3.1+).
       sdkVersion?: string;
+      attempt?: number;
     },
   ) {
     return params;
@@ -105,7 +122,28 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'error' })
   public clientInitFailed(
-    params: IOnramperLogContext & IOnramperErrorFields & { durationMs: number },
+    params: IOnramperLogContext &
+      IOnramperErrorFields &
+      IOnramperAttemptFields & { durationMs: number },
+  ) {
+    return params;
+  }
+
+  // The user asked for a new init run from the web fallback.
+  @LogToServer()
+  @LogToLocal()
+  public initRetryPressed(
+    params: IOnramperLogContext & { errorCode?: string },
+  ) {
+    return params;
+  }
+
+  // A visible wait passed the slow threshold and the page said so. `stage` is
+  // what the user was waiting on.
+  @LogToServer()
+  @LogToLocal()
+  public waitingHintShown(
+    params: IOnramperLogContext & { stage: 'init' | 'quote' },
   ) {
     return params;
   }
@@ -142,6 +180,7 @@ export class OnramperScene extends BaseScene {
   public quoteRequested(
     params: IOnramperLogContext & {
       seq: number;
+      attempt?: number;
       amount: number;
       source: string;
       destination: string;
@@ -165,6 +204,7 @@ export class OnramperScene extends BaseScene {
   public quoteResolved(
     params: IOnramperLogContext & {
       seq: number;
+      attempt?: number;
       durationMs: number;
       amount: number;
       quoteId?: string;
@@ -199,7 +239,8 @@ export class OnramperScene extends BaseScene {
   @LogToLocal({ level: 'error' })
   public quoteFailed(
     params: IOnramperLogContext &
-      IOnramperErrorFields & {
+      IOnramperErrorFields &
+      IOnramperAttemptFields & {
         seq: number;
         durationMs: number;
         amount: number;
@@ -294,9 +335,21 @@ export class OnramperScene extends BaseScene {
         checkoutId?: string;
         // Present once checkout finalize succeeded (see checkoutCompleted).
         transactionId?: string;
-        // True when a newer quote request had already superseded the checkout
-        // this failure belongs to — logged, but not surfaced to the user.
+        // `reason` of the provider page error that led to this failure (e.g.
+        // Coinbase `onramp_api.commit_error`); the SDK's own error fields do
+        // not carry it.
+        providerReason?: string;
+        // True when the failure was logged but not surfaced to the user: a
+        // newer quote request had already superseded the checkout it belongs
+        // to, it was published before the client was ready (a failed
+        // initialize), or an unknown payment outcome of the same checkout was
+        // already on screen.
         stale?: boolean;
+        // True when the page answered the failure by quietly preparing a new
+        // checkout instead of showing it (a closed OnramperID sign-in, or the
+        // first expired / refused checkout of the visit). Not shown either,
+        // although not stale.
+        recoveredQuietly?: boolean;
       },
   ) {
     return params;
@@ -472,6 +525,9 @@ export class OnramperScene extends BaseScene {
     rawStatus?: string;
     hasTxHash: boolean;
     timedOut?: boolean;
+    // Failed by the provider's payment page (authorization failed), not by
+    // the backend.
+    authorizationFailed?: boolean;
   }) {
     return params;
   }
@@ -489,7 +545,9 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public ordersEntryPressed(params: {
-    source: 'icon' | 'banner' | 'reminder';
+    // paymentUnknown: the review screen's "View order" after a checkout
+    // failed with the payment outcome unknown.
+    source: 'icon' | 'banner' | 'reminder' | 'paymentUnknown';
     processingCount: number;
   }) {
     return params;

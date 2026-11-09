@@ -1233,3 +1233,145 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The device identity event recorded a target-specific mismatch and invalidated the sync generation before the task could return its mismatch result. The interactive wrapper converted the resulting undefined value to false.
 **Fix**: Preserve the target-specific mismatch as DeviceNotSame when the task returns undefined, after honoring explicit user cancellation. Regression tests cover identity changes during unlock, package preparation, and the final identity check; upload remains blocked.
 **Catchable by**: Section 5: No race conditions in async operations; Section 6: A bug fix includes regression tests for event-driven cancellation and user-visible errors.
+
+## Case: Perps chart defaults disagreed with the intended native chart mode (OK-66019)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop UI and iOS/Android main UI; no native resource changes
+**Symptom**: A fresh or older settings record without a chart mode opened TradingView instead of the native chart. Changing only the initial setting would still leave legacy records and the first toggle inconsistent.
+**Root Cause**: The settings atom, chart renderer fallback, mobile chart layout fallback, and missing-value toggle behavior all assumed TradingView as the default.
+**Fix**: Default all three owners to native and treat an absent saved mode as native when toggling. Preserve explicit saved choices. Existing PerpCandles tests cover missing settings, explicit overrides, and switching modes.
+**Catchable by**: Section 4: Business Logic & Regression — when changing a persisted default, test fresh settings, older records without the field, explicit saved choices, and the first interaction.
+
+## Case: Ordinary orders exposed the position TP/SL order link (OK-66078)
+**Date**: 2026-11-04 | **Platforms**: Web/Desktop wide position rows and native main UI where the wide row is rendered
+**Symptom**: An ordinary open order for the same coin caused the position TP/SL cell to show an order link even though no partial TP/SL order existed.
+**Root Cause**: The row treated every non-position TP/SL order as a partial TP/SL candidate without checking reduce-only status and the recognized TP/SL kind.
+**Fix**: Require both reduceOnly and getTpSlKind before setting hasNonPositionTpslOrder. Existing PositionsRow tests distinguish ordinary orders, partial TP/SL orders, and position TP/SL orders.
+**Catchable by**: Section 4: Business Logic & Regression — exercise sibling order types sharing the same coin before deriving a feature-specific action from a common order list.
+
+## Case: Reversal trade sharing did not match Hyperliquid (OK-65718)
+**Date**: 2026-11-04 | **Platforms**: Shared UI hook on Web/Desktop and iOS/Android main UI; tested with the Web Jest preset, not device acceptance
+**Symptom**: Reversal shares showed zero entry price and return. Using only the closed quantity and prorating the fee produced values that differed from Hyperliquid and a net PnL that differed from the trade history row.
+**Root Cause**: Entry-price reconstruction did not recognize Long > Short and Short > Long. Splitting the fill into closed and opened legs also introduced a different display convention from Hyperliquid's full-fill trade sharing.
+**Fix**: Recognize both reversal directions while retaining the full fill size for entry price and return calculations and deducting the full fill fee. This intentionally follows Hyperliquid's trade-sharing convention, rather than reconstructing the closed position's cost basis. With fill size 5, gross PnL 20, fee 1 and leverage 10, the long-to-short example at price 110 shares net PnL 19, entry price 106 and return 35.85%; the short-to-long example at price 90 shares net PnL 19, entry price 94 and return 40.43%. Ordinary-close tests retain full-fee deductions.
+**Catchable by**: Section 4: Business Logic & Regression — verify reference-product formulas and keep trade-history and share amounts consistent before adopting a different accounting convention from review feedback.
+**Reference**: Hyperliquid production `config-BUOnMMpI.js` (`l4`, `u4`, `Vse`) and `ShareModal-CdPBXUc8.js`, inspected 2026-11-04 at https://app.hyperliquid.xyz/assets/config-BUOnMMpI.js and https://app.hyperliquid.xyz/assets/ShareModal-CdPBXUc8.js. Synthetic inputs executed against the extracted production row function confirm the values above.
+
+## Case: Mobile stock trade modals showed a redundant K-line button (OK-66221)
+**Date**: 2026-11-04 | **Platforms**: iOS and Android (main UI runtime)
+**Symptom**: Opening Buy or Sell from Market stock details displayed a K-line button in the Stock trade modal.
+**Root Cause**: The shared Swap header hid the button only in Desktop Stock modals, so native Stock modals still showed it.
+**Fix**: Extend the existing Stock modal visibility condition to iOS and Android. Regression tests cover hiding the button in native Stock modals and keeping it available in native Swap modals and on the standalone Stock page.
+**Catchable by**: Section 3 (Cross-Platform Impact) and Section 6 (Unit Tests). Test shared header actions across platform, modal versus page, and active trade mode.
+
+## Case: Missing Perps account blocked Portfolio sync
+**Date**: 2026-11-05 | **Platforms**: iOS, Android, and extension background runtime; desktop and web single runtime. The account lookup runs in the service that builds the Portfolio category payload.
+**Symptom**: Manual Portfolio sync never uploaded when the indexed account had no Perps network account. Home treated Perps as unknown instead of zero.
+**Root Cause**: `localDb.getAccount` throws `OneKeyLocalError('Account not found')` before `getNetworkAccount` can throw `indexedAccounts not found`. The category fetch only treated the latter message as a confirmed empty Perps balance, so the real missing-account error stayed unknown and blocked upload.
+**Fix**: Treat both confirmed local lookup misses as zero Perps equity, and leave other lookup failures unknown. Regression tests cover the uncreated Perps account, the indexed-account miss, and unrelated not-found errors.
+**Catchable by**: Section 4: Business Logic & Regression — trace the thrown error from the missing DB record, not only the error the caller expected; Section 6: A bug fix includes a regression test for the confirmed empty case and for nearby errors that must stay unknown.
+
+## Case: Chart settings dialog flashed on Reset (OK-66403)
+**Date**: 2026-11-05 | **Platforms**: Shared chart settings dialog (Market / Swap / Perps) on Web/Desktop single runtime and extension/iOS/Android main UI; verified on Web. No native resource changes.
+**Symptom**: Pressing Reset in Chart settings made the whole dialog flash: for 2-3 frames every control turned disabled, Confirm showed a spinner and the header close button disappeared.
+**Root Cause**: Reset reused Confirm's `commitValue`, which toggles the dialog-wide submitting state. Persisting local defaults resolves within a frame or two, so the state flipped on and straight back off. The first fix kept controls editable during the save, but `commitSettingsValue()` committed the current draft rather than the persisted defaults, so an edit made before the save resolved was marked as saved and then overwritten by the controlled value refresh.
+**Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
+**Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
+
+## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
+**Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
+**Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.
+**Root Cause**: The hide-value setting lives in the main window's jotai store. The tray payload had no field for it, the main-window provider neither read the setting nor re-sent on a toggle, and the tray rendered the amounts unconditionally.
+**Fix**: Carry `hideValue` on every tray payload, stamped when the payload is sent, and re-deliver the last payload as soon as the setting flips instead of waiting for a gather that needs the network and may fail. The tray masks the total as `****` and pending amounts as `**** SYMBOL`, the same rules as the home total and history rows; market quotes stay visible. Regression tests cover the sender (stamp at send time, immediate re-delivery, error and locked placeholders, reset) and the rendered tray panel (hidden, visible, live toggle).
+**Catchable by**: Section 3: Cross-Platform Impact — list every window and runtime that renders the same data before treating a display setting as global; Section 4: Business Logic & Regression — a privacy toggle must be checked on each surface that shows the value, including ones that receive a copied snapshot.
+
+## Case: Perps indicator reset removed default volume (OK-66449)
+**Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
+**Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
+**Root Cause**: Reset used generic inactive indicator defaults without the Perps storage namespace.
+**Fix**: Pass the namespace through reset and enable VOL only for Perps defaults. Regression tests and Web reset/refresh verification cover persistence and unchanged market/swap defaults.
+**Catchable by**: Section 4: Business Logic & Regression — module defaults must survive shared reset flows.
+
+## Case: Empty desktop order headers could not scroll (OK-65891)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single runtime; verified in Web.
+**Symptom**: Narrow or zoomed empty order tables clipped rightmost columns with no way to reach them.
+**Root Cause**: The empty state had no body scroller, and the separate header scroller was disabled.
+**Fix**: Enable horizontal header scrolling only for the desktop empty state. Hide the scroll indicator to match the existing table presentation. Web verification covers reaching the final columns while the empty state and fixed actions stay in place.
+**Catchable by**: Section 8: Manual Verification — test empty and populated layouts at constrained widths.
+
+## Case: Historical trade shares skipped current-position leverage (OK-65726)
+**Date**: 2026-11-06 | **Platforms**: Shared main UI on mobile/extension and single-runtime desktop/Web.
+**Symptom**: Share leverage and ROE differed from Hyperliquid when current-position leverage differed from the cached setting.
+**Root Cause**: The lookup started with last-used leverage and omitted the matching current position.
+**Fix**: Prefer account-scoped same-coin position leverage before last-used and maximum-leverage fallbacks. Regression tests cover precedence and unrelated coins. This aligns the accepted Hyperliquid display convention, not historical execution leverage; fills do not provide that field.
+**Catchable by**: Section 4: Data flow end-to-end — verify the reference product's data precedence and distinguish current state from historical facts.
+
+## Case: Perps interval switches remounted the native canvas (OK-65650)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main chart UI and UI worklet; bg is not involved. Direct device verification uses iOS Simulator.
+**Symptom**: Switching intervals briefly blanked the full plot. Retaining the canvas then exposed a fullscreen handoff regression: returning after changing interval reset the adopted viewport again.
+**Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
+**Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
+**Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
+
+## Case: Perps showed an extra chart selector while TradingView loaded (OK-66555)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI; verified on iOS Simulator. No bg or shared native resource changes.
+**Symptom**: Switching from Original to TradingView briefly showed a standalone TradingView dropdown above the loading chart.
+**Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
+**Fix**: Remove that extra selector and its import. Keep a settings icon accessible before readiness, with a chart-switch-only menu so stalled or failed TV loading does not trap users. Hide full settings and chart style until readiness. Regression coverage includes a chart that never becomes ready and switching after closing the recovery dialog. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back to Original while TV remains stalled; Android device verification remains for QA.
+**Catchable by**: Section 8: Manual Verification — inspect loading and ready states separately when moving controls into a settings menu.
+
+## Case: Lite backup completion outlived its owning dialog
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and asynchronous bg wallet service. The process-owned native NFC operation can finish after the main UI owner unmounts; the two JS heaps are separate.
+**Symptom**: Closing a parent menu cancelled a pending Lite operation. If a native backup then completed, the card could contain the backup while the wallet remained marked unbacked up. Retrying a failed first write could also reuse stale new-card state after PIN initialization.
+**Root Cause**: React parent dismissal unmounted the operation owner, UI cancellation discarded the native result, and retries assumed the first card state was still current.
+**Fix**: Keep the owning parent mounted until the operation settles, settle UI cancellation once, refresh card state on retry, retain card identity and request overwrite confirmation. Persist backup status inside the native write callback only for an error-free true result with the expected serial and captured wallet ID; gate subsequent UI on the owner still being mounted. Focused hook tests cover successful completion after unmount/cancellation and reject errors, false results and other-card results. Physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: Trace native completion through UI cancellation and bg persistence; test an owner unmount before native success and stale card state after a failed first write.
+
+## Case: Closing a lower iOS dialog blurred an independent upper overlay
+**Date**: 2026-11-06 | **Platforms**: iOS main UI runtime and process-owned native overlay windows. Android and Web/Desktop keyboard behavior is unchanged.
+**Symptom**: Closing a lower dialog dismissed the keyboard and blurred an input in an independent upper overlay window.
+**Root Cause**: Both dialog close paths requested a delayed global keyboard dismissal, which could target another native window's first responder after the lower dialog closed.
+**Fix**: Skip the two global keyboard dismissals on iOS and let the closing entry release its own input. Add independent overlay, handoff and reopening scenarios to the existing Gallery. Focused dialog tests check both close paths on iOS and retain non-iOS dismissal. Native/device keyboard acceptance remains open.
+**Catchable by**: Sections 3, 5 and 8: Check global input side effects against independently owned windows and verify focus while closing a lower overlay with an upper input active.
+
+
+## Case: Lite PIN changes checked card identity after mutation
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and process-owned native NFC operation; no bg heap sharing is assumed.
+**Symptom**: Verifying the old PIN on card A and presenting card B with the same PIN could change B's PIN before the App reported a card mismatch.
+**Root Cause**: The native changePin call did not receive the verified serial; the App's result handler compared card identity only after the write.
+**Fix**: Forward the verified serial to the SDK. On Android, validate the acquired card state and mutate through the same connection. On iOS, refresh card identity before PIN dispatch and claim the pending completion with its identity snapshot so a late connection after cancellation cannot become unguarded. Reuse DeviceMismatch and require native rebuilds. Focused App, wrapper and native host regressions cover forwarding, mismatch rejection, V1/V2 and cancellation; physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: A device identity used to authorize mutation must be checked before the mutation on the same native resource; result validation alone cannot undo a wrong-device write.
+
+## Case: Email signup rejection disappeared with the Toast and hid later OTP errors (OK-65956)
+**Date**: 2026-11-06 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI; the error metadata also survives background bridge serialization. No native resource ownership changes.
+**Symptom**: New email users could miss the signup-disabled Toast while checking their inbox. Persisting the existing-account guidance in the verification error slot then hid invalid-code and network errors when users submitted an earlier OTP.
+**Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
+**Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
+**Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.
+
+## Case: Market tabs jumped when their sticky headers had different heights (OK-63910, OK-65972)
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. Background initialization and data ownership are outside this layout path.
+**Symptom**: When switching from Trending to empty Favorites, the outgoing list moved up by 88 pt before the page changed. Switching between Financials and My Positions on a stock detail page shifted the incoming content by 44 pt after it appeared.
+**Root Cause**: A shared sticky header height drove the native scroll inset. Its update could precede or follow the native page switch, so one page temporarily used the other page's height.
+**Fix**: App-modules #221 lets the iOS Pager apply the destination page's inset before display. The app supplies each tab's height and keeps the home header aligned with the page the Pager is displaying. Focused Jest tests cover the destination height and the source header before selection completes. A local native build verified both transitions on the iOS simulator with empty Favorites and empty positions. Simulator retesting with the published SDK is pending.
+**Catchable by**: Sections 5, 6 and 8: Check the ordering of native page selection and header updates, and inspect the first visible frame in both directions when tabs have different heights.
+
+## Case: Market destination empty rows used the source tab height
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. The background runtime is outside this layout path.
+**Symptom**: When switching from Favorites to Trending, the destination no-match or retry row was 88 pt taller until the native page-selection callback.
+**Root Cause**: The lists shared an available height based on the displayed tab's sticky header even after the Pager received heights for each page.
+**Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
+**Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
+
+## Case: Privacy account management modules were missing from the native registry (OK-66558)
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
+**Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
+**Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
+**Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
+**Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
+
+## Case: Privacy account preview ignored the active locale (OK-66558)
+**Date**: 2026-11-09 | **Platforms**: Developer gallery on Web/Desktop and mobile main UI. No background or native-resource changes.
+**Symptom**: Scenario controls, fixture names, explanatory copy and gallery navigation stayed English when the active language changed.
+**Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
+**Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
+**Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.

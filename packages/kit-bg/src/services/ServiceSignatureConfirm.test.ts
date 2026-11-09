@@ -1,3 +1,11 @@
+import { Address, beginCell } from '@ton/core';
+import TonWeb from 'tonweb';
+
+jest.mock('../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => () => undefined,
   backgroundMethod:
@@ -48,13 +56,17 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 // eslint-disable-next-line import-js/order, import/first
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+// eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
+  EParseTxComponentRole,
   EParseTxType,
   type IDisplayComponent,
   type IDisplayComponentAddress,
   type IDisplayComponentApprove,
   type IDisplayComponentSimulation,
+  type IDisplayComponentNFT,
   type IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
 // eslint-disable-next-line import-js/order, import/first
@@ -208,6 +220,10 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it.each(['xmr--0', 'zec--0'])(
     '%s uses only verified local payment details and fees',
     async (privacyNetworkId) => {
@@ -343,6 +359,740 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       ).rejects.toThrow('Privacy transactions must be reviewed locally');
       expect(mockGetVault).not.toHaveBeenCalled();
       expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps TON payload-derived transfer facts while retaining server risks', async () => {
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const forged = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const risk = {
+      value: 'Risky address',
+      displayType: 'critical',
+    } as IDisplayComponentAddress['tags'][number];
+    const parsedTx = buildParsedTx({
+      components: [
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: forged,
+          role: EParseTxComponentRole.SwapReceiver,
+          tags: [risk],
+        },
+        {
+          type: EParseTxComponentType.Address,
+          label: 'Recipient',
+          address: Address.parse(recipient).toString({ bounceable: true }),
+          tags: [risk],
+        },
+        { type: EParseTxComponentType.Default, label: 'Amount', value: '999' },
+      ],
+      alerts: ['Server risk alert'],
+    });
+    const service = buildService(parsedTx);
+    const local = buildLocalDecodedTx();
+    local.networkId = 'ton--mainnet';
+    local.actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: accountAddress,
+          to: recipient,
+          receives: [],
+          sends: [
+            {
+              from: accountAddress,
+              to: recipient,
+              amount: '1.5',
+              name: 'Jetton',
+              symbol: 'JETTON',
+              icon: '',
+              isNative: false,
+              tokenIdOnNetwork: `0:${'44'.repeat(32)}`,
+            },
+            {
+              from: accountAddress,
+              to: Address.parse(`0:${'44'.repeat(32)}`).toString({
+                bounceable: false,
+              }),
+              amount: '10',
+              name: 'Toncoin',
+              symbol: 'TON',
+              icon: '',
+              isNative: true,
+              tokenIdOnNetwork: '',
+            },
+          ],
+        },
+      },
+    ];
+    mockGetVault.mockResolvedValue({
+      buildDecodedTx: jest.fn().mockResolvedValue(local),
+    });
+    const decoded = await service.buildDecodedTx({
+      networkId: 'ton--mainnet',
+      accountId,
+      accountAddress,
+      unsignedTx: { encodedTx: {} },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.hasServerSecurityAnalysis).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(decoded.txDisplay?.components).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'JETTON',
+          amountParsed: '1.5',
+        }),
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          symbol: 'TON',
+          amountParsed: '10',
+        }),
+      ]),
+    );
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({ address: recipient, tags: [risk] }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ address: forged, label: 'Recipient' }),
+    );
+    expect(decoded.txDisplay?.components).not.toContainEqual(
+      expect.objectContaining({ label: 'Amount', value: '999' }),
+    );
+    expect(decoded.txDisplay?.components).toContainEqual(
+      expect.objectContaining({
+        address: forged,
+        label: 'global.address',
+        role: undefined,
+        tags: [risk],
+      }),
+    );
+  });
+
+  it('shows every native outflow when a TON batch mixes a transfer and an unknown call', async () => {
+    const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+    const from = Address.parse(`0:${'11'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const recipient = Address.parse(`0:${'22'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const contract = Address.parse(`0:${'33'.repeat(32)}`).toString({
+      bounceable: false,
+    });
+    const service = buildService(
+      buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Default,
+            label: 'Server amount',
+            value: '100.001',
+          },
+        ],
+        alerts: ['Server risk alert'],
+      }),
+    );
+    const vault = Object.create(TonVault.prototype) as InstanceType<
+      typeof TonVault
+    >;
+    vault.networkId = 'ton--mainnet';
+    vault.accountId = accountId;
+    vault.getAccountAddress = jest.fn().mockResolvedValue(from);
+    vault.getNetwork = jest
+      .fn()
+      .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+    vault.backgroundApi = service.backgroundApi;
+    vault.backgroundApi.serviceToken = {
+      getToken: jest.fn().mockResolvedValue(null),
+    } as unknown as typeof vault.backgroundApi.serviceToken;
+    mockGetVault.mockResolvedValue(vault);
+    const decoded = await service.buildDecodedTx({
+      networkId: vault.networkId,
+      accountId,
+      accountAddress: from,
+      unsignedTx: {
+        encodedTx: {
+          from,
+          messages: [
+            { address: recipient, amount: '1000000' },
+            {
+              address: contract,
+              amount: '100000000000',
+              payload: beginCell()
+                .storeUint(0x12_34_56_78, 32)
+                .endCell()
+                .toBoc()
+                .toString('base64'),
+            },
+          ],
+        },
+      },
+    });
+    expect(decoded.isLocalParsed).toBe(true);
+    expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+    expect(
+      decoded.txDisplay?.components.filter(
+        (component) => component.type === EParseTxComponentType.InternalAssets,
+      ),
+    ).toEqual([
+      expect.objectContaining({ symbol: 'TON', amountParsed: '0.001' }),
+      expect.objectContaining({ symbol: 'TON', amountParsed: '100' }),
+    ]);
+    expect(decoded.actions).toContainEqual(
+      expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+    );
+  });
+
+  it.each([
+    { forwardAsRef: false, includeNft: false },
+    { forwardAsRef: true, includeNft: false },
+    { forwardAsRef: true, includeNft: true },
+  ])(
+    'keeps verified Jetton outflows and unknown effects, forward as ref: $forwardAsRef, NFT: $includeNft',
+    async ({ forwardAsRef, includeNft }) => {
+      const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+      const { encodeDecodedJetton } =
+        await import('../vaults/impls/ton/sdkTon/payload');
+      const from = `0:${'11'.repeat(32)}`;
+      const recipient = `0:${'22'.repeat(32)}`;
+      const wallet = `0:${'44'.repeat(32)}`;
+      const master = `0:${'55'.repeat(32)}`;
+      const friendlyFrom = Address.parse(from).toString({ bounceable: false });
+      const friendlyRecipient = Address.parse(recipient).toString({
+        bounceable: false,
+      });
+      const friendlyWallet = Address.parse(wallet).toString({
+        bounceable: false,
+      });
+      const nftOwner = Address.parse(`0:${'66'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const nftItem = Address.parse(`0:${'77'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const forgedRecipient = Address.parse(`0:${'88'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const nft: IDisplayComponentNFT = {
+        type: EParseTxComponentType.NFT,
+        label: 'NFT',
+        nft: {
+          amount: '1',
+          collectionAddress: nftItem,
+          collectionName: 'Collection',
+          collectionSymbol: 'NFT',
+          collectionType: ENFTType.ERC721,
+          itemId: '1',
+        },
+        networkId: 'ton--mainnet',
+        amount: '1',
+        showNetwork: true,
+      };
+      const extraComponents: IDisplayComponent[] = includeNft
+        ? [
+            nft,
+            {
+              type: EParseTxComponentType.Address,
+              label: 'NFT owner',
+              address: nftOwner,
+              tags: [],
+            },
+            {
+              type: EParseTxComponentType.Address,
+              label: 'Forged Jetton recipient',
+              role: EParseTxComponentRole.SwapReceiver,
+              address: forgedRecipient,
+              tags: [],
+              highlight: true,
+            },
+            {
+              type: EParseTxComponentType.Token,
+              label: 'Forged Jetton amount',
+              token: {
+                info: {
+                  address: Address.parse(master).toString({ bounceable: true }),
+                  decimals: 6,
+                  symbol: 'JETTON',
+                  name: 'Jetton',
+                  isNative: false,
+                },
+                balance: '0',
+                balanceParsed: '0',
+                fiatValue: '0',
+                price: 0,
+              },
+              amount: '999000000',
+              amountParsed: '999',
+              networkId: 'ton--mainnet',
+              showNetwork: false,
+            },
+            {
+              type: EParseTxComponentType.Token,
+              label: 'Attached TON',
+              token: {
+                info: {
+                  address: '',
+                  decimals: 9,
+                  symbol: 'TON',
+                  name: 'Toncoin',
+                  isNative: true,
+                },
+                balance: '0',
+                balanceParsed: '0',
+                fiatValue: '0',
+                price: 0,
+              },
+              amount: '50000000',
+              amountParsed: '0.05',
+              networkId: 'ton--mainnet',
+              showNetwork: false,
+            },
+            {
+              type: EParseTxComponentType.Simulation,
+              label: 'Simulation',
+              assets: [nft],
+            },
+          ]
+        : [];
+      const service = buildService(
+        buildParsedTx({
+          components: [
+            {
+              type: EParseTxComponentType.InternalAssets,
+              label: 'Server token amount',
+              name: 'Jetton',
+              icon: '',
+              symbol: 'JETTON',
+              amount: '1500000',
+              amountParsed: '1.5',
+            },
+            {
+              type: EParseTxComponentType.Address,
+              label: 'Server recipient',
+              address: friendlyRecipient,
+              tags: [],
+            },
+            {
+              type: EParseTxComponentType.Default,
+              label: 'Server amount',
+              value: '999',
+            },
+            ...extraComponents,
+          ],
+          alerts: ['Server risk alert'],
+        }),
+      );
+      const vault = Object.create(TonVault.prototype) as InstanceType<
+        typeof TonVault
+      >;
+      vault.networkId = 'ton--mainnet';
+      vault.accountId = accountId;
+      vault.getAccountAddress = jest.fn().mockResolvedValue(friendlyFrom);
+      vault.getNetwork = jest
+        .fn()
+        .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+      vault.backgroundApi = service.backgroundApi;
+      vault.backgroundApi.serviceToken = {
+        getToken: jest.fn(
+          async ({ tokenIdOnNetwork }: { tokenIdOnNetwork: string }) => ({
+            address: tokenIdOnNetwork,
+            decimals: tokenIdOnNetwork ? 6 : 9,
+            symbol: tokenIdOnNetwork ? 'JETTON' : 'TON',
+            name: tokenIdOnNetwork ? 'Jetton' : 'Toncoin',
+            isNative: !tokenIdOnNetwork,
+          }),
+        ),
+      } as unknown as typeof vault.backgroundApi.serviceToken;
+      const getData = jest
+        .spyOn(TonWeb.token.jetton.JettonWallet.prototype, 'getData')
+        .mockResolvedValue({
+          balance: new TonWeb.utils.BN(1_500_000),
+          ownerAddress: new TonWeb.Address(from),
+          jettonMinterAddress: new TonWeb.Address(master),
+          tokenWalletCode: new TonWeb.boc.Cell(),
+        });
+      const getWalletAddress = jest
+        .spyOn(
+          TonWeb.token.jetton.JettonMinter.prototype,
+          'getJettonWalletAddress',
+        )
+        .mockResolvedValue(new TonWeb.Address(wallet));
+      mockGetVault.mockResolvedValue(vault);
+      const parseTransaction = jest.spyOn(service, 'parseTransaction');
+      const payload = encodeDecodedJetton(
+        {
+          queryId: '0',
+          amount: '1500000',
+          toAddress: recipient,
+          responseAddress: from,
+          forwardAmount: '1',
+          forwardPayload: beginCell().storeUint(0x12_34_56_78, 32).endCell(),
+        },
+        forwardAsRef,
+      )
+        .toBoc()
+        .toString('base64');
+      const unsignedTx = {
+        encodedTx: {
+          from: friendlyFrom,
+          messages: [
+            { address: friendlyWallet, amount: '10000000000', payload },
+          ],
+        },
+      };
+      if (includeNft) {
+        unsignedTx.encodedTx.messages.push({
+          address: nftItem,
+          amount: '50000000',
+          payload: beginCell()
+            .storeUint(0x5f_cc_3d_14, 32)
+            .storeUint(0, 64)
+            .storeAddress(Address.parse(nftOwner))
+            .storeAddress(Address.parse(from))
+            .storeBit(false)
+            .storeCoins(0)
+            .storeBit(false)
+            .endCell()
+            .toBoc()
+            .toString('base64'),
+        });
+      }
+      const decoded = await service.buildDecodedTx({
+        networkId: vault.networkId,
+        accountId,
+        accountAddress: friendlyFrom,
+        unsignedTx,
+      });
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getWalletAddress).toHaveBeenCalledTimes(1);
+      expect(decoded.isLocalParsed).toBe(true);
+      expect(decoded.hasServerSecurityAnalysis).toBe(true);
+      expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+      expect(decoded.actions).toContainEqual(
+        expect.objectContaining({ type: EDecodedTxActionType.UNKNOWN }),
+      );
+      expect(
+        decoded.txDisplay?.components.filter(
+          (component) =>
+            component.type === EParseTxComponentType.InternalAssets,
+        ),
+      ).toEqual([
+        expect.objectContaining({ symbol: 'JETTON', amountParsed: '1.5' }),
+        expect.objectContaining({ symbol: 'TON', amountParsed: '10' }),
+        ...(includeNft
+          ? [expect.objectContaining({ symbol: 'TON', amountParsed: '0.05' })]
+          : []),
+      ]);
+      expect(decoded.txDisplay?.components).toContainEqual(
+        expect.objectContaining({ address: friendlyRecipient }),
+      );
+      expect(decoded.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          label: 'sig.interact_contract_label',
+          address: friendlyWallet,
+        }),
+      );
+      expect(decoded.txDisplay?.components).not.toContainEqual(
+        expect.objectContaining({ value: '999' }),
+      );
+      expect(unsignedTx.encodedTx.messages[0].payload).toBe(payload);
+      expect(parseTransaction).toHaveBeenCalledTimes(1);
+      if (includeNft) {
+        expect(decoded.txDisplay?.components).toContainEqual(nft);
+        expect(decoded.txDisplay?.components).toContainEqual(
+          expect.objectContaining({ address: nftOwner, label: 'global.to' }),
+        );
+        expect(decoded.txDisplay?.components).toContainEqual({
+          type: EParseTxComponentType.Simulation,
+          label: 'Simulation',
+          assets: [nft],
+        });
+        expect(decoded.txDisplay?.components).not.toContainEqual(
+          expect.objectContaining({
+            type: EParseTxComponentType.Token,
+            amountParsed: '999',
+          }),
+        );
+        expect(decoded.txDisplay?.components).not.toContainEqual(
+          expect.objectContaining({
+            address: forgedRecipient,
+            role: EParseTxComponentRole.SwapReceiver,
+          }),
+        );
+        expect(decoded.txDisplay?.components).toContainEqual(
+          expect.objectContaining({
+            address: forgedRecipient,
+            label: 'global.address',
+            highlight: false,
+          }),
+        );
+      }
+    },
+  );
+
+  it.each([
+    { amount: '0', serverUnavailable: false },
+    { amount: '50000000', serverUnavailable: false },
+    { amount: '50000000', serverUnavailable: true },
+  ])(
+    'keeps available server NFT effects with attached TON $amount, server unavailable: $serverUnavailable',
+    async ({ amount, serverUnavailable }) => {
+      const { default: TonVault } = await import('../vaults/impls/ton/Vault');
+      const from = Address.parse(`0:${'11'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const owner = Address.parse(`0:${'22'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const item = Address.parse(`0:${'33'.repeat(32)}`).toString({
+        bounceable: false,
+      });
+      const nft = {
+        type: EParseTxComponentType.NFT,
+        label: 'NFT',
+        nft: {
+          amount: '1',
+          collectionAddress: item,
+          collectionName: 'Collection',
+          collectionSymbol: 'NFT',
+          collectionType: ENFTType.ERC721,
+          itemId: '1',
+        },
+        networkId: 'ton--mainnet',
+        amount: '1',
+        showNetwork: true,
+      } as const;
+      const simulation = {
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: [nft],
+      } as const;
+      const parsedTx = buildParsedTx({
+        components: [
+          nft,
+          {
+            type: EParseTxComponentType.Address,
+            label: 'New owner',
+            address: owner,
+            tags: [{ value: 'Risky owner', displayType: 'critical' }],
+          },
+          { ...simulation, assets: [nft] },
+          {
+            type: EParseTxComponentType.Token,
+            label: 'Native amount',
+            token: {
+              info: {
+                address: '',
+                decimals: 9,
+                symbol: 'TON',
+                name: 'Toncoin',
+                isNative: true,
+              },
+              balance: '0',
+              balanceParsed: '0',
+              fiatValue: '0',
+              price: 0,
+            },
+            amount,
+            amountParsed: amount === '0' ? '0' : '0.05',
+            networkId: 'ton--mainnet',
+            showNetwork: false,
+          },
+        ],
+        alerts: ['Server risk alert'],
+      });
+      const service = buildService(parsedTx);
+      const parseTransaction = jest.spyOn(service, 'parseTransaction');
+      if (serverUnavailable) {
+        parseTransaction.mockRejectedValue(new Error('Parser unavailable'));
+        jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      }
+      const vault = Object.create(TonVault.prototype) as InstanceType<
+        typeof TonVault
+      >;
+      vault.networkId = 'ton--mainnet';
+      vault.accountId = accountId;
+      vault.getAccountAddress = jest.fn().mockResolvedValue(from);
+      vault.getNetwork = jest
+        .fn()
+        .mockResolvedValue({ id: vault.networkId, decimals: 9, symbol: 'TON' });
+      vault.backgroundApi = service.backgroundApi;
+      vault.backgroundApi.serviceToken = {
+        getToken: jest.fn().mockResolvedValue(null),
+      } as unknown as typeof vault.backgroundApi.serviceToken;
+      mockGetVault.mockResolvedValue(vault);
+      const payload = beginCell()
+        .storeUint(0x5f_cc_3d_14, 32)
+        .storeUint(0, 64)
+        .storeAddress(Address.parse(owner))
+        .storeAddress(Address.parse(from))
+        .storeBit(false)
+        .storeCoins(0)
+        .storeBit(false)
+        .endCell()
+        .toBoc()
+        .toString('base64');
+      const unsignedTx = {
+        encodedTx: { from, messages: [{ address: item, amount, payload }] },
+      };
+      const decoded = await service.buildDecodedTx({
+        networkId: vault.networkId,
+        accountId,
+        accountAddress: from,
+        unsignedTx,
+      });
+      const components = decoded.txDisplay?.components ?? [];
+      if (serverUnavailable) {
+        expect(components).not.toContainEqual(nft);
+        expect(components).not.toContainEqual(
+          expect.objectContaining({ type: EParseTxComponentType.Simulation }),
+        );
+        expect(decoded.hasServerSecurityAnalysis).not.toBe(true);
+      } else {
+        expect(components).toContainEqual(nft);
+        expect(components).toContainEqual(
+          expect.objectContaining({
+            address: owner,
+            tags: [{ value: 'Risky owner', displayType: 'critical' }],
+          }),
+        );
+        expect(components).toContainEqual({ ...simulation, assets: [nft] });
+        expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+      }
+      expect(parseTransaction).toHaveBeenCalledTimes(1);
+      if (amount !== '0') {
+        expect(
+          components.filter(
+            (component) =>
+              component.type === EParseTxComponentType.InternalAssets,
+          ),
+        ).toEqual([
+          expect.objectContaining({ symbol: 'TON', amountParsed: '0.05' }),
+        ]);
+        expect(components).not.toContainEqual(
+          expect.objectContaining({ type: EParseTxComponentType.Token }),
+        );
+        if (!serverUnavailable)
+          expect(decoded.hasServerSecurityAnalysis).toBe(true);
+      }
+      expect(unsignedTx.encodedTx.messages[0].payload).toBe(payload);
+    },
+  );
+
+  it.each(['ton--mainnet', 'evm--1'])(
+    'keeps scaled amounts local when partial server effects exist on %s',
+    async (currentNetworkId) => {
+      const tokenAddress = currentNetworkId.startsWith('ton')
+        ? `0:${'55'.repeat(32)}`
+        : `0x${'55'.repeat(20)}`;
+      const rawToken = {
+        type: EParseTxComponentType.Token,
+        label: 'Raw token amount',
+        token: {
+          info: {
+            address: tokenAddress,
+            decimals: 6,
+            symbol: 'SCALED',
+            name: 'Scaled',
+            isNative: false,
+          },
+          balance: '0',
+          balanceParsed: '0',
+          fiatValue: '0',
+          price: 0,
+        },
+        amount: '1500000',
+        amountParsed: '1.5',
+        networkId: currentNetworkId,
+        showNetwork: false,
+      } as const;
+      const nft = {
+        type: EParseTxComponentType.NFT,
+        label: 'NFT',
+        nft: {
+          amount: '1',
+          collectionAddress: tokenAddress,
+          collectionName: 'Collection',
+          collectionSymbol: 'NFT',
+          collectionType: ENFTType.ERC721,
+          itemId: '1',
+        },
+        networkId: currentNetworkId,
+        amount: '1',
+        showNetwork: false,
+      } as const;
+      const service = buildService(
+        buildParsedTx({
+          components: [
+            rawToken,
+            nft,
+            {
+              type: EParseTxComponentType.Simulation,
+              label: 'Simulation',
+              assets: [rawToken, nft],
+            },
+          ],
+          alerts: ['Server risk alert'],
+        }),
+      );
+      const local = buildLocalDecodedTx();
+      local.networkId = currentNetworkId;
+      local.encodedTx = { from: accountAddress, messages: [] };
+      local.actions.push({
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: accountAddress,
+          to: contractAddress,
+          receives: [],
+          sends: [
+            {
+              from: accountAddress,
+              to: contractAddress,
+              amount: '3',
+              balanceMultiplier: '2',
+              tokenIdOnNetwork: tokenAddress,
+              isNative: false,
+              name: 'Scaled',
+              symbol: 'SCALED',
+              icon: '',
+            },
+          ],
+        },
+      });
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(local),
+      });
+      const decoded = await service.buildDecodedTx({
+        networkId: currentNetworkId,
+        accountId,
+        accountAddress,
+        unsignedTx: { encodedTx: {} },
+      });
+      expect(decoded.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.InternalAssets,
+          amountParsed: '3',
+        }),
+      );
+      expect(decoded.txDisplay?.components).not.toContainEqual(rawToken);
+      expect(decoded.txDisplay?.alerts).toEqual(['Server risk alert']);
+      if (currentNetworkId.startsWith('ton')) {
+        expect(decoded.txDisplay?.components).toContainEqual({
+          type: EParseTxComponentType.Simulation,
+          label: 'Simulation',
+          assets: [nft],
+        });
+      } else {
+        expect(decoded.txDisplay?.components).not.toContainEqual(
+          expect.objectContaining({ type: EParseTxComponentType.Simulation }),
+        );
+      }
     },
   );
 

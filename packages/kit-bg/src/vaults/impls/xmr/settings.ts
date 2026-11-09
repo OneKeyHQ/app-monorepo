@@ -5,6 +5,7 @@ import {
   XMR_BUILT_IN_NODE_URLS,
   XMR_EARLIEST_SCAN_HEIGHT,
   XMR_EARLIEST_SCAN_TIMESTAMP_MS,
+  XMR_SEND_MAX_BLOCKS_LEFT,
   XMR_TARGET_BLOCK_SECONDS,
   XMR_TIP_LAG_WARNING_BLOCKS,
 } from '@onekeyhq/shared/src/config/xmr';
@@ -108,13 +109,14 @@ const settings: IVaultSettings = {
     // Base58 lengths for 69..87 address bytes, incl. featured addresses (97/108 chars).
     addressShapePattern: '^[1-9A-HJ-NP-Za-km-z]{95,120}$',
     tipLagWarningBlocks: XMR_TIP_LAG_WARNING_BLOCKS,
+    syncedBelowBlocks: XMR_SEND_MAX_BLOCKS_LEFT,
     pools: [
       {
         id: XMR_POOL_IDS.private,
         key: 'private',
         kind: 'private',
         source: 'localScan',
-        label: 'Monero',
+        label: 'Private',
         isDefaultPrivate: true,
       },
     ],
@@ -124,10 +126,11 @@ const settings: IVaultSettings = {
         height: XMR_EARLIEST_SCAN_HEIGHT,
         timestamp: XMR_EARLIEST_SCAN_TIMESTAMP_MS,
       },
+      deviceExportsViewKey: true,
     },
     // No `publicLabel`: no public pool to produce that address form.
     addressForms: {
-      privateLabel: ETranslations.privacy_receive_private_address__title,
+      privateLabel: ETranslations.private_send_private_option,
     },
     hideAddressOnTokenDetails: true,
     blockTimeSeconds: XMR_TARGET_BLOCK_SECONDS,

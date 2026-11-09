@@ -45,11 +45,7 @@ describe('shared Zcash Worker lifecycle', () => {
     jest.dontMock('./createZcashWorker');
   });
 
-  const request = (apiInstance: IZcashSdkApi) =>
-    apiInstance.getChainTip({
-      network: 'main',
-      lightwalletdUrl: 'https://example.invalid',
-    });
+  const request = (apiInstance: IZcashSdkApi) => apiInstance.capabilities();
 
   it('preserves the Worker startup error instead of reporting a handshake timeout', async () => {
     const pending = request(api);

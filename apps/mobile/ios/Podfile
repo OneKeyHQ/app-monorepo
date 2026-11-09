@@ -158,6 +158,18 @@ target 'OneKeyWallet' do
       unless system('python3', '-B', intercom_patch, intercom_framework)
         raise '[Intercom] Failed to remove recording capabilities from the pinned iOS SDK'
       end
+
+      # Remove JPush/JCore remote commands that write to or collect the iOS
+      # pasteboard, render server-supplied in-app/rich-media HTML5, drive remote
+      # geofence/location strategies, or enable SDK log upload. Both pods are
+      # development pods, so their pinned static libraries are linked from
+      # node_modules; patch the reviewed bytes there before Xcode copies them
+      # into XCFrameworkIntermediates.
+      jpush_patch = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
+      jpush_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
+      unless system('python3', '-B', jpush_patch, jpush_node_modules)
+        raise '[JPush] Failed to remove remote commands from the pinned iOS SDKs'
+      end
     end
 
     # Copy custom fonts from components package and add to Xcode Resources.
@@ -219,6 +231,33 @@ target 'OneKeyWallet' do
       file_ref = fonts_group.new_file(f)
       main_target.resources_build_phase.add_file_reference(file_ref)
     end
+
+    # `yarn install` can restore the pristine JPush/JCore xcframeworks after the
+    # last `pod install`, while the development pods link them from node_modules.
+    # Fail every build if the reviewed patch is no longer applied. Mac Catalyst
+    # does not link these pods, so its project must not keep a stale check phase.
+    jpush_check_phase_name = 'Check JPush SDK patches'
+    if mac_catalyst_enabled
+      stale_jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
+        phase.name == jpush_check_phase_name
+      end
+      main_target.build_phases.delete(stale_jpush_check_phase) if stale_jpush_check_phase
+    else
+      jpush_check_script = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
+      jpush_check_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
+      jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
+        phase.name == jpush_check_phase_name
+      end
+      unless jpush_check_phase
+        jpush_check_phase = main_target.new_shell_script_build_phase(jpush_check_phase_name)
+      end
+      jpush_check_phase.shell_script = <<~SCRIPT
+        python3 -B "#{jpush_check_script}" "#{jpush_check_node_modules}" --check
+      SCRIPT
+      main_target.build_phases.delete(jpush_check_phase)
+      main_target.build_phases.insert(0, jpush_check_phase)
+    end
+
     user_project.save
     puts "[Fonts] Added fonts to Xcode project Resources"
     if mac_catalyst_enabled

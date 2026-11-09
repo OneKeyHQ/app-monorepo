@@ -50,6 +50,7 @@ import {
 } from '../MarketStockList/utils';
 import { getTokenAgeLabel } from '../MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { getMarketWatchlistRowKind } from '../MarketTokenList/utils/marketWatchlistRowKind';
+import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import { buildMarketNativeRowPatches } from './marketNativeListRows';
 
@@ -289,7 +290,8 @@ export function WebMarketTokenList({
       background: theme.bgApp.val,
       rowBackground: theme.bgApp.val,
       rowSelectedBackground: theme.bgActive.val,
-      rowPressedBackground: theme.bgHover.val,
+      rowPressedBackground: theme.bgActive.val,
+      rowHoverBackground: theme.bgHover.val,
       subduedBackground: theme.bgSubdued.val,
       strongBackground: theme.bgStrong.val,
       imageFallbackBackground: theme.gray5.val,
@@ -1110,7 +1112,7 @@ export function WebMarketTokenList({
           };
         });
         const row: MarketRow = {
-          key: item.id,
+          key: marketTokenKey(item),
           type: 'market',
           variant: 'token',
           leading: {
@@ -1199,7 +1201,9 @@ export function WebMarketTokenList({
   }, [patches, snapshot, baseSnapshot]);
   const handleAction = useCallback(
     (event: RowActionEvent) => {
-      const index = data.findIndex((item) => item.id === event.rowKey);
+      const index = data.findIndex(
+        (item) => marketTokenKey(item) === event.rowKey,
+      );
       const item = data[index];
       if (!item) return;
       if (
@@ -1380,6 +1384,7 @@ export function WebMarketTokenList({
     <Stack ref={setRootRef} width="100%" minHeight={registeredHeight}>
       <NativeList
         ref={listRef}
+        testID={watchlistMode ? 'market-watchlist-list' : undefined}
         snapshot={baseSnapshot}
         webScrollHost={isFocusedTab ? (scrollElement ?? null) : null}
         webStickyInset={stickyInset}
@@ -1391,7 +1396,9 @@ export function WebMarketTokenList({
           onScrollBegin?.();
         }}
         onReorder={(event) => {
-          const from = data.findIndex((item) => item.id === event.key);
+          const from = data.findIndex(
+            (item) => marketTokenKey(item) === event.key,
+          );
           if (from < 0) return;
           const next = [...data];
           const [dragItem] = next.splice(from, 1);

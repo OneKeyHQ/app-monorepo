@@ -880,6 +880,7 @@ const TradingViewNativeContent = memo(
           displayMode: 'full',
           initialIndicatorId: indicator,
           intl,
+          storageNamespace,
           onConfirm: (nextValue) => setIndicatorSettings(nextValue),
           value: indicatorSettingsValue,
         });
@@ -1024,9 +1025,9 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          // The iOS fullscreen page covers the intact inline chart and quick bar.
+          // Native fullscreen layers cover the intact inline chart and quick bar.
           quickBar:
-            isNativeChartFullscreen && !platformEnv.isNativeIOS
+            isNativeChartFullscreen && !platformEnv.isNative
               ? null
               : nativeIndicatorQuickBar,
         }),
@@ -1093,7 +1094,11 @@ const TradingViewNativeContent = memo(
                 onChartSwitch={onChartSwitch}
               />
             )}
-            {mobileToolbarExtra}
+            {/* Page controls stay with the page. An Android owner only learns
+                about fullscreen once the layer is shown, after it has drawn. */}
+            {isNativeChartFullscreen && platformEnv.isNative
+              ? null
+              : mobileToolbarExtra}
           </XStack>
         ) : undefined,
       [
@@ -1110,11 +1115,15 @@ const TradingViewNativeContent = memo(
         storageNamespace,
       ],
     );
+    const chartSessionKey =
+      platformEnv.isNative && storageNamespace === 'perps'
+        ? dataProviderKey
+        : `${dataProviderKey}:${candleIntervalSeconds}`;
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
-      // A new symbol or interval owns a fresh viewport; presentation changes reuse it.
+      // Native interval changes reset the viewport without remounting the canvas.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [dataProviderKey, candleIntervalSeconds],
+      [chartSessionKey],
     );
 
     const drawingSourceKey =
@@ -1163,7 +1172,7 @@ const TradingViewNativeContent = memo(
           />
           <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
             <TradingViewNativeChart
-              key={`${dataProviderKey}:${candleIntervalSeconds}`}
+              key={chartSessionKey}
               enableDrawings={
                 enableDrawings &&
                 !isCompactDisplayMode &&

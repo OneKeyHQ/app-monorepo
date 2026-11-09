@@ -1218,7 +1218,7 @@ describe.each(['zec--0', 'xmr--0'])(
       expect(
         await privacyChainState.listPendingAccountDeletions(),
       ).toMatchObject([{ reenabled: true }]);
-      expect(await privacyChainState.listXmrEnabledAccountIds(params)).toEqual(
+      expect(await privacyChainState.listScanningAccountIds(params)).toEqual(
         [],
       );
       cleanup.resolve();

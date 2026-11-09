@@ -31,7 +31,7 @@ import {
 import type { ITwapHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
-import { getOrderAssetDisplayName } from '../utils';
+import { getOrderAssetDisplayName, getTwapSideInfo } from '../utils';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -205,17 +205,7 @@ const MobileTwapOpenOrdersRow = memo(
       };
     }, [activatedAt, intl, now, state, status]);
 
-    const sideText = useMemo(() => {
-      if (state.side === 'B') {
-        return state.reduceOnly
-          ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
-          : intl.formatMessage({ id: ETranslations.perp_long });
-      }
-      return state.reduceOnly
-        ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
-        : intl.formatMessage({ id: ETranslations.perp_short });
-    }, [intl, state.reduceOnly, state.side]);
-    const typeColor = state.side === 'B' ? '$green11' : '$red11';
+    const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
     const statusText = intl.formatMessage({
       id:
         status === 'waitingForTrigger'
@@ -245,13 +235,13 @@ const MobileTwapOpenOrdersRow = memo(
             <XStack gap="$2" alignItems="center">
               <SizableText
                 size="$bodySm"
-                color={typeColor}
+                color={sideInfo.color}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
                 {`${intl.formatMessage({
                   id: ETranslations.perp_twap_order__title,
-                })} / ${sideText}`}
+                })} / ${sideInfo.text}`}
               </SizableText>
               <SizableText
                 size="$bodySm"

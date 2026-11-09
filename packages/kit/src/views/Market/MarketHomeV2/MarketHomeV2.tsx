@@ -34,11 +34,18 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import {
+  HEADER_SEARCH_BAR_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '../../../components/TabPageHeader/headerLayout';
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
-import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
+import {
+  useMarketHomePageEnterAnalytics,
+  useMarketHomeViewAnalytics,
+} from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
@@ -423,6 +430,7 @@ function BaseMarketHomeLayout({
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  useMarketHomeViewAnalytics(isFocused);
   const rootRoutersLength = getRootRoutersLength();
   const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
   const ownsModalBackgroundRef = useRef(isFocused);
@@ -461,6 +469,10 @@ function BaseMarketHome() {
     searchTop = top + 5;
   } else if (searchGlassActive) {
     searchTop = top + 6;
+  }
+  if (!top) {
+    searchTop =
+      getFoldableIPhoneHeaderTop(HEADER_SEARCH_BAR_HEIGHT) || searchTop;
   }
 
   return (

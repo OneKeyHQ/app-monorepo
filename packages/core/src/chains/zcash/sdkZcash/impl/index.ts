@@ -16,7 +16,6 @@ import {
   deriveAddressFromUfvk,
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
-  getChainTip,
   getTransactionPolicy,
   inspectTransaction,
   parseTransparentTransactions,
@@ -44,6 +43,7 @@ import {
   getSyncProgress,
   getTxDetails,
   prepareWalletAccounts,
+  purgeUnknownAccounts,
   purgeWallet,
   queueRescanFrom,
   readBalance,
@@ -214,7 +214,6 @@ const api: IZcashSdkApi = {
   resetCarrier,
   capabilities,
   runRuntimeSelfTest,
-  getChainTip,
   getTransactionPolicy,
   inspectTransaction,
   deriveAccount,
@@ -238,6 +237,7 @@ const api: IZcashSdkApi = {
 
   // Leased: every one of these opens or uses the wallet database.
   prepareWalletAccounts: leased(prepareWalletAccounts),
+  purgeUnknownAccounts: leased(purgeUnknownAccounts),
   syncWallet: leased(syncWallet),
   queueRescanFrom: async (account, params) => {
     const queued = await leasedQueueRescanFrom(account, params);

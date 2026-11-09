@@ -21,10 +21,7 @@ import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
-import {
-  accountSelectorWalletVisualV2,
-  useAccountSelectorNativeListThemeV2,
-} from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
+import { accountSelectorWalletVisualV2 } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,6 +38,7 @@ import {
   recipientBlockieVisual,
   recipientIdentityRow,
   recipientSnapshot,
+  useRecipientNativeListTheme,
 } from './recipientNativeList';
 import {
   normalizeSearchKey,
@@ -289,7 +287,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
   } = props;
 
   const { formatDistanceToNowStrict } = useFormatDate();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
 
   // Compact time format: "2h ago" / "3d ago" for Latin, "2小时前" / "3天前" for CJK
   const formatCompactTime = useCallback(

@@ -37,7 +37,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EEnterWay,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -860,6 +863,7 @@ function MobileMarketNativeTokenListImpl({
   const presentation = useMarketNativeListPresentation();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: selectedCategory,
+    from: EEnterWay.MarketList,
   });
   const result = useMarketTokenList({
     networkId,
@@ -1005,7 +1009,7 @@ function MobileMarketNativeWatchlistImpl({
   const intl = useIntl();
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({ from: EEnterWay.MarketList });
   const { navigateToPerps } = usePerpsNavigation();
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
@@ -1283,7 +1287,9 @@ function MobileMarketNativeStockListImpl({
   const intl = useIntl();
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    from: EEnterWay.MarketList,
+  });
   const result = useMarketStockList({
     category: selectedCategoryId === 'all' ? undefined : selectedCategoryId,
   });

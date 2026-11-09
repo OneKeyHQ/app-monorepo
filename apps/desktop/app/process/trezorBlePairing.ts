@@ -128,6 +128,11 @@ export function createTrezorBlePairingIpcMain(
 
   const showPin = (pin: string) => {
     const dialogToken = ceremonyToken;
+    if (browserWindow.isDestroyed()) {
+      logger.warn('[TrezorBLE] pin dialog skipped: browserWindow destroyed');
+      decideActivePairing('cancel', dialogToken);
+      return;
+    }
     // The host's half of the numeric comparison: the helper holds the pairing
     // request open until we answer. Declining is what tells the device over SMP.
     const shownAt = Date.now();
@@ -164,7 +169,9 @@ export function createTrezorBlePairingIpcMain(
           );
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        decideActivePairing('cancel', dialogToken);
+      });
   };
 
   // A FRESH bond leaves the device holding the pairing link (not advertising),

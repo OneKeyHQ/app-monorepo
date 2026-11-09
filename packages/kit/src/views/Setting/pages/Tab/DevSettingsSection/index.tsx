@@ -166,6 +166,12 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
+const LazyCipherKeyValueDevSettings = LazyLoad(async () => {
+  const { CipherKeyValueDevSettings } =
+    await import('./CipherKeyValueDevSettings');
+  return { default: CipherKeyValueDevSettings };
+});
+
 const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
   const { NativeStorageRecoveryTestPanel } =
     await import('./NativeStorageRecoveryTestPanel');
@@ -1287,7 +1293,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
       },
       {
         key: 'account',
@@ -2079,6 +2085,21 @@ const BaseDevSettingsSection = () => {
                       />
                       <SectionPressItem
                         icon="OnekeyDeviceCustom"
+                        title="CipherKeyValue hardware test"
+                        subtitle="Test device confirmation, repeatability and decryption"
+                        testID="dev-settings-cipher-key-value"
+                        searchKeywords="SLIP-0011 cipher encrypt decrypt hardware 硬件 加密 解密"
+                        onPress={() => {
+                          Dialog.show({
+                            title: 'CipherKeyValue hardware test',
+                            showConfirmButton: false,
+                            dismissOnOverlayPress: false,
+                            renderContent: <LazyCipherKeyValueDevSettings />,
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
                         title="Pro2 Firmware Update Dev Settings"
                         subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
                         testID="pro2-firmware-update-dev-settings-menu"
@@ -2795,6 +2816,22 @@ const BaseDevSettingsSection = () => {
                             onPress={() => {
                               navigation.push(
                                 EModalSettingRoutes.SettingDevCryptoGalleryModal,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__title,
+                            })}
+                            subtitle={intl.formatMessage({
+                              id: ETranslations.dev_hw_path__desc,
+                            })}
+                            searchKeywords="Hardware Derivation Path Test BIP32 硬件 派生路径 签名 OK-66332"
+                            testID="hardware-path-test-menu"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevHardwarePathTestModal,
                               );
                             }}
                           />

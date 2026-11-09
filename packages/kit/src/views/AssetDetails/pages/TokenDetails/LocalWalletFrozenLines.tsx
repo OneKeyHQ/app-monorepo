@@ -2,7 +2,13 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   ILocalWalletFrozenPart,
@@ -63,6 +69,37 @@ function frozenLineText(
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+// Before a hardware account's send asks its device to verify new funds, say
+// why. Resolves whether the user chose to verify.
+export function confirmLocalWalletDeviceVerify({
+  intl,
+  amount,
+}: {
+  intl: IntlShape;
+  amount: string;
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    let confirmed = false;
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.privacy_device_verify__title,
+      }),
+      description: intl.formatMessage(
+        { id: ETranslations.privacy_device_verify__desc },
+        { amount },
+      ),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.privacy_balance_verify__action,
+      }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+      onConfirm: () => {
+        confirmed = true;
+      },
+      onClose: () => resolve(confirmed),
+    });
+  });
 }
 
 // Asks for the password and confirms funds a view-only scan cannot prove

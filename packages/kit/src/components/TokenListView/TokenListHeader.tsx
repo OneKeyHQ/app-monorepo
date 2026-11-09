@@ -20,6 +20,7 @@ import {
 } from '../../states/jotai/contexts/tokenList';
 
 import { getTokenListHeaderLayout } from './tokenListRowLayout';
+import { getTokenTableColumnWeights } from './tokenListRowLayoutShared';
 
 type IProps = {
   tableLayout?: boolean;
@@ -112,6 +113,7 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
   // Pull the asset label back over the leading slot so it starts at the row
   // edge while the column itself keeps the row's cell width.
   const assetLabelInset = -(leadingWidth + cellGap);
+  const columnWeights = getTokenTableColumnWeights(withSwapAction);
 
   return (
     <ListItem
@@ -122,7 +124,11 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
     >
       <Stack width={leadingWidth} />
       <XStack flex={1} gap={cellGap}>
-        <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
+        <Stack
+          flexGrow={columnWeights.asset}
+          flexBasis={0}
+          alignItems="flex-start"
+        >
           <Stack ml={assetLabelInset}>
             <SortButton
               label={intl.formatMessage({ id: ETranslations.global_asset })}
@@ -136,7 +142,11 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
             />
           </Stack>
         </Stack>
-        <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+        <Stack
+          flexGrow={columnWeights.balance}
+          flexBasis={0}
+          alignItems="flex-end"
+        >
           <SortButton
             label={intl.formatMessage({ id: ETranslations.global_balance })}
             iconName={renderSortButton(ETokenListSortType.Value)}
@@ -148,7 +158,11 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
             }}
           />
         </Stack>
-        <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+        <Stack
+          flexGrow={columnWeights.price}
+          flexBasis={0}
+          alignItems="flex-end"
+        >
           <SortButton
             label={intl.formatMessage({ id: ETranslations.global_price })}
             iconName={renderSortButton(ETokenListSortType.Price)}
@@ -160,6 +174,9 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
             }}
           />
         </Stack>
+        {columnWeights.swapSpacer ? (
+          <Stack flexGrow={columnWeights.swapSpacer} flexBasis={0} />
+        ) : null}
       </XStack>
       {withSwapAction ? (
         <SizableText

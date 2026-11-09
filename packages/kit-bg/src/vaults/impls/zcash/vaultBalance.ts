@@ -43,6 +43,7 @@ import {
   readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
   readLocalWalletCacheEpoch,
+  readLocalWalletForDisplay,
   saveLastLocalWalletPublicBalance,
 } from '../../localWallet/privacyChainCacheStore';
 import {
@@ -213,6 +214,8 @@ type IZcashTransparentDisplayEntry = {
   landed?: IZcashTransparentDisplayRead;
   // The last complete result, late or not.
   lastRead?: IZcashTransparentDisplayRead;
+  // The indexer's total once it answers; it needs no runtime, unlike the spendable set.
+  indexerTotal?: { value?: BigNumber };
 };
 
 const ZCASH_TRANSPARENT_DISPLAY_KINDS = ['spendable', 'all'] as const;
@@ -307,23 +310,31 @@ export async function zcashReadTransparentForDisplay(
   }
   const lastRead = previous?.lastRead;
   let running = previous?.running;
+  let indexerTotal = previous?.indexerTotal;
   if (!running) {
-    running = spendableOnly
-      ? vault
-          .zcashFetchFreshTransparentUtxos({
-            account,
-            rawTxRetries: ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES,
-          })
-          .then((fresh) => ({
-            spendable: fresh.utxos.reduce(
-              (sum, utxo) => sum.plus(utxo.valueZat),
-              new BigNumber(0),
-            ),
-          }))
-      : vault.zcashGetIndexerTransparentBalance({
+    if (spendableOnly) {
+      running = vault
+        .zcashFetchFreshTransparentUtxos({
           account,
           rawTxRetries: ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES,
-        });
+        })
+        .then((fresh) => ({
+          spendable: fresh.utxos.reduce(
+            (sum, utxo) => sum.plus(utxo.valueZat),
+            new BigNumber(0),
+          ),
+        }));
+    } else {
+      const arrived: { value?: BigNumber } = {};
+      indexerTotal = arrived;
+      running = vault.zcashGetIndexerTransparentBalance({
+        account,
+        rawTxRetries: ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES,
+        onIndexerTotal: (total) => {
+          arrived.value = total;
+        },
+      });
+    }
     if (!spendableOnly) {
       // Only a complete pair is saved, so a saved total and spendable come from one read.
       void running.then(
@@ -341,7 +352,12 @@ export async function zcashReadTransparentForDisplay(
         () => undefined,
       );
     }
-    zcashTransparentDisplayReads.set(key, { epoch, running, lastRead });
+    zcashTransparentDisplayReads.set(key, {
+      epoch,
+      running,
+      lastRead,
+      indexerTotal,
+    });
   }
   let shown: IZcashTransparentDisplay | undefined;
   if (!spendableOnly) {
@@ -436,7 +452,20 @@ export async function zcashReadTransparentForDisplay(
       }
     },
   );
-  return shown ?? {};
+  // Nothing saved to show: the indexer's total stands in until the spendable set, which waits on a
+  // busy runtime, lands.
+  const total = indexerTotal?.value;
+  return shown ?? (total ? { total } : {});
+}
+
+// The fee policy comes from the runtime; with no answer in time, Shield stays off until a later read.
+function readZcashShieldingThreshold(
+  vault: Vault,
+): Promise<string | undefined> {
+  return readLocalWalletForDisplay({
+    key: `${vault.networkId}:feePolicy`,
+    read: async () => (await getZcashTransactionPolicy(vault)).minimumFeeZat,
+  });
 }
 
 export async function getLocalWalletAccountBalance(
@@ -447,7 +476,7 @@ export async function getLocalWalletAccountBalance(
     accountId: string;
   },
 ): Promise<ILocalWalletAccountBalance | null> {
-  const [balance, transparent] = await Promise.all([
+  const [balance, transparent, shieldingThreshold] = await Promise.all([
     // Gate covers the private half only; gating transparent too would hide funds the account can still spend.
     (async () => {
       const state =
@@ -475,6 +504,7 @@ export async function getLocalWalletAccountBalance(
         return {};
       }
     })(),
+    readZcashShieldingThreshold(vault),
   ]);
   const zat = (value: string | undefined) => new BigNumber(value ?? '0');
   const parsed = (value: string | undefined) => zatoshiToZec(value ?? '0');
@@ -493,9 +523,6 @@ export async function getLocalWalletAccountBalance(
   ];
 
   const transparentSpendable = transparent.spendable;
-  const shieldingThreshold = (
-    await getZcashTransactionPolicy(vault).catch(() => undefined)
-  )?.minimumFeeZat;
   const transparentTotal = transparent.total;
   const transparentFrozen =
     transparentTotal && transparentSpendable
@@ -649,29 +676,9 @@ export async function zcashGetBalanceSafe(
   try {
     return await readZcashRuntimeBalance(vault, vault.accountId);
   } catch (e) {
-    // Self-heal missing shielded meta here, since every trigger lands in this catch; no-op if locked.
     const code = readZcashRuntimeError(e)?.code;
     if (code === 'NOT_SYNCED' || code === 'ACCOUNT_NOT_FOUND') return null;
-    // Only an unfinished setup is repairable here; retrying on any other failure would re-derive keys every poll.
-    const repaired =
-      privacyModeState.intent === 'on' &&
-      isZcashSetupIncompleteError(e) &&
-      (await vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked());
-    if (repaired) {
-      try {
-        return await readZcashRuntimeBalance(vault, vault.accountId);
-      } catch (e2) {
-        const retryCode = readZcashRuntimeError(e2)?.code;
-        if (retryCode === 'NOT_SYNCED' || retryCode === 'ACCOUNT_NOT_FOUND')
-          return null;
-        console.error('[zcash] getBalance still failing after auto repair', {
-          accountId: vault.accountId,
-          ...zcashDescribeError(e2),
-        });
-        throw e2;
-      }
-    }
-    // Keep setup unavailable so Repair stays reachable, instead of claiming an unscanned wallet is empty.
+    // No key: unknown, not an empty wallet. The account is being turned off (zcashGetAccountUfvk).
     if (isZcashSetupIncompleteError(e)) {
       return null;
     }
@@ -783,24 +790,44 @@ export async function zcashGetIndexerTransparentBalance(
   {
     account,
     rawTxRetries,
+    onIndexerTotal,
   }: {
     account: IDBUtxoAccount;
     rawTxRetries?: number;
+    // The indexer's total as soon as it answers, before the spendable set (parsed by the runtime).
+    onIndexerTotal?: (total: BigNumber) => void;
   },
 ): Promise<{
   total?: BigNumber;
   spendable?: BigNumber;
   coinbase?: BigNumber;
 }> {
-  const [utxosResult, totalResult] = await Promise.allSettled([
-    vault.zcashFetchFreshTransparentUtxos({ account, rawTxRetries }),
-    vault.baseFetchTokenDetails({
+  const totalRead = vault
+    .baseFetchTokenDetails({
       accountId: account.id,
       accountAddress: account.address,
       xpub: account.xpubSegwit || account.xpub,
       networkId: vault.networkId,
       contractList: [''],
-    }),
+    })
+    .then((response) => {
+      const nativeToken = response.data.data.find(
+        (token) => token.info.isNative || token.info.address === '',
+      );
+      const indexerTotal = new BigNumber(nativeToken?.balance ?? '');
+      return indexerTotal.isFinite() && indexerTotal.gte(0)
+        ? indexerTotal
+        : undefined;
+    });
+  void totalRead.then(
+    (total) => {
+      if (total) onIndexerTotal?.(total);
+    },
+    () => undefined,
+  );
+  const [utxosResult, totalResult] = await Promise.allSettled([
+    vault.zcashFetchFreshTransparentUtxos({ account, rawTxRetries }),
+    totalRead,
   ]);
   let spendable: BigNumber | undefined;
   let total: BigNumber | undefined;
@@ -817,11 +844,8 @@ export async function zcashGetIndexerTransparentBalance(
     });
   }
   if (totalResult.status === 'fulfilled') {
-    const nativeToken = totalResult.value.data.data.find(
-      (token) => token.info.isNative || token.info.address === '',
-    );
-    const indexerTotal = new BigNumber(nativeToken?.balance ?? '');
-    if (indexerTotal.isFinite() && indexerTotal.gte(0)) {
+    const indexerTotal = totalResult.value;
+    if (indexerTotal) {
       total =
         spendable === undefined
           ? indexerTotal

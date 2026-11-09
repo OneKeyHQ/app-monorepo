@@ -12,7 +12,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
+import { withRewardScopesHint } from './RewardScopeInfo';
 import { useInviteHomeCardStyle } from './useInviteCardStyle';
+
+import type { IInviteRewardScopeItem } from './getInviteRewardRows';
 
 // Whether the active wallet can still take a referral code. Perks calls this
 // on mount, beside its rewards request rather than after it, so the empty
@@ -51,8 +54,12 @@ export type IBenefitsBindStatus = ReturnType<typeof useBenefitsBindStatus>;
 // code dialog could only bind some other wallet.
 export function BenefitsTabPlaceholder({
   bindStatus,
+  scopeItems = [],
 }: {
   bindStatus: IBenefitsBindStatus;
+  // Which channels and protocols earn rewards, linked under the copy of a
+  // wallet that can earn them (already bound, or able to bind).
+  scopeItems?: readonly IInviteRewardScopeItem[];
 }) {
   const intl = useIntl();
   const cardStyle = useInviteHomeCardStyle();
@@ -79,7 +86,10 @@ export function BenefitsTabPlaceholder({
     case 'bound':
       content = {
         title: t(ETranslations.referral_perks_empty__title),
-        description: t(ETranslations.referral_no_reward),
+        description: withRewardScopesHint(
+          t(ETranslations.referral_no_reward),
+          scopeItems,
+        ),
       };
       break;
     case 'notApplicable':
@@ -93,7 +103,10 @@ export function BenefitsTabPlaceholder({
     default:
       content = {
         title: t(ETranslations.referral_perks_empty__title),
-        description: t(ETranslations.referral_perks_empty__desc),
+        description: withRewardScopesHint(
+          t(ETranslations.referral_perks_empty__desc),
+          scopeItems,
+        ),
         buttonProps: {
           testID: ReferFriendsTestIDs.benefitsBindBtn,
           variant: 'secondary',
