@@ -258,3 +258,39 @@ it('publishes the actual displayed last point and clears it when the chart fails
   rerender(<StockSimpleChartContent {...props} requestError />);
   expect(onPriceUpdate).toHaveBeenLastCalledWith(undefined);
 });
+
+it('reports the drawn range and clears it while the next range loads or fails', () => {
+  const onRangeChange = jest.fn();
+  const props = { ...base, isNative: false, onRangeChange };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+  mockPromiseResult.mockReturnValue({
+    result: result('1W', [
+      [1_800_000_000, 20],
+      [1_800_000_300, 15],
+    ]),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1W',
+    baseline: 20,
+    latest: 15,
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" requestError />);
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+});

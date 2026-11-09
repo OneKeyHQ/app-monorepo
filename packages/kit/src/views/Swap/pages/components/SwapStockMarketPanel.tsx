@@ -26,12 +26,17 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import {
+  type IStockSimpleChartRangeChange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   resolveStockSimpleChartRangeForPriceMode,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
+import {
+  getMarketPriceChangeLabelId,
+  getMarketSimpleChartRangePriceChange,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { MarketDesktopChartContainer } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer';
 import {
@@ -41,6 +46,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/marketSimpleChartConstants';
 import { StockChartModeControl } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl';
 import { getMarketStockChartPreviousClose } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketStockPreviousClose';
+import { formatPriceChangeDisplay } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
 import { buildStockInfoFromPublicDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/stockPublicDataUtils';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -76,19 +82,29 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
     All: ETranslations.global_all,
   };
 
-function useSwapStockPrice(priceMode: 'share' | 'token', chartPrice?: string) {
+function useSwapStockPrice(
+  priceMode: 'share' | 'token',
+  chartPrice?: string,
+  rangeChange?: IStockSimpleChartRangeChange,
+) {
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const { displayStockTokenDetail: tokenDetail } = useSwapStockTradeContext();
   const price =
     priceMode === 'share'
       ? stockDetail?.price
       : (chartPrice ?? tokenDetail?.price);
+  const rangePriceChange = getMarketSimpleChartRangePriceChange(
+    rangeChange,
+    priceMode,
+  );
   const percent =
-    priceMode === 'share'
+    rangePriceChange?.priceChangePercent ??
+    (priceMode === 'share'
       ? stockDetail?.priceChange24hPercent
-      : tokenDetail?.priceChange24hPercent;
+      : tokenDetail?.priceChange24hPercent);
   const reportedChange =
-    priceMode === 'share' ? stockDetail?.priceChange24hValue : undefined;
+    rangePriceChange?.priceChangeValue ??
+    (priceMode === 'share' ? stockDetail?.priceChange24hValue : undefined);
   const change = useMemo(() => {
     const reported = new BigNumber(reportedChange ?? '');
     const quote = new BigNumber(price ?? '');
@@ -118,19 +134,23 @@ function StockPrice({
   chartPrice,
   mobile,
   priceMode,
+  rangeChange,
 }: {
   chartPrice?: string;
   mobile?: boolean;
   priceMode: 'share' | 'token';
+  rangeChange?: IStockSimpleChartRangeChange;
 }) {
-  const { price, percent, change } = useSwapStockPrice(priceMode, chartPrice);
+  const { price, percent, change } = useSwapStockPrice(
+    priceMode,
+    chartPrice,
+    rangeChange,
+  );
   const { stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const selection = useSwapStockSelection();
   const intl = useIntl();
-  const color = new BigNumber(percent ?? 0).lt(0)
-    ? '$textCritical'
-    : '$textSuccess';
+  const { color } = formatPriceChangeDisplay(percent);
   const size = mobile ? '$bodySm' : '$bodyLg';
   const pendingStock = Boolean(selection?.stockSelectionPending);
   const hasError =
@@ -228,6 +248,15 @@ function StockPrice({
               </SizableText>
             ) : null}
           </XStack>
+          <SizableText
+            testID="swap-stock-price-change-label"
+            size={size}
+            color="$textSubdued"
+          >
+            {intl.formatMessage({
+              id: getMarketPriceChangeLabelId(rangeChange, priceMode),
+            })}
+          </SizableText>
         </XStack>
       </>
     );
@@ -503,6 +532,42 @@ export function SwapStockMarketPanel() {
     ],
   );
   const activeChartPriceScopeRef = useRef<typeof chartPriceScope | null>(null);
+  const rangeChangeScope = useMemo(
+    () => ({ chartPriceScope, range }),
+    [chartPriceScope, range],
+  );
+  const activeRangeChangeScopeRef = useRef<typeof rangeChangeScope | null>(
+    null,
+  );
+  const [chartRangeChange, setChartRangeChange] = useState<{
+    scope: typeof rangeChangeScope;
+    change: IStockSimpleChartRangeChange;
+  }>();
+  useLayoutEffect(() => {
+    activeRangeChangeScopeRef.current = rangeChangeScope;
+    return () => {
+      activeRangeChangeScopeRef.current = null;
+    };
+  }, [rangeChangeScope]);
+  const handleChartRangeChange = useCallback(
+    (change: IStockSimpleChartRangeChange | undefined) => {
+      if (activeRangeChangeScopeRef.current !== rangeChangeScope) return;
+      if (
+        !rangeChangeScope.chartPriceScope.isSimpleChart ||
+        rangeChangeScope.chartPriceScope.selectionPending ||
+        !change ||
+        change.priceMode !== priceMode ||
+        change.range !== range
+      ) {
+        setChartRangeChange((current) =>
+          current?.scope === rangeChangeScope ? undefined : current,
+        );
+        return;
+      }
+      setChartRangeChange({ scope: rangeChangeScope, change });
+    },
+    [priceMode, range, rangeChangeScope],
+  );
   const [chartPrice, setChartPrice] = useState<{
     scope: typeof chartPriceScope;
     price: string;
@@ -624,6 +689,11 @@ export function SwapStockMarketPanel() {
           <YStack gap="$2">
             <StockPrice
               priceMode={priceMode}
+              rangeChange={
+                chartRangeChange?.scope === rangeChangeScope
+                  ? chartRangeChange.change
+                  : undefined
+              }
               chartPrice={
                 chartPrice?.scope === chartPriceScope
                   ? chartPrice.price
@@ -689,6 +759,7 @@ export function SwapStockMarketPanel() {
                 priceMode={priceMode}
                 priceScaleFormat="full"
                 onPriceUpdate={handleChartPriceUpdate}
+                onRangeChange={handleChartRangeChange}
                 range={range}
                 stockId={stockId}
                 stockDetail={stockDetail}
