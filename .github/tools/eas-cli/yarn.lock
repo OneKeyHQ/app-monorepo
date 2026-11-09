@@ -734,7 +734,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hapi/topo@npm:^5.0.0, @hapi/topo@npm:^5.1.0":
+"@hapi/topo@npm:^5.1.0":
   version: 5.1.0
   resolution: "@hapi/topo@npm:5.1.0"
   dependencies:
@@ -1077,7 +1077,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sideway/address@npm:^4.1.3, @sideway/address@npm:^4.1.5":
+"@sideway/address@npm:^4.1.5":
   version: 4.1.5
   resolution: "@sideway/address@npm:4.1.5"
   dependencies:
@@ -2929,20 +2929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"joi@npm:17.11.0":
-  version: 17.11.0
-  resolution: "joi@npm:17.11.0"
-  dependencies:
-    "@hapi/hoek": "npm:^9.0.0"
-    "@hapi/topo": "npm:^5.0.0"
-    "@sideway/address": "npm:^4.1.3"
-    "@sideway/formula": "npm:^3.0.1"
-    "@sideway/pinpoint": "npm:^2.0.0"
-  checksum: 10/392e897693aa49a401a869180d6b57bdb7ccf616be07c3a2c2c81a2df7a744962249dbaa4a718c07e0fe23b17a04795cbfbd75b79be5829627402eed074db6c9
-  languageName: node
-  linkType: hard
-
-"joi@npm:^17.13.1":
+"joi@npm:17.13.9, joi@npm:^17.13.1":
   version: 17.13.9
   resolution: "joi@npm:17.13.9"
   dependencies:
@@ -3243,12 +3230,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:5.1.2":
-  version: 5.1.2
-  resolution: "minimatch@npm:5.1.2"
+"minimatch@npm:5.1.8":
+  version: 5.1.8
+  resolution: "minimatch@npm:5.1.8"
   dependencies:
     brace-expansion: "npm:^2.0.1"
-  checksum: 10/cfd64ba256a66093e7a8d309a14e69b29a00df14c4b100b2c667e5a3032a8c749a02805d2bfd7d7aca95b7c2cb57132cb0b5aef39e0610a9b1dd5e662834ad1e
+  checksum: 10/bb855556efcf21efd096ccd96c448e0eef80d418221e5c315686c67fb7ef9ee02e3ee40f71763b7cbaa3d6e29ca61c2aa692b485e158069d19e8e2a61d0a11ce
   languageName: node
   linkType: hard
 
@@ -3372,12 +3359,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:3.3.8":
-  version: 3.3.8
-  resolution: "nanoid@npm:3.3.8"
+"nanoid@npm:3.3.18":
+  version: 3.3.18
+  resolution: "nanoid@npm:3.3.18"
   bin:
     nanoid: bin/nanoid.cjs
-  checksum: 10/2d1766606cf0d6f47b6f0fdab91761bb81609b2e3d367027aff45e6ee7006f660fb7e7781f4a34799fe6734f1268eeed2e37a5fdee809ade0c2d4eb11b0f9c40
+  checksum: 10/1b3b4fdac831b92b56d1dbe8b1e63a372432faf86ea383134e3b53141ef8108a60b7f84343b5cefecac9550bb74edf8164da93ea07d1c4f757039bc75d8a5d9e
   languageName: node
   linkType: hard
 
@@ -3425,10 +3412,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-forge@npm:1.4.0":
-  version: 1.4.0
-  resolution: "node-forge@npm:1.4.0"
-  checksum: 10/d70fd769768e646eda73343d4d4105ccb6869315d975905a22117431c04ae5b6df6c488e34ed275b1a66b50195a09b84b5c8aeca3b8605c20605fcb8e9f109d9
+"node-forge@npm:1.4.1":
+  version: 1.4.1
+  resolution: "node-forge@npm:1.4.1"
+  checksum: 10/1fd7578cfc50c2900cbc9d5742ce273449e2ff5b57b00ec9ca4d3d931b397ffc646177749ec649cc87910fc93ceed084611f8d62b6fe727a2bfc5169f50f3f6d
   languageName: node
   linkType: hard
 
@@ -4261,16 +4248,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tar@npm:7.5.19":
-  version: 7.5.19
-  resolution: "tar@npm:7.5.19"
+"tar@npm:7.5.21":
+  version: 7.5.21
+  resolution: "tar@npm:7.5.21"
   dependencies:
     "@isaacs/fs-minipass": "npm:^4.0.0"
     chownr: "npm:^3.0.0"
     minipass: "npm:^7.1.2"
     minizlib: "npm:^3.1.0"
     yallist: "npm:^5.0.0"
-  checksum: 10/0b06a0917fe68a4dff361e147db30fd67ae2ee85ab2863d62046a6ccef46f0d1906eed20f92277a436300eaaa0e3cd31d8763d7f02fa389f41d7966e58388db8
+  checksum: 10/a1b7dcee15e4f7dbef7f07c3cf0fe946248efabd1cb029b54c698d817dfc2876c75bcaa164a12dd21191e385759ce3e37fea562cf4aabaa00984ef9ed3c48d17
   languageName: node
   linkType: hard
 

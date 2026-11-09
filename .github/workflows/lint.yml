@@ -93,7 +93,7 @@ jobs:
       - name: Check release supply chain
         run: |
           node .github/scripts/check-release-supply-chain.js
-          node --test .github/scripts/check-release-supply-chain.node-test.js .github/scripts/mobile-release.node-test.js
+          node --test .github/scripts/check-release-supply-chain.node-test.js .github/scripts/mobile-release.node-test.js .github/scripts/eas-cli-compat.node-test.js
           yarn exec sentry-cli --version
           yarn workspace @onekeyhq/desktop exec electron-builder --version
 
