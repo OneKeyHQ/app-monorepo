@@ -1277,6 +1277,47 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
 **Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
 
+## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
+**Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
+**Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.
+**Root Cause**: The hide-value setting lives in the main window's jotai store. The tray payload had no field for it, the main-window provider neither read the setting nor re-sent on a toggle, and the tray rendered the amounts unconditionally.
+**Fix**: Carry `hideValue` on every tray payload, stamped when the payload is sent, and re-deliver the last payload as soon as the setting flips instead of waiting for a gather that needs the network and may fail. The tray masks the total as `****` and pending amounts as `**** SYMBOL`, the same rules as the home total and history rows; market quotes stay visible. Regression tests cover the sender (stamp at send time, immediate re-delivery, error and locked placeholders, reset) and the rendered tray panel (hidden, visible, live toggle).
+**Catchable by**: Section 3: Cross-Platform Impact — list every window and runtime that renders the same data before treating a display setting as global; Section 4: Business Logic & Regression — a privacy toggle must be checked on each surface that shows the value, including ones that receive a copied snapshot.
+
+## Case: Perps indicator reset removed default volume (OK-66449)
+**Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
+**Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
+**Root Cause**: Reset used generic inactive indicator defaults without the Perps storage namespace.
+**Fix**: Pass the namespace through reset and enable VOL only for Perps defaults. Regression tests and Web reset/refresh verification cover persistence and unchanged market/swap defaults.
+**Catchable by**: Section 4: Business Logic & Regression — module defaults must survive shared reset flows.
+
+## Case: Empty desktop order headers could not scroll (OK-65891)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single runtime; verified in Web.
+**Symptom**: Narrow or zoomed empty order tables clipped rightmost columns with no way to reach them.
+**Root Cause**: The empty state had no body scroller, and the separate header scroller was disabled.
+**Fix**: Enable horizontal header scrolling only for the desktop empty state. Hide the scroll indicator to match the existing table presentation. Web verification covers reaching the final columns while the empty state and fixed actions stay in place.
+**Catchable by**: Section 8: Manual Verification — test empty and populated layouts at constrained widths.
+
+## Case: Historical trade shares skipped current-position leverage (OK-65726)
+**Date**: 2026-11-06 | **Platforms**: Shared main UI on mobile/extension and single-runtime desktop/Web.
+**Symptom**: Share leverage and ROE differed from Hyperliquid when current-position leverage differed from the cached setting.
+**Root Cause**: The lookup started with last-used leverage and omitted the matching current position.
+**Fix**: Prefer account-scoped same-coin position leverage before last-used and maximum-leverage fallbacks. Regression tests cover precedence and unrelated coins. This aligns the accepted Hyperliquid display convention, not historical execution leverage; fills do not provide that field.
+**Catchable by**: Section 4: Data flow end-to-end — verify the reference product's data precedence and distinguish current state from historical facts.
+
+## Case: Perps interval switches remounted the native canvas (OK-65650)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main chart UI and UI worklet; bg is not involved. Direct device verification uses iOS Simulator.
+**Symptom**: Switching intervals briefly blanked the full plot. Retaining the canvas then exposed a fullscreen handoff regression: returning after changing interval reset the adopted viewport again.
+**Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
+**Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
+**Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
+
+## Case: Perps showed an extra chart selector while TradingView loaded (OK-66555)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI; verified on iOS Simulator. No bg or shared native resource changes.
+**Symptom**: Switching from Original to TradingView briefly showed a standalone TradingView dropdown above the loading chart.
+**Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
+**Fix**: Remove that extra selector and its import. Keep a settings icon accessible before readiness, with a chart-switch-only menu so stalled or failed TV loading does not trap users. Hide full settings and chart style until readiness. Regression coverage includes a chart that never becomes ready and switching after closing the recovery dialog. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back to Original while TV remains stalled; Android device verification remains for QA.
+**Catchable by**: Section 8: Manual Verification — inspect loading and ready states separately when moving controls into a settings menu.
 
 ## Case: Lite backup completion outlived its owning dialog
 **Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and asynchronous bg wallet service. The process-owned native NFC operation can finish after the main UI owner unmounts; the two JS heaps are separate.
@@ -1306,6 +1347,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
 **Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
 **Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.
+
+## Case: Market tabs jumped when their sticky headers had different heights (OK-63910, OK-65972)
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. Background initialization and data ownership are outside this layout path.
+**Symptom**: When switching from Trending to empty Favorites, the outgoing list moved up by 88 pt before the page changed. Switching between Financials and My Positions on a stock detail page shifted the incoming content by 44 pt after it appeared.
+**Root Cause**: A shared sticky header height drove the native scroll inset. Its update could precede or follow the native page switch, so one page temporarily used the other page's height.
+**Fix**: App-modules #221 lets the iOS Pager apply the destination page's inset before display. The app supplies each tab's height and keeps the home header aligned with the page the Pager is displaying. Focused Jest tests cover the destination height and the source header before selection completes. A local native build verified both transitions on the iOS simulator with empty Favorites and empty positions. Simulator retesting with the published SDK is pending.
+**Catchable by**: Sections 5, 6 and 8: Check the ordering of native page selection and header updates, and inspect the first visible frame in both directions when tabs have different heights.
+
+## Case: Market destination empty rows used the source tab height
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. The background runtime is outside this layout path.
+**Symptom**: When switching from Favorites to Trending, the destination no-match or retry row was 88 pt taller until the native page-selection callback.
+**Root Cause**: The lists shared an available height based on the displayed tab's sticky header even after the Pager received heights for each page.
+**Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
+**Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
 
 ## Case: Private account setup and receive prompts stayed in English (OK-66546, OK-66560)
 **Date**: 2026-11-06 | **Platforms**: Desktop/Web single JS runtime and iOS/Android/extension main UI. Bundled locale messages are loaded in the UI runtime; background scanning and native resources are unchanged.

@@ -1,8 +1,13 @@
+import type { ESwapSource } from './types';
+
 export type ISwapReviewAnalyticsContext = {
   reviewSessionId: string;
   quoteId?: string;
   // Only the service build ID; never a provider ID or a synthetic quote ID.
   orderId?: string;
+  // Entry that opened this trade (e.g. Market). Kept apart from `createFrom`,
+  // which describes the swap surface and must keep its historical values.
+  swapSource?: ESwapSource;
 };
 
 export type ISwapReviewStage =
