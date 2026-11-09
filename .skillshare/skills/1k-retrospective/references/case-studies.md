@@ -1375,3 +1375,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The deleted panel was the only foreground caller of pauseLocalWalletScan. Account pause changes account participation and does not set the persisted network pause flag.
 **Fix**: Add Pause beside the existing settings status for active unfinished chains, retain Resume for a paused chain, and reuse the existing background operations. Keep busy state and an immediate re-entry guard; render the resulting state only from background publication. Show the existing localized error Toast when either chain action fails so the unchanged scan state is explained. Tests cover network scoping, account controls, paused/resumed publication, pending and failed requests, retry, and available-state boundaries. Native-device interaction remains unverified.
 **Catchable by**: Sections 4-6: Before removing a UI surface, trace every action to its last remaining caller and distinguish account-level controls from network-level controls; test reachable actions as well as rendered status.
+
+## Case: Privacy account management modules were missing from the native registry (OK-66558)
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
+**Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
+**Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
+**Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
+**Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
+
+## Case: Privacy account preview ignored the active locale (OK-66558)
+**Date**: 2026-11-09 | **Platforms**: Developer gallery on Web/Desktop and mobile main UI. No background or native-resource changes.
+**Symptom**: Scenario controls, fixture names, explanatory copy and gallery navigation stayed English when the active language changed.
+**Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
+**Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
+**Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.

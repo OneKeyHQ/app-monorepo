@@ -27,6 +27,17 @@ function createRegistry({ modules = {}, tombstones = {} } = {}) {
 }
 
 describe('moduleIdRegistry', () => {
+  it.each([
+    'packages/kit/src/views/Setting/pages/PrivacyNetwork/PrivacyAccountRow.tsx',
+    'packages/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyAccountManagement.tsx',
+  ])('registers %s for strict native builds', (moduleKey) => {
+    const registry = loadRegistry();
+    const fileMap = createFileToIdMap({ registry, strict: true });
+
+    expect(fileMap.get(moduleKey)).toBe(registry.modules[moduleKey]);
+    expect(isModuleIdInDomain(fileMap.get(moduleKey), 'workspace')).toBe(true);
+  });
+
   it('normalizes the same relative source path across worktrees', () => {
     const firstRoot = path.resolve('/tmp/worktree-a');
     const secondRoot = path.resolve('/Volumes/build/worktree-b');
