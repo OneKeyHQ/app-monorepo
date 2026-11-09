@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
+  OneKeyErrorPrimeUserBanned,
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
@@ -29,12 +30,14 @@ const mockGetHeldReservationEnd = jest.fn();
 const mockLoginOneKeyId = jest.fn();
 const mockPushFullModal = jest.fn();
 const mockToastMessage = jest.fn();
+const mockShowToastOfError = jest.fn<void, [unknown]>();
 const mockDialogClose = jest.fn(async () => undefined);
 const mockDialogLoading = jest.fn((_params: unknown) => ({
   close: mockDialogClose,
 }));
 let mockShouldRunInExpandTab = false;
 let mockHookPrime = false;
+let mockHookBanned = false;
 let mockAtom: IPrimeFreeTrialAtomData;
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -62,7 +65,7 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   useOneKeyAuth: () => ({
     isPrimeSubscriptionActive: mockHookPrime,
     isLoggedIn: true,
-    user: { onekeyUserId: 'user-a' },
+    user: { onekeyUserId: 'user-a', isOneKeyIdBanned: mockHookBanned },
     loginOneKeyId: (params: unknown) => mockLoginOneKeyId(params) as unknown,
   }),
 }));
@@ -90,6 +93,13 @@ jest.mock('@onekeyhq/components', () => ({
   },
   Toast: { message: (params: unknown) => mockToastMessage(params) as unknown },
   rootNavigationRef: { current: undefined },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: {
+    showToastOfError: (error: unknown) => mockShowToastOfError(error),
+  },
 }));
 
 // Toasts read their copy from the zh-CN catalog.
@@ -185,12 +195,32 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     jest.clearAllMocks();
     mockShouldRunInExpandTab = false;
     mockHookPrime = false;
+    mockHookBanned = false;
     mockIsLoggedIn.mockResolvedValue(true);
     mockIsPrimeSubscriptionActive.mockResolvedValue(false);
     mockGetPublicConfig.mockResolvedValue(undefined);
     mockRefreshQuota.mockResolvedValue(undefined);
     mockGetHeldReservationEnd.mockResolvedValue(undefined);
     setSnapshot(undefined);
+  });
+
+  it('denies a banned account with feedback before using a cached Prime entitlement', async () => {
+    mockHookPrime = true;
+    mockHookBanned = true;
+    const result = renderAccessHook();
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockShowToastOfError).toHaveBeenCalledWith(
+      expect.any(OneKeyErrorPrimeUserBanned),
+    );
+    expect(mockRefreshQuota).not.toHaveBeenCalled();
+    expect(mockGetPublicConfig).not.toHaveBeenCalled();
+    mockHookBanned = false;
   });
 
   it('lets Prime users in without any free-trial request', async () => {
