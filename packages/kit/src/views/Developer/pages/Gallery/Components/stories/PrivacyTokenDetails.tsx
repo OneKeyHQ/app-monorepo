@@ -46,6 +46,8 @@ import xmrSettings from '@onekeyhq/kit-bg/src/vaults/impls/xmr/settings';
 import zcashSettings from '@onekeyhq/kit-bg/src/vaults/impls/zcash/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PrivacyAccountManagementPreview } from './PrivacyAccountManagement';
+
 type IPreviewChain = 'zec' | 'xmr';
 
 const PREVIEW_NETWORKS = {
@@ -605,12 +607,40 @@ function PrivacyTokenDetailsPreview() {
 }
 
 export default function PrivacyTokenDetailsGallery() {
+  const intl = useIntl();
+  const [preview, setPreview] = useState<'token' | 'management'>('token');
   return (
     <Page>
-      <Page.Header title="Privacy token details · UI preview" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.preview__action })}
+      />
       <Page.Body>
         <ScrollView contentContainerStyle={{ p: '$5' }}>
-          <PrivacyTokenDetailsPreview />
+          <XStack gap="$2" pb="$5" flexWrap="wrap">
+            <Button
+              testID="privacy-preview-token-details"
+              size="small"
+              variant={preview === 'token' ? 'primary' : 'secondary'}
+              onPress={() => setPreview('token')}
+            >
+              {intl.formatMessage({
+                id: ETranslations.trade_stocks_token_details,
+              })}
+            </Button>
+            <Button
+              testID="privacy-preview-account-management"
+              size="small"
+              variant={preview === 'management' ? 'primary' : 'secondary'}
+              onPress={() => setPreview('management')}
+            >
+              {intl.formatMessage({ id: ETranslations.global_manage_accounts })}
+            </Button>
+          </XStack>
+          {preview === 'token' ? (
+            <PrivacyTokenDetailsPreview />
+          ) : (
+            <PrivacyAccountManagementPreview />
+          )}
         </ScrollView>
       </Page.Body>
     </Page>
