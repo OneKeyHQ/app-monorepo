@@ -300,7 +300,12 @@ export const TradingFormInput = memo(
             </XStack>
           ) : null}
           {shouldShowAccessory ? (
-            <InputAccessoryView nativeID={accessoryId}>
+            <InputAccessoryView
+              nativeID={accessoryId}
+              // UIKit hosts the toolbar above the keyboard; its in-form shadow
+              // must not intercept touches intended for the next input.
+              style={{ pointerEvents: 'none' }}
+            >
               <InputAccessoryDoneButton
                 leftContent={inputAccessoryLeftContent}
               />
