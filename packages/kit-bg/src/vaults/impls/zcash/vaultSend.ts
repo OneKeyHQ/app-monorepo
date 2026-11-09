@@ -665,8 +665,20 @@ export async function broadcastTransaction(
     try {
       broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     } catch (error) {
-      // No answer (timeout, network, 5xx): the node may already have the tx, so the
-      // journal and input holds stay until history settles it or it expires.
+      // As Ledger Live does, any failure releases the inputs: a retry spends the same coins, so
+      // if the first attempt did land the node refuses the second instead of paying twice.
+      await vault.backgroundApi.simpleDb.privacyChainJournal
+        .settleTransparentPendingTx({
+          accountId: vault.accountId,
+          txid: expectedTxid,
+        })
+        .catch((releaseError) => {
+          console.error('[zcash] transparent input release failed', {
+            ...zcashDescribeError(releaseError),
+          });
+        });
+      // No answer (timeout, network, 5xx) may still mean the node has it, so the user is told to
+      // check the history before retrying.
       if (isTransientNetworkLikeError(error)) {
         console.error('[zcash] transparent broadcast outcome unknown', {
           txid: expectedTxid,
@@ -679,17 +691,6 @@ export async function broadcastTransaction(
           ),
         );
       }
-      // The backend answered with a rejection. Like BTC, the inputs are released for a retry.
-      await vault.backgroundApi.simpleDb.privacyChainJournal
-        .settleTransparentPendingTx({
-          accountId: vault.accountId,
-          txid: expectedTxid,
-        })
-        .catch((releaseError) => {
-          console.error('[zcash] transparent input release failed', {
-            ...zcashDescribeError(releaseError),
-          });
-        });
       throw error;
     }
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {

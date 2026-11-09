@@ -172,7 +172,8 @@ describe('Zcash transparent broadcast authorization', () => {
       }),
     },
   ])(
-    'keeps the journal entry and input holds after $answer',
+    // A retry spends the same coins, so a landed first attempt makes the node refuse it.
+    'releases the inputs after $answer but says the outcome is unknown',
     async ({ error }) => {
       const { vault, journalDb } = await createVault(false);
       const transport = jest
@@ -184,17 +185,12 @@ describe('Zcash transparent broadcast authorization', () => {
         code: 'BROADCAST_OUTCOME_UNKNOWN',
       });
       expect(transport).toHaveBeenCalledTimes(1);
-      const [pending] = await journalDb.listTransparentPendingTxs({
-        accountId,
-      });
-      expect(pending).toMatchObject({
-        txid,
-        broadcastAuthorized: true,
-        broadcastState: 'unknown',
-      });
+      expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+        [],
+      );
       expect(
         await journalDb.listTransparentOutpointsInUse({ accountId }),
-      ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
+      ).toEqual(new Set());
     },
   );
 
