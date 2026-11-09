@@ -5512,6 +5512,7 @@
     "node_modules/@onekeyfe/react-native-native-overlay/src/OverlayPageScope.tsx": 44538,
     "node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts": 33501,
     "node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.tsx": 51724,
+    "node_modules/@onekeyfe/react-native-native-overlay/src/animation/anchoredOrigin.ts": 46661,
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/motionPresets.ts": 25929,
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/platformMotionPresets.ts": 44053,
     "node_modules/@onekeyfe/react-native-native-overlay/src/animation/resolveAnimation.ts": 52706,
