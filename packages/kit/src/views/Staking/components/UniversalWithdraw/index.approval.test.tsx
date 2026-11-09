@@ -54,6 +54,7 @@ type IConfirmParams = Parameters<NonNullable<IProps['onConfirm']>>[0] & {
 const mockConfirm = jest.fn<Promise<boolean>, [IConfirmParams]>();
 const mockCheckAmount = jest.fn<Promise<unknown>, unknown[]>();
 const mockQuote = jest.fn<Promise<unknown>, unknown[]>();
+const mockClaimStart = jest.fn<void, [(() => void) | undefined]>();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 let mockEstimateRequest: (() => Promise<unknown>) | undefined;
 let mockRunEstimateOnDepsChange = false;
@@ -312,7 +313,17 @@ jest.mock('../ManagePageV2ReceiveInput', () => ({
 }));
 jest.mock('../ProtocolDetails/EarnActionIcon', () => ({
   ActionPopupContent: () => null,
-  EarnActionIcon: () => null,
+  EarnActionIcon: ({
+    onActionSuccess,
+    trigger,
+  }: {
+    onActionSuccess?: () => void;
+    trigger: (params: { onPress: () => void; disabled: boolean }) => ReactNode;
+  }) =>
+    trigger({
+      onPress: () => mockClaimStart(onActionSuccess),
+      disabled: false,
+    }),
 }));
 jest.mock('../ProtocolDetails/EarnAmountText', () => ({
   EarnAmountText: () => null,
@@ -1603,6 +1614,108 @@ describe('UniversalWithdraw share approval continuation', () => {
       target: { value: '' },
     });
     expect(isSendCurrent()).toBe(false);
+  });
+
+  it('refreshes the share withdrawal quote after the claim success callback', async () => {
+    const pending = deferred<unknown>();
+    const claimToken = {
+      uniqueKey: 'claim-token',
+      address: '0xclaim',
+      decimals: 18,
+      isNative: false,
+      logoURI: '',
+      name: 'Claim token',
+      symbol: 'CLAIM',
+      totalSupply: '0',
+      riskLevel: 0,
+      coingeckoId: '',
+      networkId: 'evm--1',
+    };
+    const quote = {
+      withdrawPath: {
+        data: {
+          confirmBoxes: [
+            {
+              withdrawType: 'queued',
+              title: { text: 'Queued' },
+              description: { text: '1' },
+              tip: {
+                text: { text: 'Claim first' },
+                button: {
+                  type: 'claim',
+                  text: { text: 'Claim' },
+                  data: { balance: '1', token: { info: claimToken } },
+                },
+              },
+            },
+            {
+              withdrawType: 'instant',
+              title: { text: 'Instant' },
+              description: { text: '1' },
+            },
+          ],
+        },
+      },
+    };
+    mockQuote.mockResolvedValue(quote);
+    const screen = render(
+      <UniversalWithdraw
+        {...props}
+        approveTarget={undefined}
+        initialAmount=".5"
+        maxWithdrawAmountMode="fixed"
+        tokenInfo={{
+          accountId: 'account-a',
+          networkId: 'evm--1',
+          provider: 'etherfi',
+          vault: '0xvault',
+          balanceParsed: '2',
+          token: claimToken,
+          price: '1',
+        }}
+      />,
+    );
+    const withdrawButton = await screen.findByRole('button', {
+      name: 'global.withdraw',
+    });
+    await waitFor(
+      () => expect(withdrawButton.hasAttribute('disabled')).toBe(false),
+      { timeout: 5000 },
+    );
+    fireEvent.click(screen.getByText('Queued'));
+    const dialog = mockDialog.mock.calls[0][0];
+    const renderedDialog = render(<>{dialog.renderContent}</>);
+    fireEvent.click(renderedDialog.getByRole('button', { name: 'Claim' }));
+    await waitFor(() => expect(mockClaimStart).toHaveBeenCalledTimes(1));
+    const quoteCount = mockQuote.mock.calls.length;
+    const originalRequest = mockQuote.mock.calls[quoteCount - 1];
+    expect(originalRequest).toEqual([
+      expect.objectContaining({
+        accountAddress: '0xaccount',
+        networkId: 'evm--1',
+        provider: 'etherfi',
+        vault: '0xvault',
+        amount: '0.5',
+      }),
+    ]);
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    mockQuote.mockReturnValueOnce(pending.promise);
+    act(() => mockClaimStart.mock.calls[0][0]?.());
+    await waitFor(() =>
+      expect(withdrawButton.hasAttribute('disabled')).toBe(true),
+    );
+    await waitFor(
+      () => expect(mockQuote).toHaveBeenCalledTimes(quoteCount + 1),
+      {
+        timeout: 5000,
+      },
+    );
+    expect(mockQuote.mock.calls[quoteCount]).toEqual(originalRequest);
+    await act(async () => pending.resolve(quote));
+    await waitFor(() =>
+      expect(withdrawButton.hasAttribute('disabled')).toBe(false),
+    );
   });
 
   it('invalidates the old send guard when the user changes the withdrawal path during handoff', async () => {

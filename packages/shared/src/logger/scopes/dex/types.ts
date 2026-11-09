@@ -12,6 +12,12 @@ export enum EEnterWay {
   BannerList = 'BannerList',
   // Swap's stock trade page, "view full data in Markets".
   SwapStock = 'SwapStock',
+  // A row of a Market home list (token, stock, top coins or watchlist).
+  MarketList = 'MarketList',
+  // A row of the watchlist sidebar on Market detail.
+  WatchlistSidebar = 'WatchlistSidebar',
+  // Switching assets from inside Market detail (selector, top coins strip).
+  DetailSwitch = 'DetailSwitch',
 }
 
 export enum EDexListName {
@@ -94,10 +100,17 @@ export enum ETVPriceMCSelect {
 // Interface definitions
 export interface IDexEnterParams {
   enterWay: EEnterWay;
+  // Market list category the detail was opened from, when known.
+  marketTokenCategory?: string;
 }
 
 export interface IDexListParams {
+  // Kept as-is for comparison with older versions: it maps every non-trending
+  // tab (including perps) to Watchlist. Read `tabValue` for the actual tab.
   dexListName: EDexListName;
+  tabValue?: string;
+  // Spot category of the selected tab, e.g. hot, stocks or top coins.
+  categoryId?: string;
 }
 
 export interface IDexNetworkParams {

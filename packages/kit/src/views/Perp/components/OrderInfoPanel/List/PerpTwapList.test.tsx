@@ -3,10 +3,13 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ITwapHistoryRecord,
   ITwapSliceFill,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 
 import { PerpTwapList } from './PerpTwapList';
 
@@ -36,6 +39,7 @@ const mockHistory: ITwapHistoryRecord = {
     stopPx: null,
   },
 };
+let mockHistoryRows = [mockHistory];
 const mockFill: ITwapSliceFill = {
   twapId: 1,
   fill: {
@@ -65,6 +69,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     XStack: Stack,
     YStack: Stack,
+    Button: Stack,
     SizableText: ({
       children,
       onPress,
@@ -119,7 +124,7 @@ jest.mock('../../../hooks/usePerpOrderInfoPanel', () => ({
 jest.mock('../../../hooks/usePerpsAccountScopedActiveTwapOrders', () => ({
   usePerpsAccountScopedActiveTwapOrders: () => ({
     twapOrders: [],
-    historyRows: [mockHistory],
+    historyRows: mockHistoryRows,
     activeRuntimeInfoById: new Map(),
   }),
 }));
@@ -148,7 +153,50 @@ jest.mock('./CommonTableListView', () => ({
   ),
 }));
 
-beforeEach(() => mockSwitchInstrument.mockClear());
+beforeEach(() => {
+  mockSwitchInstrument.mockClear();
+  mockHistoryRows = [mockHistory];
+});
+
+it.each([
+  ['@107', 'B', ETranslations.global_buy, ETranslations.perp_long],
+  ['@107', 'A', ETranslations.global_sell, ETranslations.perp_short],
+  ['PURR/USDC', 'B', ETranslations.global_buy, ETranslations.perp_long],
+  ['PURR/USDC', 'A', ETranslations.global_sell, ETranslations.perp_short],
+] as const)(
+  'shows spot %s side=%s correctly in active orders and mixed history',
+  async (coin, side, spotLabel, perpLabel) => {
+    const state = { ...mockHistory.state, coin, side };
+    mockHistoryRows = [
+      { ...mockHistory, state },
+      {
+        ...mockHistory,
+        twapId: 2,
+        state: { ...mockHistory.state, side },
+      },
+    ];
+    const screen = render(
+      <>
+        <MobileTwapOpenOrdersRow
+          order={{ twapId: 1, state }}
+          status="activated"
+          onCancelOrder={jest.fn()}
+        />
+        <PerpTwapList isMobile initialTab="history" enabledTabs={['history']} />
+      </>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByText(
+        `${ETranslations.perp_twap_order__title} / ${spotLabel}`,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(spotLabel)).toBeTruthy();
+    expect(screen.getByText(perpLabel)).toBeTruthy();
+  },
+);
 
 it.each(['history', 'fills'] as const)(
   'delegates a %s symbol to the configured trading destination',
