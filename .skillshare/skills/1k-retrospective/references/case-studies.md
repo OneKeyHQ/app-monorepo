@@ -1390,6 +1390,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
 **Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
 
+## Case: Wallet selector positioned only against its first viewport (OK-64041)
+**Date**: 2026-11-09 | **Platforms**: Desktop/Web single JS runtime; mobile selector UI main with a native list instance per view. Background initialization and wallet-data ownership are unchanged.
+**Symptom**: The selected last wallet could be outside the visible list after the selector's measured viewport shrank following its first positioning request.
+**Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
+**Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
+**Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.
+
 ## Case: WalletConnect namespace approval mismatch
 **Date**: 2026-10-31 | **Platforms**: iOS (reproduced); Android, Desktop, Web, Extension (shared WalletConnect service)
 **Symptom**: OpenRouter/Coinbase connection approval returned to Home with an SDK `Unsupported events` error. Proposals requiring EVM also omitted optional Algorand from the session despite offering its account in the approval UI.
