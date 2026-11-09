@@ -36,16 +36,13 @@ function WorkspaceTabButton({
   active,
   label,
   onPress,
-  testID,
 }: {
   active: boolean;
   label: string;
   onPress: () => void;
-  testID: string;
 }) {
   return (
     <XStack
-      testID={testID}
       h="100%"
       alignItems="center"
       justifyContent="center"
@@ -176,7 +173,6 @@ export function PerpMarketWorkspacePanel({
         {workspaceViewItems.map((item) => (
           <WorkspaceTabButton
             key={item.key}
-            testID={`perp-market-workspace-tab-${item.key}`}
             active={visibleActiveView === item.key}
             label={intl.formatMessage({ id: item.translationId })}
             onPress={() => handleChangeActiveView(item.key)}
@@ -197,12 +193,7 @@ export function PerpMarketWorkspacePanel({
         </YStack>
 
         {visibleActiveView === 'orderBook' ? (
-          <YStack
-            testID="perp-order-book-workspace-panel"
-            flex={1}
-            minHeight={0}
-            overflow="hidden"
-          >
+          <YStack flex={1} minHeight={0} overflow="hidden">
             <PerpOrderBook />
           </YStack>
         ) : null}
