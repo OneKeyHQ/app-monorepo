@@ -34,6 +34,7 @@ import ServiceBase from '../ServiceBase';
 import { getLiveActivityLocalizedStrings } from './localizedStrings';
 import { createLiveActivityMockScenario } from './mockScenarios';
 import {
+  getDepositKey,
   isBlockedOrder,
   isReplacedDeposit,
   markBlockedOrder,
@@ -129,10 +130,12 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   async onSwapDepositReplaced({
+    networkId,
     oldTxId,
     orderKey,
     expiresAtMs,
   }: {
+    networkId: string;
     oldTxId: string;
     orderKey?: string;
     expiresAtMs?: number;
@@ -143,8 +146,8 @@ class ServiceLiveActivity extends ServiceBase {
       expiresAtMs ?? 0,
       Date.now() + 8 * 60 * 60 * 1000,
     );
-    markReplacedDeposit(oldTxId, expiresAt);
-    const orders = this.ordersByDeposit.get(oldTxId);
+    markReplacedDeposit(networkId, oldTxId, expiresAt);
+    const orders = this.ordersByDeposit.get(getDepositKey(networkId, oldTxId));
     if (orders)
       for (const [key, expiry] of orders)
         this.blockReplacedOrder(key, Math.max(expiry, expiresAt));
@@ -156,7 +159,11 @@ class ServiceLiveActivity extends ServiceBase {
     const status = await liveActivity.getStatus();
     if (this.privacyHalted) return;
     for (const activity of status.activities) {
-      if (!activity.order.isMock && activity.order.depositTxId === oldTxId) {
+      if (
+        !activity.order.isMock &&
+        activity.order.networkId === networkId &&
+        activity.order.depositTxId === oldTxId
+      ) {
         this.blockReplacedOrder(
           activity.order.orderKey,
           Math.max(activity.order.expiresAtMs, expiresAt),
@@ -205,18 +212,20 @@ class ServiceLiveActivity extends ServiceBase {
       return;
     }
     this.pruneReplacementState();
-    const { orderKey, depositTxId, expiresAtMs } = snapshot.order;
-    if (isBlockedOrder(orderKey) || isReplacedDeposit(depositTxId)) return;
+    const { orderKey, depositTxId, expiresAtMs, networkId } = snapshot.order;
+    if (isBlockedOrder(orderKey) || isReplacedDeposit(networkId, depositTxId))
+      return;
+    const depositKey = getDepositKey(networkId, depositTxId);
     const orders =
-      this.ordersByDeposit.get(depositTxId) ?? new Map<string, number>();
+      this.ordersByDeposit.get(depositKey) ?? new Map<string, number>();
     orders.set(orderKey, expiresAtMs);
-    this.ordersByDeposit.set(depositTxId, orders);
+    this.ordersByDeposit.set(depositKey, orders);
     try {
       await appLocale.isReady;
       if (
         this.privacyHalted ||
         isBlockedOrder(orderKey) ||
-        isReplacedDeposit(depositTxId)
+        isReplacedDeposit(networkId, depositTxId)
       )
         return;
       const previous = this.presenting.get(orderKey);
@@ -226,7 +235,7 @@ class ServiceLiveActivity extends ServiceBase {
         if (
           this.privacyHalted ||
           isBlockedOrder(orderKey) ||
-          isReplacedDeposit(depositTxId)
+          isReplacedDeposit(networkId, depositTxId)
         )
           return undefined;
         const localizedSnapshot: ILiveActivitySnapshot = {
@@ -257,7 +266,7 @@ class ServiceLiveActivity extends ServiceBase {
         !status ||
         this.privacyHalted ||
         isBlockedOrder(orderKey) ||
-        isReplacedDeposit(depositTxId)
+        isReplacedDeposit(networkId, depositTxId)
       )
         return;
       await this.reconcile(status);

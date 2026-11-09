@@ -3665,6 +3665,7 @@ class ServiceHistory extends ServiceBase {
 
         void this.backgroundApi.serviceSwap
           .updateSwapHistoryTx({
+            networkId,
             oldTxId: prevTx.decodedTx.txid,
             newTxId: newHistoryTx.decodedTx.txid,
             status:

@@ -74,8 +74,11 @@ function findSwapHistoryItemIndex(
   oldTxId?: string,
 ) {
   if (oldTxId) {
-    return histories.findIndex((history) =>
-      isSwapHistoryItemMatchedById(history, oldTxId),
+    return histories.findIndex(
+      (history) =>
+        history.baseInfo.fromToken.networkId ===
+          item.baseInfo.fromToken.networkId &&
+        isSwapHistoryItemMatchedById(history, oldTxId),
     );
   }
   return histories.findIndex((history) => isSameSwapHistoryItem(history, item));

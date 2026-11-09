@@ -14,6 +14,8 @@ export type ILiveActivityToken = {
   symbol: string;
   iconUrl: string;
   networkName: string;
+  networkId?: string;
+  isNative?: boolean;
 };
 
 export type ILiveActivityOrder = {

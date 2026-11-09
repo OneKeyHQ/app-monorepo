@@ -123,10 +123,11 @@ export function buildSwapLiveActivitySnapshot(
 ): ILiveActivitySnapshot | undefined {
   const { fromToken, toToken, fromNetwork, toNetwork } = history.baseInfo;
   const { txId } = history.txInfo;
+  const isNativeBitcoin = (token: typeof fromToken) =>
+    token.networkId === 'btc--0' && token.isNative;
   if (
     history.protocol !== EProtocolOfExchange.SWAP ||
-    fromToken.networkId !== 'btc--0' ||
-    !fromToken.isNative ||
+    (!isNativeBitcoin(fromToken) && !isNativeBitcoin(toToken)) ||
     !txId
   ) {
     return undefined;
@@ -148,12 +149,22 @@ export function buildSwapLiveActivitySnapshot(
       fromToken: {
         symbol: displayName(fromToken.symbol),
         iconUrl: '',
-        networkName: displayName(fromNetwork?.name ?? 'Bitcoin'),
+        networkName: displayName(
+          fromNetwork?.name ??
+            (isNativeBitcoin(fromToken) ? 'Bitcoin' : fromToken.networkId),
+        ),
+        networkId: fromToken.networkId,
+        isNative: fromToken.isNative,
       },
       toToken: {
         symbol: displayName(toToken.symbol),
         iconUrl: '',
-        networkName: displayName(toNetwork?.name ?? toToken.symbol),
+        networkName: displayName(
+          toNetwork?.name ??
+            (isNativeBitcoin(toToken) ? 'Bitcoin' : toToken.networkId),
+        ),
+        networkId: toToken.networkId,
+        isNative: toToken.isNative,
       },
       startedAtMs,
       estimatedEndAtMs: startedAtMs + durationSeconds * 1000,

@@ -155,6 +155,10 @@ private struct SwapActivityDetails: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
   var expanded = false
 
+  private var showsStaleTime: Bool {
+    context.isStale && !context.state.status.isTerminal
+  }
+
   private func ticker(_ value: String) -> String {
     value.count > 6 ? String(value.prefix(6)) + "…" : value
   }
@@ -185,8 +189,10 @@ private struct SwapActivityDetails: View {
         .transition(.push(from: .trailing))
         Text(ticker(context.attributes.order.toToken.symbol))
           .opacity(context.state.status.isError ? 0.5 : 1)
-        Spacer(minLength: 4)
-        SwapActivityETA(context: context)
+        if !showsStaleTime || context.state.status.isError {
+          Spacer(minLength: 4)
+          SwapActivityETA(context: context)
+        }
       }
       .font(.system(size: 24, weight: .semibold))
       .foregroundStyle(.white)
@@ -204,6 +210,13 @@ private struct SwapActivityDetails: View {
             .minimumScaleFactor(0.75)
             // WidgetKit clips text overflowing the archived region bounds.
             .frame(height: 14)
+        }
+        if showsStaleTime {
+          Text(context.state.strings?.lastUpdated ?? "—")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(swapOrange)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
         }
       }
     }

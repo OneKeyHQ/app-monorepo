@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { buildSwapLiveActivitySnapshot } from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import type {
@@ -90,6 +92,69 @@ describe('Swap Live Activity refund polling', () => {
   afterAll(() => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
   });
+
+  it.each([null, {}, { state: 'unknown-state' }])(
+    'does not refresh a Live Activity when the status response is invalid: %s',
+    async (response) => {
+      const history = createHistory();
+      history.status = ESwapTxHistoryStatus.PENDING;
+      history.crossChainStatus = undefined;
+      const onSwapStatus = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceSwap({
+        backgroundApi: { serviceLiveActivity: { onSwapStatus } },
+      });
+      const client = axios.create();
+      jest
+        .spyOn(client, 'post')
+        .mockResolvedValue({ data: { data: response } });
+      jest.spyOn(service, 'getClient').mockResolvedValue(client);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      await service.swapHistoryStatusRunFetch(history, {
+        shouldScheduleNextFetch: false,
+      });
+      expect(onSwapStatus).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves the existing pending fallback for ordinary status callers', async () => {
+    const service = new ServiceSwap({ backgroundApi: {} });
+    const client = axios.create();
+    jest.spyOn(client, 'post').mockResolvedValue({ data: { data: null } });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    await expect(
+      service.fetchTxState({ networkId: 'evm--1' }),
+    ).resolves.toEqual({
+      state: ESwapTxHistoryStatus.PENDING,
+    });
+  });
+
+  it.each(['valid', 'network-failure'] as const)(
+    'refreshes a Live Activity only after a valid response: %s',
+    async (result) => {
+      const history = createHistory();
+      history.status = ESwapTxHistoryStatus.PENDING;
+      history.crossChainStatus = undefined;
+      const onSwapStatus = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceSwap({
+        backgroundApi: { serviceLiveActivity: { onSwapStatus } },
+      });
+      const client = axios.create();
+      const post = jest.spyOn(client, 'post');
+      if (result === 'valid') {
+        post.mockResolvedValue({
+          data: { data: { state: ESwapTxHistoryStatus.PENDING } },
+        });
+      } else {
+        post.mockRejectedValue(new OneKeyLocalError('network unavailable'));
+      }
+      jest.spyOn(service, 'getClient').mockResolvedValue(client);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      await service.swapHistoryStatusRunFetch(history, {
+        shouldScheduleNextFetch: false,
+      });
+      expect(onSwapStatus).toHaveBeenCalledTimes(result === 'valid' ? 1 : 0);
+    },
+  );
 
   it('shares one in-flight status request between simultaneous refreshes', async () => {
     const history = createHistory();
@@ -281,6 +346,7 @@ describe('Swap Live Activity refund polling', () => {
     });
     await started;
     await service.updateSwapHistoryTx({
+      networkId: 'btc--0',
       oldTxId: history.txInfo.txId ?? '',
       newTxId: 'replacement-deposit',
       status: ESwapTxHistoryStatus.PENDING,
@@ -347,6 +413,7 @@ describe('Swap Live Activity refund polling', () => {
       });
       await started;
       await service.updateSwapHistoryTx({
+        networkId: 'btc--0',
         oldTxId: history.txInfo.txId ?? '',
         newTxId: 'replacement-deposit',
         status: ESwapTxHistoryStatus.PENDING,
@@ -431,6 +498,7 @@ describe('Swap Live Activity refund polling', () => {
     });
     await started;
     const replacement = service.updateSwapHistoryTx({
+      networkId: 'btc--0',
       oldTxId: history.txInfo.txId ?? '',
       newTxId: 'replacement-deposit',
       status: ESwapTxHistoryStatus.PENDING,
@@ -482,12 +550,14 @@ describe('Swap Live Activity refund polling', () => {
       },
     });
     const first = service.updateSwapHistoryTx({
+      networkId: 'btc--0',
       oldTxId: 'mock-deposit',
       newTxId: 'deposit-b',
       status: ESwapTxHistoryStatus.PENDING,
     });
     await started;
     const second = service.updateSwapHistoryTx({
+      networkId: 'btc--0',
       oldTxId: 'deposit-b',
       newTxId: 'deposit-c',
       status: ESwapTxHistoryStatus.PENDING,
@@ -523,11 +593,39 @@ describe('Swap Live Activity refund polling', () => {
     });
     await expect(
       service.updateSwapHistoryTx({
+        networkId: 'btc--0',
         oldTxId: 'mock-deposit',
         newTxId: 'deposit-b',
         status: ESwapTxHistoryStatus.PENDING,
       }),
     ).resolves.toBeUndefined();
+    expect(
+      (await inAppNotificationAtom.get()).swapHistoryPendingList[0]?.txInfo
+        .txId,
+    ).toBe('mock-deposit');
+  });
+
+  it('does not replace a pending order from another source network', async () => {
+    const history = createHistory();
+    history.status = ESwapTxHistoryStatus.PENDING;
+    history.crossChainStatus = undefined;
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [history],
+    }));
+    const update = jest.fn();
+    const service = new ServiceSwap({
+      backgroundApi: {
+        simpleDb: { swapHistory: { updateSwapHistoryItem: update } },
+      },
+    });
+    await service.updateSwapHistoryTx({
+      networkId: 'evm--1',
+      oldTxId: history.txInfo.txId ?? '',
+      newTxId: 'replacement-deposit',
+      status: ESwapTxHistoryStatus.PENDING,
+    });
+    expect(update).not.toHaveBeenCalled();
     expect(
       (await inAppNotificationAtom.get()).swapHistoryPendingList[0]?.txInfo
         .txId,
@@ -558,6 +656,7 @@ describe('Swap Live Activity refund polling', () => {
     });
     await expect(
       service.updateSwapHistoryTx({
+        networkId: 'btc--0',
         oldTxId: 'mock-deposit',
         newTxId: 'deposit-b',
         status: ESwapTxHistoryStatus.PENDING,

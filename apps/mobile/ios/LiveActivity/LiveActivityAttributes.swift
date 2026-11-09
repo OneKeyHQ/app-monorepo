@@ -28,6 +28,8 @@ struct SwapLiveActivityToken: Codable, Hashable {
   let symbol: String
   let iconUrl: String
   let networkName: String
+  let networkId: String?
+  let isNative: Bool?
 }
 
 struct SwapLiveActivityStrings: Codable, Hashable {

@@ -142,6 +142,59 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.start).not.toHaveBeenCalled();
   });
 
+  it('presents a pending Bitcoin receive order when remote tracking is available', async () => {
+    const history = createHistory();
+    history.baseInfo = {
+      ...history.baseInfo,
+      fromToken: history.baseInfo.toToken,
+      toToken: history.baseInfo.fromToken,
+    };
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+
+    await service.onSwapBroadcast(history);
+    expect(liveActivity.start).toHaveBeenCalledTimes(1);
+    expect(
+      jest.mocked(liveActivity.start).mock.calls[0]?.[0].order,
+    ).toMatchObject({
+      networkId: 'evm--1',
+      toToken: { networkId: 'btc--0', isNative: true },
+    });
+    await service.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.PENDING },
+    });
+    expect(liveActivity.start).toHaveBeenCalledTimes(1);
+    expect(liveActivity.update).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'keeps a same-ID order on another network after restart=%s',
+    async (restart) => {
+      const history = createHistory();
+      history.baseInfo = {
+        ...history.baseInfo,
+        fromToken: history.baseInfo.toToken,
+        toToken: history.baseInfo.fromToken,
+      };
+      const end = jest.spyOn(liveActivity, 'end').mockResolvedValue(status);
+      const service = new ServiceLiveActivity({ backgroundApi: {} });
+      await service.onSwapBroadcast(history);
+      const current = restart
+        ? new ServiceLiveActivity({ backgroundApi: {} })
+        : service;
+      await current.onSwapDepositReplaced({
+        networkId: 'btc--0',
+        oldTxId: 'deposit-a',
+      });
+      await current.onSwapStatus({
+        history,
+        status: { state: ESwapTxHistoryStatus.PENDING },
+      });
+      expect(end).not.toHaveBeenCalled();
+      expect(liveActivity.update).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('marks legacy activities as needing ownership confirmation after service restart', async () => {
     const first = new ServiceLiveActivity({ backgroundApi: {} });
     await first.onSwapBroadcast(createHistory());
@@ -256,7 +309,10 @@ describe('Live Activity subscription lifecycle', () => {
       status: { state: ESwapTxHistoryStatus.FAILED },
     });
     await Promise.resolve();
-    await service.onSwapDepositReplaced({ oldTxId: 'deposit-a' });
+    await service.onSwapDepositReplaced({
+      networkId: 'btc--0',
+      oldTxId: 'deposit-a',
+    });
     expect(end).not.toHaveBeenCalled();
     complete.resolve(status);
     await Promise.all([first, second, third]);
@@ -303,6 +359,7 @@ describe('Live Activity subscription lifecycle', () => {
     });
     await Promise.resolve();
     const replacement = swap.updateSwapHistoryTx({
+      networkId: 'btc--0',
       oldTxId: 'deposit-a',
       newTxId: 'deposit-b',
       status: ESwapTxHistoryStatus.PENDING,
@@ -312,7 +369,10 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.update).toHaveBeenCalledTimes(1);
     expect(end).not.toHaveBeenCalled();
     loader.resolve(service);
-    await proxy.onSwapDepositReplaced({ oldTxId: 'deposit-a' });
+    await proxy.onSwapDepositReplaced({
+      networkId: 'btc--0',
+      oldTxId: 'deposit-a',
+    });
     await service.stopForPrivacyTransition();
     expect(end).toHaveBeenCalledWith('swap:synthetic-order');
   });
@@ -326,8 +386,16 @@ describe('Live Activity subscription lifecycle', () => {
       return status;
     });
     const orderKey = 'swap:synthetic-order';
-    await service.onSwapDepositReplaced({ oldTxId: 'deposit-a', orderKey });
-    await service.onSwapDepositReplaced({ oldTxId: 'deposit-b', orderKey });
+    await service.onSwapDepositReplaced({
+      networkId: 'btc--0',
+      oldTxId: 'deposit-a',
+      orderKey,
+    });
+    await service.onSwapDepositReplaced({
+      networkId: 'btc--0',
+      oldTxId: 'deposit-b',
+      orderKey,
+    });
     const second = {
       ...history,
       txInfo: { ...history.txInfo, txId: 'deposit-b' },
@@ -376,7 +444,10 @@ describe('Live Activity subscription lifecycle', () => {
         return status;
       });
     const restartedService = new ServiceLiveActivity({ backgroundApi: {} });
-    await restartedService.onSwapDepositReplaced({ oldTxId: 'deposit-a' });
+    await restartedService.onSwapDepositReplaced({
+      networkId: 'btc--0',
+      oldTxId: 'deposit-a',
+    });
     await ended.promise;
     expect(end).toHaveBeenCalledWith('swap:synthetic-order');
     expect(status.activities.map((item) => item.order.orderKey)).toEqual([
@@ -398,6 +469,7 @@ describe('Live Activity subscription lifecycle', () => {
     });
     const restartedService = new ServiceLiveActivity({ backgroundApi: {} });
     const replacing = restartedService.onSwapDepositReplaced({
+      networkId: 'btc--0',
       oldTxId: 'deposit-a',
     });
     await restartedService.stopForPrivacyTransition();

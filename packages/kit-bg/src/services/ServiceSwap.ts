@@ -1758,6 +1758,7 @@ export default class ServiceSwap extends ServiceBase {
     orderId,
     ctx,
     requestCurrency,
+    requireValidStatus = false,
   }: {
     txId?: string;
     toTokenAddress?: string;
@@ -1768,6 +1769,7 @@ export default class ServiceSwap extends ServiceBase {
     orderId?: string;
     ctx?: any;
     requestCurrency?: string;
+    requireValidStatus?: boolean;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
@@ -1788,7 +1790,14 @@ export default class ServiceSwap extends ServiceBase {
         ? { 'x-onekey-request-currency': requestCurrency }
         : undefined,
     });
-    return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
+    const result = data?.data;
+    if (
+      requireValidStatus &&
+      (!result || !Object.values(ESwapTxHistoryStatus).includes(result.state))
+    ) {
+      throw new OneKeyLocalError('Swap status response is missing or invalid');
+    }
+    return result ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
   private async fetchSwapOrderDetail({
@@ -2411,13 +2420,19 @@ export default class ServiceSwap extends ServiceBase {
     return (
       platformEnv.isNativeIOS &&
       liveActivityRemoteTracking.isReady() &&
-      this.isReplacedLiveActivityDepositTxId(history.txInfo.txId) &&
+      this.isReplacedLiveActivityDepositTxId(
+        history.baseInfo.fromToken.networkId,
+        history.txInfo.txId,
+      ) &&
       !!buildSwapLiveActivitySnapshot(history)
     );
   }
 
-  private isReplacedLiveActivityDepositTxId(txId: string | undefined) {
-    return isReplacedDeposit(txId);
+  private isReplacedLiveActivityDepositTxId(
+    networkId: string,
+    txId: string | undefined,
+  ) {
+    return isReplacedDeposit(networkId, txId);
   }
 
   private shouldContinueLiveActivityRefundPolling(history: ISwapTxHistory) {
@@ -2881,19 +2896,21 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async updateSwapHistoryTx({
+    networkId,
     oldTxId,
     newTxId,
     status,
   }: {
+    networkId: string;
     oldTxId: string;
     newTxId: string;
     status: ESwapTxHistoryStatus;
   }) {
     if (platformEnv.isNativeIOS) {
       const now = Date.now();
-      markReplacedDeposit(oldTxId, now + 8 * 60 * 60 * 1000);
+      markReplacedDeposit(networkId, oldTxId, now + 8 * 60 * 60 * 1000);
       void this.backgroundApi.serviceLiveActivity
-        ?.onSwapDepositReplaced?.({ oldTxId })
+        ?.onSwapDepositReplaced?.({ networkId, oldTxId })
         ?.catch((error: unknown) => {
           defaultLogger.notification.jpush.consoleError(
             'Live Activity replacement notification failed',
@@ -2906,7 +2923,11 @@ export default class ServiceSwap extends ServiceBase {
         const { swapHistoryPendingList } = await inAppNotificationAtom.get();
         const oldHistoryItem = filterSwapHistoryPendingList(
           swapHistoryPendingList,
-        ).find((item) => item.txInfo.txId === oldTxId);
+        ).find(
+          (item) =>
+            item.baseInfo.fromToken.networkId === networkId &&
+            item.txInfo.txId === oldTxId,
+        );
         if (!oldHistoryItem) return false;
         const liveActivitySnapshot = platformEnv.isNativeIOS
           ? buildSwapLiveActivitySnapshot(oldHistoryItem)
@@ -2921,6 +2942,7 @@ export default class ServiceSwap extends ServiceBase {
           );
           void this.backgroundApi.serviceLiveActivity
             ?.onSwapDepositReplaced?.({
+              networkId,
               oldTxId,
               orderKey: liveActivitySnapshot.order.orderKey,
               expiresAtMs: liveActivitySnapshot.order.expiresAtMs,
@@ -3088,6 +3110,7 @@ export default class ServiceSwap extends ServiceBase {
       if (
         options?.rejectReplacedLiveActivityDeposit &&
         this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
           options.rejectReplacedLiveActivityDeposit,
         )
       ) {
@@ -3115,6 +3138,7 @@ export default class ServiceSwap extends ServiceBase {
         options?.rejectReplacedLiveActivityDeposit
           ? () =>
               !this.isReplacedLiveActivityDepositTxId(
+                item.baseInfo.fromToken.networkId,
                 options.rejectReplacedLiveActivityDeposit,
               ) &&
               !this.pendingSwapHistoryDeletes.has(
@@ -3133,6 +3157,7 @@ export default class ServiceSwap extends ServiceBase {
       if (
         options?.rejectReplacedLiveActivityDeposit &&
         this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
           options.rejectReplacedLiveActivityDeposit,
         )
       ) {
@@ -3154,6 +3179,7 @@ export default class ServiceSwap extends ServiceBase {
       if (
         options?.rejectReplacedLiveActivityDeposit &&
         !this.isReplacedLiveActivityDepositTxId(
+          item.baseInfo.fromToken.networkId,
           options.rejectReplacedLiveActivityDeposit,
         )
       ) {
@@ -3373,6 +3399,10 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
       receivedAddress: stateReceivedAddress,
       orderId: stateOrderId,
+      requireValidStatus:
+        !!platformEnv.isNativeIOS &&
+        liveActivityRemoteTracking.isReady() &&
+        !!buildSwapLiveActivitySnapshot(currentSwapTxHistory),
     });
   }
 

@@ -11,9 +11,17 @@ function pruneExpired() {
   }
 }
 
-export function markReplacedDeposit(txId: string, expiresAt: number) {
+export function getDepositKey(networkId: string, txId: string) {
+  return JSON.stringify([networkId, txId]);
+}
+
+export function markReplacedDeposit(
+  networkId: string,
+  txId: string,
+  expiresAt: number,
+) {
   pruneExpired();
-  replacedDeposits.set(txId, expiresAt);
+  replacedDeposits.set(getDepositKey(networkId, txId), expiresAt);
 }
 
 export function markBlockedOrder(orderKey: string, expiresAt: number) {
@@ -24,8 +32,11 @@ export function markBlockedOrder(orderKey: string, expiresAt: number) {
   );
 }
 
-export function isReplacedDeposit(txId: string | undefined) {
-  return (replacedDeposits.get(txId ?? '') ?? 0) > Date.now();
+export function isReplacedDeposit(networkId: string, txId: string | undefined) {
+  return (
+    (replacedDeposits.get(getDepositKey(networkId, txId ?? '')) ?? 0) >
+    Date.now()
+  );
 }
 
 export function isBlockedOrder(orderKey: string) {

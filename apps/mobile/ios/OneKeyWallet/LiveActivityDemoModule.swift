@@ -59,7 +59,10 @@ private final class SwapLiveActivityManager {
 
   func start(_ request: SwapLiveActivityRequest) throws {
     let order = request.order
-    guard order.schemaVersion == 1, order.networkId == "btc--0",
+    let hasNativeBitcoin =
+      (order.networkId == "btc--0" && order.fromToken.isNative != false) ||
+      (order.toToken.networkId == "btc--0" && order.toToken.isNative == true)
+    guard order.schemaVersion == 1, hasNativeBitcoin,
           !order.orderKey.isEmpty, order.orderKey.count <= 256,
           order.estimatedEndAtMs > order.startedAtMs,
           order.expiresAt > Date(), !request.content.status.isTerminal else { return }

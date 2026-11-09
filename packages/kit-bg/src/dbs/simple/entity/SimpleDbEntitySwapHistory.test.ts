@@ -123,6 +123,41 @@ const swapSuccess = createHistoryItem({
 });
 
 describe('guarded swap status persistence', () => {
+  it('matches an old deposit only within the source network', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    const otherNetwork = {
+      ...swapPending,
+      baseInfo: {
+        ...swapPending.baseInfo,
+        fromToken: { ...swapPending.baseInfo.fromToken, networkId: 'evm--10' },
+      },
+    };
+    let stored = JSON.stringify({
+      data: { histories: [otherNetwork, swapPending] },
+      updatedAt: 1,
+    });
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+      }),
+    };
+    const updated = {
+      ...swapPending,
+      txInfo: { ...swapPending.txInfo, txId: 'new-deposit' },
+    };
+    await expect(
+      entity.updateSwapHistoryItemIfCurrent(
+        updated,
+        () => true,
+        undefined,
+        swapPending.txInfo.txId,
+      ),
+    ).resolves.toEqual(updated);
+    expect(JSON.parse(stored).data.histories).toEqual([otherNetwork, updated]);
+  });
+
   it('matches the requested tx when the status response supplies a different txId', async () => {
     const entity = new SimpleDbEntitySwapHistory();
     let stored = JSON.stringify({
