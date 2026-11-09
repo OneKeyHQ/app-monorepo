@@ -214,7 +214,11 @@ describe('Bluetooth-advertised color code', () => {
     'keeps the Neo default artwork for letter %s',
     (code) => {
       const device = bleDevice(EDeviceType.Neo, code);
-      expect(getSearchDeviceAvatarImage(device)).toBe(EDeviceType.Neo);
+      // Only the Pro 2's scan letter is read; the Neo keeps its default
+      // finish, white, until a serial number names another.
+      expect(getSearchDeviceAvatarImage(device)).toBe(
+        `${EDeviceType.Neo}White`,
+      );
       expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(
         undefined,
       );
