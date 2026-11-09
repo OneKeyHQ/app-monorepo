@@ -8,6 +8,7 @@ import {
   IconButton,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useIsSplitMainActive,
@@ -36,6 +37,7 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 import { PerpSettingsButton } from '../PerpSettingsButton';
+import { PerpsRecallAction } from '../PerpsRecallDialog';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -333,21 +335,28 @@ export function PerpTickerBarMobile({
         <PerpBadgesRow />
       </YStack>
 
-      <XStack pt="$0.5" gap="$4" alignItems="center">
+      <XStack pt="$0.5" gap="$4" alignItems="center" flexShrink={0}>
+        <PerpsRecallAction />
         {showTopChartToggle && onToggleTopChart ? (
-          <PerpTopChartButtonMobile
-            isExpanded={isTopChartExpanded}
-            onPress={onToggleTopChart}
-          />
+          <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+            <PerpTopChartButtonMobile
+              isExpanded={isTopChartExpanded}
+              onPress={onToggleTopChart}
+            />
+          </Stack>
         ) : null}
-        <PerpCandleChartButtonMobile />
-        <PerpSettingsButton
-          testID={PerpTestIDs.MobileSettingsButton}
-          disabled={shouldRedirectOnboardingToTravelMode()}
-          showActivityCenterEntry
-          showChartPositionSetting
-          showGuideEntry
-        />
+        <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+          <PerpCandleChartButtonMobile />
+        </Stack>
+        <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+          <PerpSettingsButton
+            testID={PerpTestIDs.MobileSettingsButton}
+            disabled={shouldRedirectOnboardingToTravelMode()}
+            showActivityCenterEntry
+            showChartPositionSetting
+            showGuideEntry
+          />
+        </Stack>
       </XStack>
     </XStack>
   );

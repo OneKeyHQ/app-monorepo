@@ -546,6 +546,13 @@ function PerpSettingsMenuContent({
     />
   );
 
+  const devSettingsFooter =
+    isPopover && platformEnv.isDev ? (
+      <YStack px="$2" pb="$3">
+        <DevAbstractionModeSelector />
+      </YStack>
+    ) : undefined;
+
   return (
     <PerpMenu
       isPopover={isPopover}
@@ -590,13 +597,7 @@ function PerpSettingsMenuContent({
               })
       }
       settingsContent={renderSettingsContent()}
-      popoverFooter={
-        isPopover && platformEnv.isDev ? (
-          <YStack px="$2" pb="$3">
-            <DevAbstractionModeSelector />
-          </YStack>
-        ) : undefined
-      }
+      popoverFooter={showActivityCenterEntry ? undefined : devSettingsFooter}
       onOpenPortfolio={
         onOpenPortfolio ? () => closeThenOpen(onOpenPortfolio) : undefined
       }
@@ -604,11 +605,13 @@ function PerpSettingsMenuContent({
         showActivityCenterEntry
           ? (menuShortcuts) => (
               <PerpsActivityCenterContent
+                entrySource="perpsMenu"
                 closePopover={closePopover}
                 showTitle={false}
                 menuLayout
                 menuPopoverLayout={isPopover}
                 menuShortcuts={menuShortcuts}
+                menuFooter={devSettingsFooter}
                 renderMenuReferral={
                   isPopover ? renderSettingsContent : undefined
                 }
