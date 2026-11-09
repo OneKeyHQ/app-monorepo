@@ -8,10 +8,12 @@ import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { logPrimeFreeTrialResult } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
@@ -107,6 +109,7 @@ function isUncertainRequestError(error: unknown) {
     error instanceof OneKeyErrorPrimeLoginInvalidToken ||
     error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit ||
     error instanceof OneKeyErrorPrimePaidMembershipRequired ||
+    isPrimeUserBannedError(error) ||
     isUserChangedError(error)
   ) {
     return false;
@@ -754,6 +757,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
     usageId: string;
     analyticsAttemptId?: string;
   }): Promise<IPrimeFreeTrialStartResult> {
+    if ((await primePersistAtom.get()).isOneKeyIdBanned) {
+      throw new OneKeyErrorPrimeUserBanned();
+    }
     if (!USAGE_ID_REGEXP.test(usageId)) {
       throw new OneKeyLocalError({
         message: 'Invalid free trial usage id',
@@ -798,6 +804,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
     };
   }): Promise<IPrimeFreeTrialStartResult> {
     const user = await primePersistAtom.get();
+    if (user.isOneKeyIdBanned) {
+      throw new OneKeyErrorPrimeUserBanned();
+    }
     if (
       earlierAttempts &&
       (!user.isLoggedIn ||
@@ -1476,6 +1485,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
         }
         if (
           isUserChangedError(error) ||
+          isPrimeUserBannedError(error) ||
           error instanceof OneKeyErrorPrimeLoginInvalidToken ||
           error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit
         ) {
@@ -1488,6 +1498,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
             (current) =>
               current ? { ...current, nextReportAt: undefined } : current,
           );
+          // Cancel any older backoff timer as well; the durable result is
+          // retried when the owner's usable session is restored.
+          if (isPrimeUserBannedError(error)) this.scheduleReportRetry();
           return;
         }
         this.trace({
@@ -1583,7 +1596,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
         clearTimeout(this.reportRetryTimer);
         this.reportRetryTimer = undefined;
       }
-      if (!nextAt || !user.isLoggedIn) {
+      if (!nextAt || !user.isLoggedIn || user.isOneKeyIdBanned) {
         return;
       }
       const delay = nextAt - Date.now();
