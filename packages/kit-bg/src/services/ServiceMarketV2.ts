@@ -348,8 +348,11 @@ class ServiceMarketV2 extends ServiceBase {
     return this.memoizedFetchMarketChains();
   }
 
+  // Category names in the config are localized by the server. Some language
+  // pickers (e.g. onboarding) switch locale without restarting the app, so the
+  // locale must be part of the cache key.
   private memoizedFetchMarketBasicConfig = memoizee(
-    async (autoHandleError?: boolean) => {
+    async (locale: string, autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -357,6 +360,7 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
           ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
@@ -370,14 +374,19 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
+    const locale = await this._getMarketTokenBatchCacheLocale();
     try {
       return await this.memoizedFetchMarketBasicConfig(
+        locale,
         options?.autoHandleError,
       );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.delete(options?.autoHandleError);
+      void this.memoizedFetchMarketBasicConfig.delete(
+        locale,
+        options?.autoHandleError,
+      );
       if (options?.autoHandleError === false)
         errorToastUtils.toastIfErrorDisable(error);
       throw error;

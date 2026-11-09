@@ -42,7 +42,10 @@ import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/Le
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
-import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
+import {
+  useMarketHomePageEnterAnalytics,
+  useMarketHomeViewAnalytics,
+} from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
@@ -427,6 +430,7 @@ function BaseMarketHomeLayout({
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  useMarketHomeViewAnalytics(isFocused);
   const rootRoutersLength = getRootRoutersLength();
   const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
   const ownsModalBackgroundRef = useRef(isFocused);

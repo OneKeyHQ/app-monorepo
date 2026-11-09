@@ -10,6 +10,8 @@ import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
+import { IntercomLockGuard } from './IntercomLockGuard';
+
 import type { IIntercomNavigationState } from './visibility';
 
 let mockIsLocked = false;
@@ -111,27 +113,32 @@ describe('Intercom notification visibility integration', () => {
     expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
   });
 
+  it('leaves the Messenger lock guard to IntercomLockGuard', () => {
+    render(<IntercomNotificationContainer />);
+    expect(mockSetLocked).not.toHaveBeenCalled();
+  });
+
   it('forwards the wallet lock state to the Messenger guard', () => {
-    const screen = render(<IntercomNotificationContainer />);
+    const screen = render(<IntercomLockGuard />);
     expect(mockSetLocked).toHaveBeenLastCalledWith(false, {
       validFromMs: 1234,
       lockAtMs: 1234 + 5 * 60_000,
     });
     mockIsLocked = true;
-    screen.rerender(<IntercomNotificationContainer />);
+    screen.rerender(<IntercomLockGuard />);
     expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
       validFromMs: 1234,
       lockAtMs: 1234 + 5 * 60_000,
     });
     mockLastActivity = 5678;
     mockLockDuration = 30;
-    screen.rerender(<IntercomNotificationContainer />);
+    screen.rerender(<IntercomLockGuard />);
     expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
       validFromMs: 5678,
       lockAtMs: 5678 + 30 * 60_000,
     });
     mockLockDuration = Number(ELockDuration.Never);
-    screen.rerender(<IntercomNotificationContainer />);
+    screen.rerender(<IntercomLockGuard />);
     expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
       validFromMs: 0,
       lockAtMs: Number.MAX_VALUE,

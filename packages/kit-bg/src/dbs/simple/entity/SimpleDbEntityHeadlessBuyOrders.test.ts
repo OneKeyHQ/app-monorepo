@@ -95,6 +95,46 @@ describe('SimpleDbEntityHeadlessBuyOrders', () => {
     });
   });
 
+  test('patchOrder with onlyIfHidden leaves an already submitted record alone', async () => {
+    const entity = new SimpleDbEntityHeadlessBuyOrders();
+    let raw: { orders: Record<string, IHeadlessBuyOrder> } | null = {
+      orders: {
+        hidden: order('hidden', 1),
+        paid: { ...order('paid', 2), submittedAt: 3 },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (builder) => {
+      raw = (
+        builder as (current: typeof raw) => {
+          orders: Record<string, IHeadlessBuyOrder>;
+        }
+      )(raw);
+      return undefined as never;
+    });
+    const patch = {
+      submittedAt: 9,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    };
+
+    expect(
+      await entity.patchOrder({
+        transactionId: 'hidden',
+        patch,
+        onlyIfHidden: true,
+      }),
+    ).toEqual({ ...order('hidden', 1), ...patch });
+    // A `completed` write got there first: the paid record wins.
+    expect(
+      await entity.patchOrder({
+        transactionId: 'paid',
+        patch,
+        onlyIfHidden: true,
+      }),
+    ).toBeUndefined();
+    expect(raw?.orders.paid).toEqual({ ...order('paid', 2), submittedAt: 3 });
+  });
+
   test('removeOrderIfHidden leaves submitted and payment-seen records alone', async () => {
     const entity = new SimpleDbEntityHeadlessBuyOrders();
     let raw: { orders: Record<string, IHeadlessBuyOrder> } | null = {

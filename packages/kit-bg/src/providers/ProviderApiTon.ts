@@ -363,6 +363,14 @@ class ProviderApiTon extends ProviderApiBase {
 
     // check address and amount
     for (const message of encodedTx.messages) {
+      // TON Connect messages do not expose send modes. Carry-all modes would
+      // transfer more than the amount shown on the confirmation page.
+      if (message.sendMode !== undefined && message.sendMode !== 3) {
+        throw new Web3RpcError(
+          TonResponseError.BadRequest,
+          'Unsupported send mode',
+        );
+      }
       if (!message.address) {
         throw new Web3RpcError(
           TonResponseError.BadRequest,

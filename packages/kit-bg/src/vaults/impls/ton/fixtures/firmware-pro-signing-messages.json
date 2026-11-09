@@ -1,0 +1,205 @@
+{
+  "source": "https://github.com/OneKeyHQ/firmware-pro/tree/251a1b762065357059f80f32b28cb502609510d3/core/src/apps/ton/tonsdk",
+  "description": "Generated offline with the unchanged firmware TON builder, using CPython hashlib/struct equivalents and a public test key. No hardware or private keys were used.",
+  "fixtures": [
+    {
+      "name": "native transfer",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c10102010047001136011c29a9a31777359400000000070003010068420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000000ee59142a",
+      "hash": "0a2d11d1daa00bf3b7e19ff5df7bf3ac1e29d55169071629656d0082ad99376d"
+    },
+    {
+      "name": "native memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEACgAKABAAAAAAbWVtby3bG5k="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c1010201004f00113e011c29a9a31777359400000000070003010078420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000000000000006d656d6fea39c1db",
+      "hash": "37bff7355faf0e1e8fac97284d275a0501d1f64981a5448523302d3399f9def6"
+    },
+    {
+      "name": "wallet activation",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 0,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c10102010047001136011c29a9a317ffffffff000000000003010068420011111111111111111111111111111111111111111111111111111111111111112017d784000000000000000000000000000082f87459",
+      "hash": "e6bd835a47d827373c149c66ee4fe7f205e9a9217d7a63ee6f362152e887c326"
+    },
+    {
+      "name": "structured Jetton",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAVQBVAKYPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwIX3X5w="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c1010301009d00113755011c29a9a31777359400000000070003010168420022222222222222222222222222222222222222222222222222222222222222222017d78400000000000000000000000000010200a60f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c068ba6653",
+      "hash": "a2c6f52dcc87e8a076b7530169412c588116a59986b4405789443802195e3b2d"
+    },
+    {
+      "name": "structured Jetton memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAXgBeALgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgIAAAAAbWVtb+CJcAg="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c101030100a60011375e011c29a9a31777359400000000070003010168420022222222222222222222222222222222222222222222222222222222222222222017d78400000000000000000000000000010200b80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c202000000006d656d6f5f77b2f3",
+      "hash": "efd434eab39e86de87531a6a5270cb0f5e2d99305c67cd71849b5a810d91687c"
+    },
+    {
+      "name": "Jetton batch",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAXgBeALgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgIAAAAAbWVtb+CJcAg="
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "1",
+            "sendMode": 3
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c101040100db0013375e33021e29a9a317773594000000000700030301030168420022222222222222222222222222222222222222222222222222222222222222222017d78400000000000000000000000000010200b80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c202000000006d656d6f00624200111111111111111111111111111111111111111111111111111111111111111108080000000000000000000000000095a54b87",
+      "hash": "92d76489ef5d982d7a13deccae53e4b91b22ae487d4b7c0f58177deecbeb4c5d"
+    },
+    {
+      "name": "forward fee without memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAVgBWAKgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgJ2BuuC"
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c1010301009e00113756011c29a9a31777359400000000070003010168420022222222222222222222222222222222222222222222222222222222222222222017d78400000000000000000000000000010200a80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c202aa84d4fe",
+      "hash": "b3940f795e71190cdf063e8874ca259537b71738833d99f2156c29cc27c9a17e"
+    },
+    {
+      "name": "zero Jetton amount",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAUgBSAKAPin6lAAAAAAAAAAAIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwBkA5ns="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c1010301009a00113752011c29a9a31777359400000000070003010168420022222222222222222222222222222222222222222222222222222222222222222017d78400000000000000000000000000010200a00f8a7ea5000000000000000008004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c002eb114a",
+      "hash": "b1d80ed9e84f2f5d89fa80a3e1f9461edb79d93e6c8a5548ec98ba83fbf0e3b2"
+    },
+    {
+      "name": "four-message native batch",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEACgAKABAAAAAAbWVtby3bG5k="
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "1",
+            "sendMode": 3
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "2",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAEQARAB4AAAAAc2Vjb25kIG1lbW+ijJqo"
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "3",
+            "sendMode": 3
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c101050100fd00173e334233042229a9a31777359400000000070003030303010203040078420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000000000000006d656d6f006242001111111111111111111111111111111111111111111111111111111111111111080800000000000000000000000000008042001111111111111111111111111111111111111111111111111111111111111111081000000000000000000000000000000000007365636f6e64206d656d6f0062420011111111111111111111111111111111111111111111111111111111111111110818000000000000000000000000008fd4d2a8",
+      "hash": "2328c296da6b9113603bcaa84c372494a3f62b49f0fe7b145a0af7b29bac3626"
+    },
+    {
+      "name": "first-message StateInit",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "stateInit": "te6ccsEBAwEACwAFAwMCATQBAgACAQACAvieKeY="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c101040100500011390303011c29a9a31777359400000000070003010269420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000002320203000201000202c093f0fa",
+      "hash": "c4189fa845578c54a6f6d33901fa77220c326620fbc3eed431fd46e9fbe3a3a1"
+    }
+  ]
+}

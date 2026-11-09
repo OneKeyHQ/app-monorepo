@@ -433,11 +433,16 @@ function PrivacyChainSettingsProgress({
       }
     } catch {
       defaultLogger.app.error.log('Privacy chain sync control failed');
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [canPause, canResume, networkId]);
+  }, [canPause, canResume, intl, networkId]);
   if (!accounts.length) return null;
   const error =
     status === 'storageUnsupported'

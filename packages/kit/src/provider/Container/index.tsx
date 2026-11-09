@@ -6,6 +6,7 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
@@ -13,7 +14,7 @@ import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/Jot
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
-import { AppStateLockContainer } from './AppStateLockContainer';
+import { AppLockBoundary } from './AppLockBoundary';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
@@ -56,6 +57,14 @@ const WalletConnectPayDialogContainerLazy = lazy(() =>
   })),
 );
 
+// Lazy, and never mounted in the web dApp, which holds no keys and states the
+// terms where wallets are connected: the dialog stays off the startup graph.
+const TermsConsentContainerLazy = lazy(() =>
+  import('./TermsConsentContainer').then((m) => ({
+    default: m.TermsConsentContainer,
+  })),
+);
+
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
   appGlobals.$rootAppNavigation = navigation;
@@ -86,6 +95,11 @@ function DetailRouter() {
       <LinuxUdevGuideDialogContainer />
       <LocalDbDowngradeDialogContainer />
       <LocalSecretEnvelopeErrorDialogContainer />
+      {platformEnv.isWebDappMode ? null : (
+        <Suspense fallback={null}>
+          <TermsConsentContainerLazy />
+        </Suspense>
+      )}
       <CloudBackupContainer />
 
       {/* <PortalBodyContainer /> */}
@@ -129,7 +143,7 @@ export function Container() {
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
-        <AppStateLockContainer>
+        <AppLockBoundary>
           {/* Page.Every must register before routers render their active page. */}
           <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
@@ -145,17 +159,17 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-        </AppStateLockContainer>
+        </AppLockBoundary>
       </RootSiblingParent>
     );
   }
   return (
     <RootSiblingParent>
-      <AppStateLockContainer>
+      <AppLockBoundary>
         {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
         <DetailRouter />
-      </AppStateLockContainer>
+      </AppLockBoundary>
     </RootSiblingParent>
   );
 }

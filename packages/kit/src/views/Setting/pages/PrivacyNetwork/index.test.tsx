@@ -898,6 +898,9 @@ describe('Privacy network settings for a temp wallet', () => {
     it.each(['pause', 'resume'] as const)(
       'blocks repeated %s presses while pending and permits retry after failure',
       async (action) => {
+        const { Toast } = jest.requireMock<{
+          Toast: { error: jest.Mock };
+        }>('@onekeyhq/components');
         if (action === 'resume') mockPausedNetworks = ['zec--0'];
         const control = action === 'pause' ? mockPauseChain : mockResumeChain;
         let rejectRequest: (reason: Error) => void = () => {};
@@ -929,10 +932,15 @@ describe('Privacy network settings for a temp wallet', () => {
         expect(mockLogError).toHaveBeenCalledWith(
           'Privacy chain sync control failed',
         );
+        expect(Toast.error).toHaveBeenCalledTimes(1);
+        expect(Toast.error).toHaveBeenCalledWith({
+          title: 'global.an_error_occurred',
+        });
         await act(async () => {
           fireEvent.click(button);
         });
         expect(control).toHaveBeenCalledTimes(2);
+        expect(Toast.error).toHaveBeenCalledTimes(1);
       },
     );
 
