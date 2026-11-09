@@ -940,45 +940,54 @@ function MobileLayoutComponent({
   const stickyHeaderHeight = platformEnv.isNativeIOS
     ? MARKET_TAB_BAR_HEIGHT + tabBarLayout.secondaryHeaderHeight
     : measuredStickyHeaderHeight;
-  const stickyHeaderHeights = platformEnv.isNativeIOS
-    ? tabNames.map((tabName) => {
-        const mode = columnModes[tabName];
-        const layout = getMarketHomeTabBarLayout(
-          { ...dynamicCtx, activeTabName: tabName },
-          watchlistTabName,
-          perpsTabName,
-          mode === 'two' || mode === 'three',
-        );
-        return MARKET_TAB_BAR_HEIGHT + layout.secondaryHeaderHeight;
-      })
-    : undefined;
+  const stickyHeaderHeights = useMemo(
+    () =>
+      platformEnv.isNativeIOS
+        ? tabNames.map((tabName) => {
+            const mode = columnModes[tabName];
+            const layout = getMarketHomeTabBarLayout(
+              { ...dynamicCtx, activeTabName: tabName },
+              watchlistTabName,
+              perpsTabName,
+              mode === 'two' || mode === 'three',
+            );
+            return MARKET_TAB_BAR_HEIGHT + layout.secondaryHeaderHeight;
+          })
+        : undefined,
+    [columnModes, dynamicCtx, perpsTabName, tabNames, watchlistTabName],
+  );
 
-  const listContainerProps = useMemo(
-    () => ({
+  const getListContainerProps = useMemo(() => {
+    const availableHeight =
+      pagerHeight - externalOverlayInset - contentPaddingBottom;
+    const createListContainerProps = (pageStickyHeaderHeight: number) => ({
       // The native pager already offsets the empty ScrollView below its headers.
       emptyContentPaddingTop: 16,
       paddingBottom: contentPaddingBottom,
-      emptyContentHeight: Math.max(
-        0,
-        pagerHeight -
-          externalOverlayInset -
-          stickyHeaderHeight -
-          contentPaddingBottom,
-      ),
+      emptyContentHeight: Math.max(0, availableHeight - pageStickyHeaderHeight),
       // Android ScrollView only intercepts drags when its content exceeds the
       // viewport. The native pager extends that viewport by the header height.
       emptyScrollContentMinHeight: platformEnv.isNativeAndroid
         ? pagerHeight + headerHeight + 1
         : undefined,
-    }),
-    [
-      contentPaddingBottom,
-      externalOverlayInset,
-      headerHeight,
-      pagerHeight,
-      stickyHeaderHeight,
-    ],
-  );
+    });
+    const defaultProps = createListContainerProps(stickyHeaderHeight);
+    const propsByTab = new Map(
+      stickyHeaderHeights?.map((height, index) => [
+        tabNames[index],
+        createListContainerProps(height),
+      ]),
+    );
+    return (tabName: string) => propsByTab.get(tabName) ?? defaultProps;
+  }, [
+    contentPaddingBottom,
+    externalOverlayInset,
+    headerHeight,
+    pagerHeight,
+    stickyHeaderHeight,
+    stickyHeaderHeights,
+    tabNames,
+  ]);
   const handleStickyHeaderLayout = useCallback((height: number) => {
     setMeasuredStickyHeaderHeight((previous) =>
       previous === height ? previous : height,
@@ -1071,7 +1080,7 @@ function MobileLayoutComponent({
                 }
                 dataCacheRef={marketWatchlistDataCacheRef}
                 selectedFilter={watchlistFilter}
-                listContainerProps={listContainerProps}
+                listContainerProps={getListContainerProps(watchlistTabName)}
                 shouldSuppressItemPress={shouldSuppressItemPress}
               />
             </YStack>
@@ -1081,6 +1090,7 @@ function MobileLayoutComponent({
               filterBarProps.categories,
               item.categoryId,
             );
+            const listContainerProps = getListContainerProps(item.tabName);
             let content;
             if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
               content = (
@@ -1134,7 +1144,7 @@ function MobileLayoutComponent({
                 }
                 dataCacheRef={perpsDataCacheRef}
                 selectedCategoryId={selectedCategoryId}
-                listContainerProps={listContainerProps}
+                listContainerProps={getListContainerProps(perpsTabName)}
                 shouldSuppressItemPress={shouldSuppressItemPress}
               />
             </YStack>
