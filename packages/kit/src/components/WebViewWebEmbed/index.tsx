@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroun
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { PRIME_PURCHASE_WEBVIEW_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
@@ -90,6 +91,39 @@ export function WebViewWebEmbed({
   const [devSettingsPersistAtom] = useDevSettingsPersistAtom();
 
   const [revenuecatApiKey, setRevenuecatApiKey] = useState<string>('');
+
+  const fullHash = useMemo(
+    () =>
+      uriUtils.buildUrl({
+        path: hashRoutePath,
+        query: hashRouteQueryParams,
+      }),
+    [hashRoutePath, hashRouteQueryParams],
+  );
+
+  // Desktop has no prebuilt web-embed bundle: the isolated checkout renders the
+  // same app shell with `?render=prime-purchase`, which App.tsx lazily maps to
+  // PrimePurchaseWebEmbedApp. The hash carries the checkout params, exactly
+  // like the native web-embed page URL.
+  const desktopWebviewSrc = useMemo(() => {
+    if (!platformEnv.isDesktop) {
+      return undefined;
+    }
+    if (hashRoutePath !== EWebEmbedRoutePath.primePurchase) {
+      return undefined;
+    }
+    if (typeof globalThis.location === 'undefined') {
+      return undefined;
+    }
+    try {
+      const url = new URL(globalThis.location.href);
+      url.searchParams.set('render', 'prime-purchase');
+      url.hash = fullHash;
+      return url.href;
+    } catch {
+      return undefined;
+    }
+  }, [fullHash, hashRoutePath]);
 
   useEffect(() => {
     async function getApiKey() {
@@ -285,10 +319,6 @@ export function WebViewWebEmbed({
     if (!webEmbedAppSettings) {
       return null;
     }
-    const fullHash = uriUtils.buildUrl({
-      path: hashRoutePath,
-      query: hashRouteQueryParams,
-    });
     console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
 
     if (
@@ -312,8 +342,14 @@ export function WebViewWebEmbed({
         pullToRefreshEnabled={false}
         useGeckoView={false}
         useInjectedNativeCode={false}
+        // Desktop: dedicated persistent partition. The main process registers
+        // the app-shell file:// resolver on it, and its storage (Stripe cookies
+        // etc.) stays isolated from the wallet and from DApp webviews.
+        partition={
+          desktopWebviewSrc ? PRIME_PURCHASE_WEBVIEW_PARTITION : undefined
+        }
         // *** use remote url
-        src={remoteUrl || ''}
+        src={desktopWebviewSrc || remoteUrl || ''}
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
@@ -346,11 +382,12 @@ export function WebViewWebEmbed({
   }, [
     webEmbedAppSettings,
     hashRoutePath,
-    hashRouteQueryParams,
+    fullHash,
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
     allowFileAccessByUrl,
     iosAllowingReadAccessToURL,
+    desktopWebviewSrc,
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,

@@ -97,7 +97,9 @@ function getFreeTrialPaymentMethod(
     return 'native';
   }
   if (freeTrial?.source === 'web') {
-    return platformEnv.isNativeAndroid ? 'webview' : 'webStripe';
+    return platformEnv.isNativeAndroid || platformEnv.isDesktop
+      ? 'webview'
+      : 'webStripe';
   }
   return undefined;
 }
@@ -539,6 +541,11 @@ export function usePrimePurchaseCallback({
         paymentMethods = isGooglePlayServiceAvailable
           ? ANDROID_GOOGLE_PLAY_PAYMENT_METHODS
           : ANDROID_PAYMENT_METHODS;
+      } else if (platformEnv.isDesktop) {
+        // Desktop credit-card checkout runs in the isolated WebViewModal
+        // container (no desktopApi / desktopApiBridge / $mmkvSync), the same
+        // channel Android uses, so the main window never loads Stripe.js.
+        paymentMethods = ANDROID_PAYMENT_METHODS;
       }
 
       const paymentMethodDialog = Dialog.show({

@@ -1,4 +1,4 @@
-import posthog from 'posthog-js';
+import posthog from 'posthog-js/dist/module.no-external';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -27,6 +27,7 @@ export function initPosthog({
     mask_all_text: true,
     mask_all_element_attributes: true,
     disable_session_recording: true,
+    disable_external_dependency_loading: true,
     advanced_disable_flags: true,
     disable_surveys: true,
   });

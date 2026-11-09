@@ -41,6 +41,19 @@ if (ipcMain) {
       event,
       args: { method: string; id: string; key?: string; value?: unknown },
     ) => {
+      // Defense in depth: only the trusted main window renderer may use this
+      // synchronous store IPC. Mirror the DESKTOP_API_CALL sender gate, which
+      // also rejects non-main frames and untrusted documents.
+      if (
+        !globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
+      ) {
+        event.returnValue = undefined;
+        return;
+      }
       const { method, id, key } = args || {};
       if (!isValidStoreId(id)) {
         event.returnValue = undefined;

@@ -11,3 +11,15 @@
  */
 
 export const DESKTOP_WEBVIEW_OVERLAY_PARTITION = 'onekey-overlay';
+
+/**
+ * Dedicated persistent partition for the isolated Prime checkout webview.
+ *
+ * The checkout webview renders the app shell itself with
+ * `?render=prime-purchase` (apps/desktop/PrimePurchaseWebEmbedApp.tsx), so it
+ * needs the same file:// app-shell resolution as the main window, but it must
+ * not share cookies/localStorage/IndexedDB with the wallet's default session
+ * or with DApp webviews. The main process registers the guarded app-shell file
+ * protocol resolver on this session only.
+ */
+export const PRIME_PURCHASE_WEBVIEW_PARTITION = 'persist:onekey-prime-purchase';

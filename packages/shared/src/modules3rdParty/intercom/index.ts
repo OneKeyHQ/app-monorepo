@@ -1,4 +1,8 @@
+import platformEnv from '../../platformEnv';
+import openUrlUtils from '../../utils/openUrlUtils';
+
 import {
+  buildIntercomUrl,
   getCustomerJWT,
   getInstanceId,
   getIntercomLanguageOverride,
@@ -33,6 +37,11 @@ const clearIntercomOpenOnBoot = (appId: string) => {
 };
 
 export const initIntercom = async (settings?: Partial<InitType>) => {
+  // Desktop opens Intercom in an in-app webview instead of injecting the SDK
+  if (platformEnv.isDesktop) {
+    return;
+  }
+
   if (intercomInitPromise && !settings) {
     return intercomInitPromise;
   }
@@ -84,6 +93,21 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
 };
 
 export const showIntercom = async (params?: { requestId?: string }) => {
+  if (platformEnv.isDesktop) {
+    const token = await getCustomerJWT();
+    const instanceId = await getInstanceId();
+    const languageOverride = await getIntercomLanguageOverride();
+    const supportUrl = 'https://intercom.onekey.so/';
+    const url = buildIntercomUrl(supportUrl, {
+      token,
+      instanceId,
+      requestId: params?.requestId,
+      languageOverride,
+    });
+    openUrlUtils.openUrlInApp(url, 'Support');
+    return;
+  }
+
   await initIntercom();
   const { show, trackEvent, update: updateIntercom } = await loadIntercomSdk();
   const instanceIdValue = await getInstanceId();
@@ -105,6 +129,11 @@ export const showIntercom = async (params?: { requestId?: string }) => {
 
 // Export update for dynamic launcher visibility control
 export const update = async (...args: Parameters<IIntercomSdk['update']>) => {
+  // Desktop never loads the Intercom SDK: launcher visibility is controlled by
+  // the in-app webview page instead.
+  if (platformEnv.isDesktop) {
+    return;
+  }
   await initIntercom();
   const sdk = await loadIntercomSdk();
   return sdk.update(...args);

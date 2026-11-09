@@ -48,7 +48,10 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+import {
+  DESKTOP_WEBVIEW_OVERLAY_PARTITION,
+  PRIME_PURCHASE_WEBVIEW_PARTITION,
+} from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
@@ -773,6 +776,130 @@ const trezorBleSupports = new Set<
 const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
 const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
 let mainRendererReloadTimestamps: number[] = [];
+
+type IAppShellFileProtocolInterceptorContext = {
+  bundleDirPath: string | undefined;
+  driveLetter: string;
+  indexHtmlPath: string | undefined;
+  metadata: Record<string, string>;
+  useJsBundle: boolean | undefined;
+};
+
+// Resolves the app shell over file:// for the main window AND for the isolated
+// Prime checkout webview session. The build-directory path traversal guard and
+// the OTA bundle per-file sha512 verification are shared by both callers.
+function createAppShellFileProtocolInterceptor({
+  bundleDirPath,
+  driveLetter,
+  indexHtmlPath,
+  metadata,
+  useJsBundle,
+}: IAppShellFileProtocolInterceptorContext): Parameters<
+  typeof session.defaultSession.protocol.interceptFileProtocol
+>[1] {
+  return (request, callback) => {
+    try {
+      const cleanUrl = request.url.split(/[?#]/, 1)[0];
+      const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+      const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
+
+      // resolve iframe path
+      if (isJsSdkFile && isIFrameHtml) {
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
+          let key = path.join('static', 'js-sdk', 'iframe.html');
+          const filePath = path.join(bundleDirPath, key);
+          if (isWin) {
+            key = key.replace(/\\/g, '/');
+          }
+          const sha512 =
+            Object.prototype.hasOwnProperty.call(metadata, key) &&
+            typeof metadata[key] === 'string'
+              ? metadata[key]
+              : undefined;
+          if (!sha512 || !checkFileSha512(filePath, sha512)) {
+            logger.info(
+              'checkFileHash error in js-sdk:',
+              `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+            );
+            store.clearUpdateBundleData();
+            throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+          }
+          callback(filePath);
+          return;
+        }
+        callback({
+          path: path.join(
+            __dirname,
+            '..',
+            'build',
+            'static',
+            'js-sdk',
+            'iframe.html',
+          ),
+        });
+        return;
+      }
+
+      const url = cleanUrl.substring(PROTOCOL.length + 1);
+      if (useJsBundle && indexHtmlPath && bundleDirPath) {
+        let decodedUrl: string;
+        try {
+          decodedUrl = decodeURIComponent(url);
+        } catch {
+          callback({ error: -6 } as any);
+          return;
+        }
+        const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+        const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+        if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+          const filePath = checkFileHash({
+            bundleDirPath,
+            metadata,
+            driveLetter,
+            url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+          });
+          callback(filePath);
+        } else {
+          const filePath = checkFileHash({
+            bundleDirPath,
+            metadata,
+            driveLetter,
+            url: decodedUrl,
+          });
+          callback(filePath);
+        }
+      } else {
+        const buildDir = path.resolve(__dirname, '..', 'build');
+        let decodedUrl: string;
+        try {
+          decodedUrl = decodeURIComponent(url);
+        } catch {
+          callback({ error: -6 } as any);
+          return;
+        }
+        // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+        // and Windows drive prefix so path.resolve treats the segment as relative.
+        const relativeUrl = decodedUrl
+          .replace(/^[:/\\]+/, '')
+          .replace(/^[A-Za-z]:[\\/]/, '')
+          .replace(/^[:/\\]+/, '');
+        const resolved = path.resolve(buildDir, relativeUrl);
+        if (
+          !resolved.startsWith(buildDir + path.sep) &&
+          resolved !== buildDir
+        ) {
+          logger.warn('Blocked file access outside build dir:', resolved);
+          callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+          return;
+        }
+        callback(resolved);
+      }
+    } catch (error) {
+      logger.error('interceptFileProtocol error:', error);
+      callback({ error: -6 } as any);
+    }
+  };
+}
 
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
@@ -1592,6 +1719,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     'clipboard-sanitized-write',
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
+
+  // Isolated Prime checkout webview: dedicated persistent partition so its
+  // Stripe/Intercom scripts get their own storage, and the main process can
+  // register the app-shell file:// resolver on it (see below). Deny every
+  // permission by default, matching the shared webview policy.
+  const primePurchaseWebviewSession = session.fromPartition(
+    PRIME_PURCHASE_WEBVIEW_PARTITION,
+  );
+  primePurchaseWebviewSession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+  primePurchaseWebviewSession.setPermissionCheckHandler(() => false);
+  primePurchaseWebviewSession.setDevicePermissionHandler(() => false);
   void applyDesktopNetworkThrottleToKnownSessions();
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
@@ -1703,6 +1845,85 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
   );
 
+  // Remote dynamic scripts (Stripe.js, Intercom, ...) must only ever load
+  // inside isolated <webview> containers, never in the main wallet window's
+  // main frame. Allow non-http(s) scripts (the production app shell is loaded
+  // over file://) and, in dev, the local dev-server scripts; block every other
+  // http(s) script requested by the main frame. Isolated webview guests are
+  // distinct WebContents (and normally a separate session), so they always pass.
+  //
+  // Electron supports only ONE listener per webRequest event — calling
+  // onBeforeRequest again REPLACES the previous listener — so registering here
+  // on every createMainWindow() is soft-restart safe and never stacks listeners.
+  const isAllowedDevMainWindowScript = (requestUrl: URL) => {
+    if (!isDev) {
+      return false;
+    }
+    if (
+      requestUrl.origin === 'http://localhost:3001' ||
+      requestUrl.origin === 'http://127.0.0.1:3001'
+    ) {
+      return true;
+    }
+    try {
+      // The dev/E2E renderer may be served from a custom port
+      // (DESKTOP_E2E_RENDERER_URL); its own bundle must keep loading.
+      return requestUrl.origin === new URL(src).origin;
+    } catch {
+      return false;
+    }
+  };
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    if (details.resourceType !== 'script') {
+      callback({ cancel: false });
+      return;
+    }
+    // Resolve the live main window inside the callback: createMainWindow() runs
+    // before the `mainWindow` global is assigned, and a MAS soft restart
+    // recreates the window, so a closure-captured id would go stale.
+    const mainWindowWebContentsId = getSafelyMainWindow()?.webContents.id;
+    if (
+      mainWindowWebContentsId === undefined ||
+      details.webContentsId !== mainWindowWebContentsId
+    ) {
+      callback({ cancel: false });
+      return;
+    }
+    // Only the main frame carries the privileged preload surface (preload does
+    // not run in sub-frames), so sub-frame scripts — e.g. the WalletConnect Pay
+    // compliance iframe — stay allowed: they run in their own cross-origin frame
+    // without window.desktopApi / desktopApiBridge / $mmkvSync. A null/undefined
+    // frame is unknown, so treat it conservatively as the main frame and block.
+    const isMainFrame = details.frame ? details.frame.parent === null : true;
+    if (!isMainFrame) {
+      callback({ cancel: false });
+      return;
+    }
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(details.url);
+    } catch {
+      // Malformed URL: leave the decision to Electron.
+      callback({ cancel: false });
+      return;
+    }
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      callback({ cancel: false });
+      return;
+    }
+    if (isAllowedDevMainWindowScript(parsedUrl)) {
+      // Dev renderer bundle and HMR helpers are served by the local dev server.
+      callback({ cancel: false });
+      return;
+    }
+    // Log the origin only: script URLs may carry session tokens in query args.
+    logger.warn(
+      '[security] Blocked remote script in the main window:',
+      parsedUrl.origin,
+    );
+    callback({ cancel: true });
+  });
+
   if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
@@ -1747,111 +1968,39 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         trustedSameDocumentRouteUrl = undefined;
       }
     }
+    const appShellFileProtocolInterceptor =
+      createAppShellFileProtocolInterceptor({
+        bundleDirPath,
+        driveLetter,
+        indexHtmlPath,
+        metadata,
+        useJsBundle,
+      });
     uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
-      (request, callback) => {
-        try {
-          const cleanUrl = request.url.split(/[?#]/, 1)[0];
-          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
-          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
-
-          // resolve iframe path
-          if (isJsSdkFile && isIFrameHtml) {
-            if (useJsBundle && indexHtmlPath && bundleDirPath) {
-              let key = path.join('static', 'js-sdk', 'iframe.html');
-              const filePath = path.join(bundleDirPath, key);
-              if (isWin) {
-                key = key.replace(/\\/g, '/');
-              }
-              const sha512 =
-                Object.prototype.hasOwnProperty.call(metadata, key) &&
-                typeof metadata[key] === 'string'
-                  ? metadata[key]
-                  : undefined;
-              if (!sha512 || !checkFileSha512(filePath, sha512)) {
-                logger.info(
-                  'checkFileHash error in js-sdk:',
-                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
-                );
-                store.clearUpdateBundleData();
-                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
-              }
-              callback(filePath);
-              return;
-            }
-            callback({
-              path: path.join(
-                __dirname,
-                '..',
-                'build',
-                'static',
-                'js-sdk',
-                'iframe.html',
-              ),
-            });
-            return;
-          }
-
-          const url = cleanUrl.substring(PROTOCOL.length + 1);
-          if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let decodedUrl: string;
-            try {
-              decodedUrl = decodeURIComponent(url);
-            } catch {
-              callback({ error: -6 } as any);
-              return;
-            }
-            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
-            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
-            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
-              const filePath = checkFileHash({
-                bundleDirPath,
-                metadata,
-                driveLetter,
-                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
-              });
-              callback(filePath);
-            } else {
-              const filePath = checkFileHash({
-                bundleDirPath,
-                metadata,
-                driveLetter,
-                url: decodedUrl,
-              });
-              callback(filePath);
-            }
-          } else {
-            const buildDir = path.resolve(__dirname, '..', 'build');
-            let decodedUrl: string;
-            try {
-              decodedUrl = decodeURIComponent(url);
-            } catch {
-              callback({ error: -6 } as any);
-              return;
-            }
-            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-            // and Windows drive prefix so path.resolve treats the segment as relative.
-            const relativeUrl = decodedUrl
-              .replace(/^[:/\\]+/, '')
-              .replace(/^[A-Za-z]:[\\/]/, '')
-              .replace(/^[:/\\]+/, '');
-            const resolved = path.resolve(buildDir, relativeUrl);
-            if (
-              !resolved.startsWith(buildDir + path.sep) &&
-              resolved !== buildDir
-            ) {
-              logger.warn('Blocked file access outside build dir:', resolved);
-              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-              return;
-            }
-            callback(resolved);
-          }
-        } catch (error) {
-          logger.error('interceptFileProtocol error:', error);
-          callback({ error: -6 } as any);
-        }
-      },
+      appShellFileProtocolInterceptor,
+    );
+    // The isolated Prime checkout <webview> runs in its own persistent session,
+    // so the default session's interceptor does not cover it. Register the same
+    // guarded resolver there so the checkout can load the app shell and its
+    // absolute-path assets from file:// (builtin bundle and OTA bundle alike).
+    // Only this dedicated partition is affected.
+    try {
+      if (
+        primePurchaseWebviewSession.protocol.isProtocolIntercepted(PROTOCOL)
+      ) {
+        primePurchaseWebviewSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+    } catch (e) {
+      logger.warn(
+        'uninterceptProtocol failed for the prime purchase session',
+        e,
+      );
+    }
+    primePurchaseWebviewSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      appShellFileProtocolInterceptor,
     );
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
