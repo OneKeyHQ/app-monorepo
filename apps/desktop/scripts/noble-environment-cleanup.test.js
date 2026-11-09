@@ -3,60 +3,44 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const ts = require('typescript-classic');
+const { transformSync } = require('@swc/core');
 
 // Worker exit runs Node environment cleanup, unlike main-process process.exit().
 // Keep the native binding real: this catches the macOS ThreadSafeFunction deadlock.
 const describeMac = process.platform === 'darwin' ? describe : describe.skip;
 
+function transpileProductionModule(relativePath) {
+  const file = path.resolve(__dirname, relativePath);
+  return transformSync(fs.readFileSync(file, 'utf8'), {
+    filename: file,
+    jsc: {
+      parser: { syntax: 'typescript' },
+      target: 'es2022',
+    },
+    module: { type: 'commonjs' },
+  }).code;
+}
+
 describeMac('Noble SDK process cleanup', () => {
   test('bundle restart waits for BLE cleanup through Electron before-quit', () => {
-    const parse = (relativePath) => {
-      const file = path.resolve(__dirname, relativePath);
-      return ts.createSourceFile(
-        file,
-        fs.readFileSync(file, 'utf8'),
-        ts.ScriptTarget.Latest,
-        true,
-      );
+    const productionSources = {
+      'appQuitHandlers.cjs': transpileProductionModule(
+        '../app/libs/appQuitHandlers.ts',
+      ),
+      'bundleUpdateRestart.cjs': transpileProductionModule(
+        '../app/libs/bundleUpdateRestart.ts',
+      ),
     };
-    const appSource = parse('../app/app.ts');
-    const beforeQuit = appSource.statements.find(
-      (node) =>
-        ts.isExpressionStatement(node) &&
-        ts.isCallExpression(node.expression) &&
-        node.expression.expression.getText(appSource) === 'app.on' &&
-        node.expression.arguments[0]?.text === 'before-quit',
-    );
-    const updateSource = parse(
-      '../../../packages/kit-bg/src/desktopApis/DesktopApiBundleUpdate.ts',
-    );
-    const updateClass = updateSource.statements.find(
-      (node) =>
-        ts.isClassDeclaration(node) &&
-        node.name?.text === 'DesktopApiAppBundleUpdate',
-    );
-    const restart = updateClass.members.find(
-      (node) =>
-        node.name?.getText(updateSource) === 'restartAppForBundleUpdate',
-    );
     // Run the production restart method and quit handler in a real Electron process.
     // Stub relaunch to avoid spawning another app, and delay BLE disposal to test ordering.
-    const production = ts.transpileModule(
-      `${beforeQuit.getText(appSource)}\nclass BundleUpdate { ${restart.getText(updateSource)} }`,
-      {
-        compilerOptions: { target: ts.ScriptTarget.ES2022 },
-      },
-    ).outputText;
     const source = `
       const { app } = require('electron');
+      const { createBeforeQuitHandler } = require('./appQuitHandlers.cjs');
+      const { restartAppForBundleUpdate } = require('./bundleUpdateRestart.cjs');
       const events = [];
-      const isMac = true, logger = { info() {}, warn() {}, error() {} };
+      const logger = { info() {}, warn() {}, error() {} };
       let bleQuitStarted = false, bleQuitReady = false;
       const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
-      const store = { getUpdateBundleData() {}, getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
-      const getSafelyMainWindow = () => null, destroyTrayManager = () => {};
-      const unregisterShortcuts = () => require('electron').globalShortcut.unregisterAll();
       let systemIdleInterval, disposeContextMenu;
       const disposeNobleBleSupport = (release) => new Promise(resolve => {
         events.push('dispose-start');
@@ -69,18 +53,44 @@ describeMac('Noble SDK process cleanup', () => {
       app.relaunch = () => events.push('relaunch');
       app.on('before-quit', () => events.push('before-quit'));
       app.on('will-quit', () => console.log('QUIT-EVENTS:' + JSON.stringify([...events, 'will-quit'])));
-      ${production}
+      app.on('before-quit', createBeforeQuitHandler({
+        app,
+        isMac: true,
+        logger,
+        getDesktopApiAppUpdate: () => ({ hasPreparedQuitInstall: () => false, installOnQuit: () => Promise.resolve() }),
+        markAppQuitStarted: () => {},
+        unregisterShortcuts: () => require('electron').globalShortcut.unregisterAll(),
+        getBleQuitStarted: () => bleQuitStarted,
+        setBleQuitStarted: (started) => { bleQuitStarted = started; },
+        getBleQuitReady: () => bleQuitReady,
+        setBleQuitReady: (ready) => { bleQuitReady = ready; },
+        getNobleBleInitialization: () => nobleBleInitialization,
+        getTrezorBleSupports: () => trezorBleSupports,
+        disposeNobleBleSupport,
+        getSafelyMainWindow: () => null,
+        destroyTrayManager: () => {},
+        resetBootFailCountOnGracefulQuit: () => {},
+        clearSystemIdleInterval: () => {},
+        disposeContextMenu: () => {},
+      }));
       app.whenReady().then(async () => {
         app.dock?.hide();
-        const update = new BundleUpdate();
-        update.getMainWindow = () => ({ destroy: () => events.push('renderer-destroy') });
-        await update.restartAppForBundleUpdate();
+        await restartAppForBundleUpdate({
+          app,
+          logger,
+          getUpdateBundleData: () => undefined,
+          getMainWindow: () => ({ destroy: () => events.push('renderer-destroy') }),
+          getSoftRestartRenderer: () => globalThis.$desktopMainAppFunctions?.softRestartRenderer,
+        });
       }).catch(error => { console.error(error); app.exit(1); });
     `;
     const directory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-ble-restart-'),
     );
     try {
+      for (const [name, code] of Object.entries(productionSources)) {
+        fs.writeFileSync(path.join(directory, name), code);
+      }
       const script = path.join(directory, 'restart.cjs');
       fs.writeFileSync(script, source);
       const env = { ...process.env };
@@ -114,27 +124,17 @@ describeMac('Noble SDK process cleanup', () => {
   }, 10_000);
 
   test('native macOS quit completes when unused BLE cleanup resolves immediately', () => {
-    const file = path.resolve(__dirname, '../app/app.ts');
-    const appSource = ts.createSourceFile(
-      file,
-      fs.readFileSync(file, 'utf8'),
-      ts.ScriptTarget.Latest,
-      true,
+    const productionSource = transpileProductionModule(
+      '../app/libs/appQuitHandlers.ts',
     );
-    const beforeQuit = appSource.statements.find(
-      (node) =>
-        ts.isExpressionStatement(node) &&
-        ts.isCallExpression(node.expression) &&
-        node.expression.expression.getText(appSource) === 'app.on' &&
-        node.expression.arguments[0]?.text === 'before-quit',
-    );
-    const production = ts.transpileModule(beforeQuit.getText(appSource), {
-      compilerOptions: { target: ts.ScriptTarget.ES2022 },
-    }).outputText;
     const directory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-native-quit-'),
     );
     try {
+      fs.writeFileSync(
+        path.join(directory, 'appQuitHandlers.cjs'),
+        productionSource,
+      );
       // Target only this test's PID. Calling app.quit() from JS does not reproduce
       // the microtask checkpoint inside Electron's native before-quit callback.
       const helperSource = path.join(directory, 'quit.swift');
@@ -164,15 +164,15 @@ guard let pid = Int32(CommandLine.arguments[1]),
       const source = `
         const { spawn } = require('child_process');
         const { app, BrowserWindow } = require('electron');
+        const { createBeforeQuitHandler } = require('./appQuitHandlers.cjs');
         app.setPath('userData', ${JSON.stringify(path.join(directory, 'data'))});
         const events = [];
         const record = (event) => { events.push(event); console.log(event); };
-        const isMac = true, logger = { info() {}, warn() {}, error() {} };
+        const logger = { info() {}, warn() {}, error() {} };
         let bleQuitStarted = false, bleQuitReady = false, mainWindow;
         let systemIdleInterval, disposeContextMenu;
         const nobleBleInitialization = Promise.resolve(), trezorBleSupports = new Set();
         const disposeNobleBleSupport = async () => { record('dispose-done'); };
-        const store = { getConsecutiveBootFailCount: () => 0, resetConsecutiveBootFailCount() {} };
         const getSafelyMainWindow = () => mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
         const destroyTrayManager = () => {};
         const unregisterShortcuts = () => require('electron').globalShortcut.unregisterAll();
@@ -180,7 +180,26 @@ guard let pid = Int32(CommandLine.arguments[1]),
         app.on('window-all-closed', () => record('window-all-closed'));
         app.on('will-quit', () => record('will-quit'));
         app.on('quit', () => console.log('QUIT-EVENTS:' + JSON.stringify([...events, 'quit'])));
-        ${production}
+        app.on('before-quit', createBeforeQuitHandler({
+          app,
+          isMac: true,
+          logger,
+          getDesktopApiAppUpdate: () => ({ hasPreparedQuitInstall: () => false, installOnQuit: () => Promise.resolve() }),
+          markAppQuitStarted: () => {},
+          unregisterShortcuts,
+          getBleQuitStarted: () => bleQuitStarted,
+          setBleQuitStarted: (started) => { bleQuitStarted = started; },
+          getBleQuitReady: () => bleQuitReady,
+          setBleQuitReady: (ready) => { bleQuitReady = ready; },
+          getNobleBleInitialization: () => nobleBleInitialization,
+          getTrezorBleSupports: () => trezorBleSupports,
+          disposeNobleBleSupport,
+          getSafelyMainWindow,
+          destroyTrayManager,
+          resetBootFailCountOnGracefulQuit: () => {},
+          clearSystemIdleInterval: () => {},
+          disposeContextMenu: () => {},
+        }));
         app.whenReady().then(async () => {
           app.dock.hide();
           mainWindow = new BrowserWindow({ show: false });

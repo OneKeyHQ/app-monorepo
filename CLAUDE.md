@@ -92,8 +92,8 @@ Never violate this dependency order:
 - Base branch is `x`; never work directly on `x`.
 - Commit format: `type: short description`. Do not add tool attribution or
   `Co-Authored-By` lines.
-- `tsc` runs the TypeScript 7 native compiler; `typescript-classic` covers
-  only legacy compiler-API scripts, never type checks.
+- `tsc` runs the TypeScript 7 native compiler; no classic TypeScript JS API is
+  installed. AST tooling uses `oxc-parser` / `@babel/parser` / `@swc/core`.
 - Before commit run `yarn agent:check --profile commit`; before PR readiness run
   `yarn agent:check --profile pr`.
 - For remote-only status run `yarn agent:check --profile ci --pr <number>`.

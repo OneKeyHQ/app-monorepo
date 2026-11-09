@@ -4,14 +4,8 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const vm = require('vm');
 
-const ts = require('typescript-classic');
+const { transformSync } = require('@swc/core');
 
-const appSource = ts.createSourceFile(
-  'app.ts',
-  fs.readFileSync(path.join(__dirname, '../app/app.ts'), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true,
-);
 const shortcutsSource = fs.readFileSync(
   path.join(__dirname, '../app/libs/shortcuts.ts'),
   'utf8',
@@ -21,6 +15,7 @@ function loadShortcuts() {
   const registered = new Map();
   const app = new EventEmitter();
   app.whenReady = () => Promise.resolve();
+  app.quit = jest.fn();
   const state = { focused: true, visible: true, disabled: false };
   const browserWindow = new EventEmitter();
   browserWindow.isFocused = () => state.focused;
@@ -55,85 +50,95 @@ function loadShortcuts() {
       }),
     },
   };
-  app.quit = jest.fn();
   const context = vm.createContext({
     exports: {},
     require: (name) => {
       if (!(name in dependencies)) assert.fail(`Unexpected import: ${name}`);
       return dependencies[name];
     },
-    app,
+  });
+  vm.runInContext(
+    transformSync(shortcutsSource, {
+      filename: 'shortcuts.ts',
+      jsc: {
+        parser: { syntax: 'typescript' },
+        target: 'es2022',
+      },
+      module: { type: 'commonjs' },
+    }).code,
+    context,
+  );
+  const { registerShortcuts, unregisterShortcuts } = context.exports;
+
+  const ipcMessageKeys = { APP_STATE: 'state', APP_SHORTCUT: 'shortcut' };
+  let isAppReady = true;
+  let bleQuitStarted = false;
+  let bleQuitReady = false;
+  const {
+    installMainWindowShortcutHandlers,
+  } = require('../app/libs/mainWindowShortcutHandlers');
+  const {
+    createMainWindowClosedHandler,
+    setMainWindow,
+  } = require('../app/libs/mainWindowAccess');
+  const { createBeforeQuitHandler } = require('../app/libs/appQuitHandlers');
+
+  installMainWindowShortcutHandlers({
     browserWindow,
     getSafelyBrowserWindow: () => browserWindow,
-    getSafelyMainWindow: () => browserWindow,
-    destroyTrayManager: jest.fn(),
-    store: {
-      getConsecutiveBootFailCount: () => 0,
-      resetConsecutiveBootFailCount: jest.fn(),
-    },
-    systemIdleInterval: undefined,
-    disposeContextMenu: jest.fn(),
-    ipcMessageKeys: { APP_STATE: 'state', APP_SHORTCUT: 'shortcut' },
-    logger,
-    mainWindow: browserWindow,
-    isAppReady: true,
-    isMac: true,
-    bleQuitStarted: false,
-    bleQuitReady: false,
-    // Keep BLE disposal pending to verify shortcuts are released before it ends.
-    nobleBleInitialization: new Promise(() => {}),
-    disposeNobleBleSupport: () => Promise.resolve(),
-    trezorBleSupports: new Set(),
-    setTimeout: jest.fn(),
-    clearTimeout: jest.fn(),
-    clearInterval: jest.fn(),
-    setImmediate: jest.fn(),
+    getBleQuitStarted: () => bleQuitStarted,
+    ipcMessageKeys,
+    registerShortcuts,
+    unregisterShortcuts,
   });
-  const evaluate = (source) =>
-    vm.runInContext(
-      ts.transpileModule(source, {
-        compilerOptions: {
-          target: ts.ScriptTarget.ES2022,
-          module: ts.ModuleKind.CommonJS,
-          esModuleInterop: true,
-        },
-      }).outputText,
-      context,
-    );
-  evaluate(shortcutsSource);
-  Object.assign(context, context.exports);
 
-  const windowEvents = new Set([
-    'focus',
-    'blur',
-    'hide',
+  setMainWindow(browserWindow);
+  browserWindow.on(
     'closed',
-    'enter-full-screen',
-  ]);
-  const foundWindowEvents = new Set();
-  let hasQuitHandler = false;
-  const visit = (node) => {
-    if (ts.isCallExpression(node)) {
-      const target = node.expression.getText(appSource);
-      const event = node.arguments[0]?.text;
-      if (target === 'browserWindow.on' && windowEvents.has(event)) {
-        foundWindowEvents.add(event);
-        evaluate(node.getText(appSource));
-      } else if (
-        target === 'app.on' &&
-        event === 'before-quit' &&
-        !hasQuitHandler
-      ) {
-        hasQuitHandler = true;
-        evaluate(node.getText(appSource));
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(appSource);
-  assert.deepEqual(foundWindowEvents, windowEvents);
-  assert.equal(hasQuitHandler, true);
-  return { app, browserWindow, registered, state, ...context.exports };
+    createMainWindowClosedHandler({
+      browserWindow,
+      unregisterShortcuts,
+      getAppReady: () => isAppReady,
+      setAppReady: (ready) => {
+        isAppReady = ready;
+      },
+      logger,
+    }),
+  );
+
+  app.on(
+    'before-quit',
+    createBeforeQuitHandler({
+      app: { quit: jest.fn() },
+      isMac: true,
+      logger,
+      getDesktopApiAppUpdate: () => ({
+        hasPreparedQuitInstall: () => false,
+        installOnQuit: jest.fn(),
+      }),
+      markAppQuitStarted: jest.fn(),
+      unregisterShortcuts,
+      getBleQuitStarted: () => bleQuitStarted,
+      setBleQuitStarted: (started) => {
+        bleQuitStarted = started;
+      },
+      getBleQuitReady: () => bleQuitReady,
+      setBleQuitReady: (ready) => {
+        bleQuitReady = ready;
+      },
+      // Keep BLE disposal pending to verify shortcuts are released before it ends.
+      getNobleBleInitialization: () => new Promise(() => {}),
+      getTrezorBleSupports: () => new Set(),
+      disposeNobleBleSupport: () => Promise.resolve(),
+      getSafelyMainWindow: () => browserWindow,
+      destroyTrayManager: jest.fn(),
+      resetBootFailCountOnGracefulQuit: jest.fn(),
+      clearSystemIdleInterval: jest.fn(),
+      disposeContextMenu: jest.fn(),
+    }),
+  );
+
+  return { app, browserWindow, registered, state };
 }
 
 describe('desktop shortcut lifecycle', () => {
@@ -210,17 +215,25 @@ describe('desktop shortcut lifecycle', () => {
   });
 
   test('quit releases shortcuts while BLE cleanup is pending and prevents re-registration', async () => {
-    const { app, browserWindow, registered } = loadShortcuts();
-    browserWindow.emit('focus');
-    await Promise.resolve();
-    const event = { preventDefault: jest.fn() };
-    app.emit('before-quit', event);
-    expect(event.preventDefault).toHaveBeenCalled();
-    expect(registered.size).toBe(0);
-    browserWindow.emit('focus');
-    browserWindow.emit('enter-full-screen');
-    await Promise.resolve();
-    expect(registered.size).toBe(0);
+    // The quit handler arms a 5s BLE disposal timeout; keep it off the event loop.
+    const setTimeoutSpy = jest
+      .spyOn(globalThis, 'setTimeout')
+      .mockImplementation(() => 0);
+    try {
+      const { app, browserWindow, registered } = loadShortcuts();
+      browserWindow.emit('focus');
+      await Promise.resolve();
+      const event = { preventDefault: jest.fn() };
+      app.emit('before-quit', event);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(registered.size).toBe(0);
+      browserWindow.emit('focus');
+      browserWindow.emit('enter-full-screen');
+      await Promise.resolve();
+      expect(registered.size).toBe(0);
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
   });
 
   test('disabled shortcuts remain unregistered', async () => {

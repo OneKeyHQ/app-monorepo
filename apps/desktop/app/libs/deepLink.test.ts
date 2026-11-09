@@ -1,9 +1,16 @@
 /* cspell:ignore insertmacro HKCU */
+/* eslint-disable import/first */
 import fs from 'fs';
 import path from 'path';
-import vm from 'vm';
 
-import ts from 'typescript-classic';
+import { app } from 'electron';
+
+jest.mock('electron', () => ({
+  app: {
+    isDefaultProtocolClient: jest.fn(),
+    setAsDefaultProtocolClient: jest.fn(),
+  },
+}));
 
 import {
   DESKTOP_DEEP_LINK_PROTOCOLS,
@@ -15,26 +22,11 @@ import {
   isAllowedDeepLinkUrl,
   resolveDesktopRuntimeFlags,
 } from './deepLink';
-
-const appSource = ts.createSourceFile(
-  'app.ts',
-  fs.readFileSync(path.resolve(__dirname, '../app.ts'), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true,
-);
-
-function getAppTopLevelStatementSource(predicate: (text: string) => boolean) {
-  const statement = appSource.statements.find(
-    (node) =>
-      !ts.isImportDeclaration(node) && predicate(node.getText(appSource)),
-  );
-  expect(statement).toBeDefined();
-  return ts
-    .transpileModule(statement?.getText(appSource) ?? '', {
-      compilerOptions: { target: ts.ScriptTarget.ES2022 },
-    })
-    .outputText.trim();
-}
+import {
+  createDeepLinkHandler,
+  createSecondInstanceHandler,
+} from './deepLinkHandler';
+import { registerDesktopProtocolClients } from './registerDesktopProtocolClients';
 
 describe('desktop deep link arguments', () => {
   test('builds protocol client registration args with "--" separator before "%1"', () => {
@@ -165,26 +157,18 @@ describe('desktop deep link arguments', () => {
       ETHEREUM_DEEP_LINK_NAME,
     ]);
 
-    const protocolRegistrationCode = getAppTopLevelStatementSource(
-      (text) =>
-        text.includes('getDesktopProtocolClientArgs') &&
-        text.includes('setAsDefaultProtocolClient'),
-    );
-
-    const isDefaultProtocolClient = jest.fn(() => false);
-    const setAsDefaultProtocolClient = jest.fn(() => true);
-    vm.runInNewContext(protocolRegistrationCode, {
-      DESKTOP_DEEP_LINK_PROTOCOLS,
-      getDesktopProtocolClientArgs,
-      process: {
-        defaultApp: false,
-        execPath: 'C:\\Program Files\\OneKey\\OneKey.exe',
-        argv: ['C:\\Program Files\\OneKey\\OneKey.exe'],
-      },
-      app: {
-        isDefaultProtocolClient,
-        setAsDefaultProtocolClient,
-      },
+    const electronApp = app as unknown as {
+      isDefaultProtocolClient: jest.Mock;
+      setAsDefaultProtocolClient: jest.Mock;
+    };
+    const isDefaultProtocolClient = electronApp.isDefaultProtocolClient;
+    const setAsDefaultProtocolClient = electronApp.setAsDefaultProtocolClient;
+    isDefaultProtocolClient.mockReturnValue(false);
+    setAsDefaultProtocolClient.mockReturnValue(true);
+    registerDesktopProtocolClients({
+      defaultApp: false,
+      execPath: 'C:\\Program Files\\OneKey\\OneKey.exe',
+      argv: ['C:\\Program Files\\OneKey\\OneKey.exe'],
     });
 
     expect(isDefaultProtocolClient.mock.calls).toEqual([
@@ -200,34 +184,6 @@ describe('desktop deep link arguments', () => {
   });
 
   test('gates isDev, isPerfCiMode, isDevServer, isLocalUnpacked, and isDesktopE2EMode on !app.isPackaged even when env vars are set', () => {
-    const runtimeFlagsDeclarationCode = getAppTopLevelStatementSource((text) =>
-      text.includes('resolveDesktopRuntimeFlags'),
-    );
-
-    const packagedResult = vm.runInNewContext(
-      `(() => { ${runtimeFlagsDeclarationCode}\nreturn { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode }; })()`,
-      {
-        resolveDesktopRuntimeFlags,
-        app: { isPackaged: true },
-        electronIsDev: true,
-        process: {
-          env: {
-            ELECTRON_IS_DEV: '1',
-            PERF_CI_MODE: '1',
-            DESKTOP_E2E_MODE: 'true',
-          },
-        },
-      },
-    ) as ReturnType<typeof resolveDesktopRuntimeFlags>;
-
-    expect(packagedResult).toEqual({
-      isDev: false,
-      isPerfCiMode: false,
-      isDevServer: false,
-      isLocalUnpacked: false,
-      isDesktopE2EMode: false,
-    });
-
     expect(
       resolveDesktopRuntimeFlags({
         isPackaged: true,
@@ -275,61 +231,38 @@ describe('desktop deep link arguments', () => {
   });
 
   test('does not log raw argv or deep-link URLs in second-instance or handleDeepLinkUrl', () => {
-    const handleDeepLinkCode = getAppTopLevelStatementSource((text) =>
-      text.startsWith('function handleDeepLinkUrl('),
-    );
-    const secondInstanceBlockCode = getAppTopLevelStatementSource((text) =>
-      text.includes("app.on('second-instance'"),
-    );
-
     const loggerInfo = jest.fn();
     const loggerWarn = jest.fn();
     const handleDeepLinkSpy = jest.fn();
     const showMainWindowSpy = jest.fn();
-    let secondInstanceHandler: ((e: unknown, argv: string[]) => void) | null =
-      null;
 
-    const context = {
-      singleInstance: true,
-      process: {
-        mas: false,
-        platform: 'win32',
-      },
-      logger: {
-        info: loggerInfo,
-        warn: loggerWarn,
-      },
-      app: {
-        quit: jest.fn(),
-        on: jest.fn(
-          (event: string, cb: (e: unknown, argv: string[]) => void) => {
-            if (event === 'second-instance') {
-              secondInstanceHandler = cb;
-            }
-          },
-        ),
-      },
-      findAllowedDeepLinkArg,
-      isAllowedDeepLinkUrl,
+    const secondInstanceHandler = createSecondInstanceHandler({
+      logger: { info: loggerInfo, warn: loggerWarn },
+      getPlatform: () => 'win32',
       getSafelyMainWindow: () => ({
         isMinimized: () => false,
         restore: jest.fn(),
       }),
-      handleDeepLinkUrl: handleDeepLinkSpy,
       showMainWindow: showMainWindowSpy,
+      handleDeepLinkUrl: handleDeepLinkSpy,
+    });
+    const handleDeepLinkUrl = createDeepLinkHandler({
+      logger: { info: loggerInfo, warn: loggerWarn },
+      getSafelyMainWindow: () => ({
+        webContents: { send: jest.fn() },
+      }),
+      showMainWindow: showMainWindowSpy,
+      getIsAppReady: () => false,
+      setAppReady: jest.fn(),
+      hasMainWindow: () => false,
       emitter: { once: jest.fn() },
-      isAppReady: false,
-      mainWindow: null,
-    };
-
-    vm.runInNewContext(secondInstanceBlockCode, context);
-    expect(secondInstanceHandler).not.toBeNull();
+    });
 
     // eslint-disable-next-line @cspell/spellchecker
     const sensitiveUrl =
       'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKey123';
     const argv = ['OneKey.exe', '--', sensitiveUrl];
-    secondInstanceHandler!(null, argv);
+    secondInstanceHandler(null, argv);
 
     expect(loggerInfo).toHaveBeenCalledWith(
       'Second instance launched, focusing existing window',
@@ -348,12 +281,7 @@ describe('desktop deep link arguments', () => {
       false,
     );
 
-    vm.runInNewContext(
-      `${handleDeepLinkCode}\nhandleDeepLinkUrl(null, ${JSON.stringify(
-        `${sensitiveUrl}" --gpu-launcher=calc`,
-      )});`,
-      context,
-    );
+    handleDeepLinkUrl(null, `${sensitiveUrl}" --gpu-launcher=calc`);
     expect(loggerWarn).toHaveBeenCalledWith(
       '[DeepLink] Rejected URL with unknown or unsafe scheme',
     );
