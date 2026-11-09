@@ -114,7 +114,8 @@ function runRelease(t, platform, overrides = {}) {
   return { result, calls };
 }
 
-for (const [name, env, profiles] of [
+/** @type {[string, Record<string, string>, string[]][]} */
+const releaseCases = [
   ['manual production', {}, ['production']],
   [
     'manual QA',
@@ -141,7 +142,9 @@ for (const [name, env, profiles] of [
     { IS_WORKFLOW_RUN: 'true', ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: 'true' },
     ['qa-internal-store'],
   ],
-]) {
+];
+
+for (const [name, env, profiles] of releaseCases) {
   for (const platform of ['ios', 'android']) {
     test(`${platform} preserves ${name} profiles and cleans credentials`, (t) => {
       const { result, calls } = runRelease(t, platform, env);
