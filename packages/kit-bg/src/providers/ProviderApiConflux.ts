@@ -31,6 +31,11 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+function normalizeSigningAddress(address: string) {
+  const { hexAddress, netId } = conflux.address.decodeCfxAddress(address);
+  return `${netId}:${hexAddress.toString('hex')}`;
+}
+
 @backgroundClass()
 class ProviderApiConflux extends ProviderApiBase {
   public providerName = IInjectedProviderNames.conflux;
@@ -77,10 +82,12 @@ class ProviderApiConflux extends ProviderApiBase {
   async _showSignMessageModal(
     request: IJsBridgeMessagePayload,
     unsignedMessage: any,
+    address: unknown,
   ) {
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, address, normalizeSigningAddress);
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -215,9 +222,14 @@ class ProviderApiConflux extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      transaction.from,
+      normalizeSigningAddress,
+    );
 
     const gasPrice = new BigNumber(transaction.gasPrice ?? 0);
 
@@ -241,11 +253,15 @@ class ProviderApiConflux extends ProviderApiBase {
   @providerApiMethod()
   cfx_signTypedData_v4(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    return this._showSignMessageModal(request, {
-      type: EMessageTypesEth.TYPED_DATA_V4,
-      message: messages[1],
-      payload: messages,
-    });
+    return this._showSignMessageModal(
+      request,
+      {
+        type: EMessageTypesEth.TYPED_DATA_V4,
+        message: messages[1],
+        payload: messages,
+      },
+      messages[0],
+    );
   }
 
   @providerApiMethod()
@@ -258,21 +274,29 @@ class ProviderApiConflux extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const message = messages[0];
 
-    return this._showSignMessageModal(request, {
-      type: EMessageTypesEth.PERSONAL_SIGN,
-      message,
-      payload: messages,
-    });
+    return this._showSignMessageModal(
+      request,
+      {
+        type: EMessageTypesEth.PERSONAL_SIGN,
+        message,
+        payload: messages,
+      },
+      messages[1],
+    );
   }
 
   @providerApiMethod()
   cfx_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    return this._showSignMessageModal(request, {
-      type: EMessageTypesEth.ETH_SIGN,
-      message: messages[1],
-      payload: messages,
-    });
+    return this._showSignMessageModal(
+      request,
+      {
+        type: EMessageTypesEth.ETH_SIGN,
+        message: messages[1],
+        payload: messages,
+      },
+      messages[0],
+    );
   }
 
   @providerApiMethod()
