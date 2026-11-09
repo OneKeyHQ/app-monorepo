@@ -117,50 +117,41 @@ export function TronClaimDialog({
           </SizableText>
         </YStack>
       ) : null}
-      {isClaimTab ? (
-        <>
-          <YStack>
-            <ClaimDetailRow label="领取账户">
-              {details.accountSelector}
-            </ClaimDetailRow>
-            {monthlyRemaining !== undefined && monthlyLimit !== undefined ? (
-              <ClaimDetailRow label="本地址本月剩余">
-                <SizableText
-                  size="$bodyMdMedium"
-                  textAlign="right"
-                  fontVariant={['tabular-nums']}
-                >
-                  {monthlyRemaining} / {monthlyLimit} 次
-                </SizableText>
-              </ClaimDetailRow>
-            ) : null}
-          </YStack>
-          {details.alert}
-          {claimed ? (
-            <SizableText size="$bodySmMedium" color="$textSuccess">
-              {validUntil
-                ? `今日已领取，请在 ${intl.formatTime(validUntil, { hour: '2-digit', minute: '2-digit' })} 前使用。`
-                : '当前地址今日已领取。'}
+      <YStack gap={isClaimTab ? '$0' : '$1'}>
+        <ClaimDetailRow label="领取账户">
+          {details.accountSelector}
+        </ClaimDetailRow>
+        {isClaimTab &&
+        monthlyRemaining !== undefined &&
+        monthlyLimit !== undefined ? (
+          <ClaimDetailRow label="本地址本月剩余">
+            <SizableText
+              size="$bodyMdMedium"
+              textAlign="right"
+              fontVariant={['tabular-nums']}
+            >
+              {monthlyRemaining} / {monthlyLimit} 次
             </SizableText>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <YStack gap="$1">
-            <ClaimDetailRow label="领取账户">
-              {details.accountSelector}
-            </ClaimDetailRow>
-            {details.redeemField}
-          </YStack>
-          {details.redeemAlert}
-          <YStack gap="$2">
-            <SizableText size="$headingSm">使用说明</SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              兑换的能量将发放至所选 TRON 账户。
-            </SizableText>
-          </YStack>
-        </>
-      )}
+          </ClaimDetailRow>
+        ) : null}
+        {isClaimTab ? null : details.redeemField}
+      </YStack>
+      {isClaimTab ? details.alert : details.redeemAlert}
+      {isClaimTab && claimed ? (
+        <SizableText size="$bodySmMedium" color="$textSuccess">
+          {validUntil
+            ? `今日已领取，请在 ${intl.formatTime(validUntil, { hour: '2-digit', minute: '2-digit' })} 前使用。`
+            : '当前地址今日已领取。'}
+        </SizableText>
+      ) : null}
+      {!isClaimTab ? (
+        <YStack gap="$2">
+          <SizableText size="$headingSm">使用说明</SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            兑换的能量将发放至所选 TRON 账户。
+          </SizableText>
+        </YStack>
+      ) : null}
     </YStack>
   );
 

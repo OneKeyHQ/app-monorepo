@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ActionList,
   Button,
@@ -10,6 +12,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
+import { getTronClaimLabel } from '@onekeyhq/kit/src/views/RewardCenter/tronClaimLabel';
 
 const previewOptions = [
   { value: 'live', label: '跟随真实状态' },
@@ -60,18 +63,16 @@ export function TronRewardPreview({
   onClaim: () => void;
   renderInline: (state: ITronRewardCardState) => ReactNode;
 }) {
+  const intl = useIntl();
   const [code, setCode] = useState('');
   const claimed = mode === 'claimed';
   const exhausted = mode === 'exhausted';
   const accountName = '预览账户';
   let remaining = 128;
-  let buttonLabel = '领取';
   if (claimed) {
     remaining -= 1;
-    buttonLabel = '已领取';
   } else if (exhausted) {
     remaining = 0;
-    buttonLabel = '已领完';
   }
   return renderInline({
     accountName,
@@ -97,7 +98,7 @@ export function TronRewardPreview({
           disabled={claimed || exhausted}
           onPress={onClaim}
         >
-          {buttonLabel}
+          {intl.formatMessage({ id: getTronClaimLabel(claimed, exhausted) })}
         </Button>
       ),
       redeemField: (

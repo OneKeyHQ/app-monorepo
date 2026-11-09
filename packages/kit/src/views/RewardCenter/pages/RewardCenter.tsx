@@ -61,6 +61,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { RewardCenterTestIDs } from '../testIDs';
+import { getTronClaimLabel } from '../tronClaimLabel';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -339,6 +340,7 @@ function RewardCenterDetails({
       : undefined;
   const isClaimed = Boolean(result?.isReceived);
   const remaining = result?.remaining;
+  const exhausted = remaining === 0 || result?.totalReceivedLimit === 0;
   const validUntil =
     lastClaim &&
     lastClaim.accountId === account?.id &&
@@ -457,20 +459,15 @@ function RewardCenterDetails({
     }
   }, [accountActivation?.isActived, setStopActivationPolling]);
 
-  const renderClaimButtonText = useCallback(() => {
-    if (isClaimed) {
-      return intl.formatMessage({ id: ETranslations.wallet_subsidy_claimed });
-    }
-    if (result?.remaining === 0 || result?.totalReceivedLimit === 0) {
-      return intl.formatMessage({
-        id: ETranslations.wallet_subsidy_all_used,
-      });
-    }
-
-    return intl.formatMessage({
-      id: ETranslations.wallet_subsidy_claim,
+  const notifyRewardSuccess = useCallback(() => {
+    Toast.success({
+      title: intl.formatMessage({ id: ETranslations.global_success }),
     });
-  }, [result?.remaining, result?.totalReceivedLimit, isClaimed, intl]);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    }, 1000);
+  }, [intl]);
 
   const handleClaimResource = useCallback(async () => {
     if (!account || !network || !result || isClaimed || claimPending.current)
@@ -543,15 +540,7 @@ function RewardCenterDetails({
       });
       closeResult.current.isResourceClaimed = true;
 
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.global_success,
-        }),
-      });
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = setTimeout(() => {
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      }, 1000);
+      notifyRewardSuccess();
       return resp;
     } catch (_error) {
       // The proxy reports request errors. Keep the claim available for retry.
@@ -559,7 +548,16 @@ function RewardCenterDetails({
       claimPending.current = false;
       setIsClaiming(false);
     }
-  }, [account, claimSource, intl, network, setInventory, result, isClaimed]);
+  }, [
+    account,
+    claimSource,
+    intl,
+    network,
+    setInventory,
+    result,
+    isClaimed,
+    notifyRewardSuccess,
+  ]);
 
   const handleRedeemCode = useCallback(async () => {
     if (!account || !network) {
@@ -612,18 +610,9 @@ function RewardCenterDetails({
         resourceType: 'energy',
       });
 
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.global_success,
-        }),
-      });
-
       form.reset({ code: '' });
       closeResult.current.isResourceRedeemed = true;
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = setTimeout(() => {
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      }, 1000);
+      notifyRewardSuccess();
       return resp;
     } catch (_error) {
       // Keep the code so the user can retry.
@@ -631,7 +620,7 @@ function RewardCenterDetails({
       redeemPending.current = false;
       setIsRedeeming(false);
     }
-  }, [account, claimSource, form, intl, network]);
+  }, [account, claimSource, form, intl, network, notifyRewardSuccess]);
 
   useEffect(() => () => onCloseRef.current?.({ ...closeResult.current }), []);
 
@@ -821,20 +810,18 @@ function RewardCenterDetails({
         // Inactive account cannot claim energy; keep the label and disable the
         // button. Activation is handled via the Top up action on the Alert.
         disabled={
-          !isClaimResourceAvailable ||
           !result ||
           isLoadingResourceState ||
           isClaiming ||
           isClaimed ||
           isAccountNotActivated ||
-          result?.remaining === 0 ||
-          result?.totalReceivedLimit === 0 ||
+          exhausted ||
           result?.monthIPRemain === 0 ||
           result?.monthRemain === 0
         }
         onPress={handleClaimResource}
       >
-        {renderClaimButtonText()}
+        {intl.formatMessage({ id: getTronClaimLabel(isClaimed, exhausted) })}
       </Button>
     );
   }, [
@@ -845,7 +832,7 @@ function RewardCenterDetails({
     isClaiming,
     isClaimed,
     handleClaimResource,
-    renderClaimButtonText,
+    exhausted,
     renderInline,
     isCreatingTronAccount,
     handleCreateTronAccount,
@@ -1046,7 +1033,7 @@ function RewardCenterDetails({
       accountName: account?.name || account?.address,
       claimed: isClaimed,
       validUntil: isClaimed ? validUntil : undefined,
-      exhausted: result?.remaining === 0 || result?.totalReceivedLimit === 0,
+      exhausted,
       claimDetails: {
         remaining: result?.remaining,
         total: result?.totalReceivedLimit,
