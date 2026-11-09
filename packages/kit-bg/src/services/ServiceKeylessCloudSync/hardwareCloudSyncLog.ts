@@ -299,6 +299,9 @@ export function assertHardwareCloudSyncAuthTemplate(message: string): void {
 const DIAGNOSTIC_BOOLEAN_FIELDS = [
   'transportFailure',
   'timeout',
+  'hasServerDataArray',
+  'existingSigningPublicKeyEmpty',
+  'currentSigningPublicKeyEmpty',
   'force',
   'unauthorized',
   'clockRetry',
@@ -358,6 +361,18 @@ const DIAGNOSTIC_COUNT_FIELDS = [
   'httpStatus',
   'businessCode',
   'mismatchedItemCount',
+  'mismatchedDeletedCount',
+  'mismatchedLiveCount',
+  'mismatchedLockCount',
+  'mismatchedDeletedLockCount',
+  'mismatchedEnvelopeCount',
+  'mismatchedDeletedEnvelopeCount',
+  'mismatchedWalletCount',
+  'mismatchedDeletedWalletCount',
+  'mismatchedAccountCount',
+  'mismatchedDeletedAccountCount',
+  'mismatchedOtherCount',
+  'mismatchedDeletedOtherCount',
   'invalidJsonCount',
   'invalidShapeCount',
   'invalidVersionCount',
@@ -380,13 +395,12 @@ const DIAGNOSTIC_STAGES = new Set([
   'credential_refresh_result',
   'credential_refresh_reused_stored_session',
   'credential_storage_decrypt_failed',
-  'credential_storage_missing',
   'credential_storage_parse_failed',
   'credential_storage_read_failed',
-  'credential_storage_read_succeeded',
   'delete_credential_after_disabling_sync',
   'delete_credential_after_incomplete_key_commit',
   'flush_push_precheck',
+  'history_download_received',
   'history_received_completeness_unknown',
   'lock_parsed',
   'lock_received',
@@ -403,7 +417,6 @@ const DIAGNOSTIC_STAGES = new Set([
   'request_other',
   'request_refresh',
   'request_revoke',
-  'request_success',
   'request_upload',
   'request_verify',
   'reset_download_max_pages',
@@ -503,4 +516,59 @@ export function getHardwareCloudSyncErrorDiagnostics(
   } catch {
     return {};
   }
+}
+
+// The allowlisted categories describe schema types, not user-provided data.
+// Unknown types collapse to Other and never become log keys or text.
+export function summarizeHardwareCloudSyncRestoreItems(
+  items: ReadonlyArray<{
+    pwdHash?: string;
+    dataType?: string;
+    isDeleted?: boolean;
+  }>,
+  knownPwdHashes: ReadonlySet<string>,
+): Record<string, number> {
+  const counts = {
+    mismatchedItemCount: 0,
+    mismatchedDeletedCount: 0,
+    mismatchedLiveCount: 0,
+    mismatchedLockCount: 0,
+    mismatchedDeletedLockCount: 0,
+    mismatchedEnvelopeCount: 0,
+    mismatchedDeletedEnvelopeCount: 0,
+    mismatchedWalletCount: 0,
+    mismatchedDeletedWalletCount: 0,
+    mismatchedAccountCount: 0,
+    mismatchedDeletedAccountCount: 0,
+    mismatchedOtherCount: 0,
+    mismatchedDeletedOtherCount: 0,
+  };
+  for (const item of items) {
+    if (item.pwdHash && !knownPwdHashes.has(item.pwdHash)) {
+      counts.mismatchedItemCount += 1;
+      if (item.isDeleted) counts.mismatchedDeletedCount += 1;
+      else counts.mismatchedLiveCount += 1;
+      let category: 'Lock' | 'Envelope' | 'Wallet' | 'Account' | 'Other';
+      switch (item.dataType) {
+        case 'Lock':
+          category = 'Lock';
+          break;
+        case 'HardwareCloudSyncKeyEnvelope':
+          category = 'Envelope';
+          break;
+        case 'Wallet':
+          category = 'Wallet';
+          break;
+        case 'IndexedAccount':
+        case 'Account':
+          category = 'Account';
+          break;
+        default:
+          category = 'Other';
+      }
+      counts[`mismatched${category}Count`] += 1;
+      if (item.isDeleted) counts[`mismatchedDeleted${category}Count`] += 1;
+    }
+  }
+  return counts;
 }

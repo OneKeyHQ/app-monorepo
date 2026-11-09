@@ -28,7 +28,6 @@ async function readMap(): Promise<ICredentialMap> {
     throw error;
   }
   if (!base64) {
-    logHardwareCloudSyncDiagnostic('credential_storage_missing');
     return {};
   }
   let decrypted = false;
@@ -48,7 +47,6 @@ async function readMap(): Promise<ICredentialMap> {
     });
     decrypted = true;
     const map = JSON.parse(json) as ICredentialMap;
-    logHardwareCloudSyncDiagnostic('credential_storage_read_succeeded');
     return map;
   } catch {
     logHardwareCloudSyncDiagnostic(

@@ -95,7 +95,7 @@ test('credential diagnostics distinguish missing storage from unreadable storage
   await expect(
     keylessSyncCredentialStorage.getCredential('unused'),
   ).resolves.toBeNull();
-  expect(mockDiagnostic).toHaveBeenCalledWith('credential_storage_missing');
+  expect(mockDiagnostic).not.toHaveBeenCalled();
   const failure = new OneKeyLocalError('synthetic-private-storage-error');
   jest
     .mocked(keylessStorageUtils.storageGetItem)
@@ -114,4 +114,14 @@ test('credential diagnostics distinguish missing storage from unreadable storage
   expect(JSON.stringify(mockDiagnostic.mock.calls)).not.toContain(
     'synthetic-private',
   );
+});
+
+test('repeated successful credential reads do not produce diagnostics', async () => {
+  await keylessSyncCredentialStorage.saveCredential(credential);
+  mockDiagnostic.mockClear();
+  for (let i = 0; i < 5; i += 1)
+    await keylessSyncCredentialStorage.getCredential(
+      credential.keylessWalletId,
+    );
+  expect(mockDiagnostic).not.toHaveBeenCalled();
 });

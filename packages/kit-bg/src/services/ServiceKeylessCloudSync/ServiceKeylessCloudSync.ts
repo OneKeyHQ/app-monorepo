@@ -67,6 +67,7 @@ import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtil
 import {
   logHardwareCloudSyncDiagnostic,
   logHardwareCloudSyncFailure,
+  summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
 import {
   commitHardwareCloudSyncMigration,
@@ -569,9 +570,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
             () => ({
               rebuildsLocalItems: rebuildsLocalItemsNow,
               localItemCount: items.length,
-              mismatchedItemCount: items.filter(
-                (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
-              ).length,
+              ...summarizeHardwareCloudSyncRestoreItems(items, knownPwdHashes),
+              knownHashCount: knownPwdHashes.size,
+              existingSigningPublicKeyEmpty:
+                !!existing && !existing.signingPublicKey,
+              currentSigningPublicKeyEmpty: !credential.signingPublicKey,
               hasExistingCredential: !!existing,
               localItemsMismatch:
                 !rebuildsLocalItemsNow &&
@@ -929,22 +932,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
-    logHardwareCloudSyncDiagnostic('credential_refresh_precheck', {
-      forceRequested: !!force,
-      sessionEnding: this.hardwareSessionEnding,
-      refreshInFlight: !!this.hardwareSessionRefresh,
-      hasSession: !!credential.hardwareSession,
-    });
+    if (force || this.hardwareSessionEnding || !credential.hardwareSession) {
+      logHardwareCloudSyncDiagnostic('credential_refresh_precheck', {
+        forceRequested: !!force,
+        sessionEnding: this.hardwareSessionEnding,
+        refreshInFlight: !!this.hardwareSessionRefresh,
+        hasSession: !!credential.hardwareSession,
+      });
+    }
     if (this.hardwareSessionEnding) {
       throw settingsChangedError();
     }
     if (this.hardwareSessionRefresh) {
-      logHardwareCloudSyncDiagnostic(
-        'credential_refresh_joined_shared_promise',
-        {
-          forceRequested: !!force,
-        },
-      );
+      if (force) {
+        logHardwareCloudSyncDiagnostic(
+          'credential_refresh_joined_shared_promise',
+          { forceRequested: true },
+        );
+      }
       return this.hardwareSessionRefresh;
     }
     const session = credential.hardwareSession;
@@ -989,10 +994,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         }
         throw error;
       }
-      logHardwareCloudSyncDiagnostic('credential_refresh_result', {
-        forceRequested: !!force,
-        refreshedSession: !!next,
-      });
+      if (next || force) {
+        logHardwareCloudSyncDiagnostic('credential_refresh_result', {
+          forceRequested: !!force,
+          refreshedSession: !!next,
+        });
+      }
       if (!next) return credential;
       const updated = { ...credential, hardwareSession: next };
       return this.saveHardwareCredential(updated, {
@@ -1861,12 +1868,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async onHardwareKeyFlushPush({ pwdHash }: { pwdHash?: string }) {
     try {
       const credential = await this.getKeylessCloudSyncCredential();
-      logHardwareCloudSyncDiagnostic('flush_push_precheck', {
-        hasCredential: !!credential,
-        hasSession: !!credential?.hardwareSession,
-        hasPushedPwdHash: !!pwdHash,
-        pwdHashMatches: !!credential && credential.pwdHash === pwdHash,
-      });
+      if (credential?.hardwareSession && credential.pwdHash !== pwdHash) {
+        logHardwareCloudSyncDiagnostic('flush_push_precheck', {
+          hasCredential: true,
+          hasSession: true,
+          hasPushedPwdHash: !!pwdHash,
+          pwdHashMatches: false,
+        });
+      }
       if (!credential?.hardwareSession) return;
       // Same key: the flush only rewrote data, which the push leaves out.
       if (credential.pwdHash === pwdHash) {

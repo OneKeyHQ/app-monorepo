@@ -122,6 +122,24 @@ describe('hardware Cloud sync session', () => {
     jest.restoreAllMocks();
   });
 
+  test('repeated successful sync requests do not produce diagnostic traffic', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const activeSession = session();
+    for (let i = 0; i < 5; i += 1) {
+      await requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: activeSession,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/download',
+        data: {},
+      });
+    }
+    expect(logger).not.toHaveBeenCalled();
+  });
+
   describe('server clock', () => {
     test('DPoP proofs carry the server time when the local clock is off', async () => {
       estimatedClockOffsetMs = -120 * MINUTE;

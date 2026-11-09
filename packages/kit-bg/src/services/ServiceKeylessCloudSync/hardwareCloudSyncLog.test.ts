@@ -16,6 +16,7 @@ import {
   logHardwareCloudSyncDiagnostic,
   logHardwareCloudSyncFailure,
   sanitizeHardwareCloudSyncDeviceError,
+  summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
 
 const mockLog = jest.fn<void, [string]>();
@@ -336,7 +337,7 @@ test('diagnostic correlation lasts only for a new operation', () => {
   const first = createHardwareCloudSyncDiagnostic();
   const second = createHardwareCloudSyncDiagnostic();
   first('request_download');
-  first('request_success');
+  first('request_failed');
   second('request_download');
   const ids = mockLog.mock.calls.map(
     ([line]) =>
@@ -379,4 +380,58 @@ test('error diagnostics classify codes without exposing server explanations or A
     transportFailure: false,
     timeout: false,
   });
+});
+
+test('restore diagnostics classify mismatched tombstones and locks without exposing their values', () => {
+  const items = [
+    { pwdHash: 'private-old', dataType: 'Lock', isDeleted: false },
+    { pwdHash: 'private-old', dataType: 'Wallet', isDeleted: true },
+    {
+      pwdHash: 'private-old',
+      dataType: 'HardwareCloudSyncKeyEnvelope',
+      isDeleted: true,
+    },
+    { pwdHash: 'private-old', dataType: 'IndexedAccount', isDeleted: false },
+    {
+      pwdHash: 'private-old',
+      dataType: 'private-unknown-type',
+      isDeleted: true,
+    },
+    { pwdHash: 'private-known', dataType: 'Wallet', isDeleted: true },
+    { pwdHash: '', dataType: 'Lock', isDeleted: true },
+  ];
+  const summary = summarizeHardwareCloudSyncRestoreItems(
+    items,
+    new Set(['private-known']),
+  );
+  expect(summary).toMatchObject({
+    mismatchedItemCount: 5,
+    mismatchedDeletedCount: 3,
+    mismatchedLiveCount: 2,
+    mismatchedLockCount: 1,
+    mismatchedDeletedLockCount: 0,
+    mismatchedWalletCount: 1,
+    mismatchedDeletedWalletCount: 1,
+    mismatchedEnvelopeCount: 1,
+    mismatchedDeletedEnvelopeCount: 1,
+    mismatchedAccountCount: 1,
+    mismatchedOtherCount: 1,
+    mismatchedDeletedOtherCount: 1,
+  });
+  logHardwareCloudSyncDiagnostic('restore_key_compatibility_guard', {
+    ...summary,
+    existingSigningPublicKeyEmpty: true,
+    currentSigningPublicKeyEmpty: false,
+  });
+  const logs = JSON.stringify(mockLog.mock.calls);
+  expect(mockLog.mock.calls[0][0]).toContain('mismatchedDeletedOtherCount');
+  expect(logs).not.toContain('private-');
+});
+
+test('diagnostic-only aggregation failures do not escape', () => {
+  expect(() =>
+    logHardwareCloudSyncDiagnostic('restore_key_compatibility_guard', () => {
+      throw new OneKeyLocalError('private-error');
+    }),
+  ).not.toThrow();
 });

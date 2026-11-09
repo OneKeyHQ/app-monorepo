@@ -189,7 +189,6 @@ async function requestRaw<T>({
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
-  const diagnostic = createHardwareCloudSyncDiagnostic();
   // A fixed route classification avoids logging URLs, query data, or account IDs.
   const route = [
     '/prime/v1/sync/lock',
@@ -213,7 +212,6 @@ async function requestRaw<T>({
     'request_challenge',
     'request_verify',
   ];
-  diagnostic(stages[route] ?? 'request_other');
   const send = (clockOffsetMs: number) => {
     const headers: Record<string, string> = {
       DPoP: buildPossessionProof({
@@ -234,13 +232,13 @@ async function requestRaw<T>({
   };
   const clockOffsetMs = await measureServerClockOffsetMs();
   try {
-    const response = await send(clockOffsetMs);
-    diagnostic('request_success', { httpStatus: response.status });
-    return response;
+    return await send(clockOffsetMs);
   } catch (error) {
     // A proof with a stale time is refused like a bad token, for example when
     // the estimate predates a sleep. Resend once only if the re-measured clock
     // explains it; the new proof is not a replay of the refused one.
+    const diagnostic = createHardwareCloudSyncDiagnostic();
+    diagnostic(stages[route] ?? 'request_other');
     diagnostic('request_failed', {
       ...getHardwareCloudSyncErrorDiagnostics(error),
       unauthorized: isHardwareCloudSyncUnauthorizedError(error),
@@ -718,6 +716,12 @@ async function listPreviousPwdHashes({
     method: 'POST',
     urlPath: '/prime/v1/sync/download',
     data: { pwdHash, limit: 100_000 },
+  });
+  logHardwareCloudSyncDiagnostic('history_download_received', {
+    hasServerDataArray: Array.isArray(serverData),
+    requestedLimit: 100_000,
+    returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
+    historyCompleteKnown: false,
   });
   const hashes: string[] = [];
   let missingEnvelopeCount = 0;
