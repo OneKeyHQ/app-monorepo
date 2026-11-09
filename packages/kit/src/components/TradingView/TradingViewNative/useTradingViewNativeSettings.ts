@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   useMarketTradingViewChartSettingsPersistAtom,
   useMarketTradingViewIndicatorSettingsPersistAtom,
@@ -6,6 +8,11 @@ import {
   useSwapTradingViewChartSettingsPersistAtom,
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import {
+  getTradingViewNativeSubIndicatorInstances,
+  normalizeTradingViewNativeIndicatorSettings,
+} from './indicatorSettingsAdapter';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
 
@@ -29,4 +36,18 @@ export function useTradingViewNativeIndicatorSettings(
     swap: useSwapTradingViewIndicatorSettingsPersistAtom,
   }[namespace];
   return useSettingsAtom();
+}
+
+// Read during render so a parent can size the chart in the same commit.
+export function useTradingViewNativeSubIndicatorCount(
+  namespace: ITradingViewNativeStorageNamespace = 'market',
+) {
+  const [indicatorSettings] = useTradingViewNativeIndicatorSettings(namespace);
+  return useMemo(
+    () =>
+      getTradingViewNativeSubIndicatorInstances(
+        normalizeTradingViewNativeIndicatorSettings(indicatorSettings),
+      ).length,
+    [indicatorSettings],
+  );
 }

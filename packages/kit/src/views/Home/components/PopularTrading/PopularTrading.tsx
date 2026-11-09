@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,6 +29,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -49,6 +54,7 @@ import {
   usePerpsNavigation,
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
+import { MARKET_TOKEN_ROW_GROUP_NAME } from '../../../Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
@@ -66,6 +72,7 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_MARKET_CATEGORY_REQUEST_LIMIT,
   HOME_PERPS_HOT_CATEGORY_ID,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from './constants';
@@ -419,11 +426,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Always show 4 tokens in empty state
   const displayCount = 4;
+  const loadRecommendations = useCallback(async () => {
+    try {
+      return await loadHomeRecommendDisplayTokens(displayCount);
+    } catch (error) {
+      // Optional background recommendations must not surface unrelated errors.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }, [displayCount]);
+  const { result: recommendedDisplayTokens } = usePromiseResult(
+    loadRecommendations,
+    [loadRecommendations],
+    {
+      keepResultIfError: true,
+      resumeOnEffectReconnect: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
+  );
 
-  // Market tab differs by platform
-  const marketTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const marketTab = ETabRoutes.Market;
 
   const marketCategories = useMemo<IMarketCategoryItem[]>(() => {
     if (apiSpotCategories.length > 0) {
@@ -677,15 +701,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       // Check if user has any favorites
       const userHasFavorites = watchList.data.length > 0;
 
-      // Clear favoriteTokens when switching from has favorites to no favorites
-      // to avoid showing stale data during the transition
-      if (!userHasFavorites && hasUserFavorites) {
-        setFavoriteTokens([]);
-      }
-
-      setHasUserFavorites(userHasFavorites);
-      setTotalFavoritesCount(watchList.data.length);
-
       if (userHasFavorites) {
         // Use user's favorites (up to 3 for display)
         const userDisplayCount = 3;
@@ -845,22 +860,29 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           hasStoredFavorites: true,
           visibleFavoriteCount: displayTokens.length,
         });
+        const nextTokens = recommendInstead
+          ? (recommendedDisplayTokens ??
+            (await loadRecommendations().catch(() => [])))
+          : displayTokens;
+        setFavoriteTokens(nextTokens);
         setShowRecommendCards(recommendInstead);
-        setFavoriteTokens(
-          recommendInstead
-            ? await loadHomeRecommendDisplayTokens(displayCount)
-            : displayTokens,
-        );
-        initializedRef.current = true;
       } else {
+        const nextTokens =
+          recommendedDisplayTokens ??
+          (await loadRecommendations().catch(() => []));
+        setFavoriteTokens(nextTokens);
         setShowRecommendCards(false);
-        setFavoriteTokens(await loadHomeRecommendDisplayTokens(displayCount));
-        initializedRef.current = true;
       }
+      // Commit the display mode with its rows so refreshes never expose an
+      // empty state while the replacement recommendations are still loading.
+      setHasUserFavorites(userHasFavorites);
+      setTotalFavoritesCount(watchList.data.length);
+      initializedRef.current = true;
     },
-    [hasUserFavorites],
+    [loadRecommendations, recommendedDisplayTokens],
     {
       watchLoading: true,
+      resumeOnEffectReconnect: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -891,14 +913,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
   }, [shouldHideCategorySelector]);
 
-  // Initialize selected tokens when favorites load (for empty state)
+  const previousRecommendationKeysRef = useRef<Set<string> | undefined>(
+    undefined,
+  );
+
+  // Keep user choices across quote refreshes; newly recommended tokens start selected.
   useEffect(() => {
-    if (
-      (!hasUserFavorites || showRecommendCards) &&
-      favoriteTokens.length > 0
-    ) {
-      setSelectedTokens(favoriteTokens);
+    if (hasUserFavorites && !showRecommendCards) {
+      previousRecommendationKeysRef.current = undefined;
+      return;
     }
+
+    const previousKeys = previousRecommendationKeysRef.current;
+    previousRecommendationKeysRef.current = new Set(
+      favoriteTokens.map(getTokenKey),
+    );
+    setSelectedTokens((prev) => {
+      const selectedKeys = new Set(prev.map(getTokenKey));
+      return favoriteTokens.filter((token) => {
+        const key = getTokenKey(token);
+        return !previousKeys?.has(key) || selectedKeys.has(key);
+      });
+    });
   }, [favoriteTokens, hasUserFavorites, showRecommendCards]);
 
   const handleRecommendItemChange = useCallback(
@@ -1105,6 +1141,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
       if (platformEnv.isNative) {
         navigateToMarketTab({
+          entrySource: EMarketHomeEntrySource.WalletHome,
           tabToSelect:
             resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
               ? EMarketHomeTab.Watchlist
@@ -1113,6 +1150,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
         return;
       }
+      markMarketHomeEntry(EMarketHomeEntrySource.WalletHome);
       navigation.switchTab(marketTab);
 
       setTimeout(navigateToTokenDetail, 300);
@@ -1246,6 +1284,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
+        entrySource: EMarketHomeEntrySource.WalletHome,
         tabToSelect: EMarketHomeTab.Perps,
         perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
       });
@@ -1253,11 +1292,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     if (selectedMarketCategoryId) {
-      navigateToMarketTab({ spotCategoryToSelect: selectedMarketCategoryId });
+      navigateToMarketTab({
+        spotCategoryToSelect: selectedMarketCategoryId,
+        entrySource: EMarketHomeEntrySource.WalletHome,
+      });
       return;
     }
 
-    navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
+    navigateToMarketTab({
+      tabToSelect: EMarketHomeTab.Watchlist,
+      entrySource: EMarketHomeEntrySource.WalletHome,
+    });
   }, [navigateToMarketTab, selectedMarketCategoryId]);
 
   // Render table/list layout for user favorites
@@ -1267,34 +1312,41 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <RichTable<IFavoriteTokenDisplay>
-          showHeader={shouldUseTableLayout}
-          dataSource={favoriteTokens}
-          columns={columns}
-          keyExtractor={(item) =>
-            item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
+        <YStack
+          minHeight={
+            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+            (shouldUseTableLayout ? 32 : 0)
           }
-          estimatedItemSize={
-            shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
-          }
-          rowProps={{
-            mx: '$2',
-            px: '$3',
-            ...(shouldUseTableLayout
-              ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
-              : undefined),
-          }}
-          headerRowProps={{
-            px: '$3',
-            mx: '$2',
-            ...(shouldUseTableLayout
-              ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
-              : undefined),
-          }}
-          onRow={(record) => ({
-            onPress: () => handleTokenPress(record),
-          })}
-        />
+        >
+          <RichTable<IFavoriteTokenDisplay>
+            showHeader={shouldUseTableLayout}
+            dataSource={favoriteTokens}
+            columns={columns}
+            keyExtractor={(item) =>
+              item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
+            }
+            estimatedItemSize={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+            rowProps={{
+              mx: '$2',
+              px: '$3',
+              minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+              ...(shouldUseTableLayout
+                ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
+                : undefined),
+            }}
+            headerRowProps={{
+              px: '$3',
+              mx: '$2',
+              ...(shouldUseTableLayout
+                ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+                : undefined),
+            }}
+            onRow={(record) => ({
+              onPress: () => handleTokenPress(record),
+            })}
+          />
+        </YStack>
         {showViewMoreButton ? (
           <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
             <Button
@@ -1315,7 +1367,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               {intl.formatMessage({ id: ETranslations.global_view_more })}
             </Button>
           </XStack>
-        ) : null}
+        ) : (
+          <Stack height={50} />
+        )}
       </YStack>
     );
   }, [
@@ -1389,9 +1443,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       if (!initializedRef.current && shouldShowInitialSkeleton) {
         return (
           <ListLoading
-            listCount={displayCount}
+            listCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}
             listContainerProps={{ py: '$0' }}
-            listHeaderProps={{ px: '$3' }}
+            listHeaderProps={{
+              px: '$3',
+              py: '$1.5',
+              height: 32,
+              display: shouldUseTableLayout ? 'flex' : 'none',
+            }}
+            itemProps={{ height: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }}
           />
         );
       }
@@ -1413,8 +1473,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            {renderEmptyStateCards()}
-            <YStack pt="$4" alignItems="center">
+            <YStack
+              minHeight={
+                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+                (shouldUseTableLayout ? 32 : 0)
+              }
+            >
+              {renderEmptyStateCards()}
+            </YStack>
+            <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
           </YStack>
@@ -1440,12 +1508,23 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             />
           )}
         </YStack>
-        {listContent}
+        <YStack
+          testID="home-market-content"
+          // Reserve three rows, the desktop header, and the bottom action band
+          // across categories, loading, empty states, and recommendation cards.
+          minHeight={
+            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+            (shouldUseTableLayout ? 32 : 0) +
+            50
+          }
+        >
+          {listContent}
+        </YStack>
       </YStack>
     );
   }, [
     categoryTokens,
-    displayCount,
     favoriteTokens.length,
     handleMarketCategoryStarPress,
     handleTokenPress,

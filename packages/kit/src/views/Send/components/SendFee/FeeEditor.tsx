@@ -824,10 +824,13 @@ function FeeEditor(props: IProps) {
           }}
           options={feeSelectorItems.map((item, index) => ({
             ...item,
-            label: (
+            // The control's value is an index, and the base-fee fallback item
+            // carries value 1 at index 0.
+            value: index,
+            label: ({ color }) => (
               <YStack>
                 <SizableText
-                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                  color={color}
                   size="$bodyMdMedium"
                   textAlign="center"
                 >

@@ -3,17 +3,20 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   NumberSizeableText,
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -36,6 +39,7 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 function StockTickerList({ closePopover }: { closePopover: () => void }) {
   const intl = useIntl();
   const { md } = useMedia();
+  const { bottom } = useSafeAreaInsets();
   const isSheet = platformEnv.isNative || md;
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 500);
@@ -89,7 +93,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
       <Stack px="$4" pt="$4" pb="$4">
         <SearchBar
           testID="swap-stock-ticker-search"
-          autoFocus
+          autoFocus={!platformEnv.isNative}
           placeholder={intl.formatMessage({
             id: ETranslations.placeholder_stock_search,
           })}
@@ -100,8 +104,12 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
         />
       </Stack>
       <ScrollView
+        nestedScrollEnabled
         flex={isSheet ? 1 : undefined}
         maxHeight={isSheet ? undefined : 604}
+        contentContainerStyle={
+          platformEnv.isNative ? { paddingBottom: bottom } : undefined
+        }
         keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
@@ -164,11 +172,10 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                 bg={stock.stockId === stockId ? '$bgActive' : undefined}
                 hoverStyle={{ bg: '$bgHover' }}
                 cursor="pointer"
-                onPress={async () => {
+                onPress={() => {
                   if (!selection) return;
-                  if (await selection.selectStock(stock, debouncedQuery)) {
-                    closePopover();
-                  }
+                  void selection.selectStock(stock, debouncedQuery);
+                  closePopover();
                 }}
               >
                 {/*
@@ -177,19 +184,36 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                  * dependencies on every parent render and restarts an unchanged
                  * logo request, which is visible as a flash after cold start.
                  */}
-                <Token size="md" tokenImageUri={stock.logoUrl} />
+                <Token size="lg" tokenImageUri={stock.logoUrl} />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.symbol}
                   </SizableText>
-                  <SizableText
-                    size={md ? '$bodyMd' : '$bodySm'}
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {stock.name}
-                  </SizableText>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    {stock.tags?.filter(Boolean).map((tag) => (
+                      <Badge
+                        key={tag}
+                        badgeType="default"
+                        badgeSize="sm"
+                        px="$1"
+                        py="$0.5"
+                        flexShrink={0}
+                      >
+                        <Badge.Text size="$bodyXs" lineHeight={12}>
+                          {tag}
+                        </Badge.Text>
+                      </Badge>
+                    ))}
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
+                      {stock.name}
+                    </SizableText>
+                  </XStack>
                 </YStack>
                 <YStack alignItems="flex-end">
                   <NumberSizeableText
@@ -248,40 +272,59 @@ export function SwapStockTickerSelector() {
   // and the Market Home list may be older than the cache window. Opening the
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
-  const { stockDetail, stockPreview, stockId } = useStockDetail();
+  const { stockDetail, stockPreview, stockId, isStockDetailError } =
+    useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
-  const stock = stockDetail ?? stockPreview;
+  const displayStockId = selection ? selection.displayStockId : stockId;
+  const pendingPreview =
+    selection?.pendingStock?.stockId.toUpperCase() ===
+    displayStockId?.toUpperCase()
+      ? selection?.pendingStock
+      : undefined;
+  const stock =
+    displayStockId === stockId &&
+    (!selection?.stockSelectionPending || !pendingPreview)
+      ? (stockDetail ?? stockPreview)
+      : undefined;
   const selectedStockPreview = selection?.selectedStockPreview;
-  const listPreview =
-    selection?.pendingStock ??
-    (selection?.stockSelectionPending ||
-    selectedStockPreview?.stockId.toUpperCase() === stockId?.toUpperCase()
+  const committedPreview =
+    selectedStockPreview?.stockId.toUpperCase() ===
+    displayStockId?.toUpperCase()
       ? selectedStockPreview
-      : undefined);
-  const stockTokenMatches = Boolean(
-    currentStockToken &&
-    (!stockId || resolveMarketStockId(currentStockToken) === stockId),
-  );
-  const fallbackStock = stockTokenMatches
-    ? currentStockToken?.stock
-    : undefined;
+      : undefined;
+  const listPreview = pendingPreview ?? committedPreview;
   // The list item already carries the underlying stock's brand icon. Keep it
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
-  const tokenImageUri = listPreview?.logoUrl ?? stock?.logoUrl;
-  const tokenSymbol =
-    listPreview?.symbol ??
-    stock?.symbol ??
-    fallbackStock?.underlyingAssetTicker ??
-    stockId ??
-    currentStockToken?.symbol;
-  const tokenName =
-    listPreview?.name ??
-    stock?.name ??
-    (fallbackStock || currentStockToken?.name
+  const stockLogoUri = listPreview?.logoUrl || stock?.logoUrl;
+  // Once asset detail or the token's stock identity has failed nothing more
+  // will arrive: fall back to the committed token's own stock metadata
+  // instead of skeletons forever. Never while a selection is pending, so a
+  // switch never shows the old stock.
+  const fallbackToken =
+    (isStockDetailError || selection?.identityResolutionError) &&
+    !selection?.stockSelectionPending &&
+    !stock &&
+    currentStockToken &&
+    (!displayStockId ||
+      resolveMarketStockId(currentStockToken) === displayStockId)
+      ? currentStockToken
+      : undefined;
+  const stockSymbol =
+    listPreview?.symbol ||
+    stock?.symbol ||
+    (fallbackToken
+      ? fallbackToken.stock?.underlyingAssetTicker ||
+        displayStockId ||
+        fallbackToken.symbol
+      : displayStockId);
+  const stockName =
+    listPreview?.name ||
+    stock?.name ||
+    (fallbackToken
       ? getSwapStockTokenDisplayName({
-          stock: fallbackStock,
-          tokenName: currentStockToken?.name,
+          stock: fallbackToken.stock,
+          tokenName: fallbackToken.name,
         })
       : undefined);
   const trigger = (
@@ -301,36 +344,55 @@ export function SwapStockTickerSelector() {
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
     >
-      <Token size="xl" tokenImageUri={tokenImageUri} />
+      {stockLogoUri || fallbackToken ? (
+        // The fallback keeps the default icon rather than issuer artwork.
+        <Token size="xl" tokenImageUri={stockLogoUri} />
+      ) : (
+        <Skeleton width="$12" height="$12" borderRadius="$full" />
+      )}
       <YStack minWidth={0} flexShrink={1}>
-        <SizableText size={md ? '$headingLg' : '$headingXl'} numberOfLines={1}>
-          {tokenSymbol ?? '--'}
-        </SizableText>
-        <SizableText
-          size={md ? '$bodyMd' : '$bodyMdMedium'}
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {tokenName ?? '--'}
-        </SizableText>
+        {stockSymbol ? (
+          <SizableText
+            size={md ? '$headingLg' : '$headingXl'}
+            numberOfLines={1}
+          >
+            {stockSymbol}
+          </SizableText>
+        ) : (
+          <Skeleton width="$20" height="$6" mb="$1" />
+        )}
+        {stockName ? (
+          <SizableText
+            size={md ? '$bodyMd' : '$bodyMdMedium'}
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {stockName}
+          </SizableText>
+        ) : (
+          <Skeleton width="$24" height="$4" />
+        )}
       </YStack>
       <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
   return (
-    <StockSelectorPopover
-      onOpenChange={(open) => {
-        if (open) selection?.cancelSelection();
-      }}
-      title={intl.formatMessage({
-        id: ETranslations.placeholder_stock_search,
-      })}
-      showHeader={false}
-      placement="bottom-start"
-      floatingPanelProps={{ width: 360, borderRadius: '$4' }}
-      sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
-      renderContent={StockTickerList}
-      renderTrigger={trigger}
-    />
+    // Keep the outer Popover trigger from stretching across the header row.
+    <Stack alignSelf="flex-start" maxWidth="100%">
+      <StockSelectorPopover
+        onOpenChange={(open) => {
+          if (open) selection?.cancelSelection();
+        }}
+        title={intl.formatMessage({
+          id: ETranslations.placeholder_stock_search,
+        })}
+        showHeader={false}
+        placement="bottom-start"
+        floatingPanelProps={{ width: 360, borderRadius: '$4' }}
+        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
+        renderContent={StockTickerList}
+        renderTrigger={trigger}
+      />
+    </Stack>
   );
 }

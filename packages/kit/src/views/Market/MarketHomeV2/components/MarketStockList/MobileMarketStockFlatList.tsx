@@ -12,11 +12,14 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { buildStockMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
@@ -41,7 +44,9 @@ function MobileMarketStockFlatListImpl({
   shouldSuppressItemPress,
 }: IMobileMarketStockFlatListProps) {
   const intl = useIntl();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    from: EEnterWay.MarketList,
+  });
   const {
     items,
     isLoading,
@@ -78,7 +83,9 @@ function MobileMarketStockFlatListImpl({
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
+      return true;
     }
+    return false;
   }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const ListFooterComponent = useMemo(() => {
@@ -152,6 +159,21 @@ function MobileMarketStockFlatListImpl({
   );
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  if (!platformEnv.isNative) {
+    return (
+      <WebMarketCompactList<IMarketStockPublicItem>
+        data={showSkeleton ? EMPTY_DATA : items}
+        buildRow={buildStockMarketRow}
+        onPress={handleItemPress}
+        empty={ListEmptyComponent}
+        contentPaddingBottom={tabBarHeight}
+        onEndReached={handleEndReached}
+        footer={ListFooterComponent}
+        testID={MarketTestIDs.stockList}
+      />
+    );
+  }
+
   return (
     <Tabs.FlatList<IMarketStockPublicItem>
       testID={MarketTestIDs.stockList}
@@ -165,7 +187,7 @@ function MobileMarketStockFlatListImpl({
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
         ...(platformEnv.isNative

@@ -235,7 +235,7 @@ test('password confirmation gates progress and preparation, and the verified pas
   expect(send).not.toHaveBeenCalled();
   password.resolve({ password: 'fixture-verified-password' });
   await authorization;
-  expect(mockState.preparationProgress).toEqual({ taskId, percentage: 40 });
+  expect(mockState.preparationProgress).toEqual({ taskId, percentage: 10 });
   await service.sendTransferData({
     transferData: fixture(),
     preparationTaskId: taskId,
@@ -245,6 +245,9 @@ test('password confirmation gates progress and preparation, and the verified pas
     expect.objectContaining({ password: 'fixture-verified-password' }),
   );
   expect(send).toHaveBeenCalledTimes(1);
+  // Encrypting the wrapped credential set has its own milestone.
+  expect(mockPublishedPercentages).toContain(80);
+  expect(mockPublishedPercentages.at(-1)).toBe(90);
   await service.cancelNetworkTransfer();
   const nextTaskId = await service.beginTransferPreparation();
   await expect(
@@ -465,7 +468,7 @@ test.each([
     });
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(mockGetAllAccounts).toHaveBeenCalledTimes(1);
-    expect(mockState.preparationProgress).toEqual({ taskId, percentage: 40 });
+    expect(mockState.preparationProgress).toEqual({ taskId, percentage: 10 });
     await service.cancelNetworkTransfer();
   },
 );
@@ -662,13 +665,13 @@ test('reports credential work, then clears preparation on cancellation', async (
   await service.buildTransferData({ preparationTaskId });
   expect(mockState.preparationProgress).toEqual({
     taskId: preparationTaskId,
-    percentage: 40,
+    percentage: 10,
   });
   await service.decryptTransferDataCredentials({
     data: fixture(),
     preparationTaskId,
   });
-  expect(mockPublishedPercentages.at(-1)).toBe(75);
+  expect(mockPublishedPercentages.at(-1)).toBe(80);
   expect(mockPublishedPercentages).toEqual(
     [...mockPublishedPercentages].toSorted((a, b) => a - b),
   );
@@ -719,7 +722,7 @@ test('cancel during decryption stops remaining credentials and cannot overwrite 
   expect(mockDecryptImported).not.toHaveBeenCalled();
   expect(mockState.preparationProgress).toEqual({
     taskId: replacementTaskId,
-    percentage: 40,
+    percentage: 10,
   });
   await service.cancelTransfer({ taskId: preparationTaskId });
   expect(mockState.preparationProgress?.taskId).toBe(replacementTaskId);

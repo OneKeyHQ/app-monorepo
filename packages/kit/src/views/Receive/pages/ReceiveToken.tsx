@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
@@ -11,8 +13,10 @@ import {
   Dialog,
   Empty,
   Icon,
+  IconButton,
   Image,
   Page,
+  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -27,6 +31,14 @@ import {
   useHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain';
+import { useReceivePreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/receivePreferences';
+import type {
+  ILocalWalletAccountAddresses,
+  ILocalWalletAccountState,
+  ILocalWalletAccountSupport,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { isLocalWalletRuntimeUnavailableError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -36,6 +48,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -45,7 +58,11 @@ import type {
   IModalReceiveParamList,
   IReceiveNetworkSelection,
 } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalSettingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -69,17 +86,26 @@ import {
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '../../../hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
+import { ReceivePrivacyPromotion } from '../components/ReceivePrivacyPromotion';
+import { ReceivePrivacySyncStatus } from '../components/ReceivePrivacyStatus';
+import { ReceivePrivacySyncGate } from '../components/ReceivePrivacySyncGate';
 import { ReceiveQRCode } from '../components/ReceiveQRCode';
 import {
   ShareImageGenerator,
   showReceiveShareDialog,
 } from '../components/ReceiveShare';
 import { ReceiveTitle } from '../components/ReceiveTitle';
+import { useReceivePrivacySetup } from '../hooks/useReceivePrivacySetup';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
+import { getManualAddressVerificationPath } from '../utils/manualVerificationPathUtils';
 import { resolveReceiveNetworkSwitchable } from '../utils/receiveNetworkSwitchUtils';
 import {
   buildReceiveTitleLogo,
@@ -91,6 +117,32 @@ import type {
   IReceiveShareImageGeneratorRef,
 } from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
+
+// A failed read is read again, except one that points to where the data can be deleted.
+type ILocalWalletAddressErrorKind =
+  | 'identityMismatch'
+  | 'runtimeUnavailable'
+  | 'failed';
+
+const LOCAL_WALLET_ADDRESS_ERROR_MESSAGES: Record<
+  ILocalWalletAddressErrorKind,
+  ETranslations
+> = {
+  identityMismatch: ETranslations.privacy_error_identity_mismatch__msg,
+  runtimeUnavailable: ETranslations.privacy_error_runtime_unavailable__msg,
+  failed: ETranslations.global_unknown_error_retry_message,
+};
+
+type ILocalWalletAddressRead = {
+  scope: {
+    account: { networkId: string; accountId: string };
+    chainPaused: boolean;
+  };
+  addresses: ILocalWalletAccountAddresses | undefined;
+  state?: ILocalWalletAccountState;
+  support?: ILocalWalletAccountSupport;
+  errorKind?: ILocalWalletAddressErrorKind;
+};
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
@@ -114,12 +166,15 @@ function ReceiveToken() {
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
+    localWalletAddressForm,
     switchEntry,
+    allowAddressTypeMenu,
     source: routeSource,
     isAllNetworksMode,
     aggregateToken: routeAggregateToken,
     aggregateSubTokenList: routeAggregateSubTokenList,
     allAggregateTokenList: routeAllAggregateTokenList,
+    showDoneButton,
   } = route.params;
 
   // The route only seeds the page. Everything the QR code, the hardware
@@ -161,6 +216,9 @@ function ReceiveToken() {
   // previous network then, verification included, and a verification started
   // against it would settle after the switch.
   const isSwitchResolvingRef = useRef(false);
+  // The same window for rendering: the address type menu would save its pick
+  // as the default of the network the page is about to leave.
+  const [isSwitchResolving, setIsSwitchResolving] = useState(false);
   // The account of the row a switch to a multi-address-type network was
   // picked from. The page resolves the default address type there; when the
   // wallet has none of that type, this is the address the user chose.
@@ -291,12 +349,233 @@ function ReceiveToken() {
 
   const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
 
-  const displayAddress = isBtcUsedAddressVerifyMode
-    ? btcUsedAddress
-    : (currentAccount?.address ?? '');
+  // A collapsed account shows a "…" where the card's address type switch
+  // would be, opening the same list. Like that switch, it is decided once when
+  // the page opens: after a pick the "…" stays (the shown type is no longer
+  // the default the page opened with) until the page is left.
+  const isAddressTypeMenuApplicable =
+    !!allowAddressTypeMenu &&
+    !isBtcUsedAddressVerifyMode &&
+    canDeriveTypesCollapse({ networkId, walletId });
+  const [hasPickedFromMenu, setHasPickedFromMenu] = useState(false);
+  const {
+    isReady: isCollapseStateReady,
+    collapsed: isCollapsed,
+    isAddressTypeHidden,
+  } = useDeriveTypesCollapseState({
+    networkId,
+    walletId,
+    indexedAccountId: currentAccount?.indexedAccountId,
+    activeDeriveType: currentDeriveType,
+    enabled: isAddressTypeMenuApplicable,
+  });
+  const showAddressTypeMenu =
+    isAddressTypeMenuApplicable &&
+    isCollapseStateReady &&
+    isCollapsed &&
+    (isAddressTypeHidden || hasPickedFromMenu);
+
+  // Local-wallet chains expose a public and a private receive form; address, QR and on-device verification follow the displayed one.
+  const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
+  const chainPauseAtom = useMemo(
+    () =>
+      selectAtom(privacyChainAtom.atom(), (value) =>
+        value.pausedNetworkIds.includes(networkId),
+      ),
+    [networkId],
+  );
+  const chainPaused = useAtomValue(chainPauseAtom);
+  const addressReadScope = useMemo<
+    ILocalWalletAddressRead['scope'] | undefined
+  >(
+    () =>
+      localWalletAddressForms && network?.id && currentAccount?.id
+        ? {
+            account: { networkId: network.id, accountId: currentAccount.id },
+            chainPaused,
+          }
+        : undefined,
+    [localWalletAddressForms, network?.id, currentAccount?.id, chainPaused],
+  );
+  const {
+    result: localWalletAddressResult,
+    run: reloadLocalWalletAddresses,
+    isLoading: isLocalWalletAddressLoading,
+  } = usePromiseResult(
+    async (): Promise<ILocalWalletAddressRead | undefined> => {
+      if (!addressReadScope) {
+        return undefined;
+      }
+      const { account } = addressReadScope;
+      let support: ILocalWalletAccountSupport | undefined;
+      let state: ILocalWalletAccountState | undefined;
+      try {
+        support =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+            account,
+          );
+        if (support !== 'supported')
+          return { scope: addressReadScope, support, addresses: undefined };
+        state =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
+            account,
+          );
+        const addresses =
+          state.privacyDisabled || state.paused || addressReadScope.chainPaused
+            ? undefined
+            : await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+                account,
+              );
+        return { scope: addressReadScope, addresses, support, state };
+      } catch (error) {
+        console.error('[privacyChain] receive address read failed', {
+          error: error instanceof Error ? error.message : '',
+        });
+        let errorKind: ILocalWalletAddressErrorKind = 'failed';
+        if (isLocalWalletRuntimeUnavailableError(error)) {
+          errorKind = 'runtimeUnavailable';
+        } else {
+          // Set by an enable that derived another key; only deleting local data helps.
+          state = await backgroundApiProxy.servicePrivacyChain
+            .getLocalWalletAccountState(account)
+            .catch(() => undefined);
+          if (state?.identityMismatch) {
+            errorKind = 'identityMismatch';
+          }
+        }
+        return {
+          scope: addressReadScope,
+          addresses: undefined,
+          support,
+          state,
+          errorKind,
+        };
+      }
+    },
+    [addressReadScope],
+    { watchLoading: true, revalidateOnFocus: true },
+  );
+  useEffect(() => {
+    if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+      return;
+    }
+    const refresh = (event: { networkId: string; accountIds: string[] }) => {
+      if (
+        event.networkId === network.id &&
+        event.accountIds.includes(currentAccount.id)
+      ) {
+        void reloadLocalWalletAddresses();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    };
+  }, [
+    localWalletAddressForms,
+    currentAccount?.id,
+    network?.id,
+    reloadLocalWalletAddresses,
+  ]);
+  // A pause invalidates the QR immediately. Resuming, even on the same account,
+  // needs a fresh address read before copy, share or device verification can run.
+  const localWalletAddressRead =
+    localWalletAddressResult?.scope === addressReadScope
+      ? localWalletAddressResult
+      : undefined;
+  const localWalletAddresses = localWalletAddressRead?.addresses;
+  const [receivePreferences, setReceivePreferences] =
+    useReceivePreferencesPersistAtom();
+  const receiveScope = `${networkId}:${currentAccount?.id ?? accountId}`;
+  const [addressFormSelection, setAddressFormSelection] = useState<{
+    scope: string;
+    value: 'public' | 'private';
+  }>();
+  // An explicit entry (the token's pool tab) wins over the saved preference.
+  const routeAddressForm =
+    networkId === routeNetworkId &&
+    (currentAccount?.id ?? accountId) === routeAccountId
+      ? localWalletAddressForm
+      : undefined;
+  const requestedAddressForm =
+    addressFormSelection?.scope === receiveScope
+      ? addressFormSelection.value
+      : (routeAddressForm ??
+        receivePreferences.addressForms[receiveScope] ??
+        'public');
+  const setReceiveAddressForm = useCallback(
+    (value: 'public' | 'private') => {
+      setAddressFormSelection({ scope: receiveScope, value });
+      setReceivePreferences((previous) => ({
+        ...previous,
+        addressForms: { ...previous.addressForms, [receiveScope]: value },
+      }));
+    },
+    [receiveScope, setReceivePreferences],
+  );
+  const canEnablePrivateReceive =
+    localWalletAddressRead?.support === 'supported' &&
+    !localWalletAddressRead.state?.privacyDisabled;
+  const isPrivateReceiveDisabled =
+    localWalletAddressRead?.support === 'unsupported' ||
+    localWalletAddressRead?.support === 'tempWallet' ||
+    !!localWalletAddressRead?.state?.privacyDisabled;
+  const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
+  const isChainOnlyPaused =
+    chainPaused &&
+    !!localWalletAddressRead?.state?.enabled &&
+    !localWalletAddressRead.state.paused;
+  const isPrivateReceivePaused =
+    !!localWalletAddressRead?.state?.paused || isChainOnlyPaused;
+  // Keep the requested form when private receive is unavailable. Switching to
+  // a public address must be an explicit choice; Monero only has a private form.
+  const receiveAddressForm: 'public' | 'private' =
+    localWalletAddressForms && !localWalletAddressForms.publicLabel
+      ? 'private'
+      : requestedAddressForm;
+  // Paused or never enabled: nothing scans the private address, so it is not
+  // handed out; the page points at where scanning is turned on instead.
+  const isPrivateReceiveUnavailable =
+    localWalletAddressForms &&
+    receiveAddressForm === 'private' &&
+    localWalletAddressRead !== undefined &&
+    !localWalletAddressRead.errorKind &&
+    !isLocalWalletAddressLoading &&
+    canEnablePrivateReceive &&
+    !localWalletAddressRead.state?.pendingOperation &&
+    (!localWalletAddressRead.state?.enabled || isPrivateReceivePaused) &&
+    !localWalletPrivateAddress;
+  const privateReceiveErrorKind =
+    localWalletAddressForms && receiveAddressForm === 'private'
+      ? localWalletAddressRead?.errorKind
+      : undefined;
+  const isPrivateAddressLoading =
+    !!localWalletAddressForms &&
+    receiveAddressForm === 'private' &&
+    !!currentAccount &&
+    (!localWalletAddressRead ||
+      (canEnablePrivateReceive &&
+        !localWalletAddressRead.errorKind &&
+        (localWalletAddressRead.state?.pendingOperation ||
+          (localWalletAddressRead.state?.enabled && !isPrivateReceivePaused)) &&
+        !localWalletPrivateAddress));
+
+  let displayAddress = currentAccount?.address ?? '';
+  if (isBtcUsedAddressVerifyMode) {
+    displayAddress = btcUsedAddress;
+  } else if (localWalletAddressForms && receiveAddressForm === 'private') {
+    displayAddress = localWalletPrivateAddress ?? '';
+  }
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
+  const manualVerificationPath = getManualAddressVerificationPath({
+    receiveAddressPath: verificationPath,
+    accountPath: currentAccount?.path,
+    isBtcNetwork: networkUtils.isBTCNetwork(networkId),
+  });
+  const hardwareVendor = wallet?.associatedDeviceInfo?.vendor;
+  const { addressVerification } = getVendorProfile(hardwareVendor);
   // What the page shows right now. A verification settles for the address it
   // was started with, which the page may have left by then.
   const shownAddressRef = useRef({ networkId, address: displayAddress });
@@ -307,6 +586,8 @@ function ReceiveToken() {
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
   );
+  const [showManualVerificationPath, setShowManualVerificationPath] =
+    useState(false);
 
   const [networkLogoColor, setNetworkLogoColor] = useState<string | null>(null);
 
@@ -353,9 +634,11 @@ function ReceiveToken() {
 
     if (
       addressState === EAddressState.Verifying &&
-      (hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
-        thirdPartyHardwareUiState?.action ===
-          EThirdPartyHardwareUiAction.confirmOnDevice)
+      ((addressVerification.confirmationEvent === 'buttonRequest' &&
+        hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON) ||
+        (addressVerification.confirmationEvent === 'confirmOnDevice' &&
+          thirdPartyHardwareUiState?.action ===
+            EThirdPartyHardwareUiAction.confirmOnDevice))
     ) {
       return true;
     }
@@ -363,12 +646,14 @@ function ReceiveToken() {
     return false;
   }, [
     addressState,
+    addressVerification.confirmationEvent,
     hardwareUiState?.action,
     thirdPartyHardwareUiState,
     isHardwareWallet,
   ]);
 
   const shouldShowQRCode = useMemo(() => {
+    if (!displayAddress) return false;
     if (!isHardwareWallet) {
       return true;
     }
@@ -381,7 +666,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, isHardwareWallet]);
+  }, [addressState, isHardwareWallet, displayAddress]);
 
   useEffect(() => {
     const url = network?.logoURI;
@@ -488,16 +773,52 @@ function ReceiveToken() {
   const resetVerifyState = useCallback(() => {
     verifyAttemptRef.current += 1;
     isVerifyingRef.current = false;
+    setShowManualVerificationPath(false);
     setAddressState(EAddressState.Unverified);
   }, []);
 
+  useEffect(() => {
+    resetVerifyState();
+  }, [displayAddress, verificationPath, resetVerifyState]);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
-    if (!currentDeriveType) return;
     if (!displayAddress) {
       setAddressState(EAddressState.Unverified);
       return;
     }
+    if (addressVerification.mode === 'manual') {
+      // Manual mode has no device round-trip to gate on, so the address is
+      // only revealed once the user acknowledges they must compare it on the
+      // device themselves.
+      Dialog.confirm({
+        icon: 'ErrorOutline',
+        tone: 'warning',
+        title: intl.formatMessage({
+          id: ETranslations.global_receive_address_confirmation,
+        }),
+        description: intl.formatMessage({
+          // The path block only renders when a path exists, so the copy must
+          // not ask the user to compare one that is never shown.
+          id: manualVerificationPath
+            ? ETranslations.hardware_third_party_manual_verify__desc
+            : ETranslations.hardware_third_party_manual_verify_address_only__desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_i_got_it,
+        }),
+        onConfirm: () => {
+          setShowManualVerificationPath(true);
+          setAddressState(EAddressState.ForceShow);
+        },
+        confirmButtonProps: {
+          variant: 'secondary',
+        },
+      });
+      return;
+    }
+    if (!currentDeriveType) return;
+    setShowManualVerificationPath(false);
     const attempt = verifyAttemptRef.current + 1;
     verifyAttemptRef.current = attempt;
     isVerifyingRef.current = true;
@@ -512,10 +833,15 @@ function ReceiveToken() {
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
           expectedAddress: displayAddress,
+          localWalletAddressForm: localWalletAddressForms
+            ? receiveAddressForm
+            : undefined,
         });
 
-      const isSameAddress =
-        addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
+      if (verifyAttemptRef.current !== attempt) return;
+      const isSameAddress = localWalletAddressForms
+        ? addresses?.[0] === displayAddress
+        : addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -579,8 +905,12 @@ function ReceiveToken() {
     currentAccount?.indexedAccountId,
     currentDeriveType,
     displayAddress,
+    localWalletAddressForms,
+    receiveAddressForm,
     intl,
     networkId,
+    addressVerification.mode,
+    manualVerificationPath,
     verificationPath,
     wallet?.type,
     walletId,
@@ -818,13 +1148,38 @@ function ReceiveToken() {
             outlineStyle: 'solid',
           }}
         >
-          <XStack flex={1} flexWrap="wrap">
-            <HighlightAddress
-              address={displayAddress}
-              size="$bodyLg"
-              fontFamily="$monoRegular"
-            />
-          </XStack>
+          <YStack flex={1} gap="$2">
+            <XStack flexWrap="wrap">
+              <HighlightAddress
+                address={displayAddress}
+                size="$bodyLg"
+                fontFamily="$monoRegular"
+              />
+            </XStack>
+            {showManualVerificationPath ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.verify_on_device_confirm_address__desc,
+                })}
+              </SizableText>
+            ) : null}
+            {showManualVerificationPath && manualVerificationPath ? (
+              <YStack testID={ReceiveTestIDs.DerivationPath} gap="$0.5">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.global_derivation_path,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$text"
+                  fontFamily="$monoRegular"
+                >
+                  {manualVerificationPath}
+                </SizableText>
+              </YStack>
+            ) : null}
+          </YStack>
           {platformEnv.isNative ? null : (
             <Stack
               testID={ReceiveTestIDs.CopyAddressButton}
@@ -837,7 +1192,13 @@ function ReceiveToken() {
         </XStack>
       </ReceiveCardCell>
     );
-  }, [displayAddress, handleCopyAddress]);
+  }, [
+    displayAddress,
+    handleCopyAddress,
+    intl,
+    showManualVerificationPath,
+    manualVerificationPath,
+  ]);
 
   const arrivalTimeText = useMemo(() => {
     // Until the server override settles, render no ETA instead of the
@@ -968,29 +1329,64 @@ function ReceiveToken() {
     } finally {
       setIsPreparingShare(false);
     }
+    if (
+      shownAddressRef.current.networkId !== networkId ||
+      shownAddressRef.current.address !== shareData.address
+    )
+      return;
     // fall back to in-dialog generation if pre-generation failed
     showReceiveShareDialog(shareData, {
       presetImage: presetImage || undefined,
     });
-  }, [shareData, isPreparingShare]);
+  }, [networkId, shareData, isPreparingShare]);
+
+  const handleDonePress = useCallback(() => {
+    navigation.popStack();
+  }, [navigation]);
 
   const renderHeaderRight = useCallback(() => {
-    if (platformEnv.isNative || !canShowShareEntry) {
+    const shareButton =
+      platformEnv.isNative || !canShowShareEntry ? null : (
+        <Button
+          testID={ReceiveTestIDs.ShareButton}
+          variant="secondary"
+          size="small"
+          icon="ShareOutline"
+          loading={isPreparingShare}
+          onPress={handleSharePress}
+        >
+          {intl.formatMessage({ id: ETranslations.explore_share })}
+        </Button>
+      );
+    // Deposit entries such as Swap's "Deposit to Trade" ask for a one-tap way
+    // back to the caller: Done closes the whole receive modal at once.
+    const doneButton = showDoneButton ? (
+      <Button
+        testID={ReceiveTestIDs.DoneButton}
+        variant="primary"
+        size="small"
+        onPress={handleDonePress}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    ) : null;
+    if (!shareButton && !doneButton) {
       return null;
     }
     return (
-      <Button
-        testID={ReceiveTestIDs.ShareButton}
-        variant="secondary"
-        size="small"
-        icon="ShareOutline"
-        loading={isPreparingShare}
-        onPress={handleSharePress}
-      >
-        {intl.formatMessage({ id: ETranslations.explore_share })}
-      </Button>
+      <XStack alignItems="center" gap="$2">
+        {shareButton}
+        {doneButton}
+      </XStack>
     );
-  }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
+  }, [
+    canShowShareEntry,
+    handleDonePress,
+    handleSharePress,
+    isPreparingShare,
+    intl,
+    showDoneButton,
+  ]);
 
   // An imported, watch-only or external account only exists on the networks
   // it is compatible with and cannot get an address anywhere else, so
@@ -1051,6 +1447,7 @@ function ReceiveToken() {
         // looking up its target is withdrawn.
         switchAttemptRef.current += 1;
         isSwitchResolvingRef.current = false;
+        setIsSwitchResolving(false);
         return;
       }
       // The selection page resolves addresses in its own scope; a row from
@@ -1066,6 +1463,7 @@ function ReceiveToken() {
       const attempt = switchAttemptRef.current + 1;
       switchAttemptRef.current = attempt;
       isSwitchResolvingRef.current = true;
+      setIsSwitchResolving(true);
       try {
         defaultLogger.transaction.receive.receiveSwitchNetwork({
           fromNetworkId,
@@ -1135,6 +1533,7 @@ function ReceiveToken() {
         setCurrentAccount(undefined);
         setCurrentDeriveType(undefined);
         setCurrentDeriveInfo(undefined);
+        setHasPickedFromMenu(false);
         setNetworkLogoColor(null);
         setCurrentToken(targetToken);
         if (selectContext?.aggregateToken) {
@@ -1162,6 +1561,7 @@ function ReceiveToken() {
         // A newer switch owns the guard from the moment it starts.
         if (attempt === switchAttemptRef.current) {
           isSwitchResolvingRef.current = false;
+          setIsSwitchResolving(false);
         }
       }
     },
@@ -1261,6 +1661,7 @@ function ReceiveToken() {
   ]);
 
   const handleSkipVerifyPress = useCallback(() => {
+    setShowManualVerificationPath(false);
     Dialog.confirm({
       icon: 'ErrorOutline',
       tone: 'warning',
@@ -1283,6 +1684,9 @@ function ReceiveToken() {
   }, [intl]);
 
   const renderVerifyFooter = useCallback(() => {
+    // No address yet (a private form that is loading, not scanning or failed):
+    // nothing to verify or show.
+    const isNothingToVerify = !displayAddress;
     if (platformEnv.isNative) {
       return (
         <Page.Footer safeAreaBottomMode="content">
@@ -1292,6 +1696,7 @@ function ReceiveToken() {
               variant="primary"
               size="large"
               loading={isVerifying}
+              disabled={isNothingToVerify}
               onPress={handleVerifyOnDevicePressDebounced}
             >
               {intl.formatMessage({
@@ -1301,6 +1706,7 @@ function ReceiveToken() {
             <Button
               testID={ReceiveTestIDs.SkipVerifyButton}
               size="large"
+              disabled={isNothingToVerify}
               onPress={handleSkipVerifyPress}
             >
               {intl.formatMessage({
@@ -1321,6 +1727,7 @@ function ReceiveToken() {
         confirmButtonProps={{
           variant: 'primary',
           loading: isVerifying,
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.VerifyOnDeviceButton,
         }}
         // keep one declared param: FooterCancelButton auto-closes the page
@@ -1330,12 +1737,14 @@ function ReceiveToken() {
           id: ETranslations.no_device_with_me__action,
         })}
         cancelButtonProps={{
+          disabled: isNothingToVerify,
           testID: ReceiveTestIDs.SkipVerifyButton,
         }}
       />
     );
   }, [
     bottom,
+    displayAddress,
     handleSkipVerifyPress,
     handleVerifyOnDevicePressDebounced,
     intl,
@@ -1349,6 +1758,19 @@ function ReceiveToken() {
     const label = currentDeriveInfo.labelKey
       ? intl.formatMessage({ id: currentDeriveInfo.labelKey })
       : currentDeriveInfo.label;
+    // With no list to open this is a plain label, so it must not react to
+    // hover or press like a button.
+    if (disableSelector) {
+      return (
+        <SizableText
+          testID={ReceiveTestIDs.AddressTypeSelector}
+          size="$bodyMdMedium"
+          color="$textSubdued"
+        >
+          {label}
+        </SizableText>
+      );
+    }
     return (
       <Button
         testID={ReceiveTestIDs.AddressTypeSelector}
@@ -1360,13 +1782,7 @@ function ReceiveToken() {
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {label}
           </SizableText>
-          {disableSelector ? null : (
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          )}
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </Button>
     );
@@ -1453,45 +1869,219 @@ function ReceiveToken() {
     handleOpenNetworkSelector,
   ]);
 
-  // Placeholder while a switch resolves: header stays, no stale address.
-  const renderPlaceholderCard = useCallback(() => {
-    if (!network) return null;
-    const qrSize = platformEnv.isNative ? 208 : 176;
-    return (
-      <ReceiveCard
-        testID={ReceiveTestIDs.SwitchPlaceholder}
-        headerLeft={cardHeaderLeft}
-      >
-        <ReceiveCardCell
-          alignItems="center"
-          justifyContent="center"
-          py={27}
-          px="$4"
+  // Placeholder while a switch or the private address read resolves: header
+  // stays, no stale address.
+  const renderPlaceholderCard = useCallback(
+    (headerRight?: React.ReactNode) => {
+      if (!network) return null;
+      const qrSize = platformEnv.isNative ? 208 : 176;
+      return (
+        <ReceiveCard
+          testID={ReceiveTestIDs.SwitchPlaceholder}
+          headerLeft={cardHeaderLeft}
+          headerRight={headerRight}
         >
-          <Skeleton w={qrSize} h={qrSize} radius={12} />
-        </ReceiveCardCell>
-        <ReceiveCardCell>
-          <YStack px="$4" py="$3" gap="$2">
-            <Skeleton w="100%" h="$4" />
-            <Skeleton w="60%" h="$4" />
-          </YStack>
-        </ReceiveCardCell>
-      </ReceiveCard>
-    );
-  }, [network, cardHeaderLeft]);
+          <ReceiveCardCell
+            alignItems="center"
+            justifyContent="center"
+            py={27}
+            px="$4"
+          >
+            <Skeleton w={qrSize} h={qrSize} radius={12} />
+          </ReceiveCardCell>
+          <ReceiveCardCell>
+            <YStack px="$4" py="$3" gap="$2">
+              <Skeleton w="100%" h="$4" />
+              <Skeleton w="60%" h="$4" />
+            </YStack>
+          </ReceiveCardCell>
+        </ReceiveCard>
+      );
+    },
+    [network, cardHeaderLeft],
+  );
+
+  // The selector saves the choice before calling back, so the callback can
+  // arrive after the page moved to another network: it only applies to the
+  // target the selector was rendered for.
+  const createAddressTypeSelectHandler = useCallback(
+    ({ fromMenu }: { fromMenu: boolean }) => {
+      const renderedSwitchSeq = switchSeqRef.current;
+      const isStillRenderedTarget = () =>
+        renderedSwitchSeq === switchSeqRef.current &&
+        committedTargetRef.current.networkId === networkId &&
+        committedTargetRef.current.accountId === accountId;
+
+      return async (value: {
+        account: INetworkAccount | undefined;
+        deriveInfo: IAccountDeriveInfo;
+        deriveType: IAccountDeriveTypes;
+      }) => {
+        if (!value.account || !isStillRenderedTarget()) {
+          return;
+        }
+        resetVerifyState();
+        setCurrentAccount(value.account);
+        setCurrentDeriveType(value.deriveType);
+        setCurrentDeriveInfo(value.deriveInfo);
+        onDeriveTypeChange?.(value.deriveType);
+        if (fromMenu) {
+          setHasPickedFromMenu(true);
+        }
+      };
+    },
+    [accountId, networkId, onDeriveTypeChange, resetVerifyState],
+  );
+
+  const networkIdForPrivacySettings = network?.id;
+  const openPrivacyNetworkSettings = useCallback(() => {
+    if (!networkIdForPrivacySettings) return;
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingPrivacyNetwork,
+      params: { networkId: networkIdForPrivacySettings, walletId },
+    });
+  }, [navigation, networkIdForPrivacySettings, walletId]);
+
+  const handlePrivacyEnabled = useCallback(() => {
+    resetVerifyState();
+    setReceiveAddressForm('private');
+    void reloadLocalWalletAddresses();
+  }, [reloadLocalWalletAddresses, resetVerifyState, setReceiveAddressForm]);
+  const { open: openPrivacySyncSetup, busy: isPrivacySetupBusy } =
+    useReceivePrivacySetup({
+      networkId,
+      accountId: currentAccount?.id,
+      settings: vaultSettings?.localWallet,
+      onEnabled: handlePrivacyEnabled,
+      onOpenSettings: openPrivacyNetworkSettings,
+    });
 
   const cardHeaderRight = useMemo(() => {
+    // A chain with no public pool (Monero) has nothing to switch to.
+    const publicFormLabel = localWalletAddressForms?.publicLabel;
+    if (localWalletAddressForms && publicFormLabel) {
+      const isAddressFormDisabled =
+        isVerifying ||
+        isPreparingShare ||
+        isSwitchResolving ||
+        isPrivacySetupBusy;
+      const label = intl.formatMessage({
+        id:
+          receiveAddressForm === 'public'
+            ? publicFormLabel
+            : localWalletAddressForms.privateLabel,
+      });
+      return (
+        <Select<'public' | 'private'>
+          testID={ReceiveTestIDs.LocalWalletAddressFormSelect}
+          title={intl.formatMessage({ id: ETranslations.address_type })}
+          value={receiveAddressForm}
+          disabled={isAddressFormDisabled}
+          onChange={(value) => {
+            if (
+              isVerifyingRef.current ||
+              isPreparingShare ||
+              isPrivacySetupBusy ||
+              isSwitchResolvingRef.current ||
+              (value === 'private' && isPrivateReceiveDisabled) ||
+              value === receiveAddressForm
+            ) {
+              return;
+            }
+            if (
+              value === 'private' &&
+              canEnablePrivateReceive &&
+              !localWalletPrivateAddress &&
+              !localWalletAddressRead?.errorKind &&
+              !localWalletAddressRead?.state?.pendingOperation &&
+              (!localWalletAddressRead?.state?.enabled ||
+                localWalletAddressRead.state.paused)
+            ) {
+              void openPrivacySyncSetup();
+              return;
+            }
+            resetVerifyState();
+            setReceiveAddressForm(value);
+          }}
+          items={[
+            {
+              label: intl.formatMessage({ id: publicFormLabel }),
+              value: 'public',
+            },
+            {
+              label: intl.formatMessage({
+                id: localWalletAddressForms.privateLabel,
+              }),
+              value: 'private',
+              disabled: isPrivateReceiveDisabled,
+            },
+          ]}
+          placement="bottom-end"
+          offset={{ mainAxis: 8 }}
+          renderTrigger={({ onPress }) => (
+            <Button
+              testID={ReceiveTestIDs.LocalWalletAddressFormTrigger}
+              variant="tertiary"
+              size="small"
+              childrenAsText={false}
+              disabled={isAddressFormDisabled}
+              onPress={onPress}
+            >
+              <XStack alignItems="center" gap="$0.5">
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {label}
+                </SizableText>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              </XStack>
+            </Button>
+          )}
+        />
+      );
+    }
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
-    // The selector saves the choice before calling back, so the callback can
-    // arrive after the page moved to another network: it only applies to the
-    // target this selector was rendered for.
-    const renderedSwitchSeq = switchSeqRef.current;
-    const isStillRenderedTarget = () =>
-      renderedSwitchSeq === switchSeqRef.current &&
-      committedTargetRef.current.networkId === networkId &&
-      committedTargetRef.current.accountId === accountId;
+
+    if (showAddressTypeMenu) {
+      // Same rule as the network switch: the address must not change under a
+      // running verification or share-image generation, nor while a network
+      // switch is looking up its target.
+      const isMenuDisabled =
+        isVerifying || isPreparingShare || isSwitchResolving;
+      return (
+        <AddressTypeSelector
+          placement="bottom-end"
+          offset={{
+            mainAxis: 8,
+          }}
+          // An entry that fixes the address type (token details) keeps a
+          // collapsed page in line with nothing: there is no type tab there,
+          // so the menu is never locked by it.
+          disableSelector={isMenuDisabled}
+          showTriggerWhenDisabled
+          activeDeriveType={currentDeriveType}
+          activeDeriveInfo={currentDeriveInfo}
+          renderSelectorTrigger={
+            <IconButton
+              testID={ReceiveTestIDs.AddressTypeMenuButton}
+              icon="DotHorOutline"
+              variant="tertiary"
+              size="small"
+              disabled={isMenuDisabled}
+              title={intl.formatMessage({ id: ETranslations.address_type })}
+            />
+          }
+          walletId={walletId}
+          networkId={networkId}
+          indexedAccountId={currentAccount.indexedAccountId ?? ''}
+          onSelect={createAddressTypeSelectHandler({ fromMenu: true })}
+        />
+      );
+    }
 
     return (
       <AddressTypeSelector
@@ -1504,33 +2094,42 @@ function ReceiveToken() {
         activeDeriveType={currentDeriveType}
         activeDeriveInfo={currentDeriveInfo}
         showTriggerWhenDisabled
+        whenCollapsed="hide"
         renderSelectorTrigger={deriveTypeTrigger}
         walletId={walletId}
         networkId={networkId}
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
-        onSelect={async (value) => {
-          if (value.account && isStillRenderedTarget()) {
-            resetVerifyState();
-            setCurrentAccount(value.account);
-            setCurrentDeriveType(value.deriveType);
-            setCurrentDeriveInfo(value.deriveInfo);
-            onDeriveTypeChange?.(value.deriveType);
-          }
-        }}
+        onSelect={createAddressTypeSelectHandler({ fromMenu: false })}
       />
     );
   }, [
+    intl,
+    localWalletAddressForms,
+    localWalletPrivateAddress,
+    localWalletAddressRead?.state?.enabled,
+    localWalletAddressRead?.state?.paused,
+    localWalletAddressRead?.state?.pendingOperation,
+    localWalletAddressRead?.errorKind,
+    canEnablePrivateReceive,
+    isPrivateReceiveDisabled,
+    isPrivacySetupBusy,
+    openPrivacySyncSetup,
+    receiveAddressForm,
+    setReceiveAddressForm,
+    resetVerifyState,
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
+    showAddressTypeMenu,
+    isVerifying,
+    isPreparingShare,
+    isSwitchResolving,
     disableSelector,
     currentDeriveType,
     currentDeriveInfo,
     deriveTypeTrigger,
     walletId,
     networkId,
-    accountId,
-    onDeriveTypeChange,
-    resetVerifyState,
+    createAddressTypeSelectHandler,
   ]);
 
   const renderNativeActionsFooter = useCallback(() => {
@@ -1662,6 +2261,35 @@ function ReceiveToken() {
   const isPressable = useMemo(() => {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
+
+  let privateReceiveErrorAction: React.ReactNode = null;
+  if (privateReceiveErrorKind === 'identityMismatch') {
+    // Deleting the account's privacy data lives in the network settings.
+    privateReceiveErrorAction = (
+      <Button
+        testID="receive-local-wallet-open-privacy-settings"
+        size="small"
+        variant="tertiary"
+        onPress={openPrivacyNetworkSettings}
+      >
+        {intl.formatMessage({ id: ETranslations.global_settings })}
+      </Button>
+    );
+  } else if (privateReceiveErrorKind) {
+    privateReceiveErrorAction = (
+      <Button
+        testID="receive-local-wallet-address-retry"
+        size="small"
+        variant="tertiary"
+        loading={isLocalWalletAddressLoading}
+        onPress={() => {
+          void reloadLocalWalletAddresses();
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    );
+  }
   return (
     <Page
       testID={ReceiveTestIDs.ReceiveTokenPage}
@@ -1709,8 +2337,100 @@ function ReceiveToken() {
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
           ) : null}
-          {isSwitchPending && !(currentAccount && displayAddress)
-            ? renderPlaceholderCard()
+          {canEnablePrivateReceive &&
+          localWalletAddressForms?.publicLabel &&
+          receiveAddressForm === 'public' &&
+          !localWalletPrivateAddress &&
+          !localWalletAddressRead?.state?.enabled &&
+          !localWalletAddressRead?.state?.pendingOperation ? (
+            <ReceivePrivacyPromotion
+              loading={isPrivacySetupBusy}
+              paused={localWalletAddressRead?.state?.paused}
+              onEnable={() => void openPrivacySyncSetup()}
+            />
+          ) : null}
+          {receiveAddressForm === 'private' &&
+          localWalletPrivateAddress &&
+          currentAccount &&
+          network ? (
+            <ReceivePrivacySyncStatus
+              networkId={network.id}
+              accountId={currentAccount.id}
+            />
+          ) : null}
+          {receiveAddressForm === 'private' &&
+          localWalletAddressRead &&
+          !localWalletAddressRead.errorKind &&
+          !canEnablePrivateReceive &&
+          !displayAddress ? (
+            <ReceiveCard
+              headerLeft={cardHeaderLeft}
+              headerRight={cardHeaderRight}
+            >
+              <ReceiveCardCell p="$6" minHeight={320} justifyContent="center">
+                <SizableText
+                  testID="receive-privacy-unavailable"
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {intl.formatMessage({
+                    id:
+                      localWalletAddressRead.support === 'tempWallet'
+                        ? ETranslations.privacy_temp_wallet_unavailable__desc
+                        : ETranslations.privacy_balance_wallet_not_supported__desc,
+                  })}
+                </SizableText>
+              </ReceiveCardCell>
+            </ReceiveCard>
+          ) : null}
+          {privateReceiveErrorKind && currentAccount && network ? (
+            <ReceiveCard
+              headerLeft={cardHeaderLeft}
+              headerRight={cardHeaderRight}
+            >
+              <ReceiveCardCell
+                testID="receive-local-wallet-address-failed"
+                p="$6"
+                minHeight={320}
+                gap="$3"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <SizableText
+                  size="$bodyMd"
+                  color="$textCaution"
+                  textAlign="center"
+                >
+                  {intl.formatMessage({
+                    id: LOCAL_WALLET_ADDRESS_ERROR_MESSAGES[
+                      privateReceiveErrorKind
+                    ],
+                  })}
+                </SizableText>
+                {privateReceiveErrorAction}
+              </ReceiveCardCell>
+            </ReceiveCard>
+          ) : null}
+          {isPrivateReceiveUnavailable && network ? (
+            <ReceiveCard
+              headerLeft={cardHeaderLeft}
+              headerRight={cardHeaderRight}
+            >
+              <ReceivePrivacySyncGate
+                paused={isPrivateReceivePaused}
+                loading={isPrivacySetupBusy}
+                onEnable={() =>
+                  void openPrivacySyncSetup(
+                    isChainOnlyPaused ? 'resumeChain' : undefined,
+                  )
+                }
+              />
+            </ReceiveCard>
+          ) : null}
+          {(isSwitchPending || isPrivateAddressLoading) &&
+          !(currentAccount && displayAddress)
+            ? renderPlaceholderCard(cardHeaderRight)
             : null}
           {canShowShareEntry && shareData ? (
             // offscreen: pre-generates the share image so the dialog opens
@@ -1762,7 +2482,17 @@ function ReceiveToken() {
               <FormatHyperlinkText
                 size="$bodyMd"
                 flex={1}
-                autoExecuteParsedAction={false}
+                // A pressable card owns the tap: an inline <url> link hands
+                // it over instead of opening its own URL, so one tap never
+                // opens two pages. The link's press does not reach the card
+                // (Tamagui stops propagation on web, the Text claims the
+                // responder on native), so without the handoff the link
+                // was a dead tap (OK-64672). A card with no action of its
+                // own leaves the link to open itself.
+                autoExecuteParsedAction={!isPressable}
+                onAction={
+                  isPressable ? () => handleBannerOnPress(banner) : undefined
+                }
               >
                 {banner.title}
               </FormatHyperlinkText>

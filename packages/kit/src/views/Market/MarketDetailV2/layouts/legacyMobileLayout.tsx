@@ -98,6 +98,9 @@ import {
   normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
+import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
+
+import { shouldShowMobileNativeChart } from './mobileChartVisibility';
 
 import type { SwapPanel } from '../components/SwapPanel/legacySwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
@@ -383,7 +386,7 @@ export function MobileLayout({
   disablePerpsBanner,
   disableTrade,
   isChartFullscreen,
-  isTradingViewNative,
+  isTradingViewNative: preferredIsTradingViewNative,
   onChartFullscreenChange,
   onChartSwitch,
   isNative: routeIsNative = false,
@@ -436,6 +439,12 @@ export function MobileLayout({
     tokenDetailPreview,
     isNative,
     websocketConfig,
+  });
+  const isTradingViewNative = shouldShowMobileNativeChart({
+    isNativeChartPreferred: preferredIsTradingViewNative,
+    hasTradingViewParams: Boolean(marketTradingViewParams),
+    // This chart always plots the token price.
+    isSharePrice: false,
   });
   let marketTradingViewKey = 'v2';
   if (isTradingViewNative) {
@@ -536,12 +545,14 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress,
-    xpub,
-  });
+  const { portfolioData, isPortfolioPending, isPortfolioFailed } =
+    usePortfolioData({
+      tokenAddress,
+      networkId,
+      accountAddress,
+      xpub,
+      isStock: Boolean(isStockToken || isStockRoute),
+    });
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -1060,7 +1071,8 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={isPortfolioFailed}
               tokenLogoUrl={tokenDetail?.logoUrl}
             />
           </YStack>
@@ -1095,7 +1107,8 @@ export function MobileLayout({
       informationHeader,
       isTradingViewScrollLocked,
       portfolioData,
-      isRefreshing,
+      isPortfolioPending,
+      isPortfolioFailed,
       tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,
@@ -1114,7 +1127,8 @@ export function MobileLayout({
       logoURI: tokenDetail?.logoUrl,
       price: tokenDetail?.price,
       isNative: Boolean(tokenDetail?.isNative) || isNative || !hasSwapContract,
-      isStock: isStockToken,
+      isStock: Boolean(isStockToken || isStockRoute),
+      stock: buildMarketStockTokenMetadata(tokenDetail?.stock, stockId),
     };
   }, [
     networkId,
@@ -1127,6 +1141,9 @@ export function MobileLayout({
     tokenDetail?.isNative,
     isNative,
     isStockToken,
+    isStockRoute,
+    stockId,
+    tokenDetail?.stock,
   ]);
   const isSwapTokenReady = Boolean(
     tokenDetail &&
@@ -1167,6 +1184,7 @@ export function MobileLayout({
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
                 <LazySwapPanelWrap
+                  isStock={swapToken.isStock}
                   onCloseDialog={() => dialogRef.current?.close()}
                 />
               </MarketWatchListProviderMirrorV2>

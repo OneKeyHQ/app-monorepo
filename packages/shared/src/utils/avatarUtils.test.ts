@@ -7,8 +7,16 @@ import { EHardwareVendor } from '../../types/device';
 
 import {
   getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
+import deviceUtils from './deviceUtils';
+import {
+  getHardwareDeviceColor,
+  getHardwareDeviceColorFromCode,
+} from './hardwareDeviceColors';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 // require() resolves to a single mocked value under Jest, so tests that must
 // tell artworks apart compare the actual asset bytes on disk.
@@ -17,6 +25,8 @@ const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
 
 describe('HwWalletAvatarImages', () => {
   it.each([
+    ['Classic1sPureBTC.png', 'Classic.png'],
+    ['Classic1sPureBTC.png', 'ClassicPure.png'],
     ['Pro2Black.png', 'ProBlack.png'],
     ['Pro2Silver.png', 'Pro2Black.png'],
     ['Pro2Orange.png', 'Pro2Black.png'],
@@ -39,9 +49,15 @@ describe('HwWalletAvatarImages', () => {
     return source.slice(from, source.indexOf("'", from));
   };
   /** A per-color key as the table spells it: `${EDeviceType.<model>}<Color>`. */
-  const colorKey = (model: 'Pro' | 'Pro2', color: string) =>
-    `\`\${EDeviceType.${model}}${color}\``;
+  const colorKey = (
+    model: 'Classic1s' | 'ClassicPure' | 'Pro' | 'Pro2',
+    color: string,
+  ) => `\`\${EDeviceType.${model}}${color}\``;
   it.each([
+    ['EDeviceType.Classic1s', 'Classic.png'],
+    ['EDeviceType.ClassicPure', 'ClassicPure.png'],
+    [colorKey('Classic1s', 'Transparent'), 'Classic1sPureBTC.png'],
+    [colorKey('ClassicPure', 'Transparent'), 'Classic1sPureBTC.png'],
     ['EDeviceType.Pro2', 'Pro2Black.png'],
     [colorKey('Pro2', 'Black'), 'Pro2Black.png'],
     [colorKey('Pro2', 'Silver'), 'Pro2Silver.png'],
@@ -54,6 +70,53 @@ describe('HwWalletAvatarImages', () => {
 });
 
 describe('getDeviceAvatarImage', () => {
+  describe.each([
+    [EDeviceType.Classic1s, 'CL'],
+    [EDeviceType.ClassicPure, 'CP'],
+  ] as const)('%s', (deviceType, prefix) => {
+    it('uses the transparent artwork for color C in the eleventh position', () => {
+      expect(getDeviceAvatarImage(deviceType, `${prefix}D42F0001C`)).toBe(
+        `${deviceType}Transparent`,
+      );
+      expect(
+        getHardwareDeviceColor({ deviceType, serialNo: `${prefix}D42F0001C` }),
+      ).toBe('Transparent');
+    });
+
+    it.each(['A', 'B', 'Z', ''])(
+      'keeps the default artwork for color "%s"',
+      (color) => {
+        expect(
+          getDeviceAvatarImage(deviceType, `${prefix}D42F0001${color}`),
+        ).toBe(deviceType);
+        expect(
+          getHardwareDeviceColor({
+            deviceType,
+            serialNo: `${prefix}D42F0001${color}`,
+          }),
+        ).toBeUndefined();
+      },
+    );
+
+    it.each([
+      undefined,
+      '',
+      `${prefix}D42F001C`,
+      `${prefix}D42F00001C`,
+      `${prefix}D42F0001CA`,
+      `${prefix === 'CL' ? 'CP' : 'CL'}D42F0001C`,
+      'PRD42F0001C',
+    ])(
+      'keeps the default artwork for a missing or invalid serial %s',
+      (serialNo) => {
+        expect(getDeviceAvatarImage(deviceType, serialNo)).toBe(deviceType);
+        expect(
+          getHardwareDeviceColor({ deviceType, serialNo }),
+        ).toBeUndefined();
+      },
+    );
+  });
+
   it.each([
     ['PR0001B', 'proWhite'],
     ['PR0001A', 'proBlack'],
@@ -79,6 +142,67 @@ describe('getDeviceAvatarImage', () => {
     expect(getDeviceAvatarImage(EDeviceType.Touch, 'TC0001A')).toBe(
       EDeviceType.Touch,
     );
+  });
+});
+
+describe('Bluetooth-advertised color code', () => {
+  const bleDevice = (
+    deviceType: SearchDevice['deviceType'],
+    bleColorCode?: string,
+  ): SearchDevice => ({
+    connectId: 'ble-id',
+    serialNo: null,
+    uuid: '',
+    deviceId: null,
+    deviceType,
+    name: 'Pro 2 A1B2',
+    commType: 'ble',
+    ...(bleColorCode ? { bleColorCode } : {}),
+  });
+
+  it.each([
+    ['A', 'pro2Black', 'Black'],
+    ['B', 'pro2Silver', 'Silver'],
+    ['D', 'pro2Orange', 'Orange'],
+    // Letters the Pro 2 does not come in, and no letter, wear the default.
+    ['C', 'pro2Black', undefined],
+    ['E', 'pro2Black', undefined],
+    ['F', 'pro2Black', undefined],
+    [undefined, 'pro2Black', undefined],
+  ])(
+    'resolves a scanned Pro 2 letter %s like its serial number',
+    (code, avatar, color) => {
+      const device = bleDevice(EDeviceType.Pro2, code);
+      expect(getSearchDeviceAvatarImage(device)).toBe(avatar);
+      expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(color);
+      expect(
+        getHardwareDeviceColorFromCode({
+          deviceType: EDeviceType.Pro2,
+          colorCode: code,
+        }),
+      ).toBe(color);
+    },
+  );
+
+  it.each(['A', 'B', 'D', 'E', 'F'])(
+    'keeps the Neo default artwork for letter %s',
+    (code) => {
+      const device = bleDevice(EDeviceType.Neo, code);
+      expect(getSearchDeviceAvatarImage(device)).toBe(EDeviceType.Neo);
+      expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(
+        undefined,
+      );
+    },
+  );
+
+  it('prefers the serial number a USB scan reports', () => {
+    const device = {
+      ...bleDevice(EDeviceType.Pro2, 'A'),
+      serialNo: 'P20001D',
+      commType: 'webusb' as const,
+    };
+    expect(getSearchDeviceAvatarImage(device)).toBe('pro2Orange');
+    expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe('Orange');
   });
 });
 

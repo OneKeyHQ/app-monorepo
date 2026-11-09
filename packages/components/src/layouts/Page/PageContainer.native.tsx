@@ -28,10 +28,10 @@ import type {
 
 export function PageContainer({
   children,
-  lazyLoad,
   fullPage,
   testID,
   backgroundColor,
+  directFooter,
 }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
   const keyboardHeight = useKeyboardState((state) => state.height);
@@ -90,7 +90,6 @@ export function PageContainer({
   return useMemo(
     () => (
       <BasicPage
-        lazyLoad={lazyLoad}
         fullPage={fullPage}
         testID={testID}
         backgroundColor={backgroundColor}
@@ -114,11 +113,13 @@ export function PageContainer({
         ) : (
           children
         )}
-        <BasicPageFooter onKeyboardLiftChange={setIsFooterLiftedByKeyboard} />
+        <BasicPageFooter
+          directProps={directFooter}
+          onKeyboardLiftChange={setIsFooterLiftedByKeyboard}
+        />
       </BasicPage>
     ),
     [
-      lazyLoad,
       fullPage,
       testID,
       backgroundColor,
@@ -131,6 +132,7 @@ export function PageContainer({
       extraKeyboardSpace,
       contextValue,
       children,
+      directFooter,
     ],
   );
 }

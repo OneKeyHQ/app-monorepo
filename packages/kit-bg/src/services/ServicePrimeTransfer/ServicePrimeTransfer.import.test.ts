@@ -6,6 +6,10 @@ import {
 } from '@onekeyhq/core/src/secret';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
@@ -15,12 +19,19 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
 import ServiceCloudBackupV2 from '../ServiceCloudBackupV2/ServiceCloudBackupV2';
 
 import ServicePrimeTransfer from './ServicePrimeTransfer';
 
+import type { IDBAccount } from '../../dbs/local/types';
 import type ServiceBatchCreateAccount from '../ServiceBatchCreateAccount/ServiceBatchCreateAccount';
+
+const mockReadRestoredAccounts = jest.fn<
+  Promise<{ records: (IDBAccount | undefined | null)[] }>,
+  [{ ids: string[] }]
+>();
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthrough =
@@ -63,7 +74,11 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => {
 });
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
-  default: { saveTonImportedAccountMnemonic: jest.fn() },
+  default: {
+    saveTonImportedAccountMnemonic: jest.fn(),
+    getRecordsByIds: (params: { ids: string[] }) =>
+      mockReadRestoredAccounts(params),
+  },
 }));
 jest.mock('../../states/jotai/atoms', () => ({
   devSettingsPersistAtom: { get: jest.fn(async () => ({ enabled: false })) },
@@ -246,8 +261,236 @@ function setup() {
   return { service, serviceAccount, serviceNetwork, batch, run };
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockReadRestoredAccounts.mockImplementation(async ({ ids }) => ({
+    records: ids.map((id) => ({ id }) as IDBAccount),
+  }));
+});
 afterEach(() => jest.restoreAllMocks());
+
+describe('committed restore notifications', () => {
+  it('announces actual restored DB rows once per wallet after the batch succeeds', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    const imported = {
+      id: 'imported--60--restored',
+      name: 'restored private',
+    } as IDBAccount;
+    const watching = {
+      id: 'watching--60--restored',
+      name: 'restored watch',
+    } as IDBAccount;
+    a.restoreImportedAccountByInput.mockResolvedValueOnce({
+      addedAccounts: [imported],
+    });
+    a.restoreWatchingAccountByInput.mockResolvedValueOnce({
+      addedAccounts: [watching],
+    });
+    mockReadRestoredAccounts.mockResolvedValueOnce({
+      records: [imported, watching],
+    });
+
+    const result = await run(
+      data({
+        importedAccounts: [selectedAccount('private-input')],
+        watchingAccounts: [selectedAccount('watch-input')],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockReadRestoredAccounts).toHaveBeenCalledWith({
+      name: ELocalDBStoreNames.Account,
+      ids: [imported.id, watching.id],
+    });
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId: 'imported',
+      accounts: [imported],
+    });
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId: 'watching',
+      accounts: [watching],
+    });
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledWith(
+      expect.objectContaining({ skipEventEmit: true }),
+    );
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledWith(
+      expect.objectContaining({ skipEventEmit: true }),
+    );
+  });
+
+  it('deduplicates successful input candidates without restoring per-item events', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    const restored = { id: 'watching--60--multi-input' } as IDBAccount;
+    a.restoreWatchingAccountByInput.mockImplementation(async () => {
+      expect(emit).not.toHaveBeenCalled();
+      expect(mockReadRestoredAccounts).not.toHaveBeenCalled();
+      return { addedAccounts: [restored] };
+    });
+
+    const result = await run(
+      data({
+        watchingAccounts: [
+          selectedAccount('watching-input', {
+            pub: 'synthetic pub',
+            xpub: 'synthetic xpub',
+            xpubSegwit: 'synthetic segwit xpub',
+          }),
+        ],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(3);
+    expect(mockReadRestoredAccounts).toHaveBeenCalledTimes(1);
+    expect(mockReadRestoredAccounts).toHaveBeenCalledWith({
+      name: ELocalDBStoreNames.Account,
+      ids: [restored.id],
+    });
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId: 'watching',
+      accounts: [{ id: restored.id }],
+    });
+  });
+
+  it('does not announce empty or failed candidates', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    a.restoreImportedAccountByInput.mockResolvedValue({ addedAccounts: [] });
+    a.restoreWatchingAccountByInput.mockRejectedValue(
+      new OneKeyLocalError('synthetic restore failure'),
+    );
+
+    const result = await run(
+      data({
+        importedAccounts: [selectedAccount('private-empty')],
+        watchingAccounts: [selectedAccount('watch-failed')],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.errorsInfo).toHaveLength(2);
+    expect(mockReadRestoredAccounts).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('announces successful rows when other items in the batch fail', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    const restored = { id: 'watching--60--partial-success' } as IDBAccount;
+    a.restoreWatchingAccountByInput
+      .mockRejectedValueOnce(new OneKeyLocalError('synthetic item failure'))
+      .mockResolvedValueOnce({ addedAccounts: [restored] });
+
+    const result = await run(
+      data({
+        watchingAccounts: [
+          selectedAccount('failed'),
+          selectedAccount('survivor'),
+        ],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.errorsInfo).toHaveLength(1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId: 'watching',
+      accounts: [{ id: restored.id }],
+    });
+  });
+
+  it('filters restored accounts deleted before the batch notification', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    const deleted = { id: 'watching--60--deleted-during-import' } as IDBAccount;
+    const survivor = { id: 'watching--60--still-exists' } as IDBAccount;
+    a.restoreWatchingAccountByInput
+      .mockResolvedValueOnce({ addedAccounts: [deleted] })
+      .mockResolvedValueOnce({ addedAccounts: [survivor] });
+    mockReadRestoredAccounts.mockResolvedValueOnce({
+      records: [undefined, survivor],
+    });
+
+    const result = await run(
+      data({
+        watchingAccounts: [selectedAccount('first'), selectedAccount('second')],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId: 'watching',
+      accounts: [survivor],
+    });
+  });
+
+  it('does not announce rows after task ownership changes during the final DB read', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, service, serviceAccount: a } = setup();
+    const restored = { id: 'watching--60--old-task' } as IDBAccount;
+    a.restoreWatchingAccountByInput.mockResolvedValueOnce({
+      addedAccounts: [restored],
+    });
+    mockReadRestoredAccounts.mockImplementationOnce(async () => {
+      service.currentImportTaskUUID = 'replacement-task';
+      return { records: [restored] };
+    });
+
+    const result = await run(
+      data({ watchingAccounts: [selectedAccount('old-task')] }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockReadRestoredAccounts).toHaveBeenCalledTimes(1);
+    expect(emit).not.toHaveBeenCalled();
+    expect(service.currentImportTaskUUID).toBe('replacement-task');
+  });
+
+  it('keeps committed import success if survivor verification fails', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run } = setup();
+    mockReadRestoredAccounts.mockRejectedValueOnce(
+      new OneKeyLocalError('synthetic read failure'),
+    );
+
+    const result = await run(
+      data({ watchingAccounts: [selectedAccount('committed')] }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.errorsInfo).toEqual([]);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('does not revive earlier candidates after a later fatal import failure', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const { run, serviceAccount: a } = setup();
+    const error = { className: EOneKeyErrorClassNames.IncorrectPassword };
+    a.restoreImportedAccountByInput
+      .mockResolvedValueOnce({
+        addedAccounts: [{ id: 'imported--60--earlier' }],
+      })
+      .mockRejectedValueOnce(error);
+
+    await expect(
+      run(
+        data({
+          importedAccounts: [
+            selectedAccount('earlier'),
+            selectedAccount('fatal'),
+          ],
+        }),
+      ),
+    ).rejects.toBe(error);
+    expect(mockReadRestoredAccounts).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+});
 
 describe('per-item import failures', () => {
   it('restores available items from a synthetic backup with 40 missing credentials', async () => {

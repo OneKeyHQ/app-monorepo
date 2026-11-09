@@ -97,6 +97,7 @@ export function WalletActionViewInExplorer({
   ) {
     return (
       <AddressTypeSelector
+        whenCollapsed="skip"
         walletId={wallet?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}

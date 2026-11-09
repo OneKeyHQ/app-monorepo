@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   NumberSizeableText,
@@ -22,12 +23,18 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TABS_MIN_HEIGHT,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET,
 } from '../../marketDesktopLayoutConstants';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../hooks/MarketSimpleChartRangeChangeContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { formatPriceChangeDisplay } from '../utils/statValue';
 
@@ -37,10 +44,9 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
-const TOKEN_DETAIL_COLUMN_GAP = 24;
+const TOKEN_DETAIL_COLUMN_GAP = 0;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
-const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',
@@ -70,12 +76,20 @@ function getAbsolutePriceChange(price?: string, priceChangePercent?: string) {
 }
 
 export function TokenPriceHeader() {
+  const intl = useIntl();
   const { tokenDetail, isPreviewTokenDetail } = useMarketDetailDisplayData();
   const price = tokenDetail?.price;
-  const priceChangePercent = tokenDetail?.priceChange24hPercent;
+  // The simple chart's selected range replaces the 24h move while it is drawn.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange('token');
+  const priceChangeLabelId = useMarketPriceChangeLabelId('token');
+  const priceChangePercent =
+    rangePriceChange?.priceChangePercent ?? tokenDetail?.priceChange24hPercent;
+  const rangePriceChangeValue = rangePriceChange?.priceChangeValue;
   const priceChangeValue = useMemo(
-    () => getAbsolutePriceChange(price, priceChangePercent),
-    [price, priceChangePercent],
+    () =>
+      rangePriceChangeValue ??
+      getAbsolutePriceChange(price, priceChangePercent),
+    [price, priceChangePercent, rangePriceChangeValue],
   );
   const { color: priceChangeColor } =
     formatPriceChangeDisplay(priceChangePercent);
@@ -130,6 +144,15 @@ export function TokenPriceHeader() {
             </SizableText>
           ) : null}
         </XStack>
+        <SizableText
+          testID="market-token-price-change-label"
+          // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+          ml="$1"
+          size="$bodyLg"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({ id: priceChangeLabelId })}
+        </SizableText>
       </XStack>
     </XStack>
   );
@@ -142,6 +165,8 @@ function TokenDesktopLayoutBase({
   swapInputDraftKey,
   portfolioData,
   isRefreshing,
+  isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   isBTCMainnet,
   tokenLogoUrl,
@@ -161,6 +186,8 @@ function TokenDesktopLayoutBase({
   swapInputDraftKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork: boolean;
   isBTCMainnet: boolean;
   tokenLogoUrl?: string;
@@ -241,10 +268,12 @@ function TokenDesktopLayoutBase({
 
           {isBTCMainnet ? <TokenSupplementaryInfo variant="overview" /> : null}
 
-          <Stack minHeight={TOKEN_DETAIL_TABS_MIN_HEIGHT}>
+          <Stack minHeight={MARKET_DETAIL_TABS_MIN_HEIGHT}>
             <InformationTabsComponent
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={isPortfolioFailed}
               isBTCNetwork={isBTCNetwork}
               tokenLogoUrl={tokenLogoUrl}
             />
@@ -254,13 +283,14 @@ function TokenDesktopLayoutBase({
         <YStack
           testID="market-token-detail-standard-trade"
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
           />
+          <PerpetualTradingBanner px="$5" py="$2" iconGap="$1.5" />
         </YStack>
       </XStack>
     </YStack>

@@ -134,7 +134,7 @@ export function useReferenceLineInteraction({
         ...component,
         props: {
           ...component.props,
-          ...(preview ? { pending: true } : {}),
+          ...(preview ? { pending: 'priceChange' as const } : {}),
           anchor: { ...component.props.anchor, price },
         },
       };
@@ -145,13 +145,15 @@ export function useReferenceLineInteraction({
     (event: PointerEvent<HTMLCanvasElement>) => {
       if (!enabled || !onAction) return undefined;
       const rect = event.currentTarget.getBoundingClientRect();
-      return hitRegionsRef.current.findLast((hit) =>
+      const hit = hitRegionsRef.current.findLast((region) =>
         containsPoint(
-          hit.rect,
+          region.rect,
           event.clientX - rect.left,
           event.clientY - rect.top,
         ),
       );
+      // A disabled label still covers neighboring order lines underneath it.
+      return hit?.disabled || hit?.loadingColor !== undefined ? undefined : hit;
     },
     [enabled, onAction, hitRegionsRef],
   );

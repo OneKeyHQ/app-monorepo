@@ -149,6 +149,7 @@ export function Footer(props: IDialogFooterProps) {
     confirmButtonProps = {},
     onCancelText,
     tone,
+    leadingContent,
     extraContent,
   } = restProps;
   const { onCancel } = props;
@@ -162,6 +163,7 @@ export function Footer(props: IDialogFooterProps) {
     <>
       {showFooter ? (
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
+          {leadingContent}
           {showCancelButton ? (
             <Button
               flexGrow={1}
@@ -211,6 +213,7 @@ function BasicFooterAction({
   confirmButtonProps = {},
   tone,
   trackID,
+  leadingContent,
   extraContent,
 }: IDialogFooterProps) {
   const intl = useIntl();
@@ -230,6 +233,7 @@ function BasicFooterAction({
       onCancelText,
       trackID,
       tone,
+      leadingContent,
       extraContent,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,6 +256,7 @@ function BasicFooterAction({
         onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
       trackID,
       tone,
+      leadingContent,
       extraContent,
     };
     footerRef.notifyUpdate?.();
@@ -270,6 +275,7 @@ function BasicFooterAction({
     tone,
     footerRef,
     intl,
+    leadingContent,
     extraContent,
   ]);
   return null;

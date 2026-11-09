@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -22,16 +23,22 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import CaptchaFrame from '@onekeyhq/kit/src/components/Captcha/CaptchaFrame';
 import {
   EmailOtpCaptchaCancelledError,
   useEmailOtpCaptcha,
 } from '@onekeyhq/kit/src/components/Captcha/useEmailOtpCaptcha';
-import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import {
+  getEmailOtpRequestErrorMessage,
+  isEmailOtpSignupDisabledError,
+} from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
@@ -40,6 +47,10 @@ import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authCon
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalNetworkDoctorPages,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import {
@@ -117,8 +128,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const didRequestInitialCodeRef = useRef(false);
   const previousRequestConfiguration = useRef(requestConfiguration);
   const didSendCodeSucceedRef = useRef(false);
+  const suppressCodeAutoFocusRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
+  // Code edits and failed retries do not resolve a rejected signup request.
+  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
   const isVerificationCodeValid = /^\d+$/.test(verificationCode);
   const [state, setState] = useState<{
     status: 'initial' | 'error' | 'done';
@@ -127,6 +141,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     status: 'initial',
   });
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const dialogInstance = useDialogInstance();
   const { copyText } = useClipboard();
   const { isReady } = useOneKeyAuth();
   const [isApiReady, setIsApiReady] = useState(false);
@@ -136,6 +152,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     takeCaptchaToken,
     cancelCaptcha,
     isWaiting,
+    errorKey: captchaErrorKey,
     errorMessage: captchaErrorMessage,
   } = useEmailOtpCaptcha({
     config: captchaConfig,
@@ -144,9 +161,28 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     revision: developmentConfigRevision,
   });
 
+  const handleNetworkDiagnostics = useCallback(async () => {
+    // Finish dismissing the login dialog before presenting a native modal.
+    await dialogInstance.close();
+    navigation.pushModal(EModalRoutes.NetworkDoctorModal, {
+      screen: EModalNetworkDoctorPages.NetworkDoctorResult,
+    });
+    void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
+  }, [dialogInstance, navigation]);
+
+  const dismissCodeInput = useCallback(() => {
+    codeInputRef.current?.blur();
+    if (platformEnv.isNative) Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
-    if (active && isCodeInputEnabled) codeInputRef.current?.focus();
-  }, [active, isCodeInputEnabled]);
+    if (!active) return;
+    if (!isCodeInputEnabled) {
+      dismissCodeInput();
+    } else if (!sendAttemptRef.current && !suppressCodeAutoFocusRef.current) {
+      codeInputRef.current?.focus();
+    }
+  }, [active, dismissCodeInput, isCodeInputEnabled]);
 
   const cancelPendingCaptchaSend = useCallback(() => {
     const attempt = sendAttemptRef.current;
@@ -196,14 +232,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       allowPreviousCode: isCodeInputEnabled,
     };
     sendAttemptRef.current = attempt;
+    dismissCodeInput();
     setIsResending(true);
     setIsCodeInputEnabled(false);
     setState({ status: 'initial' });
-    setVerificationCode('');
     try {
       const captchaToken = await takeCaptchaToken();
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       attempt.stage = 'sending';
+      setVerificationCode('');
       await sendCode({ email, ...(captchaToken ? { captchaToken } : {}) });
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       didSendCodeSucceedRef.current = true;
@@ -215,7 +252,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         return;
       }
       setIsApiReady(true);
+      suppressCodeAutoFocusRef.current = false;
       setIsCodeInputEnabled(true);
+      setIsSignupDisabled(false);
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
       // Leaving the CAPTCHA step or changing its target is not a login failure.
@@ -229,6 +268,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           error,
         )}`,
         error,
+        { trigger: 'interactive' },
       );
       if (!isMountedRef.current) {
         return;
@@ -238,10 +278,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       if (errorMessage) {
         Toast.error({ title: errorMessage });
       }
+      if (attempt.stage === 'sending' && isEmailOtpSignupDisabledError(error)) {
+        setIsSignupDisabled(true);
+      }
       setIsApiReady(true);
-      // Only the server can validate an existing code. A failed CAPTCHA or
-      // send request must not prevent the user from submitting one.
+      // Keep existing-code entry available without opening the keyboard over
+      // CAPTCHA troubleshooting guidance, including failures without an error key.
+      suppressCodeAutoFocusRef.current = attempt.stage === 'captcha';
       setIsCodeInputEnabled(true);
+      if (attempt.stage === 'captcha') dismissCodeInput();
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
       return;
@@ -254,6 +299,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     if (!isolatedTest) defaultLogger.referral.page.signupOneKeyID();
   }, [
+    dismissCodeInput,
     email,
     intl,
     isCodeInputEnabled,
@@ -278,6 +324,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     setIsResending(false);
     setIsCodeInputEnabled(false);
     setVerificationCode('');
+    setIsSignupDisabled(false);
     setState({ status: 'initial' });
     setIsApiReady(true);
     setCountdown(0);
@@ -388,6 +435,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
         }
         if (!isolatedTest)
@@ -419,6 +467,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       // silently logged in with the flow reported as cancelled. Only the
       // local state update needs the mount guard.
       if (isMountedRef.current) {
+        setIsSignupDisabled(false);
         setState({ status: 'done' });
       }
       if (!isolatedTest) defaultLogger.referral.page.signupOneKeyIDResult(true);
@@ -435,6 +484,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         // The OTP has already been consumed and the bg runtime has committed
         // the OneKey ID login. Keep this step completed even if closing the
@@ -475,6 +525,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     isAuthActionInProgressRef.current = true;
     try {
       setVerificationCode('');
+      setIsSignupDisabled(false);
       setState({ status: 'initial' });
       await onChooseAnotherSignInMethod();
     } finally {
@@ -498,7 +549,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const otpAutoComplete = platformEnv.isNativeAndroid
     ? 'sms-otp'
     : 'one-time-code';
-
   return (
     <Stack>
       <Dialog.Header>
@@ -546,6 +596,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                         size="$3.5"
                         color="$iconSubdued"
                         pointerEvents="none"
+                        // The web Icon renders a flex container, which breaks
+                        // onto its own line inside text; keep it inline.
+                        display={
+                          platformEnv.isNative ? undefined : 'inline-flex'
+                        }
                         transform={[{ translateY: 2 }]}
                       />
                     </SizableText>
@@ -586,6 +641,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           autoComplete={platformEnv.isDesktop ? 'off' : otpAutoComplete}
           disabled={!isCodeInputEnabled || state.status === 'done'}
+          editable={isCodeInputEnabled && state.status !== 'done'}
+          onFocus={() => {
+            // Native focus events can arrive after a pending attempt was reset.
+            if (!isCodeInputEnabled || sendAttemptRef.current)
+              dismissCodeInput();
+          }}
           value={verificationCode}
           onChangeText={(value) => {
             if (!isCodeInputEnabled || state.status === 'done') return;
@@ -598,8 +659,20 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           <DevOTPAutoFill email={email} />
         ) : null}
 
+        {isSignupDisabled ? (
+          <SizableText
+            testID="prime-otp-signup-disabled-hint"
+            size="$bodyMd"
+            color="$red9"
+          >
+            {intl.formatMessage({
+              id: ETranslations.onekey_id_email_existing_only__desc,
+            })}
+          </SizableText>
+        ) : null}
+
         {state.errorMessageId ? (
-          <SizableText size="$bodyMd" color="$red9">
+          <SizableText testID="prime-otp-error" size="$bodyMd" color="$red9">
             {intl.formatMessage({
               id: state.errorMessageId,
             })}
@@ -642,7 +715,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                 </Stack>
               ) : null}
               {captchaErrorMessage ? (
-                <Stack px="$5" pb="$5">
+                <YStack px="$5" pb="$5" gap="$2">
                   <Alert
                     testID="email-otp-captcha-error"
                     type="critical"
@@ -661,7 +734,25 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                       onPrimaryPress: sendEmailVerificationCode,
                     }}
                   />
-                </Stack>
+                  {platformEnv.isNative &&
+                  captchaErrorKey ===
+                    ETranslations.auth_captcha_load_failed__msg ? (
+                    <SizableText
+                      testID="email-otp-captcha-network-diagnostics"
+                      accessibilityRole="link"
+                      alignSelf="center"
+                      size="$bodySm"
+                      color="$textInteractive"
+                      textDecorationLine="underline"
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={handleNetworkDiagnostics}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_network_doctor_title,
+                      })}
+                    </SizableText>
+                  ) : null}
+                </YStack>
               ) : null}
               {onChooseAnotherSignInMethod ? (
                 <XStack justifyContent="center" px="$5" pb="$5">

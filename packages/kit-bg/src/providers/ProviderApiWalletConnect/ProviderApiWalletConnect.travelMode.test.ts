@@ -22,7 +22,13 @@ const mockGetEnvironment = jest.fn(async () =>
 );
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
-  travelModeManager: { getRuntimeEnvironment: mockGetEnvironment },
+  travelModeManager: {
+    getRuntimeEnvironment: mockGetEnvironment,
+    // Connection diagnostics persist through the logger, whose storage reads
+    // the runtime environment synchronously while loading.
+    getRuntimeEnvironmentSync: () =>
+      RuntimeEnvironment.create(getTravelModeRuntimeProfile(false)),
+  },
 }));
 jest.mock('../../services/ServiceWalletConnect/walletConnectClient', () => ({
   __esModule: true,

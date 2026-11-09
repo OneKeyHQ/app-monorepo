@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ScrollView } from 'react-native';
 
@@ -10,6 +10,10 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { EPageType } from '@onekeyhq/components';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -40,6 +44,7 @@ import {
   resolveMarketPresetNativeTokenPrice,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   useSwapPositionsSupportTokenListAction,
   useSwapProInputToken,
@@ -48,6 +53,7 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapProDepositAccountInfo } from '../../utils/swapProAccountUtils';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -60,6 +66,7 @@ import type {
   IMarketPresetPriorityFeeFiatEstimateMap,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapProContainerProps {
   storeName: EJotaiContextStoreNames;
@@ -123,16 +130,61 @@ const SwapProContainer = ({
     useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
-  const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
-    useSwapProTokenInfoSync();
+  const {
+    syncInputTokenBalance,
+    syncToTokenPrice,
+    netAccountRes,
+    indexedAccountId: resolvedIndexedAccountId,
+    accountId: resolvedAccountId,
+  } = useSwapProTokenInfoSync();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  // The Pro pay token can sit on another network than the selected account's.
+  // Wait for its selected identity and wallet metadata together. Pro owns the
+  // selected derive type, so its pending account must not use the generic
+  // on-demand lookup (which resolves the network's global derive type).
+  const depositAccountInfo = useMemo(
+    () =>
+      getSwapProDepositAccountInfo({
+        activeAccount,
+        networkAccount: netAccountRes.result,
+        indexedAccountId: resolvedIndexedAccountId,
+        accountId: resolvedAccountId,
+        selectedWalletId: selectedAccount.walletId,
+      }),
+    [
+      activeAccount,
+      netAccountRes.result,
+      resolvedAccountId,
+      resolvedIndexedAccountId,
+      selectedAccount.walletId,
+    ],
+  );
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
+    onClose: syncInputTokenBalance,
+  });
+  // The Pro panel's Top up chip is always visible, so it must not count the
+  // low-balance funnel event the way the zero-balance action button does.
+  const onProTopUpPress = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount: depositAccountInfo,
+    enabled: Boolean(depositAccountInfo),
+    onClose: syncInputTokenBalance,
+    logLowBalance: false,
+  });
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
@@ -332,6 +384,8 @@ const SwapProContainer = ({
             onBalanceMax={onBalanceMaxPress}
             onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
+            onDepositToTrade={depositAccountInfo ? onDepositToTrade : undefined}
+            onTopUpPress={depositAccountInfo ? onProTopUpPress : undefined}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
             cleanInputAmount={cleanInputAmount}

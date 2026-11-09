@@ -29,6 +29,7 @@ import deviceUtils, {
   ESupportSettings,
 } from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -539,8 +540,7 @@ function DeviceSectionGeneral() {
         showAutoShutDown: false,
         showHapticFeedback: isBooleanFeature(trezorFeatures, 'haptic_feedback'),
         showBrightness:
-          isNumberFeature(trezorFeatures, 'homescreen_width') &&
-          isNumberFeature(trezorFeatures, 'homescreen_height'),
+          thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice(device),
         showWallpaper: false,
       };
     }
@@ -600,6 +600,7 @@ function DeviceSectionGeneral() {
     languageOptions,
     autoLockOptions,
     autoShutDownOptions,
+    device,
     isTrezor,
     trezorFeatures,
   ]);

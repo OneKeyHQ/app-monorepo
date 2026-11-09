@@ -28,10 +28,10 @@ export type IAccountDeriveTypesKaspa = keyof IAccountDeriveInfoMapKaspa;
 const accountDeriveInfo: IAccountDeriveInfoMapKaspa = {
   default: {
     namePrefix: 'KASPA',
-    label: 'Kaspa OneKey',
+    label: 'OneKey Extended',
     template: `m/44'/${COINTYPE_KASPA}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_KASPA,
-    desc: 'Kaspa OneKey address',
+    desc: 'OneKey Extended address',
     useAddressEncodingDerive: true,
   },
   kaspaOfficial: {

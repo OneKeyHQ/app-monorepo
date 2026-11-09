@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { EPageType } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -51,6 +52,7 @@ const mockProToken: ISwapToken = {
   isNative: false,
 };
 let mockAccountNetworkId = mockProToken.networkId;
+let mockSwapTypeSwitch: ESwapTabSwitchType = ESwapTabSwitchType.LIMIT;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -77,7 +79,33 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    SegmentControl: Container,
+    EPageType: { modal: 'modal' },
+    SegmentControl: ({
+      options,
+      onChange,
+    }: {
+      options?: Array<{
+        label: ReactNode;
+        testID?: string;
+        value: string | number;
+      }>;
+      onChange?: (value: string | number) => void;
+    }) =>
+      createElement(
+        'div',
+        null,
+        options?.map((option) =>
+          createElement(
+            'button',
+            {
+              key: String(option.value),
+              'data-testid': option.testID,
+              onClick: () => onChange?.(option.value),
+            },
+            option.label,
+          ),
+        ),
+      ),
     SizableText: Container,
     Stack: Container,
     XStack: Container,
@@ -108,7 +136,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   }),
   useSwapProSelectTokenAtom: () => [mockProToken],
   useSwapSelectFromTokenAtom: () => [mockFromToken],
-  useSwapTypeSwitchAtom: () => [ESwapTabSwitchType.LIMIT],
+  useSwapTypeSwitchAtom: () => [mockSwapTypeSwitch],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => ({
   useSwapProJumpTokenAtom: () => [{ token: undefined }],
@@ -129,14 +157,89 @@ jest.mock('../../hooks/useSwapProTokenCarry', () => ({
 }));
 jest.mock('./SwapHeaderRightActionContainer', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
-  return ({ storeName }: { storeName?: EJotaiContextStoreNames }) =>
+  return ({
+    storeName,
+    hideKLine,
+  }: {
+    storeName?: EJotaiContextStoreNames;
+    hideKLine?: boolean;
+  }) =>
     createElement('div', {
       'data-testid': 'swap-header-right-actions',
       'data-store': storeName,
+      'data-hide-kline': String(Boolean(hideKLine)),
     });
 });
 
 describe('SwapHeaderContainer', () => {
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'leaves imported asset defaults to the init owner for %s',
+    async (enterFrom) => {
+      jest.clearAllMocks();
+      jest.useFakeTimers();
+      try {
+        const view = render(
+          <SwapHeaderContainer
+            pageType={EPageType.modal}
+            defaultSwapType={ESwapTabSwitchType.SWAP}
+            enterFrom={enterFrom}
+          />,
+        );
+        await act(async () => {
+          jest.advanceTimersByTime(100);
+        });
+        expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+        view.unmount();
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('keeps the seeded Market Stock modal out of default type initialization', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.swapModal}
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+          enterFrom={ESwapSource.MARKET}
+          showSwapPro
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still initializes the default type for an ordinary Stock modal', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).toHaveBeenCalledWith(
+        ESwapTabSwitchType.STOCK,
+        mockFromToken.networkId,
+      );
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it.each([true, false])(
     'forwards the Market store through the header (single: %s)',
     (singleSwapBridgeTab) => {
@@ -158,6 +261,7 @@ describe('SwapHeaderContainer', () => {
     platformEnv.isNative = true;
     jest.clearAllMocks();
     mockAccountNetworkId = mockProToken.networkId;
+    mockSwapTypeSwitch = ESwapTabSwitchType.LIMIT;
     mockSwapTypeSwitchAction.mockResolvedValue(mockFromToken);
     mockUpdateSelectedAccountNetwork.mockResolvedValue(undefined);
   });
@@ -165,6 +269,106 @@ describe('SwapHeaderContainer', () => {
   afterEach(() => {
     platformEnv.isNative = false;
   });
+
+  it.each([
+    { label: 'wallet home', source: ESwapSource.WALLET_HOME },
+    { label: 'wallet token', source: ESwapSource.WALLET_HOME_TOKEN_LIST },
+    { label: 'token details', source: ESwapSource.TOKEN_DETAIL },
+    { label: 'market', source: ESwapSource.MARKET },
+    { label: 'no source', source: undefined },
+  ])('hides Stock K-line in the Desktop modal from $label', ({ source }) => {
+    const originalDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+    platformEnv.isNative = false;
+    mockSwapTypeSwitch = ESwapTabSwitchType.STOCK;
+    try {
+      const { getByTestId } = render(
+        <SwapHeaderContainer pageType={EPageType.modal} enterFrom={source} />,
+      );
+      expect(
+        getByTestId('swap-header-right-actions').getAttribute(
+          'data-hide-kline',
+        ),
+      ).toBe('true');
+    } finally {
+      platformEnv.isDesktop = originalDesktop;
+    }
+  });
+
+  it.each([
+    {
+      label: 'Desktop modal Swap',
+      desktop: true,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: 'Desktop modal Limit',
+      desktop: true,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.LIMIT,
+    },
+    {
+      label: 'Desktop Stock page',
+      desktop: true,
+      native: false,
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    {
+      label: 'native Stock modal',
+      desktop: false,
+      native: true,
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+      hideKLine: true,
+    },
+    {
+      label: 'native Swap modal',
+      desktop: false,
+      native: true,
+      modal: true,
+      type: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: 'native Stock page',
+      desktop: false,
+      native: true,
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
+    },
+    {
+      label: 'web Stock modal',
+      desktop: false,
+      native: false,
+      modal: true,
+      type: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'sets K-line visibility for $label',
+    ({ desktop, native, modal, type, hideKLine = false }) => {
+      const originalDesktop = platformEnv.isDesktop;
+      platformEnv.isDesktop = desktop;
+      platformEnv.isNative = native;
+      mockSwapTypeSwitch = type;
+      try {
+        const { getByTestId } = render(
+          <SwapHeaderContainer
+            pageType={modal ? EPageType.modal : undefined}
+          />,
+        );
+        expect(
+          getByTestId('swap-header-right-actions').getAttribute(
+            'data-hide-kline',
+          ),
+        ).toBe(String(hideKLine));
+      } finally {
+        platformEnv.isDesktop = originalDesktop;
+      }
+    },
+  );
 
   it('leaves the Pro owner before synchronizing the restored Swap network', async () => {
     let resolveTypeSwitch: ((token?: ISwapToken) => void) | undefined;
@@ -224,6 +428,21 @@ describe('SwapHeaderContainer', () => {
       networkId: mockFromToken.networkId,
       reason: 'swapTypeNetworkSync',
     });
+  });
+
+  it('notifies the content before switching the active Swap type', () => {
+    const onSwapTypeSwitch = jest.fn();
+    const { getByTestId } = render(
+      <SwapHeaderContainer
+        showSwapPro
+        hideRightActions
+        onSwapTypeSwitch={onSwapTypeSwitch}
+      />,
+    );
+
+    fireEvent.click(getByTestId(`swap-type-tab-${ESwapTabSwitchType.SWAP}`));
+
+    expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
   });
 
   it('hides the Swap & Bridge title in the Market embedded header', () => {

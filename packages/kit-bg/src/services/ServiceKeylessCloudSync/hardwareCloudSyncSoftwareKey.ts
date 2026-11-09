@@ -1,0 +1,150 @@
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { payments } from 'bitcoinjs-lib';
+import bitcoinMessage from 'bitcoinjs-message';
+
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import {
+  HARDWARE_CLOUD_SYNC_AUTH_PATH,
+  HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
+  HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
+  HARDWARE_CLOUD_SYNC_PATH,
+  assertHardwareCloudSyncAuthContext,
+  getHardwareCloudSyncIdentityTagFromCredentialId,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import type {
+  IHardwareCloudSyncKeySource,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
+
+import { deriveHardwareCloudSyncKek } from './hardwareCloudSyncCredential';
+
+import type {
+  IHardwareCloudKeyAdapter,
+  IHardwareCloudKeyIdentity,
+  IHardwareCloudKeyUnlock,
+} from './hardwareCloudSyncCredential';
+
+// Dev builds only: a fixed test key stands in for the device so end-to-end
+// runs need no hardware. It holds no assets and never ships in production.
+const SOFTWARE_KEY_SEED = 'onekey-dev-hardware-cloud-sync-software-key-v1';
+export const HARDWARE_CLOUD_SYNC_SOFTWARE_CONNECT_ID = 'dev-software-key';
+
+function privateKeyForPath(path: string, seed: string): Buffer {
+  return Buffer.from(
+    appCrypto.hash.sha256Sync(Buffer.from(`${seed}:${path}`, 'utf8')),
+  );
+}
+
+function signBip137(path: string, message: Buffer, seed: string): Buffer {
+  return bitcoinMessage.sign(message, privateKeyForPath(path, seed), true);
+}
+
+export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
+  profile,
+  isCurrent,
+  unlock,
+}: {
+  profile?: string;
+  isCurrent: () => boolean;
+  unlock: IHardwareCloudKeyUnlock;
+}): Promise<{
+  credential: IKeylessCloudSyncCredential;
+  source: IHardwareCloudSyncKeySource;
+}> {
+  if (!platformEnv.isDev) {
+    throw new OneKeyLocalError('Software Cloud key is only for dev builds');
+  }
+  if (profile !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(profile)) {
+    throw new OneKeyLocalError('Invalid software Cloud key profile');
+  }
+  const seed = profile ? `${SOFTWARE_KEY_SEED}:${profile}` : SOFTWARE_KEY_SEED;
+  const publicKeyBytes = Buffer.from(
+    secp256k1.getPublicKey(
+      privateKeyForPath(HARDWARE_CLOUD_SYNC_PATH, seed),
+      true,
+    ),
+  );
+  const publicKey = publicKeyBytes.toString('hex');
+  const address = payments.p2pkh({ pubkey: publicKeyBytes }).address as string;
+  const profileHash = Buffer.from(
+    appCrypto.hash.sha256Sync(Buffer.from(seed, 'utf8')),
+  ).toString('hex');
+  // Synthetic public identities still satisfy the walletXfp format. Hex zero
+  // is outside Base58, so replace it with a character absent from hex.
+  const walletXfp = profile
+    ? `${profileHash.slice(0, 8)}--${profileHash
+        .replace(/0/g, 'z')
+        .padStart(110, 'z')}`
+    : `00000000--${'z'.repeat(110)}`;
+  const credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
+    appCrypto.hash.sha256Sync(Buffer.from(walletXfp, 'utf8')),
+  ).toString('hex')}`;
+  const identity: IHardwareCloudKeyIdentity = {
+    connectId: HARDWARE_CLOUD_SYNC_SOFTWARE_CONNECT_ID,
+    deviceId: HARDWARE_CLOUD_SYNC_SOFTWARE_CONNECT_ID,
+    walletXfp,
+    publicKey,
+    address,
+    walletType: 'standard',
+    passphraseState: undefined,
+    unlockedAttachPin: false,
+    connected: true,
+  };
+  const adapter: IHardwareCloudKeyAdapter = {
+    openStandardWallet: async () => identity,
+    getIdentity: async () => identity,
+    signMessage: async ({ path, messageHex }) => ({
+      address,
+      signature: signBip137(
+        path,
+        Buffer.from(messageHex, 'hex'),
+        seed,
+      ).toString('hex'),
+    }),
+  };
+  const source: IHardwareCloudSyncKeySource = {
+    type: 'hardware',
+    credentialId,
+    derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
+    deviceName: 'Dev software key',
+    deviceType: EDeviceType.Pro,
+  };
+  // Same order as a device: sign in, then the salted key message.
+  const credential = await unlock({
+    credentialId,
+    source,
+    signAuth: async (message, expected) => {
+      if (!isCurrent()) {
+        throw new OneKeyLocalError('Hardware Cloud key operation expired');
+      }
+      const identityTag =
+        getHardwareCloudSyncIdentityTagFromCredentialId(credentialId);
+      if (expected.identityTag !== identityTag) {
+        throw new OneKeyLocalError('Hardware Cloud key identity changed');
+      }
+      assertHardwareCloudSyncAuthContext(
+        message,
+        { ...expected, identityTag },
+        systemTimeUtils.getEstimatedServerTime() ?? Date.now(),
+      );
+      return signBip137(
+        HARDWARE_CLOUD_SYNC_AUTH_PATH,
+        Buffer.from(message, 'utf8'),
+        seed,
+      ).toString('base64');
+    },
+    deriveKek: (kekSalt) =>
+      deriveHardwareCloudSyncKek({
+        credentialId,
+        expectedIdentity: identity,
+        isCurrent,
+        adapter,
+        kekSalt,
+      }),
+  });
+  return { credential: { ...credential, source }, source };
+}

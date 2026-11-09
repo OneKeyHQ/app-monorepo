@@ -16,6 +16,16 @@ export enum EMarketHomeTab {
 
 export type IMarketHomeTabValue = `${EMarketHomeTab}`;
 
+export type IMarketHomeTabChangeContext = {
+  // Spot category behind the selected tab, e.g. hot, stocks or top coins.
+  categoryId?: string;
+};
+
+export type IMarketHomeTabChangeHandler = (
+  tabId: IMarketHomeTabValue,
+  context?: IMarketHomeTabChangeContext,
+) => void;
+
 // Type guard to check if a string is a valid tab value
 export function isValidMarketHomeTab(
   value: string,
@@ -57,5 +67,6 @@ export interface IMarketFilterBarProps {
   categories?: IMarketCategoryItem[];
   stockCategories?: IMarketCategoryItem[];
   topCoinsCategories?: IMarketCategoryItem[];
+  isCategoryConfigLoading?: boolean;
   onCategoryChange?: (categoryId: string) => void;
 }

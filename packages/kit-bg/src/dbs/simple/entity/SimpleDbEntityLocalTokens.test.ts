@@ -38,7 +38,11 @@ function setup() {
       onCommitted?.(next);
       return next;
     });
-  const write = (tokenListValue: string, writeOrder?: number) =>
+  const write = (
+    tokenListValue: string,
+    writeOrder?: number,
+    hasAssets = false,
+  ) =>
     entity.updateAccountTokenList({
       networkId: 'evm--1',
       accountAddress: 'fixture-address',
@@ -48,11 +52,13 @@ function setup() {
       tokenListMap: {},
       tokenListValue,
       currency: 'usd',
+      hasAssets,
       writeOrder,
     });
   const writeBatch = (
     tokenListValue: Record<string, string>,
     tokenListWriteOrder?: Record<string, number>,
+    tokenListHasAssets: Record<string, boolean> = {},
   ) => {
     const keys = Object.keys(tokenListValue);
     const byKey = <T>(value: T) =>
@@ -64,6 +70,7 @@ function setup() {
       tokenListMap: byKey({}),
       tokenListValue,
       tokenListCurrency: byKey('usd'),
+      tokenListHasAssets: { ...byKey(false), ...tokenListHasAssets },
       tokenListWriteOrder,
     };
     return entity.updateAccountTokenListByCache(cache);
@@ -172,6 +179,65 @@ describe('SimpleDbEntityLocalTokens account token list write order', () => {
 
     expect(getRawData()?.tokenListValue).toEqual({
       'evm--1_fixture-address': '20',
+    });
+  });
+});
+
+describe('SimpleDbEntityLocalTokens has-assets flag', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('saves the flag of the complete response with each write', async () => {
+    const { write, writeBatch, getRawData } = setup();
+
+    await write('0', undefined, true);
+    await writeBatch({ 'evm--56_fixture-address': '0' }, undefined, {
+      'evm--56_fixture-address': true,
+    });
+    await write('0', undefined, false);
+
+    expect(getRawData()?.tokenListHasAssets).toEqual({
+      'evm--1_fixture-address': false,
+      'evm--56_fixture-address': true,
+    });
+  });
+
+  it('drops the flag of a batched entry storage has superseded', async () => {
+    const { entity, write, writeBatch, getRawData } = setup();
+    const olderOrder = await entity.reserveAccountTokenListWriteOrder();
+    const newerOrder = await entity.reserveAccountTokenListWriteOrder();
+
+    await write('20', newerOrder, false);
+    await writeBatch(
+      { 'evm--1_fixture-address': '10' },
+      { 'evm--1_fixture-address': olderOrder },
+      { 'evm--1_fixture-address': true },
+    );
+
+    expect(getRawData()?.tokenListHasAssets).toEqual({
+      'evm--1_fixture-address': false,
+    });
+  });
+
+  it('keeps flags through token metadata updates', async () => {
+    const { entity, write, getRawData } = setup();
+    jest
+      .spyOn(
+        entity as unknown as {
+          setRawData: (builder: IRawDataBuilder) => Promise<unknown>;
+        },
+        'setRawData',
+      )
+      .mockImplementation(async (builder) => {
+        await (entity as unknown as IGuardedWriter).setRawDataWithCommitGuard(
+          builder,
+        );
+      });
+
+    await write('0', undefined, true);
+    await entity.updateTokens({ networkId: 'evm--1', tokens: [] });
+
+    expect(getRawData()?.tokenListHasAssets).toEqual({
+      'evm--1_fixture-address': true,
     });
   });
 });

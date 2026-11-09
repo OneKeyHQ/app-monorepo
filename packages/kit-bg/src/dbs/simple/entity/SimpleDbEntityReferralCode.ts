@@ -47,6 +47,7 @@ export interface IInstallReferralRecord {
 
 export interface IReferralCodeData {
   myReferralCode: string;
+  myReferralCodeUserId?: string;
   postConfig?: IInvitePostConfig;
   walletReferralCode?: Record<string, IWalletReferralCode>;
   walletCreationRecordTimestamps?: Record<string, string>;
@@ -105,8 +106,12 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     return rawData?.postConfig;
   }
 
-  async getMyReferralCode(): Promise<string> {
+  async getMyReferralCode(params?: { onekeyUserId: string }): Promise<string> {
     const rawData = await this.getRawData();
+    // Legacy codes without an owner cannot be used as a signed-in fallback.
+    if (params && rawData?.myReferralCodeUserId !== params.onekeyUserId) {
+      return '';
+    }
     return rawData?.myReferralCode ?? '';
   }
 

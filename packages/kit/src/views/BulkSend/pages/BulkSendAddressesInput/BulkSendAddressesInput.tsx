@@ -33,6 +33,7 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -46,16 +47,20 @@ import type {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { PrimeFreeTrialRemainingHint } from '../../../Prime/components/PrimeFreeTrialRemainingHint';
+import { usePrimeFeatureAccess } from '../../../Prime/hooks/usePrimeFeatureAccess';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
+import { useBulkSendPageAccess } from '../../hooks/useBulkSendPageAccess';
 import { isBulkSendTokenDetailsMatched } from '../../utils';
 
 import { parseBulkSendAddressLines } from './addressLineUtils';
 import {
   buildBulkSendFallbackSeed,
+  buildBulkSendNextContextKey,
   buildBulkSendSeedSource,
   buildBulkSendSeedTokenKey,
   computeBulkSendNextDisabled,
@@ -100,6 +105,11 @@ function BaseBulkSendAddressesInput({
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const { isInModal } = route.params ?? {};
+
+  useBulkSendPageAccess({
+    networkId: route.params?.networkId,
+    isInModal,
+  });
 
   const {
     setSelectedTokenDetail,
@@ -648,7 +658,75 @@ function BaseBulkSendAddressesInput({
     intl,
   ]);
 
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  const [isCheckingAccess, setIsCheckingAccess] = useState(false);
+  const isCheckingAccessRef = useRef(false);
+  // The latest inputs and page state, read when the access check returns.
+  const nextContextRef = useRef({
+    selectedNetworkId,
+    selectedAccountId,
+    selectedToken,
+    bulkSendMode,
+  });
+  nextContextRef.current = {
+    selectedNetworkId,
+    selectedAccountId,
+    selectedToken,
+    bulkSendMode,
+  };
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    return () => {
+      isUnmountedRef.current = true;
+    };
+  }, []);
+  const getNextContextKey = useCallback(() => {
+    const latest = nextContextRef.current;
+    return buildBulkSendNextContextKey({
+      networkId: latest.selectedNetworkId,
+      accountId: latest.selectedAccountId,
+      token: latest.selectedToken,
+      mode: latest.bulkSendMode,
+      values: form.getValues(),
+    });
+  }, [form]);
+  // The entry lets a free user in while the quota is unknown (e.g. right
+  // after a login), so "Next" checks it again: a user without uses left gets
+  // the exhausted feedback before filling in the amounts. Start on the
+  // Review page stays the final judge.
+  const checkBulkSendAccess = useCallback(async () => {
+    if (platformEnv.isE2E) {
+      return true;
+    }
+    if (isCheckingAccessRef.current) {
+      return false;
+    }
+    isCheckingAccessRef.current = true;
+    setIsCheckingAccess(true);
+    try {
+      const contextKeyAtPress = getNextContextKey();
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+        networkId: selectedNetworkId,
+        // The Next button shows its loading.
+        showLoading: false,
+        // Only Next is disabled while this waits: a page left or an input
+        // changed meanwhile drops the press, and the user submits again.
+        isContextValid: () =>
+          !isUnmountedRef.current && getNextContextKey() === contextKeyAtPress,
+      });
+      return access.granted;
+    } finally {
+      isCheckingAccessRef.current = false;
+      setIsCheckingAccess(false);
+    }
+  }, [ensureFeatureAccess, getNextContextKey, selectedNetworkId]);
+
   const handleSubmit = useCallback(async () => {
+    if (!(await checkBulkSendAccess())) {
+      return;
+    }
     if (duplicateAddressCount > 0) {
       Dialog.show({
         icon: 'InfoCircleOutline',
@@ -672,7 +750,7 @@ function BaseBulkSendAddressesInput({
       return;
     }
     await navigateToNextStep();
-  }, [duplicateAddressCount, intl, navigateToNextStep]);
+  }, [checkBulkSendAccess, duplicateAddressCount, intl, navigateToNextStep]);
 
   const formSkeleton = useMemo(
     () => (
@@ -765,14 +843,23 @@ function BaseBulkSendAddressesInput({
         >
           <Page.FooterActions
             px="$0"
+            gap="$3"
             onConfirmText={intl.formatMessage({
               id: ETranslations.wallet_bulk_send_btn_next,
             })}
             confirmButtonProps={{
               onPress: handleSubmit,
-              disabled: isSubmitDisabled,
+              loading: isCheckingAccess,
+              disabled: isSubmitDisabled || isCheckingAccess,
             }}
-          />
+          >
+            {/* Left of the button on wide screens, above it on narrow ones. */}
+            <PrimeFreeTrialRemainingHint
+              featureId={EPrimeFeatures.BulkSend}
+              $md={{ alignSelf: 'center', textAlign: 'center' }}
+              $gtMd={{ flex: 1 }}
+            />
+          </Page.FooterActions>
         </BulkSendContentWrapper>
       </Page.Footer>
     </Page>

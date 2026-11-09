@@ -116,6 +116,7 @@ function DepositButton() {
     | {
         accountKey: string;
         value: string;
+        isPartial?: boolean;
       }
     | undefined
   >(undefined);
@@ -177,6 +178,10 @@ function DepositButton() {
   const accountValue = isUsingSnapshotValue
     ? snapshotEntry?.accountValue
     : liveAccountValue;
+  const isAccountValuePartial = isUsingSnapshotValue
+    ? snapshotEntry?.isAccountValuePartial
+    : isActivePerpsAccountForSelectedWallet &&
+      computedValue?.isAccountValuePartial;
   const accountDisplayKey =
     snapshotEntry?.account.accountAddress?.toLowerCase() ??
     (isActivePerpsAccountForSelectedWallet ? activeAccountAddress : undefined);
@@ -188,6 +193,9 @@ function DepositButton() {
   const isUsingStableAccountValue =
     accountValue === undefined && stableAccountValue !== undefined;
   const displayAccountValue = accountValue ?? stableAccountValue;
+  const isDisplayAccountValuePartial = isUsingStableAccountValue
+    ? lastAccountValueRef.current?.isPartial
+    : isAccountValuePartial;
   const hasActiveAccount = Boolean(
     activeAccount?.accountAddress || snapshotEntry?.account.accountAddress,
   );
@@ -197,9 +205,10 @@ function DepositButton() {
       lastAccountValueRef.current = {
         accountKey: accountDisplayKey,
         value: accountValue,
+        isPartial: isAccountValuePartial,
       };
     }
-  }, [accountDisplayKey, accountValue]);
+  }, [accountDisplayKey, accountValue, isAccountValuePartial]);
 
   // Treat unknown as "still loading" rather than "empty" so the green
   // Deposit badge only appears once we definitively know the account is
@@ -211,7 +220,9 @@ function DepositButton() {
   const shouldDisplayAccountValueDuringLoading =
     displayAccountValue !== undefined;
   const isEmptyAccount =
-    !isUnknownAccountValue && new BigNumber(displayAccountValue ?? '0').lte(0);
+    !isUnknownAccountValue &&
+    !isDisplayAccountValuePartial &&
+    new BigNumber(displayAccountValue ?? '0').lte(0);
   const isDepositVariant = isEmptyAccount && !isDepositDisabled;
   let badgeVariant: 'unknown' | 'deposit' | 'portfolio' = 'portfolio';
   if (isUnknownAccountValue) {
@@ -345,6 +356,7 @@ function DepositButton() {
             <Icon name="ChartLine2Outline" size="$4" />
             <PerpsAccountNumberValue
               value={displayAccountValue ?? ''}
+              isPartial={isDisplayAccountValuePartial}
               skeletonWidth={60}
               textSize="$bodySmMedium"
               allowValueDuringAccountLoading={

@@ -1,7 +1,13 @@
 import BigNumber from 'bignumber.js';
 
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnStakeType,
+  IEarnTokenInfo,
+  IEarnWithdrawActionIcon,
+  IProtocolInfo,
+  IStakeEarnDetail,
+} from '@onekeyhq/shared/types/staking';
 
 const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
@@ -26,6 +32,89 @@ export const buildLocalTxStatusSyncId = ({
   }
   return baseTag;
 };
+
+/**
+ * The token the detail page's flows take (the manage page, the withdrawal
+ * by order), from the v2 detail: its subscription token at the balance the
+ * page shows. Undefined until the detail carries the token.
+ */
+export function buildEarnTokenInfo({
+  detailInfo,
+  networkId,
+  provider,
+  vault,
+  accountId,
+}: {
+  detailInfo: IStakeEarnDetail | undefined;
+  networkId: string;
+  provider: string;
+  vault: string | undefined;
+  accountId: string;
+}): IEarnTokenInfo | undefined {
+  if (!detailInfo?.subscriptionValue?.token) {
+    return undefined;
+  }
+  const balanceBN = new BigNumber(detailInfo.subscriptionValue.balance || '0');
+  return {
+    balanceParsed: balanceBN.isNaN() ? '0' : balanceBN.toFixed(),
+    token: detailInfo.subscriptionValue.token.info,
+    price: detailInfo.subscriptionValue.token.price,
+    networkId,
+    provider,
+    vault: detailInfo.protocol?.vault ?? vault,
+    accountId,
+  };
+}
+
+/**
+ * The protocol the detail page's flows take, from the v2 detail and the
+ * account it was read for: the server's protocol block with the page's
+ * limits and the local tx tag. Undefined until the detail carries the
+ * protocol.
+ */
+export function buildEarnProtocolInfo({
+  detailInfo,
+  earnAccount,
+  provider,
+  symbol,
+  vault,
+}: {
+  detailInfo: IStakeEarnDetail | undefined;
+  earnAccount: NonNullable<IProtocolInfo['earnAccount']>;
+  provider: string;
+  symbol: string;
+  vault: string | undefined;
+}): IProtocolInfo | undefined {
+  if (!detailInfo?.protocol) {
+    return undefined;
+  }
+  const withdrawAction = detailInfo.actions?.find(
+    (i) => i.type === 'withdraw',
+  ) as IEarnWithdrawActionIcon | undefined;
+  return {
+    ...detailInfo.protocol,
+    apyDetail: detailInfo.apyDetail,
+    earnAccount,
+    activeBalance: withdrawAction?.data?.balance,
+    eventEndTime: detailInfo.countDownAlert?.endTime,
+    stakeTag: buildLocalTxStatusSyncId({
+      providerName: provider,
+      tokenSymbol: symbol,
+      protocolVault: detailInfo.protocol.vault ?? vault,
+    }),
+    overflowBalance: detailInfo.nums?.overflow,
+    maxUnstakeAmount: detailInfo.nums?.maxUnstakeAmount,
+    minUnstakeAmount: detailInfo.nums?.minUnstakeAmount,
+    minTransactionFee: detailInfo.nums?.minTransactionFee,
+    remainingCap: detailInfo.nums?.remainingCap,
+    claimable: detailInfo.nums?.claimable,
+    withdrawApprove: detailInfo.withdrawApprove,
+    receiptTokenRate:
+      detailInfo.protocol.receiptTokenRate ??
+      detailInfo.protocol.morphoTokenRate,
+    morphoTokenRate: detailInfo.protocol.morphoTokenRate,
+  };
+}
 
 // Borrow tag formats:
 // borrow:{provider}:{action}

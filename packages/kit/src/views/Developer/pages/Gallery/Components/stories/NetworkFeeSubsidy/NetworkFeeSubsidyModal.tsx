@@ -474,7 +474,6 @@ function NetworkFeeSubsidy() {
   const showRules = useCallback(() => {
     dialog.show({
       title: '补贴规则',
-      nativeSheet: true,
       boundedSheetLayout: true,
       showCancelButton: false,
       onConfirmText: '知道了',
@@ -524,7 +523,6 @@ function NetworkFeeSubsidy() {
 
   const showLogin = (onSuccess?: () => void) => {
     const loginDialog = dialog.show({
-      nativeSheet: true,
       boundedSheetLayout: true,
       showFooter: false,
       renderContent: (
@@ -543,7 +541,6 @@ function NetworkFeeSubsidy() {
   const openTronClaim = () => {
     const claimDialog = dialog.show({
       title: '领取 TRON 免费资源',
-      nativeSheet: true,
       boundedSheetLayout: true,
       showFooter: false,
       renderContent: (
@@ -577,7 +574,6 @@ function NetworkFeeSubsidy() {
     }
     const detailsDialog = dialog.show({
       title: benefit.title,
-      nativeSheet: true,
       boundedSheetLayout: true,
       showCancelButton: false,
       onConfirmText: signedIn ? '知道了' : '登录 OneKey ID',
@@ -842,7 +838,6 @@ function NetworkFeeSubsidy() {
                     onPress={() => {
                       dialog.show({
                         title: '全部补贴记录',
-                        nativeSheet: true,
                         boundedSheetLayout: true,
                         showFooter: false,
                         renderContent: (

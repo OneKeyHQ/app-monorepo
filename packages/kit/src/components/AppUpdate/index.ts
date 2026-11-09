@@ -13,9 +13,6 @@ export {
   useDownloadPackage,
   // Re-exported pure utilities (extracted from hooks.tsx so they can be
   // unit-tested independently and reused outside the React tree).
-  sanitizeUpdateErrorMessage,
-  extractUpdateErrorCode,
-  isUnrecoverableDownloadError,
   computeDownloadRetryDelayMs,
   runDownloadWithRetry,
   buildSoftwareUpdateParams,

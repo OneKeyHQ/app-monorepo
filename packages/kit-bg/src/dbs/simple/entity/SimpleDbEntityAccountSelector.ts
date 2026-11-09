@@ -1,7 +1,6 @@
 import { cloneDeep } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -692,15 +691,10 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
 
     const rawDataValue = rawData ?? (await this.getRawData());
 
-    const map = rawDataValue?.globalDeriveTypesMap?.[scope];
-    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+    return accountSelectorUtils.getGlobalDeriveTypeFromMap({
       networkId,
+      globalDeriveTypesMap: rawDataValue?.globalDeriveTypesMap?.[scope],
     });
-    const deriveType = map?.[key];
-    if (networkUtils.isBTCNetwork(networkId) && deriveType === undefined) {
-      return 'BIP86'; // Taproot
-    }
-    return deriveType;
   }
 
   async saveGlobalDeriveType({
@@ -717,19 +711,20 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       networkId,
     });
     await this.setRawData((rawData) => {
-      if (!rawData) {
-        throw new OneKeyLocalError('rawData is undefined');
-      }
-      rawData.globalDeriveTypesMap = rawData?.globalDeriveTypesMap || {};
-      rawData.globalDeriveTypesMap[scope] =
-        rawData.globalDeriveTypesMap[scope] || {};
-      if (rawData.globalDeriveTypesMap[scope][key] !== deriveType) {
-        rawData.globalDeriveTypesMap[scope][key] = deriveType;
+      const data = rawData ?? {
+        selectorInfo: {},
+        globalDeriveTypesMap: {},
+      };
+      data.selectorInfo = data.selectorInfo || {};
+      data.globalDeriveTypesMap = data.globalDeriveTypesMap || {};
+      data.globalDeriveTypesMap[scope] = data.globalDeriveTypesMap[scope] || {};
+      if (data.globalDeriveTypesMap[scope][key] !== deriveType) {
+        data.globalDeriveTypesMap[scope][key] = deriveType;
         if (!eventEmitDisabled) {
           this.scheduleGlobalDeriveTypeUpdate(key);
         }
       }
-      return rawData;
+      return data;
     });
   }
 }

@@ -1,6 +1,7 @@
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
+  shouldPortfolioSyncStandDownOnStageOff,
 } from './portfolioSyncRequestState';
 
 import type { IPortfolioSyncRequest } from './portfolioSyncRequestState';
@@ -45,20 +46,21 @@ describe('buildPortfolioSyncTargetKey', () => {
 });
 
 describe('resolvePortfolioSyncRequestTransition', () => {
-  it('advances the phase of the request the report belongs to', () => {
+  it('claims a preparing request for the hardware handoff', () => {
     const transition = resolvePortfolioSyncRequestTransition({
-      request: requestAt(1, 'queued'),
+      request: requestAt(1, 'preparing'),
       requestId: 1,
-      phase: 'refreshing',
+      phase: 'communicating',
     });
 
     expect(transition.accepted).toBe(true);
-    expect(transition.nextRequest).toEqual(requestAt(1, 'refreshing'));
+    expect(transition.nextRequest).toEqual(requestAt(1, 'communicating'));
+    expect(transition.clearFallbackTimer).toBe(true);
   });
 
-  it('claims communication only once when two refreshes finish for the same tap', () => {
+  it('claims communication only once for the same tap', () => {
     const claimed = resolvePortfolioSyncRequestTransition({
-      request: requestAt(1, 'refreshing'),
+      request: requestAt(1, 'preparing'),
       requestId: 1,
       phase: 'communicating',
     });
@@ -70,19 +72,13 @@ describe('resolvePortfolioSyncRequestTransition', () => {
       requestId: 1,
       phase: 'communicating',
     });
-    const late = resolvePortfolioSyncRequestTransition({
-      request: claimed.nextRequest,
-      requestId: 1,
-      phase: 'settled',
-    });
 
     expect(second.accepted).toBe(false);
-    expect(late.accepted).toBe(false);
-    expect(late.nextRequest?.phase).toBe('communicating');
+    expect(second.nextRequest?.phase).toBe('communicating');
   });
 
-  it('does not let a stale refresh claim a newer request', () => {
-    const newerRequest = requestAt(2, 'refreshing');
+  it('does not let a stale report claim a newer request', () => {
+    const newerRequest = requestAt(2, 'preparing');
 
     const stale = resolvePortfolioSyncRequestTransition({
       request: newerRequest,
@@ -106,7 +102,7 @@ describe('resolvePortfolioSyncRequestTransition', () => {
       resolvePortfolioSyncRequestTransition({
         request: undefined,
         requestId: 1,
-        phase: 'refreshing',
+        phase: 'communicating',
       }),
     ).toEqual({
       accepted: false,
@@ -115,24 +111,8 @@ describe('resolvePortfolioSyncRequestTransition', () => {
     });
   });
 
-  it('keeps the fallback timer armed for settled and disarms it otherwise', () => {
-    const settled = resolvePortfolioSyncRequestTransition({
-      request: requestAt(1, 'refreshing'),
-      requestId: 1,
-      phase: 'settled',
-    });
-    const refreshing = resolvePortfolioSyncRequestTransition({
-      request: requestAt(1, 'queued'),
-      requestId: 1,
-      phase: 'refreshing',
-    });
-
-    expect(settled.clearFallbackTimer).toBe(false);
-    expect(refreshing.clearFallbackTimer).toBe(true);
-  });
-
   it('never mutates the request it was handed', () => {
-    const request = requestAt(1, 'queued');
+    const request = requestAt(1, 'preparing');
 
     resolvePortfolioSyncRequestTransition({
       request,
@@ -140,16 +120,59 @@ describe('resolvePortfolioSyncRequestTransition', () => {
       phase: 'communicating',
     });
 
-    expect(request.phase).toBe('queued');
+    expect(request.phase).toBe('preparing');
+  });
+});
+
+describe('shouldPortfolioSyncStandDownOnStageOff', () => {
+  it('ends the request whose own stage hold the exit closes', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 5,
+      }),
+    ).toBe(true);
   });
 
-  it('carries the all-networks generation floor across a transition', () => {
-    const transition = resolvePortfolioSyncRequestTransition({
-      request: { ...requestAt(1, 'queued'), minimumAllNetworksGeneration: 7 },
-      requestId: 1,
-      phase: 'refreshing',
-    });
+  it("keeps a request when the exit is an earlier burst's (OK-64696)", () => {
+    // A Sync tapped as the previous attempt's ✗ retires under the live
+    // page: on split runtimes that exit can land after the new hold opened.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
+  });
 
-    expect(transition.nextRequest?.minimumAllNetworksGeneration).toBe(7);
+  it('keeps a request whose hold has not opened a stage', () => {
+    // Not yet answered (the hold is still the previous request's), or
+    // minted while the stage was silenced.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: undefined },
+        offBurstId: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('has nothing to end without a request', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: undefined,
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
   });
 });

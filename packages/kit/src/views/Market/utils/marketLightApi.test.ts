@@ -1,13 +1,25 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
   fetchMarketAssetListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
+  fetchMarketTokenListLight,
 } from './marketLightApi';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockFetchBootstrapSeed = jest.fn<
+  Promise<IMarketTokenListResponse & { __fromSeed: true }>,
+  []
+>();
+
+jest.mock('./marketHomeTokenListSeed', () => ({
+  fetchMarketHomeTokenListSeed: () => mockFetchBootstrapSeed(),
+  shouldUseMarketHomeTokenListBootstrapSeed: () => true,
+  preloadMarketHomeTokenListSeed: jest.fn(),
+}));
 
 jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   appApiClient: {
@@ -31,6 +43,15 @@ jest.mock('@onekeyhq/shared/src/locale/getDefaultLocale', () => ({
   getDefaultLocale: jest.fn(() => 'fr-FR'),
 }));
 
+let mockSettingsLocale = 'zh-CN';
+
+jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
+  __esModule: true,
+  default: {
+    getSettingsPersistAtom: async () => ({ locale: mockSettingsLocale }),
+  },
+}));
+
 jest.mock('./marketPerf', () => ({
   markMarketPerf: jest.fn(),
 }));
@@ -43,6 +64,53 @@ describe('marketLightApi', () => {
       post: mockPost,
     } as unknown as Awaited<ReturnType<typeof appApiClient.getClient>>);
   });
+
+  it('uses bootstrap rows for the default trending query while refreshing remotely', async () => {
+    const seed: IMarketTokenListResponse & { __fromSeed: true } = {
+      list: [{ address: '', name: 'Seed Token', symbol: 'SEED', decimals: 8 }],
+      total: 20,
+      __fromSeed: true,
+    };
+    mockFetchBootstrapSeed.mockResolvedValueOnce(seed);
+    mockGet.mockReturnValueOnce(new Promise(() => undefined));
+
+    await expect(
+      fetchMarketTokenListLight({
+        networkId: '',
+        type: 'trending',
+        timeFrame: '2',
+        minLiquidity: 5000,
+      }),
+    ).resolves.toEqual(seed);
+
+    expect(mockFetchBootstrapSeed).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { sortBy: 'v24hUSD', sortType: 'desc' as const },
+    { sortBy: 'marketCap', sortType: 'desc' as const },
+    { page: 2 },
+    { timeFrame: '4' },
+    { networkId: 'evm--1' },
+  ])(
+    'does not substitute default-order seed rows into a different query: %j',
+    async (query) => {
+      const remote: IMarketTokenListResponse = { list: [], total: 0 };
+      mockGet.mockResolvedValueOnce({ data: { data: remote } });
+
+      await expect(
+        fetchMarketTokenListLight({
+          networkId: '',
+          type: 'trending',
+          timeFrame: '2',
+          minLiquidity: 5000,
+          ...query,
+        }),
+      ).resolves.toEqual(remote);
+
+      expect(mockFetchBootstrapSeed).not.toHaveBeenCalled();
+    },
+  );
 
   it('fetches Top Coins without the background API', async () => {
     const data = { list: [], total: 0 };
@@ -495,7 +563,96 @@ describe('marketLightApi', () => {
         params: {
           configVersion: 2,
         },
+        headers: { 'x-onekey-request-locale': 'zh-cn' },
       },
     );
+  });
+
+  it('keys the basic config on the settings locale while appLocale lags behind', async () => {
+    const intl = jest.requireMock<{
+      appLocale: { intl: { locale: string } };
+    }>('@onekeyhq/shared/src/locale/appLocale').appLocale.intl;
+    const configFor = (name: string) => ({
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name }] },
+    });
+    mockGet
+      .mockResolvedValueOnce({ data: configFor('Trending') })
+      .mockResolvedValueOnce({ data: configFor('トレンド') });
+
+    // The module-level cache outlives each test, so use locales no other
+    // test fetches the config with.
+    try {
+      mockSettingsLocale = 'en';
+      intl.locale = 'en';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('Trending'),
+      );
+      // Settings switch first; appLocale updates after the messages load.
+      mockSettingsLocale = 'ja-JP';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('トレンド'),
+      );
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+      intl.locale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet.mock.calls[0]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'en',
+    });
+    expect(mockGet.mock.calls[1]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'ja-jp',
+    });
+  });
+
+  it('resolves the system locale before keying the basic config', async () => {
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name: 'Tendance' }] },
+    };
+    mockGet.mockResolvedValueOnce({ data: response });
+
+    try {
+      mockSettingsLocale = 'system';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+      mockSettingsLocale = 'fr-FR';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(mockGet.mock.calls[0]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'fr-fr',
+    });
+  });
+
+  it('keeps other cached locales when one locale fails', async () => {
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name: 'Tendencias' }] },
+    };
+    mockGet
+      .mockResolvedValueOnce({ data: response })
+      .mockRejectedValueOnce(new Error('offline'));
+
+    // Locales no other test fetches the config with keep the cache cold.
+    try {
+      mockSettingsLocale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+      mockSettingsLocale = 'ko-KR';
+      await expect(fetchMarketBasicConfigLight()).rejects.toThrow('offline');
+      mockSettingsLocale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });

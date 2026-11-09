@@ -250,13 +250,43 @@ export function useFirmwareUpdateActions() {
       }
 
       let resolvedConnectId = connectId;
-      if (resolvedConnectId) {
+      // Desktop checks run inside the changelog page so navigation does not
+      // wait for USB discovery and repeat the same identity checks on entry.
+      if (resolvedConnectId && !platformEnv.isDesktop) {
         try {
-          resolvedConnectId =
+          const transport =
             await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
               { connectId: resolvedConnectId },
             );
+          resolvedConnectId = transport.connectId;
         } catch (error) {
+          let errorTitle = ETranslations.firmware_update_install_page__title;
+          let errorDescription: ETranslations | undefined;
+          if (
+            isHardwareErrorByCode({
+              error: error as IOneKeyError,
+              code: HardwareErrorCode.DeviceNotFound,
+            })
+          ) {
+            errorTitle = ETranslations.hardware_hardware_device_not_find_error;
+            errorDescription = ETranslations.hardware_device_not_find_error;
+          }
+          if (errorDescription) {
+            (dialogHost ?? Dialog).show({
+              icon: 'TypeCoutline',
+              title: intl.formatMessage({
+                id: errorTitle,
+              }),
+              description: intl.formatMessage({
+                id: errorDescription,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              showCancelButton: false,
+            });
+            return;
+          }
           if (
             !isHardwareErrorByCode({
               error: error as IOneKeyError,
@@ -294,7 +324,7 @@ export function useFirmwareUpdateActions() {
         });
       }
     },
-    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth],
+    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth, intl],
   );
 
   const closeUpdateModal = useCallback(() => {

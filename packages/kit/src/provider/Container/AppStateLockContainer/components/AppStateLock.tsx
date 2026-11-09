@@ -33,16 +33,20 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { AppStateContainer } from './AppStateContainer';
+import {
+  NativeStorageLockError,
+  NativeStorageLockToast,
+  useNativeStorageLockError,
+} from './NativeStorageLockRecovery';
 
-import type { View as IView, KeyboardEvent } from 'react-native';
+import type { KeyboardEvent, ViewInstance } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
-  lockContainerRef: ForwardedRef<IView>;
+  lockContainerRef: ForwardedRef<ViewInstance>;
 }
 
 const DevPerpsWebSocketUpdateView = LazyLoad(async () => {
@@ -97,6 +101,7 @@ const AppStateLock = ({
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const storageError = useNativeStorageLockError();
 
   const handleExportLogs = useCallback(async () => {
     // Gate the hidden lock-screen log-upload entry behind a biometric check so
@@ -187,8 +192,6 @@ const AppStateLock = ({
         ref={lockContainerRef}
         position="absolute"
         fullscreen
-        // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}
@@ -234,6 +237,7 @@ const AppStateLock = ({
               }}
             >
               {passwordVerifyContainer}
+              <NativeStorageLockError message={storageError} />
             </Stack>
           </Stack>
           <DevPerpsWebSocketUpdateView />
@@ -261,6 +265,7 @@ const AppStateLock = ({
             )}
           </Stack>
         </Animated.View>
+        <NativeStorageLockToast message={storageError} />
       </ThemeableStack>
     </AppStateContainer>
   );

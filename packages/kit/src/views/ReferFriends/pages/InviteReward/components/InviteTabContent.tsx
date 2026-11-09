@@ -13,12 +13,14 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
+import { useReferralTabCopy } from '../referralTabCopy';
 
 import { InviteCompactHero } from './InviteCompactHero';
 import { InviteEarningsCard } from './InviteEarningsCard';
 import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
 import { useInviteValueSummary } from './InviteValueLine';
+import { ReferralTabCrossLink } from './ReferralTabCrossLink';
 import { SuspensionAlert } from './SuspensionAlert';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -79,11 +81,15 @@ export const InviteTabContent = memo(function InviteTabContent({
   summaryInfo,
   fetchSummaryInfo,
   levelDetail,
+  onOpenPerks,
 }: {
   summaryInfo: IInviteSummary;
   fetchSummaryInfo: () => unknown;
   levelDetail: IInviteLevelDetail | undefined;
+  // Absent while the Perks tab is turned off.
+  onOpenPerks?: () => void;
 }) {
+  const tabCopy = useReferralTabCopy();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const valueSummary = useInviteValueSummary({
@@ -98,7 +104,7 @@ export const InviteTabContent = memo(function InviteTabContent({
   }, [inviteUrl, navigateToInviteCodes]);
 
   return (
-    <YStack pb="$6">
+    <YStack flex={1} pb="$6">
       <SuspensionAlert
         suspensionNotice={summaryInfo.suspensionNotice}
         suspensionContactLabel={summaryInfo.suspensionContactLabel}
@@ -167,6 +173,14 @@ export const InviteTabContent = memo(function InviteTabContent({
           <InviteRewardRows summaryInfo={summaryInfo} />
         </>
       )}
+      {onOpenPerks ? (
+        <ReferralTabCrossLink
+          testID="refer-friends-to-perks-link"
+          prompt={tabCopy.toPerksPrompt}
+          action={tabCopy.toPerksAction}
+          onPress={onOpenPerks}
+        />
+      ) : null}
     </YStack>
   );
 });

@@ -7,27 +7,23 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useNavigateToEditAddress } from '@onekeyhq/kit/src/views/ReferFriends/pages/EditAddress/hooks/useNavigateToEditAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { shortenPayoutAddress } from '../../../utils/shortenPayoutAddress';
 import { openInviteWithdrawAddressEditor } from '../openInviteWithdrawAddressEditor';
 
-export function InviteWithdrawAddressRow() {
+export function InviteWithdrawAddressRow({
+  summaryInfo,
+  fetchSummaryInfo,
+}: {
+  summaryInfo: IInviteSummary;
+  fetchSummaryInfo: () => unknown;
+}) {
   const intl = useIntl();
   const navigateToEditAddress = useNavigateToEditAddress();
-  const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-    [],
-    {
-      undefinedResultIfError: true,
-      revalidateOnFocus: true,
-    },
-  );
 
   const toEditAddressPage = useCallback(() => {
-    if (!summaryInfo) {
-      return;
-    }
     openInviteWithdrawAddressEditor({
       summaryInfo,
       navigateToEditAddress,
@@ -35,10 +31,6 @@ export function InviteWithdrawAddressRow() {
       formatMessage: (descriptor) => intl.formatMessage(descriptor),
     });
   }, [fetchSummaryInfo, intl, navigateToEditAddress, summaryInfo]);
-
-  if (!summaryInfo) {
-    return null;
-  }
 
   const withdrawAddress = summaryInfo.withdrawAddresses[0];
 
@@ -57,6 +49,30 @@ export function InviteWithdrawAddressRow() {
       }
       drillIn
       onPress={toEditAddressPage}
+    />
+  );
+}
+
+// Loads its own summary and refreshes it when the page regains focus. Native
+// passes the summary in instead so the list can mount with its final header.
+export function InviteWithdrawAddressRowWithSummary() {
+  const { result: summaryInfo, run: fetchSummaryInfo } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+    [],
+    {
+      undefinedResultIfError: true,
+      revalidateOnFocus: true,
+    },
+  );
+
+  if (!summaryInfo) {
+    return null;
+  }
+
+  return (
+    <InviteWithdrawAddressRow
+      summaryInfo={summaryInfo}
+      fetchSummaryInfo={fetchSummaryInfo}
     />
   );
 }

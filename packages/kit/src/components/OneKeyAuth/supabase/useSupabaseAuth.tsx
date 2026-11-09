@@ -111,6 +111,7 @@ export function useSupabaseAuth() {
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         throw error;
       }
@@ -289,6 +290,7 @@ export function useSupabaseAuth() {
           result.error,
         )}`,
         result.error,
+        { trigger: 'interactive' },
       );
       throw result.error;
     }
@@ -332,6 +334,7 @@ export function useSupabaseAuth() {
           result.error,
         )}`,
         result.error,
+        { trigger: 'interactive' },
       );
       throw result.error;
     }
@@ -366,6 +369,7 @@ export function useSupabaseAuth() {
           result.error,
         )}`,
         result.error,
+        { trigger: 'interactive' },
       );
       throw result.error;
     }

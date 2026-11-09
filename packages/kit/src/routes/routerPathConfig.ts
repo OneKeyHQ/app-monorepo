@@ -18,6 +18,7 @@ import {
   EActionCenterPages,
   EFullScreenPushRoutes,
 } from '@onekeyhq/shared/src/routes/fullScreenPush';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 export interface IRoutePathConfig {
   name: string;
@@ -132,6 +133,10 @@ const modalRouteNames = Object.values(EModalRoutes).filter(
 );
 
 const modalRouteOverrides: Partial<Record<EModalRoutes, IRoutePathConfig>> = {
+  [EModalRoutes.PrimeModal]: route({
+    name: EModalRoutes.PrimeModal,
+    children: [route({ name: EPrimePages.PrimeCloudSync })],
+  }),
   [EModalRoutes.MainModal]: route({
     name: EModalRoutes.MainModal,
     children: mainModalPathConfig,

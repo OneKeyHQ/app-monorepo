@@ -72,4 +72,33 @@ describe('useTradingViewNativeCanvasRender', () => {
     flushFrame();
     expect(draw).not.toHaveBeenCalled();
   });
+
+  it('redraws a resized canvas before paint without replaying a stale frame', () => {
+    const initialDraw = jest.fn();
+    const latestDraw = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ draw }) => useTradingViewNativeCanvasRender(draw),
+      { initialProps: { draw: initialDraw } },
+    );
+    rerender({ draw: latestDraw });
+
+    act(() => result.current({ immediate: true }));
+    expect(initialDraw).not.toHaveBeenCalled();
+    expect(latestDraw).toHaveBeenCalledTimes(1);
+    expect(frames.size).toBe(0);
+    flushFrame();
+    expect(latestDraw).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current();
+      result.current();
+    });
+    expect(frames.size).toBe(1);
+    flushFrame();
+    expect(latestDraw).toHaveBeenCalledTimes(2);
+
+    act(() => result.current({ immediate: true }));
+    expect(latestDraw).toHaveBeenCalledTimes(3);
+    expect(frames.size).toBe(0);
+  });
 });

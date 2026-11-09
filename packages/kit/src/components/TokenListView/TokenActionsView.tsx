@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -26,7 +27,6 @@ import { useAggregateSubTokenFiat } from '../../states/jotai/contexts/tokenList/
 import {
   buildTokenActionSwapFromToken,
   getResolvedTokenActionToken,
-  getTokenActionSwapToToken,
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
@@ -40,10 +40,14 @@ const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 
 type IProps = {
   token: IAccountToken;
+  nativeActionState?: (state: {
+    disabled: boolean;
+    onPress: () => void;
+  }) => void;
 } & XStackProps;
 
 function TokenActionsView(props: IProps) {
-  const { token, ...rest } = props;
+  const { token, nativeActionState, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { tokenListMap: contextTokenListMap, ownedAggregateTokenListMap } =
@@ -165,61 +169,47 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
-    void (async () => {
-      if (
-        !resolvedActiveToken ||
-        !isTokenActionReady ||
-        isScaledUiSwapBlocked ||
-        isSwapEntryDisabled
-      ) {
-        return;
-      }
+    if (
+      !resolvedActiveToken ||
+      !isTokenActionReady ||
+      isScaledUiSwapBlocked ||
+      isSwapEntryDisabled
+    ) {
+      return;
+    }
 
-      const importAccountKey =
-        buildSwapSelectedTokensColdStartAccountKey(activeAccount);
-      const importFromToken = buildTokenActionSwapFromToken({
-        token: resolvedActiveToken,
-        networkId,
-        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-      });
-      let importToToken = getTokenActionSwapToToken({
-        fromToken: importFromToken,
-      });
-      if (networkId && !importToToken) {
-        try {
-          const swapSupport =
-            await backgroundApiProxy.serviceSwap.checkSupportSwap({
-              networkId,
-            });
-          importToToken = getTokenActionSwapToToken({
-            fromToken: importFromToken,
-            swapSupport,
-          });
-        } catch {
-          // Keep the existing Swap fallback if capability refresh fails.
-        }
-      }
-
-      defaultLogger.wallet.walletActions.actionTrade({
-        walletType: activeAccount?.wallet?.type ?? '',
-        networkId,
-        source: 'homeTokenList',
-        tradeType: ESwapTabSwitchType.SWAP,
-        isSoftwareWalletOnlyUser,
-      });
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapMainLand,
-        params: {
-          importNetworkId: networkId,
-          importAccountKey,
-          importFromToken,
-          importToToken,
-          importDeriveType: deriveType,
-          swapTabSwitchType: ESwapTabSwitchType.SWAP,
-          swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
-        },
-      });
-    })();
+    const importAccountKey =
+      buildSwapSelectedTokensColdStartAccountKey(activeAccount);
+    const importFromToken = buildTokenActionSwapFromToken({
+      token: resolvedActiveToken,
+      networkId,
+      networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+    });
+    defaultLogger.wallet.walletActions.actionTrade({
+      walletType: activeAccount?.wallet?.type ?? '',
+      networkId,
+      source: 'homeTokenList',
+      tradeType: ESwapTabSwitchType.SWAP,
+      isSoftwareWalletOnlyUser,
+    });
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importAccountKey,
+        importFromToken,
+        // A merged Bitcoin row carries whichever derive type answered
+        // first, so it must not decide the type Swap uses (or the default).
+        importDeriveType:
+          deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+            networkId,
+          })
+            ? undefined
+            : deriveType,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      },
+    });
   }, [
     activeAccount,
     isSoftwareWalletOnlyUser,
@@ -233,7 +223,20 @@ function TokenActionsView(props: IProps) {
     resolvedActiveToken,
   ]);
 
+  const swapDisabled =
+    !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled;
+  useEffect(() => {
+    nativeActionState?.({
+      disabled: swapDisabled,
+      onPress: handleTokenOnSwap,
+    });
+  }, [nativeActionState, swapDisabled, handleTokenOnSwap]);
+
   if (!token) {
+    return null;
+  }
+
+  if (nativeActionState) {
     return null;
   }
 
@@ -245,9 +248,7 @@ function TokenActionsView(props: IProps) {
         variant="secondary"
         cursor="pointer"
         onPress={handleTokenOnSwap}
-        disabled={
-          !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled
-        }
+        disabled={swapDisabled}
       >
         {intl.formatMessage({ id: ETranslations.global_swap })}
       </Button>

@@ -153,6 +153,7 @@ function SupabaseAuthStateForEnvironment({
           error,
         )}`,
         error,
+        { trigger: 'passive' },
       );
     }
   }, []);
@@ -189,6 +190,7 @@ function SupabaseAuthStateForEnvironment({
               error,
             )}`,
             error,
+            { trigger: 'passive' },
           );
         }
         return data.session;
@@ -216,6 +218,7 @@ function SupabaseAuthStateForEnvironment({
               error,
             )}`,
             error,
+            { trigger: 'passive' },
           );
           return null;
         }
@@ -250,6 +253,7 @@ function SupabaseAuthStateForEnvironment({
             error,
           )}`,
           error,
+          { trigger: 'passive' },
         );
       }
     })();
@@ -320,6 +324,7 @@ function SupabaseAuthStateForEnvironment({
             error,
           )}`,
           error,
+          { trigger: 'passive' },
         );
       } finally {
         logSupabaseAuthProvider('fetchSession done');
@@ -376,6 +381,7 @@ function SupabaseAuthStateForEnvironment({
               error,
             )}`,
             error,
+            { trigger: 'passive' },
           );
         }
       })();

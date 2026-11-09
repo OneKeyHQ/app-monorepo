@@ -1,9 +1,22 @@
 import BigNumber from 'bignumber.js';
 
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+export function getSwapTokenSelectorTokenKey(
+  item: ISwapToken | IFuseResult<ISwapToken>,
+) {
+  const token = 'item' in item ? item.item : item;
+  const contractAddress = normalizeTokenContractAddress({
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+  });
+  return `${token.networkId}:${contractAddress ?? ''}`;
+}
 
 export type ISwapNetworkGroup = {
   network: ISwapNetwork;
@@ -14,6 +27,114 @@ export type ISwapNetworkAsset = {
   network: ISwapNetwork;
   fiatValue: string;
 };
+
+export type ISwapTokenSelectorNetworkSnapshot = {
+  scopeKey: string;
+  structure?: {
+    allNetwork: ISwapNetwork;
+    sameChainNetwork?: ISwapNetwork;
+    groups: ISwapNetworkGroup[];
+  };
+  assetNetworks?: ISwapNetworkAsset[];
+};
+
+/** A selector session pins row membership; refreshed values remain independent. */
+export function updateSwapTokenSelectorNetworkSnapshot({
+  snapshot,
+  scopeKey,
+  networksReady,
+  allNetwork,
+  sameChainNetwork,
+  networks,
+  assetNetworks,
+}: {
+  snapshot: ISwapTokenSelectorNetworkSnapshot;
+  scopeKey: string;
+  networksReady: boolean;
+  allNetwork: ISwapNetwork;
+  sameChainNetwork?: ISwapNetwork;
+  networks: ISwapNetwork[];
+  assetNetworks?: ISwapNetworkAsset[];
+}): ISwapTokenSelectorNetworkSnapshot {
+  let next: ISwapTokenSelectorNetworkSnapshot =
+    snapshot.scopeKey === scopeKey ? snapshot : { scopeKey };
+  if (!next.structure && networksReady) {
+    next = {
+      ...next,
+      structure: {
+        allNetwork,
+        sameChainNetwork,
+        groups: buildSwapTokenSelectorNetworkGroups({
+          networks: [
+            ...networks,
+            ...(sameChainNetwork ? [sameChainNetwork] : []),
+          ],
+        }),
+      },
+    };
+  }
+  // Undefined is pending; [] is a completed snapshot with no asset networks.
+  if (
+    next.structure &&
+    next.assetNetworks === undefined &&
+    assetNetworks !== undefined
+  ) {
+    next = { ...next, assetNetworks };
+  }
+  return next;
+}
+
+/** Filters the pinned hierarchy without rebuilding it from live sort metadata. */
+export function resolveSwapTokenSelectorNetworkGroups({
+  groups,
+  networkMap,
+  searchValue,
+}: {
+  groups: ISwapNetworkGroup[];
+  networkMap: ReadonlyMap<string, ISwapNetwork>;
+  searchValue?: string;
+}): ISwapNetworkGroup[] {
+  const search = searchValue?.trim().toLowerCase();
+  const matches = (network: ISwapNetwork) =>
+    !search ||
+    [network.name, network.symbol, network.networkId].some((value) =>
+      value.toLowerCase().includes(search),
+    );
+  return groups.flatMap(({ network, children }) => {
+    const currentNetwork = networkMap.get(network.networkId) ?? network;
+    const currentChildren = children
+      .map((child) => networkMap.get(child.networkId) ?? child)
+      .filter(matches);
+    if (matches(currentNetwork)) {
+      return [{ network: currentNetwork, children: currentChildren }];
+    }
+    return currentChildren.map((child) => ({ network: child, children: [] }));
+  });
+}
+
+export function resolveSwapTokenSelectorAssetNetworks({
+  snapshot,
+  assetNetworks,
+  networkMap,
+}: {
+  snapshot?: ISwapNetworkAsset[];
+  assetNetworks?: ISwapNetworkAsset[];
+  networkMap: ReadonlyMap<string, ISwapNetwork>;
+}): ISwapNetworkAsset[] {
+  const values = new Map(
+    assetNetworks?.map(({ network, fiatValue }) => [
+      network.networkId,
+      fiatValue,
+    ]),
+  );
+  return (snapshot ?? []).map(({ network, fiatValue }) => ({
+    network: networkMap.get(network.networkId) ?? network,
+    fiatValue:
+      assetNetworks === undefined
+        ? fiatValue
+        : (values.get(network.networkId) ?? '0'),
+  }));
+}
 
 function compareNetworkName(a: ISwapNetwork, b: ISwapNetwork) {
   const aName = a.name.toLowerCase();

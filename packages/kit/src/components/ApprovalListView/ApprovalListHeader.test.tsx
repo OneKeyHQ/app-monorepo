@@ -22,6 +22,11 @@ const mockUpdateInactiveApprovalsAlertConfig: jest.MockedFunction<
   (params: IAlertConfigParams) => Promise<void>
 > = jest.fn();
 let mockAlertProps: IMockAlertProps | undefined;
+let mockIsNative = false;
+let mockIsBulkRevokeMode = false;
+let mockTableLayout = false;
+let mockSelectDisabled = false;
+let mockHeaderBefore: ReactNode;
 
 Object.defineProperty(globalThis, 'requestAnimationFrame', {
   configurable: true,
@@ -71,6 +76,15 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/routes', () => ({
   EModalRoutes: {
     ApprovalManagementModal: 'ApprovalManagementModal',
@@ -116,6 +130,7 @@ jest.mock('../../hooks/usePromiseResult', () => ({
 }));
 
 jest.mock('../../states/jotai/contexts/approvalList', () => ({
+  useIsBulkRevokeModeAtom: () => [mockIsBulkRevokeMode],
   useApprovalListAtom: () => [
     {
       approvals: [
@@ -129,7 +144,20 @@ jest.mock('../../states/jotai/contexts/approvalList', () => ({
 }));
 
 jest.mock('../ListItem', () => ({
-  ListItem: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  ListItem: ({
+    children,
+    childrenBefore,
+    testID,
+  }: {
+    children?: ReactNode;
+    childrenBefore?: ReactNode;
+    testID?: string;
+  }) => {
+    if (testID === 'Wallet-Approval-List-Header') {
+      mockHeaderBefore = childrenBefore;
+    }
+    return <>{children}</>;
+  },
 }));
 
 jest.mock('./ApprovalListViewContext', () => ({
@@ -137,7 +165,8 @@ jest.mock('./ApprovalListViewContext', () => ({
     accountId: 'account-1',
     indexedAccountId: 'indexed-account-1',
     networkId: 'evm--1',
-    tableLayout: false,
+    tableLayout: mockTableLayout,
+    selectDisabled: mockSelectDisabled,
   }),
 }));
 
@@ -146,6 +175,11 @@ describe('ApprovalListHeader', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockAlertProps = undefined;
+    mockHeaderBefore = undefined;
+    mockIsNative = false;
+    mockIsBulkRevokeMode = false;
+    mockTableLayout = false;
+    mockSelectDisabled = false;
     mockUpdateRiskApprovalsAlertConfig.mockResolvedValue(undefined);
     mockUpdateInactiveApprovalsAlertConfig.mockResolvedValue(undefined);
   });
@@ -183,5 +217,30 @@ describe('ApprovalListHeader', () => {
       jest.advanceTimersByTime(350);
     });
     expect(mockRecomputeLayout).toHaveBeenCalledTimes(1);
+  });
+
+  it('reserves the native wide bulk checkbox slot only while selection is enabled', async () => {
+    mockIsNative = true;
+    mockIsBulkRevokeMode = true;
+    mockTableLayout = true;
+    const props = {
+      contractMap: {},
+      recomputeLayout: mockRecomputeLayout,
+      tokenMap: {},
+    };
+    const { rerender } = render(<ApprovalListHeader {...props} />);
+    await waitFor(() => expect(mockHeaderBefore).toBeDefined());
+    expect((mockHeaderBefore as { props: { width: string } }).props.width).toBe(
+      '$8',
+    );
+
+    mockSelectDisabled = true;
+    rerender(<ApprovalListHeader {...props} hideRiskOverview />);
+    expect(mockHeaderBefore).toBeUndefined();
+
+    mockSelectDisabled = false;
+    mockIsNative = false;
+    rerender(<ApprovalListHeader {...props} />);
+    expect(mockHeaderBefore).toBeUndefined();
   });
 });

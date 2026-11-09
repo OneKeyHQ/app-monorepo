@@ -113,6 +113,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useDeviceTimeZone', () => ({
   useDeviceTimeZone: () => 'Asia/Shanghai',
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en-US',

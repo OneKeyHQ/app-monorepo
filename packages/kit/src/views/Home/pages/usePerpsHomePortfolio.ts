@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -16,6 +15,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { mapSnapshotToPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 const DEPOSIT_CONFIRMATION_RETRY_MAX_ATTEMPTS = 5;
 const DEPOSIT_CONFIRMATION_RETRY_INTERVAL_MS =

@@ -1,8 +1,11 @@
 const path = require('path');
 
+const { iconAssetsAlias } = require('../onekey-icons/build');
+
 function createBaseResolveOptions({
   basePath,
   enableSentryMinimalCompat,
+  excludeChainRuntimes,
   extensions,
 }) {
   return {
@@ -11,6 +14,7 @@ function createBaseResolveOptions({
     extensions,
     symlinks: true,
     alias: {
+      ...iconAssetsAlias,
       'react-native$': 'react-native-web',
       'react-native-fast-image': path.join(
         __dirname,
@@ -32,6 +36,12 @@ function createBaseResolveOptions({
         'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
       'react-native/Libraries/EventEmitter/NativeEventEmitter$':
         'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+      // React Native 0.88 removed both asset registry paths below, but some
+      // third-party web entries (graphics and svg libraries) still import them.
+      'react-native/Libraries/Image/AssetRegistry$':
+        'react-native-web/dist/modules/AssetRegistry',
+      '@react-native/assets-registry/registry$':
+        'react-native-web/dist/modules/AssetRegistry',
       '@react-aria/focus': path.join(
         basePath,
         '../../node_modules/@react-aria/focus/src/index.ts',
@@ -54,6 +64,14 @@ function createBaseResolveOptions({
               __dirname,
               '../module-resolver/sentry-minimal-compat',
             ),
+          }
+        : {}),
+      // Empty modules: the chain wasm and its workers stay out of the bundle.
+      ...(excludeChainRuntimes
+        ? {
+            '@onekeyfe/zcash-runtime': false,
+            '@onekeyfe/zcash-keys': false,
+            '@onekeyfe/monero-runtime': false,
           }
         : {}),
       'bn.js$': require.resolve('bn.js'),

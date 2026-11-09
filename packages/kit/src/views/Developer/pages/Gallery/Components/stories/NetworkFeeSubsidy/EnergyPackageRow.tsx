@@ -32,7 +32,6 @@ export function EnergyPackageRow({
   const showPurchase = () => {
     const purchaseDialog = dialog.show({
       title: '购买能量包',
-      nativeSheet: true,
       boundedSheetLayout: true,
       showFooter: false,
       renderContent: (

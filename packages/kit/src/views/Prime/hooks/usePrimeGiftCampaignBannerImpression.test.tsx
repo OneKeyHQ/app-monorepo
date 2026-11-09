@@ -7,10 +7,10 @@ import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkC
 
 import { usePrimeGiftCampaignBannerImpression } from './usePrimeGiftCampaignBannerImpression';
 
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
-type INativeMeasureCallback = Parameters<View['measureInWindow']>[0];
-type INativeMeasureHost = Pick<View, 'measureInWindow'>;
+type INativeMeasureCallback = Parameters<ViewInstance['measureInWindow']>[0];
+type INativeMeasureHost = Pick<ViewInstance, 'measureInWindow'>;
 
 const mockShown = jest.fn();
 

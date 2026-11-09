@@ -18,9 +18,14 @@ import {
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -29,6 +34,11 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
 // IndexedDB at module load and crashes under jest's node environment.
+jest.mock('@onekeyhq/shared/src/logger/solanaTxDiagnostics', () => ({
+  logSolanaTxDiagnostic: jest.fn(),
+  createSolanaTxDiagnosticContext: jest.fn(),
+}));
+
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
@@ -36,6 +46,8 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 // eslint-disable-next-line import/first
 import { VaultBase } from '../../base/VaultBase';
+// eslint-disable-next-line import/first
+import { ESignedTxBroadcastStatus } from '../../types';
 
 // eslint-disable-next-line import/first
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
@@ -137,6 +149,11 @@ function buildUnsignedTx(encodedTx: IEncodedTxSol): IUnsignedTxPro {
     encodedTx,
     payload: { feePayer: payer.publicKey.toBase58() },
     uuid: 'uuid-1',
+    solanaTxDiagnostic: {
+      correlationId: '11111111-2222-4333-8444-555555555555',
+      startedAt: 1000,
+      recentBlockhash: OLD_BLOCKHASH,
+    },
   };
 }
 
@@ -324,6 +341,31 @@ describe('SolVault.refreshUnsignedTxBeforeSign', () => {
 
     expect(await vault.refreshUnsignedTxBeforeSign(unsignedTx)).toBe(
       unsignedTx,
+    );
+  });
+});
+
+describe('SolVault.getSignatureStatuses', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('splits the lookup into batches of 256 and keeps the result order', async () => {
+    const { vault } = buildVault();
+    const clientLookup = jest.fn(async (batch: string[]) =>
+      batch.map((signature) => ({ confirmationStatus: signature })),
+    );
+    vault.getClient = async () =>
+      ({ getSignatureStatuses: clientLookup }) as unknown as ClientSol;
+    const signatures = Array.from({ length: 300 }, (_, i) => `sig-${i}`);
+
+    const statuses = await vault.getSignatureStatuses(signatures);
+
+    expect(clientLookup).toHaveBeenCalledTimes(2);
+    expect(clientLookup.mock.calls[0][0]).toHaveLength(256);
+    expect(clientLookup.mock.calls[1][0]).toHaveLength(44);
+    expect(statuses?.map((status) => status?.confirmationStatus)).toEqual(
+      signatures,
     );
   });
 });
@@ -548,6 +590,16 @@ describe('SolVault.checkShouldRetryBroadcastTx', () => {
     ).toBe(false);
     expect(wait).not.toHaveBeenCalled();
   });
+
+  it('stops retrying a blockhash-not-found rejection after the second attempt', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(buildError({ code: 40_028 }, 3)),
+    ).toBe(false);
+    expect(wait).not.toHaveBeenCalled();
+  });
 });
 
 describe('SolVault broadcast error copy', () => {
@@ -566,6 +618,12 @@ describe('SolVault broadcast error copy', () => {
     'Error JSON RPC response: Transaction simulation failed: Blockhash not found',
   );
 
+  beforeEach(() => {
+    jest
+      .spyOn(appLocale.intl, 'formatMessage')
+      .mockImplementation((descriptor) => `t:${String(descriptor.id)}`);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -582,7 +640,7 @@ describe('SolVault broadcast error copy', () => {
     });
 
     await expect(promise).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });
@@ -598,7 +656,7 @@ describe('SolVault broadcast error copy', () => {
     await expect(
       vault.broadcastTransaction(broadcastParams),
     ).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });
@@ -732,5 +790,267 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
         estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx,
       ).toBe('0');
     });
+  });
+});
+
+describe('SolVault local blockhash diagnostics', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  it('carries actual refreshed hash, valid height and acquisition metadata forward', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    getRecentBlockHash.mockResolvedValue({
+      recentBlockhash: NEW_BLOCKHASH,
+      lastValidBlockHeight: NEW_LAST_VALID_BLOCK_HEIGHT,
+      blockhashFetchedAt: 2000,
+      contextSlot: 111,
+      commitment: 'confirmed',
+      blockhashFetchAttempts: 2,
+      blockhashFetchDurationMs: 1100,
+    });
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+    expect(refreshed.solanaTxDiagnostic).toEqual(
+      expect.objectContaining({
+        correlationId: unsignedTx.solanaTxDiagnostic?.correlationId,
+        recentBlockhash: NEW_BLOCKHASH,
+        lastValidBlockHeight: NEW_LAST_VALID_BLOCK_HEIGHT,
+        blockhashFetchedAt: 2000,
+        contextSlot: 111,
+        commitment: 'confirmed',
+        blockhashFetchAttempts: 2,
+      }),
+    );
+    expect(logSolanaTxDiagnostic).toHaveBeenLastCalledWith(
+      refreshed.solanaTxDiagnostic,
+      expect.objectContaining({ stage: 'refresh', status: 'succeeded' }),
+    );
+  });
+
+  it('keeps the original tx on fetch failure and emits a sanitized failure category', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    getRecentBlockHash.mockRejectedValue({
+      code: 'ETIMEDOUT',
+      message: 'synthetic-private-message',
+      config: { url: 'synthetic-private-rpc' },
+    });
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+    expect(await vault.refreshUnsignedTxBeforeSign(unsignedTx)).toBe(
+      unsignedTx,
+    );
+    expect(logSolanaTxDiagnostic).toHaveBeenLastCalledWith(
+      unsignedTx.solanaTxDiagnostic,
+      expect.objectContaining({
+        stage: 'refresh',
+        status: 'failed',
+        reason: 'fetchFailed',
+        errorCategory: 'timeout',
+      }),
+    );
+    expect(
+      JSON.stringify(jest.mocked(logSolanaTxDiagnostic).mock.calls),
+    ).not.toContain('synthetic-private');
+  });
+});
+
+describe('SolVault.checkSignedTxBroadcastStatus', () => {
+  const signedEncodedTx = buildLegacyEncodedTx([transferIx], {
+    signers: [payer],
+  });
+  const signedTx: ISignedTxPro = {
+    txid: 'sig-1',
+    rawTx: '',
+    encodedTx: signedEncodedTx,
+  };
+  const now = 1_700_000_000_000;
+
+  function mockClient(vault: SolVault, client: Partial<ClientSol>) {
+    vault.getClient = async () => client as ClientSol;
+  }
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('reports a signature the ledger executed as broadcast', async () => {
+    const { vault } = buildVault();
+    const isBlockhashValid = jest.fn();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [
+        { confirmationStatus: 'confirmed', err: null },
+      ]),
+      isBlockhashValid,
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(isBlockhashValid).not.toHaveBeenCalled();
+  });
+
+  it('reports a signature that executed with an error as safe to sign again', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [
+        { confirmationStatus: 'confirmed', err: { InstructionError: [0, 1] } },
+      ]),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+  });
+
+  it('reports an unseen signature whose blockhash expired as not broadcast', async () => {
+    const { vault } = buildVault();
+    const isBlockhashValid = jest.fn(async () => false);
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid,
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+    expect(isBlockhashValid).toHaveBeenCalledWith(OLD_BLOCKHASH);
+    expect(timerUtils.wait).not.toHaveBeenCalled();
+  });
+
+  it('keeps polling while the blockhash is still valid and the signature is unseen', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([null])
+      .mockResolvedValueOnce([{ confirmationStatus: 'processed', err: null }]);
+    mockClient(vault, {
+      getSignatureStatuses,
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+    expect(timerUtils.wait).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the wall-clock validity bound when the node cannot answer isBlockhashValid', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid: jest.fn(async () => {
+        throw new OneKeyLocalError('Method not found');
+      }),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 11 }),
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+  });
+
+  it('trusts a still-valid blockhash over the wall clock', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([null])
+      .mockResolvedValueOnce([{ confirmationStatus: 'confirmed', err: null }]);
+    mockClient(vault, {
+      getSignatureStatuses,
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 30 }),
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up with an error when the node keeps calling the blockhash valid', async () => {
+    const { vault } = buildVault();
+    let current = now;
+    jest.spyOn(Date, 'now').mockImplementation(() => current);
+    jest.spyOn(timerUtils, 'wait').mockImplementation(async () => {
+      current += timerUtils.getTimeDurationMs({ minute: 6 });
+    });
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).rejects.toThrow('still unknown');
+  });
+
+  it('cannot judge a durable-nonce tx and says so without touching the RPC', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest.fn();
+    mockClient(vault, {
+      getSignatureStatuses,
+    } as unknown as Partial<ClientSol>);
+    const nonceSignedTx: ISignedTxPro = {
+      txid: 'sig-nonce',
+      rawTx: '',
+      encodedTx: buildLegacyEncodedTx([nonceAdvanceIx, transferIx], {
+        signers: [payer],
+      }),
+    };
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx: nonceSignedTx,
+        attemptedAt: now,
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
+    expect(getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('propagates a status lookup failure so the caller does not re-sign blindly', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => {
+        throw new OneKeyLocalError('rpc unreachable');
+      }),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).rejects.toThrow('rpc unreachable');
+  });
+});
+
+describe('SolVault.isSignedTxRejectedByBroadcast', () => {
+  it('treats the blockhash-not-found rejection as definitive', async () => {
+    const { vault } = buildVault();
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(
+        new OneKeyLocalError({
+          message: 'Transaction expired',
+          code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+        }),
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('keeps an ambiguous network failure as possibly broadcast', async () => {
+    const { vault } = buildVault();
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(
+        new OneKeyLocalError('timeout of 10000ms exceeded'),
+      ),
+    ).resolves.toBe(false);
   });
 });

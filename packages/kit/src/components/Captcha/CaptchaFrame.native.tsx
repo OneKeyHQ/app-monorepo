@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { isCaptchaOrigin, parseCaptchaMessage } from './captchaMessage';
 
-import type { ICaptchaFrameProps } from './captchaMessage';
+import type { ICaptchaFrameProps, ICaptchaFrameResult } from './captchaMessage';
 
 type ICaptchaNavigationRequest = {
   url: string;
@@ -21,20 +21,32 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
   const [ready, setReady] = useState(false);
   const lifecycle = useRef({ active: false, failed: false, started: false });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const failToLoad = useCallback(() => {
-    if (!lifecycle.current.active || lifecycle.current.failed) return;
-    lifecycle.current.failed = true;
-    clearTimeout(timer.current);
-    setReady(false);
-    onResult({ type: 'onekey-test-captcha', requestId, status: 'load-error' });
-  }, [onResult, requestId]);
+  const failToLoad = useCallback(
+    (
+      message?: ICaptchaFrameResult,
+      source: 'host_load_error' | 'host_watchdog' = 'host_load_error',
+    ) => {
+      if (!lifecycle.current.active || lifecycle.current.failed) return;
+      lifecycle.current.failed = true;
+      clearTimeout(timer.current);
+      setReady(false);
+      onResult({
+        type: 'onekey-test-captcha',
+        requestId,
+        status: 'load-error',
+        code: message?.code,
+        source: message ? 'provider_message' : source,
+      });
+    },
+    [onResult, requestId],
+  );
 
   useEffect(() => {
     const currentLifecycle = lifecycle.current;
     currentLifecycle.active = true;
     const deadline =
       !currentLifecycle.started && !currentLifecycle.failed
-        ? setTimeout(failToLoad, 30_000)
+        ? setTimeout(() => failToLoad(undefined, 'host_watchdog'), 30_000)
         : undefined;
     timer.current = deadline;
     return () => {
@@ -45,25 +57,27 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
 
   return (
     <Stack position="relative" height={65}>
-      {!ready ? (
-        <XStack
-          testID="email-otp-captcha-loading"
-          position="absolute"
-          inset={0}
-          alignItems="center"
-          justifyContent="center"
-          gap="$2"
-          bg="$bgSubdued"
-          borderRadius="$2"
-        >
-          <Spinner size="small" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.auth_captcha_loading__msg,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
+      {/* The provider sends ready before its iframe paints. Keep loading beneath
+          the transparent WebView until the widget itself covers it. */}
+      <XStack
+        testID="email-otp-captcha-loading"
+        position="absolute"
+        inset={0}
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
+        bg="$bgSubdued"
+        borderRadius="$2"
+        pointerEvents="none"
+        aria-hidden={ready}
+      >
+        <Spinner size="small" />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.auth_captcha_loading__msg,
+          })}
+        </SizableText>
+      </XStack>
       <WebView
         testID="email-otp-captcha-frame"
         source={{ uri: url }}
@@ -109,7 +123,7 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
           );
           if (!message) return;
           if (message.status === 'load-error') {
-            failToLoad();
+            failToLoad(message);
             return;
           }
           clearTimeout(timer.current);
@@ -124,7 +138,7 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
           }
           onResult(message);
         }}
-        onError={failToLoad}
+        onError={() => failToLoad()}
         onHttpError={(event) => {
           // react-native-webview filters HTTP errors to the main document on
           // both Android and iOS before dispatching this callback.
@@ -135,8 +149,8 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
             failToLoad();
           }
         }}
-        onContentProcessDidTerminate={failToLoad}
-        onRenderProcessGone={failToLoad}
+        onContentProcessDidTerminate={() => failToLoad()}
+        onRenderProcessGone={() => failToLoad()}
       />
     </Stack>
   );

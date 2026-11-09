@@ -5,10 +5,14 @@ import type {
   LineData,
   SingleValueData,
   UTCTimestamp,
+  WhitespaceData,
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
-export type ILightweightChartLineType = 'simple' | 'steps';
+// `curved`: monotone cubic through every point, so the line never overshoots a
+// real high or low. Honored by the dotted-area series and its overlay line on
+// web and the native canvas; the Catalyst WebView draws it straight.
+export type ILightweightChartLineType = 'simple' | 'steps' | 'curved';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
 export type ILightweightChartSeriesType =
   | 'area'
@@ -56,13 +60,29 @@ export interface ILightweightChartTheme {
 }
 
 export type ILightweightChartData = SingleValueData & { color?: string };
-export type ILightweightSecondaryLineData = LineData;
+// A point without a value is a gap in the overlay line; see
+// buildSecondaryLineSeries for how the line is kept from bridging it.
+export type ILightweightSecondaryLineData = LineData | WhitespaceData;
 export type ILightweightChartTime = UTCTimestamp;
+// [time, value] pairs for the overlay line; a null value is a gap.
+export type ILightweightSecondaryLineChart = [number, number | null][];
+
+export interface ILightweightChartNativeScrubOptions {
+  labels: Record<string, { time: string; price?: string }>;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  timeColor: string;
+  largePrice: boolean;
+}
 
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
   secondaryLineData?: ILightweightSecondaryLineData[];
+  // Overlay points with a gap (or nothing) on both sides. A line series draws
+  // no segment for them, so they are drawn as dots instead.
+  secondaryPointData?: LineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
   lineWidth: number;
@@ -78,11 +98,14 @@ export interface ILightweightChartConfig {
   patternColor?: string;
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  priceTickFormatter?: (prices: number[]) => string[];
+  priceFormatBase?: number;
   priceScaleMinimumWidth?: number;
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
-  // Stock detail axis. Prices at or above $1 keep two decimals (`$341.70`).
-  priceScaleFormat?: 'stock';
+  // `stock`: prices at or above $1 keep two decimals (`$341.70`).
+  // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
+  priceScaleFormat?: 'stock' | 'full';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -101,6 +124,9 @@ export interface ILightweightChartConfig {
   timeZone?: string;
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
+  pulseLastPoint?: boolean;
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
+  notifyOnHover?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -110,9 +136,13 @@ export interface ILightweightChartProps {
   topColor?: string;
   bottomColor?: string;
   textSubduedColor?: string;
-  secondaryLineData?: IMarketTokenChart;
+  secondaryLineData?: ILightweightSecondaryLineChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  // Web only, curved dotted-area overlay: draws the overlay up to the bar at
+  // this time. Unlike passing a shorter series, the curve keeps the shape it
+  // has over the full series.
+  secondaryLineEndTime?: number;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
@@ -138,11 +168,18 @@ export interface ILightweightChartProps {
   // the line is dimmed but the live marker should stay at full strength.
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  // Web/desktop only. Formats the axis ticks as a set, so a whole-dollar step
+  // can drop the decimals the last-value label keeps.
+  priceTickFormatter?: (prices: number[]) => string[];
+  // lightweight-charts price base (1 / smallest tick step). Defaults to 100,
+  // which leaves sub-cent quotes with a single $0 tick.
+  priceFormatBase?: number;
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
   compactPriceMaxCharacters?: number;
-  // Stock detail axis. Prices at or above $1 keep two decimals (`$341.70`).
-  priceScaleFormat?: 'stock';
+  // `stock`: prices at or above $1 keep two decimals (`$341.70`).
+  // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
+  priceScaleFormat?: 'stock' | 'full';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -166,16 +203,18 @@ export interface ILightweightChartProps {
   timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
-  // Native WebView only. Keeps the default axis hover label unless a chart
+  // Native only. Keeps the default axis hover label unless a chart
   // with its own tooltip explicitly opts out.
   hideCrosshairPriceLabel?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
-  // signal the chart is live. Web/desktop only; toggling it does not recreate
-  // the chart.
+  // signal the chart is live. Toggling it does not recreate the chart; the
+  // native renderer draws the same dot inside its canvas.
   pulseLastPoint?: boolean;
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.
   preserveChartInstanceOnDataChange?: boolean;
+  // Native only: keep the solid line and tooltip in the chart's touch runtime.
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
   onHover?: (data: {
     time?: number;
     price?: number;

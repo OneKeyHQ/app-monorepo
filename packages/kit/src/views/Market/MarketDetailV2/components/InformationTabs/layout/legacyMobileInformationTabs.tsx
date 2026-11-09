@@ -119,7 +119,8 @@ export function MobileInformationTabs({
   pendingHeader,
   onScrollEnd,
   portfolioData,
-  isRefreshing,
+  isPortfolioPending,
+  isPortfolioFailed,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -130,7 +131,8 @@ export function MobileInformationTabs({
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
-  isRefreshing?: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -193,10 +195,13 @@ export function MobileInformationTabs({
       >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
+            isStock={isStockToken}
             portfolioData={portfolioData}
-            isRefreshing={!!isRefreshing}
+            isPending={isPortfolioPending}
+            isFailed={isPortfolioFailed}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
+            isMarketDetail
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>
@@ -242,7 +247,8 @@ export function MobileInformationTabs({
     holdersTabName,
     accountAddress,
     portfolioData,
-    isRefreshing,
+    isPortfolioPending,
+    isPortfolioFailed,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,

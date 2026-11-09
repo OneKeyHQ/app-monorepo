@@ -1,0 +1,294 @@
+diff --git a/node_modules/@keystonehq/keystone-sdk/dist/chains/index.js b/node_modules/@keystonehq/keystone-sdk/dist/chains/index.js
+index 1b48d26..6017a4b 100644
+--- a/node_modules/@keystonehq/keystone-sdk/dist/chains/index.js
++++ b/node_modules/@keystonehq/keystone-sdk/dist/chains/index.js
+@@ -15,23 +15,24 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+ __exportStar(require("./bitcoin"), exports);
+-__exportStar(require("./cosmos"), exports);
+-__exportStar(require("./evm"), exports);
++// OneKey patch: only BTC/ETH/SOL are used; unused chains pull their UR registries into the extension background bundle.
++// __exportStar(require("./cosmos"), exports);
++// __exportStar(require("./evm"), exports);
+ __exportStar(require("./ethereum"), exports);
+ __exportStar(require("./solana"), exports);
+-__exportStar(require("./tron"), exports);
+-__exportStar(require("./aptos"), exports);
+-__exportStar(require("./bitcoin_cash"), exports);
+-__exportStar(require("./dash"), exports);
+-__exportStar(require("./litecoin"), exports);
+-__exportStar(require("./near"), exports);
+-__exportStar(require("./cardano"), exports);
+-__exportStar(require("./arweave"), exports);
+-__exportStar(require("./sui"), exports);
+-__exportStar(require("./ton"), exports);
+-__exportStar(require("./stellar"), exports);
+-__exportStar(require("./avalanche"), exports);
+-__exportStar(require("./doge"), exports);
+-__exportStar(require("./iota"), exports);
++// __exportStar(require("./tron"), exports);
++// __exportStar(require("./aptos"), exports);
++// __exportStar(require("./bitcoin_cash"), exports);
++// __exportStar(require("./dash"), exports);
++// __exportStar(require("./litecoin"), exports);
++// __exportStar(require("./near"), exports);
++// __exportStar(require("./cardano"), exports);
++// __exportStar(require("./arweave"), exports);
++// __exportStar(require("./sui"), exports);
++// __exportStar(require("./ton"), exports);
++// __exportStar(require("./stellar"), exports);
++// __exportStar(require("./avalanche"), exports);
++// __exportStar(require("./doge"), exports);
++// __exportStar(require("./iota"), exports);
+ __exportStar(require("./psbt"), exports);
+-__exportStar(require("./zcash"), exports);
++// __exportStar(require("./zcash"), exports);
+diff --git a/node_modules/@keystonehq/keystone-sdk/dist/sdk.js b/node_modules/@keystonehq/keystone-sdk/dist/sdk.js
+index 9a2f598..1d6f72a 100644
+--- a/node_modules/@keystonehq/keystone-sdk/dist/sdk.js
++++ b/node_modules/@keystonehq/keystone-sdk/dist/sdk.js
+@@ -12,9 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.KeystoneSDK = void 0;
+ const chains_1 = require("./chains");
+ const wallet_1 = require("./wallet");
+-const xrp_1 = require("./chains/xrp");
+-const doge_1 = require("./chains/doge");
+-const iota_1 = require("./chains/iota");
++// OneKey patch: only BTC/ETH/SOL are used; unused chains pull their UR registries into the extension background bundle.
++// const xrp_1 = require("./chains/xrp");
++// const doge_1 = require("./chains/doge");
++// const iota_1 = require("./chains/iota");
+ const CONFIG_URL = "https://keyst.one/statics/sdk/config.json";
+ class KeystoneSDK {
+     constructor(config) {
+@@ -59,120 +60,121 @@ class KeystoneSDK {
+         }
+         return this._sol;
+     }
+-    get stellar() {
+-        if (this._stellar === undefined) {
+-            this._stellar = new chains_1.KeystoneStellarSDK();
+-        }
+-        return this._stellar;
+-    }
+-    get cosmos() {
+-        if (this._cosmos === undefined) {
+-            this._cosmos = new chains_1.KeystoneCosmosSDK(this.config);
+-        }
+-        return this._cosmos;
+-    }
+-    get evm() {
+-        if (this._evm === undefined) {
+-            this._evm = new chains_1.KeystoneEvmSDK(this.config);
+-        }
+-        return this._evm;
+-    }
+-    get tron() {
+-        if (this._tron === undefined) {
+-            this._tron = new chains_1.KeystoneTronSDK();
+-        }
+-        return this._tron;
+-    }
+-    get ltc() {
+-        if (this._ltc === undefined) {
+-            this._ltc = new chains_1.KeystoneLitecoinSDK();
+-        }
+-        return this._ltc;
+-    }
+-    get doge() {
+-        if (this._doge === undefined) {
+-            this._doge = new doge_1.KeystoneDogecoinSDK();
+-        }
+-        return this._doge;
+-    }
+-    get bch() {
+-        if (this._bch === undefined) {
+-            this._bch = new chains_1.KeystoneBitcoinCashSDK();
+-        }
+-        return this._bch;
+-    }
+-    get dash() {
+-        if (this._dash === undefined) {
+-            this._dash = new chains_1.KeystoneDashSDK();
+-        }
+-        return this._dash;
+-    }
+-    get aptos() {
+-        if (this._aptos === undefined) {
+-            this._aptos = new chains_1.KeystoneAptosSDK();
+-        }
+-        return this._aptos;
+-    }
+-    get near() {
+-        if (this._near === undefined) {
+-            this._near = new chains_1.KeystoneNearSDK();
+-        }
+-        return this._near;
+-    }
+-    get arweave() {
+-        if (this._arweave === undefined) {
+-            this._arweave = new chains_1.KeystoneArweaveSDK();
+-        }
+-        return this._arweave;
+-    }
+-    get sui() {
+-        if (this._sui === undefined) {
+-            this._sui = new chains_1.KeystoneSuiSDK(this.config);
+-        }
+-        return this._sui;
+-    }
+-    get iota() {
+-        if (this._iota === undefined) {
+-            this._iota = new iota_1.KeystoneIotaSDK(this.config);
+-        }
+-        return this._iota;
+-    }
+-    get cardano() {
+-        if (this._cardano === undefined) {
+-            this._cardano = new chains_1.KeystoneCardanoSDK(this.config);
+-        }
+-        return this._cardano;
+-    }
+-    get xrp() {
+-        if (this._xrp === undefined) {
+-            this._xrp = new xrp_1.KeystoneXrpSDK();
+-        }
+-        return this._xrp;
+-    }
+-    get ton() {
+-        if (this._ton === undefined) {
+-            this._ton = new chains_1.KeystoneTonSDK(this.config);
+-        }
+-        return this._ton;
+-    }
+-    get avalanche() {
+-        if (this._avalanche === undefined) {
+-            this._avalanche = new chains_1.KeystoneAvalancheSDK();
+-        }
+-        return this._avalanche;
+-    }
++    // OneKey patch: only BTC/ETH/SOL are used; unused chains pull their UR registries into the extension background bundle.
++    // get stellar() {
++    //     if (this._stellar === undefined) {
++    //         this._stellar = new chains_1.KeystoneStellarSDK();
++    //     }
++    //     return this._stellar;
++    // }
++    // get cosmos() {
++    //     if (this._cosmos === undefined) {
++    //         this._cosmos = new chains_1.KeystoneCosmosSDK(this.config);
++    //     }
++    //     return this._cosmos;
++    // }
++    // get evm() {
++    //     if (this._evm === undefined) {
++    //         this._evm = new chains_1.KeystoneEvmSDK(this.config);
++    //     }
++    //     return this._evm;
++    // }
++    // get tron() {
++    //     if (this._tron === undefined) {
++    //         this._tron = new chains_1.KeystoneTronSDK();
++    //     }
++    //     return this._tron;
++    // }
++    // get ltc() {
++    //     if (this._ltc === undefined) {
++    //         this._ltc = new chains_1.KeystoneLitecoinSDK();
++    //     }
++    //     return this._ltc;
++    // }
++    // get doge() {
++    //     if (this._doge === undefined) {
++    //         this._doge = new doge_1.KeystoneDogecoinSDK();
++    //     }
++    //     return this._doge;
++    // }
++    // get bch() {
++    //     if (this._bch === undefined) {
++    //         this._bch = new chains_1.KeystoneBitcoinCashSDK();
++    //     }
++    //     return this._bch;
++    // }
++    // get dash() {
++    //     if (this._dash === undefined) {
++    //         this._dash = new chains_1.KeystoneDashSDK();
++    //     }
++    //     return this._dash;
++    // }
++    // get aptos() {
++    //     if (this._aptos === undefined) {
++    //         this._aptos = new chains_1.KeystoneAptosSDK();
++    //     }
++    //     return this._aptos;
++    // }
++    // get near() {
++    //     if (this._near === undefined) {
++    //         this._near = new chains_1.KeystoneNearSDK();
++    //     }
++    //     return this._near;
++    // }
++    // get arweave() {
++    //     if (this._arweave === undefined) {
++    //         this._arweave = new chains_1.KeystoneArweaveSDK();
++    //     }
++    //     return this._arweave;
++    // }
++    // get sui() {
++    //     if (this._sui === undefined) {
++    //         this._sui = new chains_1.KeystoneSuiSDK(this.config);
++    //     }
++    //     return this._sui;
++    // }
++    // get iota() {
++    //     if (this._iota === undefined) {
++    //         this._iota = new iota_1.KeystoneIotaSDK(this.config);
++    //     }
++    //     return this._iota;
++    // }
++    // get cardano() {
++    //     if (this._cardano === undefined) {
++    //         this._cardano = new chains_1.KeystoneCardanoSDK(this.config);
++    //     }
++    //     return this._cardano;
++    // }
++    // get xrp() {
++    //     if (this._xrp === undefined) {
++    //         this._xrp = new xrp_1.KeystoneXrpSDK();
++    //     }
++    //     return this._xrp;
++    // }
++    // get ton() {
++    //     if (this._ton === undefined) {
++    //         this._ton = new chains_1.KeystoneTonSDK(this.config);
++    //     }
++    //     return this._ton;
++    // }
++    // get avalanche() {
++    //     if (this._avalanche === undefined) {
++    //         this._avalanche = new chains_1.KeystoneAvalancheSDK();
++    //     }
++    //     return this._avalanche;
++    // }
+     get psbt() {
+         if (this._psbt === undefined) {
+             this._psbt = new chains_1.KeystonePsbtSDK();
+         }
+         return this._psbt;
+     }
+-    get zcash() {
+-        if (this._zcash === undefined) {
+-            this._zcash = new chains_1.KeystoneZcashSDK();
+-        }
+-        return this._zcash;
+-    }
++    // get zcash() {
++    //     if (this._zcash === undefined) {
++    //         this._zcash = new chains_1.KeystoneZcashSDK();
++    //     }
++    //     return this._zcash;
++    // }
+ }
+ exports.KeystoneSDK = KeystoneSDK;
+ /**

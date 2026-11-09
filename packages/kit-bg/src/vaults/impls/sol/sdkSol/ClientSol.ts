@@ -27,6 +27,7 @@ export enum ERpcMethods {
   GET_SIGNATURE_STATUSES = 'getSignatureStatuses',
   GET_ASSET = 'getAsset',
   GET_ASSET_PROOF = 'getAssetProof',
+  IS_BLOCKHASH_VALID = 'isBlockhashValid',
 }
 
 export const MIN_PRIORITY_FEE = 1_000_000;
@@ -65,10 +66,16 @@ class ClientSol {
     return response;
   }
 
-  async getLatestBlockHash() {
+  async getLatestBlockHash(): Promise<{
+    recentBlockhash: string;
+    lastValidBlockHeight: number;
+    contextSlot?: number;
+    commitment?: 'confirmed';
+  }> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         value: { blockhash: string; lastValidBlockHeight: number };
+        context?: { slot?: number };
       }>({
         networkId: this.networkId,
         body: [
@@ -89,6 +96,8 @@ class ClientSol {
     return {
       recentBlockhash: response.value.blockhash,
       lastValidBlockHeight: response.value.lastValidBlockHeight,
+      contextSlot: response.context?.slot,
+      commitment: 'confirmed' as const,
     };
   }
 
@@ -283,6 +292,28 @@ class ClientSol {
       });
 
     return response.value;
+  }
+
+  // `processed` is the most permissive commitment: a blockhash still valid
+  // there can still be picked up by a leader, so only a `false` answer
+  // proves a signed payload can never land.
+  async isBlockhashValid(blockhash: string): Promise<boolean> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: boolean;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.IS_BLOCKHASH_VALID,
+              params: [blockhash, { commitment: 'processed' }],
+            },
+          },
+        ],
+      });
+    return Boolean(response.value);
   }
 
   async getRecentMaxPrioritizationFees(accountAddress: string[]) {

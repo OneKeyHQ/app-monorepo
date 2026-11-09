@@ -131,7 +131,7 @@ function ReceiveSelectorContent() {
   const networkId = route.params?.networkId ?? network?.id;
   const walletId = route.params?.walletId ?? wallet?.id;
   const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
-  const { token, onClose, showSwapEntry } = route.params ?? {};
+  const { token, onClose, showSwapEntry, showDoneButton } = route.params ?? {};
 
   // Exchanges cannot withdraw to Lightning invoices, so the
   // "receive from exchange" section is hidden on Lightning networks
@@ -221,12 +221,21 @@ function ReceiveSelectorContent() {
           indexedAccountId,
           disableSelector: true,
           source: 'receiveSelector',
+          showDoneButton,
         });
       } else {
         onPress();
       }
     },
-    [token, accountId, networkId, walletId, indexedAccountId, navigation],
+    [
+      token,
+      accountId,
+      networkId,
+      walletId,
+      indexedAccountId,
+      navigation,
+      showDoneButton,
+    ],
   );
 
   const handleBuyOnPress = useCallback(
@@ -299,7 +308,14 @@ function ReceiveSelectorContent() {
         onSelect: async (selectedToken: IToken) => {
           try {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const accountAddress =
               await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
                 accountId: tokenAccountId,
@@ -386,7 +402,14 @@ function ReceiveSelectorContent() {
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const isHardware =
               accountUtils.isHwWallet({ walletId }) ||
               accountUtils.isQrWallet({ walletId });
@@ -400,6 +423,7 @@ function ReceiveSelectorContent() {
                 indexedAccountId,
                 exchangeSource: config.id,
                 source: 'exchange',
+                showDoneButton,
               });
             } else {
               try {
@@ -445,6 +469,7 @@ function ReceiveSelectorContent() {
       indexedAccountId,
       walletId,
       wallet?.type,
+      showDoneButton,
     ],
   );
 
@@ -470,6 +495,9 @@ function ReceiveSelectorContent() {
               sameModal
               onClose={() => {}}
               source="receiveSelector"
+              // This row buys the given token itself; the Home account's
+              // address type step would start a second purchase after it.
+              withAddressTypeStep={!token}
               renderTrigger={({ onPress, disabled }) => (
                 <ReceiveOptions
                   testID={ReceiveTestIDs.BuyCryptoOption}

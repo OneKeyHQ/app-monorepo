@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
@@ -44,6 +45,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ESettingsTabNames,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -57,9 +59,11 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
+  AutoDownloadAppUpdateListItem,
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
@@ -82,6 +86,7 @@ import {
 } from './CustomElement';
 import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { RestoreInfiniPendingTransactionsListItem } from './RestoreInfiniPendingTransactionsListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
@@ -214,6 +219,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
+  const languageSearchKeywords = useLanguageSearchKeywords();
   const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -245,6 +251,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         id: ETranslations.settings_clear_pending_transactions,
       }),
       renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const restoreInfiniPendingTransactionsItem: ISubSettingConfig = {
+      id: 'restore-infini-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: `Infini: ${intl.formatMessage({ id: ETranslations.global_restore })} ${intl.formatMessage({ id: ETranslations.tray_pending_transactions_title })}`,
+      renderElement: <RestoreInfiniPendingTransactionsListItem />,
     };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
@@ -337,7 +349,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
-                platformEnv.isNative
+                platformEnv.isNative && !platformEnv.isNativeIOSMacCatalyst
                   ? {
                       id: 'onekey-lite',
                       icon: 'OnekeyLiteOutline',
@@ -401,6 +413,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.global_language,
               }),
+              keywords: languageSearchKeywords,
               renderElement: <LanguageListItem />,
             },
             {
@@ -523,6 +536,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isWebDappMode
               ? clearPendingTransactionsItem
               : undefined,
+            platformEnv.isWebDappMode
+              ? restoreInfiniPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -547,6 +563,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             }),
             configs: [
               [
+                // Lists the privacy chains, which Web does not offer.
+                !platformEnv.isWeb
+                  ? {
+                      id: 'privacy',
+                      icon: 'ShieldOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.trade_privacy_mode,
+                      }),
+                      testID: 'settings-wallet-privacy',
+                      settingRoute: EModalSettingRoutes.SettingPrivacy,
+                      onPress: (navigation) => {
+                        navigation?.push(EModalSettingRoutes.SettingPrivacy);
+                      },
+                    }
+                  : undefined,
                 {
                   id: 'address-book',
                   icon: 'ContactsOutline',
@@ -618,6 +649,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  // The only place to change the Bitcoin address type once
+                  // an account shows a single one, so it must be findable by
+                  // the words users know it by.
+                  keywords: [
+                    intl.formatMessage({ id: ETranslations.address_type }),
+                    'Taproot',
+                    'SegWit',
+                    'Legacy',
+                    'Nested',
+                    'bc1q',
+                    'bc1p',
+                  ],
                   settingRoute:
                     EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
@@ -638,7 +681,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [clearPendingTransactionsItem],
+              [
+                clearPendingTransactionsItem,
+                restoreInfiniPendingTransactionsItem,
+              ],
             ],
           },
       platformEnv.isWebDappMode
@@ -915,6 +961,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ListVersionItem />,
             },
+            platformEnv.isDesktop && !platformEnv.isDesktopStore
+              ? {
+                  id: 'auto-download-app-update',
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__desc,
+                  }),
+                  renderElement: <AutoDownloadAppUpdateListItem />,
+                }
+              : undefined,
           ],
           [
             {
@@ -1037,7 +1096,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      devSettings.enabled
+      devSettings.enabled ||
+      (platformEnv.isDev && (platformEnv.isDesktop || platformEnv.isExtension))
         ? {
             icon: 'CodeSolid',
             mobileIcon: 'CodeOutline',
@@ -1057,14 +1117,32 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             configs: [
               [
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                platformEnv.isDev &&
+                (platformEnv.isDesktop || platformEnv.isExtension)
+                  ? {
+                      id: 'developer-pages',
+                      icon: 'CodeBracketsOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      testID: 'setting-developer-pages',
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.DeveloperModal, {
+                          screen: ETabDeveloperRoutes.TabDeveloper,
+                        });
+                      },
+                    }
+                  : undefined,
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }
@@ -1175,5 +1253,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     privacyPolicyUrl,
     isPrimeActive,
     isMobileLayout,
+    languageSearchKeywords,
   ]);
 };

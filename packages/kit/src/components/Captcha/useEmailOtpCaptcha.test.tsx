@@ -110,9 +110,20 @@ describe('Email OTP CAPTCHA lifecycle', () => {
     expect(result.current.challenge?.requestId).toBe(requestId);
   });
 
-  test.each(['error', 'expired', 'ready'] as const)(
-    'provider %s keeps waiting across the old deadline for a retry success',
-    async (status) => {
+  test.each([
+    { status: 'error', code: undefined },
+    { status: 'error', code: '110600' },
+    { status: 'error', code: '200500' },
+    { status: 'error', code: '300010' },
+    { status: 'error', code: '600010' },
+    { status: 'error', code: '999999' },
+    { status: 'error', code: '4000210' },
+    { status: 'expired', code: undefined },
+    { status: 'ready', code: undefined },
+    { status: 'ready', code: '400021' },
+  ] as const)(
+    'provider $status ($code) keeps waiting across the old deadline for a retry success',
+    async ({ status, code }) => {
       jest.useFakeTimers();
       const { result } = renderHook(() =>
         useEmailOtpCaptcha({ config, email: 'a@example.com' }),
@@ -131,6 +142,7 @@ describe('Email OTP CAPTCHA lifecycle', () => {
           type: 'onekey-test-captcha',
           requestId: firstId || '',
           status,
+          code,
         });
         jest.advanceTimersByTime(180_000);
       });
@@ -138,6 +150,7 @@ describe('Email OTP CAPTCHA lifecycle', () => {
       expect(rejected).not.toHaveBeenCalled();
       expect(result.current.isWaiting).toBe(true);
       expect(result.current.challenge?.requestId).toBe(firstId);
+      expect(result.current.errorMessage).toBeUndefined();
       await act(async () => {
         result.current.onResult({
           type: 'onekey-test-captcha',
@@ -149,6 +162,94 @@ describe('Email OTP CAPTCHA lifecycle', () => {
       });
       expect(resolved).toHaveBeenCalledWith('retry-token');
       expect(result.current.isWaiting).toBe(false);
+    },
+  );
+
+  test.each([
+    '110100',
+    '110110',
+    '110200',
+    '200100',
+    '400020',
+    '400021',
+    '400070',
+  ])(
+    'terminal error %s allows a fresh retry and rejects late results',
+    async (code) => {
+      const { result } = renderHook(() =>
+        useEmailOtpCaptcha({ config, email: 'a@example.com' }),
+      );
+      let request!: Promise<string | undefined>;
+      act(() => {
+        request = result.current.takeCaptchaToken();
+      });
+      const firstId = result.current.challenge?.requestId || '';
+      const rejection = request.catch((error: unknown) => error);
+      await act(async () => {
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: firstId,
+          status: 'ready',
+        });
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: firstId,
+          status: 'error',
+          code,
+        });
+        await rejection;
+      });
+      expect(await rejection).toMatchObject({
+        message: 'CAPTCHA is unavailable. Please try again later.',
+      });
+      expect(result.current.isWaiting).toBe(false);
+      expect(result.current.challenge).toBeUndefined();
+      expect(result.current.errorMessage).toBe(
+        'CAPTCHA is unavailable. Please try again later.',
+      );
+      act(() => {
+        request = result.current.takeCaptchaToken();
+      });
+      const challenge = result.current.challenge;
+      expect(challenge?.requestId).not.toBe(firstId);
+      const resolved = jest.fn();
+      const completion = request.then(resolved);
+      await act(async () => {
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: firstId,
+          status: 'success',
+          token: 'late-token',
+        });
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: firstId,
+          status: 'error',
+          code,
+        });
+      });
+      expect(resolved).not.toHaveBeenCalled();
+      expect(result.current.challenge).toBe(challenge);
+      expect(result.current.errorMessage).toBeUndefined();
+      await act(async () => {
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: challenge?.requestId || '',
+          status: 'success',
+          token: 'fresh-token',
+        });
+        // Once success has released the request, a late error must not show Retry.
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: challenge?.requestId || '',
+          status: 'error',
+          code,
+        });
+        await completion;
+      });
+      expect(resolved).toHaveBeenCalledTimes(1);
+      expect(resolved).toHaveBeenCalledWith('fresh-token');
+      expect(result.current.errorMessage).toBeUndefined();
     },
   );
 

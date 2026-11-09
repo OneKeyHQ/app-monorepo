@@ -1,6 +1,7 @@
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_PURCHASE_COMPLETE_PATH } from '@onekeyhq/shared/src/routes/tabHome';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
@@ -165,6 +166,39 @@ export const sanitizeNavigationBreadcrumbsForLocalLog = (
         : {}),
     }));
 
+// Web routes whose query carries user identifiers, e.g. the RevenueCat hosted
+// checkout redirect appends ?app_user_id=<OneKey ID>.
+const QUERY_REDACTED_NAVIGATION_PATHS = new Set([PRIME_PURCHASE_COMPLETE_PATH]);
+
+function redactSensitiveNavigationUrl(url: unknown): unknown {
+  if (typeof url !== 'string') {
+    return url;
+  }
+  const [urlWithoutQuery] = url.split(/[?#]/);
+  const path = urlWithoutQuery
+    .replace(/^[a-z][a-z\d+.-]*:\/\/[^/]+/i, '')
+    .replace(/\/+$/, '');
+  return QUERY_REDACTED_NAVIGATION_PATHS.has(path) ? urlWithoutQuery : url;
+}
+
+export const sanitizeSensitiveNavigationBreadcrumb = <
+  T extends { category?: string; data?: Record<string, unknown> },
+>(
+  breadcrumb: T,
+): T => {
+  if (breadcrumb.category !== 'navigation' || !breadcrumb.data) {
+    return breadcrumb;
+  }
+  return {
+    ...breadcrumb,
+    data: {
+      ...breadcrumb.data,
+      from: redactSensitiveNavigationUrl(breadcrumb.data.from),
+      to: redactSensitiveNavigationUrl(breadcrumb.data.to),
+    },
+  };
+};
+
 export type ISentrySanitizationErrorHandler = (
   errorMessage: string,
   stacktrace?: ISentrySanitizableStacktrace,
@@ -219,6 +253,7 @@ export const buildSentryReleaseName = () =>
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
+  'SniRequestCancelledError',
   EOneKeyErrorClassNames.OneKeyError,
   EOneKeyErrorClassNames.OneKeyLocalError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
@@ -235,6 +270,32 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
+const isFilteredOriginalException = (originalException: unknown): boolean => {
+  let current: unknown = originalException;
+  for (let depth = 0; depth < 4 && current; depth += 1) {
+    if (typeof current !== 'object') {
+      break;
+    }
+    const candidate = current as {
+      className?: unknown;
+      name?: unknown;
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (
+      (typeof candidate.className === 'string' &&
+        FILTERED_ERROR_TYPES.has(candidate.className)) ||
+      (typeof candidate.name === 'string' &&
+        FILTERED_ERROR_TYPES.has(candidate.name)) ||
+      candidate.code === 'SNI_CANCELLED'
+    ) {
+      return true;
+    }
+    current = candidate.cause;
+  }
+  return false;
+};
+
 const FILTER_ERROR_VALUES = new Set([
   'AbortError: AbortError',
   'cancel timeout',
@@ -248,6 +309,12 @@ const isFilterErrorAndSkipSentry = (error?: {
     return false;
   }
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
+    return true;
+  }
+  if (
+    error.type === 'CanceledError' &&
+    error.value === 'Home token request superseded'
+  ) {
     return true;
   }
 
@@ -285,7 +352,9 @@ const isFilterErrorAndSkipSentry = (error?: {
 export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
   event: T,
   onError: ISentrySanitizationErrorHandler,
+  hint?: { originalException?: unknown },
 ): T | null => {
+  const shouldSkipSentry = isFilteredOriginalException(hint?.originalException);
   if (Array.isArray(event.exception?.values)) {
     for (let index = 0; index < event.exception.values.length; index += 1) {
       const exceptionValue = event.exception.values[index];
@@ -322,6 +391,9 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
       }
     }
   }
+  if (shouldSkipSentry) {
+    return null;
+  }
   // Filter out duplicate error messages
   if (Array.isArray(event.breadcrumbs)) {
     event.breadcrumbs = event.breadcrumbs.filter(
@@ -347,7 +419,7 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+    beforeSend: (event, hint) => sanitizeSentryEvent(event, onError, hint),
   }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<

@@ -69,10 +69,15 @@ function ConnectionList() {
   );
 
   const handleDAppDisconnect = useCallback(
-    async (origin: string, storageType: IConnectionStorageType) => {
+    async (
+      origin: string,
+      storageType: IConnectionStorageType,
+      walletConnectTopic?: string,
+    ) => {
       await serviceDApp.disconnectWebsite({
         origin,
         storageType,
+        walletConnectTopic,
         entry: 'SettingModal',
       });
       void run();
@@ -121,19 +126,21 @@ function ConnectionList() {
             showDiagnostics ? <WalletConnectDiagnosticsPanel /> : null
           }
           ListEmptyComponent={ConnectionListEmpty}
-          keyExtractor={(item) => item.origin}
+          keyExtractor={(item) => item.walletConnectTopic ?? item.origin}
           renderItem={({ item }) => (
             <ConnectionListItem
               item={item}
               handleDisconnect={handleDAppDisconnect}
               handleAccountChanged={({
                 origin,
+                walletConnectTopic,
                 num,
                 handleAccountChangedParams,
                 prevAccountInfo,
               }) =>
                 handleAccountInfoChanged({
                   origin,
+                  walletConnectTopic,
                   accountSelectorNum: num,
                   prevAccountInfo,
                   accountChangedParams: handleAccountChangedParams,

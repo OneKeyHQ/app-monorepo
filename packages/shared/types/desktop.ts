@@ -1,4 +1,5 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
+import type { IFetchStreamRequester } from './fetchStream';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
@@ -65,11 +66,15 @@ export type INobleBleApi = {
 };
 
 export type IDesktopApiLegacy = IDesktopApiGlobal & {
+  // Older binaries omit this capability and cannot consume UA bridge headers.
+  supportsCustomUserAgent?: boolean;
   on: (
     channel: string,
     func: (...args: any[]) => any,
   ) => IDesktopEventUnSubscribe | undefined;
   logDirectory: string;
+  claimStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime') => boolean;
+  releaseStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime') => void;
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
@@ -110,6 +115,8 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: INobleBleApi;
+  /** Privacy-chain node requests from the main process (no renderer CORS). */
+  fetchStream: IFetchStreamRequester;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{
     private: number;

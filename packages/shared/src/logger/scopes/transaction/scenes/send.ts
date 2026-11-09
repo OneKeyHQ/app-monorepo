@@ -1,8 +1,11 @@
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { sanitizeSolanaTxDiagnosticEvent } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import type { ISolanaTxDiagnosticEvent } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 import type {
   IGasAccountActionParams,
@@ -68,6 +71,11 @@ interface ISendPrivateOrderFinalStatusParams {
 }
 
 export class SendScene extends BaseScene {
+  @LogToLocal()
+  public solanaTxDiagnostic(params: ISolanaTxDiagnosticEvent) {
+    return sanitizeSolanaTxDiagnosticEvent(params) ?? NO_LOG_OUTPUT;
+  }
+
   private _sendFlowId: string | undefined;
 
   private _addressInputMethod: string | undefined;

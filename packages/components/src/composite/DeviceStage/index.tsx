@@ -30,6 +30,7 @@ import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { easeOutFn } from '../../content/deviceScene';
@@ -96,8 +97,10 @@ import {
   resolveInstallText,
   resolvePairingCodeText,
   resolvePassphrasePanelText,
+  resolveQrFallbackText,
   resolveStageText,
   resolveStepSub,
+  resolveWalletMatchOpenAppText,
 } from './stepCopy';
 import { StepText, TEXT_OUT_MS } from './StepText';
 import {
@@ -108,7 +111,11 @@ import {
 import { WalletTypeOptions } from './WalletTypeOptions';
 
 import type { ICardArrangement } from './arrangements';
-import type { IDeviceStageProps, IDeviceStageStep } from './type';
+import type {
+  IDeviceStageProps,
+  IDeviceStageStep,
+  IDeviceStageVendor,
+} from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
 import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
@@ -144,10 +151,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
  * nothing dims (the design leaves the overlay layer off here). The
- * terminal failure cards are the exception (OK-62072): a bright app
- * under an unnoticed error card read as "still tappable", so those
- * three arrangements wear the scrim. Dismissal is the
- * container's (close button, drag, tap outside) behind one grant —
+ * terminal failure cards add the scrim (OK-62072): a bright app under an
+ * unnoticed error card read as "still tappable", so those three
+ * arrangements dim it. The error notice is the one surface that leaves
+ * the app live (OK-64696): the device is off duty by then, and the
+ * page's own next step (retry, support) must answer the first tap.
+ * Dismissal is the container's (close button, drag) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
  * Still out of scope until ratified: presence in/out for real
@@ -159,6 +168,15 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * device's name. The row is the capsule's content, inside the
  * container's own capsule padding (PILL.pad); the row plus that padding
  * is the capsule's measured size. */
+const STAGE_VENDOR_AVATAR: Record<
+  IDeviceStageVendor,
+  { vendor: EHardwareVendor; fallback: IThirdPartyWalletAvatarImageNames }
+> = {
+  ledger: { vendor: EHardwareVendor.ledger, fallback: 'LedgerNanoX' },
+  trezor: { vendor: EHardwareVendor.trezor, fallback: 'TrezorSafe7' },
+  keystone: { vendor: EHardwareVendor.keystone, fallback: 'keystone' },
+};
+
 const CAPSULE_ROW = {
   /** The content's own inset inside the capsule padding. */
   paddingX: 8,
@@ -204,10 +222,8 @@ const WORDS_ESTIMATED_HEIGHT = 72;
 const PANEL_WARM_MS = 475;
 
 /** The actionless error is a notice — it informs, holds long enough to
- * read, then leaves on its own. The exit is a request through the same
- * close grant the ✕ fires, so the driver keeps the last word (and
- * answers with `off`, as ever). Measured from the words landing on
- * show, not from the step change. */
+ * read, then leaves on its own through `onErrorNoticeExpire`. Measured
+ * from the words landing on show, not from the step change. */
 const ERROR_NOTICE_EXIT_MS = 3000;
 
 /** The replica's exit and return around the notice's capsule seat — its
@@ -528,6 +544,8 @@ export function DeviceStage({
   connectionType,
   waitStalled,
   onClose,
+  onErrorNoticeExpire,
+  errorNoticeKey,
   confirmDetails,
   confirmMessage,
   confirmDescription,
@@ -535,8 +553,12 @@ export function DeviceStage({
   confirmCount,
   qrValue,
   qrValueUr,
+  qrNoticeI18n,
+  qrSessionId,
+  qrRenderKey,
   qrScannerView,
   onQrNext,
+  onQrRenderReady,
   onQrBack,
   errorReason,
   errorMessage,
@@ -566,16 +588,21 @@ export function DeviceStage({
   vendorModel,
   vendorModelName,
   appName,
+  transferProgress,
   installProgress,
   installQueue,
   installActiveIndex,
   btcHighIndexPath,
   btcHighIndexAccountIndex,
+  qrFallbackReason,
+  openAppReason,
   onPairingSubmit,
   onDeviceNotFoundRetry,
   onDeviceNotFoundTroubleshoot,
   onDeviceNotFoundSupport,
   onBtcHighIndexConfirm,
+  onQrFallbackConfirm,
+  onQrFallbackRetry,
   onInstallConfirm,
 }: IDeviceStageProps) {
   const intl = useIntl();
@@ -595,6 +622,7 @@ export function DeviceStage({
     errorI18n,
   );
   const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
+  const localizedQrNotice = resolveErrorMessage(intl, undefined, qrNoticeI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -982,21 +1010,23 @@ export function DeviceStage({
   });
 
   // The notice's exit: after a readable hold — counted from the words
-  // landing on show — the stage requests close. Ref-called so a driver
-  // re-creating its handler never restarts the hold; gated on the grant
-  // existing at all — a driver that means the error to auto-leave grants
-  // close with it (the notice is terminal, nothing to protect).
+  // landing on show, and again for each new outcome (errorNoticeKey) —
+  // the stage asks the driver to retire the outcome the hold was armed
+  // for, never one that replaced it as the timer ran out. Ref-called so
+  // a driver re-creating its handler never restarts the hold.
   const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const closeGranted = Boolean(onClose);
+  const onErrorNoticeExpireRef = useRef(onErrorNoticeExpire);
+  onErrorNoticeExpireRef.current = onErrorNoticeExpire;
   useEffect(() => {
-    if (!errorNoticeShown || !closeGranted) {
+    if (!errorNoticeShown) {
       return undefined;
     }
-    const id = setTimeout(() => onCloseRef.current?.(), ERROR_NOTICE_EXIT_MS);
+    const id = setTimeout(
+      () => onErrorNoticeExpireRef.current?.(errorNoticeKey),
+      ERROR_NOTICE_EXIT_MS,
+    );
     return () => clearTimeout(id);
-  }, [closeGranted, errorNoticeShown]);
+  }, [errorNoticeShown, errorNoticeKey]);
 
   // The capsule seat is the standing replica's — except under the
   // notice, whose seat is the failure glyph instead. The gate fades the
@@ -1340,6 +1370,10 @@ export function DeviceStage({
       resolveBtcHighIndexSub(intl, btcHighIndexPath, btcHighIndexAccountIndex),
     [btcHighIndexAccountIndex, btcHighIndexPath, intl],
   );
+  const qrFallbackText = useMemo(
+    () => resolveQrFallbackText(intl, qrFallbackReason),
+    [intl, qrFallbackReason],
+  );
   const installConfirmText = useMemo(
     () => resolveInstallText(intl, 'installConfirm', appName),
     [appName, intl],
@@ -1357,11 +1391,10 @@ export function DeviceStage({
       return undefined;
     }
     const key = getThirdPartyDeviceAvatarImage({
-      vendor:
-        vendor === 'ledger' ? EHardwareVendor.ledger : EHardwareVendor.trezor,
+      vendor: STAGE_VENDOR_AVATAR[vendor].vendor,
       vendorModel,
       vendorModelName,
-      fallback: vendor === 'ledger' ? 'LedgerNanoX' : 'TrezorSafe7',
+      fallback: STAGE_VENDOR_AVATAR[vendor].fallback,
     });
     // The avatar table's values are bare require() results (untyped).
     return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
@@ -1400,16 +1433,22 @@ export function DeviceStage({
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    const nextCapsuleText = resolveCapsuleText(
-      intl,
-      step,
-      deviceName,
-      vendor,
-      errorReason,
-      localizedErrorMessage,
-      waitStalled ? (connectionType ?? 'usb') : undefined,
-      localizedDoneTitle,
-    );
+    const walletMatchText =
+      step === 'openApp'
+        ? resolveWalletMatchOpenAppText(intl, openAppReason, appName, vendor)
+        : undefined;
+    const nextCapsuleText =
+      walletMatchText ??
+      resolveCapsuleText(
+        intl,
+        step,
+        deviceName,
+        vendor,
+        errorReason,
+        localizedErrorMessage,
+        waitStalled ? (connectionType ?? 'usb') : undefined,
+        localizedDoneTitle,
+      );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
     if (
@@ -1787,17 +1826,28 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.showQr.tail}>
-          <QrPresent value={qrValue} valueUr={qrValueUr} onNext={onQrNext} />
+          <QrPresent
+            key={qrRenderKey ?? qrSessionId}
+            value={qrValue}
+            valueUr={qrValueUr}
+            notice={localizedQrNotice}
+            onNext={onQrNext}
+            onRenderReady={onQrRenderReady}
+          />
         </View>
       </YStack>
     ),
     [
       appStepSub.showQr,
       intl,
+      localizedQrNotice,
       onQrNext,
+      onQrRenderReady,
       panelMeasureHandlers,
       qrValue,
       qrValueUr,
+      qrSessionId,
+      qrRenderKey,
     ],
   );
   const scanQrPanel = useMemo(
@@ -2014,6 +2064,66 @@ export function DeviceStage({
     ),
     [btcHighIndexSub, intl, onBtcHighIndexConfirm, panelMeasureHandlers],
   );
+  // Only a connected device the wallet cannot use can be fixed and
+  // retried; an oversized request stays oversized.
+  const isQrFallbackRetryable =
+    !!qrFallbackReason && qrFallbackReason !== 'payload-too-large';
+  const qrFallbackPanel = useMemo(
+    () => (
+      <YStack>
+        <View onLayout={panelMeasureHandlers.qrFallback.words}>
+          <StepText
+            title={qrFallbackText.title}
+            sub={qrFallbackText.sub}
+            animated={false}
+          />
+        </View>
+        <View onLayout={panelMeasureHandlers.qrFallback.tail}>
+          {isQrFallbackRetryable ? (
+            <YStack gap="$2">
+              {onQrFallbackRetry ? (
+                <Button
+                  testID="device-stage-qr-fallback-retry"
+                  variant="primary"
+                  size="large"
+                  onPress={onQrFallbackRetry}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              ) : null}
+              {onQrFallbackConfirm ? (
+                <Button
+                  testID="device-stage-qr-fallback-confirm"
+                  size="large"
+                  onPress={onQrFallbackConfirm}
+                >
+                  {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
+                </Button>
+              ) : null}
+            </YStack>
+          ) : null}
+          {!isQrFallbackRetryable && onQrFallbackConfirm ? (
+            <Button
+              testID="device-stage-qr-fallback-confirm"
+              variant="primary"
+              size="large"
+              onPress={onQrFallbackConfirm}
+            >
+              {intl.formatMessage({ id: ETranslations.global_continue })}
+            </Button>
+          ) : null}
+        </View>
+      </YStack>
+    ),
+    [
+      intl,
+      isQrFallbackRetryable,
+      onQrFallbackConfirm,
+      onQrFallbackRetry,
+      panelMeasureHandlers,
+      qrFallbackText,
+    ],
+  );
   const installConfirmPanel = useMemo(
     () => (
       <YStack>
@@ -2100,6 +2210,7 @@ export function DeviceStage({
       pairingCode: pairingCodePanel,
       deviceNotFound: deviceNotFoundPanel,
       btcHighIndex: btcHighIndexPanel,
+      qrFallback: qrFallbackPanel,
       installConfirm: installConfirmPanel,
       installing: installingPanel,
       installBatch: installBatchPanel,
@@ -2116,6 +2227,7 @@ export function DeviceStage({
       passphraseIntroPanel,
       passphrasePanel,
       pinPanel,
+      qrFallbackPanel,
       scanQrPanel,
       selectWalletTypePanel,
       showQrPanel,
@@ -2213,6 +2325,29 @@ export function DeviceStage({
   // — never for a flight settling over the other glyphs.
   const bluetoothBadgePaused =
     capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
+  const transferPercent =
+    step === 'processing' &&
+    typeof transferProgress === 'number' &&
+    Number.isFinite(transferProgress)
+      ? Math.max(0, Math.min(100, Math.round(transferProgress)))
+      : undefined;
+  const transferAccessibilityValue = useMemo(
+    () => ({ min: 0, max: 100, now: transferPercent }),
+    [transferPercent],
+  );
+  const transferTitle =
+    transferPercent !== undefined
+      ? intl.formatMessage({ id: ETranslations.communication_communicating })
+      : capsuleText.title;
+  const transferCapsuleKeyRef = useRef<string | undefined>(undefined);
+  if (transferPercent !== undefined) {
+    transferCapsuleKeyRef.current = capsuleText.title;
+  } else if (step !== 'done') {
+    transferCapsuleKeyRef.current = undefined;
+  }
+  // Replace a completed transfer in place: an exiting keyed row would retain
+  // its full-width bar while the success capsule shrinks to its new words.
+  const capsuleKey = transferCapsuleKeyRef.current ?? capsuleText.title;
   const capsule = useMemo(
     () => (
       <XStack
@@ -2261,17 +2396,41 @@ export function DeviceStage({
             the notice too — the sweep is a waiting affordance, and the
             notice waits for nothing. */}
           <ShimmerTitle paused={pose !== 'capsule' || capsuleGlyph === 'error'}>
-            {capsuleText.title}
+            {transferTitle}
           </ShimmerTitle>
-          {capsuleText.sub ? (
+          {capsuleText.sub && transferPercent === undefined ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {capsuleText.sub}
             </SizableText>
           ) : null}
+          {transferPercent !== undefined ? (
+            <YStack gap="$1" mt="$1" minWidth={120}>
+              <Stack
+                testID="device-stage-transfer-progress"
+                accessibilityRole="progressbar"
+                accessibilityValue={transferAccessibilityValue}
+                h="$1"
+                borderRadius="$full"
+                bg="$neutral5"
+                overflow="hidden"
+              >
+                <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
+              </Stack>
+            </YStack>
+          ) : null}
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      transferTitle,
+      pose,
+      transferAccessibilityValue,
+      transferPercent,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(
@@ -2298,9 +2457,9 @@ export function DeviceStage({
       onDismiss={onClose}
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
-      modal
+      modal={!errorNotice}
       scrim={scrim}
-      capsuleKey={capsuleText.title}
+      capsuleKey={capsuleKey}
       capsule={capsule}
       stageLayer={stageLayer}
       seats={seats}

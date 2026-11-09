@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit, IFeesInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
@@ -29,7 +30,7 @@ import type { IEncodedTxStellar } from '../chains/stellar/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTon } from '../chains/ton/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
-import type { IEncodedTxXmr } from '../chains/xmr/types';
+import type { IEncodedTxXmr, IXmrSentTxKeys } from '../chains/xmr/types';
 import type { IEncodedTxXrp } from '../chains/xrp/types';
 import type BigNumber from 'bignumber.js';
 
@@ -105,6 +106,9 @@ export type IUnsignedTx = {
 };
 
 export type IUnsignedTxPro = IUnsignedTx & {
+  solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
+  // Additional SOL funded by this wallet for ATA creation, outside network fees.
+  solanaRent?: string;
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   feesInfo?: IFeesInfoUnit | undefined;
@@ -138,6 +142,8 @@ export type ISignedTxResult = ISignedTx & {
   publicKey?: string; // hex string
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
+  // Monero: proof keys the vault moves into its sent record, so they never leave signing
+  xmrSentTxKeys?: IXmrSentTxKeys;
   pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
   // for lightning network
   nonce?: number;
@@ -151,6 +157,7 @@ export type ISignedTxResult = ISignedTx & {
   outputIndex?: number;
 };
 export type ISignedTxPro = ISignedTxResult & {
+  solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessageItemPro = string;

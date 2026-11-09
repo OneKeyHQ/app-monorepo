@@ -56,9 +56,10 @@ export function useNetworkAccount(networkId: string) {
     ],
   );
   const { result: accountResult } = usePromiseResult(async () => {
-    const account = request.networkId
-      ? await backgroundApiProxy.serviceAccount.getNetworkAccount(request)
-      : null;
+    const account =
+      request.networkId && (request.accountId || request.indexedAccountId)
+        ? await backgroundApiProxy.serviceAccount.getNetworkAccount(request)
+        : null;
     return { request, account };
   }, [request]);
   // Hide the previous identity during render, before the async lookup starts.

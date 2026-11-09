@@ -1,13 +1,39 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { isTokenContractAddressKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { swapStockTokenListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type IFetchTokensParams,
 } from '@onekeyhq/shared/types/swap/types';
 
+// A pasted contract address searches every network, because users often do
+// not know which chain the address belongs to. The selected network is kept
+// for name/symbol searches and for Stock, whose network scope is curated.
+export function resolveSwapTokenSearchNetworkId({
+  selectedNetworkId,
+  keywords,
+  swapType,
+  allNetworksId,
+}: {
+  selectedNetworkId?: string;
+  keywords?: string;
+  swapType?: ESwapTabSwitchType;
+  allNetworksId?: string;
+}) {
+  if (
+    !allNetworksId ||
+    swapType === ESwapTabSwitchType.STOCK ||
+    !isTokenContractAddressKeywords(keywords)
+  ) {
+    return selectedNetworkId;
+  }
+  return allNetworksId;
+}
+
 export function buildSwapTokenFetchParams({
   currentNetworkId,
   currentSelectNetworkId,
+  searchNetworkId,
   keywords,
   swapType,
   lpToken,
@@ -20,6 +46,7 @@ export function buildSwapTokenFetchParams({
 }: {
   currentNetworkId?: string;
   currentSelectNetworkId?: string;
+  searchNetworkId?: string;
   keywords?: string;
   swapType?: ESwapTabSwitchType;
   lpToken?: boolean;
@@ -30,7 +57,8 @@ export function buildSwapTokenFetchParams({
   currentAccountNetworkId?: string;
   currentAccountId?: string;
 }): IFetchTokensParams {
-  const targetNetworkId = currentSelectNetworkId ?? currentNetworkId;
+  const selectedNetworkId = currentSelectNetworkId ?? currentNetworkId;
+  const targetNetworkId = searchNetworkId ?? selectedNetworkId;
   const baseParams: IFetchTokensParams = {
     protocol: swapType,
     networkId: targetNetworkId,

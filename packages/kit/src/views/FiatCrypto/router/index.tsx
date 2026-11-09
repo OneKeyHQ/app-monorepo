@@ -21,8 +21,13 @@ const FiatCryptoHeadlessBuyTokenSelectorModal = LazyLoadPage(
     import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/TokenSelector'),
 );
 
-const FiatCryptoHeadlessBuySuccessModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/Success'),
+const FiatCryptoHeadlessBuyOrdersModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/Orders'),
+);
+
+const FiatCryptoHeadlessBuyOrderDetailModal = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/FiatCrypto/pages/HeadlessBuy/OrderDetail'),
 );
 
 export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
@@ -46,7 +51,11 @@ export const ModalFiatCryptoRouter: IModalFlowNavigatorConfig<
     component: FiatCryptoHeadlessBuyTokenSelectorModal,
   },
   {
-    name: EModalFiatCryptoRoutes.HeadlessBuySuccess,
-    component: FiatCryptoHeadlessBuySuccessModal,
+    name: EModalFiatCryptoRoutes.HeadlessBuyOrders,
+    component: FiatCryptoHeadlessBuyOrdersModal,
+  },
+  {
+    name: EModalFiatCryptoRoutes.HeadlessBuyOrderDetail,
+    component: FiatCryptoHeadlessBuyOrderDetailModal,
   },
 ];

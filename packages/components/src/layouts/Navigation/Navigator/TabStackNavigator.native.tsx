@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet, View } from 'react-native';
 
 import {
   EAppEventBusNames,
@@ -9,6 +11,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -16,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
+import { EPageType } from '../../../hocs';
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 import {
   ESplitViewType,
@@ -25,26 +32,61 @@ import {
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
-import { makeTabScreenOptions } from '../GlobalScreenOptions';
+import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
+import {
+  makeModalStackNavigatorOptions,
+  makeTabScreenOptions,
+} from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
+import { shouldApplyHorizontalSafeArea } from './ModalHorizontalSafeArea';
 import {
   rootNavigationRef,
   tabletMainViewNavigationRef,
   willTabFocusTransition,
 } from './NavigationContainer';
 
-import type { ITabNavigatorProps, ITabSubNavigatorConfig } from './types';
+import type { ITabNavigatorProps, ITabSubStackNavigatorProps } from './types';
 
 const Stack = createStackNavigator();
 
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+});
+
+// iPhone Duo places the status bar, camera and vertical tab bar in a side strip
+// and reports it as a horizontal safe area inset. Tab pages only handle
+// top/bottom insets, so keep their content out of that strip here. Regular
+// iPhones are portrait-locked, where these insets are always 0. Pad inside each
+// screen: UIKit lays out the vertical bar against the navigation controller's
+// edge, so padding around the navigator drags the bar out of the strip.
+function HorizontalSafeAreaTabScreen({ children }: { children: ReactNode }) {
+  const { left, right } = useSafeAreaInsets();
+  const style = useMemo(
+    () => [styles.screen, { paddingLeft: left, paddingRight: right }],
+    [left, right],
+  );
+  return <View style={style}>{children}</View>;
+}
+
+// React Navigation calls `screenLayout` as a plain function while looping over
+// routes, so it must return an element instead of running hooks itself.
+function renderHorizontalSafeAreaTabScreen({
+  children,
+}: {
+  children: ReactElement;
+}) {
+  return <HorizontalSafeAreaTabScreen>{children}</HorizontalSafeAreaTabScreen>;
+}
+
 function BasicTabSubStackNavigator({
   config,
-}: {
-  config: ITabSubNavigatorConfig<string, any>[] | null;
-}) {
+  pushedScreenPresentation = 'tab',
+  applyHorizontalSafeArea = false,
+}: ITabSubStackNavigatorProps) {
   const theme = useTheme();
   const intl = useIntl();
 
@@ -53,34 +95,77 @@ function BasicTabSubStackNavigator({
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenLayout={
+        applyHorizontalSafeArea && shouldApplyHorizontalSafeArea
+          ? renderHorizontalSafeAreaTabScreen
+          : undefined
+      }
+    >
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => {
-          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
-          const screenOptions = ({ navigation }: { navigation: any }) => ({
-            freezeOnBlur: true,
-            title: translationId
-              ? intl.formatMessage({
-                  id: translationId,
-                })
-              : '',
-            ...makeTabScreenOptions({
-              navigation,
-              bgColor: theme.bgApp.val,
-              titleColor: theme.text.val,
-            }),
-            headerShown,
-          });
-          return (
-            <Stack.Screen
-              key={name}
-              name={name}
-              component={component}
-              options={screenOptions}
-            />
-          );
-        })}
+        .map(
+          (
+            { name, component, translationId, options, headerShown = true },
+            index,
+          ) => {
+            if (index > 0 && pushedScreenPresentation === 'modal') {
+              // Pages built for the modal stack expect its opaque header, not
+              // the root tab's Liquid Glass bar that content extends under.
+              // Their own title and options apply on top, as in the modal flow.
+              // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+              const modalScreenOptions = (optionsInfo: {
+                navigation: any;
+                route: any;
+              }) => ({
+                freezeOnBlur: true,
+                ...makeModalStackNavigatorOptions({
+                  optionsInfo,
+                  bgColor: theme.bgApp.val,
+                  titleColor: theme.text.val,
+                  pageType: EPageType.modal,
+                }),
+                title: translationId
+                  ? intl.formatMessage({ id: translationId })
+                  : '',
+                ...(typeof options === 'function'
+                  ? options(optionsInfo)
+                  : options),
+              });
+              return (
+                <Stack.Screen
+                  key={name}
+                  name={name}
+                  component={component}
+                  options={modalScreenOptions}
+                />
+              );
+            }
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+            const screenOptions = ({ navigation }: { navigation: any }) => ({
+              freezeOnBlur: true,
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId,
+                  })
+                : '',
+              ...makeTabScreenOptions({
+                navigation,
+                bgColor: theme.bgApp.val,
+                titleColor: theme.text.val,
+              }),
+              headerShown,
+            });
+            return (
+              <Stack.Screen
+                key={name}
+                name={name}
+                component={component}
+                options={screenOptions}
+              />
+            );
+          },
+        )}
     </Stack.Navigator>
   );
 }
@@ -111,6 +196,7 @@ const nativeTabScreenOptions = {
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  sideAccessory,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
@@ -141,6 +227,16 @@ export function TabStackNavigator<RouteName extends string>({
         });
       }
       if (routeName === ETabRoutes.Market) {
+        // Pressing the already focused tab is not an entry; a marker left by it
+        // would be consumed by the next return from a page above the home.
+        if (
+          willTabFocusTransition(
+            routeName,
+            isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+          )
+        ) {
+          markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+        }
         appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
           from: EEnterWay.HomeTab,
         });
@@ -167,7 +263,7 @@ export function TabStackNavigator<RouteName extends string>({
       .map(({ name, children, nativeTabBarIcon, translationId, trackId }) => {
         // eslint-disable-next-line react/no-unstable-nested-components
         const ScreenComponent = () => (
-          <TabSubStackNavigator config={children} />
+          <TabSubStackNavigator config={children} applyHorizontalSafeArea />
         );
 
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
@@ -205,7 +301,10 @@ export function TabStackNavigator<RouteName extends string>({
     if (extraConfig) {
       // eslint-disable-next-line react/no-unstable-nested-components
       const ExtraScreenComponent = () => (
-        <TabSubStackNavigator config={extraConfig.children} />
+        <TabSubStackNavigator
+          config={extraConfig.children}
+          applyHorizontalSafeArea
+        />
       );
 
       screens.push(
@@ -244,7 +343,7 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       // On iOS 26+ omit backgroundColor so UITabBar renders the system
       // Liquid Glass material via configureWithDefaultBackground. Setting
-      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // appearance.backgroundColor in @onekeyfe/react-native-bottom-tabs would
       // overwrite the glass material with an opaque fill.
       platformEnv.isNativeIOS26Plus
         ? undefined
@@ -259,11 +358,15 @@ export function TabStackNavigator<RouteName extends string>({
         hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
         disablePageAnimations
         sidebarAdaptable={false}
+        androidTabBarStyle={ANDROID_TAB_BAR_STYLE}
         tabBarHidden={hidden}
         tabBarActiveTintColor={theme.iconActive.val}
         tabBarInactiveTintColor={theme.iconSubdued.val}
         tabBarStyle={tabBarStyle}
         screenOptions={nativeTabScreenOptions}
+        sideAccessoryIcon={sideAccessory?.icon}
+        sideAccessoryLabel={sideAccessory?.label}
+        onSideAccessoryPress={sideAccessory?.onPress}
       >
         {tabScreens}
       </NativeTab.Navigator>

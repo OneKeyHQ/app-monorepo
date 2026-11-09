@@ -17,6 +17,10 @@ interface ISwapCommonInfoItemProps {
   valueComponent?: ReactNode;
   onPress?: () => void;
   questionMarkContent?: ReactNode;
+  questionMarkPopoverProps?: Pick<
+    ComponentProps<typeof Popover>,
+    'renderTrigger' | 'mountNativePortalBeforeOpen'
+  >;
   isLoading?: boolean;
   titleProps?: ISizableTextProps;
   valueProps?: ISizableTextProps;
@@ -26,12 +30,12 @@ interface ISwapCommonInfoItemProps {
 const SwapCommonInfoItemTitleContent = ({
   title,
   questionMarkContent,
+  questionMarkPopoverProps,
   titleProps,
-}: {
-  title: string;
-  questionMarkContent?: ReactNode;
-  titleProps?: ISizableTextProps;
-}) => {
+}: Pick<
+  ISwapCommonInfoItemProps,
+  'title' | 'questionMarkContent' | 'questionMarkPopoverProps' | 'titleProps'
+>) => {
   const questionMarkComponent = useMemo(
     () => (
       <Popover
@@ -45,9 +49,10 @@ const SwapCommonInfoItemTitleContent = ({
           />
         }
         renderContent={<Stack>{questionMarkContent}</Stack>}
+        {...questionMarkPopoverProps}
       />
     ),
-    [questionMarkContent, title],
+    [questionMarkContent, questionMarkPopoverProps, title],
   );
   return (
     <XStack alignItems="center">
@@ -74,6 +79,7 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  questionMarkPopoverProps,
   titleProps,
   valueProps,
   containerProps,
@@ -116,6 +122,7 @@ const SwapCommonInfoItem = ({
       <SwapCommonInfoItemTitleContentMemo
         title={title}
         questionMarkContent={questionMarkContent}
+        questionMarkPopoverProps={questionMarkPopoverProps}
         titleProps={titleProps}
       />
 

@@ -26,10 +26,12 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 import type { IWcPayPreBroadcastRecord } from '../walletConnect/payTypes';
 
 export enum EModalSignatureConfirmRoutes {
@@ -74,6 +76,7 @@ export type IModalSignatureConfirmParamList = {
     isAllNetworks?: boolean;
     disableAddressTypeSelector?: boolean;
     showAddressTypeSelectorWhenDisabled?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
     networkId: string;
@@ -83,6 +86,7 @@ export type IModalSignatureConfirmParamList = {
     nfts?: IAccountNFT[];
     recipientAddress: string;
     recipientMemo?: string;
+    recipientMemoEncoding?: IZcashMemoEncoding;
     recipientPaymentId?: string;
     recipientNote?: string;
     recipientIsContract?: boolean;
@@ -90,6 +94,7 @@ export type IModalSignatureConfirmParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
@@ -124,6 +129,9 @@ export type IModalSignatureConfirmParamList = {
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
+    // Free-trial usage of a bulk tool confirmed tx by tx (Tron bulk send);
+    // ServiceSend marks it consumed at the broadcast point.
+    freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
   };
   [EModalSignatureConfirmRoutes.BatchTxConfirm]: {
     batchId: string;

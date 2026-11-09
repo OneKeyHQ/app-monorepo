@@ -9,13 +9,18 @@
 
 import path from 'path';
 
-import { UNRECOVERABLE_DOWNLOAD_ERROR_CODES } from '@onekeyhq/kit/src/components/AppUpdate/updateErrorTaxonomy';
+import {
+  EUpdateErrorCode,
+  isRetryableUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 // Import the REAL shipped helpers (named exports) so these tests exercise
 // production code instead of re-implemented local copies (OCDS conformance:
 // the test must pin the actual classifier the downloader runs).
 import { USERDATA, makeApi } from './__e2e__/desktopBundleUpdateE2eHarness';
 import {
+  MAX_BUNDLE_ENTRY_COUNT,
+  MAX_BUNDLE_UNCOMPRESSED_BYTES,
   classifyHttpStatus,
   computeBackoffMs,
   contentRangeStart,
@@ -403,7 +408,6 @@ describe('DesktopApiBundleUpdate path traversal detection', () => {
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate verifyBundle params', () => {
   interface IVerifyParams {
-    downloadedFile?: string;
     sha256?: string;
     appVersion?: string;
     bundleVersion?: string;
@@ -411,15 +415,8 @@ describe('DesktopApiBundleUpdate verifyBundle params', () => {
   }
 
   function validateVerifyParams(params: IVerifyParams): string | null {
-    const { downloadedFile, sha256, appVersion, bundleVersion, signature } =
-      params;
-    if (
-      !downloadedFile ||
-      !sha256 ||
-      !appVersion ||
-      !bundleVersion ||
-      !signature
-    ) {
+    const { sha256, appVersion, bundleVersion, signature } = params;
+    if (!sha256 || !appVersion || !bundleVersion || !signature) {
       return 'Invalid parameters';
     }
     return null;
@@ -428,7 +425,6 @@ describe('DesktopApiBundleUpdate verifyBundle params', () => {
   test('accepts complete params', () => {
     expect(
       validateVerifyParams({
-        downloadedFile: '/tmp/bundle.zip',
         sha256: 'abc123',
         appVersion: '1.0.0',
         bundleVersion: '5',
@@ -437,10 +433,9 @@ describe('DesktopApiBundleUpdate verifyBundle params', () => {
     ).toBeNull();
   });
 
-  test('rejects missing downloadedFile', () => {
+  test('rejects missing sha256', () => {
     expect(
       validateVerifyParams({
-        sha256: 'abc123',
         appVersion: '1.0.0',
         bundleVersion: '5',
         signature: 'sig',
@@ -451,7 +446,6 @@ describe('DesktopApiBundleUpdate verifyBundle params', () => {
   test('rejects missing signature', () => {
     expect(
       validateVerifyParams({
-        downloadedFile: '/tmp/bundle.zip',
         sha256: 'abc123',
         appVersion: '1.0.0',
         bundleVersion: '5',
@@ -653,37 +647,6 @@ describe('DesktopApiBundleUpdate file skip rules', () => {
 });
 
 // ---------------------------------------------------------------------------
-// isDownloading guard - mirrors downloadBundle (line 89)
-// ---------------------------------------------------------------------------
-describe('DesktopApiBundleUpdate isDownloading guard', () => {
-  test('second download call returns undefined when already downloading', () => {
-    let isDownloading = false;
-    function downloadBundle(): string | undefined {
-      if (isDownloading) return undefined;
-      isDownloading = true;
-      return 'downloading';
-    }
-    expect(downloadBundle()).toBe('downloading');
-    expect(downloadBundle()).toBeUndefined();
-  });
-
-  test('isDownloading resets after download completes', () => {
-    let isDownloading = false;
-    function startDownload(): string | undefined {
-      if (isDownloading) return undefined;
-      isDownloading = true;
-      return 'downloading';
-    }
-    function finishDownload() {
-      isDownloading = false;
-    }
-    expect(startDownload()).toBe('downloading');
-    finishDownload();
-    expect(startDownload()).toBe('downloading');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Cached file verification failure - mirrors downloadBundle (lines 115-137)
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate cached file redownload', () => {
@@ -851,7 +814,6 @@ describe('DesktopApiBundleUpdate settled guard', () => {
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   interface IVerifyASCParams {
-    downloadedFile?: string;
     sha256?: string;
     appVersion?: string;
     bundleVersion?: string;
@@ -861,7 +823,6 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
 
   function validateVerifyASCParams(params: IVerifyASCParams): string | null {
     const {
-      downloadedFile,
       sha256,
       appVersion,
       bundleVersion,
@@ -869,7 +830,6 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
       skipGPGVerification,
     } = params;
     if (
-      !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
@@ -887,7 +847,6 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   test('accepts params with signature and no skipGPG', () => {
     expect(
       validateVerifyASCParams({
-        downloadedFile: '/tmp/f',
         sha256: 'abc',
         appVersion: '1.0.0',
         bundleVersion: '5',
@@ -899,7 +858,6 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   test('accepts params with skipGPG but no signature', () => {
     expect(
       validateVerifyASCParams({
-        downloadedFile: '/tmp/f',
         sha256: 'abc',
         appVersion: '1.0.0',
         bundleVersion: '5',
@@ -911,7 +869,6 @@ describe('DesktopApiBundleUpdate verifyBundleASC skipGPG', () => {
   test('rejects when no signature and no skipGPG', () => {
     expect(
       validateVerifyASCParams({
-        downloadedFile: '/tmp/f',
         sha256: 'abc',
         appVersion: '1.0.0',
         bundleVersion: '5',
@@ -1345,22 +1302,15 @@ describe('DesktopApiBundleUpdate §4 classifyHttpStatus', () => {
     expect(classifyHttpStatus(600)).toBe('permanent');
   });
 
-  test('agrees with the REAL shared UNRECOVERABLE_DOWNLOAD_ERROR_CODES set', () => {
-    // The shared-JS taxonomy (imported, not copied) is the single source of
-    // truth. Every HTTP_<code> it marks unrecoverable must classify Permanent
-    // here; conversely 416 — which it does NOT mark unrecoverable — must
-    // classify Transient (the regression being fixed).
-    const unrecoverableHttpCodes = [...UNRECOVERABLE_DOWNLOAD_ERROR_CODES]
-      .filter((code) => code.startsWith('HTTP_'))
-      .map((code) => Number(code.slice('HTTP_'.length)));
-    expect(unrecoverableHttpCodes.length).toBeGreaterThan(0);
-    for (const status of unrecoverableHttpCodes) {
-      expect(classifyHttpStatus(status)).toBe('permanent');
+  test('agrees with the shared typed HTTP retry allowlist', () => {
+    for (let status = 100; status <= 599; status += 1) {
+      const retryable = isRetryableUpdateError({
+        code: EUpdateErrorCode.httpError,
+        step: 'download',
+        httpStatus: status,
+      });
+      expect(classifyHttpStatus(status) === 'transient').toBe(retryable);
     }
-    // 416 is recoverable in the shared taxonomy and Transient in the desktop
-    // classifier — the two must agree.
-    expect(UNRECOVERABLE_DOWNLOAD_ERROR_CODES.has('HTTP_416')).toBe(false);
-    expect(classifyHttpStatus(416)).toBe('transient');
   });
 });
 
@@ -1573,5 +1523,12 @@ describe('DesktopApiBundleUpdate §5.6 resume restart decisions', () => {
     expect(shouldRestart).toBe(true);
     if (shouldRestart) downloadedBytes = 0;
     expect(downloadedBytes > 0 ? 'a' : 'w').toBe('w');
+  });
+});
+
+describe('DesktopApiBundleUpdate zip bomb quota constants', () => {
+  test('matches Android 512 MiB uncompressed byte quota and 4096 entry limit', () => {
+    expect(MAX_BUNDLE_UNCOMPRESSED_BYTES).toBe(512 * 1024 * 1024);
+    expect(MAX_BUNDLE_ENTRY_COUNT).toBe(4096);
   });
 });

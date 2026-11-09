@@ -1,3 +1,5 @@
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+
 import { HardwareProcessingManager } from './HardwareProcessingManager';
 
 function createDeferred() {
@@ -9,6 +11,55 @@ function createDeferred() {
 }
 
 describe('HardwareProcessingManager OneKey operation lease', () => {
+  it('rejects delayed transport writes without the current operation lease', async () => {
+    const manager = new HardwareProcessingManager();
+    let previousLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        previousLease = lease;
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          lease,
+        );
+      },
+    });
+    expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+
+    const prewarm = createDeferred();
+    const unownedWrite = prewarm.promise.then(() =>
+      manager.rememberOneKeyOperationTransport(
+        EHardwareTransportType.DesktopWebBle,
+        undefined,
+      ),
+    );
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.WEBUSB,
+          lease,
+        );
+        prewarm.resolve();
+        await unownedWrite;
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          previousLease,
+        );
+        expect(manager.getOneKeyOperationTransport()).toBe(
+          EHardwareTransportType.WEBUSB,
+        );
+        manager.cancelOneKeyOperation(lease);
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          lease,
+        );
+        expect(manager.getOneKeyOperationTransport()).toBe(
+          EHardwareTransportType.WEBUSB,
+        );
+      },
+    });
+    expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+  });
+
   it('joins repeated cancellation cleanup before handing the lease to the next operation', async () => {
     const manager = new HardwareProcessingManager();
     const gate = createDeferred();

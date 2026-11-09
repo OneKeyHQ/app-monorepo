@@ -38,8 +38,11 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
   useSwapProSelectTokenAtom,
@@ -53,8 +56,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
-import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -77,7 +78,10 @@ import {
   swapSlippageWillAheadMinValue,
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapSlippageSegmentItem,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapProTradeType,
@@ -88,12 +92,12 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
 import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
 import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
 import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
 import { resolveStockKLineToken } from '../../hooks/swapStockChannelUtils';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+import { useSwapMarketDetailToken } from '../../hooks/useSwapMarketDetailToken';
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
@@ -107,7 +111,6 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
-import { resolveSwapHeaderMarketDetail } from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -377,7 +380,7 @@ const SwapSettingsDialogContent = ({
   swapType,
 }: {
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
   swapType?: ESwapTabSwitchType;
@@ -427,35 +430,29 @@ const SwapSettingsDialogContent = ({
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => {
-          const isActive = slippageItem.key === item.key;
-          return {
-            label: (
-              <XStack>
-                {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                  <Icon
-                    name="Ai3StarOutline"
-                    size="$4.5"
-                    color="$iconSuccess"
-                    mr="$0.5"
-                  />
-                ) : null}
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={isActive ? '$text' : '$textSubdued'}
-                >
-                  {intl.formatMessage({
-                    id:
-                      item.key === ESwapSlippageSegmentKey.AUTO
-                        ? ETranslations.slippage_tolerance_switch_auto
-                        : ETranslations.slippage_tolerance_switch_custom,
-                  })}
-                </SizableText>
-              </XStack>
-            ),
-            value: item.key,
-          };
-        })}
+        options={swapSlippageItems.map((item) => ({
+          label: ({ color }) => (
+            <XStack>
+              {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                <Icon
+                  name="Ai3StarOutline"
+                  size="$4.5"
+                  color="$iconSuccess"
+                  mr="$0.5"
+                />
+              ) : null}
+              <SizableText size="$bodyMdMedium" color={color}>
+                {intl.formatMessage({
+                  id:
+                    item.key === ESwapSlippageSegmentKey.AUTO
+                      ? ETranslations.slippage_tolerance_switch_auto
+                      : ETranslations.slippage_tolerance_switch_custom,
+                })}
+              </SizableText>
+            </XStack>
+          ),
+          value: item.key,
+        }))}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({
@@ -618,7 +615,7 @@ const SwapSettingsDialogContent = ({
           <>
             <Divider />
             <SwapActivityHubSettingsItem
-              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
+              onOpenReferral={activityHubAction.onOpenReferral}
             />
           </>
         ) : null}
@@ -659,7 +656,6 @@ const StockKLineHeaderButton = ({
   const isNative = stockToken?.isNative;
   const networkId = stockToken?.networkId ?? '';
   const tokenAddress = stockToken?.contractAddress ?? '';
-  const stockId = resolveMarketStockId(stockToken ?? {});
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
@@ -673,41 +669,42 @@ const StockKLineHeaderButton = ({
     !networkId ||
     (!tokenAddress && !isNative);
 
-  const onOpenStockMarketDetail = useCallback(() => {
-    if (disabled || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProMarketDetail,
-      params: {
-        tokenAddress,
-        network,
-        ...(stockId ? { stockId } : undefined),
-        isNative,
-        from: EEnterWay.SwapPro,
-        disableTrade: true,
-        showFavoriteButton: false,
-      },
-    });
-  }, [disabled, isNative, navigation, network, stockId, tokenAddress]);
+  const openStockMarketDetail = useCallback(
+    (resolvedToken: ISwapToken) => {
+      dismissKeyboard();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress,
+          network,
+          stockId: resolveMarketStockId(resolvedToken),
+          isNative,
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
+    },
+    [isNative, navigation, network, tokenAddress],
+  );
+  const { onOpenMarketDetail, isLoading } = useSwapMarketDetailToken({
+    token: stockToken,
+    onOpen: openStockMarketDetail,
+  });
 
   return (
     <HeaderIconButton
       testID={SwapTestIDs.kLineButton}
       icon="TradingViewCandlesOutline"
-      onPress={onOpenStockMarketDetail}
-      disabled={disabled}
+      onPress={onOpenMarketDetail}
+      disabled={disabled || isLoading}
+      loading={isLoading}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
     />
   );
 };
 
-// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
-// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
-// currently selected Pro token — same destination as the old in-body button.
 const SwapKLineHeaderButton = ({
   iconSize,
   iconColor,
@@ -730,7 +727,8 @@ const SwapKLineHeaderButton = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const isKLineDisabled =
     shouldRedirectOnboardingToTravelMode() || (!fromToken && !toToken);
-  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
+  const showKLineAsDialog =
+    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onSwapKLinePressIn = useCallback(() => {
     if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {
@@ -807,53 +805,56 @@ const SwapKLineHeaderButton = ({
   );
 };
 
-const MobileSwapKLineHeaderButton = ({
+const SwapProKLineHeaderButton = ({
   iconSize,
   iconColor,
   buttonSize,
-  isPro = false,
 }: {
   iconSize: number | `$${string}`;
   iconColor?: ColorTokens;
   buttonSize: 'small' | 'medium';
-  isPro?: boolean;
 }) => {
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
+  const navigation = useAppNavigation();
+  const tokenDetailActions = useTokenDetailActions();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
-  const marketDetail = useMemo(
-    () =>
-      isPro
-        ? resolveSwapHeaderMarketDetail(swapProSelectToken)
-        : resolveSwapHeaderMarketDetail(toToken, fromToken),
-    [fromToken, isPro, swapProSelectToken, toToken],
-  );
-  const toMarketDetail = useToDetailPage({
-    switchToMarketTabFirst: true,
-    resolveMarketAsset: true,
-    from: isPro ? EEnterWay.SwapPro : EEnterWay.Others,
-  });
-  const toStockDetail = useToMarketStockDetailPage();
-  const disabled = shouldRedirectOnboardingToTravelMode() || !marketDetail;
+  const disabled =
+    shouldRedirectOnboardingToTravelMode() ||
+    !swapProSelectToken?.networkId ||
+    (!swapProSelectToken.contractAddress && !swapProSelectToken.isNative);
 
-  const onOpenMarketDetail = useCallback(() => {
-    if (!marketDetail || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-    dismissKeyboard();
-    if (marketDetail.kind === 'stock') {
-      void toStockDetail(marketDetail.target);
-    } else {
-      void toMarketDetail(marketDetail.target);
-    }
-  }, [marketDetail, toMarketDetail, toStockDetail]);
+  const openProMarketDetail = useCallback(
+    (resolvedToken: ISwapToken) => {
+      dismissKeyboard();
+      tokenDetailActions.current.clearTokenDetail();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress: resolvedToken.contractAddress,
+          network: resolvedToken.networkId,
+          isNative: resolvedToken.isNative,
+          ...(resolvedToken.isStock
+            ? { stockId: resolveMarketStockId(resolvedToken) }
+            : { swapTokenSymbol: resolvedToken.symbol }),
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
+    },
+    [navigation, tokenDetailActions],
+  );
+  const { onOpenMarketDetail, isLoading } = useSwapMarketDetailToken({
+    token: swapProSelectToken,
+    onOpen: openProMarketDetail,
+  });
 
   return (
     <HeaderIconButton
       testID={SwapTestIDs.kLineButton}
       icon="TradingViewCandlesOutline"
       onPress={onOpenMarketDetail}
-      disabled={disabled}
+      disabled={disabled || isLoading}
+      loading={isLoading}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
     />
@@ -869,7 +870,7 @@ type ISwapSettingsHeaderButtonProps = {
   compact?: boolean;
   showCustomSlippageValue?: boolean;
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
@@ -999,17 +1000,17 @@ export function SwapSettingsHeaderButton({
   );
 }
 
-// The reward action needs the active account, so it is resolved here in the page
-// tree and handed to the settings dialog, which renders outside of it.
+// The reward action is resolved here in the page tree and handed to the
+// settings dialog, which renders outside of it.
 function SwapSettingsHeaderButtonWithActivityHub(
   props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const openReferralPage = useOpenReferralPage();
   const activityHubAction = useMemo(
     () => ({
-      onOpenInviteeReward: showSwapInviteeReward,
+      onOpenReferral: openReferralPage,
     }),
-    [showSwapInviteeReward],
+    [openReferralPage],
   );
 
   return (
@@ -1232,10 +1233,9 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
-    } else if (platformEnv.isNative) {
+    } else if (focusSwapPro) {
       kLineButton = (
-        <MobileSwapKLineHeaderButton
-          isPro={focusSwapPro}
+        <SwapProKLineHeaderButton
           iconSize={resolvedIconSize}
           iconColor={iconColor}
           buttonSize={resolvedButtonSize}
@@ -1258,7 +1258,10 @@ const SwapHeaderRightActionContainer = ({
     // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
-      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+      <HeaderButtonGroup
+        gap={compact && platformEnv.isNativeIOS ? '$2' : '$4'}
+        flexShrink={0}
+      >
         {kLineButton}
         {showActivityHubInSettings ? (
           <SwapSettingsHeaderButtonWithActivityHub

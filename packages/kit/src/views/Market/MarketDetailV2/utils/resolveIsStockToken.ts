@@ -20,6 +20,20 @@ export function resolveMarketStockId(item: IMarketStockIdentity) {
   return undefined;
 }
 
+export function buildMarketStockTokenMetadata(
+  stock: IMarketStockInfo | undefined,
+  stockId: string | undefined,
+): IMarketStockInfo | undefined {
+  const resolvedStockId = resolveMarketStockId({ stockId, stock });
+  if (!resolvedStockId || resolvedStockId === stock?.stockId) return stock;
+  return {
+    subtitle: '',
+    sourceLogoUri: '',
+    ...stock,
+    stockId: resolvedStockId,
+  };
+}
+
 export function resolveIsStockToken(
   tokenDetail?: Pick<IMarketTokenDetail, 'stock'>,
   tokenDetailPreview?: Pick<IMarketTokenDetailPreview, 'stock'>,

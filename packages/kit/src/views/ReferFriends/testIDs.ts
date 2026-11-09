@@ -35,17 +35,22 @@ export const ReferFriendsTestIDs = {
   inviteHeroRate: 'refer-friends-invite-hero-rate',
   inviteHeroImage: 'refer-friends-invite-hero-image',
   inviteRewardHistory: 'refer-friends-invite-reward-history',
+  inviteRewardScopeInfo: 'refer-friends-invite-reward-scope-info',
+  inviteRewardScopeLearnMore: 'refer-friends-invite-reward-scope-learn-more',
   invitePayoutAddress: 'refer-friends-invite-payout-address',
   invitePayoutAddressVisibility:
     'refer-friends-invite-payout-address-visibility',
   inviteRetryBtn: 'refer-friends-invite-retry-btn',
   levelRetryBtn: 'refer-friends-level-retry-btn',
   inviteRewardsEmptyCopyBtn: 'refer-friends-invite-rewards-empty-copy-btn',
+  hardwareEmptyCopyLinkBtn: 'refer-friends-hardware-empty-copy-link-btn',
   inviteWithdrawAddressRow: 'refer-friends-invite-withdraw-address-row',
   benefitsBindBtn: 'refer-friends-benefits-bind-btn',
   benefitsPlaceholder: 'refer-friends-benefits-placeholder',
 
   rewardSummaryRefreshBtn: 'refer-friends-reward-summary-refresh-btn',
+  referralListBtn: 'refer-friends-referral-list-btn',
+  inviteProfilePublicSwitch: 'refer-friends-invite-profile-public-switch',
 
   // --- Filter & Export ---
   dateRangeChip: 'refer-friends-date-range-chip',

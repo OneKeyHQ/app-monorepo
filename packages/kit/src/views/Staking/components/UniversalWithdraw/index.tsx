@@ -31,6 +31,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -42,11 +43,13 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
+  EClaimType,
   EStakingActionType,
 } from '@onekeyhq/shared/types/staking';
 import type {
@@ -107,6 +110,7 @@ import {
 import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
+  shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -223,6 +227,10 @@ type IWithdrawPathDialogContentProps = {
     current: number;
   };
   onTipAction?: (tip: IEarnTransactionTip) => void | Promise<void>;
+  onClaimAction?: (onPress: () => void) => void;
+  onClaimSuccess?: () => void;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 };
 
 function WithdrawPathDialogContent({
@@ -230,6 +238,10 @@ function WithdrawPathDialogContent({
   initialSelectedIndex,
   selectedIndexRef,
   onTipAction,
+  onClaimAction,
+  onClaimSuccess,
+  protocolInfo,
+  tokenInfo,
 }: IWithdrawPathDialogContentProps) {
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
   const handleSelect = useCallback(
@@ -245,6 +257,15 @@ function WithdrawPathDialogContent({
       {boxes.map((box, index) => {
         const isSelected = index === selectedIndex;
         const isDisabled = !!box.disabled;
+        const claimButton = box.tip?.button;
+        const claimData =
+          claimButton?.type === EClaimType.Claim ? claimButton.data : undefined;
+        const hasClaimAction =
+          box.tip?.text &&
+          claimButton?.type === EClaimType.Claim &&
+          claimData &&
+          protocolInfo &&
+          tokenInfo;
         const tipAction =
           box.tip?.button?.type === EStakingActionType.CancelWithdrawal
             ? {
@@ -325,7 +346,36 @@ function WithdrawPathDialogContent({
                 ) : null}
               </YStack>
             </XStack>
-            {box.tip?.text ? (
+            {hasClaimAction && claimData ? (
+              <EarnActionIcon
+                actionIcon={claimButton}
+                protocolInfo={{
+                  ...protocolInfo,
+                  claimable: claimData.balance,
+                }}
+                tokenInfo={tokenInfo}
+                token={claimData.token.info}
+                onActionSuccess={onClaimSuccess}
+                trigger={({ onPress, disabled }) => (
+                  <Alert
+                    icon="InfoCircleOutline"
+                    type={resolveEarnAlertType(box.tip?.type)}
+                    renderTitle={() => (
+                      <EarnText text={box.tip?.text} size="$bodyMdMedium" />
+                    )}
+                    action={
+                      disabled
+                        ? undefined
+                        : {
+                            primary: claimButton.text.text,
+                            onPrimaryPress: () => onClaimAction?.(onPress),
+                          }
+                    }
+                  />
+                )}
+              />
+            ) : null}
+            {!hasClaimAction && box.tip?.text ? (
               <Alert
                 icon="InfoCircleOutline"
                 type={resolveEarnAlertType(box.tip?.type)}
@@ -402,6 +452,7 @@ export function UniversalWithdraw({
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -414,6 +465,7 @@ export function UniversalWithdraw({
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
   // Default selection always prefers the first enabled option (instant); this
   // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
@@ -525,6 +577,7 @@ export function UniversalWithdraw({
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
         amount: amountValue,
+        claimRefreshKey,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
         isDisabled,
@@ -538,6 +591,7 @@ export function UniversalWithdraw({
     [
       accountAddress,
       amountValue,
+      claimRefreshKey,
       identity,
       isDisabled,
       networkId,
@@ -1648,6 +1702,15 @@ export function UniversalWithdraw({
           boxes={withdrawPathConfirmBoxes}
           initialSelectedIndex={effectiveSelectedWithdrawPathIndex}
           selectedIndexRef={selectedIndexRef}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+          onClaimSuccess={() => setClaimRefreshKey((key) => key + 1)}
+          onClaimAction={(pressClaim) => {
+            void (async () => {
+              await dialogRef.close?.();
+              pressClaim();
+            })();
+          }}
           onTipAction={async (tip) => {
             await dialogRef.close?.();
             await handleTipAction(tip);
@@ -1666,6 +1729,8 @@ export function UniversalWithdraw({
     handleSelectWithdrawPath,
     handleTipAction,
     intl,
+    protocolInfo,
+    tokenInfo,
     transactionConfirmation?.withdrawPath?.text?.text,
     withdrawPathConfirmBoxes,
   ]);
@@ -1778,6 +1843,8 @@ export function UniversalWithdraw({
                 currency: currentValue ? symbol : undefined,
               }}
               enableMaxAmount
+              usePercentageKeyboardAccessory
+              onAmountFocusChange={onAmountFocusChange}
               onSelectPercentageStage={onSelectPercentageStage}
             />
             {amountInputDisabled ? (
@@ -1968,7 +2035,14 @@ export function UniversalWithdraw({
             {hasSummarySection && usePendleSummaryLayout ? (
               <PendleSummarySection
                 rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
+                tipText={
+                  shouldShowPendleSummaryTip({
+                    formTip: formTransactionTip,
+                    transactionTip: transactionConfirmation?.tip,
+                  })
+                    ? pendleTipText
+                    : undefined
+                }
                 loading={quoteLoading}
               />
             ) : null}
@@ -2203,10 +2277,13 @@ export function UniversalWithdraw({
               disabled: effectiveConfirmDisabled,
             }}
           />
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-          />
+          {platformEnv.isNativeIOSPhone ? null : (
+            <PercentageStageOnKeyboard
+              isAmountFocused={isAmountFocused && !amountInputDisabled}
+              onSelectPercentageStage={onSelectPercentageStage}
+              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
+            />
+          )}
         </Page.Footer>
       ) : (
         <YStack>

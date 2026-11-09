@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -38,6 +39,12 @@ jest.mock('../Interceptor', () => ({
   getRequestHeaders: jest.fn(),
 }));
 
+jest.mock('../customUA', () => ({
+  withCustomUAHeaders: jest.fn(
+    async (_url: string, headers: Record<string, string>) => headers,
+  ),
+}));
+
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     ipTable: {
@@ -66,6 +73,7 @@ const mockedRequestHelper = requestHelper as jest.Mocked<typeof requestHelper>;
 const mockedIsProxyActiveForUrl = isProxyActiveForUrl as jest.Mock;
 const mockedIsSniSupported = isSniSupported as jest.Mock;
 const mockedSniRequest = sniRequest as jest.Mock;
+const mockedWithCustomUAHeaders = withCustomUAHeaders as jest.Mock;
 const mockedLogger = jest.requireMock('../../logger/logger') as {
   defaultLogger: { ipTable: { request: { warn: jest.Mock } } };
 };
@@ -273,6 +281,75 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
+  test('aborts immediately while UA lookup is pending without starting a transport', async () => {
+    let finishHeaders: ((headers: Record<string, string>) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+    mockedWithCustomUAHeaders.mockImplementationOnce(() => {
+      lookupStarted?.();
+      return new Promise<Record<string, string>>((resolve) => {
+        finishHeaders = resolve;
+      });
+    });
+    const controller = new AbortController();
+    const config = buildConfig('https://ua-pending.example.com/v1');
+    config.signal = controller.signal;
+    const outcome = createIpTableAdapter({})(config).then(
+      () => 'resolved',
+      (error: unknown) => error,
+    );
+    await started;
+    controller.abort();
+    const result = await Promise.race([
+      outcome,
+      new Promise<string>((resolve) => {
+        setTimeout(() => resolve('still pending'), 50);
+      }),
+    ]);
+    finishHeaders?.({});
+    await outcome;
+    expect(result).toMatchObject({ code: 'SNI_CANCELLED' });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
+  test('injects the OneKey User-Agent into SNI request headers', async () => {
+    mockedWithCustomUAHeaders.mockImplementationOnce(
+      async (_url: string, headers: Record<string, string>) => ({
+        ...headers,
+        'User-Agent': 'OneKey macOS 6.6.1',
+      }),
+    );
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    const adapter = createIpTableAdapter({});
+
+    await expect(
+      adapter(buildConfig('https://api.example.com/v1')),
+    ).resolves.toMatchObject({ status: 200 });
+
+    expect(mockedWithCustomUAHeaders).toHaveBeenCalledWith(
+      'https://api.example.com/v1',
+      expect.any(Object),
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: 'api.example.com',
+        headers: expect.objectContaining({
+          'User-Agent': 'OneKey macOS 6.6.1',
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
   test('falls back before IP selection when proxy preflight errors', async () => {
     mockedIsProxyActiveForUrl.mockRejectedValue(new Error('preflight failed'));
     const adapter = createIpTableAdapter({});
@@ -351,6 +428,45 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         proxyActive: true,
       });
       expect(mockAvailabilityOutcomes).toHaveLength(0);
+    });
+
+    test.each([
+      ['network failure', 'ERR_NETWORK'],
+      ['cancellation', 'ERR_CANCELED'],
+    ])('does not retry a null-response domain %s', async (_label, code) => {
+      const cause = new Error('fixture domain outcome');
+      const domainError = Object.assign(new Error('domain request failed'), {
+        code,
+        cause,
+      });
+      mockedSniRequest.mockResolvedValue(null);
+      fallbackAdapter.mockRejectedValue(domainError);
+      const { config, timing } = buildTimedConfig(
+        'https://metrics-null.example.com/v1',
+      );
+      const result = createIpTableAdapter({})(config);
+
+      await expect(result).rejects.toBe(domainError);
+      await expect(result).rejects.toMatchObject({ code, cause });
+      expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(timing.route).toBe('fallback');
+      if (code === 'ERR_CANCELED') {
+        expect(mockAvailabilityOutcomes).toHaveLength(0);
+      } else {
+        expect(mockAvailabilityOutcomes).toContainEqual(
+          expect.objectContaining({
+            source: 'api',
+            status: 'network_error',
+            failure: { detail: 'fallback:/v1', errorCode: 'err_network' },
+          }),
+        );
+        expect(
+          mockAvailabilityOutcomes.filter(
+            (outcome) => outcome.source === 'api_net',
+          ),
+        ).toEqual([expect.objectContaining({ status: 'failed' })]);
+      }
     });
 
     test('records errors raised by the adapter itself with their context', async () => {
@@ -1338,17 +1454,21 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     jest.clearAllMocks();
   });
 
-  test('GET falls back to domain after an ambiguous SNI timeout', async () => {
-    mockedSniRequest.mockRejectedValue(
-      Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
-    );
-    await expect(
-      createIpTableAdapter({})(
-        buildMethodConfig('https://api.example.com/v1', 'get'),
-      ),
-    ).resolves.toMatchObject({ data: { fallback: true } });
-    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
-  });
+  test.each(['get', 'head', 'options'])(
+    '%s falls back to domain once after an ambiguous SNI timeout',
+    async (method) => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error('sni timeout'), { code: 'SNI_TIMEOUT' }),
+      );
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', method),
+        ),
+      ).resolves.toMatchObject({ data: { fallback: true } });
+      expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+      expect(mockedSniRequest).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('POST does NOT fall back after an ambiguous SNI timeout (double-send risk)', async () => {
     mockedSniRequest.mockRejectedValue(
@@ -1365,15 +1485,76 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
-  test('POST falls back when the error proves the connection was never established', async () => {
+  test.each(['post', 'put', 'patch', 'delete'])(
+    '%s does not fall back after SNI starts, regardless of the final connection error',
+    async (method) => {
+      for (const code of [
+        'SNI_CONNECTION_REFUSED',
+        'SNI_DNS_FAILED',
+        'SNI_INVALID_URL',
+      ]) {
+        mockedSniRequest.mockRejectedValue(
+          Object.assign(new Error('final connection error'), { code }),
+        );
+        await expect(
+          createIpTableAdapter({})(
+            buildMethodConfig('https://api.example.com/v1', method),
+          ),
+        ).rejects.toMatchObject({ code: 'ERR_NETWORK', cause: { code } });
+      }
+      expect(mockedSniRequest).toHaveBeenCalledTimes(3);
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+    },
+  );
+
+  test('POST uses the domain for its first request when no IP is selected', async () => {
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue(null);
+    await expect(
+      createIpTableAdapter({})(
+        buildMethodConfig('https://api.example.com/v1', 'post'),
+      ),
+    ).resolves.toMatchObject({ data: { fallback: true } });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).toHaveBeenCalledTimes(1);
+  });
+
+  // A final connection error can follow an internal retry after the body was sent.
+  test.each([
+    ['java.net.ConnectException', 'connection failed'],
+    ['java.net.NoRouteToHostException', 'no route to host'],
+    [undefined, 'Request failed: Failed to connect to /93.184.216.34:443'],
+    [undefined, 'Host unreachable'],
+  ])(
+    'POST does NOT fall back on SNI_REQUEST_FAILED (cause %s, message %s)',
+    async (causeName, message) => {
+      mockedSniRequest.mockRejectedValue(
+        Object.assign(new Error(message), {
+          code: 'SNI_REQUEST_FAILED',
+          cause: causeName ? { name: causeName } : undefined,
+        }),
+      );
+      await expect(
+        createIpTableAdapter({})(
+          buildMethodConfig('https://api.example.com/v1', 'post'),
+        ),
+      ).rejects.toMatchObject({
+        code: 'ERR_NETWORK',
+        cause: { code: 'SNI_REQUEST_FAILED' },
+      });
+      expect(fallbackAdapter).not.toHaveBeenCalled();
+    },
+  );
+
+  test('GET still falls back on SNI_REQUEST_FAILED with a final Android connection error', async () => {
     mockedSniRequest.mockRejectedValue(
-      Object.assign(new Error('connection refused'), {
-        code: 'SNI_CONNECTION_REFUSED',
+      Object.assign(new Error('Failed to connect to /93.184.216.34:443'), {
+        code: 'SNI_REQUEST_FAILED',
+        cause: { name: 'java.net.ConnectException' },
       }),
     );
     await expect(
       createIpTableAdapter({})(
-        buildMethodConfig('https://api.example.com/v1', 'post'),
+        buildMethodConfig('https://api.example.com/v1', 'get'),
       ),
     ).resolves.toMatchObject({ data: { fallback: true } });
     expect(fallbackAdapter).toHaveBeenCalledTimes(1);
@@ -1407,7 +1588,7 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       ),
     ).rejects.toMatchObject({
       code: 'ERR_NETWORK',
-      cause: { message: expect.stringContaining('not idempotent') },
+      cause: { message: expect.stringContaining('method is not allowed') },
     });
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });

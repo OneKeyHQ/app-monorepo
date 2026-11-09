@@ -1,5 +1,9 @@
 import { formatTradingViewNativePriceTick } from '../chartLayout';
 import { formatTradingViewNativeVolume } from '../chartLegend';
+import {
+  getTradingViewNativePriceAtProgress,
+  getTradingViewNativePriceProgress,
+} from '../priceScale';
 
 import { getTradingViewNativeSubIndicatorValueRange } from './range';
 
@@ -11,6 +15,14 @@ import type {
 
 const MAX_FIXED_PRECISION = 20;
 const INHERITED_PRICE_PLAIN_DECIMAL_BOUNDARY = 0.000_888_8;
+const VOLUME_UNIT_RANGES = [
+  { max: 1_000_000, min: 1000, suffix: 'K' },
+  { max: 1_000_000_000, min: 1_000_000, suffix: 'M' },
+  { max: 1_000_000_000_000, min: 1_000_000_000, suffix: 'B' },
+  { max: Number.POSITIVE_INFINITY, min: 1_000_000_000_000, suffix: 'T' },
+] as const;
+// Widest suffix first: "M" is the widest of these glyphs in common UI fonts.
+const VOLUME_SUFFIXES_BY_WIDTH = ['M', 'K', 'B', 'T'];
 
 function getNormalizedPrecision(precision: number | undefined) {
   'worklet';
@@ -20,18 +32,26 @@ function getNormalizedPrecision(precision: number | undefined) {
     : undefined;
 }
 
-function formatSignedTradingViewNativeVolume(value: number) {
+function formatSignedTradingViewNativeVolume(
+  value: number,
+  maxFractionDigits?: number,
+) {
   'worklet';
 
   if (!Number.isFinite(value)) {
     return '--';
   }
-  const absoluteValue = Math.abs(value);
-  if (absoluteValue > 0 && absoluteValue < 0.0001) {
+  let absoluteValue = Math.abs(value);
+  if (maxFractionDigits !== undefined && absoluteValue < 1000) {
+    // Match the four significant digits of K/M/B/T labels below one unit.
+    absoluteValue = Number(
+      Number(absoluteValue.toPrecision(4)).toFixed(maxFractionDigits),
+    );
+  } else if (absoluteValue > 0 && absoluteValue < 0.0001) {
     return formatTradingViewNativePriceTick(value, 6);
   }
   const formattedValue = formatTradingViewNativeVolume(absoluteValue);
-  return value < 0 && formattedValue !== '--'
+  return value < 0 && absoluteValue > 0 && formattedValue !== '--'
     ? `-${formattedValue}`
     : formattedValue;
 }
@@ -45,14 +65,39 @@ export function formatTradingViewNativeSubIndicatorValue(
   if (!Number.isFinite(value)) {
     return '--';
   }
-  if (format.type === 'volume') {
-    return formatSignedTradingViewNativeVolume(value);
-  }
   const precision = getNormalizedPrecision(format.precision);
-  if (format.type === 'price' && precision !== undefined) {
-    return value.toFixed(precision);
+  if (format.type === 'volume') {
+    return formatSignedTradingViewNativeVolume(value, precision);
+  }
+  // An inherited format carries the main price axis precision once it is known.
+  if (
+    (format.type === 'price' || format.type === 'inherit') &&
+    precision !== undefined
+  ) {
+    const text = value.toFixed(precision);
+    // toFixed keeps the sign of negative values that round to zero.
+    return Number(text) === 0 ? text.replace('-', '') : text;
   }
   return formatTradingViewNativePriceTick(value);
+}
+
+// Legend and crosshair readouts never show a nonzero value as zero. Axis ticks
+// keep the fixed precision so the reserved axis width stays bounded.
+export function formatTradingViewNativeSubIndicatorReadoutValue(
+  value: number,
+  format: ITradingViewNativeSubIndicatorFormat,
+) {
+  'worklet';
+
+  const text = formatTradingViewNativeSubIndicatorValue(value, format);
+  if (
+    value === 0 ||
+    getNormalizedPrecision(format.precision) === undefined ||
+    Number(text) !== 0
+  ) {
+    return text;
+  }
+  return formatTradingViewNativeSubIndicatorValue(value, { type: format.type });
 }
 
 export function getTradingViewNativeSubIndicatorY({
@@ -73,7 +118,14 @@ export function getTradingViewNativeSubIndicatorY({
   if (!Number.isFinite(value) || height <= 0 || valueSpan <= 0) {
     return top + height / 2;
   }
-  return top + ((range.maxValue - value) / valueSpan) * height;
+  const progress = getTradingViewNativePriceProgress({
+    maxPrice: range.maxValue,
+    minPrice: range.minValue,
+    mode: range.mode ?? 'linear',
+    price: value,
+  });
+  // Non-positive values cannot be plotted on a logarithmic axis.
+  return progress === null ? bottom + height : top + progress * height;
 }
 
 export function getTradingViewNativeSubIndicatorValueAtY({
@@ -100,7 +152,12 @@ export function getTradingViewNativeSubIndicatorValueAtY({
   ) {
     return null;
   }
-  return range.maxValue - ((y - top) / height) * valueSpan;
+  return getTradingViewNativePriceAtProgress({
+    maxPrice: range.maxValue,
+    minPrice: range.minValue,
+    mode: range.mode ?? 'linear',
+    progress: (y - top) / height,
+  });
 }
 
 export function getTradingViewNativeSubIndicatorAxisLabel(
@@ -109,8 +166,11 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
   'worklet';
 
   let widestLabel = '';
-  const includeLabel = (label: string) => {
-    if (label.length > widestLabel.length) {
+  const includeLabel = (label: string, preferOnTie = false) => {
+    if (
+      label.length > widestLabel.length ||
+      (preferOnTie && label.length === widestLabel.length)
+    ) {
       widestLabel = label;
     }
   };
@@ -136,9 +196,16 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
         startIndex: 0,
       });
       if (range) {
-        const valueSpan = range.maxValue - range.minValue;
         for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
-          includeValue(range.maxValue - valueSpan * progress, pane.format);
+          includeValue(
+            getTradingViewNativePriceAtProgress({
+              maxPrice: range.maxValue,
+              minPrice: range.minValue,
+              mode: range.mode ?? 'linear',
+              progress,
+            }),
+            pane.format,
+          );
         }
         if (pane.format.type === 'volume') {
           const maxAbsoluteValue = Math.max(
@@ -184,26 +251,41 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
               includeValue(negativeBoundary, pane.format);
             }
           }
-          for (const unitRange of [
-            { max: 1_000_000, min: 1000 },
-            { max: 1_000_000_000, min: 1_000_000 },
-            { max: 1_000_000_000_000, min: 1_000_000_000 },
-            { max: Number.POSITIVE_INFINITY, min: 1_000_000_000_000 },
-          ]) {
+          let positiveSuffix = '';
+          let negativeSuffix = '';
+          const widerSuffix = (current: string, suffix: string) =>
+            current &&
+            VOLUME_SUFFIXES_BY_WIDTH.indexOf(current) <=
+              VOLUME_SUFFIXES_BY_WIDTH.indexOf(suffix)
+              ? current
+              : suffix;
+          for (const unitRange of VOLUME_UNIT_RANGES) {
             if (
               range.maxValue >= unitRange.min &&
               range.minValue < unitRange.max
             ) {
-              includeLabel('888.8T');
+              positiveSuffix = widerSuffix(positiveSuffix, unitRange.suffix);
             }
             if (
               range.minValue <= -unitRange.min &&
               range.maxValue > -unitRange.max
             ) {
-              includeLabel('-888.8T');
+              negativeSuffix = widerSuffix(negativeSuffix, unitRange.suffix);
             }
           }
-        } else if (pane.format.type === 'inherit') {
+          // Same-length samples may carry a narrower suffix than the range reaches.
+          if (positiveSuffix) {
+            includeLabel(`888.8${positiveSuffix}`, true);
+          }
+          if (negativeSuffix) {
+            includeLabel(`-888.8${negativeSuffix}`, true);
+          }
+        } else if (
+          pane.format.type === 'inherit' &&
+          // Fixed-precision labels are widest at the range ends sampled above.
+          // Only significant-digit labels can grow longer near zero.
+          getNormalizedPrecision(pane.format.precision) === undefined
+        ) {
           const maxAbsoluteValue = Math.max(
             Math.abs(range.minValue),
             Math.abs(range.maxValue),

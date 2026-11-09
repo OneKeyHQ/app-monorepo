@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import {
@@ -5,6 +6,7 @@ import {
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
+  splitLocalWalletAddressForms,
 } from './recipientSelectionUtils';
 
 describe('recipientSelectionUtils', () => {
@@ -88,7 +90,7 @@ describe('recipientSelectionUtils', () => {
     currentNetworkId: 'evm--1',
     supportNetworkId: 'evm--1',
     isSupported: true,
-    isPrimeUser: true,
+    canRunCheck: true,
     resolvedAddress: '0xabc',
   };
 
@@ -106,9 +108,14 @@ describe('recipientSelectionUtils', () => {
       'loading',
     ],
     [
-      'keeps the Prime upsell actionable without an address',
-      { isPrimeUser: false, resolvedAddress: undefined },
+      'keeps the dashboard upsell actionable without an address',
+      { canRunCheck: false, resolvedAddress: undefined },
       'enabled',
+    ],
+    [
+      'treats a free user the press checks for like Prime and disables without an address',
+      { canRunCheck: true, resolvedAddress: undefined },
+      'disabled',
     ],
     [
       'disables a Prime check without a resolved address',
@@ -124,5 +131,38 @@ describe('recipientSelectionUtils', () => {
         ...overrides,
       }),
     ).toBe(expected);
+  });
+});
+
+describe('splitLocalWalletAddressForms', () => {
+  it('adds a private entry only for accounts whose private address is handed out', () => {
+    type IEntry = {
+      account: { id: string };
+      deriveType?: string;
+      addressForm?: { labelId: ETranslations; address?: string };
+    };
+    const accounts: IEntry[] = [
+      { account: { id: 'a' } },
+      { account: { id: 'b' } },
+    ];
+    const groups = [{ walletId: 'hd-1', accounts }];
+    const [group] = splitLocalWalletAddressForms({
+      groups,
+      privateAddresses: { a: 'u1a' },
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
+    });
+    expect(
+      group.accounts.map((item) => [
+        item.account.id,
+        item.deriveType,
+        item.addressForm?.address,
+      ]),
+    ).toEqual([
+      ['a', 'public', undefined],
+      ['a', 'private', 'u1a'],
+      ['b', 'public', undefined],
+    ]);
+    expect(group.walletId).toBe('hd-1');
   });
 });

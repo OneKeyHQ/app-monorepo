@@ -33,7 +33,7 @@ import type {
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -187,9 +187,7 @@ function TradeHistoryDetails() {
   const rows = [
     {
       label: ETranslations.perp_open_orders_time,
-      value: formatTime(new Date(fill.time), {
-        formatTemplate: 'yyyy-LL-dd HH:mm:ss',
-      }),
+      value: formatDate(new Date(fill.time)),
     },
     {
       label: ETranslations.perp_trades_history_price,

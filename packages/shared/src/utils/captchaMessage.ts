@@ -3,6 +3,7 @@ export type ICaptchaMessage = {
   requestId: string;
   status: 'ready' | 'success' | 'expired' | 'timeout' | 'error' | 'load-error';
   token?: string;
+  code?: string;
 };
 
 export function parseCaptchaMessage(
@@ -36,12 +37,20 @@ export function parseCaptchaMessage(
   ) {
     return undefined;
   }
-  return {
+  const result: ICaptchaMessage = {
     type: 'onekey-test-captcha',
     requestId,
     status: message.status as ICaptchaMessage['status'],
     token: message.status === 'success' ? message.token : undefined,
   };
+  if (
+    ['error', 'load-error', 'timeout'].includes(result.status) &&
+    typeof message.code === 'string' &&
+    /^\d{6}$/.test(message.code)
+  ) {
+    result.code = message.code;
+  }
+  return result;
 }
 
 export function isCaptchaOrigin(url: string, origin: string): boolean {

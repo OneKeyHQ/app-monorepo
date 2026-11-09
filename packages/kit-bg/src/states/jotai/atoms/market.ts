@@ -10,13 +10,35 @@ import { globalAtom } from '../utils';
 
 export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
-export interface IMarketSelectedTabAtom {
+export interface IMarketHomePreferences {
+  selectedNetworkId?: string;
+  timeRange?: '5m' | '1h' | '4h' | '24h';
+  selectedStockCategory?: string;
+  selectedTopCoinsCategory?: string;
+  watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+  detailWatchlistSidebarFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+}
+
+export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {
+  revision?: number;
+}
+
+export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
   selectedPerpsCategory?: string;
   perpsCategoryToSelect?: string;
 }
+
+export const {
+  target: marketHomePreferencesAtom,
+  use: useMarketHomePreferencesAtom,
+} = globalAtom<IMarketHomePreferencesAtom>({
+  persist: true,
+  name: EAtomNames.marketHomePreferencesAtom,
+  initialValue: {},
+});
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
   globalAtom<IMarketSelectedTabAtom>({
@@ -129,6 +151,56 @@ export const {
   persist: true,
   name: EAtomNames.marketDetailChartDisplayModePersistAtom,
   initialValue: { mode: 'simple' },
+});
+
+export interface IMarketDetailChartModePersistAtom {
+  chartMode: 'native' | 'tradingView';
+}
+
+// Whether the detail pages draw the native chart or TradingView. It is a
+// viewing preference rather than a per-asset choice, so one value covers every
+// token and stock detail page.
+export const {
+  target: marketDetailChartModePersistAtom,
+  use: useMarketDetailChartModePersistAtom,
+} = globalAtom<IMarketDetailChartModePersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailChartModePersistAtom,
+  initialValue: { chartMode: 'native' },
+});
+
+export interface IMarketDetailPositionTabPersistAtom {
+  preferPosition: boolean;
+}
+
+// Whether the last tab picked on any market detail page was My position. It is
+// a reading habit rather than a per-asset choice, so one value covers every
+// detail page; the other tabs are not remembered.
+export const {
+  target: marketDetailPositionTabPersistAtom,
+  use: useMarketDetailPositionTabPersistAtom,
+} = globalAtom<IMarketDetailPositionTabPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailPositionTabPersistAtom,
+  initialValue: { preferPosition: false },
+});
+
+export interface IMarketDetailWatchlistSidebarPersistAtom {
+  // Unset until the user first opens or closes the sidebar; until then it
+  // opens only for users who have favorites.
+  open?: boolean;
+}
+
+// Whether the desktop detail pages dock the favorites sidebar. It only applies
+// where the window is wide enough to dock it; narrower windows open it as an
+// overlay that always starts closed.
+export const {
+  target: marketDetailWatchlistSidebarPersistAtom,
+  use: useMarketDetailWatchlistSidebarPersistAtom,
+} = globalAtom<IMarketDetailWatchlistSidebarPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailWatchlistSidebarPersistAtom,
+  initialValue: {},
 });
 
 export type IMarketPriceSource = 'share' | 'token';

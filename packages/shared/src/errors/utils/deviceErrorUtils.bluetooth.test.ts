@@ -52,6 +52,38 @@ describe('isOneKeyHardwareError', () => {
     },
   );
 
+  it.each([
+    HardwareErrorCode.TransportProtocolProbeFailed,
+    HardwareErrorCode.TransportProtocolMismatch,
+  ])(
+    'localizes protocol error %s while retaining diagnostic context',
+    async (code) => {
+      const rawMessage =
+        'Device protocol mismatch: expected V1, but device did not respond';
+      const params = { expectedProtocol: 'V1' };
+      const error = convertDeviceError({ code, error: rawMessage, params });
+      expect(error).toMatchObject({
+        code,
+        key: 'hardware.communication_error',
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        payload: { code, error: rawMessage, params },
+      });
+      expect(error.message).not.toContain(rawMessage);
+      await expect(
+        convertDeviceResponse(async () => {
+          throw Object.assign(new Error(rawMessage), {
+            errorCode: code,
+            params,
+          });
+        }),
+      ).rejects.toMatchObject({
+        code,
+        key: 'hardware.communication_error',
+        payload: { params },
+      });
+    },
+  );
+
   it('preserves native recovery context when the SDK throws a HardwareError', async () => {
     const params = { operation: 'open', nativeErrorMessage: 'Access denied' };
     await expect(

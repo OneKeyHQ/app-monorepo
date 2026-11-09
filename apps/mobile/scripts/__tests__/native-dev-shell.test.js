@@ -1660,6 +1660,28 @@ describe('native-dev-shell', () => {
     );
   });
 
+  it.each(['https://metro.example.com:8443', 'http://metro.example.com:443'])(
+    'rejects an Android Metro URL whose scheme React Native cannot infer from its port before launching: %s',
+    (url) => {
+      const message =
+        'Android --metro-url must use https:// exactly on port 443';
+      expect(() =>
+        parseArgs(['launch', '--platform', 'android', '--metro-url', url]),
+      ).toThrow(message);
+      expect(() => parseMetroBaseUrl(url, 'android')).toThrow(message);
+      expect(parseMetroBaseUrl(url, 'ios')).toBe(url);
+    },
+  );
+
+  it('accepts Android Metro URLs that pair https with port 443', () => {
+    expect(parseMetroBaseUrl('https://metro.example.com:443', 'android')).toBe(
+      'https://metro.example.com',
+    );
+    expect(parseMetroBaseUrl('http://10.0.2.2:8083', 'android')).toBe(
+      'http://10.0.2.2:8083',
+    );
+  });
+
   it('binds each shell platform to its native contract', () => {
     const android = getContractManifest('android');
     const ios = getContractManifest('ios');

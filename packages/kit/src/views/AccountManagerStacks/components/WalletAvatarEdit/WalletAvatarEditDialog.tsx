@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   AnimatePresence,
@@ -19,68 +20,89 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
+import {
+  AVATAR_COLUMNS,
+  AVATAR_ROW_HEIGHT,
+  getAvatarGridHeight,
+} from './walletAvatarGridLayout';
+
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
   const [selectedAvatar, setSelectedAvatar] = useState(wallet?.avatarInfo?.img);
+  // Follows the window, so resizing it with the dialog open keeps the
+  // footer on screen.
+  const { height: windowHeight } = useWindowDimensions();
+  const gridHeight = getAvatarGridHeight({
+    avatarCount: HdWalletAvatarImageNames.length,
+    windowHeight,
+  });
 
   return (
     <>
-      <XStack flexWrap="wrap">
-        {HdWalletAvatarImageNames.map((img, index) => (
-          <Stack
-            key={index}
-            justifyContent="center"
-            alignItems="center"
-            flexBasis="25%"
-            py="$2"
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_TRANSFORM}
-            hoverStyle={{
-              scale: 1.1,
-            }}
-            pressStyle={{
-              scale: 0.9,
-            }}
-            onPress={() => {
-              setSelectedAvatar(img);
-            }}
-          >
-            <WalletAvatar size="$12" img={img} wallet={undefined} />
-            <AnimatePresence>
-              {selectedAvatar === img ? (
-                <Stack
-                  position="absolute"
-                  zIndex="$1"
-                  right="$4"
-                  bottom="$1"
-                  p="$px"
-                  bg="$bg"
-                  borderRadius="$full"
-                  enterStyle={
-                    platformEnv.isNativeAndroid
-                      ? undefined
-                      : {
-                          opacity: 0,
-                          scale: 0,
-                        }
-                  }
-                  exitStyle={
-                    platformEnv.isNativeAndroid
-                      ? undefined
-                      : {
-                          opacity: 0,
-                          scale: 0,
-                        }
-                  }
-                >
-                  <Icon size="$5" color="$iconActive" name="CheckRadioSolid" />
-                </Stack>
-              ) : null}
-            </AnimatePresence>
-          </Stack>
-        ))}
-      </XStack>
+      <Dialog.ScrollView maxHeight={gridHeight} mx="$-5" px="$5">
+        <XStack flexWrap="wrap">
+          {HdWalletAvatarImageNames.map((img, index) => (
+            <Stack
+              key={index}
+              justifyContent="center"
+              alignItems="center"
+              flexBasis={`${100 / AVATAR_COLUMNS}%`}
+              h={AVATAR_ROW_HEIGHT}
+              transition="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              hoverStyle={{
+                scale: 1.1,
+              }}
+              pressStyle={{
+                scale: 0.9,
+              }}
+              onPress={() => {
+                setSelectedAvatar(img);
+              }}
+            >
+              <Stack>
+                <WalletAvatar size="$11" img={img} wallet={undefined} />
+                <AnimatePresence>
+                  {selectedAvatar === img ? (
+                    <Stack
+                      position="absolute"
+                      zIndex="$1"
+                      right={-4}
+                      bottom={-4}
+                      p="$px"
+                      bg="$bg"
+                      borderRadius="$full"
+                      enterStyle={
+                        platformEnv.isNativeAndroid
+                          ? undefined
+                          : {
+                              opacity: 0,
+                              scale: 0,
+                            }
+                      }
+                      exitStyle={
+                        platformEnv.isNativeAndroid
+                          ? undefined
+                          : {
+                              opacity: 0,
+                              scale: 0,
+                            }
+                      }
+                    >
+                      <Icon
+                        size="$5"
+                        color="$iconActive"
+                        name="CheckRadioSolid"
+                      />
+                    </Stack>
+                  ) : null}
+                </AnimatePresence>
+              </Stack>
+            </Stack>
+          ))}
+        </XStack>
+      </Dialog.ScrollView>
       <Dialog.Footer
         onConfirm={async () => {
           if (!wallet?.id || !selectedAvatar) {
@@ -103,20 +125,15 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   );
 }
 
-export function showWalletAvatarEditDialog({
-  wallet,
-  nativeSheet = false,
-}: {
-  wallet: IDBWallet;
-  nativeSheet?: boolean;
-}) {
+export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   Dialog.show({
-    nativeSheet,
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_edit_avatar,
     }),
-    estimatedContentHeight: 276,
+    // No estimatedContentHeight: native would fix the content at its height
+    // on open, so shrinking the window would push the footer out of the
+    // sheet. Without it the content follows the grid.
     renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });
 }

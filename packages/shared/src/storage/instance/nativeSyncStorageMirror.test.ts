@@ -1,5 +1,6 @@
 const mockCallNativeStorage = jest.fn();
 const mockNativeStorageQueueState = jest.fn();
+const mockNativeStorageSnapshotState = jest.fn();
 const mockSWRCacheSlowOp = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
@@ -8,6 +9,9 @@ jest.mock('../../logger/logger', () => ({
       background: {
         nativeStorageQueueState: (params: unknown) => {
           mockNativeStorageQueueState(params);
+        },
+        nativeStorageSnapshotState: (params: unknown) => {
+          mockNativeStorageSnapshotState(params);
         },
       },
       perf: {
@@ -73,6 +77,7 @@ describe('nativeSyncStorageMirror', () => {
     jest.resetModules();
     mockCallNativeStorage.mockReset();
     mockNativeStorageQueueState.mockReset();
+    mockNativeStorageSnapshotState.mockReset();
     mockSWRCacheSlowOp.mockReset();
     delete (
       globalThis as typeof globalThis & {
@@ -109,6 +114,39 @@ describe('nativeSyncStorageMirror', () => {
       scope: 'bootstrap',
       stores: ['settings', 'devSettings'],
     });
+  });
+
+  it('publishes persisted emergency status from bg and clears it after a healthy bootstrap', async () => {
+    const status = {
+      mode: 'emergency',
+      phase: 'active',
+      epoch: '1-test',
+      policy: 'retain-current-without-legacy-merge-v1',
+    };
+    mockCallNativeStorage.mockResolvedValueOnce({
+      settings: [],
+      devSettings: [],
+      appStorageEmergency: status,
+    });
+    const {
+      bootstrapNativeSyncStorageMirrors,
+      refreshNativeSyncStorageMirrors,
+    } = loadMirror();
+    const recovery = await import('../nativeStorageRecovery');
+    const changed = jest.fn();
+    const unsubscribe =
+      recovery.subscribeNativeAppStorageEmergencyStatus(changed);
+    await bootstrapNativeSyncStorageMirrors();
+    expect(recovery.getNativeAppStorageEmergencyStatus()).toEqual(status);
+    expect(changed).toHaveBeenCalledTimes(1);
+    mockCallNativeStorage.mockResolvedValueOnce({
+      settings: [],
+      devSettings: [],
+    });
+    await refreshNativeSyncStorageMirrors();
+    expect(recovery.getNativeAppStorageEmergencyStatus()).toBeUndefined();
+    expect(changed).toHaveBeenCalledTimes(2);
+    unsubscribe();
   });
 
   it('updates UI memory immediately and serializes mutations to bg', async () => {
@@ -261,6 +299,29 @@ describe('nativeSyncStorageMirror', () => {
     );
     expect(diagnosticPayload).not.toContain('sensitive-key');
     expect(diagnosticPayload).not.toContain('sensitive-value');
+  });
+
+  it('labels a failed request with its operation without logging its key or value', async () => {
+    jest.useFakeTimers();
+    mockCallNativeStorage.mockRejectedValueOnce(new Error('write failed'));
+    const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
+      loadMirror();
+    const storage = createNativeSyncStorageMirror('settings');
+
+    void storage.remove('private-key');
+    await waitForNativeSyncStorageMutations();
+
+    expect(mockNativeStorageQueueState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'degraded',
+        operation: 'remove',
+        store: 'settings',
+      }),
+    );
+    const diagnosticPayload = JSON.stringify(
+      mockNativeStorageQueueState.mock.calls,
+    );
+    expect(diagnosticPayload).not.toContain('private-key');
   });
 
   it('suppresses rapidly repeated failure episodes during the cooldown', async () => {

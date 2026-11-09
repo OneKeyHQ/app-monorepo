@@ -14,6 +14,9 @@ export const OAUTH_CALLBACK_DESKTOP_CHANNEL =
  */
 export const OAUTH_CALLBACK_DESKTOP_PATH = '/oauth_callback_desktop';
 
+// Shared by desktop OAuth and hosted payment returns; the page owns app launch.
+export const DESKTOP_BROWSER_COMPLETION_URL = 'https://login.onekeytest.com/';
+
 /**
  * OAuth callback path for web platform
  */

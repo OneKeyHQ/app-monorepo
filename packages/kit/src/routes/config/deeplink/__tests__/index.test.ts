@@ -10,6 +10,7 @@ import { openWebView as openWebViewOverlay } from '@onekeyhq/kit/src/views/WebVi
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -189,6 +190,82 @@ describe('handleDeepLinkUrl', () => {
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
   });
+
+  it('rejects deep links containing unsafe characters across all platforms', async () => {
+    const unsafeUrls = [
+      'onekey-wallet://invited_by_friend?code=VALID" --switch',
+      'onekey-wallet://invited_by_friend?code=VALID with space',
+      'onekey-wallet://invited_by_friend?code=VALID\u0000null',
+      'onekey-wallet://invited_by_friend?code=VALID\r\ninject',
+    ];
+    for (const url of unsafeUrls) {
+      handleDeepLinkUrl({ url });
+    }
+    await flushAsyncTasks();
+
+    expect(mockedHandleReferralLandingUrl).not.toHaveBeenCalled();
+    expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'onekey-wallet://wc?uri=https%3A%2F%2Fevil.example',
+    'onekey-wallet://wc?uri=wc%3A123%402%22--inject',
+    'onekey-wallet://wc?uri=wc%3A123%402%20space',
+  ])(
+    'rejects WalletConnect deep links with non-wc scheme or decoded unsafe characters in uri: %s',
+    async (url) => {
+      const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+      appGlobals.$rootAppNavigation = {
+        navigate: jest.fn(),
+      } as unknown as typeof appGlobals.$rootAppNavigation;
+      try {
+        const { connectWalletConnectToDapp } = jest.requireMock(
+          '../../../../components/WalletConnect/connectWalletConnectToDapp',
+        ) as { connectWalletConnectToDapp: jest.Mock };
+        handleDeepLinkUrl({ url });
+        await flushAsyncTasks();
+        await flushAsyncTasks();
+
+        expect(connectWalletConnectToDapp).not.toHaveBeenCalled();
+      } finally {
+        appGlobals.$rootAppNavigation = originalRootAppNavigation;
+      }
+    },
+  );
+
+  it('does not log raw deep-link URLs or query parameters such as symKey to console or UTM analytics', async () => {
+    const consoleLogSpy = jest
+      .spyOn(console, 'log')
+      .mockImplementation(() => {});
+    const utmReportSpy = jest
+      .spyOn(defaultLogger.app.router, 'utmParamsCaptured')
+      .mockImplementation((params) => params);
+    const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+    appGlobals.$rootAppNavigation = {
+      navigate: jest.fn(),
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+    try {
+      // oxlint-disable-next-line @cspell/spellchecker
+      const wcLink =
+        'wc:eb16df1f-1d3b-4018-9d18-28ef610cc1a4@2?relay-protocol=irn&symKey=secretSymKeyDevLog123&utm_source=dapp';
+      handleDeepLinkUrl({ url: wcLink });
+      await flushAsyncTasks();
+      await flushAsyncTasks();
+
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'secretSymKeyDevLog123',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(
+        'eb16df1f-1d3b-4018-9d18-28ef610cc1a4',
+      );
+      expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(wcLink);
+      expect(utmReportSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleLogSpy.mockRestore();
+      utmReportSpy.mockRestore();
+      appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    }
+  });
 });
 
 describe('disabled webview deep links', () => {
@@ -303,8 +380,6 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
 
-    // jest runs as web (non-native), which lands on the Market tab directly;
-    // the native branch converges into Discovery's market sub tab instead.
     expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -312,6 +387,24 @@ describe('stocks / perps universal links', () => {
       },
     });
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes market universal link to the standalone Market tab on native', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({ url: 'https://app.onekey.so/market' });
+      await flushAsyncTasks();
+
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
+      });
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
   });
 
   it('consumes App Clip attribution for a direct universal-link handoff on iOS', async () => {
@@ -795,8 +888,7 @@ describe('walletconnect pay deep links', () => {
   });
 
   it('waits for app unlock before opening the pay dialog', async () => {
-    // the dialog is a system sheet that would present ABOVE the RN lock
-    // screen, so the link must park until the app is unlocked
+    // a payment never opens over a locked app: the link waits for unlock
     let resolveUnlock: () => void = () => {};
     mockedWhenAppUnlocked.mockImplementation(
       () =>

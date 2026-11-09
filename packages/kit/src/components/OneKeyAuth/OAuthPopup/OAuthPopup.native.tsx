@@ -645,6 +645,8 @@ export class OAuthPopup extends OAuthPopupBase {
         reason: `Native OAuth callback URL validation failed: ${getSanitizedErrorLogText(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
       return false;
     }

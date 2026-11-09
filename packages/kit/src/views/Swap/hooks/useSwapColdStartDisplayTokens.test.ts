@@ -1,3 +1,7 @@
+/** @jest-environment jsdom */
+
+import { renderHook } from '@testing-library/react';
+
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -10,9 +14,18 @@ import {
   getSwapStockColdStartDisplayTokenFromGlobalSnapshot,
   getSwapStockPayTokenDisplayFromGlobalSnapshot,
   resolveSwapDisplayToken,
+  useSwapColdStartDisplayTokens,
 } from './useSwapColdStartDisplayTokens';
 
+import type { ISwapDefaultConfigStatus } from '../utils/swapColdStartTokenCacheUtils';
+
 let mockStoredSnapshotRaw: string | undefined;
+let mockDefaultConfigStatus: ISwapDefaultConfigStatus = 'pending';
+
+jest.mock('../../../states/jotai/contexts/swap/atoms', () => ({
+  useSwapDefaultConfigStatusAtom: () => [mockDefaultConfigStatus],
+  useSwapColdStartScopeKey: () => 'store:swap',
+}));
 
 jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
   readContextAtomSnapshotRaw: () => mockStoredSnapshotRaw,
@@ -62,12 +75,170 @@ function buildHomeSelectedAccount(networkId: string) {
   };
 }
 
+const fromToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+};
+const toToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xdai',
+  symbol: 'DAI',
+  decimals: 18,
+};
+
+function setCachedSwapPairSnapshot({
+  automatic = false,
+  networkId = 'evm--1',
+  swapType = ESwapTabSwitchType.SWAP,
+}: {
+  automatic?: boolean;
+  networkId?: string;
+  swapType?: ESwapTabSwitchType;
+} = {}) {
+  const context: ISwapSelectedTokensColdStartContext = {
+    accountKey: 'wallet-1|indexed-account-1|default',
+    networkId,
+    swapType,
+    updatedAt: 1,
+    ...(automatic
+      ? {
+          defaultTokenSeed: {
+            fromToken: {
+              networkId: fromToken.networkId,
+              contractAddress: fromToken.contractAddress,
+            },
+            toToken: {
+              networkId: toToken.networkId,
+              contractAddress: toToken.contractAddress,
+            },
+          },
+        }
+      : {}),
+  };
+  setGlobalSnapshot({
+    [scopedKey(
+      ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+    )]: { 0: buildHomeSelectedAccount(networkId) },
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+    )]: context,
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+    )]: fromToken,
+    [scopedKey(
+      SWAP_STORE_SCOPE_KEY,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+    )]: toToken,
+  });
+  return context;
+}
+
 describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
   afterEach(() => {
     clearGlobalSnapshot();
   });
 
-  it('uses home-network defaults when no selected token snapshot exists yet', () => {
+  it('waits for configuration before creating defaults without a selected-pair cache', () => {
+    setGlobalSnapshot({
+      [scopedKey(
+        ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )]: { 0: buildHomeSelectedAccount('evm--1') },
+    });
+
+    expect(
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus: 'pending',
+      }),
+    ).toEqual({});
+    expect(
+      getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+        defaultConfigStatus: 'pending',
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+        defaultConfigStatus: 'failed',
+      })?.fromToken?.symbol,
+    ).toBe('ETH');
+  });
+
+  it('hides an automatic cached pair during the configuration request', () => {
+    setCachedSwapPairSnapshot({ automatic: true });
+
+    expect(
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus: 'pending',
+      }),
+    ).toEqual({});
+  });
+
+  it.each(['success', 'failed'] as const)(
+    'keeps automatic display defaults deferred during %s until execution state resolves',
+    (defaultConfigStatus) => {
+      setCachedSwapPairSnapshot({ automatic: true });
+
+      expect(
+        getSwapColdStartDisplayTokensFromGlobalSnapshot({
+          defaultConfigStatus,
+          deferAutomaticDefaults: true,
+        }),
+      ).toEqual({});
+    },
+  );
+
+  it('restores a user-selected cached pair while configuration is pending', () => {
+    setCachedSwapPairSnapshot();
+
+    expect(
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus: 'pending',
+        deferAutomaticDefaults: true,
+      }),
+    ).toEqual({ fromToken, toToken });
+  });
+
+  it.each([
+    { networkId: 'evm--1', swapType: ESwapTabSwitchType.BRIDGE },
+    { networkId: 'evm--1', swapType: ESwapTabSwitchType.LIMIT },
+  ])(
+    'keeps automatic display cache for $networkId / $swapType',
+    ({ networkId, swapType }) => {
+      setCachedSwapPairSnapshot({ automatic: true, networkId, swapType });
+
+      expect(
+        getSwapColdStartDisplayTokensFromGlobalSnapshot({
+          defaultConfigStatus: 'pending',
+          deferAutomaticDefaults: true,
+          swapType,
+        }),
+      ).toEqual({ fromToken, toToken });
+    },
+  );
+
+  it('waits for All configuration only while its pair is still automatic', () => {
+    setCachedSwapPairSnapshot({ automatic: true, networkId: 'onekeyall--0' });
+    expect(
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus: 'pending',
+        deferAutomaticDefaults: true,
+      }),
+    ).toEqual({});
+    setCachedSwapPairSnapshot({ automatic: false, networkId: 'onekeyall--0' });
+    expect(
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus: 'pending',
+        deferAutomaticDefaults: true,
+      }),
+    ).toEqual({ fromToken, toToken });
+  });
+
+  it('does not fabricate display defaults without a selected-token snapshot', () => {
     setGlobalSnapshot({
       [scopedKey(
         ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
@@ -77,16 +248,7 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
       },
     });
 
-    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({
-      fromToken: expect.objectContaining({
-        networkId: 'sol--101',
-        symbol: 'SOL',
-      }),
-      toToken: expect.objectContaining({
-        networkId: 'sol--101',
-        symbol: 'USDC',
-      }),
-    });
+    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({});
   });
 
   it('restores an owner-scoped balance directly from the boot snapshot', () => {
@@ -239,7 +401,7 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
     ).toBeUndefined();
   });
 
-  it('falls back to home-network defaults when stale selected tokens are invalidated', () => {
+  it('leaves stale selected tokens empty until the execution owner resolves defaults', () => {
     setGlobalSnapshot({
       [scopedKey(
         ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
@@ -272,16 +434,7 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
       } satisfies Partial<ISwapToken>,
     });
 
-    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({
-      fromToken: expect.objectContaining({
-        networkId: 'sol--101',
-        symbol: 'SOL',
-      }),
-      toToken: expect.objectContaining({
-        networkId: 'sol--101',
-        symbol: 'USDC',
-      }),
-    });
+    expect(getSwapColdStartDisplayTokensFromGlobalSnapshot()).toEqual({});
   });
 });
 
@@ -611,5 +764,142 @@ describe('resolveSwapDisplayToken', () => {
         fallbackToken: btcToken,
       }),
     ).toEqual(btcToken);
+  });
+});
+
+function readyToken(
+  state: ReturnType<typeof useSwapColdStartDisplayTokens>['fromTokenState'],
+) {
+  return state.status === 'ready' ? state.token : undefined;
+}
+
+describe('useSwapColdStartDisplayTokens configuration readiness', () => {
+  beforeEach(() => {
+    mockDefaultConfigStatus = 'pending';
+  });
+
+  afterEach(clearGlobalSnapshot);
+
+  it('keeps an uninitialized entry loading instead of promoting a display-only cached pair', () => {
+    setCachedSwapPairSnapshot();
+    const { result, rerender } = renderHook(useSwapColdStartDisplayTokens, {
+      initialProps: {
+        fromToken: undefined as ISwapToken | undefined,
+        toToken: undefined as ISwapToken | undefined,
+        initialSelectedTokensSynced: false,
+        swapType: ESwapTabSwitchType.SWAP,
+      },
+    });
+    expect(result.current.fromTokenState.status).toBe('loading');
+    expect(result.current.toTokenState.status).toBe('loading');
+    rerender({
+      fromToken,
+      toToken,
+      initialSelectedTokensSynced: true,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(readyToken(result.current.fromTokenState)).toBe(fromToken);
+    expect(readyToken(result.current.toTokenState)).toBe(toToken);
+  });
+
+  it.each(['success', 'failed'] as const)(
+    'shows loading for a missing token until configuration settles as %s',
+    (settledStatus) => {
+      const { result, rerender } = renderHook(() =>
+        useSwapColdStartDisplayTokens({
+          fromToken,
+          initialSelectedTokensSynced: true,
+          swapType: ESwapTabSwitchType.SWAP,
+        }),
+      );
+      expect(readyToken(result.current.fromTokenState)).toBe(fromToken);
+      expect(result.current.fromTokenState.status === 'loading').toBe(false);
+      expect(readyToken(result.current.toTokenState)).toBeUndefined();
+      expect(result.current.toTokenState.status === 'loading').toBe(true);
+
+      mockDefaultConfigStatus = settledStatus;
+      rerender();
+      expect(readyToken(result.current.toTokenState)).toBeUndefined();
+      expect(result.current.toTokenState.status === 'loading').toBe(false);
+    },
+  );
+
+  it('shows an existing default during refresh without a loading skeleton', () => {
+    const { result } = renderHook(() =>
+      useSwapColdStartDisplayTokens({
+        fromToken,
+        toToken,
+        initialSelectedTokensSynced: true,
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(readyToken(result.current.toTokenState)).toBe(toToken);
+    expect(result.current.toTokenState.status === 'loading').toBe(false);
+  });
+
+  it('keeps an existing automatic pair during refresh and waits after owner invalidation', () => {
+    setCachedSwapPairSnapshot({ automatic: true });
+    const { result, rerender } = renderHook(useSwapColdStartDisplayTokens, {
+      initialProps: {
+        fromToken: fromToken as ISwapToken | undefined,
+        toToken: toToken as ISwapToken | undefined,
+        initialSelectedTokensSynced: true,
+        swapType: ESwapTabSwitchType.SWAP,
+      },
+    });
+
+    expect(readyToken(result.current.fromTokenState)).toBe(fromToken);
+    expect(readyToken(result.current.toTokenState)).toBe(toToken);
+    expect(result.current.fromTokenState.status === 'loading').toBe(false);
+
+    mockDefaultConfigStatus = 'success';
+    rerender({
+      fromToken: undefined,
+      toToken: undefined,
+      initialSelectedTokensSynced: false,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(readyToken(result.current.fromTokenState)).toBeUndefined();
+    expect(readyToken(result.current.toTokenState)).toBeUndefined();
+    expect(result.current.fromTokenState.status === 'loading').toBe(true);
+
+    const configuredFromToken: ISwapToken = {
+      ...toToken,
+      contractAddress: '0xusdc',
+      symbol: 'USDC',
+      decimals: 6,
+    };
+    rerender({
+      fromToken: configuredFromToken,
+      toToken,
+      initialSelectedTokensSynced: true,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(readyToken(result.current.fromTokenState)?.symbol).toBe('USDC');
+    expect(readyToken(result.current.toTokenState)?.symbol).toBe('DAI');
+    expect(result.current.fromTokenState.status === 'loading').toBe(false);
+  });
+
+  it('drops a previous automatic presentation when its configuration becomes pending', () => {
+    setCachedSwapPairSnapshot({ automatic: true });
+    mockDefaultConfigStatus = 'failed';
+    const { result, rerender } = renderHook(useSwapColdStartDisplayTokens, {
+      initialProps: {
+        fromToken: fromToken as ISwapToken | undefined,
+        toToken: toToken as ISwapToken | undefined,
+        swapType: ESwapTabSwitchType.SWAP,
+      },
+    });
+    expect(readyToken(result.current.fromTokenState)?.symbol).toBe('ETH');
+
+    mockDefaultConfigStatus = 'pending';
+    rerender({
+      fromToken: undefined,
+      toToken: undefined,
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+    expect(readyToken(result.current.fromTokenState)).toBeUndefined();
+    expect(readyToken(result.current.toTokenState)).toBeUndefined();
+    expect(result.current.fromTokenState.status === 'loading').toBe(true);
   });
 });

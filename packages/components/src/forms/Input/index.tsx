@@ -41,12 +41,11 @@ import type {
   IPasteEventPayload,
 } from '@onekeyfe/react-native-text-input';
 import type {
-  HostComponent,
+  HostInstance,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputFocusEventData,
+  TextInputFocusEvent,
+  TextInputInstance,
 } from 'react-native';
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
@@ -77,6 +76,8 @@ export type IInputProps = {
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
   selectTextOnFocus?: boolean;
+  /** Move the initial Android selection to the start. Defaults to true. */
+  autoScrollToTop?: boolean;
   /**
    * Auto scroll to top delay in milliseconds.
    * Default is 250ms, only works on Android.
@@ -97,6 +98,7 @@ export type IInputProps = {
 export type IInputRef = {
   focus: () => void;
   blur: () => void;
+  setSelection?: (start: number, end: number) => void;
   setNativeProps?: (props: Record<string, unknown>) => void;
 };
 
@@ -135,12 +137,20 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
+  ? (
+      ref: RefObject<TextInputInstance | null>,
+      waitMs = 250,
+      enabled = true,
+    ) => {
       useEffect(() => {
-        setTimeout(() => {
+        if (!enabled) {
+          return;
+        }
+        const timeout = setTimeout(() => {
           ref.current?.setSelection?.(0, 0);
         }, waitMs);
-      }, [ref, waitMs]);
+        return () => clearTimeout(timeout);
+      }, [ref, waitMs, enabled]);
     }
   : () => {};
 
@@ -157,7 +167,7 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 export const useAutoFocus = (
-  inputRef: RefObject<TextInput | null>,
+  inputRef: RefObject<TextInputInstance | null>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
 ) => {
@@ -200,7 +210,7 @@ export const useFixAndroidInputValueDisplay = platformEnv.isNativeAndroid
 export const useOnWebPaste = platformEnv.isNative
   ? noop
   : (
-      inputRef: RefObject<TextInput> | null,
+      inputRef: RefObject<TextInputInstance | null> | null,
       onPaste?: (event: IPasteEventParams) => void,
     ) => {
       useEffect(() => {
@@ -281,6 +291,7 @@ function BaseInput(
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollToTop,
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
@@ -306,7 +317,7 @@ function BaseInput(
   const addOnsBorderRadius =
     addOnsContainerProps?.borderRadius ?? containerBorderRadius;
   const themeName = useThemeName();
-  const inputRef: RefObject<TextInput | null> | null = useRef(null);
+  const inputRef: RefObject<TextInputInstance | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
   const { clearText, getClipboard, supportPaste, onPasteClearText } =
@@ -438,7 +449,7 @@ function BaseInput(
 
   useOnWebPaste(inputRef, onPaste);
 
-  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs, autoScrollToTop);
 
   useImperativeHandle(forwardedRef, () => ({
     focus: () => {
@@ -447,10 +458,11 @@ function BaseInput(
     blur: () => {
       inputRef.current?.blur();
     },
+    setSelection: (start: number, end: number) => {
+      inputRef.current?.setSelection?.(start, end);
+    },
     measureLayout: (
-      relativeToNativeComponentRef:
-        | React.ElementRef<HostComponent<unknown>>
-        | number,
+      relativeToNativeComponentRef: HostInstance | number,
       onSuccess: MeasureLayoutOnSuccessCallback,
       onFail?: () => void,
     ) =>
@@ -476,10 +488,11 @@ function BaseInput(
   const shownValue = useFixAndroidInputValueDisplay(value);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
-    (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    (e: TextInputFocusEvent) => {
       onFocus?.(e);
       if (platformEnv.isNative && selectTextOnFocus) {
-        const currentTarget = e.currentTarget;
+        // On native the event target is always a host element, never a tag.
+        const currentTarget = e.currentTarget as HostInstance;
         void timerUtils.setTimeoutPromised(() => {
           currentTarget?.setNativeProps({
             selection: { start: 0, end: valueRef.current?.length || 0 },

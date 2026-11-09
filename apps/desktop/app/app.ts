@@ -12,8 +12,8 @@ import {
   disposeNobleBleSupport,
   initNobleBleSupport,
 } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
-import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
   Menu,
@@ -23,12 +23,13 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
-import isDev from 'electron-is-dev';
+import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
@@ -38,22 +39,30 @@ import {
   getOriginDomainKey,
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
-import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import desktopApi, {
+  getDesktopApiAppUpdate,
+} from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
-  ONEKEY_APP_DEEP_LINK_NAME,
-  WALLET_CONNECT_DEEP_LINK_NAME,
-} from '@onekeyhq/shared/src/consts/deeplinkConsts';
+  APP_MENU_GITHUB_URL,
+  APP_MENU_HELP_CENTER_URL,
+  APP_MENU_OFFICIAL_WEBSITE_URL,
+  APP_MENU_X_URL,
+} from '@onekeyhq/shared/src/consts/appMenuConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -65,17 +74,38 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import {
+  CPU_WATCHDOG_COOLDOWN_MS,
+  CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+  CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_STARTUP_GRACE_MS,
+  CpuWatchdogController,
+  isCpuWatchdogReason,
+} from './libs/cpuWatchdog';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
+import {
+  DESKTOP_DEEP_LINK_PROTOCOLS,
+  findAllowedDeepLinkArg,
+  getDesktopProtocolClientArgs,
+  isAllowedDeepLinkUrl,
+  resolveDesktopRuntimeFlags,
+} from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
+  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
 import { openExternalUrl } from './libs/openExternalUrl';
+import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -108,7 +138,8 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
-import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import type { ICpuWatchdogReason } from './libs/cpuWatchdog';
+import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
@@ -119,8 +150,11 @@ import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/ma
 // can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
-    const safeError = new Error(error.message || fallbackMessage);
-    safeError.name = error.name || 'Error';
+    const message = error.message || fallbackMessage;
+    const safeError = new Error(message);
+    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
+      safeError.name = error.name || 'Error';
+    }
     safeError.stack = error.stack;
     return safeError;
   }
@@ -164,10 +198,15 @@ function makeIpcSafeResult(result: unknown): unknown {
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
 process.nextTick(initSentry);
 
-const isPerfCiMode = process.env.PERF_CI_MODE === '1';
-const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
-const isDevServer = isDev && !isPerfCiMode;
-const isLocalUnpacked = isDev || isPerfCiMode;
+// SECURITY: never allow development or unpacked modes (such as ELECTRON_IS_DEV=1
+// or PERF_CI_MODE=1) in packaged builds; they enable unpacked file/URL loading
+// and skip production file:// hash/GPG checks.
+const { isDev, isPerfCiMode, isDevServer, isLocalUnpacked, isDesktopE2EMode } =
+  resolveDesktopRuntimeFlags({
+    isPackaged: app.isPackaged,
+    electronIsDev,
+    env: process.env,
+  });
 
 function isWhitelistedMediaOrigin(
   origin: string,
@@ -297,8 +336,16 @@ export type IDesktopOpenUrlEventData = {
 };
 
 const getSafelyMainWindow = () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    return mainWindow;
+  try {
+    if (
+      mainWindow &&
+      !mainWindow.isDestroyed() &&
+      !mainWindow.webContents.isDestroyed()
+    ) {
+      return mainWindow;
+    }
+  } catch {
+    // Window or webContents already destroyed
   }
   return undefined;
 };
@@ -599,28 +646,26 @@ const initMenu = () => {
         {
           label: i18nText(ElectronTranslations.menu_visit_help_center),
           click: async () => {
-            await shell.openExternal('https://help.onekey.so');
+            await shell.openExternal(APP_MENU_HELP_CENTER_URL);
           },
         },
         { type: 'separator' },
         {
           label: i18nText(ElectronTranslations.menu_official_website),
           click: async () => {
-            await shell.openExternal('https://onekey.so');
+            await shell.openExternal(APP_MENU_OFFICIAL_WEBSITE_URL);
           },
         },
         {
           label: 'Github',
           click: async () => {
-            await shell.openExternal(
-              'https://github.com/OneKeyHQ/app-monorepo',
-            );
+            await shell.openExternal(APP_MENU_GITHUB_URL);
           },
         },
         {
           label: 'X',
           click: async () => {
-            await shell.openExternal('https://x.com/onekeyhq');
+            await shell.openExternal(APP_MENU_X_URL);
           },
         },
       ],
@@ -674,15 +719,18 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
-  // Validate deep link scheme before forwarding to renderer
-  if (url && !isAllowedDeepLinkUrl(url)) {
-    logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+  // Validate deep link scheme and syntax before forwarding to renderer.
+  // Never log raw deep link URLs as they may contain pairing keys or tokens.
+  if (!url || !isAllowedDeepLinkUrl(url)) {
+    logger.warn('[DeepLink] Rejected URL with unknown or unsafe scheme');
     return;
   }
 
+  // Only forward the validated deep link URL; never pass raw process.argv
+  // (which contains executable paths, Electron switches, or untrusted args).
   const eventData: IDesktopOpenUrlEventData = {
     url,
-    argv,
+    argv: argv ? [url] : undefined,
     isColdStartup,
     platform: process.platform,
   };
@@ -754,18 +802,38 @@ const minWidth = 1024;
 const minHeight = 800;
 let bleQuitStarted = false;
 let bleQuitReady = false;
+let appQuitStarted = false;
+let mainRendererBootFailed = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
-const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+const trezorBleSupports = new Set<
+  ReturnType<typeof initThirdPartyBleSupport>
+>();
 // When the main renderer dies, the window keeps its last frame but ignores all
 // input. Reload it, capped so a renderer that crashes while booting cannot
 // reload forever.
 const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
 const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
 let mainRendererReloadTimestamps: number[] = [];
+let createMainWindowPromise: Promise<BrowserWindow | null> | null = null;
 
-async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+function createMainWindow(opts?: {
+  isSoftRestart?: boolean;
+}): Promise<BrowserWindow | null> {
+  if (createMainWindowPromise) {
+    return createMainWindowPromise;
+  }
+  const promise = createMainWindowImpl(opts).finally(() => {
+    if (createMainWindowPromise === promise) {
+      createMainWindowPromise = null;
+    }
+  });
+  createMainWindowPromise = promise;
+  return promise;
+}
+
+async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
   if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
@@ -793,16 +861,38 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   }
   store.setBootFailAppVersion(currentAppVersion);
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
+  if (bootFailCount >= 3 && activeOtaBundleVersion) {
+    logger.warn(
+      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
+      {
+        bootFailCount,
+        bundleVersion: activeOtaBundleVersion,
+        appVersion: currentAppVersion,
+      },
+    );
+    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
+    store.revokePendingSwitchForFailedBundle(
+      currentAppVersion,
+      activeOtaBundleVersion,
+    );
+    store.clearUpdateBundleData();
+    store.resetConsecutiveBootFailCount();
+    bootFailCount = store.incrementConsecutiveBootFailCount();
+  }
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
       appVersion: currentAppVersion,
     });
     const recoveryWin = createRecoveryWindow();
+    mainWindow = recoveryWin;
     recoveryWin.on('closed', () => {
-      mainWindow = null;
+      if (mainWindow === recoveryWin) {
+        mainWindow = null;
+      }
     });
     return recoveryWin;
   }
@@ -870,10 +960,19 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  mainWindow = browserWindow;
 
   const getSafelyBrowserWindow = () => {
-    if (browserWindow && !browserWindow.isDestroyed()) {
-      return browserWindow;
+    try {
+      if (
+        browserWindow &&
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        return browserWindow;
+      }
+    } catch {
+      // Window or webContents already destroyed
     }
     return undefined;
   };
@@ -881,7 +980,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+  let bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -985,11 +1084,92 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  let selectedShellDocumentCommitted = false;
+  let trustedSameDocumentRouteUrl: string | undefined;
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
+    senderId,
+    senderFrame,
+    mainFrame,
+  ) => {
+    try {
+      const currentMainWindow =
+        getSafelyMainWindow() ?? getSafelyBrowserWindow();
+      return Boolean(
+        currentMainWindow?.webContents.id === senderId &&
+        senderFrame &&
+        senderFrame === mainFrame &&
+        selectedShellDocumentCommitted &&
+        isTrustedMainWindowUrl(
+          src,
+          senderFrame.url,
+          trustedSameDocumentRouteUrl,
+          isDevServer,
+        ),
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    selectedShellDocumentCommitted = isTrustedMainWindowUrl(
+      src,
+      url,
+      isDevServer ? trustedSameDocumentRouteUrl : undefined,
+      isDevServer,
+    );
+    trustedSameDocumentRouteUrl =
+      isDevServer && selectedShellDocumentCommitted ? url : undefined;
+    if (!selectedShellDocumentCommitted) {
+      try {
+        if (
+          new URL(src).protocol === 'file:' &&
+          new URL(url).protocol === 'file:'
+        ) {
+          void getSafelyBrowserWindow()
+            ?.loadURL(src)
+            .catch((error) =>
+              logger.error('Failed to reload app shell:', error),
+            );
+        }
+      } catch {
+        // Invalid URLs cannot be recovered as local app-shell routes.
+      }
+    }
+  });
+  browserWindow.webContents.on(
+    'did-navigate-in-page',
+    (_event, url, isMainFrame) => {
+      if (isMainFrame && selectedShellDocumentCommitted) {
+        trustedSameDocumentRouteUrl = url;
+      }
+    },
+  );
+
+  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
+    if (
+      !isTrustedMainWindowUrl(
+        src,
+        url,
+        isDevServer ? trustedSameDocumentRouteUrl : undefined,
+        isDevServer,
+      )
+    ) {
+      event.preventDefault();
+      logger.warn(
+        '[MainWindow] rejected navigation outside selected app shell',
+      );
+    }
+  };
+  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  });
+
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
-
-  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -997,12 +1177,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // renderer via sender-id checks in HttpServer.
   setMainWindowForHttpServer(browserWindow);
 
-  // Protocol handler for win32
+  // Protocol handler for cold startup command-line URLs
   // Skip on soft restart: process.argv is unchanged across an in-process
   // recreate, so replaying the launch deep link here would re-dispatch the
   // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
   // every bundle update. Only a genuine cold boot should consume argv.
-  if ((isWin || isMac) && !isSoftRestart) {
+  if ((isWin || isMac || isLinux) && !isSoftRestart) {
     const deeplinkingUrl = findAllowedDeepLinkArg(process.argv);
     if (deeplinkingUrl) {
       handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -1011,16 +1191,45 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   browserWindow.webContents.on('unresponsive', () => {
     logger.warn('[CPU Watchdog] renderer webContents unresponsive');
-    triggerCpuWatchdog({ reason: 'unresponsive' });
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    triggerCpuWatchdog({ reason: 'unresponsive', pid });
   });
   browserWindow.webContents.on('responsive', () => {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    markCpuWatchdogResponsive(pid);
   });
 
   browserWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+    if (
+      details.reason === 'clean-exit' ||
+      appQuitStarted ||
+      bleQuitStarted ||
+      softRestarting
+    ) {
       return;
     }
+    mainRendererBootFailed = true;
     const now = Date.now();
     mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
       (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
@@ -1044,7 +1253,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     // Start the reload after Electron finishes dispatching this event.
     setImmediate(() => {
       const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+      if (
+        !safelyBrowserWindow ||
+        appQuitStarted ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
         return;
       }
       // Deep links received while the page reboots wait for dom-ready.
@@ -1079,8 +1293,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
   browserWindow.on('closed', () => {
     unregisterShortcuts();
-    mainWindow = null;
-    isAppReady = false;
+    if (mainWindow === browserWindow) {
+      mainWindow = null;
+      isAppReady = false;
+    }
     logger.info('set isAppReady on browserWindow closed', isAppReady);
   });
 
@@ -1169,6 +1385,34 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
+  // The renderer's fetch obeys CORS and mixed content; the main process does not.
+  // `net.fetch` follows the system proxy; Node's fetch would bypass it and expose the user's IP.
+  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
+    net.fetch(String(input), init),
+  );
+  ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+  ipcMain.handle(
+    ipcMessageKeys.FETCH_STREAM,
+    async (event, request: IFetchStreamRequest) => {
+      let isTrustedSender = false;
+      try {
+        if (!event.sender.isDestroyed()) {
+          isTrustedSender = Boolean(
+            globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+              event.sender.id,
+              event.senderFrame,
+              event.sender.mainFrame,
+            ),
+          );
+        }
+      } catch {
+        isTrustedSender = false;
+      }
+      if (!isTrustedSender) return { ok: false, error: 'not allowed' };
+      return fetchStreamRequest(request);
+    },
+  );
+
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
@@ -1227,6 +1471,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
+    mainRendererBootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1255,12 +1500,26 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      let isTrustedSender = false;
+      let senderId = -1;
+      try {
+        if (!event.sender.isDestroyed()) {
+          senderId = event.sender.id;
+          isTrustedSender = Boolean(
+            globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+              senderId,
+              event.senderFrame,
+              event.sender.mainFrame,
+            ),
+          );
+        }
+      } catch {
+        isTrustedSender = false;
+      }
+      if (!isTrustedSender) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
-          event.sender.id,
+          senderId,
         );
         throw new OneKeyLocalError(
           'DESKTOP_API_CALL is only allowed from the main window',
@@ -1388,7 +1647,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         ) => {
           if (isAllowedWebViewUrl(url)) return;
           navigationEvent.preventDefault();
-          logger.info('overlay pre-navigation block (main process):', url);
+          logger.info('overlay pre-navigation block (main process)');
         };
         contents.on('will-redirect', guardOverlayPreNavigation);
         contents.on('will-navigate', guardOverlayPreNavigation);
@@ -1413,28 +1672,24 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
-          logger.info(
-            'reject navigate main process will-frame-navigate: ',
-            url,
-          );
+          logger.info('reject navigate main process will-frame-navigate');
           return false;
         }
 
         if (uriUtils.isValidDeepLink(url)) {
           e.preventDefault();
-          logger.info('reject deeplink in main process:', url);
+          logger.info('reject deeplink in main process');
           return false;
         }
       });
     }
   });
 
-  const filter = {
-    urls: [
-      'http://127.0.0.1:21320/*',
-      'http://localhost:21320/*',
-      'https://mainnet.optimism.io/*',
-    ],
+  const filter: Electron.WebRequestFilter = {
+    urls: ['http://*/*', 'https://*/*'],
+    // Only XHR/fetch carry the UA bridge. Keep every destination so Chromium's
+    // original bridge header is also removed after cross-origin redirects.
+    types: ['xhr'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1548,20 +1803,46 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     filter,
     (details, callback) => {
       const { url } = details;
+      let requestHeaders = resolveDesktopCustomUAHeaders(
+        url,
+        details.requestHeaders,
+      );
       if (
         url.startsWith('http://127.0.0.1:21320/') ||
         url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
-        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'https://jssdk.onekey.so',
+        };
       } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
-        details.requestHeaders.Origin =
-          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+        };
       }
 
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      callback(
+        requestHeaders === details.requestHeaders ? {} : { requestHeaders },
+      );
     },
+  );
+
+  const primeStripeRequestMonitor = createPrimeStripeRequestMonitor(
+    () => getSafelyMainWindow()?.webContents,
+  );
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.recordRequest(details);
+      callback({});
+    },
+  );
+  session.defaultSession.webRequest.onErrorOccurred(
+    { urls: ['https://js.stripe.com/*'] },
+    (details) => primeStripeRequestMonitor.forgetRequest(details.id),
   );
 
   // Inject security response headers for the app's own pages only.
@@ -1581,9 +1862,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         'http://localhost:*/*',
         'https://pay.walletconnect.com/*',
         'https://*.pay.walletconnect.com/*',
+        'https://js.stripe.com/*',
       ],
     },
     (details, callback) => {
+      if (details.url.startsWith('https://js.stripe.com/')) {
+        primeStripeRequestMonitor.receiveResponse(details);
+        callback({});
+        return;
+      }
       if (isWcPayEmbedUrl(details.url)) {
         callback({
           responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
@@ -1610,7 +1897,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
-    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1620,113 +1906,150 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           signature: bundleData.signature,
         });
       } catch (e) {
-        // GPG verification failed or metadata unreadable — disable JS bundle
-        // so the interceptor falls back to the builtin bundle in the asar.
+        // GPG verification failed or metadata unreadable — clear broken OTA
+        // bundle pointer and disable JS bundle so the interceptor falls back
+        // to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        store.clearUpdateBundleData();
+        bundleIndexHtmlPath = undefined;
         useJsBundle = false;
-        metadataFailed = true;
+        /* eslint-disable no-nested-ternary */
+        src = isPerfCiMode
+          ? formatUrl({
+              pathname: perfIndexHtmlPath,
+              protocol: PROTOCOL,
+              slashes: true,
+            })
+          : isDev
+            ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
+            : formatUrl({
+                pathname: 'index.html',
+                protocol: PROTOCOL,
+                slashes: true,
+              });
+        /* eslint-enable no-nested-ternary */
+        selectedShellDocumentCommitted = false;
+        trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+        try {
+          const cleanUrl = request.url.split(/[?#]/, 1)[0];
+          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+          // resolve iframe path
+          if (isJsSdkFile && isIFrameHtml) {
+            if (useJsBundle && indexHtmlPath && bundleDirPath) {
+              let key = path.join('static', 'js-sdk', 'iframe.html');
+              const filePath = path.join(bundleDirPath, key);
+              if (isWin) {
+                key = key.replace(/\\/g, '/');
+              }
+              const sha512 =
+                Object.prototype.hasOwnProperty.call(metadata, key) &&
+                typeof metadata[key] === 'string'
+                  ? metadata[key]
+                  : undefined;
+              if (!sha512 || !checkFileSha512(filePath, sha512)) {
+                logger.info(
+                  'checkFileHash error in js-sdk:',
+                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+                );
+                store.clearUpdateBundleData();
+                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+            callback({
+              path: path.join(
+                __dirname,
+                '..',
+                'build',
+                'static',
+                'js-sdk',
+                'iframe.html',
+              ),
+            });
+            return;
+          }
+
+          const url = cleanUrl.substring(PROTOCOL.length + 1);
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
             }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+              });
+              callback(filePath);
+            } else {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: decodedUrl,
+              });
+              callback(filePath);
             }
-            callback(filePath);
-            return;
-          }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
-          return;
-        }
-
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
           } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
+            const buildDir = path.resolve(__dirname, '..', 'build');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
+            }
+            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+            // and Windows drive prefix so path.resolve treats the segment as relative.
+            const relativeUrl = decodedUrl
+              .replace(/^[:/\\]+/, '')
+              .replace(/^[A-Za-z]:[\\/]/, '')
+              .replace(/^[:/\\]+/, '');
+            const resolved = path.resolve(buildDir, relativeUrl);
+            if (
+              !resolved.startsWith(buildDir + path.sep) &&
+              resolved !== buildDir
+            ) {
+              logger.warn('Blocked file access outside build dir:', resolved);
+              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+              return;
+            }
+            callback(resolved);
           }
-        } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+        } catch (error) {
+          logger.error('interceptFileProtocol error:', error);
+          callback({ error: -6 } as any);
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
-    if (metadataFailed) {
-      src = formatUrl({
-        pathname: 'index.html',
-        protocol: PROTOCOL,
-        slashes: true,
-      });
-      void browserWindow.loadURL(src);
-    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
       (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !appQuitStarted &&
+          isMainFrame &&
+          errorCode !== -3 &&
+          isTrustedMainWindowUrl(src, validatedURL)
+        ) {
+          mainRendererBootFailed = true;
+        }
         if (
           !shouldReloadAppShellAfterFailedLoad({
             validatedURL,
@@ -1745,6 +2068,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       },
     );
   }
+
+  void getSafelyBrowserWindow()?.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
@@ -1790,30 +2115,38 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
-  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
-  // `initTrezorBleSupport`, whose IPC channels live in their own
-  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
-  // own `nobleBle` without colliding. When we add other 3rd-party BLE
-  // vendors, they should plug into the same `thirdPartyBle` surface
-  // rather than each adding a parallel object.
-  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+  // `window.desktopApi.thirdPartyBle` serves every third-party vendor through
+  // one handler, namespaced ($onekey-3p-ble-*) to coexist with OneKey's `nobleBle`. A new vendor plugs in here, not a parallel object.
+  Object.values(THIRD_PARTY_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );
   // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
   // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
   // otherwise drive BLE scan/connect/write. Gate every channel to the main
   // window renderer, matching the DESKTOP_API_CALL sender check.
-  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+  const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
-        if (event.sender.id !== browserWindow.webContents.id) {
+        let isMainRenderer = false;
+        let senderId = -1;
+        try {
+          if (!event.sender.isDestroyed()) {
+            senderId = event.sender.id;
+            const currentMainWindow =
+              getSafelyMainWindow() ?? getSafelyBrowserWindow();
+            isMainRenderer = currentMainWindow?.webContents.id === senderId;
+          }
+        } catch {
+          isMainRenderer = false;
+        }
+        if (!isMainRenderer) {
           logger.warn(
-            '[TrezorBLE] Rejected IPC from non-main renderer',
+            '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
-            event.sender.id,
+            senderId,
           );
           throw new OneKeyLocalError(
-            'Trezor BLE IPC is only allowed from the main window',
+            'Third-party BLE IPC is only allowed from the main window',
           );
         }
         return listener(event, ...args);
@@ -1822,12 +2155,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
   logTrezorBleFlags();
-  const trezorBleSupport = initTrezorBleSupport(browserWindow.webContents, {
+  const trezorBleSupport = initThirdPartyBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
     ipcMain: createTrezorBlePairingIpcMain(
-      trezorBleSenderGatedIpcMain,
+      thirdPartyBleSenderGatedIpcMain,
       browserWindow,
     ),
     logger: (entry) => {
@@ -1870,9 +2203,12 @@ if (!singleInstance && !process.mas) {
   app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    const deeplinkingUrl = findAllowedDeepLinkArg(argv);
+    // Omit raw `argv` and `deeplinkingUrl` from logs so sensitive deep-link
+    // parameters (e.g. WalletConnect `symKey` or voucher codes) are not persisted.
     logger.info('Second instance launched, focusing existing window', {
-      argv,
       platform: process.platform,
+      hasDeepLink: Boolean(deeplinkingUrl),
     });
 
     const safelyMainWindow = getSafelyMainWindow();
@@ -1883,8 +2219,6 @@ if (!singleInstance && !process.mas) {
       }
 
       // Handle deep link arguments for all platforms
-      // argv: An array of the second instance's (command line / deep linked) arguments
-      const deeplinkingUrl = findAllowedDeepLinkArg(argv);
       if (deeplinkingUrl) {
         // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
         handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
@@ -1983,7 +2317,11 @@ app.on('activate', async () => {
   showMainWindow();
 });
 
+let quitInstallStarted = false;
+let quitInstallDone = false;
+
 app.on('before-quit', (event) => {
+  appQuitStarted = true;
   unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
@@ -2042,15 +2380,28 @@ app.on('before-quit', (event) => {
     return;
   }
 
+  if (!isMac && !quitInstallDone) {
+    if (quitInstallStarted) {
+      event.preventDefault();
+      return;
+    }
+    const appUpdate = getDesktopApiAppUpdate();
+    if (appUpdate.hasPreparedQuitInstall()) {
+      event.preventDefault();
+      quitInstallStarted = true;
+      void appUpdate.installOnQuit().finally(() => {
+        quitInstallDone = true;
+        setImmediate(() => app.quit());
+      });
+      return;
+    }
+  }
+
   if (isMac) {
     destroyTrayManager();
   }
 
-  // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot.
-  // Skip reset when in recovery mode (count >= 3) so recovery is still
-  // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
     store.resetConsecutiveBootFailCount();
   }
 
@@ -2430,8 +2781,9 @@ function startWebviewMemoryMonitoring() {
 // token from app.getName() verbatim, so the actual default UA contains
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
-// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
-// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
+// Chromium's default UA carries the real app version. OneKey API requests
+// use buildCustomUA()'s `OneKey <platform> <version>` via the request hook.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.
@@ -2486,154 +2838,57 @@ app.on('before-quit', () => {
 // input" symptom. Both converge here so the dialog and cooldown are
 // shared.
 
-// Sample at the faster cadence; both tiers read from the same history.
-const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
-
-// Severe tier — catches extreme pegging fast.
-// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
-// a minute, well past any legitimate hot path (signing, V8 turbofan
-// re-optimization, bundle decode, mass import).
-const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
-const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
-
-// Mild tier — catches slower drift (the original 22h-uptime symptom).
-// 30 × 10 s = 5 minutes sustained above 80%.
-const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
-const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
-
-const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
-const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
-
-const cpuHistoryByPid = new Map<number, number[]>();
-// Cumulative CPU seconds per pid at the previous tick. Delta of these
-// divided by wall-clock delta gives the true "fraction of one core" used,
-// independent of how many cores the machine has — matching the DevTools
-// Performance Monitor reading.
-const prevCumCpuByPid = new Map<number, number>();
-let lastSampleAt: number | null = null;
-let lastWatchdogFiredAt = 0;
+const cpuWatchdog = new CpuWatchdogController();
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
 
-type ICpuWatchdogReason =
-  | 'sustained-high-cpu-severe'
-  | 'sustained-high-cpu-mild'
-  | 'unresponsive';
-
-const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
-  'sustained-high-cpu-severe',
-  'sustained-high-cpu-mild',
-  'unresponsive',
-]);
-
-function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
-  return (
-    typeof value === 'string' &&
-    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
-  );
+function collectGuestWebviewPids(): Set<number> {
+  const ignoredPids = new Set<number>();
+  try {
+    for (const contents of electronWebContents.getAllWebContents()) {
+      if (!contents.isDestroyed() && contents.getType() === 'webview') {
+        const pid = contents.getOSProcessId();
+        if (typeof pid === 'number' && pid > 0) {
+          ignoredPids.add(pid);
+        }
+      }
+    }
+  } catch {
+    // Best-effort guest webview PID enumeration
+  }
+  return ignoredPids;
 }
 
 function startCpuWatchdog() {
   if (cpuWatchdogInterval) {
     clearInterval(cpuWatchdogInterval);
   }
+  cpuWatchdog.start();
   cpuWatchdogInterval = setInterval(() => {
     try {
-      const metrics = app.getAppMetrics();
-      const now = Date.now();
-      const wallDeltaSec =
-        lastSampleAt === null
-          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
-          : (now - lastSampleAt) / 1000;
-      lastSampleAt = now;
-
-      // Step 1: compute effective % (= fraction of one core, 100 = one core
-      // fully busy) for every process using the cumulativeCPUUsage delta.
-      // This matches what Chrome DevTools Performance Monitor shows and is
-      // independent of total core count — Electron's percentCPUUsage divides
-      // by cores and is therefore unusable for "main thread saturated".
-      const annotated = metrics.map((m) => {
-        const cum =
-          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
-        const prev = prevCumCpuByPid.get(m.pid);
-        let effectivePercent = 0;
-        if (prev !== undefined && wallDeltaSec > 0) {
-          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
-          if (effectivePercent < 0) effectivePercent = 0;
-        }
-        prevCumCpuByPid.set(m.pid, cum);
-        return {
-          pid: m.pid,
-          type: m.type,
-          name: m.name,
-          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
-          effectivePct: Number(effectivePercent.toFixed(1)),
-          cum: Number(cum.toFixed(2)),
-        };
+      const metrics = app.getAppMetrics().map((m) => ({
+        pid: m.pid,
+        type: m.type,
+        name: m.name,
+        percentCPUUsage: m.cpu.percentCPUUsage,
+        cumulativeCPUUsage: (m.cpu as { cumulativeCPUUsage?: number })
+          .cumulativeCPUUsage,
+      }));
+      const sample = cpuWatchdog.sampleMetrics({
+        metrics,
+        ignoredTabPids: collectGuestWebviewPids(),
       });
-
-      // Step 2: log every process sorted by effective CPU descending so
-      // when "who's burning" is the question, the top line answers it.
-      const sortedForLog = [...annotated].toSorted(
-        (a, b) => b.effectivePct - a.effectivePct,
-      );
-      logger.info(
-        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
-          1,
-        )}s processes=${JSON.stringify(sortedForLog)}`,
-      );
-
-      // Step 3: only Tab processes feed the sliding window for severe/mild
-      // detection. effectivePct is the right metric: 100 = one core fully
-      // busy = JS main thread saturated.
-      const seenPids = new Set<number>();
-      for (const a of annotated) {
-        if (a.type === 'Tab') {
-          seenPids.add(a.pid);
-          // Skip the very first sample for a new pid — no delta available
-          // (prev was undefined → effectivePct defaulted to 0).
-          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
-            // proceed with 0 — actually idle
-          }
-          const history = cpuHistoryByPid.get(a.pid) ?? [];
-          history.push(a.effectivePct);
-          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
-          cpuHistoryByPid.set(a.pid, history);
-
-          const severeWindow = history.slice(
-            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
-          );
-          const severe =
-            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
-            severeWindow.every(
-              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
-            );
-          if (severe) {
-            triggerCpuWatchdog({
-              reason: 'sustained-high-cpu-severe',
-              pid: a.pid,
-              cpuTrend: severeWindow,
-            });
-          } else {
-            const mild =
-              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
-              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
-            if (mild) {
-              triggerCpuWatchdog({
-                reason: 'sustained-high-cpu-mild',
-                pid: a.pid,
-                cpuTrend: [...history],
-              });
-            }
-          }
-        }
+      if (sample.shouldLogTick) {
+        logger.info(
+          `[CPU Watchdog] tick cores=${
+            os.cpus().length
+          } wallΔ=${sample.wallDeltaSec.toFixed(1)}s processes=${JSON.stringify(
+            sample.sortedForLog,
+          )}`,
+        );
       }
-      // Forget pids that no longer exist (renderer restarted / process gone).
-      for (const pid of cpuHistoryByPid.keys()) {
-        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
-      }
-      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
-      for (const pid of prevCumCpuByPid.keys()) {
-        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
+      for (const event of sample.eventsToFire) {
+        logger.warn('[CPU Watchdog] fired (UI suppressed)', event);
+        reportWatchdogToSentry(event);
       }
     } catch (error) {
       logger.warn('[CPU Watchdog] sample failed', error);
@@ -2641,6 +2896,7 @@ function startCpuWatchdog() {
   }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
   logger.info('[CPU Watchdog] started', {
     sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    startupGraceMs: CPU_WATCHDOG_STARTUP_GRACE_MS,
     severe: {
       thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
@@ -2648,6 +2904,10 @@ function startCpuWatchdog() {
     mild: {
       thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    recovery: {
+      thresholdPercent: CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
     },
     cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
   });
@@ -2657,16 +2917,21 @@ function reportWatchdogToSentry(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
+  episodeEscalated?: boolean;
 }) {
   try {
     const { captureMessage, setContext } = require('@sentry/electron/main') as {
       captureMessage: (msg: string, level?: string) => void;
       setContext: (name: string, data: Record<string, unknown> | null) => void;
     };
+    const safelyMainWindow = getSafelyMainWindow();
     setContext('cpuWatchdog', {
       reason: params.reason,
       pid: params.pid,
       cpuTrend: params.cpuTrend,
+      episodeEscalated: params.episodeEscalated ?? false,
+      windowVisible: safelyMainWindow?.isVisible() ?? false,
+      windowMinimized: safelyMainWindow?.isMinimized() ?? false,
       uptimeMs: Math.round(process.uptime() * 1000),
     });
     captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
@@ -2675,41 +2940,41 @@ function reportWatchdogToSentry(params: {
   }
 }
 
+function markCpuWatchdogResponsive(pid?: number) {
+  cpuWatchdog.markResponsive(pid);
+}
+
 function triggerCpuWatchdog(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
   bypassCooldown?: boolean;
 }) {
-  const now = Date.now();
-  if (
-    !params.bypassCooldown &&
-    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
-  ) {
-    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
-      reason: params.reason,
-      msSinceLastFire: now - lastWatchdogFiredAt,
-      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
-    });
+  const decision = cpuWatchdog.evaluateTrigger(params);
+  if (!decision) {
+    logger.warn(
+      '[CPU Watchdog] trigger ignored — episode active or cooldown active',
+      {
+        reason: params.reason,
+        pid: params.pid,
+        cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+      },
+    );
     return;
   }
-  lastWatchdogFiredAt = now;
 
   // UI suppressed: only collect local logs + Sentry telemetry while we
   // investigate the underlying CPU regression. Re-enable surface (status
   // indicator / non-blocking card) once root cause is identified.
-  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
-  reportWatchdogToSentry(params);
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', decision);
+  reportWatchdogToSentry(decision);
 }
 
 function resetCpuWatchdogStateForTesting() {
+  const previousLastFiredAt = cpuWatchdog.reset();
   logger.warn('[CPU Watchdog] cooldown reset via IPC', {
-    previousLastFiredAt: lastWatchdogFiredAt,
+    previousLastFiredAt,
   });
-  lastWatchdogFiredAt = 0;
-  cpuHistoryByPid.clear();
-  prevCumCpuByPid.clear();
-  lastSampleAt = null;
 }
 
 app.on('before-quit', () => {
@@ -2734,26 +2999,30 @@ if (isDevServer && !app.isPackaged) {
 
 // register deeplink for desktop
 //  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(
-      ONEKEY_APP_DEEP_LINK_NAME,
-      process.execPath,
-      // reassign args to argv[1]  ?
-      [path.resolve(process.argv[1])],
-    );
+// Always include `'--'` before `"%1"` on Windows so Chromium option parsing
+// terminates before the external URL argument (prevents switch injection).
+// Passing `process.execPath` and `protocolClientArgs` to `isDefaultProtocolClient`
+// also ensures legacy bare `"%1"` registry entries are upgraded automatically.
+if (!process.defaultApp || process.argv.length >= 2) {
+  const protocolClientArgs = getDesktopProtocolClientArgs(
+    process.defaultApp,
+    process.argv,
+  );
+  for (const protocol of DESKTOP_DEEP_LINK_PROTOCOLS) {
+    if (
+      !app.isDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      )
+    ) {
+      app.setAsDefaultProtocolClient(
+        protocol,
+        process.execPath,
+        protocolClientArgs,
+      );
+    }
   }
-} else {
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
-}
-if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
-}
-// also define `protocols` at apps/desktop/electron-builder.config.js
-if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
-  // Define custom protocol handler. Deep linking works on packaged versions of the application!
-  app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);
 }
 
 if (isWin) {

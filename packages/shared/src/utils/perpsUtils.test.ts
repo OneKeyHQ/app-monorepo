@@ -810,6 +810,55 @@ describe('estimateLiquidationPrice', () => {
     { lowerBound: '150000000', maxLeverage: 20 },
   ];
 
+  test('uses the execution boundary for reverse notional while equity stays at mark', () => {
+    const params = {
+      side: 'short' as const,
+      orderSize: new BigNumber('0.04768'),
+      existingPositionSize: new BigNumber('0.02384'),
+      priceMode: 'market' as const,
+      markPrice: new BigNumber(80_261),
+      marginMode: 'isolated' as const,
+      leverage: 38,
+      marginTiers: btcTiers,
+      maxLeverage: 40,
+      isolatedRawUsd: new BigNumber(-1800),
+    };
+    expect(estimateLiquidationPrice(params)?.toNumber()).toBeCloseTo(
+      81_356.179_337,
+      4,
+    );
+    expect(
+      estimateLiquidationPrice({
+        ...params,
+        estimatedClearingPrice: new BigNumber('73840'),
+      })?.toNumber(),
+    ).toBeCloseTo(81_435.450_942, 4);
+    expect(
+      estimateLiquidationPrice({
+        ...params,
+        estimatedClearingPrice: new BigNumber(0),
+      }),
+    ).toBeNull();
+  });
+
+  test('uses execution notional for a cross reversal without repricing existing equity', () => {
+    expect(
+      estimateLiquidationPrice({
+        side: 'long',
+        orderSize: new BigNumber(2),
+        existingPositionSize: new BigNumber(-1),
+        priceMode: 'market',
+        markPrice: new BigNumber(100),
+        estimatedClearingPrice: new BigNumber(105),
+        marginMode: 'cross',
+        leverage: 5,
+        marginTiers: tiers10x,
+        maxLeverage: 10,
+        crossAvailableAfterMaintenance: new BigNumber(30),
+      })?.toNumber(),
+    ).toBeCloseTo(68.684_210_526_3, 6);
+  });
+
   // Screenshot repro: unified account, $3.2555 free USDC, BTC limit 80,000
   // x 0.00012 with mark 83,312. Hyperliquid showed 53,540 for the long.
   test('prices a new unified cross long from the free collateral', () => {

@@ -13,8 +13,11 @@ function isSameDay(a: Date | null, b: Date | null): boolean {
   );
 }
 
-const activeHoverStyle = { backgroundColor: '$bgActive' } as const;
-const inactiveHoverStyle = { backgroundColor: '$bgHover' } as const;
+export const PRESETS_SIDEBAR_WIDTH = 156;
+
+// Menu-item styling shared with the app's sidebars: one text style for every
+// item, the active one marked by its background only.
+const hoverStyleConst = { backgroundColor: '$bgHover' } as const;
 const pressStyleConst = { backgroundColor: '$bgActive' } as const;
 
 function PresetItem({
@@ -37,17 +40,13 @@ function PresetItem({
       paddingHorizontal="$3"
       paddingVertical="$2"
       borderRadius="$2"
-      cursor="pointer"
+      cursor="default"
       backgroundColor={isActive ? '$bgActive' : 'transparent'}
-      hoverStyle={isActive ? activeHoverStyle : inactiveHoverStyle}
+      hoverStyle={isActive ? undefined : hoverStyleConst}
       pressStyle={pressStyleConst}
       onPress={handlePress}
     >
-      <SizableText
-        size="$bodyMd"
-        color={isActive ? '$text' : '$textSubdued'}
-        userSelect="none"
-      >
+      <SizableText size="$bodyMdMedium" color="$text" userSelect="none">
         {label}
       </SizableText>
     </Stack>
@@ -82,12 +81,14 @@ export const PresetsSidebar = memo(
     );
 
     return (
+      // Vertical padding centers the first item on the calendar header row
+      // ($4 panel padding + half the 24px nav row - half the 36px item).
       <YStack
-        width={156}
+        width={PRESETS_SIDEBAR_WIDTH}
         borderRightWidth={1}
-        borderRightColor="$neutral3"
-        paddingVertical="$1"
-        paddingHorizontal="$1"
+        borderRightColor="$borderSubdued"
+        paddingVertical="$2.5"
+        paddingHorizontal="$2"
         gap="$0.5"
       >
         {presets.map((preset, index) => (

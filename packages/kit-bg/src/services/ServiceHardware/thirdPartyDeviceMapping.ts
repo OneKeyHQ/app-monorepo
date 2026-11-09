@@ -1,34 +1,106 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  type IHardwareVendorProfile,
+  getVendorProfile,
+  resolvePersistentConnectIdCapability,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import { getThirdPartyDeviceDisplayName } from '@onekeyhq/shared/src/utils/thirdPartyDeviceName';
+import type {
+  EHardwareVendor,
+  IThirdPartyHardwareSearchTarget,
+} from '@onekeyhq/shared/types/device';
 
 import type { DeviceInfo } from './adapters/types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
+type IThirdPartySearchTransport = 'usb' | 'ble' | 'qr';
+
+export function mapThirdPartySearchTargetToSearchDevice({
+  target,
+  defaultDeviceName,
+}: {
+  target: IThirdPartyHardwareSearchTarget;
+  defaultDeviceName?: string;
+}): SearchDevice {
+  const canReconnectWithoutDiscovery =
+    target.searchTargetReusePolicy === 'reconnectable';
+  return {
+    connectId:
+      canReconnectWithoutDiscovery && target.searchTargetId
+        ? target.searchTargetId
+        : null,
+    deviceId: null,
+    name: getThirdPartyDeviceDisplayName({
+      brand:
+        defaultDeviceName ||
+        getVendorProfile(target.vendor).presentation.defaultName,
+      modelName: target.modelName,
+      model: target.model,
+      name: target.label,
+    }),
+    deviceType: 'unknown',
+    uuid: '',
+    commType: 'bridge',
+    vendor: target.vendor,
+    vendorModel: target.model,
+    vendorModelName: target.modelName,
+    raw: {
+      vendor: target.vendor,
+      connectId: target.searchTargetId,
+      deviceId: '',
+      label: target.label,
+      model: target.model,
+      modelName: target.modelName,
+      connectionType: target.connectionType,
+      serialNumber: target.serialNumber,
+      searchTarget: target,
+    },
+  } as SearchDevice;
+}
+
+export function normalizeThirdPartySearchDevicesForTransport({
+  devices,
+  transportType,
+}: {
+  devices: DeviceInfo[];
+  transportType: IThirdPartySearchTransport;
+}): DeviceInfo[] {
+  return devices.flatMap((device) => {
+    const availableChannels = (
+      device as DeviceInfo & {
+        raw?: { availableChannels?: unknown };
+      }
+    ).raw?.availableChannels;
+    const supportsRequestedTransport =
+      device.connectionType === transportType ||
+      (Array.isArray(availableChannels) &&
+        availableChannels.includes(transportType));
+
+    if (!supportsRequestedTransport) {
+      return [];
+    }
+
+    // A multi-channel Keystone record reports USB while a live USB session is
+    // attached. Preserve the transport selected for this operation so
+    // analytics and DB transport handles do not misclassify QR as USB.
+    return [{ ...device, connectionType: transportType }];
+  });
+}
+
 export function mapThirdPartyDeviceToSearchDevice({
   device,
   defaultDeviceName,
-  canMatchDeviceByConnectId = (connectId) => Boolean(connectId),
-  hasPersistentConnectId = (transport) => transport === 'ble',
-  hasPersistentDeviceId = () => false,
+  profile = getVendorProfile(device.vendor as EHardwareVendor),
 }: {
   device: DeviceInfo;
   defaultDeviceName?: string;
-  canMatchDeviceByConnectId?: (connectId: string) => boolean;
-  /**
-   * True if this vendor's connectId is stable across sessions on the given
-   * transport. Drives whether USB connectId is preserved or dropped:
-   *   - Trezor USB: serial number, stable → keep
-   *   - Ledger USB: DMK-generated ephemeral UUID → drop, downstream matches
-   *     by chain fingerprint instead
-   */
-  hasPersistentConnectId?: (transport: 'usb' | 'ble') => boolean;
-  hasPersistentDeviceId?: (transport: 'usb' | 'ble') => boolean;
+  profile?: IHardwareVendorProfile;
 }): SearchDevice {
-  const isUuidLike = (s?: string) =>
-    s ? /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(s) : false;
   const rawName =
     device.label || (device as DeviceInfo & { name?: string }).name || '';
   const stableConnectId =
-    device.connectId && canMatchDeviceByConnectId(device.connectId)
+    device.connectId &&
+    profile.identity.matchDeviceByConnectId(device.connectId)
       ? device.connectId
       : null;
 
@@ -44,22 +116,36 @@ export function mapThirdPartyDeviceToSearchDevice({
       // Vendors with a stable USB connectId (Trezor: serial number, OneKey
       // ditto) keep it. Vendors with ephemeral USB connectId (Ledger DMK)
       // null it out — downstream code matches by chain fingerprint instead.
-      connectId = hasPersistentConnectId('usb') ? stableConnectId : null;
+      connectId = resolvePersistentConnectIdCapability({
+        profile,
+        transport: 'usb',
+        capabilities: device.capabilities,
+      })
+        ? stableConnectId
+        : null;
+      break;
+    case 'qr':
+      // A QR target's connectId only routes this search; wallet creation
+      // builds its own record, so it is never persisted as an identity.
+      connectId = device.connectId || null;
       break;
     default:
       // Transport unknown — fall back to connectId shape heuristic.
       connectId = stableConnectId;
   }
 
-  const displayName =
-    rawName && !isUuidLike(rawName)
-      ? rawName
-      : device.model || defaultDeviceName || '';
+  const displayName = getThirdPartyDeviceDisplayName({
+    brand: defaultDeviceName || profile.presentation.defaultName,
+    modelName: (device as DeviceInfo & { modelName?: string }).modelName,
+    model: device.model,
+    name: rawName,
+  });
   const transport = device.connectionType;
   const hasStableDeviceId =
     transport === 'usb' || transport === 'ble'
-      ? hasPersistentDeviceId(transport)
-      : hasPersistentDeviceId('usb') || hasPersistentDeviceId('ble');
+      ? profile.identity.persistentDeviceId(transport)
+      : profile.identity.persistentDeviceId('usb') ||
+        profile.identity.persistentDeviceId('ble');
   const firmwareDeviceId = hasStableDeviceId ? device.deviceId || null : null;
 
   // Stash the full DeviceInfo (which itself carries `raw.features` and

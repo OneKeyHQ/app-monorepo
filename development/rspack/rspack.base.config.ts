@@ -91,6 +91,11 @@ function buildPlatformEnvDefineMap(platform: string): Record<string, boolean> {
   return buildSharedPlatformEnvDefineMap(loadBuildTimeEnv(platform));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { OneKeyIconAssetsPlugin } = require('../onekey-icons/build') as {
+  OneKeyIconAssetsPlugin: new () => RspackPluginInstance;
+};
+
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
@@ -140,6 +145,10 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// Chain runtime wasm is wasm-pack `-t web` output whose `wbg` imports come from the JS glue; emit it as an asset.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -193,6 +202,7 @@ const { createBaseResolveOptions } = require('./rspack.resolve.config.js') as {
   createBaseResolveOptions: (options: {
     basePath: string;
     enableSentryMinimalCompat: boolean;
+    excludeChainRuntimes?: boolean;
     extensions: string[];
   }) => RspackOptions['resolve'];
 };
@@ -206,6 +216,8 @@ const baseResolve = ({
   createBaseResolveOptions({
     basePath,
     enableSentryMinimalCompat,
+    // Web ships no Zcash/Monero (web-embed does).
+    excludeChainRuntimes: platform === 'web',
     extensions: createResolveExtensions({ platform, configName }),
   });
 
@@ -290,10 +302,27 @@ const buildBasePlugins: (
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
-  !isDev &&
-    platform === 'web' &&
+  ['web-embed', 'web', 'desktop'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
-      /views[\\/]Developer[\\/]router$/,
+      /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
+      (resource) => {
+        // Both scanning chains keep their Worker entry in a `sdk` directory and need the page's release values.
+        if (
+          /[\\/](zcash[\\/]sdkZcash|xmr[\\/]sdkXmrRuntime)[\\/]sdk$/.test(
+            resource.context,
+          )
+        ) {
+          resource.request = path.join(
+            basePath,
+            '../../packages/core/src/chains/zcash/sdkZcash/sdk/inlineWorkerRuntime.js',
+          );
+        }
+      },
+    ),
+  !isDev &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
+    new rspack.NormalModuleReplacementPlugin(
+      /views[\\/]Developer[\\/](?:router$|pages[\\/]Gallery[\\/])/,
       path.join(
         basePath,
         '../../packages/kit/src/views/Developer/router.empty.ts',
@@ -451,6 +480,7 @@ export function createBaseConfig({
         : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
+      new OneKeyIconAssetsPlugin(),
       new HtmlWebpackPlugin({
         title: platform,
         minify: !isDev,
@@ -525,9 +555,33 @@ export function createBaseConfig({
           generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
         },
         {
+          test: CHAIN_RUNTIME_WASM_TEST,
+          // file:// builds (web-embed iOS, desktop release) have no base URL for a Blob Worker; inline wasm as a data: URI.
+          ...(platform === 'web-embed' || platform === 'desktop'
+            ? { type: 'asset/inline' as const }
+            : {
+                type: 'asset/resource' as const,
+                generator: { filename: 'static/chain-wasm/[name][ext]' },
+              }),
+        },
+        {
           test: /\.wasm$/,
-          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+          exclude: [
+            CANVASKIT_WASM_TEST,
+            ZXING_READER_WASM_TEST,
+            ...CHAIN_RUNTIME_WASM_TEST,
+          ],
           type: 'webassembly/async',
+        },
+        {
+          // External <use> cannot resolve small SVGs inlined as data URLs.
+          test: /\.svg$/,
+          include:
+            /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
+          type: 'asset/resource',
+          generator: {
+            filename: 'static/onekey-icons/[name].[contenthash:8][ext]',
+          },
         },
         {
           test: [/\.avif$/],
@@ -540,6 +594,8 @@ export function createBaseConfig({
         },
         {
           test: [/\.bmp$/, /\.gif$/, /\.jpe?g$/, /\.png$/, /\.svg$/, /\.webp$/],
+          exclude:
+            /development[\\/]generated[\\/]onekey-icons[\\/]web[\\/]assets[\\/]/,
           type: 'asset',
           parser: { dataUrlCondition: { maxSize: 1000 } },
         },
@@ -855,7 +911,16 @@ export function createBaseConfig({
           use: ['html-loader', 'template-ejs-loader'],
         },
         {
+          test: /SdkInline\.worker\.js$/,
+          use: {
+            loader: 'worker-rspack-loader',
+            // WKWebView's file-backed page needs a self-contained Blob Worker; skip the unused WASM assets.
+            options: { inline: 'no-fallback' },
+          },
+        },
+        {
           test: /\.worker\.(js|ts)$/,
+          exclude: /SdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {

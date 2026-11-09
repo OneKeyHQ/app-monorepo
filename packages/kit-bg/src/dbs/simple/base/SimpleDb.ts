@@ -34,6 +34,19 @@ export class SimpleDb {
     return value;
   }
 
+  get primeFreeTrial() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@primeFreeTrial',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrimeFreeTrial').then(
+          ({ SimpleDbEntityPrimeFreeTrial }) =>
+            new SimpleDbEntityPrimeFreeTrial(),
+        ),
+    });
+    Object.defineProperty(this, 'primeFreeTrial', { value });
+    return value;
+  }
+
   get cloudBackupPasswordCache() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@cloudBackupPasswordCache',
@@ -312,6 +325,84 @@ export class SimpleDb {
     return value;
   }
 
+  get privacyChainState() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainState',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainState').then(
+          ({ SimpleDbEntityPrivacyChainState }) =>
+            new SimpleDbEntityPrivacyChainState(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainState', { value });
+    return value;
+  }
+
+  get privacyChainCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainCache').then(
+          ({ SimpleDbEntityPrivacyChainCache }) =>
+            new SimpleDbEntityPrivacyChainCache(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainCache', { value });
+    return value;
+  }
+
+  get privacyChainKeys() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainKeys',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainKeys').then(
+          ({ SimpleDbEntityPrivacyChainKeys }) =>
+            new SimpleDbEntityPrivacyChainKeys(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainKeys', { value });
+    return value;
+  }
+
+  get privacyChainJournal() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainJournal',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainJournal').then(
+          ({ SimpleDbEntityPrivacyChainJournal }) =>
+            new SimpleDbEntityPrivacyChainJournal(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainJournal', { value });
+    return value;
+  }
+
+  get privacyChainXmrSent() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainXmrSent',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainXmrSent').then(
+          ({ SimpleDbEntityPrivacyChainXmrSent }) =>
+            new SimpleDbEntityPrivacyChainXmrSent(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainXmrSent', { value });
+    return value;
+  }
+
+  get privacyChainZcashSent() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainZcashSent',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainZcashSent').then(
+          ({ SimpleDbEntityPrivacyChainZcashSent }) =>
+            new SimpleDbEntityPrivacyChainZcashSent(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainZcashSent', { value });
+    return value;
+  }
+
   get feeInfo() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@feeInfo',
@@ -321,6 +412,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'feeInfo', { value });
+    return value;
+  }
+
+  get broadcastRecords() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@broadcastRecords',
+      loader: () =>
+        import('../entity/SimpleDbEntityBroadcastRecords').then(
+          ({ SimpleDbEntityBroadcastRecords }) =>
+            new SimpleDbEntityBroadcastRecords(),
+        ),
+    });
+    Object.defineProperty(this, 'broadcastRecords', { value });
     return value;
   }
 
@@ -422,6 +526,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'earnOrders', { value });
+    return value;
+  }
+
+  get headlessBuyOrders() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@headlessBuyOrders',
+      loader: () =>
+        import('../entity/SimpleDbEntityHeadlessBuyOrders').then(
+          ({ SimpleDbEntityHeadlessBuyOrders }) =>
+            new SimpleDbEntityHeadlessBuyOrders(),
+        ),
+    });
+    Object.defineProperty(this, 'headlessBuyOrders', { value });
     return value;
   }
 
@@ -566,6 +683,32 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'babylonSync', { value });
+    return value;
+  }
+
+  get hardwareTelemetry() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@hardwareTelemetry',
+      loader: () =>
+        import('../entity/SimpleDbEntityHardwareTelemetry').then(
+          ({ SimpleDbEntityHardwareTelemetry }) =>
+            new SimpleDbEntityHardwareTelemetry(),
+        ),
+    });
+    Object.defineProperty(this, 'hardwareTelemetry', { value });
+    return value;
+  }
+
+  get firmwareArtifactCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@firmwareArtifactCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityFirmwareArtifactCache').then(
+          ({ SimpleDbEntityFirmwareArtifactCache }) =>
+            new SimpleDbEntityFirmwareArtifactCache(),
+        ),
+    });
+    Object.defineProperty(this, 'firmwareArtifactCache', { value });
     return value;
   }
 

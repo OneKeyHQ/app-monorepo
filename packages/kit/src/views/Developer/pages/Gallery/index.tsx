@@ -10,6 +10,10 @@ const NetworkFeeSubsidyGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkFeeSubsidy'),
 );
+const PrivacyTokenDetailsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
+);
 const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
@@ -73,6 +77,10 @@ const NetworkDoctorGallery = LazyLoadPage(
 const JotaiContextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery'),
+);
+const ZcashWasmGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
 );
 const JotaiGlobalGallery = LazyLoadPage(
   () =>
@@ -150,6 +158,11 @@ const WebViewOverlayGallery = LazyLoadPage(
 const AddressInputGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'),
+);
+
+const NativeOverlayGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NativeOverlay'),
 );
 
 const PortalGallery = LazyLoadPage(
@@ -347,8 +360,16 @@ export const galleryScreenList: {
     component: NetworkFeeSubsidyGallery,
   },
   {
+    name: EGalleryRoutes.ComponentPrivacyTokenDetails,
+    component: PrivacyTokenDetailsGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNativeOverlay,
+    component: NativeOverlayGallery,
   },
   {
     name: EGalleryRoutes.ComponentPortal,
@@ -585,6 +606,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentZcashWasm,
+    component: ZcashWasmGallery,
   },
   {
     name: EGalleryRoutes.ComponentPlayground,

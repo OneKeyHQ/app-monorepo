@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -17,6 +18,8 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAddressRiskCheckDetails } from '@onekeyhq/shared/types/addressRiskCheck';
+
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 
 import { formatRiskCheckDate } from './RiskCheckShared';
 
@@ -340,6 +343,8 @@ export function AddressRiskMoreAnalysis({
   address: string;
 }) {
   const intl = useIntl();
+  const navigation = useNavigation();
+  const { handleFreeTrialError } = usePrimeFeatureAccess();
   const [isLoading, setIsLoading] = useState(false);
   const [details, setDetails] = useState<
     IAddressRiskCheckDetails | undefined
@@ -354,12 +359,18 @@ export function AddressRiskMoreAnalysis({
           address,
         });
       setDetails(data);
-    } catch {
-      // The background proxy already shows the server-provided error toast.
+    } catch (error) {
+      // Free users may read details of an address checked this month; the
+      // server decides. Not eligible / exhausted get the unified feedback
+      // while the result page is still on top; other errors were already
+      // toasted by the background proxy.
+      if (navigation.isFocused()) {
+        handleFreeTrialError({ error, networkId });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, address]);
+  }, [networkId, address, handleFreeTrialError, navigation]);
 
   if (!details) {
     return (
@@ -370,7 +381,7 @@ export function AddressRiskMoreAnalysis({
         jc="space-between"
         gap="$2"
         px="$4"
-        height={50}
+        py="$3"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
@@ -379,11 +390,20 @@ export function AddressRiskMoreAnalysis({
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleLoad}
       >
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.address_risk_check_more_analysis__action,
-          })}
-        </SizableText>
+        {/* Name what the extra analysis contains so it reads differently
+            from the basic address details card above it. */}
+        <YStack flex={1} gap="$0.5">
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.address_risk_check_more_analysis__action,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.address_risk_check_more_analysis__desc,
+            })}
+          </SizableText>
+        </YStack>
         {isLoading ? (
           <Spinner size="small" />
         ) : (

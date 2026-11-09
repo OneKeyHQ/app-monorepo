@@ -74,6 +74,28 @@ describe('isSamePhysicalDevice', () => {
   });
 });
 
+describe('getDeviceSerialNoFromFeatures', () => {
+  it('skips loader placeholders before selecting a real serial alias', () => {
+    expect(
+      deviceUtils.getDeviceSerialNoFromFeatures({
+        serialNo: '000000000000000000000000',
+        onekey_serial_no: 'PHYSICAL_SERIAL',
+      } as IOneKeyDeviceFeatures),
+    ).toBe('PHYSICAL_SERIAL');
+  });
+
+  it.each(['', '  ', '000000000000000000000000', ' 000000 '])(
+    'does not expose %j as a device identity',
+    (serialNo) => {
+      expect(
+        deviceUtils.getDeviceSerialNoFromFeatures({
+          serialNo,
+        } as IOneKeyDeviceFeatures),
+      ).toBeUndefined();
+    },
+  );
+});
+
 describe('getFixedUpdatingConnectId', () => {
   const device = {
     connectId: 'USB_SERIAL',

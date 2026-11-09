@@ -1,14 +1,18 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren, ReactElement } from 'react';
+import { isValidElement } from 'react';
+import type { CSSProperties, PropsWithChildren, ReactElement } from 'react';
 
 import { act, render } from '@testing-library/react';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   MobileMarketNativeStockList,
   MobileMarketNativeTokenList,
   MobileMarketNativeTopCoinsList,
   MobileMarketNativeWatchlist,
+  resolveMarketColumnMode,
 } from './MobileMarketNativeLists';
 
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
@@ -17,6 +21,15 @@ import type {
   NativeListSnapshot,
   RowActionEvent,
 } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent } from 'react-native';
+
+it('uses the measured list width and leading action budget for Market columns', () => {
+  expect(resolveMarketColumnMode(767, false)).toBe('compact');
+  expect(resolveMarketColumnMode(768, false)).toBe('two');
+  expect(resolveMarketColumnMode(1023, false)).toBe('two');
+  expect(resolveMarketColumnMode(1024, false)).toBe('three');
+  expect(resolveMarketColumnMode(768, true)).toBe('two');
+});
 
 const mockPortalRender = jest.fn(
   (_name: unknown, _element: unknown): undefined => undefined,
@@ -91,6 +104,19 @@ let mockRowAction: ((event: RowActionEvent) => void) | undefined;
 let mockEndReached: (() => void) | undefined;
 let mockNativeRefresh: (() => void) | undefined;
 let mockNativeSnapshot: NativeListSnapshot | undefined;
+let mockNativeLayout: ((event: LayoutChangeEvent) => void) | undefined;
+let mockNativeHeader: unknown;
+let mockNativeListMounts = 0;
+
+function collectHeaderText(node: unknown): string[] {
+  if (typeof node === 'string') return [node];
+  if (Array.isArray(node)) return node.flatMap(collectHeaderText);
+  if (isValidElement<{ children?: unknown }>(node)) {
+    return collectHeaderText(node.props.children);
+  }
+  return [];
+}
+
 let mockTravelMode = false;
 const mockRefetch = jest.fn();
 const mockRefresh = jest.fn();
@@ -98,6 +124,7 @@ const mockLoadMore = jest.fn();
 let mockCanLoadMore = false;
 let mockIsLoadMoreError = false;
 let mockIsNativeAndroid = false;
+let mockEmptyWatchlist = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockTheme = Object.fromEntries(
@@ -139,18 +166,37 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
         onRefresh?: () => void;
         onRowAction?: (event: RowActionEvent) => void;
         onEndReached?: () => void;
+        onLayout?: (event: LayoutChangeEvent) => void;
+        listHeader?: unknown;
       }
-    >(({ snapshot, onRefresh, onRowAction, onEndReached }, ref) => {
-      mockRowAction = onRowAction;
-      mockEndReached = onEndReached;
-      mockNativeRefresh = onRefresh;
-      mockNativeSnapshot = snapshot;
-      React.useImperativeHandle(ref, () => ({
-        applyPatches: mockApplyPatches,
-        setActionAnchorState: mockSetAnchorState,
-      }));
-      return null;
-    }),
+    >(
+      (
+        {
+          snapshot,
+          onRefresh,
+          onRowAction,
+          onEndReached,
+          onLayout,
+          listHeader,
+        },
+        ref,
+      ) => {
+        mockRowAction = onRowAction;
+        mockEndReached = onEndReached;
+        mockNativeRefresh = onRefresh;
+        mockNativeSnapshot = snapshot;
+        mockNativeLayout = onLayout;
+        mockNativeHeader = listHeader;
+        React.useEffect(() => {
+          mockNativeListMounts += 1;
+        }, []);
+        React.useImperativeHandle(ref, () => ({
+          applyPatches: mockApplyPatches,
+          setActionAnchorState: mockSetAnchorState,
+        }));
+        return null;
+      },
+    ),
   };
 });
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
@@ -161,6 +207,7 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  isNative: true,
   get isNativeAndroid() {
     return mockIsNativeAndroid;
   },
@@ -176,18 +223,27 @@ jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 402, height: 874 }) },
   PixelRatio: { get: () => 3 },
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
+  ScrollView: ({
+    children,
+    testID,
+    contentContainerStyle,
+  }: PropsWithChildren<{
+    testID?: string;
+    contentContainerStyle?: CSSProperties;
+  }>) => (
+    <div data-testid={testID} style={contentContainerStyle}>
+      {children}
+    </div>
+  ),
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
   useTheme: () => mockTheme,
-  Portal: {
-    Render: (name: unknown, element: unknown) =>
-      mockPortalRender(name, element),
-    Constant: { FULL_WINDOW_OVERLAY_PORTAL: 'window' },
-  },
   Haptics: { impact: jest.fn() },
   ImpactFeedbackStyle: { Medium: 1 },
   Toast: { success: jest.fn() },
+  mountImperativeOverlay: ({ node }: { node: unknown }) =>
+    mockPortalRender('global', node),
 }));
 jest.mock('../MarketTokenList/hooks/useMarketTokenList', () => ({
   useMarketTokenList: () => ({
@@ -238,6 +294,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
+  EEnterWay: { MarketList: 'MarketList' },
   EWatchlistFrom: { Homepage: 'Homepage' },
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({}));
@@ -260,7 +317,9 @@ jest.mock('../../../hooks/usePerpsNavigation', () => ({
   usePerpsNavigation: () => ({ navigateToPerps: jest.fn() }),
 }));
 jest.mock('../MarketPerpsList/hooks/useMarketPerpsTokenList', () => ({}));
-jest.mock('../MarketRecommendList', () => ({}));
+jest.mock('../MarketRecommendList', () => ({
+  MarketRecommendList: () => null,
+}));
 jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
   useMarketStockList: () => ({
     items: mockStockItems,
@@ -284,7 +343,7 @@ jest.mock('../MarketTokenList/components/InlineActionBar', () => ({
 }));
 jest.mock('../MarketTokenList/hooks/useMarketWatchlistTokenList', () => ({
   useMarketWatchlistTokenList: () => ({
-    data: mockWatchlistData,
+    data: mockEmptyWatchlist ? [] : mockWatchlistData,
     refetch: mockRefetch,
   }),
 }));
@@ -519,6 +578,34 @@ describe('MobileMarketNativeTokenList refresh', () => {
     jest.clearAllMocks();
   });
 
+  it.each([
+    ['5m', 768],
+    ['1h', 768],
+    ['4h', 1024],
+  ] as const)(
+    'labels the %s change metric without implying 24h at width %i',
+    (timeRange, width) => {
+      render(
+        <MobileMarketNativeTokenList
+          networkId="evm--1"
+          timeRange={timeRange}
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+      act(() => {
+        mockNativeLayout?.({
+          nativeEvent: { layout: { width } },
+        } as LayoutChangeEvent);
+      });
+      expect(collectHeaderText(mockNativeHeader)).toContain(
+        ETranslations.dexmarket_token_change,
+      );
+      expect(collectHeaderText(mockNativeHeader)).not.toContain(
+        ETranslations.dexmarket_banner_token_24hchange,
+      );
+    },
+  );
+
   it('retries an error row through the uncached native request', async () => {
     mockRefetch.mockResolvedValue(undefined);
     render(
@@ -558,6 +645,32 @@ describe('MobileMarketNativeTokenList refresh', () => {
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each([false, true])(
+  'keeps empty favorites content filling the viewport only on iOS (Android=%s)',
+  (isAndroid) => {
+    mockEmptyWatchlist = true;
+    mockIsNativeAndroid = isAndroid;
+    try {
+      const { getByTestId } = render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{
+            paddingBottom: 20,
+            emptyContentPaddingTop: 20,
+            emptyScrollContentMinHeight: 400,
+          }}
+        />,
+      );
+      const content = getByTestId('market-favorites-empty-scroll');
+      expect(content.style.flexGrow).toBe(isAndroid ? '' : '1');
+      expect(content.style.paddingTop).toBe('20px');
+      expect(content.style.minHeight).toBe('400px');
+    } finally {
+      mockEmptyWatchlist = false;
+      mockIsNativeAndroid = false;
+    }
+  },
+);
 
 describe('MobileMarketNativeWatchlist action anchor', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -718,5 +831,103 @@ describe('native market listing favorites', () => {
       key: 'bitcoin',
       leadingAction: undefined,
     });
+  });
+
+  it('opens the favorite menu on long press, except in travel mode', () => {
+    const renderStockList = () =>
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+
+    renderStockList();
+    expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+      key: 'AAPL',
+      longPressActionKey: 'favorite-menu',
+    });
+
+    mockTravelMode = true;
+    try {
+      renderStockList();
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({ key: 'AAPL' });
+      expect(
+        (mockNativeSnapshot?.rows[0] as { longPressActionKey?: string })
+          .longPressActionKey,
+      ).toBeUndefined();
+    } finally {
+      mockTravelMode = false;
+    }
+  });
+
+  it('mounts the new native favorite menu through the global overlay host', () => {
+    jest.clearAllMocks();
+    render(
+      <MobileMarketNativeStockList
+        selectedCategoryId="all"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    act(() => {
+      mockRowAction?.({ actionKey: 'favorite-menu', rowKey: 'AAPL' });
+    });
+    expect(mockPortalRender).toHaveBeenCalledTimes(1);
+    expect(mockPortalRender.mock.calls[0][0]).toBe('global');
+    const menu = mockPortalRender.mock.calls[0][1] as ReactElement<{
+      isInWatchlist: boolean;
+    }>;
+    expect(menu.props.isInWatchlist).toBe(false);
+  });
+
+  it('switches stock metric columns and header inside the same NativeList', () => {
+    const previousItems = mockStockItems;
+    const itemWithVolume = { ...mockStockItems[0], volume24h: '1000' };
+    mockStockItems = [itemWithVolume];
+    const onColumnModeChange = jest.fn();
+    const mountCount = mockNativeListMounts;
+    render(
+      <MobileMarketNativeStockList
+        selectedCategoryId="all"
+        listContainerProps={{ paddingBottom: 20 }}
+        onColumnModeChange={onColumnModeChange}
+      />,
+    );
+    const metricCount = () =>
+      (mockNativeSnapshot?.rows[0] as { metrics?: readonly unknown[] }).metrics
+        ?.length;
+    expect(metricCount()).toBeUndefined();
+    expect(mockNativeHeader).toBeUndefined();
+    (
+      [
+        [768, 'two', 2],
+        [1024, 'three', 3],
+        [767, 'compact', undefined],
+      ] as const
+    ).forEach(([width, expectedMode, expectedCount]) => {
+      act(() => {
+        mockNativeLayout?.({
+          nativeEvent: { layout: { width } },
+        } as LayoutChangeEvent);
+      });
+      expect(onColumnModeChange).toHaveBeenLastCalledWith(expectedMode);
+      expect(metricCount()).toBe(expectedCount);
+      expect(Boolean(mockNativeHeader)).toBe(expectedCount !== undefined);
+      const row = mockNativeSnapshot?.rows[0] as {
+        subtitle?: string;
+        subtitlePrefix?: { text: string };
+        volumeSubtitle?: boolean;
+      };
+      expect(row.volumeSubtitle).toBeUndefined();
+      expect(row.subtitlePrefix?.text).toBe('Apple');
+      if (expectedMode === 'three') {
+        expect(row.subtitle).toBeUndefined();
+      } else {
+        expect(row.subtitle).toBeDefined();
+      }
+    });
+    expect(mockNativeListMounts).toBe(mountCount + 1);
+    mockStockItems = previousItems;
   });
 });

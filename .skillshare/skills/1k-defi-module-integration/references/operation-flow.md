@@ -1,68 +1,76 @@
-# Earn / DeFi Operation Contracts
+# DeFi Operation Contracts
 
-## Define Before Editing
+## Establish The Contract
 
-| Area            | Required decisions                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| Identity        | account, network, provider, position/category, token/symbol, vault/market/reserve, action     |
-| Amount          | input/output token, decimals, raw vs display units, native/wrapped semantics, max/bps, limits |
-| Setup           | approval, permit, wrap, cooldown, quote, risk acknowledgement, or none                        |
-| Business action | transaction, provider order, contract call, or cross-module handoff                           |
-| Status          | txid, order id, provider id, pending label, terminal mapping, unknown state                   |
-| Refresh         | exact account/network position, detail, market/reserve, portfolio, and history owners         |
+Before changing an operation, identify:
 
-Do not copy a neighboring operation merely because the UI looks similar. Its
-provider, amount units, account type, or status contract may differ.
+- the account/address, network, provider, position or reserve, and action;
+- input/output assets, raw versus display units, limits, and native/wrapped roles;
+- setup steps, business transaction or order, and their separate identifiers;
+- the authority for success, failure, pending, and subsequent position refresh.
 
-For approval-sensitive Borrow/Lending dialogs, treat a seeded allowance as an
-initial hint only. On mount or reopen, reconcile it with the current chain
-allowance for the exact account/network/asset/spender scope; otherwise a stale
-seed can skip a required approval or show an obsolete authorization step.
+Preserve server-derived symbols and provider metadata. A provider name or
+reward ticker is not enough to reconstruct an execution target. Use the
+current protocol preview for risk/health checks; do not replace it with an
+approximate client formula copied from another protocol.
 
-## Execution Sequence
+## Approval And Setup
 
-1. Load current position, action capability, account, and token data.
-2. Validate identity, amount, limits, and risk state.
-3. Complete approval/permit/wrap or other setup when required.
-4. Build and confirm the business action.
-5. Broadcast or submit, preserving tx/order identity.
-6. Settle status and release submit protection on success, failure, or cancel.
-7. Refresh the smallest affected scope and reconcile pending/history.
+Before an approval-sensitive action mounts or reopens, reconcile allowance
+for the current account, network, asset, and spender. A seeded allowance is a
+hint, not permission to skip authorization.
 
-When a selector changes market/reserve, record the requested identity and close
-the selector immediately; fetch the new reserves/position data asynchronously.
-Do not make the interaction wait for a long request or leave the previous
-market's pending lock attached to the new scope.
+After approval is broadcast, distinguish its transaction result from allowance
+indexing. A successful receipt must not become an approval failure because a
+secondary read is delayed. Poll exhaustion is pending or unknown, not a mined
+failure. Reconcile the allowance into the actual state owner for that scope;
+calling the endpoint without consuming its result is not reconciliation. Let
+the next step's current validation decide whether the business action can
+proceed, including when the user cancels it and returns to the input page.
 
-A provider-managed step still needs a visible loading, unavailable, pending,
-failed, success, or unknown state. Do not collapse missing and zero values.
+Track approval, permit, wrap, lookup-table setup, and the business action as
+separate steps when the protocol requires them. Setup success is not business
+success. If setup invalidates a quote or route, rebuild it before confirmation
+and use that same route for execution. Do not send only the business payload
+when the host cannot present required setup.
 
-## Order And Error Semantics
+## Operation Lifetime
 
-When the service returns an order identifier, preserve it through broadcast
-and settlement; do not replace it with a tx hash. A visible confirmation layer
-may protect against duplicate submission, but every terminal callback must
-leave the action usable again.
+Use a request/session identity to reject stale preparation and UI updates after
+account, product, or action changes. Invalid or empty amount input should stop
+new preparation and clear the old executable result, not leave a stale quote.
 
-Report user-actionable failures once at the operation boundary while retaining
-diagnostic context. A suppressed lower-level toast must not become an unhandled
-rejection or remove operation-level feedback.
+An intentional modal-to-confirmation handoff can transfer operation ownership.
+Do not turn every unmount into cancellation, or let an unrelated reopened modal
+consume the old result. Once a transaction or order has been submitted, retain
+its identity and status tracking even when its initiating UI closes.
 
-## Request And Refresh Safety
+Prevent duplicate submission and release UI protection on each supported exit.
+Keep user cancellation, provider failure, unknown broadcast, and successful
+settlement distinct. Surface actionable failures once at the operation boundary;
+a silent lower layer still needs a handled rejection and diagnostic evidence.
 
-Guard asynchronous results with the identity that can change: account,
-network, provider, position, token, action, route visibility, and request id.
-After a successful position change, refresh the exact owner. Cancel or failure
-must not claim a successful refresh. Delays, quotas, and other policy values
-must come from current code/config rather than this skill.
+## Pending, Replacement, And Refresh
 
-For local replacement history, carry replacement type/links and operation
-metadata through remote merges. Preserve the linkage so pending guards can
-identify the replacement chain, but exclude a cancellation replacement from
-the original operation's pending and display classification. An acceleration
-replacement should retain the metadata needed for the original pending guard.
+Keep provider order IDs and chain transaction IDs in their own roles. A
+replacement carries both its linkage and the business metadata needed by
+pending guards. SpeedUp may continue the original operation; Cancel must not
+be classified or displayed as that original action after remote reconciliation.
 
-## Swap Handoff
+Refresh the affected account/network/product after the relevant settlement,
+not merely after opening confirmation or submitting. Delayed indexing may need
+bounded follow-up reads. Keep submitted operations bound to their original
+account/network/product; a UI scope change must neither redirect that refresh
+nor let its result overwrite the newly selected scope. Do not report business
+success from a refresh request alone.
 
-DeFi owns source context, risk, prefill, and return refresh. Once Swap starts a
-quote, Swap owns review, build, send, pending, and Swap history.
+## Funding Through Swap
+
+DeFi owns the shortfall, prefill, risk, and return action. Swap owns quoting,
+execution, and its history. On return, match the funding operation to the
+intended account, network, token, and step; an unrelated swap must not unlock it.
+
+A terminal result, disappearance from pending, or bounded failure to appear
+can end the wait. None proves the balance is sufficient. Re-read the balance
+before continuing, including after failure or cancellation; refreshing to
+reconcile state does not claim the business action succeeded.
