@@ -2,24 +2,44 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-if (process.platform !== 'darwin') {
-  process.stdout.write('Skipping Noble runtime rebuild outside macOS.\n');
+const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32';
+
+// `electron-builder install-app-deps` compiles native modules before
+// apply-runtime-patches runs, so a native patch only ships after this rebuild.
+if (!isMac && !isWindows) {
+  process.stdout.write(
+    'Skipping Noble runtime rebuild outside macOS and Windows.\n',
+  );
   process.exit(0);
 }
+
+// An error message only the Windows patch adds doubles as the binary marker.
+const WIN_BINARY_MARKER = 'could not maintain GATT session';
 
 const desktopPackageRoot = path.join(__dirname, '..');
 const runtimeAppDir = path.join(desktopPackageRoot, 'app');
 const nobleRoot = path.join(runtimeAppDir, 'node_modules/@stoprocent/noble');
-const nativeSources = [
+const commonNativeSources = [
   [
     'lib/common/include/Emit.h',
     'bool state, const std::string& error = "", const std::string& errorDomain',
   ],
   ['lib/common/src/Emit.cc', 'error.Set(_s("nativeErrorCode"), _n(code))'],
+];
+const macNativeSources = [
   [
     'lib/mac/src/ble_manager.mm',
     'characteristic.isNotifying, details.message, details.domain, details.code',
   ],
+];
+const winNativeSources = [
+  ['lib/win/src/ble_manager.cc', WIN_BINARY_MARKER],
+  ['lib/win/src/peripheral_winrt.cc', 'gattSession->MaintainConnection(false)'],
+];
+const nativeSources = [
+  ...commonNativeSources,
+  ...(isMac ? macNativeSources : winNativeSources),
 ];
 const patchedSources = [
   ...nativeSources,
@@ -29,7 +49,10 @@ const patchedSources = [
   marker,
 }));
 const bindingPath = path.join(nobleRoot, 'build/Release/binding.node');
-const expectedBinaryMarkers = ['nativeErrorDomain', 'nativeErrorCode'];
+const commonBinaryMarkers = ['nativeErrorDomain', 'nativeErrorCode'];
+const expectedBinaryMarkers = isWindows
+  ? [...commonBinaryMarkers, WIN_BINARY_MARKER]
+  : commonBinaryMarkers;
 
 function fail(message) {
   // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone Node build script
@@ -92,6 +115,11 @@ function verifyPatchedBinding() {
     }
   }
 
+  // Windows builds one architecture per rebuild (process.arch); only the
+  // macOS binary is universal.
+  if (!isMac) {
+    return;
+  }
   const architectures = getBindingArchitectures();
   for (const architecture of ['x86_64', 'arm64']) {
     if (!architectures.includes(architecture)) {
