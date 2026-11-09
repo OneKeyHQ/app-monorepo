@@ -232,22 +232,27 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('clears validation and derivation when switching between public-key networks', async () => {
+    jest.useFakeTimers();
     mockValidatePublicKey.mockResolvedValue({ isValid: true });
     const { result } = renderHook(() => useImportAddressForm({}));
     act(() => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(result.current.isEnable).toBe(true);
     act(() => result.current.form.setValue('deriveType', 'default'));
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
     act(() => result.current.form.setValue('networkId', networkIds.ltc));
     expect(result.current.isPublicKeyImport).toBe(true);
     expect(result.current.isEnable).toBe(false);
     expect(result.current.form.getValues('deriveType')).toBeUndefined();
-    await waitFor(() =>
-      expect(result.current.validateResult?.isValid).toBe(false),
-    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.validateResult?.isValid).toBe(false);
   });
 
   it('rejects submission of a key changed before React commits', async () => {
