@@ -218,6 +218,14 @@ export function useHoverOpen({
   const delays = getHoverDelays(hoverable);
   const openDelay = delays.open;
   const closeDelay = delays.close;
+  const scheduleClose = useCallback(() => {
+    clear();
+    timerRef.current = setTimeout(() => {
+      if (callbacksRef.current.open) {
+        callbacksRef.current.onClose();
+      }
+    }, closeDelay);
+  }, [clear, closeDelay]);
 
   useEffect(() => {
     const trigger = triggerRef.current as HTMLElement | null;
@@ -232,24 +240,25 @@ export function useHoverOpen({
         }
       }, openDelay);
     };
-    const scheduleClose = () => {
-      clear();
-      timerRef.current = setTimeout(() => {
-        if (callbacksRef.current.open) {
-          callbacksRef.current.onClose();
-        }
-      }, closeDelay);
-    };
     trigger.addEventListener('mouseenter', scheduleOpen);
     trigger.addEventListener('mouseleave', scheduleClose);
-    panel?.addEventListener('mouseenter', clear);
-    panel?.addEventListener('mouseleave', scheduleClose);
     return () => {
       clear();
       trigger.removeEventListener('mouseenter', scheduleOpen);
       trigger.removeEventListener('mouseleave', scheduleClose);
-      panel?.removeEventListener('mouseenter', clear);
-      panel?.removeEventListener('mouseleave', scheduleClose);
     };
-  }, [clear, closeDelay, hoverable, openDelay, panel, triggerRef]);
+  }, [clear, hoverable, openDelay, scheduleClose, triggerRef]);
+
+  // An exiting panel must not cancel a new open scheduled on the trigger.
+  useEffect(() => {
+    if (!hoverable || !panel) {
+      return;
+    }
+    panel.addEventListener('mouseenter', clear);
+    panel.addEventListener('mouseleave', scheduleClose);
+    return () => {
+      panel.removeEventListener('mouseenter', clear);
+      panel.removeEventListener('mouseleave', scheduleClose);
+    };
+  }, [clear, hoverable, panel, scheduleClose]);
 }
