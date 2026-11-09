@@ -549,15 +549,15 @@ async function prepareDustSweepItem(
     await validateDustSweepTransfer(execution.transferInfo, options);
   if (isEvm && execution.encodedTx)
     assertDustSweepEvmZeroValue(execution.encodedTx);
-  const allowanceQuote =
-    buildRes.result.allowanceResult || buildRes.result.approvedInfo
-      ? buildRes.result
-      : quote;
-  const approvalInfos = await prepareAllowanceInfos(
-    allowanceQuote,
-    options,
-    requiredInputAmount,
-  );
+  const approvalInfos = execution.transferInfo
+    ? []
+    : await prepareAllowanceInfos(
+        buildRes.result.allowanceResult || buildRes.result.approvedInfo
+          ? buildRes.result
+          : quote,
+        options,
+        requiredInputAmount,
+      );
   return { buildRes, execution, approvalInfos };
 }
 

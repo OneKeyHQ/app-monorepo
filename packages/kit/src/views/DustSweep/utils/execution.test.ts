@@ -1771,6 +1771,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         ).buildMarketExecutionPayload,
       );
       mockBuild.mockResolvedValue({ result: createQuote(), ...order });
+      mockAllowance.mockResolvedValue(createAllowance({ isApproved: false }));
       const options = createOptions();
       await expect(executeDustSweepItem(options)).resolves.toMatchObject({
         status: 'success',
@@ -1779,6 +1780,9 @@ describe('Dust Sweep serial execution boundaries', () => {
         networkId: snapshot.networkId,
         address: '0xdeposit',
       });
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockPrepare).not.toHaveBeenCalled();
+      expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
       expect(mockSend).toHaveBeenCalledTimes(1);
       expect(mockSend.mock.calls[0][0].buildUnsignedParams).toMatchObject({
         encodedTx: undefined,
