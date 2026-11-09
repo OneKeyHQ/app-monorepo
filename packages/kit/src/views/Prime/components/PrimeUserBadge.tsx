@@ -170,9 +170,11 @@ function PrimeStatusTooltipContent({ status }: { status: IPrimeStatusMeta }) {
 export function PrimeUserBadge({
   showFreeStatus = true,
   showIcon = true,
+  disabled = false,
 }: {
   showFreeStatus?: boolean;
   showIcon?: boolean;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const { user } = useOneKeyAuth();
@@ -285,11 +287,13 @@ export function PrimeUserBadge({
       isDeviceLimitExceeded={isDeviceLimitExceeded}
       icon={primeIcon}
       showIcon={showIcon}
-      onPress={shouldOpenStatusDialog ? handlePrimeStatusPress : undefined}
+      onPress={
+        shouldOpenStatusDialog && !disabled ? handlePrimeStatusPress : undefined
+      }
     />
   );
 
-  if (!statusMeta || shouldOpenStatusDialog) {
+  if (disabled || !statusMeta || shouldOpenStatusDialog) {
     return badge;
   }
 

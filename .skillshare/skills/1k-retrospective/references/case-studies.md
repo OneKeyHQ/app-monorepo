@@ -1277,6 +1277,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
 **Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
 
+## Case: Menu bar tray kept showing balances after the client hid values (OK-56225)
+**Date**: 2026-11-05 | **Platforms**: Desktop macOS. The main window is a single JS runtime; the menu bar tray panel is a separate Electron renderer with no background API and no jotai hydration, fed only by the payload the main window sends through the main process cache.
+**Symptom**: With the home balance switched to `****`, the menu bar panel still showed the total balance and pending transaction amounts.
+**Root Cause**: The hide-value setting lives in the main window's jotai store. The tray payload had no field for it, the main-window provider neither read the setting nor re-sent on a toggle, and the tray rendered the amounts unconditionally.
+**Fix**: Carry `hideValue` on every tray payload, stamped when the payload is sent, and re-deliver the last payload as soon as the setting flips instead of waiting for a gather that needs the network and may fail. The tray masks the total as `****` and pending amounts as `**** SYMBOL`, the same rules as the home total and history rows; market quotes stay visible. Regression tests cover the sender (stamp at send time, immediate re-delivery, error and locked placeholders, reset) and the rendered tray panel (hidden, visible, live toggle).
+**Catchable by**: Section 3: Cross-Platform Impact — list every window and runtime that renders the same data before treating a display setting as global; Section 4: Business Logic & Regression — a privacy toggle must be checked on each surface that shows the value, including ones that receive a copied snapshot.
+
 ## Case: Perps indicator reset removed default volume (OK-66449)
 **Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
 **Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
@@ -1340,3 +1347,52 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
 **Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
 **Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.
+
+## Case: Market tabs jumped when their sticky headers had different heights (OK-63910, OK-65972)
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. Background initialization and data ownership are outside this layout path.
+**Symptom**: When switching from Trending to empty Favorites, the outgoing list moved up by 88 pt before the page changed. Switching between Financials and My Positions on a stock detail page shifted the incoming content by 44 pt after it appeared.
+**Root Cause**: A shared sticky header height drove the native scroll inset. Its update could precede or follow the native page switch, so one page temporarily used the other page's height.
+**Fix**: App-modules #221 lets the iOS Pager apply the destination page's inset before display. The app supplies each tab's height and keeps the home header aligned with the page the Pager is displaying. Focused Jest tests cover the destination height and the source header before selection completes. A local native build verified both transitions on the iOS simulator with empty Favorites and empty positions. Simulator retesting with the published SDK is pending.
+**Catchable by**: Sections 5, 6 and 8: Check the ordering of native page selection and header updates, and inspect the first visible frame in both directions when tabs have different heights.
+
+## Case: Market destination empty rows used the source tab height
+**Date**: 2026-11-09 | **Platforms**: iOS main UI and its native Pager view. The background runtime is outside this layout path.
+**Symptom**: When switching from Favorites to Trending, the destination no-match or retry row was 88 pt taller until the native page-selection callback.
+**Root Cause**: The lists shared an available height based on the displayed tab's sticky header even after the Pager received heights for each page.
+**Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
+**Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
+
+## Case: Extracted privacy sync effects blocked strict native bundling
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. The effects run in the main UI runtime and report network changes through the background bridge; native wake-lock ownership and separate main/bg JS heaps are unchanged. Web/Desktop single-runtime and extension bundling do not use this native registry.
+**Symptom**: The Native CI job failed before producing its startup reports after the floating privacy sync indicator was replaced with a nonvisual effects component.
+**Root Cause**: The new PrivacyChainSyncEffects.tsx import entered the native graph without a stable module ID; the registry still contained only the removed PrivacyChainSyncLight.tsx path.
+**Fix**: Register the new module through the existing allocator and add a strict-registry regression test that fails without the entry. Split threshold loading, network reporting and wake-lock cleanup into scoped hooks without changing their behavior. Focused tests pass; the local full native graph build remains blocked by external symlinked dependencies, so the remote Native job must confirm full bundling after push.
+**Catchable by**: Sections 3, 4 and 6: When extracting a shared component, verify the strict native registry as well as its runtime behavior; add a regression test for the new imported path.
+
+## Case: Removing a floating sync panel removed the chain pause entry
+**Date**: 2026-11-09 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI through the existing background service bridge. Native resource ownership and separate main/bg heaps are unchanged.
+**Symptom**: After the global privacy sync panel was removed, an active chain had no UI action that could pause scanning across page visits. Settings retained only chain Resume and separate account Pause controls.
+**Root Cause**: The deleted panel was the only foreground caller of pauseLocalWalletScan. Account pause changes account participation and does not set the persisted network pause flag.
+**Fix**: Add Pause beside the existing settings status for active unfinished chains, retain Resume for a paused chain, and reuse the existing background operations. Keep busy state and an immediate re-entry guard; render the resulting state only from background publication. Show the existing localized error Toast when either chain action fails so the unchanged scan state is explained. Tests cover network scoping, account controls, paused/resumed publication, pending and failed requests, retry, and available-state boundaries. Native-device interaction remains unverified.
+**Catchable by**: Sections 4-6: Before removing a UI surface, trace every action to its last remaining caller and distinguish account-level controls from network-level controls; test reachable actions as well as rendered status.
+
+## Case: Privacy account management modules were missing from the native registry (OK-66558)
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
+**Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
+**Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
+**Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
+**Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
+
+## Case: Privacy account preview ignored the active locale (OK-66558)
+**Date**: 2026-11-09 | **Platforms**: Developer gallery on Web/Desktop and mobile main UI. No background or native-resource changes.
+**Symptom**: Scenario controls, fixture names, explanatory copy and gallery navigation stayed English when the active language changed.
+**Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
+**Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
+**Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
+
+## Case: Wallet selector positioned only against its first viewport (OK-64041)
+**Date**: 2026-11-09 | **Platforms**: Desktop/Web single JS runtime; mobile selector UI main with a native list instance per view. Background initialization and wallet-data ownership are unchanged.
+**Symptom**: The selected last wallet could be outside the visible list after the selector's measured viewport shrank following its first positioning request.
+**Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
+**Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
+**Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.

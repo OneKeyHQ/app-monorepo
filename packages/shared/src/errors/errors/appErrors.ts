@@ -1,6 +1,11 @@
 /* eslint-disable max-classes-per-file */
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  PRIME_USER_BANNED_CODE,
+  primeUserBannedMessage,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -299,6 +304,18 @@ export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyAppError {
       }),
     );
   }
+}
+
+export class OneKeyErrorPrimeUserBanned extends OneKeyAppError {
+  constructor() {
+    super({
+      code: PRIME_USER_BANNED_CODE,
+      message: appLocale.intl.formatMessage(primeUserBannedMessage),
+      autoToast: true,
+    });
+  }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorPrimeUserBanned;
 }
 
 export class OneKeyErrorPrimeMasterPasswordInvalid extends OneKeyAppError {

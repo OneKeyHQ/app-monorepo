@@ -37,6 +37,7 @@ import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -44,7 +45,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   accountSelectorAccountVisualV2,
   accountSelectorWalletVisualV2,
-  useAccountSelectorNativeListThemeV2,
 } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -75,7 +75,11 @@ import {
   QuickSelectListSkeleton,
 } from './QuickSelectListShared';
 import RecentRecipients from './RecentRecipients';
-import { recipientIdentityRow, recipientSnapshot } from './recipientNativeList';
+import {
+  recipientIdentityRow,
+  recipientSnapshot,
+  useRecipientNativeListTheme,
+} from './recipientNativeList';
 import {
   type IRecipientQuickSelectTab,
   type IRecipientTabMatchStatus,
@@ -416,7 +420,7 @@ function AccountRecipients({
   onMatchStatusChange,
 }: IAccountRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
 
   // Single IPC call — all wallet/account aggregation happens in background.
   // useDeferredValue lets React yield to events (close button) mid-render.
@@ -840,6 +844,7 @@ function AccountRecipients({
               ? [{ kind: 'button', label: activeLabel, actionKey: 'derive' }]
               : undefined,
           style: {
+            container: TOKEN_ROW_CONTAINER_STYLE,
             horizontalPadding: 8,
             verticalPadding: 8,
             leadingGap: 8,
@@ -1184,7 +1189,7 @@ function AddressBookRecipients({
   onMatchStatusChange,
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
   const navigation = useAppNavigation();
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);

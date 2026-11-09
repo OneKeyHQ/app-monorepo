@@ -318,6 +318,7 @@ jest.mock('./QuickSelectListShared', () => ({
 jest.mock('./recipientNativeList', () => ({
   recipientIdentityRow: jest.fn((row: unknown) => row),
   recipientSnapshot: jest.fn((rows: unknown[]) => ({ rows })),
+  useRecipientNativeListTheme: () => ({}),
 }));
 
 const keyboardFrame = {

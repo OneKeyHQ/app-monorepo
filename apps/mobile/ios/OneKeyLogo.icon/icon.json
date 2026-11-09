@@ -124,6 +124,10 @@
             {
               "appearance" : "dark",
               "value" : true
+            },
+            {
+              "appearance" : "tinted",
+              "value" : true
             }
           ],
           "image-name" : "App-Icon-Green-BG.svg",
@@ -137,6 +141,14 @@
           }
         },
         {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
           "hidden-specializations" : [
             {
               "appearance" : "light",
@@ -144,7 +156,7 @@
             },
             {
               "appearance" : "tinted",
-              "value" : true
+              "value" : false
             }
           ],
           "image-name" : "KEY-only-Green.svg",
