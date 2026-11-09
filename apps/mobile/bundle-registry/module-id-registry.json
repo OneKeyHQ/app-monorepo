@@ -25887,6 +25887,7 @@
     "packages/kit/src/views/Prime/hooks/PrimeGlobalEffect.tsx": 23673,
     "packages/kit/src/views/Prime/hooks/getPrimePaymentApiKey.ts": 22936,
     "packages/kit/src/views/Prime/hooks/primeCardCheckoutMode.ts": 12654,
+    "packages/kit/src/views/Prime/hooks/primeChinaStorefront.ts": 7351,
     "packages/kit/src/views/Prime/hooks/primeGiftDuration.ts": 3996,
     "packages/kit/src/views/Prime/hooks/primeGiftPrimaryAction.ts": 1041,
     "packages/kit/src/views/Prime/hooks/primeHostedCardCheckout.ts": 3903,

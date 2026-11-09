@@ -496,6 +496,7 @@ export function usePrimePaymentMethodsStore<
 
   return {
     isReady,
+    initializationError,
     getStorefront,
     getPackagesNative,
     purchasePackageNative,

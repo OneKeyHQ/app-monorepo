@@ -27,6 +27,7 @@ export function usePrimeSubscriptionPackages({
   const intl = useIntl();
   const {
     isReady: isPurchaseReady,
+    initializationError,
     getPackagesNative,
     getStorefront,
     restorePurchases,
@@ -74,6 +75,12 @@ export function usePrimeSubscriptionPackages({
             defaultLogger.prime.subscription.fetchPackagesFailed({
               errorMessage: e?.message || 'Unknown error',
             });
+
+            if (initializationError && error === initializationError) {
+              // Initialization failures can require a newer native shell; keep
+              // their actionable message outside the product-loading fallback.
+              throw error;
+            }
 
             if (isPrimeAppleStorePayment()) {
               const showChinaHint = await shouldShowPrimeChinaStorefrontHint(
@@ -148,6 +155,7 @@ export function usePrimeSubscriptionPackages({
         getPackagesWeb,
         getStorefront,
         isPurchaseReady,
+        initializationError,
       ],
       {
         initResult: [],

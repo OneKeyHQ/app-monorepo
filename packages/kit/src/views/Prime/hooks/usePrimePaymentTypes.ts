@@ -39,6 +39,7 @@ export type IRevenueCatCustomerInfoNative = CustomerInfoNative;
 
 export type IUsePrimePayment = {
   isReady: boolean;
+  initializationError?: Error;
   getStorefront?: () => Promise<IRevenueCatStorefront | null>;
   getCustomerInfo: () => Promise<
     | IRevenueCatCustomerInfoWeb
