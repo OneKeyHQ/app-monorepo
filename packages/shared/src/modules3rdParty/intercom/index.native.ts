@@ -195,8 +195,8 @@ function syncInAppMessageVisibility(): Promise<void> {
       if (!pendingSdk) {
         // A restarted main runtime has no SDK state yet, while the
         // process-wide native SDK may still show messages enabled by the
-        // previous runtime. Hide them without starting a session; the
-        // container calls this on mount, so it runs at runtime startup.
+        // previous runtime. Hide them without starting a session;
+        // IntercomLockGuard runs this on mount at every main runtime start.
         const sdkModule = await import('@intercom/intercom-react-native');
         await sdkModule.default.setInAppMessageVisibility(
           sdkModule.Visibility.GONE,
