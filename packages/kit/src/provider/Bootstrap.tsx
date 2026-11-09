@@ -27,6 +27,7 @@ import {
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -631,14 +632,16 @@ const useLogVersionInfo = () => {
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
   const theme = useThemeVariant();
+  const [{ theme: themeSetting }] = useSettingsPersistAtom();
+  const followSystemTheme = themeSetting === 'system';
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
   const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
-    void setIntercomTheme(theme).catch(() => {
+    void setIntercomTheme(theme, followSystemTheme).catch(() => {
       console.warn('Failed to update Intercom theme');
     });
-  }, [theme]);
+  }, [theme, followSystemTheme]);
 
   useEffect(() => {
     const syncIntercom = () => {
