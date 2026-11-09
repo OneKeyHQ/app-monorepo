@@ -20,6 +20,8 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useIsDeferredGuideBlocked } from '../../hooks/useDeferredGuideBlocker';
 import { ShowCustom } from '../Toast/ShowCustom';
 
@@ -28,9 +30,15 @@ import { Popover as NativePopover } from './index.native';
 let mockNarrow = false;
 let mockNativeContentHeight = 100;
 let mockEmitContentSize = true;
+let mockBottomInset = 20;
 const mockNativeMeasureCallbacks: Array<
   (x: number, y: number, width: number, height: number) => void
 > = [];
+const mockScrollViewMargins: Array<number | string | undefined> = [];
+const mockPlatformEnv = platformEnv as unknown as {
+  isNativeIOS: boolean;
+  isNative: boolean;
+};
 jest.mock('../../utils/getFontSize', () => ({ NATIVE_HIT_SLOP: {} }));
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   withStaticProperties: Object.assign,
@@ -48,7 +56,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('../../hooks', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    useSafeAreaInsets: () => ({ bottom: 20 }),
+    useSafeAreaInsets: () => ({ bottom: mockBottomInset }),
     useModalNavigatorContext: () => ({}),
     ModalNavigatorContext: React.createContext({}),
   };
@@ -96,10 +104,12 @@ jest.mock('../../primitives', () => {
 jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({
     children,
+    mb,
     onContentSizeChange,
     innerViewRef,
   }: {
     children?: ReactNode;
+    mb?: number | string;
     onContentSizeChange?: (w: number, h: number) => void;
     innerViewRef?: {
       current: {
@@ -118,6 +128,7 @@ jest.mock('../../layouts/ScrollView', () => ({
     const contentHeight = mockNativeContentHeight;
     const contentSizeChangeRef = React.useRef(onContentSizeChange);
     contentSizeChangeRef.current = onContentSizeChange;
+    mockScrollViewMargins.push(mb);
     React.useLayoutEffect(() => {
       if (innerViewRef) {
         innerViewRef.current = {
@@ -238,7 +249,10 @@ beforeEach(() => {
   mockNarrow = false;
   mockNativeContentHeight = 100;
   mockEmitContentSize = true;
+  mockBottomInset = 20;
+  mockPlatformEnv.isNativeIOS = true;
   mockNativeMeasureCallbacks.length = 0;
+  mockScrollViewMargins.length = 0;
 });
 function resolveNativeMeasure(
   callback: (x: number, y: number, width: number, height: number) => void,
@@ -295,6 +309,70 @@ it('keeps percentage height and guide blocking for native sheets', () => {
   expect(blocked.result.current).toBe(true);
   view.unmount();
   expect(blocked.result.current).toBe(false);
+});
+it('does not reserve the sheet bottom inset inside headerless fitted sheets', async () => {
+  // The fitted height already stops above the bottom inset; a second inside
+  // margin would be taken out of the headerless content and clip it.
+  render(
+    <NativePopover
+      open
+      title=""
+      showHeader={false}
+      renderTrigger={null}
+      renderContent={<input aria-label="Headerless fit content" />}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('100'),
+  );
+  expect(mockScrollViewMargins.at(-1)).toBe(0);
+});
+it('keeps the fallback content margin when the fitted sheet has no inset', async () => {
+  mockBottomInset = 0;
+  render(
+    <NativePopover
+      open
+      title=""
+      showHeader={false}
+      renderTrigger={null}
+      renderContent={<input aria-label="Headerless fit content" />}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('120'),
+  );
+  expect(mockScrollViewMargins.at(-1)).toBe(20);
+});
+it('keeps the content margin on Android fitted sheets', async () => {
+  // Android detents include the bottom inset, so the fitted height and the
+  // content margin already match; the fix must not change them.
+  mockPlatformEnv.isNativeIOS = false;
+  render(
+    <NativePopover
+      open
+      title=""
+      showHeader={false}
+      renderTrigger={null}
+      renderContent={<input aria-label="Headerless fit content" />}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('120'),
+  );
+  expect(mockScrollViewMargins.at(-1)).toBe(20);
+});
+it('keeps the bottom inset margin inside percent sheets', () => {
+  render(
+    <NativePopover
+      open
+      title=""
+      renderTrigger={null}
+      sheetProps={{ snapPointsMode: 'percent', snapPoints: [70] }}
+      renderContent={<input aria-label="Percent content" />}
+    />,
+  );
+  expect(screen.getByTestId('native-sheet').dataset.height).toBe('680');
+  expect(mockScrollViewMargins.at(-1)).toBe(20);
 });
 it('measures the new fit content when its renderer changes before the first size event settles', async () => {
   const FirstContent = () => <div>First</div>;
