@@ -1368,3 +1368,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Both new module paths entered the mobile graph without stable IDs in the strict native module registry.
 **Fix**: Register both modules with the official allocator and add strict module-lookup regressions. Preserve the existing account-name display, chain identity and account-specific callbacks. Full native bundling requires CI confirmation after push.
 **Catchable by**: Sections 3, 4 and 6: Verify strict native module registration when extracting shared components, even when their web preview and component tests pass.
+
+## Case: Privacy account preview ignored the active locale (OK-66558)
+**Date**: 2026-11-09 | **Platforms**: Developer gallery on Web/Desktop and mobile main UI. No background or native-resource changes.
+**Symptom**: Scenario controls, fixture names, explanatory copy and gallery navigation stayed English when the active language changed.
+**Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
+**Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
+**Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.

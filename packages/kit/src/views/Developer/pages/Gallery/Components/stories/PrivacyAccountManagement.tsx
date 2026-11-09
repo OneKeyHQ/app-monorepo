@@ -16,7 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IPreviewAccount = {
   id: string;
-  name: string;
+  number: number;
   networkId: string;
   state: 'enabled' | 'disabled' | 'paused';
 };
@@ -24,28 +24,28 @@ type IPreviewAccount = {
 const INITIAL_ACCOUNTS: IPreviewAccount[] = [
   {
     id: 'preview-enabled',
-    name: 'Account #1',
+    number: 1,
     networkId: presetNetworksMap.zec.id,
     state: 'enabled',
   },
   {
     id: 'preview-disabled',
-    name: 'Account #1',
+    number: 1,
     networkId: presetNetworksMap.xmr.id,
     state: 'disabled',
   },
   {
     id: 'preview-paused',
-    name: 'Account #2',
+    number: 2,
     networkId: presetNetworksMap.xmr.id,
     state: 'paused',
   },
 ];
 
 const SCENARIOS = [
-  { value: 'default', label: 'Default' },
-  { value: 'long-name', label: 'Long names' },
-  { value: 'unavailable', label: 'Unavailable' },
+  { value: 'default', labelId: ETranslations.global_default },
+  { value: 'long-name', labelId: ETranslations.dev_preview_long_names__title },
+  { value: 'unavailable', labelId: ETranslations.global_not_available },
 ] as const;
 
 export function PrivacyAccountManagementPreview() {
@@ -60,14 +60,16 @@ export function PrivacyAccountManagementPreview() {
     <YStack gap="$5" testID="privacy-account-management-preview">
       <YStack bg="$bgCautionSubdued" p="$3" borderRadius="$3" gap="$1">
         <SizableText size="$bodyMdMedium" color="$textCaution">
-          Sample data · UI preview
+          {intl.formatMessage({ id: ETranslations.preview__action })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          Actions only change these examples. No account data is changed.
+          {intl.formatMessage({
+            id: ETranslations.dev_preview_sample_data__desc,
+          })}
         </SizableText>
       </YStack>
       <XStack gap="$2" flexWrap="wrap">
-        {SCENARIOS.map(({ value, label }) => (
+        {SCENARIOS.map(({ value, labelId }) => (
           <Button
             key={value}
             testID={`privacy-management-preview-${value}`}
@@ -75,7 +77,7 @@ export function PrivacyAccountManagementPreview() {
             variant={scenario === value ? 'primary' : 'secondary'}
             onPress={() => setScenario(value)}
           >
-            {label}
+            {intl.formatMessage({ id: labelId })}
           </Button>
         ))}
         <Button
@@ -119,12 +121,16 @@ export function PrivacyAccountManagementPreview() {
               key={account.id}
               accountId={account.id}
               networkId={account.networkId}
-              accountName={
-                scenario === 'long-name'
-                  ? `${account.name} · Personal savings and long-term private funds`
-                  : account.name
-              }
-              subtitle={`Preview wallet · ${intl.formatMessage({ id: statusId })}`}
+              accountName={intl.formatMessage(
+                {
+                  id:
+                    scenario === 'long-name'
+                      ? ETranslations.dev_preview_long_account_name__title
+                      : ETranslations.dev_preview_account_name__title,
+                },
+                { number: intl.formatNumber(account.number) },
+              )}
+              subtitle={`${intl.formatMessage({ id: ETranslations.global_wallet })} · ${intl.formatMessage({ id: statusId })}`}
               action={
                 <Button
                   testID={`privacy-management-preview-action-${account.id}`}

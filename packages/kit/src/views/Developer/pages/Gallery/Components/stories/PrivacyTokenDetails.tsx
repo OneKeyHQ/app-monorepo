@@ -608,10 +608,13 @@ function PrivacyTokenDetailsPreview() {
 }
 
 export default function PrivacyTokenDetailsGallery() {
+  const intl = useIntl();
   const [preview, setPreview] = useState<'token' | 'management'>('token');
   return (
     <Page>
-      <Page.Header title="Privacy token details · UI preview" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.preview__action })}
+      />
       <Page.Body>
         <ScrollView contentContainerStyle={{ p: '$5' }}>
           <XStack gap="$2" pb="$5" flexWrap="wrap">
@@ -621,7 +624,9 @@ export default function PrivacyTokenDetailsGallery() {
               variant={preview === 'token' ? 'primary' : 'secondary'}
               onPress={() => setPreview('token')}
             >
-              Token details
+              {intl.formatMessage({
+                id: ETranslations.trade_stocks_token_details,
+              })}
             </Button>
             <Button
               testID="privacy-preview-account-management"
@@ -629,7 +634,7 @@ export default function PrivacyTokenDetailsGallery() {
               variant={preview === 'management' ? 'primary' : 'secondary'}
               onPress={() => setPreview('management')}
             >
-              Account management
+              {intl.formatMessage({ id: ETranslations.global_manage_accounts })}
             </Button>
           </XStack>
           {preview === 'token' ? (
