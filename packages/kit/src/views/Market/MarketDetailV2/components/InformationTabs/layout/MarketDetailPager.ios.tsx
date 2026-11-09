@@ -45,6 +45,7 @@ export function MarketDetailPager({
   scrollEnabled = true,
   initialHeaderHeight,
   initialStickyHeaderHeight,
+  stickyHeaderHeights,
 }: IMarketDetailPagerProps) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
@@ -53,7 +54,9 @@ export function MarketDetailPager({
   );
   const [hasViewport, setHasViewport] = useState(false);
   const isLayoutReady =
-    hasViewport && headerHeight !== null && stickyHeaderHeight !== null;
+    hasViewport &&
+    headerHeight !== null &&
+    (stickyHeaderHeights !== undefined || stickyHeaderHeight !== null);
   const canShowInitialLayout =
     initialHeaderHeight !== undefined &&
     initialStickyHeaderHeight !== undefined;
@@ -109,8 +112,12 @@ export function MarketDetailPager({
           nativeSmoothHeaderScrollEnabled={isLayoutReady}
           headerHeight={headerHeight ?? initialHeaderHeight ?? 1}
           stickyHeaderHeight={
-            stickyHeaderHeight ?? initialStickyHeaderHeight ?? 44
+            stickyHeaderHeights?.[controller.initialIndex] ??
+            stickyHeaderHeight ??
+            initialStickyHeaderHeight ??
+            44
           }
+          stickyHeaderHeights={stickyHeaderHeights}
           pageRetentionDistance={children.length}
           offscreenPageLimit={Math.max(1, children.length - 1)}
           header={
@@ -131,10 +138,14 @@ export function MarketDetailPager({
             <View
               testID="market-detail-native-sticky-header"
               collapsable={false}
-              onLayout={({ nativeEvent }) => {
-                const height = Math.ceil(nativeEvent.layout.height);
-                if (height > 0) setStickyHeaderHeight(height);
-              }}
+              onLayout={
+                stickyHeaderHeights === undefined
+                  ? ({ nativeEvent }) => {
+                      const height = Math.ceil(nativeEvent.layout.height);
+                      if (height > 0) setStickyHeaderHeight(height);
+                    }
+                  : undefined
+              }
             >
               {renderTabBar({
                 focusedTab: controller.focusedTab,

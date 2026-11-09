@@ -51,10 +51,14 @@ jest.mock('react-native-pager-view', () => {
           onPageSelected,
           style,
           headerHeight,
+          stickyHeaderHeight,
+          stickyHeaderHeights,
           nativeSmoothHeaderScrollEnabled,
         }: PropsWithChildren<{
           style: { opacity: number };
           headerHeight: number;
+          stickyHeaderHeight: number;
+          stickyHeaderHeights?: readonly number[];
           nativeSmoothHeaderScrollEnabled: boolean;
           header: React.ReactNode;
           stickyHeader: React.ReactNode;
@@ -75,6 +79,8 @@ jest.mock('react-native-pager-view', () => {
             data-testid="native-pager"
             style={style}
             data-header-height={headerHeight}
+            data-sticky-height={stickyHeaderHeight}
+            data-page-sticky-heights={stickyHeaderHeights?.join(',')}
             data-smooth={nativeSmoothHeaderScrollEnabled}
           >
             {header}
@@ -127,6 +133,7 @@ it('keeps the chart and each page state while selecting and renaming tabs', () =
   const pager = (positionName: string) => (
     <MarketDetailPager
       initialTabName="Position"
+      stickyHeaderHeights={[45, 89]}
       renderHeader={() => <Chart />}
       renderTabBar={renderTabBar}
       onTabChange={changed}
@@ -143,9 +150,13 @@ it('keeps the chart and each page state while selecting and renaming tabs', () =
   );
   const { getByTestId, getByText, rerender } = render(pager('Position'));
   const chart = getByTestId('chart');
+  const nativePager = getByTestId('native-pager');
+  expect(nativePager.dataset.pageStickyHeights).toBe('45,89');
+  expect(nativePager.dataset.stickyHeight).toBe('89');
   expect(getByTestId('portfolio').dataset.focused).toBe('true');
   fireEvent.click(getByTestId('portfolio'));
   fireEvent.click(getByText('Overview'));
+  expect(nativePager.dataset.stickyHeight).toBe('89');
   expect(getByTestId('portfolio').dataset.focused).toBe('false');
   fireEvent.click(getByText('Position'));
   rerender(pager('My position'));
