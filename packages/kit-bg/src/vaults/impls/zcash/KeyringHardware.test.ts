@@ -1,10 +1,15 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import addressFixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress.fixtures.json';
 import { ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET } from '@onekeyhq/shared/src/config/zcash';
+import { UnknownMethod } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
+import { shouldAbortAccountCreation } from '../../../services/ServiceBatchCreateAccount/accountCreationErrors';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
@@ -159,6 +164,7 @@ function createKeyring({
     } as never);
   return Object.assign(Object.create(KeyringHardware.prototype), {
     hwSdkNetwork: 'btc',
+    walletId: 'hw-1',
     vault: {
       accountId: 'hw-1--acc',
       networkId: 'zec--0',
@@ -279,11 +285,12 @@ describe('Zcash KeyringHardware', () => {
   function prepareFromAllNetwork({
     items,
     simpleDbZcash,
+    zcashGetAddress = deviceAddresses({ transparent: 't1-account' }),
   }: {
     items: Record<string, unknown>[];
     simpleDbZcash: Record<string, jest.Mock>;
+    zcashGetAddress?: jest.Mock;
   }) {
-    const zcashGetAddress = jest.fn();
     const zcashGetFullViewingKey = jest.fn();
     const getItem = jest.fn(async ({ path }: { path: string }) => ({
       success: true,
@@ -329,7 +336,7 @@ describe('Zcash KeyringHardware', () => {
     };
   }
 
-  it('creates accounts from the BTC public keys alone, without the viewing key', async () => {
+  it('creates accounts from the BTC public keys, checking only the first on the device', async () => {
     const beginZcashPrivacyModeEnable = jest.fn();
     const saveZcashAccountMeta = jest.fn();
     const fingerprintStore = createSeedFingerprintStore();
@@ -364,7 +371,20 @@ describe('Zcash KeyringHardware', () => {
         expect.objectContaining({ xpub: `device-xpub-${index}` }),
       );
     }
-    expect(zcashGetAddress).not.toHaveBeenCalled();
+    expect(zcashGetAddress).toHaveBeenCalledTimes(1);
+    expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
+      passphraseState: 'pp',
+      bundle: [
+        {
+          path: "m/32'/133'/0'",
+          showOnOneKey: false,
+          addressType: 1,
+          scope: 0,
+          diversifierIndex: 0,
+          includeSeedFingerprint: true,
+        },
+      ],
+    });
     expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
     expect(accounts).toHaveLength(2);
     for (const account of accounts) {
@@ -374,9 +394,108 @@ describe('Zcash KeyringHardware', () => {
     }
     expect(
       fingerprintStore.saveZcashWalletSeedFingerprint,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith({
+      walletId: 'hw-1',
+      seedFingerprintHex: 'ab'.repeat(32),
+    });
     expect(beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
     expect(saveZcashAccountMeta).not.toHaveBeenCalled();
+  });
+
+  const allNetworkItems = [0, 1].map((index) => ({
+    path: `m/44'/133'/${index}'`,
+    xpub: `device-xpub-${index}`,
+  }));
+
+  it('does not ask the device once the wallet has its seed fingerprint', async () => {
+    const { result, zcashGetAddress } = prepareFromAllNetwork({
+      items: allNetworkItems,
+      simpleDbZcash: createSeedFingerprintStore({ 'hw-1': 'ab'.repeat(32) }),
+    });
+
+    await expect(result).resolves.toHaveLength(2);
+    expect(zcashGetAddress).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      firmware: 'Pro 2 firmware',
+      code: HardwareErrorCode.RuntimeError,
+      error:
+        'Failure_ProcessError,Handler not found: No handler for type: 12400',
+    },
+    {
+      firmware: 'Trezor-based firmware',
+      code: HardwareErrorCode.RuntimeError,
+      error: 'Failure_UnexpectedMessage,Unknown message',
+    },
+    {
+      firmware: 'firmware below the SDK minimum',
+      code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+      error: 'Device firmware version is too low',
+    },
+  ])(
+    'skips Zcash on $firmware without the Zcash app',
+    async ({ code, error }) => {
+      const fingerprintStore = createSeedFingerprintStore();
+      const { result } = prepareFromAllNetwork({
+        items: allNetworkItems,
+        simpleDbZcash: fingerprintStore,
+        zcashGetAddress: jest.fn().mockResolvedValue({
+          success: false,
+          payload: { code, error },
+        }),
+      });
+
+      const failure = (await result.catch((e: unknown) => e)) as IOneKeyError;
+
+      expect(failure).toBeInstanceOf(UnknownMethod);
+      expect(failure.payload).toMatchObject({
+        code: HardwareErrorCode.DeviceNotSupportMethod,
+        message: error,
+      });
+      expect(shouldAbortAccountCreation(failure)).toBe(false);
+      expect(
+        fingerprintStore.saveZcashWalletSeedFingerprint,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  // A Zcash handler that fails to load also reads "Handler not found", but without "No handler for type".
+  it('stops account creation when the Zcash app is present but broken', async () => {
+    const { result } = prepareFromAllNetwork({
+      items: allNetworkItems,
+      simpleDbZcash: createSeedFingerprintStore(),
+      zcashGetAddress: jest.fn().mockResolvedValue({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.RuntimeError,
+          error:
+            "Failure_ProcessError,Handler not found: name 'x' isn't defined",
+        },
+      }),
+    });
+
+    const failure = (await result.catch((e: unknown) => e)) as IOneKeyError;
+
+    expect(failure.payload?.code).toBe(HardwareErrorCode.RuntimeError);
+    expect(shouldAbortAccountCreation(failure)).toBe(true);
+  });
+
+  it('refuses to create accounts when the device address differs from the public key', async () => {
+    const fingerprintStore = createSeedFingerprintStore();
+    const { result } = prepareFromAllNetwork({
+      items: allNetworkItems,
+      simpleDbZcash: fingerprintStore,
+      zcashGetAddress: deviceAddresses({ transparent: 't1-other' }),
+    });
+
+    await expect(result).rejects.toThrow(
+      'device seed does not match this account',
+    );
+    expect(
+      fingerprintStore.saveZcashWalletSeedFingerprint,
+    ).not.toHaveBeenCalled();
   });
 
   // Pro 2's BTC coin table has no Zcash, so the coin must be named; the path alone means Zcash.

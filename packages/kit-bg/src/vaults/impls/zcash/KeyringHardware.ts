@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { isShieldedAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
@@ -9,7 +11,12 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  convertDeviceError,
+  isHardwareErrorByCode,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
@@ -28,7 +35,7 @@ import { zcashTrackUserOperation } from './vaultUtils';
 import type { IZcashHardwareAddress } from './hardwareSdk';
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
-import type { IDBAccount } from '../../../dbs/local/types';
+import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IBuildPrepareAccountsPrefixedPathParams,
@@ -44,6 +51,27 @@ const buildZcashShieldedPath = (index: number) => `m/32'/133'/${index}'`;
 
 // Temporary: Pro 2 firmware has no Zcash coin yet; Bitcoin's xpub format is the same.
 const TRANSPARENT_XPUB_COIN = 'btc';
+
+// How firmware without the Zcash app answers a Zcash message: Pro 2, then Trezor-based firmware.
+const FIRMWARE_WITHOUT_ZCASH_MESSAGES = [
+  'No handler for type',
+  'Unknown message',
+];
+
+function isFirmwareWithoutZcashError(error: unknown): error is IOneKeyError {
+  if (!isOneKeyHardwareError(error)) {
+    return false;
+  }
+  const needsUpgrade = isHardwareErrorByCode({
+    error,
+    code: HardwareErrorCode.CallMethodNeedUpgradeFirmware,
+  });
+  if (needsUpgrade) {
+    return true;
+  }
+  const message = error.payload?.message ?? '';
+  return FIRMWARE_WITHOUT_ZCASH_MESSAGES.some((text) => message.includes(text));
+}
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.zec.hd;
@@ -139,13 +167,49 @@ export class KeyringHardware extends KeyringHardwareBase {
         'zcash: device did not return one seed fingerprint',
       );
     }
+    // Account creation has no account id yet, only the wallet.
     await this.rememberSeedFingerprint({
-      walletId: accountUtils.getWalletIdFromAccountId({
-        accountId: this.vault.accountId,
-      }),
+      walletId: this.walletId,
       seedFingerprintHex,
     });
     return { seedFingerprintHex, unifiedAddress: unified?.address };
+  }
+
+  // Older firmware returns this path's BTC public key but cannot sign Zcash. A wallet's first
+  // Zcash account asks the device once; the saved seed fingerprint answers later ones.
+  private async ensureDeviceHasZcash({
+    deviceParams,
+    account,
+  }: {
+    deviceParams: IDeviceSharedCallParams;
+    account: IDBUtxoAccount;
+  }): Promise<void> {
+    const stored =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint(
+        {
+          walletId: this.walletId,
+        },
+      );
+    if (stored) {
+      return;
+    }
+    try {
+      await this.verifyDeviceAccount({
+        deviceParams,
+        accountIndex: checkIsDefined(account.pathIndex),
+        accountAddress: account.address,
+        includeUnifiedAddress: false,
+      });
+    } catch (error) {
+      if (!isFirmwareWithoutZcashError(error)) {
+        throw error;
+      }
+      // Coded as unsupported so account creation skips Zcash instead of stopping.
+      throw convertDeviceError({
+        ...error.payload,
+        code: HardwareErrorCode.DeviceNotSupportMethod,
+      });
+    }
   }
 
   private async fetchDeviceUfvk({
@@ -274,7 +338,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const addressRelPath = accountUtils.buildUtxoAddressRelPath();
     const { template } = params.deriveInfo;
 
-    return this.basePrepareHdUtxoAccounts(params, {
+    const accounts = await this.basePrepareHdUtxoAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,
@@ -321,6 +385,14 @@ export class KeyringHardware extends KeyringHardwareBase {
         return ret;
       },
     });
+    const [firstAccount] = accounts;
+    if (firstAccount) {
+      await this.ensureDeviceHasZcash({
+        deviceParams: params.deviceParams,
+        account: firstAccount,
+      });
+    }
+    return accounts;
   }
 
   // Device-gated counterpart of KeyringHd.retryLocalWalletSetup.
