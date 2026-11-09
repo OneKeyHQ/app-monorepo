@@ -122,6 +122,13 @@ function OuterTabPagerViewComponent({
   const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
+  const [isEarnInactiveCommitted, setIsEarnInactiveCommitted] = useState(false);
+  useEffect(() => {
+    if (platformEnv.isNativeIOS) return;
+    // Let Earn commit its inactive props and clean up passive effects before
+    // suspending it, even when native idle precedes the bg tab update.
+    setIsEarnInactiveCommitted(selectedHeaderTab !== ETranslations.global_earn);
+  }, [selectedHeaderTab]);
   // OK-59246 used to pause this pager while the earn banner was being dragged.
   // Flipping scrollEnabled on a native pager mid-gesture is itself a hazard
   // (OK-61515), and it never covered the header's own RNGH tab-switch pan. The
@@ -448,7 +455,15 @@ function OuterTabPagerViewComponent({
           {platformEnv.isNativeIOS ? (
             earnContent
           ) : (
-            <Freeze freeze={shouldFreezePage(0)}>{earnContent}</Freeze>
+            <Freeze
+              freeze={
+                shouldFreezePage(0) &&
+                selectedHeaderTab !== ETranslations.global_earn &&
+                isEarnInactiveCommitted
+              }
+            >
+              {earnContent}
+            </Freeze>
           )}
         </View>
       ) : (
@@ -456,7 +471,13 @@ function OuterTabPagerViewComponent({
           <Stack flex={1} />
         </View>
       ),
-    [isPageMounted, shouldFreezePage, earnContent],
+    [
+      isPageMounted,
+      shouldFreezePage,
+      selectedHeaderTab,
+      isEarnInactiveCommitted,
+      earnContent,
+    ],
   );
 
   const browserPage = useMemo(
