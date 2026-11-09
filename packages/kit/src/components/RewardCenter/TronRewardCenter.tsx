@@ -230,7 +230,6 @@ function RewardCenterContent({
       defaultLogger.reward.tronReward.redeemResource({
         networkId,
         address: account.address,
-        code,
         sourceFlag: claimSource,
         isSuccess: true,
         resourceType: 'energy',

@@ -29,7 +29,6 @@ import {
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabRoutes,
-  ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -210,29 +209,6 @@ const TabDeveloper = () => {
             gap="$5"
           >
             <PartContainer title="Components">
-              <Button
-                testID="developer-subsidy-demo"
-                icon="GiftOutline"
-                onPress={() => {
-                  navigation.pushModal(EModalRoutes.TestModal, {
-                    screen: ETestModalPages.NetworkFeeSubsidy,
-                    params: { initialSignedIn: true },
-                  });
-                }}
-              >
-                网络费补贴
-              </Button>
-              <Button
-                testID="developer-subsidy-guest"
-                onPress={() => {
-                  navigation.pushModal(EModalRoutes.TestModal, {
-                    screen: ETestModalPages.NetworkFeeSubsidy,
-                    params: { initialSignedIn: false },
-                  });
-                }}
-              >
-                网络费补贴（未登录）
-              </Button>
               <Button
                 testID={DeveloperTestIDs.galleryBtn}
                 onPress={() => {

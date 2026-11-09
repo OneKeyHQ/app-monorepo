@@ -1,5 +1,6 @@
 export const RewardCenterTestIDs = {
   // --- Reward Center Page ---
+  retryInventoryBtn: 'reward-center-retry-inventory-btn',
   claimBtn: 'reward-center-claim-btn',
   topUpBtn: 'reward-center-top-up-btn',
   addAccountBtn: 'reward-center-add-account-btn',
