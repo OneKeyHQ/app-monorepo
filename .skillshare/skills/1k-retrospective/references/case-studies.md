@@ -1417,3 +1417,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Optional namespace support was checked by implementation alone; neither account selection nor approval construction required a usable supported chain. The SDK validators accept an empty optional namespace, so validator-only assertions missed the issue.
 **Fix**: Omit optional account selectors without supported networks and only write optional approval namespaces with at least one merged supported chain and a matching non-empty account address. Preserve required namespace processing and supported optional chains.
 **Catchable by**: Section 4: data flow end-to-end; assert UI account-selection inputs and exact namespace keys for all-unsupported, partially supported, and missing-account cases in addition to real SDK validation.
+
+## Case: Invisible browser translation action (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime); no background or native-resource ownership changes.
+**Symptom**: The browser translation sheet had a blank action area, but tapping it still opened the OneKey ID sign-in gate on iOS.
+**Root Cause**: The mobile browser capsule supplied GlassHeaderContext to the native popover content. Button removed its primary background for glass chrome while the translation label retained its inverse color on the light sheet.
+**Fix**: Reset the glass-header context at the native popover content boundary for both sheet and anchored presentations, retaining the trigger's context and existing action handler. Desktop/Web popover implementations are unchanged.
+**Catchable by**: Sections 3, 6 and 8: Test overlay context isolation from glass triggers and verify visible action contrast, not only hit targets or accessibility labels.
