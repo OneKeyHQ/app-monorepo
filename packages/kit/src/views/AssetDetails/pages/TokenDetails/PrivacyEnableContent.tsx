@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   PrivacyEnableDisclosure,
@@ -147,23 +147,19 @@ function PrivacySyncStartEditor({
           {
             value: 'today',
             label: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_new__title,
-              defaultMessage: ETranslationsMock.privacy_sync_start_new__title,
+              id: ETranslations.privacy_sync_start_new__title,
             }),
             description: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_new__desc,
-              defaultMessage: ETranslationsMock.privacy_sync_start_new__desc,
+              id: ETranslations.privacy_sync_start_new__desc,
             }),
           },
           {
             value: 'date',
             label: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_used__title,
-              defaultMessage: ETranslationsMock.privacy_sync_start_used__title,
+              id: ETranslations.privacy_sync_start_used__title,
             }),
             description: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_used__desc,
-              defaultMessage: ETranslationsMock.privacy_sync_start_used__desc,
+              id: ETranslations.privacy_sync_start_used__desc,
             }),
             children:
               choice === 'date' ? (
@@ -189,14 +185,10 @@ function PrivacySyncStartEditor({
                 {
                   value: 'earliest',
                   label: intl.formatMessage({
-                    id: ETranslationsMock.privacy_sync_start_unknown__title,
-                    defaultMessage:
-                      ETranslationsMock.privacy_sync_start_unknown__title,
+                    id: ETranslations.privacy_sync_start_unknown__title,
                   }),
                   description: intl.formatMessage({
-                    id: ETranslationsMock.privacy_sync_start_unknown__desc,
-                    defaultMessage:
-                      ETranslationsMock.privacy_sync_start_unknown__desc,
+                    id: ETranslations.privacy_sync_start_unknown__desc,
                   }),
                 },
               ]
@@ -242,9 +234,7 @@ function PrivacySyncStartEditor({
                                 id: ETranslations.global_block_height,
                               }),
                               invalidText: intl.formatMessage({
-                                id: ETranslationsMock.privacy_sync_start_height_invalid__msg,
-                                defaultMessage:
-                                  ETranslationsMock.privacy_sync_start_height_invalid__msg,
+                                id: ETranslations.privacy_sync_start_height_invalid__msg,
                               }),
                               format: (value) => intl.formatNumber(value),
                             })}
@@ -322,9 +312,9 @@ export function PrivacyEnableContent({
   if (form.fromEarliest) choice = 'earliest';
   else if (form.mode === 'height') choice = 'height';
   const summaryTitle = {
-    today: ETranslationsMock.privacy_sync_start_new__title,
-    earliest: ETranslationsMock.privacy_sync_start_unknown__title,
-    date: ETranslationsMock.privacy_sync_start_used__title,
+    today: ETranslations.privacy_sync_start_new__title,
+    earliest: ETranslations.privacy_sync_start_unknown__title,
+    date: ETranslations.privacy_sync_start_used__title,
     height: ETranslations.global_block_height,
   }[choice];
 
@@ -377,7 +367,6 @@ export function PrivacyEnableContent({
         <SizableText flex={1} size="$bodyMdMedium">
           {intl.formatMessage({
             id: summaryTitle,
-            defaultMessage: summaryTitle,
           })}
         </SizableText>
         <Button
