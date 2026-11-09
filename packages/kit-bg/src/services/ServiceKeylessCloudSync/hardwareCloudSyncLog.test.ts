@@ -11,6 +11,9 @@ import {
   callHardwareCloudSyncDevice,
   convertHardwareCloudSyncDeviceError,
   createHardwareCloudSyncDataError,
+  createHardwareCloudSyncDiagnostic,
+  getHardwareCloudSyncErrorDiagnostics,
+  logHardwareCloudSyncDiagnostic,
   logHardwareCloudSyncFailure,
   sanitizeHardwareCloudSyncDeviceError,
 } from './hardwareCloudSyncLog';
@@ -298,3 +301,82 @@ test.each([
     });
   },
 );
+
+test('sync diagnostics allow only fixed stages and safe aggregate values', () => {
+  logHardwareCloudSyncDiagnostic('history_received_completeness_unknown', {
+    returnedCount: 260,
+    invalidEnvelopeCount: 1,
+    historyCompleteKnown: false,
+    token: 'private-token',
+    dekId: 'private-dek-id',
+    pwdHash: 'private-pwd-hash',
+    wrappedDek: 'private-wrapped-key',
+    error: { message: 'private-error' },
+    generation: 'private-generation',
+    page: NaN,
+    start: -1,
+  });
+  expect(mockLog).toHaveBeenLastCalledWith(
+    '[HardwareCloudSyncDiagnostic] history_received_completeness_unknown {"historyCompleteKnown":false,"returnedCount":260,"invalidEnvelopeCount":1}',
+  );
+  logHardwareCloudSyncDiagnostic('private_secret_value', { returnedCount: 1 });
+  expect(mockLog).toHaveBeenCalledTimes(1);
+});
+
+test('diagnostics failure never replaces the operation or propagates an error', () => {
+  mockLog.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('logger failed');
+  });
+  expect(() =>
+    logHardwareCloudSyncDiagnostic('request_failed', { unauthorized: true }),
+  ).not.toThrow();
+});
+
+test('diagnostic correlation lasts only for a new operation', () => {
+  const first = createHardwareCloudSyncDiagnostic();
+  const second = createHardwareCloudSyncDiagnostic();
+  first('request_download');
+  first('request_success');
+  second('request_download');
+  const ids = mockLog.mock.calls.map(
+    ([line]) =>
+      (JSON.parse(line.slice(line.indexOf('{'))) as { operationId?: string })
+        .operationId,
+  );
+  expect(ids[0]).toMatch(/^[a-zA-Z0-9]{12}$/);
+  expect(ids[1]).toBe(ids[0]);
+  expect(ids[2]).not.toBe(ids[0]);
+});
+
+test('error diagnostics classify codes without exposing server explanations or Axios config', () => {
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      code: 90_700,
+      message: 'private-message',
+      response: { status: 401, data: 'private-body' },
+      config: { headers: { Authorization: 'private-token' } },
+    }),
+  ).toEqual({
+    businessCode: 90_700,
+    httpStatus: 401,
+    transportFailure: false,
+    timeout: false,
+  });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({ code: 'ETIMEDOUT' }),
+  ).toMatchObject({ timeout: true });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({ code: 'ERR_NETWORK' }),
+  ).toMatchObject({ transportFailure: true });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      code: 'private-token',
+      response: { status: 'private-data' },
+    }),
+  ).toEqual({
+    businessCode: undefined,
+    httpStatus: undefined,
+    transportFailure: false,
+    timeout: false,
+  });
+});

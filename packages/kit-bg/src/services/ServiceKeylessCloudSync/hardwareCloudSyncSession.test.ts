@@ -922,6 +922,18 @@ describe('hardware Cloud sync session', () => {
       const flushed = c.post.mock.calls[3][1].localData as unknown[];
       // 1002 records plus the new envelope.
       expect(flushed).toHaveLength(1003);
+      const diagnosticLog = jest.spyOn(defaultLogger.app.error, 'log');
+      expect(diagnosticLog).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'reset_download_short_page_completeness_unknown',
+        ),
+      );
+      expect(diagnosticLog).toHaveBeenCalledWith(
+        expect.stringContaining('"totalCount":1002'),
+      );
+      expect(diagnosticLog).toHaveBeenCalledWith(
+        expect.stringContaining('"previousCurrentEnvelopeIncluded":false'),
+      );
     });
 
     test.each(['signature', 'download', 'pending'] as const)(
@@ -1031,6 +1043,42 @@ describe('hardware Cloud sync session', () => {
         deriveKek: wallet(WALLET),
       });
       expect(joined.dek).toBe(newer.dek);
+      const diagnostics = jest
+        .spyOn(defaultLogger.app.error, 'log')
+        .mock.calls.flat()
+        .filter(
+          (line) =>
+            typeof line === 'string' &&
+            line.includes('history_received_completeness_unknown'),
+        );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"returnedCount":3'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidEnvelopeCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidIdCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"historyCompleteKnown":false'),
+      );
+      const logs = JSON.stringify(
+        jest.spyOn(defaultLogger.app.error, 'log').mock.calls,
+      );
+      for (const secret of [
+        key.dek,
+        key.dekId,
+        key.pwdHash,
+        newer.dek,
+        newer.dekId,
+        'public-test-access',
+        'public-test-refresh',
+        'public-test-session',
+      ]) {
+        expect(logs).not.toContain(secret);
+      }
+
       expect(joined.previousPwdHashes.toSorted()).toEqual(
         [
           key.pwdHash,

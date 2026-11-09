@@ -64,7 +64,10 @@ import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder'
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
-import { logHardwareCloudSyncFailure } from './hardwareCloudSyncLog';
+import {
+  logHardwareCloudSyncDiagnostic,
+  logHardwareCloudSyncFailure,
+} from './hardwareCloudSyncLog';
 import {
   commitHardwareCloudSyncMigration,
   migrateHardwareCloudSyncRecords,
@@ -561,6 +564,27 @@ class ServiceKeylessCloudSync extends ServiceBase {
             credential.pwdHash,
             ...dataKey.previousPwdHashes,
           ]);
+          logHardwareCloudSyncDiagnostic(
+            'restore_key_compatibility_guard',
+            () => ({
+              rebuildsLocalItems: rebuildsLocalItemsNow,
+              localItemCount: items.length,
+              mismatchedItemCount: items.filter(
+                (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
+              ).length,
+              hasExistingCredential: !!existing,
+              localItemsMismatch:
+                !rebuildsLocalItemsNow &&
+                items.some(
+                  (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
+                ),
+              existingPwdHashMismatch:
+                !!existing && !knownPwdHashes.has(existing.pwdHash),
+              existingSigningPublicKeyMismatch:
+                !!existing &&
+                existing.signingPublicKey !== credential.signingPublicKey,
+            }),
+          );
           if (
             (!rebuildsLocalItemsNow &&
               items.some(
@@ -610,6 +634,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
             this.hardwareCloudKeyCommitting &&
             !(await primeCloudSyncPersistAtom.get()).isCloudSyncEnabledKeyless
           ) {
+            logHardwareCloudSyncDiagnostic(
+              'delete_credential_after_incomplete_key_commit',
+              {
+                deletionAllowed: true,
+              },
+            );
             // The daily sweep retries if this cleanup itself fails.
             await keylessSyncCredentialStorage
               .removeAllCredentials()
@@ -899,10 +929,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     { force }: { force?: boolean } = {},
   ): Promise<IKeylessCloudSyncCredential> {
+    logHardwareCloudSyncDiagnostic('credential_refresh_precheck', {
+      forceRequested: !!force,
+      sessionEnding: this.hardwareSessionEnding,
+      refreshInFlight: !!this.hardwareSessionRefresh,
+      hasSession: !!credential.hardwareSession,
+    });
     if (this.hardwareSessionEnding) {
       throw settingsChangedError();
     }
-    if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
+    if (this.hardwareSessionRefresh) {
+      logHardwareCloudSyncDiagnostic(
+        'credential_refresh_joined_shared_promise',
+        {
+          forceRequested: !!force,
+        },
+      );
+      return this.hardwareSessionRefresh;
+    }
     const session = credential.hardwareSession;
     if (!session) return credential;
     const refreshing = (async () => {
@@ -915,6 +959,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         stored?.hardwareSession?.sessionId === session.sessionId &&
         stored.hardwareSession.refreshToken !== session.refreshToken
       ) {
+        logHardwareCloudSyncDiagnostic(
+          'credential_refresh_reused_stored_session',
+          {
+            forceRequested: !!force,
+          },
+        );
         return stored;
       }
       const client = await this.getHardwareSyncClient();
@@ -926,11 +976,23 @@ class ServiceKeylessCloudSync extends ServiceBase {
           force,
         });
       } catch (error) {
+        logHardwareCloudSyncDiagnostic('credential_refresh_failed', {
+          forceRequested: !!force,
+          unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+        });
         if (isHardwareCloudSyncUnauthorizedError(error)) {
+          logHardwareCloudSyncDiagnostic(
+            'sign_in_required_after_unauthorized_refresh',
+            {},
+          );
           await this.requireHardwareCloudSyncSignIn(credential);
         }
         throw error;
       }
+      logHardwareCloudSyncDiagnostic('credential_refresh_result', {
+        forceRequested: !!force,
+        refreshedSession: !!next,
+      });
       if (!next) return credential;
       const updated = { ...credential, hardwareSession: next };
       return this.saveHardwareCredential(updated, {
@@ -975,8 +1037,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
   ): Promise<never> {
     await this.repairCredentialMutex.runExclusive(async () => {
-      if (await this.isStoredHardwareSession(credential)) {
+      const deletionAllowed = await this.isStoredHardwareSession(credential);
+      logHardwareCloudSyncDiagnostic('sign_in_credential_deletion_guard', {
+        deletionAllowed,
+      });
+      if (deletionAllowed) {
         await keylessSyncCredentialStorage.removeAllCredentials();
+        logHardwareCloudSyncDiagnostic('sign_in_credential_deleted', {});
       }
     });
     this.clearKeylessCloudSyncCredentialCache();
@@ -1090,6 +1157,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
     scope: 'current' | 'allExceptCurrent',
   ) {
+    logHardwareCloudSyncDiagnostic('revoke_session_precheck', {
+      hasSession: !!credential.hardwareSession,
+      currentSession: scope === 'current',
+    });
     if (!credential.hardwareSession) return;
     try {
       const client = await this.getHardwareSyncClient();
@@ -1098,7 +1169,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
         session: credential.hardwareSession,
         scope,
       });
+      logHardwareCloudSyncDiagnostic('revoke_session_completed', {
+        currentSession: scope === 'current',
+      });
     } catch (error) {
+      logHardwareCloudSyncDiagnostic('revoke_session_failed', {
+        currentSession: scope === 'current',
+        unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+      });
       logHardwareCloudSyncFailure(`Revoke ${scope} session failed`, error);
       errorUtils.autoPrintErrorIgnore(error);
     }
@@ -1276,6 +1354,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
     if (serverDekId && serverDekId !== session.dekId) {
       // Only the hardware wallet can unwrap the new key.
+      logHardwareCloudSyncDiagnostic(
+        'sign_in_required_after_server_data_key_changed',
+        {},
+      );
       await this.requireHardwareCloudSyncSignIn(credential);
     }
     if (pending) {
@@ -1329,10 +1411,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return await send(fresh);
     } catch (error) {
       if (isHardwareCloudSyncUnauthorizedError(error)) {
+        logHardwareCloudSyncDiagnostic(
+          'business_unauthorized_response_refresh_requested',
+          {
+            retryAllowed: !!retryAfterKeySwitch,
+          },
+        );
         // A revoked session fails the refresh too, which asks for sign-in.
         const refreshed = await this.getFreshHardwareCredential(fresh, {
           force: true,
         });
+        logHardwareCloudSyncDiagnostic(
+          'business_unauthorized_response_retry_decision',
+          {
+            retryAllowed: !!retryAfterKeySwitch,
+          },
+        );
         if (!retryAfterKeySwitch) throw error;
         return send(refreshed);
       }
@@ -1767,6 +1861,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async onHardwareKeyFlushPush({ pwdHash }: { pwdHash?: string }) {
     try {
       const credential = await this.getKeylessCloudSyncCredential();
+      logHardwareCloudSyncDiagnostic('flush_push_precheck', {
+        hasCredential: !!credential,
+        hasSession: !!credential?.hardwareSession,
+        hasPushedPwdHash: !!pwdHash,
+        pwdHashMatches: !!credential && credential.pwdHash === pwdHash,
+      });
       if (!credential?.hardwareSession) return;
       // Same key: the flush only rewrote data, which the push leaves out.
       if (credential.pwdHash === pwdHash) {
@@ -1791,6 +1891,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     try {
       const credential = await this.getKeylessCloudSyncCredential();
       const session = credential?.hardwareSession;
+      logHardwareCloudSyncDiagnostic('session_revoked_push_precheck', {
+        hasCredential: !!credential,
+        hasSession: !!session,
+        hasPushedSessionId: !!sessionId,
+        sessionMatches: !!session && session.sessionId === sessionId,
+      });
       if (!credential || !session || session.sessionId !== sessionId) return;
       await this.getFreshHardwareCredential(credential, { force: true });
     } catch (error) {
@@ -2365,6 +2471,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
           if (stored?.hardwareSession) {
             await this.revokeCurrentHardwareSession(stored);
           }
+          logHardwareCloudSyncDiagnostic(
+            'delete_credential_after_disabling_sync',
+            {
+              hasSession: !!stored?.hardwareSession,
+            },
+          );
           await keylessSyncCredentialStorage.removeAllCredentials();
         }
       }
