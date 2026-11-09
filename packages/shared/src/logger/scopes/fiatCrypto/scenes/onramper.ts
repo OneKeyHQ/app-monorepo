@@ -345,6 +345,11 @@ export class OnramperScene extends BaseScene {
         // initialize), or an unknown payment outcome of the same checkout was
         // already on screen.
         stale?: boolean;
+        // True when the page answered the failure by quietly preparing a new
+        // checkout instead of showing it (a closed OnramperID sign-in, or the
+        // first expired / refused checkout of the visit). Not shown either,
+        // although not stale.
+        recoveredQuietly?: boolean;
       },
   ) {
     return params;
