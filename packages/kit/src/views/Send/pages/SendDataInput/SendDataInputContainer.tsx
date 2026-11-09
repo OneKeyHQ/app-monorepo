@@ -733,26 +733,14 @@ function SendDataInputContainer() {
       const isLightning = networkUtils.isAnyLightningNetworkByNetworkId(
         currentAccount.networkId,
       );
-      // Self-custody Lightning pays BOLT11 invoices only for now.
       const isLightningSpark = networkUtils.isLightningSparkNetworkByNetworkId(
         currentAccount.networkId,
       );
-      const showLightningSparkComingSoon = () => {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.wallet_feature_coming_soon,
-          }),
-        });
-      };
 
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
       const rawInput = (toVal?.raw ?? '').trim();
-      if (isLightningSpark && isReusableLightningRecipient(rawInput)) {
-        showLightningSparkComingSoon();
-        return;
-      }
       if (isLightning && account && isReusableLightningRecipient(rawInput)) {
         const transfersInfo: ITransferInfo[] = [
           {

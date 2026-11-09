@@ -90,10 +90,17 @@ export default class Vault extends VaultBase {
     if (!transfersInfo || transfersInfo.length !== 1) {
       throw new OneKeyInternalError('Lightning sends one payment at a time');
     }
-    const { to: input, amount: enteredAmountSats } = transfersInfo[0];
+    const {
+      to: input,
+      amount: enteredAmountSats,
+      lightningAddress,
+    } = transfersInfo[0];
     const decoded =
       await this.backgroundApi.serviceLightning.decodeInvoiceByServer(input);
-    return buildSparkInvoiceEncodedTx({ input, decoded, enteredAmountSats });
+    return {
+      ...buildSparkInvoiceEncodedTx({ input, decoded, enteredAmountSats }),
+      ...(lightningAddress ? { lightningAddress } : {}),
+    };
   }
 
   override async buildDecodedTx(
@@ -107,11 +114,13 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       tokenIdOnNetwork: '',
     });
-    const to = accountUtils.shortenAddress({
-      address: encodedTx.invoice,
-      leadingLength: 44,
-      trailingLength: 33,
-    });
+    const to =
+      encodedTx.lightningAddress ??
+      accountUtils.shortenAddress({
+        address: encodedTx.invoice,
+        leadingLength: 44,
+        trailingLength: 33,
+      });
 
     let action: IDecodedTxAction = {
       type: EDecodedTxActionType.UNKNOWN,

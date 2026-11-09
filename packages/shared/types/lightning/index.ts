@@ -63,6 +63,9 @@ export type IEncodedTxLightningSpark = {
   // The fee the user approved on the confirm page; the send refuses a
   // higher quote.
   maxFeeSats?: string;
+  // The Lightning address the user entered, when the invoice came from its
+  // LNURL callback. Display only.
+  lightningAddress?: string;
 };
 
 export type ILnurlAuthParams = {
