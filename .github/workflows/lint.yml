@@ -26,130 +26,16 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  # tsc, the standard oxlint pass, and the type-aware oxlint pass each take
-  # minutes and the latter two need ~7-10 GB, so they run on separate 16 GB
-  # runners. This job covers the standard pass, oxfmt, and lightweight checks.
-  lint-checks:
-    name: lint checks (${{ matrix.node-version }})
+  # Single sequential job: install dependencies once, then run tsc, the standard
+  # oxlint pass, the type-aware oxlint pass, oxfmt, and the lightweight checks in
+  # one process chain. Each heavy step peaks at ~7-10 GB RSS on a 16 GB runner,
+  # so they must not run concurrently; keeping them in one job pays the ~1-3.5 min
+  # dependency install once instead of once per job.
+  lint:
+    name: lint (${{ matrix.node-version }})
     runs-on: ubuntu-24.04
-    # About three minutes of checks plus six minutes for a cold install and margin.
-    timeout-minutes: 15
-
-    strategy:
-      matrix:
-        node-version: [24.x]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-          package-manager-cache: false
-          check-latest: true
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@onekeyhq'
-
-      - name: Write lint AI prompt
-        run: |
-          mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
-            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
-
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Install Dependency
-        id: dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        uses: ./.github/actions/install-dependencies
-
-      - name: Test dependency snapshot lifecycle
-        env:
-          CI_DEPENDENCY_INTEGRATION: 'true'
-        run: python3 .github/scripts/ci-dependencies-test.py
-
-      - name: Verify App-owned icon resources
-        run: |
-          yarn icon:build
-          yarn workspace @onekeyhq/components icon:check
-          node --test development/onekey-icons/generate-icons.test.mjs packages/components/src/primitives/Icon/script.node-test.js
-          git diff --exit-code -- packages/components/src/primitives/Icon/Icons.tsx
-
-      - name: Check third-party native storage compatibility
-        run: yarn check:third-party-native-storage
-
-      - name: Run lint
-        env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
-          ONEKEY_OXLINT_PASS: standard
-          ONEKEY_LINT_SKIP_TSC: 'true'
-        run: |
-          mkdir -p ci-ai
-          set +e
-          yarn lint 2>&1 | tee ci-ai/lint-output.log
-          status=${PIPESTATUS[0]}
-          set -e
-          exit "$status"
-
-      - name: Test developer scripts
-        run: >-
-          node --test
-          development/scripts/command-batches.node-test.js
-          development/scripts/fonts-sync.node-test.js
-          development/scripts/run-ios-account-switch-heating-repro.node-test.js
-          development/scripts/tamagui-animation-initial-style.node-test.js
-          development/lint/eslint.node-test.js
-          development/lint/background-api-contract.node-test.js
-          development/lint/test-integrity.node-test.js
-          development/lint/onekeyfe-patches.node-test.js
-          development/lint/external-sdk.node-test.js
-          apps/cli/esbuild.config.node-test.js
-          apps/mobile/scripts/check-third-party-async-storage.node-test.js
-          apps/mobile/scripts/native-storage-metro-policy.node-test.js
-
-      - name: Test JPush native SDK patchers
-        run: python3 -B apps/mobile/scripts/__tests__/patch-jpush-sdks.test.py
-
-      - name: Build CLI
-        run: yarn workspace @onekeyfe/cli build
-
-      - name: Upload lint AI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-ai-lint-diagnostics
-          path: |
-            ci-ai/lint-ai-prompt.md
-            ci-ai/lint-output.log
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Explain lint failure diagnostics
-        if: failure()
-        run: |
-          {
-            echo "### CI diagnostics"
-            echo "- Download artifact: \`ci-ai-lint-diagnostics\`"
-            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=CI diagnostics::Download ci-ai-lint-diagnostics and inspect lint-output.log"
-
-      - name: Unmount dependency image
-        if: always() && steps.dependencies.outcome != 'skipped'
-        run: python3 .github/scripts/ci-dependencies.py cleanup
-
-  lint-tsc:
-    name: lint tsc (${{ matrix.node-version }})
-    runs-on: ubuntu-24.04
-    # Up to four minutes for a full recheck plus six minutes for a cold install and margin.
-    timeout-minutes: 15
+    # About eleven minutes of checks plus six minutes for a cold install and margin.
+    timeout-minutes: 25
 
     strategy:
       matrix:
@@ -198,18 +84,36 @@ jobs:
             tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-
             tsc-buildinfo-${{ runner.os }}-
 
-      - name: Run tsc
+      - name: Test dependency snapshot lifecycle
+        env:
+          CI_DEPENDENCY_INTEGRATION: 'true'
+        run: python3 .github/scripts/ci-dependencies-test.py
+
+      - name: Verify App-owned icon resources
+        run: |
+          yarn icon:build
+          yarn workspace @onekeyhq/components icon:check
+          node --test development/onekey-icons/generate-icons.test.mjs packages/components/src/primitives/Icon/script.node-test.js
+          git diff --exit-code -- packages/components/src/primitives/Icon/Icons.tsx
+
+      - name: Check third-party native storage compatibility
+        run: yarn check:third-party-native-storage
+
+      # Runs, in order: tsc (tsgo) -> standard oxlint pass + oxfmt -> type-aware
+      # oxlint pass -> lightweight concurrent checks. No ONEKEY_OXLINT_PASS or
+      # ONEKEY_LINT_SKIP_TSC override, so this is the full local `yarn lint`.
+      - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           mkdir -p ci-ai
           set +e
-          yarn _tsc 2>&1 | tee ci-ai/lint-output.log
+          yarn lint 2>&1 | tee ci-ai/lint-output.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
 
-      # Save even when tsc fails: tsc validates every file by content hash
+      # Save even when lint fails: tsc validates every file by content hash
       # before reusing cached results, so partial build info stays valid.
       - name: Save TypeScript build info
         if: always() && steps.tsc-cache.outputs.path != ''
@@ -219,11 +123,33 @@ jobs:
           path: ${{ steps.tsc-cache.outputs.path }}
           key: tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
 
+      - name: Test developer scripts
+        run: >-
+          node --test
+          development/scripts/command-batches.node-test.js
+          development/scripts/fonts-sync.node-test.js
+          development/scripts/run-ios-account-switch-heating-repro.node-test.js
+          development/scripts/tamagui-animation-initial-style.node-test.js
+          development/lint/eslint.node-test.js
+          development/lint/background-api-contract.node-test.js
+          development/lint/test-integrity.node-test.js
+          development/lint/onekeyfe-patches.node-test.js
+          development/lint/external-sdk.node-test.js
+          apps/cli/esbuild.config.node-test.js
+          apps/mobile/scripts/check-third-party-async-storage.node-test.js
+          apps/mobile/scripts/native-storage-metro-policy.node-test.js
+
+      - name: Test JPush native SDK patchers
+        run: python3 -B apps/mobile/scripts/__tests__/patch-jpush-sdks.test.py
+
+      - name: Build CLI
+        run: yarn workspace @onekeyfe/cli build
+
       - name: Upload lint AI diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-ai-lint-tsc-diagnostics
+          name: ci-ai-lint-diagnostics
           path: |
             ci-ai/lint-ai-prompt.md
             ci-ai/lint-output.log
@@ -235,102 +161,11 @@ jobs:
         run: |
           {
             echo "### CI diagnostics"
-            echo "- Download artifact: \`ci-ai-lint-tsc-diagnostics\`"
+            echo "- Download artifact: \`ci-ai-lint-diagnostics\`"
             echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=CI diagnostics::Download ci-ai-lint-tsc-diagnostics and inspect lint-output.log"
+          echo "::notice title=CI diagnostics::Download ci-ai-lint-diagnostics and inspect lint-output.log"
 
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'
         run: python3 .github/scripts/ci-dependencies.py cleanup
-
-  lint-type-aware:
-    name: lint type-aware (${{ matrix.node-version }})
-    runs-on: ubuntu-24.04
-    # About three minutes of type-aware lint plus six minutes for a cold install and margin.
-    timeout-minutes: 15
-
-    strategy:
-      matrix:
-        node-version: [24.x]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-          package-manager-cache: false
-          check-latest: true
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@onekeyhq'
-
-      - name: Write lint AI prompt
-        run: |
-          mkdir -p ci-ai
-          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
-            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
-
-      - name: Install Dependency
-        id: dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        uses: ./.github/actions/install-dependencies
-
-      - name: Run type-aware lint
-        env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
-          ONEKEY_OXLINT_PASS: type-aware
-        run: |
-          mkdir -p ci-ai
-          set +e
-          node ./development/lint/eslint.js 2>&1 | tee ci-ai/lint-output.log
-          status=${PIPESTATUS[0]}
-          set -e
-          exit "$status"
-
-      - name: Upload lint AI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-ai-lint-type-aware-diagnostics
-          path: |
-            ci-ai/lint-ai-prompt.md
-            ci-ai/lint-output.log
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Explain lint failure diagnostics
-        if: failure()
-        run: |
-          {
-            echo "### CI diagnostics"
-            echo "- Download artifact: \`ci-ai-lint-type-aware-diagnostics\`"
-            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=CI diagnostics::Download ci-ai-lint-type-aware-diagnostics and inspect lint-output.log"
-
-      - name: Unmount dependency image
-        if: always() && steps.dependencies.outcome != 'skipped'
-        run: python3 .github/scripts/ci-dependencies.py cleanup
-
-  # Keeps the required "lint (24.x)" check name stable for branch protection.
-  lint:
-    name: lint (24.x)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    needs: [lint-tsc, lint-checks, lint-type-aware]
-    if: always()
-    permissions: {}
-
-    steps:
-      - name: Check lint jobs
-        run: |
-          if [ "${{ needs.lint-tsc.result }}" != "success" ] || [ "${{ needs.lint-checks.result }}" != "success" ] || [ "${{ needs.lint-type-aware.result }}" != "success" ]; then
-            echo "::error::lint tsc: ${{ needs.lint-tsc.result }}, lint checks: ${{ needs.lint-checks.result }}, lint type-aware: ${{ needs.lint-type-aware.result }}"
-            exit 1
-          fi
