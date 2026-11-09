@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAirdropInvestmentItemV2,
@@ -919,24 +920,45 @@ export const useEarnPortfolio = ({
 
               const portfolioProtocol = getEarnProtocol(group.provider);
               const resolvedKeys = new Set<string>();
+              const ambiguousSymbols = new Set<string>();
+              const unmatchedVaults = new Set<string>();
               let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
+                const symbol =
+                  item.protocol.symbol ||
+                  item.assets[0]?.token.info.symbol ||
+                  '';
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
-                  symbol:
-                    item.protocol.symbol ||
-                    item.assets[0]?.token.info.symbol ||
-                    '',
+                  symbol,
                   vault: item.protocol.vault,
                   symbolIsAuthoritative: Boolean(item.protocol.symbol?.trim()),
                 });
 
+                if (!matchedRequest) {
+                  if (item.protocol.vault) {
+                    unmatchedVaults.add(
+                      createEarnPortfolioRequestKey({
+                        provider: group.provider,
+                        networkId: group.networkId,
+                        symbol: '',
+                        vault: item.protocol.vault,
+                      }),
+                    );
+                  } else if (symbol) {
+                    ambiguousSymbols.add(symbol);
+                  } else {
+                    hasUnidentifiedItem = true;
+                  }
+                }
+                if (!matchedRequest) return;
                 if (
-                  !matchedRequest ||
-                  (matchedRequest.accountId &&
-                    matchedRequest.accountId !== accountIdValue)
+                  matchedRequest.accountId &&
+                  matchedRequest.accountId !== accountIdValue
                 ) {
-                  if (!item.protocol.vault) hasUnidentifiedItem = true;
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
                   return;
                 }
 
@@ -956,27 +978,39 @@ export const useEarnPortfolio = ({
               });
 
               const failedKeys = new Set<string>();
-              let hasUnidentifiedError = false;
-              response.errors.forEach((error) => {
-                const request = matchEarnPortfolioBatchRequest({
-                  group,
-                  symbol: error.symbol,
-                  vault: error.vault,
+              let hasUnidentifiedError = !Array.isArray(response.errors);
+              if (Array.isArray(response.errors)) {
+                response.errors.forEach((error) => {
+                  const request = matchEarnPortfolioBatchRequest({
+                    group,
+                    symbol: error.symbol,
+                    vault: error.vault,
+                  });
+                  if (request) {
+                    failedKeys.add(createEarnPortfolioRequestKey(request));
+                  } else {
+                    hasUnidentifiedError = true;
+                  }
                 });
-                if (request) {
-                  failedKeys.add(createEarnPortfolioRequestKey(request));
-                } else if (!error.vault) {
-                  hasUnidentifiedError = true;
-                }
-              });
+              }
               group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
-                  if (
+                  const canRemoveMissingVault =
                     portfolioProtocol.removeConfirmedMissingPortfolioVault() &&
                     request.vault &&
                     !failedKeys.has(key) &&
-                    !hasUnidentifiedError &&
-                    !hasUnidentifiedItem
+                    !hasUnidentifiedError;
+                  const canRemoveMissingPendle =
+                    group.provider === EEarnProviderEnum.Pendle.toLowerCase() &&
+                    Array.isArray(response.errors) &&
+                    response.errors.length === 0;
+                  if (
+                    (canRemoveMissingVault || canRemoveMissingPendle) &&
+                    !hasUnidentifiedItem &&
+                    !ambiguousSymbols.has(request.symbol) &&
+                    !unmatchedVaults.has(
+                      createEarnPortfolioRequestKey({ ...request, symbol: '' }),
+                    )
                   ) {
                     applyResult({ key, source: 'normal', remove: true });
                   } else {

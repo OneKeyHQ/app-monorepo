@@ -1164,10 +1164,12 @@ export function UniversalStake({
 
       setApproving(true);
 
-      const response = await fetchEstimateFeeResp(amountValue, action);
-
+      const response = await fetchEstimateFeeResp(amountValue, action).finally(
+        () => {
+          if (isCurrent()) setApproving(false);
+        },
+      );
       if (!isCurrent()) return;
-      setApproving(false);
       if (!response) {
         return onNext();
       }

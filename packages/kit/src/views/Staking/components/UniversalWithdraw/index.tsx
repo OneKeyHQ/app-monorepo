@@ -129,6 +129,7 @@ import {
 import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
+  shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
 import {
   canContinueWithdrawalAfterApproval,
@@ -2693,7 +2694,14 @@ export function UniversalWithdraw({
             {hasSummarySection && usePendleSummaryLayout ? (
               <PendleSummarySection
                 rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
+                tipText={
+                  shouldShowPendleSummaryTip({
+                    formTip: formTransactionTip,
+                    transactionTip: transactionConfirmation?.tip,
+                  })
+                    ? pendleTipText
+                    : undefined
+                }
                 loading={quoteLoading}
               />
             ) : null}
