@@ -32,6 +32,15 @@ describe('atomsConfig', () => {
     ).toBe(false);
   });
 
+  it('replaces the app update snapshot instead of resurrecting cleared fields', () => {
+    // On native the UI runtime hydrates the atom's initialValue from a
+    // cold-start MMKV snapshot; merging writes with it brought a cleared
+    // featuredChangelog back after "clear app update cache" (OK-54862).
+    expect(
+      atomsConfig[EAtomNames.appUpdatePersistAtom]?.mergeInitialValue,
+    ).toBe(false);
+  });
+
   it('replaces firmware update dev settings instead of merging target arrays', () => {
     expect(
       atomsConfig[EAtomNames.firmwareUpdateDevSettingsPersistAtom]
