@@ -38,6 +38,7 @@ import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -45,7 +46,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   accountSelectorAccountVisualV2,
   accountSelectorWalletVisualV2,
-  useAccountSelectorNativeListThemeV2,
 } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -84,12 +84,17 @@ import {
   isLookalikeAddress,
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
-import { recipientIdentityRow, recipientSnapshot } from './recipientNativeList';
+import {
+  recipientIdentityRow,
+  recipientSnapshot,
+  useRecipientNativeListTheme,
+} from './recipientNativeList';
 import {
   type IRecipientQuickSelectTab,
   type IRecipientTabMatchStatus,
   getAutoSwitchRecipientTab,
 } from './recipientQuickSelectTabUtils';
+import { splitLocalWalletAddressForms } from './recipientSelectionUtils';
 import {
   normalizeSearchKey,
   prioritizeNameThenAddressMatches,
@@ -104,6 +109,21 @@ import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 type IFocusMeasurable = Pick<ViewInstance, 'measureInWindow'>;
 type IFocusVisibilityRequest = (field: IFocusMeasurable | null) => void;
+
+// Tamagui's Web `onLayout` reports getBoundingClientRect() sizes, which include
+// ancestor transforms. A desktop modal mounts this page while it is still
+// scaling in (0.95 -> overshoot -> 1), so those heights follow the animation
+// and the pager moves the tabs and the list after the first paint.
+// `offsetHeight` is the untransformed layout height, as native reports it.
+function getLayoutHeight(
+  event: LayoutChangeEvent,
+  node: ViewInstance | null,
+): number {
+  const offsetHeight = platformEnv.isNative
+    ? undefined
+    : (node as unknown as HTMLElement | null)?.offsetHeight;
+  return offsetHeight ?? event.nativeEvent.layout.height;
+}
 
 function DeriveTypeLabelWithTooltip({
   label,
@@ -158,6 +178,8 @@ type IRecipientQuickSelectProps = {
   accountId?: string;
   networkId: string;
   senderDeriveType?: string;
+  // Zcash: which receive form the picker opens on (the send's source kind).
+  senderAddressForm?: 'public' | 'private';
   searchKey?: string;
   isSearchMode?: boolean;
   activeTab?: IRecipientQuickSelectTab;
@@ -187,6 +209,7 @@ type IAccountRecipientsProps = {
   networkId: string;
   showNetworkBadge?: boolean;
   senderDeriveType?: string;
+  senderAddressForm?: 'public' | 'private';
   lastUsedDeriveType?: string;
   searchKey?: string;
   debouncedSearchKey?: string;
@@ -299,6 +322,9 @@ type IAccountWithDeriveInfo = {
   // When set, the row displays this address instead of the account's current
   // rotating address so the user sees the value they actually typed.
   matchedAddress?: string;
+  // Zcash's public / private receive form, switched like a BTC address type;
+  // a private entry carries its own address.
+  addressForm?: { labelId: ETranslations; address?: string };
 };
 
 // Wallet account group type
@@ -309,6 +335,26 @@ type IWalletGroup = {
   accounts: IAccountWithDeriveInfo[];
   wallet: IDBWallet;
 };
+
+// How long a send from a private pool holds the account list for its private
+// entries before showing the public ones.
+const PRIVATE_ENTRIES_WAIT_MS = 300;
+
+async function readLocalWalletAddressForms(networkId: string) {
+  const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+    networkId,
+  });
+  const forms = settings.localWallet?.addressForms;
+  if (!forms?.publicLabel) return undefined;
+  const privateAddresses = await backgroundApiProxy.servicePrivacyChain
+    .getLocalWalletPrivateAddresses({ networkId })
+    .catch(() => ({}));
+  return {
+    publicLabel: forms.publicLabel,
+    privateLabel: forms.privateLabel,
+    privateAddresses,
+  };
+}
 
 // Collect every address an account should be searchable by. For BTC with
 // fresh-address mode (OK-52953) the currently-shown address is one of
@@ -368,12 +414,28 @@ function findMatchedAccountAddress(
   );
 }
 
+// A private entry is found only by its own address.
+function findMatchedItemAddress(
+  item: IAccountWithDeriveInfo,
+  searchValue: string,
+  extraAddresses?: string[],
+): string | undefined {
+  const formAddress = item.addressForm?.address;
+  if (formAddress) {
+    return formAddress.toLowerCase().includes(searchValue)
+      ? formAddress
+      : undefined;
+  }
+  return findMatchedAccountAddress(item.account, searchValue, extraAddresses);
+}
+
 function AccountRecipients({
   nativeList = false,
   accountNetwork,
   networkId,
   showNetworkBadge = true,
   senderDeriveType,
+  senderAddressForm,
   lastUsedDeriveType: lastUsedDeriveTypeProp,
   searchKey,
   debouncedSearchKey: debouncedSearchKeyProp,
@@ -386,7 +448,7 @@ function AccountRecipients({
   onMatchStatusChange,
 }: IAccountRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
 
   // Single IPC call — all wallet/account aggregation happens in background.
   // useDeferredValue lets React yield to events (close button) mid-render.
@@ -447,7 +509,45 @@ function AccountRecipients({
     [networkId, senderDeriveType, keylessWalletsOnly],
     { initResult: [], watchLoading: true, undefinedResultIfError: true },
   );
-  const walletGroups = useDeferredValue(walletGroupsRaw);
+  // Zcash private entries arrive on their own read. Only a send from a
+  // private pool waits for them, briefly, so it does not open on public
+  // addresses; every other list shows at once.
+  const { result: addressFormsRead } = usePromiseResult(
+    async () =>
+      // Other chains resolve to the initial undefined: no read, no re-render.
+      networkUtils.isLocalWalletNetwork({ networkId })
+        ? { networkId, forms: await readLocalWalletAddressForms(networkId) }
+        : undefined,
+    [networkId],
+    { undefinedResultIfError: true },
+  );
+  const isAddressFormsRead = addressFormsRead?.networkId === networkId;
+  const localWalletAddressForms = isAddressFormsRead
+    ? addressFormsRead.forms
+    : undefined;
+  const [privateWaitOverFor, setPrivateWaitOverFor] = useState<string>();
+  useEffect(() => {
+    if (senderAddressForm !== 'private') return;
+    const timer = setTimeout(
+      () => setPrivateWaitOverFor(networkId),
+      PRIVATE_ENTRIES_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [networkId, senderAddressForm]);
+  const isWaitingForPrivateEntries =
+    senderAddressForm === 'private' &&
+    !isAddressFormsRead &&
+    privateWaitOverFor !== networkId;
+  const walletGroupsWithForms = useMemo(() => {
+    if (isWaitingForPrivateEntries) return [];
+    return localWalletAddressForms
+      ? splitLocalWalletAddressForms({
+          groups: walletGroupsRaw,
+          ...localWalletAddressForms,
+        })
+      : walletGroupsRaw;
+  }, [isWaitingForPrivateEntries, walletGroupsRaw, localWalletAddressForms]);
+  const walletGroups = useDeferredValue(walletGroupsWithForms);
 
   // Bot wallet activate/deactivate emits WalletUpdate via
   // ServiceAccount.scheduleWalletUpdateForBotMetadata. Re-fetch the
@@ -463,7 +563,10 @@ function AccountRecipients({
     onAddressesChange?.(
       walletGroups
         .flatMap((group) => group.accounts ?? [])
-        .map(({ account }) => getAccountAddress(account))
+        .map(
+          (item) =>
+            item.addressForm?.address ?? getAccountAddress(item.account),
+        )
         .filter(Boolean),
     );
   }, [walletGroups, onAddressesChange]);
@@ -521,8 +624,8 @@ function AccountRecipients({
             isNameMatch: (item) =>
               (item.account?.name ?? '').toLowerCase().includes(searchValue),
             isAddressMatch: (item) =>
-              !!findMatchedAccountAddress(
-                item.account,
+              !!findMatchedItemAddress(
+                item,
                 searchValue,
                 item.account?.id
                   ? btcFreshAddressMap[item.account.id]
@@ -540,8 +643,8 @@ function AccountRecipients({
               .toLowerCase()
               .includes(searchValue);
             if (isNameHit) return item;
-            const matchedAddress = findMatchedAccountAddress(
-              item.account,
+            const matchedAddress = findMatchedItemAddress(
+              item,
               searchValue,
               item.account?.id
                 ? btcFreshAddressMap[item.account.id]
@@ -593,7 +696,12 @@ function AccountRecipients({
       >();
       for (const item of allAccounts) {
         const dt = item.deriveType;
-        if (dt && !deriveTypeMap.has(dt)) {
+        if (item.addressForm && dt && !deriveTypeMap.has(dt)) {
+          deriveTypeMap.set(dt, {
+            label: intl.formatMessage({ id: item.addressForm.labelId }),
+            deriveType: dt,
+          });
+        } else if (dt && !deriveTypeMap.has(dt)) {
           const label = item.deriveInfo?.labelKey
             ? intl.formatMessage({ id: item.deriveInfo.labelKey })
             : (item.deriveInfo?.label ?? dt);
@@ -613,6 +721,7 @@ function AccountRecipients({
       const walletId = group?.walletId ?? '';
       const rawDeriveType =
         walletDeriveType[walletId] ??
+        senderAddressForm ??
         lastUsedDeriveTypeProp ??
         senderDeriveType;
       // Validate against available options; fall back to first option if not found
@@ -645,6 +754,7 @@ function AccountRecipients({
   }, [
     filteredWalletGroups,
     walletDeriveType,
+    senderAddressForm,
     lastUsedDeriveTypeProp,
     senderDeriveType,
     intl,
@@ -658,9 +768,14 @@ function AccountRecipients({
   );
 
   useEffect(() => {
-    if (isDebouncing) return;
+    if (isDebouncing || isWaitingForPrivateEntries) return;
     onMatchStatusChange?.(accountMatchCount > 0, accountMatchCount);
-  }, [accountMatchCount, onMatchStatusChange, isDebouncing]);
+  }, [
+    accountMatchCount,
+    onMatchStatusChange,
+    isDebouncing,
+    isWaitingForPrivateEntries,
+  ]);
 
   // Flatten sections for simple rendering with section headers
   type IFlatItem =
@@ -683,6 +798,7 @@ function AccountRecipients({
         indexedAccount?: IDBIndexedAccount;
         matchedAddress?: string;
         deriveLabel?: string;
+        formAddress?: string;
         walletId: string;
         walletName: string;
         wallet?: IDBWallet;
@@ -727,6 +843,7 @@ function AccountRecipients({
                     (option) => option.deriveType === item.deriveType,
                   )?.label
                 : undefined,
+            formAddress: item.addressForm?.address,
             walletId: section.walletId,
             walletName: section.title,
             wallet: section.wallet,
@@ -785,6 +902,7 @@ function AccountRecipients({
               ? [{ kind: 'button', label: activeLabel, actionKey: 'derive' }]
               : undefined,
           style: {
+            container: TOKEN_ROW_CONTAINER_STYLE,
             horizontalPadding: 8,
             verticalPadding: 8,
             leadingGap: 8,
@@ -794,7 +912,8 @@ function AccountRecipients({
         });
       } else if (!collapsedWallets[item.walletId]) {
         const account = item.account;
-        const address = item.matchedAddress ?? getAccountAddress(account);
+        const address =
+          item.matchedAddress ?? item.formAddress ?? getAccountAddress(account);
         const key = `${account.id ?? 'no-id'}-${address}`;
         itemsByKey.set(key, item);
         const name = account.name ?? '';
@@ -878,6 +997,7 @@ function AccountRecipients({
       if (actionKey !== 'press') return;
       const account = item.account;
       const currentAddress =
+        item.formAddress ??
         account.addressDetail?.displayAddress ??
         account.address ??
         account.addressDetail?.address ??
@@ -899,7 +1019,9 @@ function AccountRecipients({
   const isDeferredStale =
     walletGroupsRaw !== walletGroups && walletGroupsRaw.length > 0;
   const isInitialLoading =
-    (isLoadingAccounts !== false || isDeferredStale) &&
+    (isLoadingAccounts !== false ||
+      isDeferredStale ||
+      isWaitingForPrivateEntries) &&
     walletGroups.length === 0;
   if (nativeList) {
     return (
@@ -1059,10 +1181,12 @@ function AccountRecipients({
           indexedAccount: itemIndexedAccount,
           matchedAddress,
           deriveLabel,
+          formAddress,
           walletId,
           wallet,
         } = item;
-        const itemAddress = matchedAddress ?? getAccountAddress(account);
+        const itemAddress =
+          matchedAddress ?? formAddress ?? getAccountAddress(account);
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
         const displayName = account.name ?? '';
 
@@ -1137,7 +1261,7 @@ function AddressBookRecipients({
   onMatchStatusChange,
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
   const navigation = useAppNavigation();
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -1395,6 +1519,7 @@ function RecipientQuickSelect({
   senderDeriveType,
   showAccountNetworkBadge,
   onListedAddressesChange,
+  senderAddressForm,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   const theme = useTheme();
@@ -1402,6 +1527,8 @@ function RecipientQuickSelect({
   const nativeSegmentedTabs = pagerMode && platformEnv.isNative;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const pagerViewportRef = useRef<ViewInstance>(null);
+  const pagerHeaderRef = useRef<ViewInstance>(null);
+  const stickyHeaderRef = useRef<ViewInstance>(null);
   const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const focusGenerationRef = useRef(0);
@@ -1875,7 +2002,7 @@ function RecipientQuickSelect({
 
   const handlePagerHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const height = Math.ceil(event.nativeEvent.layout.height);
+      const height = Math.ceil(getLayoutHeight(event, pagerHeaderRef.current));
       setPagerHeaderHeight((previous) =>
         previous === height ? previous : height,
       );
@@ -1887,7 +2014,7 @@ function RecipientQuickSelect({
     ensureFocusedFieldVisible();
   }, [ensureFocusedFieldVisible, pagerHeaderHeight]);
   const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = Math.ceil(event.nativeEvent.layout.height);
+    const height = Math.ceil(getLayoutHeight(event, stickyHeaderRef.current));
     setStickyHeaderHeight((previous) =>
       previous === height ? previous : height,
     );
@@ -1940,7 +2067,11 @@ function RecipientQuickSelect({
           headerHeight={pagerHeaderHeight}
           stickyHeaderHeight={stickyHeaderHeight}
           header={
-            <Stack px="$5" onLayout={handlePagerHeaderLayout}>
+            <Stack
+              ref={pagerHeaderRef}
+              px="$5"
+              onLayout={handlePagerHeaderLayout}
+            >
               {pagerHeaderContent}
             </Stack>
           }
@@ -1949,6 +2080,7 @@ function RecipientQuickSelect({
               <Stack height={56} bg="$bgApp" pointerEvents="none" />
             ) : (
               <Stack
+                ref={stickyHeaderRef}
                 px="$5"
                 pt="$3"
                 pb="$3"
@@ -2036,6 +2168,7 @@ function RecipientQuickSelect({
                   lookalikeAddresses={lookalikeAddresses}
                   onAddressesChange={reportAddresses.account}
                   senderDeriveType={senderDeriveType}
+                  senderAddressForm={senderAddressForm}
                   lastUsedDeriveType={lastUsedDeriveType}
                   searchKey={searchKey}
                   debouncedSearchKey={effectiveDebouncedSearchKey}
@@ -2116,6 +2249,7 @@ function RecipientQuickSelect({
               networkId={networkId}
               showNetworkBadge={showAccountNetworkBadge}
               senderDeriveType={senderDeriveType}
+              senderAddressForm={senderAddressForm}
               lastUsedDeriveType={lastUsedDeriveType}
               searchKey={searchKey}
               debouncedSearchKey={effectiveDebouncedSearchKey}

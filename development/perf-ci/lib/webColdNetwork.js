@@ -68,6 +68,11 @@ const RECORDABLE_ENDPOINTS = [
   },
   { route: 'GET utility.onekeycn.com/utility/v1/app-update' },
   { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
+  { route: 'GET utility.onekeycn.com/utility/v1/market/highlight' },
+  {
+    route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
+    body: /^\{"stockIds":\["NVDA"\]\}$/,
+  },
   {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
     query: ['category', 'ids', 'sparkline'],
@@ -99,6 +104,10 @@ const RECORDABLE_ENDPOINTS = [
       'timeFrame',
       'type',
     ],
+  },
+  {
+    route: 'POST utility.onekeycn.com/utility/v2/market/token/list/batch',
+    body: /^\{"currency":"usd","tokenAddressList":\[\{"chainId":"sol--101","contractAddress":"","isNative":true\}(,\{"chainId":"evm--1","contractAddress":"","isNative":true\})?\]\}$/,
   },
   {
     route: 'GET wallet.onekeycn.com/wallet/v1/health',
@@ -239,6 +248,28 @@ function routeKey({ method, url }) {
   return `${method.toUpperCase()} ${parsed.host}${parsed.pathname}`;
 }
 
+// Only the public hourly candle request used by the cold Perps entry is
+// normalized. Unknown fields and other intervals retain exact-key matching.
+function hourlyCandleRequest({ method, url, postData }) {
+  if (routeKey({ method, url }) !== 'POST api.hyperliquid.xyz/info') {
+    return null;
+  }
+  const body = bodyKey(postData);
+  if (
+    !/^\{"req":\{"coin":"[A-Za-z0-9:@._-]{1,64}","endTime":\d+,"interval":"1h","startTime":\d+\},"type":"candleSnapshot"\}$/.test(
+      body,
+    )
+  ) {
+    return null;
+  }
+  const { req } = JSON.parse(body);
+  return Number.isSafeInteger(req.startTime) &&
+    Number.isSafeInteger(req.endTime) &&
+    req.endTime >= req.startTime
+    ? req
+    : null;
+}
+
 function requestKey({ method, url, postData }) {
   const parsed = new URL(url);
   const query = [...parsed.searchParams.entries()]
@@ -250,7 +281,14 @@ function requestKey({ method, url, postData }) {
         `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
     )
     .join('&');
-  const body = method.toUpperCase() === 'GET' ? '' : bodyKey(postData);
+  const candle = hourlyCandleRequest({ method, url, postData });
+  let body = method.toUpperCase() === 'GET' ? '' : bodyKey(postData);
+  if (candle) {
+    body = canonicalJson({
+      type: 'candleSnapshot',
+      req: { coin: candle.coin, interval: candle.interval },
+    });
+  }
   return [`${routeKey({ method, url })}${query ? `?${query}` : ''}`, body]
     .filter(Boolean)
     .join(' ');
@@ -284,7 +322,11 @@ function recordRefusal({ method, url, postData, headers }) {
       return 'query parameter value not allowed for this endpoint';
     }
   }
-  if (endpoint.body && !endpoint.body.test(bodyKey(postData))) {
+  if (
+    endpoint.body &&
+    !endpoint.body.test(bodyKey(postData)) &&
+    !hourlyCandleRequest({ method, url, postData })
+  ) {
     return 'request body not allowed for this endpoint';
   }
   return null;
@@ -386,14 +428,26 @@ function serializeFixtureFile(file) {
 
 // Exact keys only: a query or body the recording never saw is blocked rather
 // than answered with another variant's data. Params that legitimately change
-// per call belong in VOLATILE_QUERY_KEYS.
+// per call belong in VOLATILE_QUERY_KEYS; hourly candle windows are replayed
+// relative to the current hour while preserving their coin and interval.
 function createFixtureStore(file) {
   const byKey = new Map(file.entries.map((entry) => [entry.key, entry]));
+  const replayHour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
   return {
     size: byKey.size,
     lookup(request) {
       const key = requestKey(request);
-      return { entry: byKey.get(key) || null, key };
+      const entry = byKey.get(key) || null;
+      const candle = hourlyCandleRequest(request);
+      if (!candle || !entry?.json?.length) return { entry, key };
+      // Keep recorded prices and volumes and the spacing between candles, but move
+      // the recording into today's window. All requests share the same anchor
+      // so pagination cannot replay the latest bars as older history.
+      const offset = replayHour - entry.json.at(-1).t;
+      const json = entry.json
+        .map((bar) => ({ ...bar, t: bar.t + offset, T: bar.T + offset }))
+        .filter((bar) => bar.T >= candle.startTime && bar.t <= candle.endTime);
+      return { entry: { ...entry, json }, key };
     },
   };
 }

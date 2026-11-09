@@ -95,8 +95,11 @@ export function normalizeTradingViewNativeChartSettings(
     : [];
   const grid = isRecord(record.grid) ? record.grid : {};
   const crossLine = isRecord(record.crossLine) ? record.crossLine : {};
-  const shouldMigrateThemeColors =
-    typeof record.schemaVersion !== 'number' || record.schemaVersion < 2;
+  const schemaVersion =
+    typeof record.schemaVersion === 'number' ? record.schemaVersion : 0;
+  const shouldMigrateThemeColors = schemaVersion < 2;
+  // Schema 5 saved navigation buttons as enabled by default.
+  const shouldResetNavigationButtons = schemaVersion < 6;
 
   const normalizedSettings: ITradingViewNativeChartSettings = {
     schemaVersion: TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
@@ -142,10 +145,12 @@ export function normalizeTradingViewNativeChartSettings(
         options.crossLine,
         fallback.options.crossLine,
       ),
-      navigationButtons: normalizeBoolean(
-        options.navigationButtons,
-        fallback.options.navigationButtons,
-      ),
+      navigationButtons: shouldResetNavigationButtons
+        ? fallback.options.navigationButtons
+        : normalizeBoolean(
+            options.navigationButtons,
+            fallback.options.navigationButtons,
+          ),
     },
     latestPriceLine: {
       upColor: normalizeColor(

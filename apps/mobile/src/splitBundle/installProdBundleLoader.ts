@@ -13,7 +13,8 @@
  * - Inflight dedup: concurrent requests for the same segment share one Promise
  * - dependsOn recursion with cycle detection
  * - Runtime-based segment access control (main-only / bg-only / shared)
- * - Failure caching (no auto-retry within process lifetime)
+ * - Up to three foreground-gated main-runtime retries for transient failures
+ * - Fatal failure caching; later imports may recover transient main failures
  * - Explicit retrySegment() for recovery/debugging
  */
 
@@ -23,6 +24,10 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { assertRuntimePolyfillsReady } from '@onekeyhq/shared/src/polyfills/runtimeCapabilities';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 
 import { getRuntimeKind } from './runtimeInfo';
 import {
@@ -63,12 +68,13 @@ const eagerFallbackWarned = new Set<string>();
 // Native reject codes that indicate a TRANSIENT condition: the runtime/host
 // simply wasn't ready yet (no runtime) or the buffered runtime executor never
 // ran in time (timeout, e.g. a segment load requested before the entry bundle
-// finished evaluating). For the first MAX_RETRYABLE_ATTEMPTS-1 attempts these
+// finished evaluating). Before the runtime's attempt budget is exhausted these
 // are NOT cached as failures — so an early `import()` during startup/reload is
-// re-attempted on the next call instead of poisoning the segment for the whole
-// process. Only on the FINAL attempt does the circuit-breaker (see
-// MAX_RETRYABLE_ATTEMPTS below) cache the failure to stop a permanently wedged
-// runtime from re-attempting forever; `retrySegment()` clears that cache.
+// re-attempted instead of poisoning the segment for the whole process. Native
+// main-runtime imports retry up to three times before rejecting; background
+// callers retry on their next call. Exhausting the main-runtime budget ends
+// this import without poisoning later navigation. Background failures retain
+// their process-wide circuit breaker; `retrySegment()` clears that cache.
 //
 // Every native producer emits DISTINCT per-cause reject codes, each mapped
 // EXPLICITLY (no silent fall-through that could misclassify a fatal failure as
@@ -91,14 +97,11 @@ const eagerFallbackWarned = new Set<string>();
 // NOT_FOUND for a file that is on disk and complete — seen on the first launch
 // after an APK replace, where the install-stamp wipe forces every segment to
 // re-extract at once. Caching that on sight blanked a route for the rest of the
-// process. It is deliberately on the SAME budget as the other transient codes
-// rather than a tighter one: a tighter budget would be spent by a single mount
-// plus its one boundary retry (MAX_LAZY_RETRIES) within one RETRY_BACKOFF_MS
-// window, leaving nothing for a later navigation if the window turned out to be
-// longer than the backoff. The cost on a genuinely missing segment is two extra
-// native calls before going fatal — not free (each re-enters the loader and can
-// queue behind in-flight extractions) but bounded, and the route is dead either
-// way.
+// process. It shares the SAME budget as the other transient codes, including
+// automatic recovery and any later caller or UI-boundary retry. The cost on a
+// genuinely missing segment is up to three extra native calls per main import,
+// or two per background process, before giving up. Each can queue behind
+// in-flight extractions, but one load cannot retry indefinitely.
 //
 // This stays useful after the native fix ships: OTA bundles run on whatever
 // native build is installed, so JS has to self-heal on binaries already in the
@@ -117,13 +120,39 @@ const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
 // retrying just reproduces the same failure. SPLIT_BUNDLE_NOT_FOUND used to sit
 // in this list too — see above for why it moved to the retryable set.
 
-// Bounds the number of times a retryable reject re-attempts the SAME segment
-// before we give up and cache it as a permanent failure. Without this cap a
-// truly wedged runtime (one that keeps reporting NO_RUNTIME / TIMEOUT) would
-// re-attempt on every `import()` forever. Reset to 0 once the segment loads
-// successfully.
-const MAX_RETRYABLE_ATTEMPTS = 3;
+// Main imports get an initial call plus three retries. Exhaustion ends that
+// import, while a later navigation can start a new budget. Background keeps
+// its existing process-wide three-attempt circuit breaker. Success clears the
+// counter in either runtime.
+const MAX_RETRYABLE_ATTEMPTS = { main: 4, background: 3 } as const;
+const NATIVE_RETRY_BACKOFF_MS = 150;
 const retryableAttempts = new Map<string, number>();
+
+function waitForForegroundRetry(): Promise<void> {
+  return new Promise((resolve) => {
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribe: (() => void) | undefined;
+    const scheduleRetry = () => {
+      if (retryTimer !== undefined || !getCurrentVisibilityState()) return;
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined;
+        if (!getCurrentVisibilityState()) return;
+        unsubscribe?.();
+        unsubscribe = undefined;
+        resolve();
+      }, NATIVE_RETRY_BACKOFF_MS);
+    };
+    unsubscribe = onVisibilityStateChange((visible) => {
+      if (visible) {
+        scheduleRetry();
+      } else if (retryTimer !== undefined) {
+        clearTimeout(retryTimer);
+        retryTimer = undefined;
+      }
+    });
+    scheduleRetry();
+  });
+}
 
 /**
  * Read the native reject `code` from a thrown error. RN TurboModule rejections
@@ -240,8 +269,14 @@ async function classifyLoadOutcome(
     // verbatim: it already carries the correct code + retryable classification for
     // our own parent / the boundary to propagate one level up.
     if (error instanceof SegmentLoadError && error.segmentKey !== segmentKey) {
-      // Leave THIS segment re-attemptable when the dep is still transient.
-      segmentStates.set(segmentKey, error.retryable ? 'idle' : 'failed');
+      // A transient dependency may already be idle, recovering, or ready.
+      // Its exhausted current-import flag does not imply a permanent failure.
+      const dependencyCanReload =
+        !failedSegments.has(error.segmentKey) &&
+        (error.retryable ||
+          (error.code !== undefined &&
+            RETRYABLE_NATIVE_REJECT_CODES.has(error.code)));
+      segmentStates.set(segmentKey, dependencyCanReload ? 'idle' : 'failed');
       throw error;
     }
 
@@ -281,8 +316,10 @@ async function classifyLoadOutcome(
           );
 
     const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+    const runtimeKind = getRuntimeKind();
+    const maxAttempts = MAX_RETRYABLE_ATTEMPTS[runtimeKind];
 
-    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
+    if (isRetryable && attempts < maxAttempts) {
       // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
       // than throwing the cached failure forever). State is reset to 'idle' and
       // the attempt counter bumped so a wedged runtime can't loop unbounded.
@@ -290,25 +327,29 @@ async function classifyLoadOutcome(
       segmentStates.set(segmentKey, 'idle');
       NativeLogger.write(
         LogLevel.Warning,
-        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
+        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${maxAttempts}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
       );
       throw segError;
     }
 
-    // Non-retryable, or retryable budget exhausted → cache as permanent failure.
-    // Clear `retryable` on the cached error: a budget-exhausted failure is, by
-    // definition, no longer retryable, so downstream consumers (e.g. the lazy
-    // self-heal boundary) treat a later re-navigation as immediately fatal
-    // instead of burning a fresh retry round against this permanently-cached
-    // rejection. Only retrySegment() clears it from here.
+    // End this import without letting a UI boundary immediately start another
+    // retry round. Main transient exhaustion must not poison later navigation;
+    // only fatal errors and exhausted background loads are cached permanently.
     retryableAttempts.delete(segmentKey);
     segError.retryable = false;
-    failedSegments.set(segmentKey, segError);
+    const retryOnNextImport = isRetryable && runtimeKind === 'main';
+    if (retryOnNextImport) {
+      segmentStates.set(segmentKey, 'idle');
+    } else {
+      failedSegments.set(segmentKey, segError);
+    }
     NativeLogger.write(
       LogLevel.Error,
       `[SplitBundle] SEGMENT LOAD FAILED${
         isRetryable ? ' (retryable budget exhausted)' : ''
-      }${nativeCode ? ` code=${nativeCode}` : ''}: ${segError.message}`,
+      }${nativeCode ? ` code=${nativeCode}` : ''}: ${segError.message}${
+        retryOnNextImport ? '; later imports may retry' : ''
+      }`,
     );
     throw segError;
   } finally {
@@ -443,12 +484,42 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       const loader = ensureNativeLoader();
 
       const startMs = Date.now();
-      await loader.loadSegment({
+      const request = {
         segmentId: entry.id,
         segmentKey: entry.key,
         relativePath: entry.relativePath,
         sha256: entry.sha256,
-      });
+      };
+      const maxAttempts = MAX_RETRYABLE_ATTEMPTS[currentRuntime];
+      for (;;) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await loader.loadSegment(request);
+          break;
+        } catch (error) {
+          const code = getNativeRejectCode(error);
+          const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+          if (
+            currentRuntime !== 'main' ||
+            !code ||
+            !RETRYABLE_NATIVE_REJECT_CODES.has(code) ||
+            attempts >= maxAttempts
+          ) {
+            throw error;
+          }
+
+          // Keep this import and all its joiners pending. Only this segment's
+          // direct native failure spends its budget; dependency errors do not.
+          retryableAttempts.set(segmentKey, attempts);
+          segmentStats.failures += 1;
+          safeNativeLog(
+            LogLevel.Warning,
+            `[SplitBundle] retrying ${segmentKey} in foreground (attempt ${attempts + 1}/${maxAttempts}, code=${code})`,
+          );
+          // eslint-disable-next-line no-await-in-loop
+          await waitForForegroundRetry();
+        }
+      }
       const durationMs = Date.now() - startMs;
 
       segmentStats.totalLoaded += 1;

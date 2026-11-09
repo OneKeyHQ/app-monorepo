@@ -1,3 +1,10 @@
+import { useMemo } from 'react';
+
+import { useTheme } from '@onekeyhq/components';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
+
+import { useAccountSelectorNativeListThemeV2 } from '../../../AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
+
 import { shortenRecipientAddress } from './recipientListAddressUtils';
 
 import type {
@@ -110,6 +117,7 @@ export function recipientIdentityRow({
     longPressActionKey,
     trailing,
     style: {
+      container: TOKEN_ROW_CONTAINER_STYLE,
       horizontalPadding: 8,
       verticalPadding: 12,
       leadingGap: 12,
@@ -119,6 +127,15 @@ export function recipientIdentityRow({
       subtitle: { fontSize: 14, lineHeight: 20 },
     },
   };
+}
+
+export function useRecipientNativeListTheme(): NativeListTheme {
+  const accountSelectorTheme = useAccountSelectorNativeListThemeV2();
+  const theme = useTheme();
+  return useMemo(
+    () => ({ ...accountSelectorTheme, rowHoverBackground: theme.bgHover.val }),
+    [accountSelectorTheme, theme],
+  );
 }
 
 export function recipientSnapshot(

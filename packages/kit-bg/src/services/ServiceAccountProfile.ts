@@ -521,6 +521,25 @@ class ServiceAccountProfile extends ServiceBase {
     );
   }
 
+  // A private address read back from the chain names only the receiver it paid, so an entry holding
+  // that receiver is the same recipient even when its address string differs.
+  private async findAddressBookItemBySameRecipient({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    if (!(await isLocalWalletNetwork({ networkId }))) return undefined;
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const isSameRecipient = vault.getLocalWalletCapability()?.isSameRecipient;
+    if (!isSameRecipient) return undefined;
+    const items = await this.backgroundApi.serviceAddressBook.getItemsByNetwork(
+      { networkId },
+    );
+    return items.find((item) => isSameRecipient(item.address, address));
+  }
+
   @backgroundMethod()
   public async queryAddress({
     networkId,
@@ -638,12 +657,16 @@ class ServiceAccountProfile extends ServiceBase {
       try {
         // handleAddressBookName
         const addressBookItem =
-          await this.backgroundApi.serviceAddressBook.findItem({
+          (await this.backgroundApi.serviceAddressBook.findItem({
             networkId: !networkUtils.isEvmNetwork({ networkId })
               ? networkId
               : undefined,
             address: resolveAddress,
-          });
+          })) ??
+          (await this.findAddressBookItemBySameRecipient({
+            networkId,
+            address: resolveAddress,
+          }));
         result.addressBookId = addressBookItem?.id;
         result.isAllowListed = addressBookItem?.isAllowListed;
         result.addressNote = addressBookItem?.note;

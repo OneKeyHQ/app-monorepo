@@ -25,11 +25,16 @@ import {
   useInModalDialog,
   useInTabDialog,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
+import {
+  HEADER_EMPTY_INSET_SPACER_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import {
@@ -180,12 +185,14 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
+import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
+import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ScrollViewInstance } from 'react-native';
 
@@ -213,6 +220,7 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 };
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
+const SWAP_HEADER_ROW_HEIGHT = 56;
 
 const SwapMainLoad = ({
   storeName,
@@ -1786,11 +1794,20 @@ const SwapMainLoad = ({
   // top+28, so the two tab headers align BY CONSTRUCTION, regardless of the
   // tab/pill content heights (no tuned padding). Android keeps its original
   // spacing; large screens already reset to $0 below.
-  let contentTopPadding = '$5';
+  const { top: safeAreaTop } = useSafeAreaInsets();
+  let contentTopPadding: string | number = '$5';
   if (pageType === EPageType.modal) {
     contentTopPadding = '$2.5';
   } else if (platformEnv.isNativeIOS) {
-    contentTopPadding = '$0';
+    // Foldable iPhones report a top inset of 0, so only MDHeader's spacer sits
+    // above this row; center it on the camera line like the Wallet header.
+    const foldableHeaderTop =
+      !safeAreaTop && !embeddedStockTrade
+        ? getFoldableIPhoneHeaderTop(SWAP_HEADER_ROW_HEIGHT)
+        : 0;
+    contentTopPadding = foldableHeaderTop
+      ? foldableHeaderTop - HEADER_EMPTY_INSET_SPACER_HEIGHT
+      : '$0';
   }
 
   // Keep the desktop header outside the keyed content so SegmentControl stays
@@ -1871,7 +1888,7 @@ const SwapMainLoad = ({
   );
 
   const pageContent = (
-    <>
+    <StockReceiveSnapshotProvider>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
           testID={SwapTestIDs.pageContainer}
@@ -1888,38 +1905,40 @@ const SwapMainLoad = ({
         >
           {renderSwapHeader()}
           {shouldRenderDesktopSwapHeader ? (
-            <YStack
-              flex={1}
-              minHeight={0}
-              width="100%"
-              overflow="hidden"
-              $gtMd={{
-                flex: 'unset',
-              }}
-            >
+            <SwapRevealSnapshotProvider>
               <YStack
-                key={swapContentVersion}
                 flex={1}
                 minHeight={0}
                 width="100%"
-                transition="quick"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                enterStyle={
-                  fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
-                }
+                overflow="hidden"
                 $gtMd={{
                   flex: 'unset',
                 }}
               >
-                {swapContent}
+                <YStack
+                  key={swapContentVersion}
+                  flex={1}
+                  minHeight={0}
+                  width="100%"
+                  transition="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
+                  enterStyle={
+                    fadeInSwapContent ? SWAP_CONTENT_ENTER_STYLE : undefined
+                  }
+                  $gtMd={{
+                    flex: 'unset',
+                  }}
+                >
+                  {swapContent}
+                </YStack>
               </YStack>
-            </YStack>
+            </SwapRevealSnapshotProvider>
           ) : (
             swapContent
           )}
         </YStack>
       </Page.Container>
-    </>
+    </StockReceiveSnapshotProvider>
   );
   return pageContent;
 };

@@ -181,7 +181,7 @@ describe('init', () => {
       expect(
         jest.mocked(service).forEachLocalWalletCapability.mock.calls,
       ).toHaveLength(1);
-      expect(service.foregroundBoostRequestedByNetwork['xmr--0']).toBe(true);
+      expect(service.backfillActiveByAccount['account-a']).toBe(true);
     } finally {
       clearInterval(service.periodicSyncTimer);
     }

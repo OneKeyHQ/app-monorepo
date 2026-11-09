@@ -1,4 +1,5 @@
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
@@ -69,4 +70,49 @@ export function getSendAddressRiskCheckButtonState({
   if (supportNetworkId !== currentNetworkId) return 'loading';
   if (!isSupported) return 'hidden';
   return 'enabled';
+}
+
+type ILocalWalletAddressFormEntry = {
+  account: { id: string };
+  deriveType?: string;
+  addressForm?: { labelId: ETranslations; address?: string };
+};
+
+// Each account as its public entry, plus a private entry when its private
+// address may be handed out (Zcash). The form names stand in for derive types.
+export function splitLocalWalletAddressForms<
+  TItem extends ILocalWalletAddressFormEntry,
+  TGroup extends { accounts: TItem[] },
+>({
+  groups,
+  privateAddresses,
+  publicLabel,
+  privateLabel,
+}: {
+  groups: TGroup[];
+  privateAddresses: Record<string, string>;
+  publicLabel: ETranslations;
+  privateLabel: ETranslations;
+}): TGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    accounts: group.accounts.flatMap((item): TItem[] => {
+      const entries: TItem[] = [
+        {
+          ...item,
+          deriveType: 'public',
+          addressForm: { labelId: publicLabel },
+        },
+      ];
+      const privateAddress = privateAddresses[item.account.id];
+      if (privateAddress) {
+        entries.push({
+          ...item,
+          deriveType: 'private',
+          addressForm: { labelId: privateLabel, address: privateAddress },
+        });
+      }
+      return entries;
+    }),
+  }));
 }

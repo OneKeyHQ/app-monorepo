@@ -2,7 +2,11 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SizableText } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  usePageFooterSafeAreaBottom,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,10 +14,12 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
+const NATIVE_FOOTER_MIN_BOTTOM_PADDING = 20;
 const MARKET_FOOTER_BUTTON_HEIGHT = 36;
 const MARKET_FOOTER_BUTTON_TEXT_LINE_HEIGHT = 20;
 
 function PerpMarketFooter() {
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
   const intl = useIntl();
   const actionsRef = useHyperliquidActions();
   const { mode } = useActiveTradeDisplay();
@@ -53,7 +59,14 @@ function PerpMarketFooter() {
     <Page.Footer
       px="$5"
       pt="$3"
-      pb={platformEnv.isNative ? '$5' : '$3'}
+      // Own the inset here to match the Market detail bar's gap. The container
+      // inset also drops to 0 after the device rotates.
+      safeAreaBottomMode="content"
+      pb={
+        platformEnv.isNative
+          ? Math.max(footerSafeAreaBottom, NATIVE_FOOTER_MIN_BOTTOM_PADDING)
+          : '$3'
+      }
       cancelButton={
         <Page.CancelButton
           flex={1}

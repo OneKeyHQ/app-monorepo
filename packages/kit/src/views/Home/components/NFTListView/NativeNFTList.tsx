@@ -30,7 +30,10 @@ import { useHomeNativeListTheme } from '../../hooks/useHomeNativeListTheme';
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { prepareHomeNativeListSnapshot } from '../homeNativeListSnapshot';
 
-import { buildNativeNFTRowsByKey } from './nativeNFTRows';
+import {
+  NFT_WEB_ROW_FILL_THEME,
+  buildNativeNFTRowsByKey,
+} from './nativeNFTRows';
 
 import type {
   NativeListSnapshot,
@@ -88,6 +91,7 @@ export function NFTListView({
             ...nativeListTheme,
             disabledText: componentTheme.iconDisabled.val,
             accent: componentTheme.focusRing.val,
+            ...NFT_WEB_ROW_FILL_THEME,
           },
     [nativeListTheme, componentTheme, webScrollHost],
   );

@@ -12,7 +12,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 export type ITokenPrivacyPanelState =
   | 'disabled'
@@ -20,6 +21,7 @@ export type ITokenPrivacyPanelState =
   | 'syncing'
   | 'synced'
   | 'stopped'
+  | 'waitingWifi'
   | 'error';
 
 export type ITokenPrivacyPanelProps = {
@@ -35,14 +37,19 @@ export type ITokenPrivacyPanelProps = {
   onEnable?: () => void;
   onStop?: () => void;
   onSync?: () => void;
+  onAllowMobileData?: () => void;
 };
 
-const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
-  disabled: ETranslations.privacy_enable__title,
+const STATUS_LABELS: Record<
+  ITokenPrivacyPanelState,
+  ETranslations | ETranslationsMock
+> = {
+  disabled: ETranslationsMock.privacy_enable_account__title,
   preparing: ETranslations.global_preparing,
   syncing: ETranslations.global_syncing,
   synced: ETranslations.global_synced,
   stopped: ETranslations.syncing_paused__title,
+  waitingWifi: ETranslations.privacy_sync_waiting_wifi__msg,
   error: ETranslations.global_sync_error,
 };
 
@@ -54,6 +61,7 @@ const ACTION_LABELS: Record<
   syncing: ETranslations.global_pause,
   synced: ETranslations.global_refresh,
   stopped: ETranslations.global_resume,
+  waitingWifi: ETranslations.privacy_sync_mobile_data__title,
   error: ETranslations.global_retry,
 };
 
@@ -70,6 +78,7 @@ export function TokenPrivacyPanel({
   onEnable,
   onStop,
   onSync,
+  onAllowMobileData,
 }: ITokenPrivacyPanelProps) {
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
@@ -78,11 +87,14 @@ export function TokenPrivacyPanel({
   const isSyncing = state === 'syncing';
   const isError = state === 'error';
   const isSynced = state === 'synced';
+  const isStopped = state === 'stopped' || state === 'waitingWifi';
   let onAction = onSync;
   if (isDisabled) {
     onAction = onEnable;
   } else if (isSyncing) {
     onAction = onStop;
+  } else if (state === 'waitingWifi') {
+    onAction = onAllowMobileData;
   }
   let statusIcon: IIconProps['name'] = 'PauseOutline';
   let statusColor: IIconProps['color'] = '$iconSubdued';
@@ -101,13 +113,13 @@ export function TokenPrivacyPanel({
     typeof progress === 'number' && Number.isFinite(progress)
       ? Math.min(100, Math.max(0, progress))
       : undefined;
-  const showProgress =
-    (isSyncing || state === 'stopped') && progressValue !== undefined;
+  const showProgress = (isSyncing || isStopped) && progressValue !== undefined;
   let supportingText = description;
   if (supportingText === undefined) {
     if (isDisabled) {
       supportingText = intl.formatMessage({
-        id: ETranslations.privacy_enable__desc,
+        id: ETranslationsMock.privacy_enable_account__desc,
+        defaultMessage: ETranslationsMock.privacy_enable_account__desc,
       });
     }
   }
@@ -169,7 +181,13 @@ export function TokenPrivacyPanel({
               color="$text"
               flexShrink={1}
             >
-              {title ?? intl.formatMessage({ id: STATUS_LABELS[state] })}
+              {title ??
+                intl.formatMessage({
+                  id: STATUS_LABELS[state],
+                  defaultMessage: isDisabled
+                    ? ETranslationsMock.privacy_enable_account__title
+                    : undefined,
+                })}
             </SizableText>
           </XStack>
           {supportingText ? (
@@ -205,10 +223,7 @@ export function TokenPrivacyPanel({
                 color="$textSubdued"
                 fontVariant={['tabular-nums']}
               >
-                {intl.formatNumber(progressValue / 100, {
-                  style: 'percent',
-                  maximumFractionDigits: 1,
-                })}
+                {formatPrivacyChainPercent(progressValue / 100)}
               </SizableText>
             ) : null}
             {action}
@@ -225,7 +240,7 @@ export function TokenPrivacyPanel({
           value={progressValue}
           animated={!reducedMotion}
           progressColor="$borderSubdued"
-          indicatorColor={state === 'stopped' ? '$iconDisabled' : '$text'}
+          indicatorColor={isStopped ? '$iconDisabled' : '$text'}
         />
       ) : null}
     </YStack>

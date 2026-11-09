@@ -1,9 +1,6 @@
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
-import {
-  createPrivacyChainFetchStreamRelay,
-  relayPrivacyChainNodeRequest,
-} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainFetchStreamRelay } from '../utils/privacyChainNodeRelay';
 
 import ProviderApiPrivate from './ProviderApiPrivate';
 
@@ -36,7 +33,6 @@ jest.mock('../utils/privacyChainRelayTargets', () => ({
 }));
 const streamRelay = jest.fn(async () => ({ ok: true, cancelled: true }));
 jest.mock('../utils/privacyChainNodeRelay', () => ({
-  relayPrivacyChainNodeRequest: jest.fn(async () => ({ ok: true, b64: '' })),
   createPrivacyChainFetchStreamRelay: jest.fn(() => streamRelay),
 }));
 
@@ -47,11 +43,6 @@ const page = (origin: string): IJsBridgeMessagePayload =>
     data: { method: 'fetchStream' },
   }) as IJsBridgeMessagePayload;
 
-const nodeRequest = {
-  url: 'http://192.168.1.1/admin',
-  contentType: 'application/json',
-  b64: '',
-};
 const streamOpen = {
   action: 'open' as const,
   url: 'http://192.168.1.1/admin',
@@ -65,7 +56,6 @@ function setup() {
 
 describe('ProviderApiPrivate web-embed-only methods on native', () => {
   beforeEach(() => {
-    jest.mocked(relayPrivacyChainNodeRequest).mockClear();
     streamRelay.mockClear();
   });
 
@@ -80,9 +70,6 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     ['Prime purchase modal', markWebEmbedChannelPayload(page('null'), false)],
   ])('rejects %s', async (_label, request) => {
     const provider = setup();
-    await expect(
-      provider.privacyChainNodeRequest(request, nodeRequest),
-    ).rejects.toThrow('privacyChainNodeRequest: not allowed');
     await expect(provider.fetchStream(request, streamOpen)).rejects.toThrow(
       'fetchStream: not allowed',
     );
@@ -95,16 +82,12 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
     await expect(provider.webEmbedApiNotReady(request)).rejects.toThrow(
       'webEmbedApiNotReady: not allowed',
     );
-    expect(relayPrivacyChainNodeRequest).not.toHaveBeenCalled();
     expect(streamRelay).not.toHaveBeenCalled();
   });
 
   it('serves the singleton web-embed page', async () => {
     const provider = setup();
     const request = markWebEmbedChannelPayload(page('null'), true);
-    await expect(
-      provider.privacyChainNodeRequest(request, nodeRequest),
-    ).resolves.toEqual({ ok: true, b64: '' });
     await expect(provider.fetchStream(request, streamOpen)).resolves.toEqual({
       ok: true,
       cancelled: true,

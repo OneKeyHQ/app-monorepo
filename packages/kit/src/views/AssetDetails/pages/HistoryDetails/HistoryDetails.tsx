@@ -1294,6 +1294,20 @@ function HistoryDetails() {
           })}
         </SizableText>
       );
+      const publicLocalWalletPoolId = vaultSettings?.localWallet?.pools?.find(
+        (pool) => pool.kind === 'public',
+      )?.id;
+      // A private address the chain does not show; this wallet read it.
+      const localRecipientDescription = (
+        <XStack gap="$1.5" alignItems="center">
+          <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
+          <SizableText color="$textSubdued" size="$bodySm" flexShrink={1}>
+            {intl.formatMessage({
+              id: ETranslations.privacy_history_local_recipient__desc,
+            })}
+          </SizableText>
+        </XStack>
+      );
       return (
         <>
           {!isSentFromThisWallet &&
@@ -1314,9 +1328,34 @@ function HistoryDetails() {
                   ? ETranslations.global_from
                   : ETranslations.global_to,
             });
+            const endpoints = localWalletEndpoints?.[direction] ?? [];
+            // As on BTC, several outside senders show as a count; Inputs &
+            // Outputs lists them.
+            const senderAddresses =
+              direction === 'from'
+                ? endpoints.filter(
+                    (endpoint) =>
+                      endpoint.isPublic && !endpoint.isOwn && endpoint.address,
+                  )
+                : [];
+            const collapsedSenders =
+              senderAddresses.length > 1 ? senderAddresses : [];
             return (
               <Fragment key={direction}>
-                {localWalletEndpoints?.[direction].map((endpoint) => {
+                {endpoints.map((endpoint) => {
+                  if (collapsedSenders.includes(endpoint)) {
+                    return endpoint === collapsedSenders[0] ? (
+                      <InfoItem
+                        key="senders"
+                        testID="history-details-from-addresses"
+                        label={label}
+                        renderContent={intl.formatMessage(
+                          { id: ETranslations.explore_addresses_count },
+                          { number: collapsedSenders.length },
+                        )}
+                      />
+                    ) : null;
+                  }
                   if (!endpoint.address) {
                     return (
                       <InfoItem
@@ -1335,7 +1374,13 @@ function HistoryDetails() {
                     );
                   }
                   let description: ReactNode;
-                  if (endpoint.isPublic) {
+                  // Our transparent address is public on chain; only a private one is this wallet's record.
+                  const isPublicAddress =
+                    endpoint.isPublic ||
+                    (endpoint.isOwn &&
+                      endpoint.poolId !== undefined &&
+                      endpoint.poolId === publicLocalWalletPoolId);
+                  if (isPublicAddress) {
                     description = (
                       <AddressInfo
                         address={endpoint.address}
@@ -1347,30 +1392,21 @@ function HistoryDetails() {
                         addressMap={addressMap}
                       />
                     );
-                  } else if (endpoint.isOwn) {
-                    description = (
-                      <SizableText color="$textSubdued" size="$bodySm">
-                        {endpoint.poolLabel}
-                      </SizableText>
-                    );
                   } else {
+                    // A private address, ours or a recipient's, named by its account or address book
+                    // entry as a public one is.
                     description = (
-                      <XStack gap="$1.5" alignItems="center">
-                        <Icon
-                          name="ShieldOutline"
-                          size="$4"
-                          color="$iconSubdued"
+                      <YStack gap="$1.5">
+                        <AddressInfo
+                          address={endpoint.address}
+                          networkId={networkId}
+                          accountId={accountId}
+                          allowClickAccountNameSwitch={
+                            allowClickAccountNameSwitch
+                          }
                         />
-                        <SizableText
-                          color="$textSubdued"
-                          size="$bodySm"
-                          flexShrink={1}
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.privacy_history_local_recipient__desc,
-                          })}
-                        </SizableText>
-                      </XStack>
+                        {localRecipientDescription}
+                      </YStack>
                     );
                   }
                   let testID: string | undefined;
@@ -1533,6 +1569,7 @@ function HistoryDetails() {
     localWalletHistoryFlow,
     localWalletEndpoints,
     isSentFromThisWallet,
+    vaultSettings?.localWallet?.pools,
   ]);
 
   const renderTxApproveFor = useCallback(() => {
@@ -1595,6 +1632,15 @@ function HistoryDetails() {
   });
 
   const renderFeeInfo = useCallback(() => {
+    // A private receive funded by someone else's transparent inputs has a fee this wallet cannot see;
+    // only a loaded detail can tell.
+    if (isLocalWalletHistory && isNil(txInfo?.gasFee) && isLoading === false) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_unknown })}
+        </SizableText>
+      );
+    }
     const gasFeeDisplayValues = getHistoryFeeDisplayValues({
       gasFee: txInfo?.gasFee,
       gasFeeFiatValue: txInfo?.gasFeeFiatValue,
@@ -1646,6 +1692,8 @@ function HistoryDetails() {
     );
   }, [
     intl,
+    isLoading,
+    isLocalWalletHistory,
     nativeToken?.symbol,
     settings.currencyInfo.symbol,
     txInfo?.gasFee,

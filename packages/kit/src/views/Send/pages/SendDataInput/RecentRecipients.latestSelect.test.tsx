@@ -64,6 +64,7 @@ jest.mock('@onekeyhq/components', () => {
     Spinner: Nothing,
     Stack: Box,
     XStack: Box,
+    useTheme: () => ({ bgHover: { val: '#000' } }),
   };
 });
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({

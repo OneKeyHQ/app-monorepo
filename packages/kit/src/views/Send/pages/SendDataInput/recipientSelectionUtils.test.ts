@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import {
@@ -5,6 +6,7 @@ import {
   normalizeOptionalRecipientText,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
+  splitLocalWalletAddressForms,
 } from './recipientSelectionUtils';
 
 describe('recipientSelectionUtils', () => {
@@ -134,5 +136,38 @@ describe('recipientSelectionUtils', () => {
         ...overrides,
       }),
     ).toBe(expected);
+  });
+});
+
+describe('splitLocalWalletAddressForms', () => {
+  it('adds a private entry only for accounts whose private address is handed out', () => {
+    type IEntry = {
+      account: { id: string };
+      deriveType?: string;
+      addressForm?: { labelId: ETranslations; address?: string };
+    };
+    const accounts: IEntry[] = [
+      { account: { id: 'a' } },
+      { account: { id: 'b' } },
+    ];
+    const groups = [{ walletId: 'hd-1', accounts }];
+    const [group] = splitLocalWalletAddressForms({
+      groups,
+      privateAddresses: { a: 'u1a' },
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
+    });
+    expect(
+      group.accounts.map((item) => [
+        item.account.id,
+        item.deriveType,
+        item.addressForm?.address,
+      ]),
+    ).toEqual([
+      ['a', 'public', undefined],
+      ['a', 'private', 'u1a'],
+      ['b', 'public', undefined],
+    ]);
+    expect(group.walletId).toBe('hd-1');
   });
 });

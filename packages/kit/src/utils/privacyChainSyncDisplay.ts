@@ -1,4 +1,9 @@
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getLocalWalletNetworkSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
+import type {
+  ILocalWalletSyncStatus,
+  ILocalWalletSyncStatusView,
+} from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type {
   ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
@@ -8,8 +13,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   getPrivacyChainBackfillBlocksLeft,
+  getPrivacyChainBlocksSeconds,
+  getPrivacyChainTimeWindowBlocks,
   isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import type { IPrivacyChainBlockTime } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import type { IntlShape } from 'react-intl';
 
@@ -26,6 +34,48 @@ export function formatPrivacyChainDuration(
   );
 }
 
+type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
+
+const TIME_LEFT_MIN_MEASURED_MS = 60 * 1000;
+
+// Trusted once the speed has run for a minute and no slower region the chain declares lies ahead:
+// earlier it swings, and across such a region it runs optimistic.
+export function isPrivacyChainTimeLeftReliable({
+  progress,
+  settings,
+  now,
+}: {
+  progress: ILocalWalletSyncProgress;
+  settings: ILocalWalletSettings | undefined;
+  now: number;
+}): boolean {
+  const since = progress.blocksPerSecSince;
+  const scanned = progress.backfillScannedHeight;
+  const target = progress.backfillTargetHeight;
+  if (since === undefined || now - since < TIME_LEFT_MIN_MEASURED_MS) {
+    return false;
+  }
+  if (typeof scanned !== 'number' || typeof target !== 'number') return false;
+  const slowRegionAhead = (settings?.scanRegionHints ?? []).some(
+    (hint) => hint.toHeight > scanned && hint.fromHeight <= target,
+  );
+  return !slowRegionAhead;
+}
+
+export type IPrivacyChainSummaryFigure = 'timeLeft' | 'percent';
+
+// While syncing a tight line shows one figure: time left once it is reliable, else the percentage.
+export function pickPrivacyChainSummaryFigure(params: {
+  progress: ILocalWalletSyncProgress;
+  settings: ILocalWalletSettings | undefined;
+  now: number;
+}): IPrivacyChainSummaryFigure {
+  return isPrivacyChainTimeLeftReliable(params) &&
+    formatPrivacyChainTimeLeft({ progress: params.progress })
+    ? 'timeLeft'
+    : 'percent';
+}
+
 // Time left at the published scan speed; nothing until a speed is known or while the scan is stopped.
 export function formatPrivacyChainTimeLeft({
   progress,
@@ -40,33 +90,23 @@ export function formatPrivacyChainTimeLeft({
   return `~${formatPrivacyChainDuration(remaining / blocksPerSec, false)}`;
 }
 
-export function getPrivacyChainSyncLabel({
-  storageUnsupported = false,
-  disabled = false,
-  paused = false,
-  held = false,
-  preparing = false,
-  backfilling,
-}: {
-  // Outranks everything: nothing else can change until the WebView is updated.
-  storageUnsupported?: boolean;
-  disabled?: boolean;
-  paused?: boolean;
-  held?: boolean;
-  preparing?: boolean;
-  backfilling: boolean;
-}) {
-  if (storageUnsupported) {
-    return ETranslations.privacy_error_webview_outdated__msg;
-  }
-  if (disabled) return ETranslations.global_disabled;
-  if (paused) return ETranslations.syncing_paused__title;
-  if (held) return ETranslations.privacy_sync_waiting_wifi__msg;
-  if (preparing) return ETranslations.global_preparing;
-  return backfilling
-    ? ETranslations.global_syncing
-    : ETranslations.global_synced;
-}
+// One label per status, the same on every surface.
+export const PRIVACY_CHAIN_SYNC_STATUS_LABELS: Record<
+  ILocalWalletSyncStatus,
+  ETranslations
+> = {
+  unavailable: ETranslations.global_not_available,
+  enabling: ETranslations.global_preparing,
+  accountPaused: ETranslations.syncing_paused__title,
+  off: ETranslations.global_disabled,
+  chainPaused: ETranslations.syncing_paused__title,
+  storageUnsupported: ETranslations.global_sync_error,
+  waitingWifi: ETranslations.privacy_sync_waiting_wifi__msg,
+  error: ETranslations.global_sync_error,
+  preparing: ETranslations.global_preparing,
+  syncing: ETranslations.global_syncing,
+  synced: ETranslations.global_synced,
+};
 
 export function formatPrivacyChainSyncError(
   kind: ILocalWalletSyncErrorKind | undefined,
@@ -117,10 +157,7 @@ export function getPrivacyChainBackfillProgress(
   networkId: string,
 ): ILocalWalletSyncProgress | undefined {
   const remaining = (value: ILocalWalletSyncProgress) =>
-    typeof value.backfillTargetHeight === 'number' &&
-    typeof value.backfillScannedHeight === 'number'
-      ? Math.max(0, value.backfillTargetHeight - value.backfillScannedHeight)
-      : Number.MAX_SAFE_INTEGER;
+    getPrivacyChainBackfillBlocksLeft(value) ?? Number.MAX_SAFE_INTEGER;
   return Object.entries(progress)
     .filter(
       ([key, value]) =>
@@ -134,75 +171,49 @@ export function getPrivacyChainBackfillProgress(
     );
 }
 
-// A queued account with no cursor must not hide work already advancing on the same chain.
+// The chain-level status the light and the settings Status row show. `accountIds` limits it to
+// one wallet's scanning accounts; `accountPaused`/`unavailable` say all of that wallet's are.
 export function getPrivacyChainNetworkSyncDisplay({
   state,
   networkId,
+  syncedBelowBlocks,
+  blockTime,
+  accountIds,
   accountPaused = false,
+  unavailable = false,
 }: {
   state: IPrivacyChainScanState;
   networkId: string;
+  syncedBelowBlocks: number;
+  blockTime: IPrivacyChainBlockTime | undefined;
+  accountIds?: string[];
   accountPaused?: boolean;
+  unavailable?: boolean;
 }) {
-  const isStorageUnsupported =
-    state.storageUnsupportedNetworkIds.includes(networkId);
-  const isRunning =
-    !isStorageUnsupported && state.boostingNetworkIds.includes(networkId);
-  const isPaused =
-    !isStorageUnsupported &&
-    !isRunning &&
-    (accountPaused || state.pausedNetworkIds.includes(networkId));
-  const isHeldByData =
-    !isStorageUnsupported &&
-    !isRunning &&
-    !isPaused &&
-    state.dataBlockedNetworkIds.includes(networkId);
-  const entries = Object.entries(state.progress).filter(([key]) =>
-    key.startsWith(`${networkId}:`),
-  );
-  const known = Object.fromEntries(
-    entries.filter(([, value]) => value.backfillScannedHeight !== null),
-  );
-  const backfilling =
-    isRunning || entries.some(([, value]) => !value.isBackfillComplete);
-  // An explicit start shows no figures until this chain publishes again; a pause outranks it.
-  const isStarting = !isPaused && state.preparingNetworkIds.includes(networkId);
-  const entry = isStarting
-    ? undefined
-    : (getPrivacyChainBackfillProgress(known, networkId) ??
-      (backfilling ? undefined : Object.values(known)[0]));
-  // Only the tip is left to follow: scanning never finishes, so no "done" state.
-  const isCaughtUp =
-    !isStarting &&
-    entries.length > 0 &&
-    entries.every(([, value]) => value.isBackfillComplete);
-  const syncError =
-    isPaused || isHeldByData
-      ? undefined
-      : state.syncErrorByNetworkId[networkId];
-  const hasSyncError = isStorageUnsupported || syncError !== undefined;
-  const labelId = hasSyncError
-    ? ETranslations.global_sync_error
-    : getPrivacyChainSyncLabel({
-        paused: isPaused,
-        held: isHeldByData,
-        preparing: isStarting || Object.keys(known).length === 0,
-        backfilling,
-      });
+  let view: ILocalWalletSyncStatusView;
+  if (unavailable) {
+    view = { status: 'unavailable' };
+  } else if (accountPaused) {
+    view = { status: 'accountPaused' };
+  } else {
+    view = getLocalWalletNetworkSyncStatus({
+      scan: state,
+      networkId,
+      accountIds,
+      syncedBelowBlocks,
+      blockTime,
+    });
+  }
   return {
-    entry,
-    labelId,
-    isCaughtUp,
-    isRunning,
-    isPaused,
-    isHeldByData,
-    isStorageUnsupported,
-    syncError,
+    ...view,
+    labelId: PRIVACY_CHAIN_SYNC_STATUS_LABELS[view.status],
+    // Scanning at the foreground pace right now.
+    isRunning:
+      state.boostingNetworkIds.includes(networkId) &&
+      ['preparing', 'syncing', 'synced', 'error'].includes(view.status),
   };
 }
 
-// The chain furthest from done, by fraction: block counts are not comparable
-// across chains. A chain with no figure yet counts as not started.
 export function pickSlowestPrivacyChainNetwork(
   networkIds: string[],
   progress: Record<string, ILocalWalletSyncProgress>,
@@ -231,21 +242,19 @@ export function getPrivacyChainScanRegionLabelId(
   )?.labelId;
 }
 
-type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
-
 // Roomy surfaces: blocks, percentage and time left (when known) while backfilling; scanned and
-// chain heights once caught up. `blocksOnly` leaves out what a summary line above already shows.
+// chain heights once caught up. `shownAbove` leaves out the figure a summary line above already shows.
 export function formatPrivacyChainSyncDetail({
   progress,
   settings,
   stopped = false,
-  blocksOnly = false,
+  shownAbove,
   intl,
 }: {
   progress: ILocalWalletSyncProgress | null | undefined;
   settings: ILocalWalletSettings | undefined;
   stopped?: boolean;
-  blocksOnly?: boolean;
+  shownAbove?: IPrivacyChainSummaryFigure;
   intl: Pick<IntlShape, 'formatMessage'>;
 }): string | null {
   if (!progress) return null;
@@ -272,18 +281,19 @@ export function formatPrivacyChainSyncDetail({
       formatPrivacyChainSyncProgress({
         scanned,
         target: progress.backfillTargetHeight,
-        progress: blocksOnly ? undefined : progress.backfillProgress,
+        progress:
+          shownAbove === 'percent' ? undefined : progress.backfillProgress,
       }),
-      blocksOnly ? '' : formatPrivacyChainTimeLeft({ progress, stopped }),
+      shownAbove === 'timeLeft'
+        ? ''
+        : formatPrivacyChainTimeLeft({ progress, stopped }),
       regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
     ]
       .filter(Boolean)
       .join(' · ');
     return (
       line ||
-      intl.formatMessage({
-        id: getPrivacyChainSyncLabel({ backfilling: true }),
-      })
+      intl.formatMessage({ id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.syncing })
     );
   }
   // Caught up, not finished: a chain never says "up to date". Heights are safe to show here,
@@ -293,40 +303,49 @@ export function formatPrivacyChainSyncDetail({
     target: progress.chainTip,
   });
   const lag = progress.tipLag;
-  const behind =
+  let behind = '';
+  if (
+    settings &&
     isTipLagWorthMentioning(
       lag,
-      settings?.tipLagWarningBlocks ?? Number.MAX_SAFE_INTEGER,
-    ) && settings
-      ? ` · ${formatPrivacyChainDuration(-(lag ?? 0) * settings.blockTimeSeconds, true)}`
-      : '';
+      getPrivacyChainTimeWindowBlocks(
+        settings,
+        settings.tipLagWarningBlocks,
+        progress.chainTip,
+      ),
+    )
+  ) {
+    const lagSeconds = getPrivacyChainBlocksSeconds(
+      settings,
+      lag,
+      progress.chainTip,
+    );
+    behind = ` · ${formatPrivacyChainDuration(-lagSeconds, true)}`;
+  }
   return heights
     ? `${heights}${behind}`
-    : intl.formatMessage({
-        id: getPrivacyChainSyncLabel({ backfilling: false }),
-      });
+    : intl.formatMessage({ id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.synced });
 }
 
-// Tight surfaces: the state, then while syncing its percentage and time left (when known).
+// Tight surfaces: the state, then while syncing the one figure picked for it.
 export function formatPrivacyChainSyncSummary({
   label,
   progress,
-  syncing,
+  figure,
 }: {
   label: string;
   progress: ILocalWalletSyncProgress | undefined;
-  syncing: boolean;
+  figure: IPrivacyChainSummaryFigure | undefined;
 }): string {
-  if (!syncing || !progress) return label;
-  const percent =
+  if (!figure || !progress) return label;
+  let value = '';
+  if (figure === 'timeLeft') {
+    value = formatPrivacyChainTimeLeft({ progress });
+  } else if (
     typeof progress.backfillProgress === 'number' &&
     Number.isFinite(progress.backfillProgress)
-      ? formatPrivacyChainPercent(progress.backfillProgress)
-      : '';
-  return [
-    [label, percent].filter(Boolean).join(' '),
-    formatPrivacyChainTimeLeft({ progress }),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ) {
+    value = formatPrivacyChainPercent(progress.backfillProgress);
+  }
+  return [label, value].filter(Boolean).join(' · ');
 }

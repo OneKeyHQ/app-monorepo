@@ -15,6 +15,7 @@ import {
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -116,6 +117,7 @@ const mockTradingViewNativeFullscreenButton = jest.fn<
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
+let mockCandleIntervalSeconds = 3600;
 let mockChartType: 'candlestick' | 'line' = 'candlestick';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
@@ -145,7 +147,7 @@ const mockUseTradingViewNativeKLine = jest.fn(
     mockRealtimePointListener = onRealtimePoint;
     return {
       calendarAvailableTimeRange: { from: 100 },
-      candleIntervalSeconds: 3600,
+      candleIntervalSeconds: mockCandleIntervalSeconds,
       chartType: mockChartType,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
@@ -425,6 +427,7 @@ describe('TradingViewNativeContainer', () => {
     mockFetchAccountTransactionMarks.mockResolvedValue([]);
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
+    mockCandleIntervalSeconds = 3600;
     mockChartType = 'candlestick';
     mockDataState = {
       status: 'error',
@@ -2173,6 +2176,34 @@ describe('TradingViewNativeContainer', () => {
     rerender(chart(false));
     expect(getRuntimeRef()).not.toBe(inlineRuntimeRef);
   });
+
+  it.each([true, false])(
+    'preserves the perps canvas on interval changes only for native=%s',
+    (isNative) => {
+      const platform = jest.replaceProperty(platformEnv, 'isNative', isNative);
+      const mounted = jest.fn(() => null);
+      mockTradingViewNativeChart.mockImplementation(function Chart() {
+        useState(mounted);
+        return null;
+      });
+      const chart = () => (
+        <TradingViewNativeContainer
+          source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+          storageNamespace="perps"
+        />
+      );
+      try {
+        const { rerender } = render(chart());
+        expect(mounted).toHaveBeenCalledTimes(1);
+        mockCandleIntervalSeconds = 60;
+        rerender(chart());
+        expect(mounted).toHaveBeenCalledTimes(isNative ? 1 : 2);
+      } finally {
+        platform.restore();
+        mockTradingViewNativeChart.mockImplementation(() => null);
+      }
+    },
+  );
 
   it('renders chart settings inside the opted-in mobile native chart', () => {
     const handleChartSwitch = jest.fn();
