@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "Details zur Verlängerung",
   "prime_sandbox_payment_unavailable__msg": "Sandbox-Zahlungen sind für dieses Konto nicht verfügbar.",
   "prime_start_new_payment__action": "Neue Zahlung starten",
+  "prime_subscription_china_storefront__msg": "Käufe sind im App Store für Festlandchina nicht verfügbar. Wechsle zu einer App Store-Region außerhalb von Festlandchina und versuche es erneut.",
   "prime_subscription_management_unsupported__msg": "Diese Aktivierungsmethode unterstützt keine Abonnementverwaltung.",
   "prime_unfinished_payment__desc": "Wenn eine Zahlung noch verarbeitet wird, kann eine neue Zahlung zu einer doppelten Zahlung führen.",
   "prime_unfinished_payment__title": "Unvollständige Zahlung",

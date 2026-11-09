@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "Інформація про продовження",
   "prime_sandbox_payment_unavailable__msg": "Тестові платежі недоступні для цього акаунта.",
   "prime_start_new_payment__action": "Почати новий платіж",
+  "prime_subscription_china_storefront__msg": "Покупки недоступні в App Store материкового Китаю. Зміни регіон App Store на регіон за межами материкового Китаю та спробуй знову.",
   "prime_subscription_management_unsupported__msg": "Цей спосіб активації не підтримує керування підпискою.",
   "prime_unfinished_payment__desc": "Якщо платіж ще обробляється, початок нового платежу може призвести до повторної оплати.",
   "prime_unfinished_payment__title": "Незавершений платіж",

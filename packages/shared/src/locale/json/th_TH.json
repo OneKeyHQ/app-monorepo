@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "รายละเอียดการต่ออายุ",
   "prime_sandbox_payment_unavailable__msg": "บัญชีนี้ไม่รองรับการชำระเงิน Sandbox",
   "prime_start_new_payment__action": "เริ่มการชำระเงินใหม่",
+  "prime_subscription_china_storefront__msg": "ไม่สามารถซื้อใน App Store ภูมิภาคจีนแผ่นดินใหญ่ได้ เปลี่ยนภูมิภาค App Store เป็นภูมิภาคนอกจีนแผ่นดินใหญ่แล้วลองอีกครั้ง",
   "prime_subscription_management_unsupported__msg": "วิธีเปิดใช้งานนี้ไม่รองรับการจัดการการสมัครสมาชิก",
   "prime_unfinished_payment__desc": "หากยังมีการชำระเงินที่กำลังดำเนินการอยู่ การเริ่มชำระเงินใหม่อาจทำให้คุณชำระเงินซ้ำ",
   "prime_unfinished_payment__title": "การชำระเงินยังไม่เสร็จ",

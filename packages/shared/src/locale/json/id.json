@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "Detail perpanjangan",
   "prime_sandbox_payment_unavailable__msg": "Pembayaran Sandbox tidak tersedia untuk akun ini.",
   "prime_start_new_payment__action": "Mulai pembayaran baru",
+  "prime_subscription_china_storefront__msg": "Pembelian tidak tersedia di App Store Tiongkok daratan. Ubah wilayah App Store ke luar Tiongkok daratan, lalu coba lagi.",
   "prime_subscription_management_unsupported__msg": "Metode aktivasi ini tidak mendukung pengelolaan langganan.",
   "prime_unfinished_payment__desc": "Jika masih ada pembayaran yang diproses, memulai pembayaran baru dapat menyebabkan pembayaran ganda.",
   "prime_unfinished_payment__title": "Pembayaran belum selesai",

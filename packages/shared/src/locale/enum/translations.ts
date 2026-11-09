@@ -4626,6 +4626,7 @@ export enum ETranslations {
   prime_renewal_reminder__title = 'prime_renewal_reminder__title',
   prime_sandbox_payment_unavailable__msg = 'prime_sandbox_payment_unavailable__msg',
   prime_start_new_payment__action = 'prime_start_new_payment__action',
+  prime_subscription_china_storefront__msg = 'prime_subscription_china_storefront__msg',
   prime_subscription_management_unsupported__msg = 'prime_subscription_management_unsupported__msg',
   prime_unfinished_payment__desc = 'prime_unfinished_payment__desc',
   prime_unfinished_payment__title = 'prime_unfinished_payment__title',

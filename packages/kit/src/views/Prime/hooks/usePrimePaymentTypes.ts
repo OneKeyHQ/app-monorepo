@@ -2,6 +2,7 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import type {
   IRevenueCatCustomerInfo,
   IRevenueCatPurchaseResult,
+  IRevenueCatStorefront,
 } from '@onekeyhq/shared/types/prime/revenueCat';
 
 import type {
@@ -38,6 +39,7 @@ export type IRevenueCatCustomerInfoNative = CustomerInfoNative;
 
 export type IUsePrimePayment = {
   isReady: boolean;
+  getStorefront?: () => Promise<IRevenueCatStorefront | null>;
   getCustomerInfo: () => Promise<
     | IRevenueCatCustomerInfoWeb
     | IRevenueCatCustomerInfoNative

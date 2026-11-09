@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "रिन्यूअल की जानकारी",
   "prime_sandbox_payment_unavailable__msg": "इस खाते के लिए Sandbox भुगतान उपलब्ध नहीं है।",
   "prime_start_new_payment__action": "नया भुगतान शुरू करें",
+  "prime_subscription_china_storefront__msg": "मुख्यभूमि चीन के App Store में खरीदारी उपलब्ध नहीं है। App Store का क्षेत्र मुख्यभूमि चीन के बाहर के किसी क्षेत्र में बदलें और फिर से कोशिश करें।",
   "prime_subscription_management_unsupported__msg": "यह सक्रियण विधि सदस्यता प्रबंधन का समर्थन नहीं करती।",
   "prime_unfinished_payment__desc": "अगर कोई भुगतान अभी भी प्रोसेस हो रहा है, तो नया भुगतान शुरू करने से दोहरा भुगतान हो सकता है।",
   "prime_unfinished_payment__title": "अधूरा भुगतान",

@@ -333,6 +333,11 @@ export function usePrimePaymentMethodsStore<
     return packages;
   }, [ensurePaymentReady, sdk]);
 
+  const getStorefront = useCallback(
+    async () => sdk.getStorefront?.() ?? null,
+    [sdk],
+  );
+
   // https://www.revenuecat.com/docs/tools/paywalls/displaying-paywalls#react-native
   const purchasePackageNative = useCallback(
     async ({
@@ -491,6 +496,7 @@ export function usePrimePaymentMethodsStore<
 
   return {
     isReady,
+    getStorefront,
     getPackagesNative,
     purchasePackageNative,
     restorePurchases,

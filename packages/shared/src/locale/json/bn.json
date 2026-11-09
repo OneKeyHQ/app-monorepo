@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "নবায়নের বিবরণ",
   "prime_sandbox_payment_unavailable__msg": "এই অ্যাকাউন্টে Sandbox পেমেন্ট উপলভ্য নয়।",
   "prime_start_new_payment__action": "নতুন পেমেন্ট শুরু করুন",
+  "prime_subscription_china_storefront__msg": "মূল ভূখণ্ড চীনের App Store-এ কেনাকাটা উপলব্ধ নেই। App Store-এর অঞ্চল মূল ভূখণ্ড চীনের বাইরের কোনো অঞ্চলে পরিবর্তন করে আবার চেষ্টা করুন।",
   "prime_subscription_management_unsupported__msg": "এই অ্যাক্টিভেশন পদ্ধতি সাবস্ক্রিপশন পরিচালনা সমর্থন করে না।",
   "prime_unfinished_payment__desc": "কোনো পেমেন্ট এখনও প্রক্রিয়াধীন থাকলে, নতুন পেমেন্ট শুরু করলে দুবার পেমেন্ট হয়ে যেতে পারে।",
   "prime_unfinished_payment__title": "অসম্পূর্ণ পেমেন্ট",

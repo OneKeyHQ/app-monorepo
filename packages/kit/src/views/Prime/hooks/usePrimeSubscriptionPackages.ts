@@ -4,13 +4,18 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
+import {
+  isPrimeAppleStorePayment,
+  isPrimeStorePayment,
+} from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 
+import { shouldShowPrimeChinaStorefrontHint } from './primeChinaStorefront';
 import { usePrimePayment } from './usePrimePayment';
 import { usePrimePaymentMethodsWeb } from './usePrimePaymentMethodsWeb';
 
@@ -23,6 +28,7 @@ export function usePrimeSubscriptionPackages({
   const {
     isReady: isPurchaseReady,
     getPackagesNative,
+    getStorefront,
     restorePurchases,
     getPackagesWeb,
   } = usePrimePayment();
@@ -51,12 +57,16 @@ export function usePrimeSubscriptionPackages({
           return [];
         }
 
-        // TODO There was a problem with the store.
         return errorToastUtils.withErrorAutoToast(async () => {
           try {
             const pkgList = await (isPrimeStorePayment()
               ? getPackagesNative?.()
               : getPackagesWeb?.());
+            if (isPrimeAppleStorePayment() && !pkgList?.length) {
+              throw new OneKeyLocalError(
+                'Prime subscription packages unavailable',
+              );
+            }
             return pkgList ?? [];
           } catch (error) {
             const e = error as IOneKeyError | undefined;
@@ -64,6 +74,27 @@ export function usePrimeSubscriptionPackages({
             defaultLogger.prime.subscription.fetchPackagesFailed({
               errorMessage: e?.message || 'Unknown error',
             });
+
+            if (isPrimeAppleStorePayment()) {
+              const showChinaHint = await shouldShowPrimeChinaStorefrontHint(
+                error,
+                getStorefront,
+              );
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+                description: intl.formatMessage({
+                  id: showChinaHint
+                    ? ETranslations.prime_subscription_china_storefront__msg
+                    : ETranslations.prime_unable_to_retrieve_subscription_list,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_got_it,
+                }),
+              });
+              return [];
+            }
 
             let shouldThrow = true;
             if (
@@ -110,7 +141,14 @@ export function usePrimeSubscriptionPackages({
           }
         });
       },
-      [enabled, intl, getPackagesNative, getPackagesWeb, isPurchaseReady],
+      [
+        enabled,
+        intl,
+        getPackagesNative,
+        getPackagesWeb,
+        getStorefront,
+        isPurchaseReady,
+      ],
       {
         initResult: [],
         watchLoading: true,

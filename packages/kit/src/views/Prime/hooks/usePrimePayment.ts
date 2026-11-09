@@ -14,6 +14,7 @@ export function usePrimePayment(): IUsePrimePayment {
 
   const {
     getCustomerInfo,
+    getStorefront,
     isReady,
     restorePurchases,
     getPackagesNative,
@@ -24,6 +25,7 @@ export function usePrimePayment(): IUsePrimePayment {
 
   return {
     getCustomerInfo,
+    getStorefront,
     isReady,
     restorePurchases,
     getPackagesNative,
