@@ -33,7 +33,6 @@ import type { ColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { SwapTransactionResultStatus } from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
-import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,11 +52,10 @@ import type { IDustSweepState } from '../stateMachine';
 
 // Height of the summary action button; the desktop hidden-tokens row aligns to it.
 export const DUST_SWEEP_ACTION_HEIGHT = 46;
-// Mobile space above the action: reads as the same ~17pt as the gap between
-// the info rows above it (the rows' line boxes add ~2pt of their own).
+// Mobile space between the slippage row and the action.
 const MOBILE_ACTION_GAP = 15;
-// Receive row 60 + info rows 62 + action gap + action 46 + bottom padding 33.
-const MOBILE_SELECTION_FOOTER_HEIGHT = 60 + 62 + MOBILE_ACTION_GAP + 46 + 33;
+// Receive row 60 + slippage row 34 + action gap + action 46 + bottom padding 33.
+const MOBILE_SELECTION_FOOTER_HEIGHT = 60 + 34 + MOBILE_ACTION_GAP + 46 + 33;
 // Share of the screen the mobile live sheet may take; the result scrolls inside.
 const MOBILE_SHEET_MAX_HEIGHT_RATIO = 0.85;
 
@@ -488,7 +486,6 @@ export function DustSweepSummary({
     canStart,
     loadStatus,
     assetStatus,
-    providerInfo,
   } = model;
   const { state } = session;
   const assetSyncError = selecting && assetStatus === 'error' && !canStart;
@@ -663,34 +660,7 @@ export function DustSweepSummary({
             </YStack>
           </XStack>
           {desktop ? <Divider /> : null}
-          <YStack height={desktop ? 65 : 62} pt={desktop ? 16 : 14} gap="$2">
-            <XStack height={20} alignItems="center" gap="$2">
-              <Stack flex={1} minWidth={0}>
-                <SwapProviderInfoItem
-                  testID="dust-sweep-provider"
-                  showFeeInfo={false}
-                  fromToken={selected[0]}
-                  toToken={nativeToken}
-                  // The configured provider; quotes happen per token on submit.
-                  providerIcon={
-                    loadStatus === 'ready' ? (providerInfo?.logo ?? '') : ''
-                  }
-                  providerName={
-                    loadStatus === 'ready'
-                      ? (providerInfo?.providerName ?? '')
-                      : ''
-                  }
-                  allowProviderWithoutTokens
-                  isLoading={loadStatus === 'loading'}
-                  showEmptyPlaceholder
-                  valueProps={{
-                    numberOfLines: 1,
-                    maxWidth: desktop ? 180 : 164,
-                    flexShrink: 1,
-                  }}
-                />
-              </Stack>
-            </XStack>
+          <YStack height={desktop ? 37 : 34} pt={desktop ? 16 : 14}>
             <SwapCommonInfoItem
               containerProps={{ height: 20 }}
               title={intl.formatMessage({
