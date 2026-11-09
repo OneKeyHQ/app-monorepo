@@ -189,7 +189,8 @@ export function useOutsidePress({
 /**
  * Hover-driven open state: entering the trigger opens after the open delay,
  * leaving the trigger or the panel closes after the close delay unless the
- * pointer enters the other one first.
+ * pointer enters the other one first. Returns a cancellation callback for
+ * explicit trigger presses.
  */
 export function useHoverOpen({
   hoverable,
@@ -261,4 +262,6 @@ export function useHoverOpen({
       panel.removeEventListener('mouseleave', scheduleClose);
     };
   }, [clear, hoverable, panel, scheduleClose]);
+
+  return clear;
 }

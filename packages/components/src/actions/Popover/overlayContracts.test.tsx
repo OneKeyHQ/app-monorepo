@@ -13,6 +13,7 @@ import { Popover } from '.';
 
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   renderHook,
@@ -204,12 +205,6 @@ jest.mock('../Trigger', () => {
 jest.mock('./popoverSideEffects', () => ({
   runPopoverOpenSideEffects: jest.fn(),
   runPopoverCloseSideEffects: jest.fn(),
-}));
-jest.mock('./anchoredPopover', () => ({
-  ...jest.requireActual<typeof import('./anchoredPopover')>(
-    './anchoredPopover',
-  ),
-  useHoverOpen: jest.fn(),
 }));
 jest.mock('@floating-ui/dom', () => ({
   ...jest.requireActual<typeof import('@floating-ui/dom')>('@floating-ui/dom'),
@@ -572,4 +567,60 @@ it('leaves focus alone for hover panels', async () => {
   expect(onOpenAutoFocus).not.toHaveBeenCalled();
   view.unmount();
   outside.remove();
+});
+
+describe('hover and trigger press interaction', () => {
+  const hoverable = { delay: { open: 250 } };
+
+  function renderHoverPopover() {
+    render(
+      <Popover
+        title="Rates"
+        hoverable={hoverable}
+        renderTrigger="Rate details"
+        renderContent={<span>Rate breakdown</span>}
+      />,
+    );
+    return screen.getByRole('button', { name: 'Rate details' });
+  }
+
+  function advance(ms: number) {
+    act(() => jest.advanceTimersByTime(ms));
+  }
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
+  });
+
+  it('stays closed after reentering an open trigger and clicking it', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    fireEvent.mouseLeave(trigger);
+    advance(50);
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('stays closed after clicking open and closed before hover finishes', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    advance(50);
+    fireEvent.click(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
 });
