@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  runAfterActionListClose,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -25,6 +26,14 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountManagerTestIDs } from '../../testIDs';
+
+interface IWalletBoundReferralCodeButtonProps {
+  wallet: IDBWallet | undefined;
+  onClose: () => void;
+  bindWalletInviteCode: ReturnType<
+    typeof useWalletBoundReferralCode
+  >['bindWalletInviteCode'];
+}
 
 function buildButtonState({
   displayStatus,
@@ -70,19 +79,10 @@ function NotApplicableTooltip({ description }: { description: string }) {
 function WalletBoundReferralCodeButtonView({
   wallet,
   onClose,
-}: {
-  wallet: IDBWallet | undefined;
-  onClose: () => void;
-}) {
+  bindWalletInviteCode,
+}: IWalletBoundReferralCodeButtonProps) {
   const intl = useIntl();
-  const [isLoading, setIsLoading] = useState(false);
-  const {
-    bindWalletInviteCode,
-    getReferralCodeBondStatus,
-    getReferralCodeBindDisplayStatus,
-  } = useWalletBoundReferralCode({
-    entry: 'modal',
-  });
+  const { getReferralCodeBindDisplayStatus } = useWalletBoundReferralCode();
   const isHdOrHwWallet =
     accountUtils.isHdWallet({ walletId: wallet?.id }) ||
     (accountUtils.isHwWallet({ walletId: wallet?.id }) &&
@@ -128,45 +128,48 @@ function WalletBoundReferralCodeButtonView({
     id: ETranslations.referral_not_applicable_desc,
   });
 
-  const handlePress = useCallback(async () => {
-    if (isLoading) {
-      return;
-    }
-    if (isReferralBlocked) {
-      showBotWalletDisabledToast('referral');
-      return;
-    }
-    if (!shouldBoundReferralCode) {
-      return;
-    }
-    try {
-      setIsLoading(true);
-      const shouldBound = await getReferralCodeBondStatus({
-        walletId: wallet?.id,
-      });
-      if (!shouldBound) {
+  // A second tap while the menu is closing would open a second dialog.
+  const isOpeningRef = useRef(false);
+  // The item is only enabled when the status checked on open is "bind", and
+  // the dialog re-checks every wallet itself, so open it right away instead of
+  // blocking the menu on another server round trip. Close the menu first so
+  // the dialog is not presented over a sheet that is still dismissing.
+  const handlePress = useCallback(
+    async (close: () => void | Promise<void>) => {
+      if (isOpeningRef.current) {
         return;
       }
-      bindWalletInviteCode({
-        wallet,
-        onSuccess: () => {
-          setTimeout(() => {
-            void refreshDisplayReferralCodeButton();
-          }, 200);
-        },
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    isLoading,
-    isReferralBlocked,
-    shouldBoundReferralCode,
-    getReferralCodeBondStatus,
-    wallet,
-    bindWalletInviteCode,
-    refreshDisplayReferralCodeButton,
-  ]);
+      isOpeningRef.current = true;
+      try {
+        await runAfterActionListClose(close, () => {
+          if (isReferralBlocked) {
+            showBotWalletDisabledToast('referral');
+            return;
+          }
+          if (!shouldBoundReferralCode) {
+            return;
+          }
+          bindWalletInviteCode({
+            wallet,
+            onSuccess: () => {
+              setTimeout(() => {
+                void refreshDisplayReferralCodeButton();
+              }, 200);
+            },
+          });
+        });
+      } finally {
+        isOpeningRef.current = false;
+      }
+    },
+    [
+      isReferralBlocked,
+      shouldBoundReferralCode,
+      wallet,
+      bindWalletInviteCode,
+      refreshDisplayReferralCodeButton,
+    ],
+  );
 
   if (!isHdOrHwWallet) {
     return null;
@@ -209,7 +212,6 @@ function WalletBoundReferralCodeButtonView({
         ) : undefined
       }
       onPress={handlePress}
-      isLoading={isLoading}
       onClose={onClose}
       // For deactivated bot wallets we keep the item interactive so
       // handlePress can surface the disabled-bot-wallet toast (ActionList.Item
@@ -223,10 +225,8 @@ function WalletBoundReferralCodeButtonView({
 export function WalletBoundReferralCodeButton({
   wallet,
   onClose,
-}: {
-  wallet: IDBWallet | undefined;
-  onClose: () => void;
-}) {
+  bindWalletInviteCode,
+}: IWalletBoundReferralCodeButtonProps) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -234,7 +234,11 @@ export function WalletBoundReferralCodeButton({
       }}
       enabledNum={[0]}
     >
-      <WalletBoundReferralCodeButtonView wallet={wallet} onClose={onClose} />
+      <WalletBoundReferralCodeButtonView
+        wallet={wallet}
+        onClose={onClose}
+        bindWalletInviteCode={bindWalletInviteCode}
+      />
     </AccountSelectorProviderMirror>
   );
 }

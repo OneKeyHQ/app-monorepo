@@ -25,6 +25,7 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
@@ -63,6 +64,10 @@ function WalletEditButtonView({
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
+  // Capture the source page before the global ActionList clears its scope.
+  const { bindWalletInviteCode } = useWalletBoundReferralCode({
+    entry: 'modal',
+  });
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
@@ -237,6 +242,7 @@ function WalletEditButtonView({
             <WalletBoundReferralCodeButton
               wallet={wallet}
               onClose={handleActionListClose}
+              bindWalletInviteCode={bindWalletInviteCode}
             />
           )}
 
@@ -378,6 +384,7 @@ function WalletEditButtonView({
     [
       hasPrivacyWalletAccount,
       config,
+      bindWalletInviteCode,
       wallet,
       isKeyless,
       intl,
