@@ -110,6 +110,22 @@ const ANDROID_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   CRYPTO_PAYMENT_METHOD,
 ];
 
+const DESKTOP_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
+  {
+    key: 'webview',
+    label: ETranslations.prime_credit_card__label,
+    icon: 'CreditCardOutline',
+    testID: 'prime-pay-with-card',
+  },
+  CRYPTO_PAYMENT_METHOD,
+];
+
+function isHostedCardCheckoutMethod(key: IPrimePaymentMethodKey): boolean {
+  return (
+    key === 'webStripe' || (key === 'webview' && Boolean(platformEnv.isDesktop))
+  );
+}
+
 const ANDROID_GOOGLE_PLAY_PAYMENT_METHODS: IPrimePaymentMethodOption[] = [
   {
     key: 'native',
@@ -151,8 +167,8 @@ function PrimePaymentMethodItems({
   const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
     undefined,
   );
-  const supportsHostedCardCheckout = methods.some(
-    (method) => method.key === 'webStripe',
+  const supportsHostedCardCheckout = methods.some((method) =>
+    isHostedCardCheckoutMethod(method.key),
   );
   // Android can show native and Web checkout together. A trial belongs only
   // to the offering source that reported it, so never copy it to both rows.
@@ -236,7 +252,7 @@ function PrimePaymentMethodItems({
           testID={method.testID ?? `prime-payment-method-${method.key}`}
           title={intl.formatMessage({ id: method.label })}
           renderItemText={
-            method.key === 'webStripe' && forceHostedCardCheckout
+            isHostedCardCheckoutMethod(method.key) && forceHostedCardCheckout
               ? (textProps: IListItemTextProps) => (
                   <ListItem.Text
                     {...textProps}
@@ -718,7 +734,7 @@ export function usePrimePurchaseCallback({
         // Desktop credit-card checkout runs in the isolated WebViewModal
         // container (no desktopApi / desktopApiBridge / $mmkvSync), the same
         // channel Android uses, so the main window never loads Stripe.js.
-        paymentMethods = ANDROID_PAYMENT_METHODS;
+        paymentMethods = DESKTOP_PAYMENT_METHODS;
       }
 
       const paymentMethodDialog = Dialog.show({
@@ -767,12 +783,24 @@ export function usePrimePurchaseCallback({
                     featureName,
                   });
                 } else if (method === 'webview') {
-                  logSubscribeIntent('stripe', 'embedded');
-                  void purchaseByWebviewUnchecked({
-                    selectedSubscriptionPeriod,
-                    currency,
-                    featureName,
-                  }).catch(errorToastUtils.toastIfError);
+                  if (
+                    forceHostedCardCheckout ||
+                    (platformEnv.isDesktop &&
+                      (await getPrimeCardCheckoutMode()) === 'hostedLink')
+                  ) {
+                    void purchaseByHostedLink({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    });
+                  } else {
+                    logSubscribeIntent('stripe', 'embedded');
+                    void purchaseByWebviewUnchecked({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    }).catch(errorToastUtils.toastIfError);
+                  }
                 } else if (method === 'webStripe') {
                   if (
                     forceHostedCardCheckout ||

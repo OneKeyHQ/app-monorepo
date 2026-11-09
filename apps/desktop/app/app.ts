@@ -937,6 +937,9 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(__dirname, '..', 'build', 'index.html');
 
+  const primePurchaseWebviewSession = session.fromPartition(
+    PRIME_PURCHASE_WEBVIEW_PARTITION,
+  );
   // Re-registering interceptFileProtocol on a session that already has an
   // interceptor for the scheme silently fails (Electron returns false), which
   // would leave the OLD closure — capturing the previous bundle's path/metadata
@@ -951,49 +954,68 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     } catch (e) {
       logger.warn('uninterceptProtocol failed', e);
     }
+    try {
+      if (
+        primePurchaseWebviewSession.protocol.isProtocolIntercepted(PROTOCOL)
+      ) {
+        primePurchaseWebviewSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+    } catch (e) {
+      logger.warn(
+        'uninterceptProtocol failed for the prime purchase session',
+        e,
+      );
+    }
   };
 
   if (isLocalUnpacked) {
     uninterceptFileProtocolIfNeeded();
-    session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        const jsSdkPattern = '/static/js-sdk/';
-        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+    const localUnpackedFileProtocolInterceptor: Parameters<
+      typeof session.defaultSession.protocol.interceptFileProtocol
+    >[1] = (request, callback) => {
+      const jsSdkPattern = '/static/js-sdk/';
+      const jsSdkIndex = request.url.indexOf(jsSdkPattern);
 
-        // resolve js-sdk files path in local unpacked mode
-        if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(
-            jsSdkIndex + jsSdkPattern.length,
-          );
-          callback(path.join(staticPath, 'js-sdk', fileName));
+      // resolve js-sdk files path in local unpacked mode
+      if (jsSdkIndex > -1) {
+        const fileName = request.url.substring(
+          jsSdkIndex + jsSdkPattern.length,
+        );
+        callback(path.join(staticPath, 'js-sdk', fileName));
+        return;
+      }
+
+      // In perf-ci mode we load renderer via file://. Some builds use absolute
+      // asset paths like "/main.xxx.js" which become "file:///main.xxx.js".
+      // Map those to the local build directory as a fallback.
+      try {
+        const requestedPath = fileURLToPath(request.url);
+        if (fs.existsSync(requestedPath)) {
+          callback(requestedPath);
           return;
         }
-
-        // In perf-ci mode we load renderer via file://. Some builds use absolute
-        // asset paths like "/main.xxx.js" which become "file:///main.xxx.js".
-        // Map those to the local build directory as a fallback.
-        try {
-          const requestedPath = fileURLToPath(request.url);
-          if (fs.existsSync(requestedPath)) {
-            callback(requestedPath);
-            return;
-          }
-          const buildDir = path.join(__dirname, '..', 'build');
-          const fallbackPath = path.join(
-            buildDir,
-            requestedPath.replace(/^\/+/, ''),
-          );
-          if (fs.existsSync(fallbackPath)) {
-            callback(fallbackPath);
-            return;
-          }
-          callback(requestedPath);
-        } catch (_e) {
-          // Best-effort: let Electron handle it.
-          callback(request.url);
+        const buildDir = path.join(__dirname, '..', 'build');
+        const fallbackPath = path.join(
+          buildDir,
+          requestedPath.replace(/^\/+/, ''),
+        );
+        if (fs.existsSync(fallbackPath)) {
+          callback(fallbackPath);
+          return;
         }
-      },
+        callback(requestedPath);
+      } catch (_e) {
+        // Best-effort: let Electron handle it.
+        callback(request.url);
+      }
+    };
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      localUnpackedFileProtocolInterceptor,
+    );
+    primePurchaseWebviewSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      localUnpackedFileProtocolInterceptor,
     );
   }
 
@@ -1412,6 +1434,8 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     applyDesktopNetworkThrottleToWebContents(contents);
     if (contents.getType() === 'webview') {
       const isOverlayWebview = contents.session === overlaySession;
+      const isPrimePurchaseWebview =
+        contents.session === primePurchaseWebviewSession;
       if (isOverlayWebview) {
         const guardOverlayPreNavigation = (
           navigationEvent: Electron.Event,
@@ -1425,6 +1449,12 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
         contents.on('will-navigate', guardOverlayPreNavigation);
       }
       contents.setWindowOpenHandler((handleDetails) => {
+        if (isPrimePurchaseWebview) {
+          if (isAllowedWebViewUrl(handleDetails.url)) {
+            void openExternalUrl(handleDetails.url);
+          }
+          return { action: 'deny' };
+        }
         const safelyMainWindow = getSafelyMainWindow();
         // Forward the source webContents id so renderer listeners can
         // distinguish overlay-route webviews (strict policy: https-only,
@@ -1522,9 +1552,6 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   // Stripe/Intercom scripts get their own storage, and the main process can
   // register the app-shell file:// resolver on it (see below). Deny every
   // permission by default, matching the shared webview policy.
-  const primePurchaseWebviewSession = session.fromPartition(
-    PRIME_PURCHASE_WEBVIEW_PARTITION,
-  );
   primePurchaseWebviewSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {
       callback(false);
@@ -1618,6 +1645,36 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
 
   const primeStripeRequestMonitor = createPrimeStripeRequestMonitor(
     () => getSafelyMainWindow()?.webContents,
+    (targetId) => {
+      const target = electronWebContents.fromId(targetId);
+      if (
+        target &&
+        !target.isDestroyed() &&
+        target.getType() === 'webview' &&
+        target.session === primePurchaseWebviewSession
+      ) {
+        return target;
+      }
+      return undefined;
+    },
+  );
+  primePurchaseWebviewSession.webRequest.onBeforeRequest(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.recordRequest(details);
+      callback({ cancel: false });
+    },
+  );
+  primePurchaseWebviewSession.webRequest.onErrorOccurred(
+    { urls: ['https://js.stripe.com/*'] },
+    (details) => primeStripeRequestMonitor.forgetRequest(details.id),
+  );
+  primePurchaseWebviewSession.webRequest.onHeadersReceived(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.receiveResponse(details);
+      callback({});
+    },
   );
   const isAllowedDevMainWindowScript = (requestUrl: URL) => {
     if (!isDev) {
@@ -1802,18 +1859,6 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     // guarded resolver there so the checkout can load the app shell and its
     // absolute-path assets from file:// (builtin bundle and OTA bundle alike).
     // Only this dedicated partition is affected.
-    try {
-      if (
-        primePurchaseWebviewSession.protocol.isProtocolIntercepted(PROTOCOL)
-      ) {
-        primePurchaseWebviewSession.protocol.uninterceptProtocol(PROTOCOL);
-      }
-    } catch (e) {
-      logger.warn(
-        'uninterceptProtocol failed for the prime purchase session',
-        e,
-      );
-    }
     primePurchaseWebviewSession.protocol.interceptFileProtocol(
       PROTOCOL,
       appShellFileProtocolInterceptor,

@@ -130,8 +130,10 @@ const AgentationDev =
 
 // Loaded only for the isolated Prime checkout <webview>. Keeping it lazy avoids
 // adding the checkout view to the main-window startup bundle budget.
-const PrimePurchaseWebEmbedApp = lazy(
-  () => import('./PrimePurchaseWebEmbedApp'),
+const PrimePurchaseWebEmbedApp = lazy(() =>
+  import('./PrimePurchaseWebEmbedApp').then((m) => ({
+    default: m.PrimePurchaseWebEmbedApp,
+  })),
 );
 
 const renderMode =

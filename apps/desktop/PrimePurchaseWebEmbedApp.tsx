@@ -16,11 +16,43 @@ import {
   beginStripePaymentElementAttempt,
   getStripePaymentElementState,
 } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/stripePaymentElementHealth';
-import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedPrivateRequestMethod,
+  PRIME_PURCHASE_CONSOLE_MESSAGE_PREFIX,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  ETranslations,
+  type ILocaleJSONSymbol,
+} from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  LOCALE_KEYS,
+  loadLocaleMessages,
+} from '@onekeyhq/shared/src/locale/localeLoaders';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+async function requestPrimePurchaseHost(payload: {
+  method: EWebEmbedPrivateRequestMethod;
+  params?: unknown;
+}) {
+  if (globalThis.$onekey?.$private?.request) {
+    await globalThis.$onekey.$private.request(payload);
+    return;
+  }
+  // In the isolated desktop <webview> (DesktopIsolatedWebView), no wallet
+  // preload or JsBridge is injected; emit the route-pinned UI event over the
+  // host's console-message listener.
+  // eslint-disable-next-line no-console
+  console.info(
+    `${PRIME_PURCHASE_CONSOLE_MESSAGE_PREFIX}${JSON.stringify({
+      scope: '$private',
+      data: payload,
+    })}`,
+  );
+}
+
 async function closeWebViewModal() {
-  await globalThis.$onekey.$private.request({
+  await requestPrimePurchaseHost({
     method: EWebEmbedPrivateRequestMethod.closeWebViewModal,
   });
 }
@@ -28,7 +60,7 @@ async function closeWebViewModal() {
 async function closeWebViewModalAfterPrimePurchaseSuccess(
   onekeyUserId: string,
 ) {
-  await globalThis.$onekey.$private.request({
+  await requestPrimePurchaseHost({
     method:
       EWebEmbedPrivateRequestMethod.closeWebViewModalAfterPrimePurchaseSuccess,
     params: { onekeyUserId },
@@ -42,7 +74,7 @@ async function showToast({
   title: string;
   message: string;
 }) {
-  await globalThis.$onekey.$private.request({
+  await requestPrimePurchaseHost({
     method: EWebEmbedPrivateRequestMethod.showToast,
     params: { title, message },
   });
@@ -91,7 +123,7 @@ async function fallbackToNativeHostedCheckout(params: {
     currency: params.currency,
     subscriptionPeriod: params.subscriptionPeriod,
   });
-  await globalThis.$onekey.$private.request({
+  await requestPrimePurchaseHost({
     method: EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout,
     params: { ...requestParams, purchasePackage },
   });
@@ -146,7 +178,7 @@ function Spinner() {
 // desktopApi / desktopApiBridge / $mmkvSync, so official Stripe.js and its
 // dynamically updated sub-scripts can load freely without exposing the wallet.
 // Query params are read from the URL hash by usePrimePaymentMethods.
-export default function PrimePurchaseWebEmbedApp() {
+export function PrimePurchaseWebEmbedApp() {
   const isRunning = useRef(false);
   const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
 
@@ -213,9 +245,26 @@ export default function PrimePurchaseWebEmbedApp() {
           // this page below instead of leaving the spinner up.
         }
       }
+      const resolvedLocale: ILocaleJSONSymbol =
+        locale && LOCALE_KEYS.includes(locale as ILocaleJSONSymbol)
+          ? (locale as ILocaleJSONSymbol)
+          : 'en-US';
+      try {
+        const messages = await loadLocaleMessages(resolvedLocale);
+        appLocale.setLocale(resolvedLocale, messages);
+      } catch {
+        // Fall back to the existing appLocale instance if loading fails.
+      }
       await showToast({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+        message:
+          error instanceof Error
+            ? error.message
+            : appLocale.intl.formatMessage({
+                id: ETranslations.global_unknown_error,
+              }),
       });
       await closeWebViewModal();
     } finally {

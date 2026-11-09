@@ -14,9 +14,20 @@ type IMmkvSyncArgs = {
 };
 
 let mockProfileDir = '';
+const mockMainFrame = {};
 const mockRegisterIpc = jest.fn<
   void,
-  [string, (event: { returnValue: unknown }, args: IMmkvSyncArgs) => void]
+  [
+    string,
+    (
+      event: {
+        returnValue: unknown;
+        sender?: { id: number; mainFrame?: unknown };
+        senderFrame?: unknown;
+      },
+      args: IMmkvSyncArgs,
+    ) => void,
+  ]
 >();
 
 jest.mock('electron', () => ({
@@ -40,6 +51,10 @@ const originalBridgeDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
   '$mmkvSync',
 );
+const originalMainAppFunctionsDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  '$desktopMainAppFunctions',
+);
 const devModeKey = EDevSettingSyncStorageKeys.onekey_developer_mode_enabled;
 const skipKey = EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification;
 
@@ -53,6 +68,17 @@ function loadRendererStorage() {
 function loadStorage() {
   jest.resetModules();
   mockRegisterIpc.mockClear();
+  Object.defineProperty(globalThis, '$desktopMainAppFunctions', {
+    configurable: true,
+    writable: true,
+    value: {
+      isTrustedMainWindowSender: (
+        senderId: number | undefined,
+        senderFrame?: unknown,
+        mainFrame?: unknown,
+      ) => senderId === 1 && senderFrame === mainFrame,
+    },
+  });
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./react-native-mmkv-desktop-main');
   const handler = mockRegisterIpc.mock.calls.find(
@@ -65,7 +91,15 @@ function loadStorage() {
     configurable: true,
     writable: true,
     value: (args: IMmkvSyncArgs) => {
-      const event: { returnValue: unknown } = { returnValue: undefined };
+      const event: {
+        returnValue: unknown;
+        sender: { id: number; mainFrame: unknown };
+        senderFrame: unknown;
+      } = {
+        returnValue: undefined,
+        sender: { id: 1, mainFrame: mockMainFrame },
+        senderFrame: mockMainFrame,
+      };
       handler(event, args);
       return event.returnValue;
     },
@@ -75,7 +109,7 @@ function loadStorage() {
   expect(mainStore.instance.path).toBe(
     path.join(mockProfileDir, 'OneKey.json'),
   );
-  return { rendererStorage: loadRendererStorage(), mainStore };
+  return { rendererStorage: loadRendererStorage(), mainStore, handler };
 }
 
 beforeEach(() => {
@@ -87,6 +121,15 @@ afterEach(() => {
     Object.defineProperty(globalThis, '$mmkvSync', originalBridgeDescriptor);
   } else {
     Reflect.deleteProperty(globalThis, '$mmkvSync');
+  }
+  if (originalMainAppFunctionsDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      '$desktopMainAppFunctions',
+      originalMainAppFunctionsDescriptor,
+    );
+  } else {
+    Reflect.deleteProperty(globalThis, '$desktopMainAppFunctions');
   }
   jest.resetModules();
   fs.rmSync(mockProfileDir, { recursive: true, force: true });
@@ -173,4 +216,23 @@ test('the tray renderer without a bridge reads an empty store without throwing',
   expect(rendererStorage.remove(skipKey)).toBe(false);
   expect(() => rendererStorage.clearAll()).not.toThrow();
   expect(fs.readdirSync(mockProfileDir)).toEqual([]);
+});
+
+test('rejects mmkv:sync IPC calls from untrusted webview or subframe senders', () => {
+  const { rendererStorage, mainStore, handler } = loadStorage();
+  rendererStorage.set(devModeKey, true);
+
+  const untrustedEvent = {
+    returnValue: 'initial' as unknown,
+    sender: { id: 99, mainFrame: mockMainFrame },
+    senderFrame: mockMainFrame,
+  };
+  handler(untrustedEvent, {
+    method: 'set',
+    id: 'onekey-app-dev-setting',
+    key: skipKey,
+    value: true,
+  });
+  expect(untrustedEvent.returnValue).toBeUndefined();
+  expect(mainStore.getSkipGPGVerification()).toBe(false);
 });

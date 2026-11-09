@@ -3,6 +3,7 @@
 import { act, render } from '@testing-library/react';
 
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -10,11 +11,25 @@ const mockConnectWebEmbedBridge = jest.fn((_bridge: unknown) => undefined);
 const mockMarkWebEmbedApiNotReady = jest.fn(async () => undefined);
 const mockJsBridge = { globalOnMessageEnabled: false };
 let mockWebViewProps: Record<string, unknown> | undefined;
+let mockIsolatedWebViewProps: Record<string, unknown> | undefined;
+let mockDevSettings: {
+  enabled: boolean;
+  settings: {
+    disableWebEmbedApi?: boolean;
+    enableTestEndpoint?: boolean;
+    useFaultyPrimeStripeJs?: boolean;
+  };
+} = { enabled: false, settings: {} };
 
 jest.mock('react-native', () => ({ NativeModules: {} }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true, isNativeIOS: true, isDev: false },
+  default: {
+    isNative: true,
+    isNativeIOS: true,
+    isDesktop: false,
+    isDev: false,
+  },
 }));
 jest.mock('@onekeyhq/kit/src//background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -25,12 +40,12 @@ jest.mock('@onekeyhq/kit/src//background/instance/backgroundApiProxy', () => ({
       markWebEmbedApiNotReady: () => mockMarkWebEmbedApiNotReady(),
     },
     serviceDevSetting: {
-      getDevSetting: async () => ({ settings: {} }),
+      getDevSetting: async () => mockDevSettings,
     },
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false, settings: {} }],
+  useDevSettingsPersistAtom: () => [mockDevSettings],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/settings', () => ({
   useSettingsPersistAtom: () => [{ instanceId: 'instance' }],
@@ -85,6 +100,18 @@ jest.mock('../WebView', () => ({
     return null;
   },
 }));
+jest.mock('../WebView/IsolatedWebView', () => ({
+  __esModule: true,
+  default: (
+    props: Record<string, unknown> & {
+      onWebViewRef: (ref: unknown) => void;
+    },
+  ) => {
+    mockIsolatedWebViewProps = props;
+    props.onWebViewRef({});
+    return null;
+  },
+}));
 
 async function mount(props: Parameters<typeof WebViewWebEmbed>[0]) {
   const view = render(<WebViewWebEmbed {...props} />);
@@ -100,10 +127,18 @@ beforeEach(() => {
   mockMarkWebEmbedApiNotReady.mockClear();
   mockJsBridge.globalOnMessageEnabled = false;
   mockWebViewProps = undefined;
+  mockIsolatedWebViewProps = undefined;
+  mockDevSettings = { enabled: false, settings: {} };
+  Object.assign(platformEnv, {
+    isNative: true,
+    isNativeIOS: true,
+    isDesktop: false,
+    isDev: false,
+  });
 });
 
 describe('WebViewWebEmbed bridge ownership', () => {
-  it('Prime purchase modal: keeps its handler and never touches the webEmbed bridge', async () => {
+  it('Prime purchase modal: keeps its handler and never touches the webEmbed or background bridge', async () => {
     const customReceiveHandler: IJsBridgeReceiveHandler = jest.fn();
     const view = await mount({
       hashRoutePath: '/prime/purchase' as never,
@@ -112,6 +147,7 @@ describe('WebViewWebEmbed bridge ownership', () => {
     });
     expect(mockWebViewProps?.customReceiveHandler).toBe(customReceiveHandler);
     expect(mockWebViewProps?.isWebEmbedChannel).toBe(false);
+    expect(mockWebViewProps?.skipBackgroundBridge).toBe(true);
     expect(mockJsBridge.globalOnMessageEnabled).toBe(true);
     expect(mockConnectWebEmbedBridge).not.toHaveBeenCalled();
 
@@ -127,10 +163,35 @@ describe('WebViewWebEmbed bridge ownership', () => {
       hashRoutePath: '/webembed/api' as never,
     });
     expect(mockWebViewProps?.isWebEmbedChannel).toBe(true);
+    expect(mockWebViewProps?.skipBackgroundBridge).toBe(false);
     expect(mockConnectWebEmbedBridge).toHaveBeenCalledWith(mockJsBridge);
 
     view.unmount();
     expect(mockMarkWebEmbedApiNotReady).toHaveBeenCalled();
     expect(mockConnectWebEmbedBridge).toHaveBeenLastCalledWith(null);
+  });
+
+  it('desktop Prime purchase modal: renders IsolatedWebView and forwards the faulty Stripe.js dev switch in src', async () => {
+    Object.assign(platformEnv, {
+      isNative: false,
+      isNativeIOS: false,
+      isDesktop: true,
+    });
+    mockDevSettings = {
+      enabled: true,
+      settings: { useFaultyPrimeStripeJs: true },
+    };
+    await mount({
+      hashRoutePath: '/prime/purchase' as never,
+      hashRouteQueryParams: { primeUserId: 'user' },
+    });
+    expect(mockWebViewProps).toBeUndefined();
+    expect(mockIsolatedWebViewProps).toBeDefined();
+    expect(String(mockIsolatedWebViewProps?.src)).toContain(
+      'render=prime-purchase',
+    );
+    expect(String(mockIsolatedWebViewProps?.src)).toContain(
+      'useFaultyPrimeStripeJs=1',
+    );
   });
 });

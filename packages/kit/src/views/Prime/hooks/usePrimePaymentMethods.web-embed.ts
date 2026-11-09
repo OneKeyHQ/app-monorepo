@@ -16,6 +16,7 @@ import {
   loadPurchasesSdkWeb,
   loadPurchasesSdkWebForEmbeddedPurchase,
 } from '../purchasesSdk/purchasesSdkWebLoader';
+import { purchaseWithStripeLoadingGuard } from '../purchasesSdk/purchaseWithStripeLoadingGuard';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -278,8 +279,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase =
-          await Purchases.getSharedInstance().purchase(purchaseParams);
+        const purchase = await purchaseWithStripeLoadingGuard(() =>
+          Purchases.getSharedInstance().purchase(purchaseParams),
+        );
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),

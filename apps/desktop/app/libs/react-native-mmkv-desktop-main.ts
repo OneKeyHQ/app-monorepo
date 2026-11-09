@@ -46,9 +46,9 @@ if (ipcMain) {
       // also rejects non-main frames and untrusted documents.
       if (
         !globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
-          event.sender.id,
+          event.sender?.id,
           event.senderFrame,
-          event.sender.mainFrame,
+          event.sender?.mainFrame,
         )
       ) {
         event.returnValue = undefined;

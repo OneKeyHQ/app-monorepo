@@ -16,6 +16,8 @@ export type IModalWebViewParamList = {
     disableBridge?: boolean;
     /** Internal support-session owner; null denotes anonymous support. */
     intercomUserId?: string | null;
+    /** Target Intercom conversation ID to open after the support session starts. */
+    intercomConversationId?: string;
     /**
      * Inject the full dApp session features (account/network change events on
      * top of the inpage provider every WebView already carries). Opt-in: the

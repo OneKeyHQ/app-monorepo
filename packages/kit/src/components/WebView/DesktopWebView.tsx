@@ -552,35 +552,12 @@ const DesktopWebView = forwardRef(
                 }
                 if (
                   originInUrl &&
+                  originInUrl !== 'null' &&
                   originInRequest &&
                   originInUrl === originInRequest
                 ) {
                   origin = originInRequest;
                   return true;
-                }
-                // Desktop production app shells are file:// pages. Chromium
-                // reports their origin as "null" (and the injected bridge can
-                // report "file://"), which the strict equality above rejects,
-                // so the isolated Prime checkout <webview> could never deliver
-                // its webembed private requests. Accept that pair only when
-                // BOTH the configured src and the loaded url point at the same
-                // local app shell document.
-                if (
-                  url.startsWith('file://') &&
-                  src?.startsWith('file://') &&
-                  (originInRequest === 'file://' || originInRequest === 'null')
-                ) {
-                  let isSameLocalAppShell = false;
-                  try {
-                    isSameLocalAppShell =
-                      new URL(url).pathname === new URL(src).pathname;
-                  } catch {
-                    isSameLocalAppShell = false;
-                  }
-                  if (isSameLocalAppShell) {
-                    origin = originInRequest;
-                    return true;
-                  }
                 }
                 return false;
               },

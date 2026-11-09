@@ -30,6 +30,7 @@ import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { GlobalJotaiReady } from '../GlobalJotaiReady/GlobalJotaiReady';
 import WebView from '../WebView';
+import IsolatedWebView from '../WebView/IsolatedWebView';
 
 // @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
 import injectedWebEmbedCode from './injectedWebEmbed.text-js';
@@ -228,6 +229,10 @@ export function WebViewWebEmbed({
     [hashRoutePath, hashRouteQueryParams],
   );
 
+  const useFaultyPrimeStripeJs = Boolean(
+    devSettingsPersistAtom.enabled &&
+    devSettingsPersistAtom.settings?.useFaultyPrimeStripeJs,
+  );
   // Desktop has no prebuilt web-embed bundle: the isolated checkout renders the
   // same app shell with `?render=prime-purchase`, which App.tsx lazily maps to
   // PrimePurchaseWebEmbedApp. The hash carries the checkout params, exactly
@@ -245,12 +250,17 @@ export function WebViewWebEmbed({
     try {
       const url = new URL(globalThis.location.href);
       url.searchParams.set('render', 'prime-purchase');
+      if (useFaultyPrimeStripeJs) {
+        url.searchParams.set('useFaultyPrimeStripeJs', '1');
+      } else {
+        url.searchParams.delete('useFaultyPrimeStripeJs');
+      }
       url.hash = fullHash;
       return url.href;
     } catch {
       return undefined;
     }
-  }, [fullHash, hashRoutePath]);
+  }, [fullHash, hashRoutePath, useFaultyPrimeStripeJs]);
 
   useEffect(() => {
     async function getApiKey() {
@@ -461,8 +471,14 @@ export function WebViewWebEmbed({
 
     defaultLogger.app.webembed.renderWebview();
 
+    // Desktop Prime checkout runs inside a bridge-free IsolatedWebView so it
+    // never injects the dApp preload or competes with Discovery dApp webviews
+    // for backgroundApiProxy.bridge.
+    const EmbeddedWebViewComponent =
+      !isSingleton && Boolean(desktopWebviewSrc) ? IsolatedWebView : WebView;
+
     return (
-      <WebView
+      <EmbeddedWebViewComponent
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
         allowingReadAccessToURL={iosAllowingReadAccessToURL}
@@ -489,6 +505,7 @@ export function WebViewWebEmbed({
           isSingleton ? handleSingletonReceive : customReceiveHandler
         }
         isWebEmbedChannel={!!isSingleton}
+        skipBackgroundBridge={!isSingleton}
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`

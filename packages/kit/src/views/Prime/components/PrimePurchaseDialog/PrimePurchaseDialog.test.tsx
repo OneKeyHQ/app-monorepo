@@ -143,6 +143,7 @@ const mockClearHostedPendingSession = jest.fn<Promise<boolean>, [unknown]>();
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
   isDev: false,
+  isDesktop: false,
   isNativeAndroid: false,
   isNativeAndroidGooglePlay: false,
   isNativeIOS: false,
@@ -316,6 +317,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isDev() {
       return mockPlatformEnv.isDev;
     },
+    get isDesktop() {
+      return mockPlatformEnv.isDesktop;
+    },
     get isNativeAndroid() {
       return mockPlatformEnv.isNativeAndroid;
     },
@@ -380,8 +384,9 @@ jest.mock('./PrimeSubscriptionPlans', () => ({
   PrimeSubscriptionPlans: () => null,
 }));
 
+const mockPurchaseByWebview = jest.fn(async () => undefined);
 jest.mock('./usePurchasePackageWebview', () => ({
-  usePurchasePackageWebview: () => jest.fn(async () => undefined),
+  usePurchasePackageWebview: () => mockPurchaseByWebview,
 }));
 
 const mockPurchaseByHostedLink = jest.fn(async () => undefined);
@@ -425,6 +430,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockRemoteLookup.mockResolvedValue({ authContext: mockAuthContext });
     mockValidateRemoteAuth.mockResolvedValue(true);
     mockPlatformEnv.isDev = false;
+    mockPlatformEnv.isDesktop = false;
     mockDevSettings.enabled = false;
     mockEnsurePrimePurchaseEligible.mockResolvedValue(true);
     mockPlatformEnv.isNativeAndroid = false;
@@ -1471,6 +1477,59 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(
         screen.queryByTestId('prime-card-hosted-checkout-icon'),
       ).toBeNull();
+    });
+
+    it('supports the isolated webview card checkout and hosted override on desktop', async () => {
+      mockPlatformEnv.isDesktop = true;
+
+      const view = await openPaymentMethodPicker();
+
+      expect(screen.queryByTestId('prime-payment-method-title')).not.toBeNull();
+      await act(async () => {
+        await getLatestCardRow()?.onPress?.();
+      });
+      expect(mockPurchaseByWebview).toHaveBeenCalledWith({
+        selectedSubscriptionPeriod: 'P1M',
+        currency: 'EUR',
+        featureName: undefined,
+      });
+      expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
+
+      view.unmount();
+      mockPurchaseByWebview.mockClear();
+      await openPaymentMethodPicker();
+      clickPaymentMethodTitle(10);
+      expect(
+        screen
+          .getByTestId('prime-card-hosted-checkout-icon')
+          .getAttribute('data-icon'),
+      ).toBe('ArrowTopRightOutline');
+      await act(async () => {
+        await getLatestCardRow()?.onPress?.();
+      });
+      expect(mockPurchaseByHostedLink).toHaveBeenCalledWith({
+        selectedSubscriptionPeriod: 'P1M',
+        currency: 'EUR',
+        featureName: undefined,
+      });
+      expect(mockPurchaseByWebview).not.toHaveBeenCalled();
+    });
+
+    it('opens the hosted Purchase Link on desktop when hosted mode is enabled', async () => {
+      mockPlatformEnv.isDesktop = true;
+      mockCardCheckoutMode = 'hostedLink';
+
+      await openPaymentMethodPicker();
+      await act(async () => {
+        await getLatestCardRow()?.onPress?.();
+      });
+
+      expect(mockPurchaseByHostedLink).toHaveBeenCalledWith({
+        selectedSubscriptionPeriod: 'P1M',
+        currency: 'EUR',
+        featureName: undefined,
+      });
+      expect(mockPurchaseByWebview).not.toHaveBeenCalled();
     });
 
     const selectCard = async () => {

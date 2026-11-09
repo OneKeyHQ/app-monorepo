@@ -100,4 +100,23 @@ describe('Prime Stripe HTTP failure monitor', () => {
     monitor.receiveResponse({ ...request, statusCode: 403 });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it('dispatches a CustomEvent into the isolated Prime checkout guest webview on 403', () => {
+    const executeJavaScript = jest.fn().mockResolvedValue(undefined);
+    const guestMonitor = createPrimeStripeRequestMonitor(
+      () => ({ id: mainId, send, isDestroyed }),
+      (targetId) =>
+        targetId === 42
+          ? { id: 42, isDestroyed: () => false, executeJavaScript }
+          : undefined,
+    );
+    const request = { id: 7, webContentsId: 42, url: paymentScript };
+    guestMonitor.recordRequest(request);
+    guestMonitor.receiveResponse({ ...request, statusCode: 403 });
+    expect(send).not.toHaveBeenCalled();
+    expect(executeJavaScript).toHaveBeenCalledTimes(1);
+    expect(String(executeJavaScript.mock.calls[0][0])).toContain(
+      EDesktopIpcChannel.PRIME_STRIPE_RESOURCE_FORBIDDEN,
+    );
+  });
 });

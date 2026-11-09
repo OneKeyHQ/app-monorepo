@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
@@ -8,7 +9,6 @@ import { Share } from 'react-native';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
-  Dialog,
   Page,
   Toast,
   YStack,
@@ -16,7 +16,10 @@ import {
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import WebView from '@onekeyhq/kit/src/components/WebView';
+import WebView, {
+  type IWebViewProps,
+} from '@onekeyhq/kit/src/components/WebView';
+import IsolatedWebView from '@onekeyhq/kit/src/components/WebView/IsolatedWebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
@@ -91,6 +94,7 @@ export default function WebViewModal() {
     enableDappBridge,
     disableBridge,
     intercomUserId,
+    intercomConversationId,
   } = route.params;
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
@@ -119,7 +123,7 @@ export default function WebViewModal() {
   const { copyText } = useClipboard();
   const intl = useIntl();
   const isPrimeCheckout = Boolean(
-    platformEnv.isNativeAndroid &&
+    (platformEnv.isNativeAndroid || platformEnv.isDesktop) &&
     !isPrimeStoreOnlyPayment() &&
     isWebEmbed &&
     hashRoutePath === EWebEmbedRoutePath.primePurchase,
@@ -161,14 +165,18 @@ export default function WebViewModal() {
         | IReactNativeWebView
         | undefined;
       webview?.injectJavaScript(
-        createIntercomSessionScript(token, supportOrigin),
+        createIntercomSessionScript(
+          token,
+          supportOrigin,
+          intercomConversationId,
+        ),
       );
     } catch {
       // The hosted page times out and offers a retry rather than opening
       // support without the session the user expects.
       console.warn('Failed to deliver Intercom session');
     }
-  }, [intercomUserId, supportOrigin, webviewRef]);
+  }, [intercomConversationId, intercomUserId, supportOrigin, webviewRef]);
 
   // Desktop guests cannot post a handshake to the host (no RN message bridge
   // and no extension MessageChannel), so the host injects the same session
@@ -177,21 +185,32 @@ export default function WebViewModal() {
   const desktopSupportTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const desktopSupportAttempts = useRef(0);
-  const desktopSupportScript = useRef<string | undefined>(undefined);
+  const desktopSupportGeneration = useRef(0);
   const deliverDesktopSupportSession = useCallback(() => {
     if (!platformEnv.isDesktop || intercomUserId === undefined) {
       return;
     }
+    if (desktopSupportTimer.current) {
+      clearTimeout(desktopSupportTimer.current);
+      desktopSupportTimer.current = undefined;
+    }
+    desktopSupportGeneration.current += 1;
+    const generation = desktopSupportGeneration.current;
     void (async () => {
-      desktopSupportScript.current ??= createIntercomSessionScript(
-        await getIntercomSessionToken(intercomUserId),
-        supportOrigin,
-      );
-      if (isUnmounting.current || supportSessionClosed.current) {
+      const token = await getIntercomSessionToken(intercomUserId);
+      if (
+        isUnmounting.current ||
+        supportSessionClosed.current ||
+        desktopSupportGeneration.current !== generation
+      ) {
         return;
       }
-      const script = desktopSupportScript.current;
+      const script = createIntercomSessionScript(
+        token,
+        supportOrigin,
+        intercomConversationId,
+      );
+      let attempts = 0;
       const inject = () => {
         const webview = webviewRef?.current?.innerRef as
           | IElectronWebView
@@ -199,18 +218,19 @@ export default function WebViewModal() {
         webview?.executeJavaScript(script);
       };
       const retry = () => {
-        if (isUnmounting.current || supportSessionClosed.current) {
+        if (
+          isUnmounting.current ||
+          supportSessionClosed.current ||
+          desktopSupportGeneration.current !== generation
+        ) {
           return;
         }
         inject();
-        if (desktopSupportAttempts.current >= 3) {
+        if (attempts >= 3) {
           return;
         }
-        desktopSupportAttempts.current += 1;
-        desktopSupportTimer.current = setTimeout(
-          retry,
-          800 * desktopSupportAttempts.current,
-        );
+        attempts += 1;
+        desktopSupportTimer.current = setTimeout(retry, 800 * attempts);
       };
       retry();
     })().catch(() => {
@@ -218,7 +238,7 @@ export default function WebViewModal() {
       // support without the session the user expects.
       console.warn('Failed to deliver Intercom session');
     });
-  }, [intercomUserId, supportOrigin, webviewRef]);
+  }, [intercomConversationId, intercomUserId, supportOrigin, webviewRef]);
   useEffect(
     () => () => {
       if (desktopSupportTimer.current) {
@@ -401,10 +421,21 @@ export default function WebViewModal() {
   );
   const webembedCustomReceiveHandler = useCallback(
     (payload: IJsBridgeMessagePayload) => {
-      // Guard against events after unmount started
-      if (isUnmounting.current) return;
+      // Guard against events after unmount started and pin strictly to the
+      // Prime purchase web-embed route and $private scope.
+      if (
+        isUnmounting.current ||
+        !isWebEmbed ||
+        hashRoutePath !== EWebEmbedRoutePath.primePurchase ||
+        (payload.scope !== undefined && payload.scope !== '$private')
+      ) {
+        return;
+      }
 
-      const data = payload.data as IJsonRpcRequest;
+      const data = payload.data as IJsonRpcRequest | undefined;
+      if (!data) {
+        return;
+      }
       if (data.method === EWebEmbedPrivateRequestMethod.closeWebViewModal) {
         popWebView();
       }
@@ -422,9 +453,7 @@ export default function WebViewModal() {
       }
       if (
         data.method ===
-          EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout &&
-        isWebEmbed &&
-        hashRoutePath === EWebEmbedRoutePath.primePurchase
+        EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout
       ) {
         void openPrimeHostedCheckout(data.params);
       }
@@ -438,15 +467,6 @@ export default function WebViewModal() {
         Toast.message({
           title: toastParams?.title || '',
           message: toastParams?.message || '',
-        });
-      }
-      if (
-        platformEnv.isDev &&
-        data.method === EWebEmbedPrivateRequestMethod.showDebugMessageDialog
-      ) {
-        const debugMessageDialogParams = data.params;
-        Dialog.debugMessage({
-          debugMessage: debugMessageDialogParams,
         });
       }
     },
@@ -551,9 +571,14 @@ export default function WebViewModal() {
     redirectExternalNavigation,
   ]);
 
-  // Same inpage provider either way; the wrapper only adds the account/network
-  // change notifications a live dApp session needs.
-  const WebViewComponent = enableDappBridge ? WebViewWithFeatures : WebView;
+  // Bridge-disabled pages (e.g. Intercom Support) use IsolatedWebView so they
+  // never load the dApp preload or compete for the shared background bridge.
+  let WebViewComponent: ComponentType<IWebViewProps> = WebView;
+  if (disableBridge) {
+    WebViewComponent = IsolatedWebView;
+  } else if (enableDappBridge) {
+    WebViewComponent = WebViewWithFeatures;
+  }
   const defaultHeaderRight = shouldHideWebViewHeaderRight({
     url: currentUrl,
     isWebEmbed,

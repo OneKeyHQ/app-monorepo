@@ -327,6 +327,7 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
           bridge: EIntercomBridge.Injected,
           instanceId,
           requestId: params?.requestId,
+          conversationId: params?.conversationId,
           languageOverride,
         });
         await assertIntercomUserUnchanged(userId);
@@ -342,6 +343,9 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
           redirectExternalNavigation: true,
           disableBridge: true,
           intercomUserId: userId,
+          ...(params?.conversationId
+            ? { intercomConversationId: params.conversationId }
+            : {}),
         });
         return true;
       });

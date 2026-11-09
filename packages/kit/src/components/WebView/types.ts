@@ -1,3 +1,7 @@
+import type { ComponentProps } from 'react';
+
+import type { Stack } from '@onekeyhq/components';
+
 import type {
   DidFailLoadEvent,
   DidStartNavigationEvent,
@@ -6,13 +10,22 @@ import type {
   PageTitleUpdatedEvent,
 } from './DesktopWebView';
 import type { ESiteMode } from '../../views/Discovery/types';
-import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
-import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
 import type {
+  IJsBridgeReceiveHandler,
+  InpageProviderWebViewProps as InpageWebViewProps,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type {
+  WebViewProps as RNWebViewProps,
+  WebViewMessageEvent,
+} from 'react-native-webview';
+import type {
+  ShouldStartLoadRequest,
   WebViewErrorEvent,
   WebViewHttpErrorEvent,
+  WebViewNavigation,
   WebViewNavigationEvent,
+  WebViewOpenWindowEvent,
   WebViewSharedProps,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -171,3 +184,43 @@ export type IElectronWebViewEvents = {
   onPageFaviconUpdated?: (e: PageFaviconUpdatedEvent) => void;
   onDomReady?: (e: Event) => void;
 };
+
+export interface IWebViewProps
+  extends IElectronWebViewEvents, Partial<RNWebViewProps> {
+  id?: string;
+  src?: string;
+  onSrcChange?: (src: string) => void;
+  openUrlInExt?: boolean;
+  onWebViewRef?: (ref: IWebViewRef | null) => void;
+  onNavigationStateChange?: (event: WebViewNavigation) => void;
+  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean;
+  allowpopups?: boolean;
+  allowsBackForwardNavigationGestures?: boolean;
+  containerProps?: ComponentProps<typeof Stack>;
+  customReceiveHandler?: IJsBridgeReceiveHandler;
+  nativeWebviewSource?: WebViewSource | undefined;
+  nativeInjectedJavaScriptBeforeContentLoaded?: string;
+  isSpinnerLoading?: boolean;
+  pullToRefreshEnabled?: boolean;
+  onContentLoaded?: () => void; // currently works in NativeWebView only
+  onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
+  androidLayerType?: 'none' | 'software' | 'hardware';
+  onLoadStart?: (event: WebViewNavigationEvent) => void;
+  onLoad?: (event: WebViewNavigationEvent) => void;
+  onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
+  onScroll?: IWebViewOnScroll;
+  displayProgressBar?: boolean;
+  onProgress?: (progress: number) => void;
+  webviewDebuggingEnabled?: boolean;
+  recreateOnContentProcessTerminate?: boolean | (() => void);
+  siteMode?: ESiteMode;
+  originWhitelist?: string[];
+  onMessage?: RNWebViewProps['onMessage'];
+  useGeckoView?: boolean;
+  useInjectedNativeCode?: boolean;
+  mediaPermissionWhitelist?: string[];
+  disableBridge?: boolean;
+  skipBackgroundBridge?: boolean;
+  isWebEmbedChannel?: boolean;
+  partition?: string;
+}

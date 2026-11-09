@@ -296,4 +296,33 @@ describe('desktop Intercom identity ownership', () => {
     await opening;
     expect(mockSdk.show).not.toHaveBeenCalled();
   });
+
+  it('forwards conversationId to the desktop support webview when opening a notification', async () => {
+    jest.resetModules();
+    const mockOpenUrlInApp = jest.fn();
+    jest.doMock('../../platformEnv', () => ({
+      __esModule: true,
+      default: { isDesktop: true },
+    }));
+    jest.doMock('../../utils/openUrlUtils', () => ({
+      __esModule: true,
+      default: { openUrlInApp: mockOpenUrlInApp },
+    }));
+    const desktopSubject = await import('.');
+    await desktopSubject.showIntercom({
+      requestId: 'req-1',
+      conversationId: 'conv-321',
+    });
+    expect(mockOpenUrlInApp).toHaveBeenCalledWith(
+      'https://intercom.onekey.so/?instanceId=test-instance&requestId=req-1&conversationId=conv-321&language_override=en#bridge=injected-v1',
+      'Support',
+      {
+        hideHeaderRight: true,
+        redirectExternalNavigation: true,
+        disableBridge: true,
+        intercomUserId: 'A',
+        intercomConversationId: 'conv-321',
+      },
+    );
+  });
 });
