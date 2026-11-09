@@ -4,9 +4,35 @@ import {
   isOneKeyIdFeatureRequest,
   isPrimeBannedAccountRecoveryRequest,
   isPrimeUserBannedError,
+  isPrimeUserBannedMockEnabled,
+  isPrimeUserBannedMockError,
 } from './primeUserBanned';
 
 describe('Prime account restrictions', () => {
+  test.each([
+    [true, true, true, true, true],
+    [false, true, true, true, false],
+    [true, false, true, true, false],
+    [true, true, false, true, false],
+    [true, true, true, false, false],
+  ])(
+    'limits the offline mock to desktop development (%s/%s/%s/%s)',
+    (isDev, isDesktop, enabled, mockPrimeUserBanned, expected) => {
+      expect(
+        isPrimeUserBannedMockEnabled(
+          { enabled, settings: { mockPrimeUserBanned } },
+          { isDev, isDesktop },
+        ),
+      ).toBe(expected);
+      expect(
+        isPrimeUserBannedMockError(
+          { data: { primeUserBannedMock: true } },
+          { isDev, isDesktop },
+        ),
+      ).toBe(isDev && isDesktop);
+    },
+  );
+
   it('limits OneKey ID services while preserving ordinary wallet requests', () => {
     expect(
       isOneKeyIdFeatureRequest(

@@ -17,11 +17,14 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   PRIME_USER_BANNED_CODE,
   isOneKeyIdFeatureRequest,
   isPrimeBannedAccountRecoveryRequest,
   isPrimeUserBannedError,
+  isPrimeUserBannedMockEnabled,
+  isPrimeUserBannedMockError,
 } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import {
   stashOneKeyIdRequestContext,
@@ -70,6 +73,20 @@ export default class ServiceBase {
   getRawDataClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));
 
+  protected async isPrimeUserBannedMockActive() {
+    if (!platformEnv.isDev || !platformEnv.isDesktop) return false;
+    return isPrimeUserBannedMockEnabled(
+      await devSettingsPersistAtom.get(),
+      platformEnv,
+    );
+  }
+
+  protected createPrimeUserBannedMockError() {
+    const error = new OneKeyErrorPrimeUserBanned();
+    error.data = { primeUserBannedMock: true };
+    return error;
+  }
+
   getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
     if (!_oneKeyIdAuthClientsMap[name]) {
       // Use a dedicated client instance so the auth/prime interceptors below
@@ -91,6 +108,10 @@ export default class ServiceBase {
             authStateGeneration,
             requestUrl: config.url,
           });
+          // Mock mode never sends identity, OTP or account-deletion requests.
+          if (await this.isPrimeUserBannedMockActive()) {
+            throw this.createPrimeUserBannedMockError();
+          }
           if (
             user.isOneKeyIdBanned &&
             !isPrimeBannedAccountRecoveryRequest(config)
@@ -171,6 +192,7 @@ export default class ServiceBase {
           // check invalid token and logout
           const errorCode: number | undefined = errorData?.data?.code;
           if (isPrimeUserBannedError(error)) {
+            if (isPrimeUserBannedMockError(error, platformEnv)) throw error;
             const failedConfig = (
               error as { config?: InternalAxiosRequestConfig }
             ).config;

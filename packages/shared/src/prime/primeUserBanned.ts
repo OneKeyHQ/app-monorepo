@@ -1,13 +1,60 @@
 import { EPrimeEmailOTPScene } from '../consts/primeConsts';
-import { ETranslationsMock } from '../locale/enum/translationsMock';
+import { ETranslations } from '../locale/enum/translations';
+
+import type { IPrimeUserInfo } from '../../types/prime/primeTypes';
 
 export const PRIME_USER_BANNED_CODE = 90_012;
 
-// The descriptor also works before the next generated locale catalog pull.
 export const primeUserBannedMessage = {
-  id: ETranslationsMock.error__service_prime_user_banned_error,
+  id: ETranslations.error__service_prime_user_banned_error,
   defaultMessage: 'This account has been banned.',
 };
+
+export function getLoggedInOneKeyIdUserId(
+  user: Pick<
+    IPrimeUserInfo,
+    'isLoggedIn' | 'isLoggedInOnServer' | 'onekeyUserId'
+  >,
+) {
+  return user.isLoggedIn && user.isLoggedInOnServer
+    ? user.onekeyUserId
+    : undefined;
+}
+
+type IPrimeUserBannedMockEnvironment = {
+  isDev?: boolean;
+  isDesktop?: boolean;
+};
+
+// Keep error definitions independent of platform initialization and its imports.
+export function isPrimeUserBannedMockEnabled(
+  devSettings:
+    | {
+        enabled?: boolean;
+        settings?: { mockPrimeUserBanned?: boolean };
+      }
+    | undefined,
+  environment: IPrimeUserBannedMockEnvironment,
+) {
+  return Boolean(
+    environment.isDev &&
+    environment.isDesktop &&
+    devSettings?.enabled === true &&
+    devSettings.settings?.mockPrimeUserBanned === true,
+  );
+}
+
+export function isPrimeUserBannedMockError(
+  error: unknown,
+  environment: IPrimeUserBannedMockEnvironment,
+) {
+  return Boolean(
+    environment.isDev &&
+    environment.isDesktop &&
+    (error as { data?: { primeUserBannedMock?: boolean } } | null)?.data
+      ?.primeUserBannedMock,
+  );
+}
 
 export function isPrimeUserBannedError(error: unknown): boolean {
   const value = error as {

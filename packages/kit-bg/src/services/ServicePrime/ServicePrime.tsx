@@ -43,7 +43,11 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
-import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isPrimeUserBannedError,
+  isPrimeUserBannedMockError,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 import type { IOneKeyIdRequestContext } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -1367,6 +1371,9 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async assertOneKeyIdNotBanned() {
+    if (await this.isPrimeUserBannedMockActive()) {
+      throw this.createPrimeUserBannedMockError();
+    }
     if ((await primePersistAtom.get()).isOneKeyIdBanned) {
       throw new OneKeyErrorPrimeUserBanned();
     }
@@ -3039,6 +3046,7 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async isLegacyOneKeyIdOAuthBindRequired(): Promise<boolean> {
+    if (await this.isPrimeUserBannedMockActive()) return false;
     if ((await primePersistAtom.get()).isOneKeyIdBanned) {
       return false;
     }
@@ -4758,12 +4766,18 @@ class ServicePrime extends ServiceBase {
       serverUserInfoRequest,
     ]);
 
-    const bannedResult = [profileResult, serverUserInfoResult].find(
+    const bannedResults = [profileResult, serverUserInfoResult].filter(
       (result): result is PromiseRejectedResult =>
         result.status === 'rejected' && isPrimeUserBannedError(result.reason),
     );
+    const bannedResult =
+      bannedResults.find(
+        (result) => !isPrimeUserBannedMockError(result.reason, platformEnv),
+      ) ?? bannedResults[0];
     if (bannedResult) {
-      await this.handlePrimeUserBanned({ requestAuthToken, requestContext });
+      if (!isPrimeUserBannedMockError(bannedResult.reason, platformEnv)) {
+        await this.handlePrimeUserBanned({ requestAuthToken, requestContext });
+      }
       throw bannedResult.reason;
     }
 
@@ -5419,6 +5433,7 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async isPrimeSubscriptionActive() {
+    if (await this.isPrimeUserBannedMockActive()) return false;
     if (!(await this.isLoggedIn())) {
       return false;
     }

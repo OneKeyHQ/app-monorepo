@@ -1,65 +1,18 @@
 import type { ComponentType, ReactNode } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Button,
-  Page,
-  SizableText,
-  YStack,
-  resetPrimeModal,
-} from '@onekeyhq/components';
-import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { primeUserBannedMessage } from '@onekeyhq/shared/src/prime/primeUserBanned';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedMockEnabled } from '@onekeyhq/shared/src/prime/primeUserBanned';
 
-function PrimeBannedAccount() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const logout = useConfirmOneKeyIdLogout({
-    reason: 'Banned OneKey ID logout',
-    onSuccess: resetPrimeModal,
-  });
-
-  return (
-    <Page>
-      <Page.Header title="OneKey ID" headerShown />
-      <Page.Body>
-        <YStack p="$5" gap="$5">
-          <SizableText>
-            {intl.formatMessage(primeUserBannedMessage)}
-          </SizableText>
-          <Button
-            testID="prime-banned-delete-account-btn"
-            variant="destructive"
-            onPress={() =>
-              navigation.pushModal(EModalRoutes.PrimeModal, {
-                screen: EPrimePages.PrimeDeleteAccount,
-              })
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.id_delete_onekey_id })}
-          </Button>
-          <Button
-            testID="prime-banned-logout-btn"
-            variant="tertiary"
-            onPress={logout}
-          >
-            {intl.formatMessage({ id: ETranslations.prime_log_out })}
-          </Button>
-        </YStack>
-      </Page.Body>
-    </Page>
-  );
-}
+const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
 
 export function PrimeAccountGuard({ children }: { children: ReactNode }) {
   const [user] = usePrimePersistAtom();
-  return user.isOneKeyIdBanned ? <PrimeBannedAccount /> : children;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isMock = isPrimeUserBannedMockEnabled(devSettings, platformEnv);
+  return user.isOneKeyIdBanned || isMock ? <OneKeyId /> : children;
 }
 
 export function withPrimeAccountGuard<P extends object>(

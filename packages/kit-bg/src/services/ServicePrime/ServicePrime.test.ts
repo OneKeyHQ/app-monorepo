@@ -9164,6 +9164,37 @@ describe('ServicePrime banned OneKey ID', () => {
 
   const requestContext = { onekeyUserId: 'user-a', authStateGeneration: 7 };
 
+  it('does not persist a local mock restriction when both profile requests reject', async () => {
+    jest.replaceProperty(platformEnv, 'isDev', true);
+    jest.replaceProperty(platformEnv, 'isDesktop', true);
+    const { service } = setup();
+    const error = new OneKeyErrorPrimeUserBanned();
+    error.data = { primeUserBannedMock: true };
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async () => {
+        throw error;
+      }),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBe(error);
+    expect(user.isOneKeyIdBanned).toBeUndefined();
+  });
+
+  it('preserves a real server ban alongside a concurrent mock restriction', async () => {
+    jest.replaceProperty(platformEnv, 'isDev', true);
+    jest.replaceProperty(platformEnv, 'isDesktop', true);
+    const { service } = setup();
+    const mockError = new OneKeyErrorPrimeUserBanned();
+    mockError.data = { primeUserBannedMock: true };
+    const serverError = new OneKeyErrorPrimeUserBanned();
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        throw url === '/prime/v1/account/profile' ? mockError : serverError;
+      }),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBe(serverError);
+    expect(user.isOneKeyIdBanned).toBe(true);
+  });
+
   it('persists the restriction while retaining login, subscription data and wallet ownership', async () => {
     const { service, simpleDbPrime, backgroundApi } = setup();
     await service.handlePrimeUserBanned({

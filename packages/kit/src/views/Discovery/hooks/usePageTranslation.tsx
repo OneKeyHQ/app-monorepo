@@ -29,10 +29,12 @@ import {
 import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { primeUserBannedMessage } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
   createPrimeFreeTrialAttempt,
@@ -571,11 +573,8 @@ export function usePageTranslation(tabId: string) {
   const userRef = useRef(user);
   userRef.current = user;
   const showAccountBanned = useCallback(() => {
-    Toast.error({
-      toastId: 'discovery-account-banned',
-      title: intl.formatMessage(primeUserBannedMessage),
-    });
-  }, [intl]);
+    errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
+  }, []);
   const handleAccountBanned = useCallback(() => {
     setIsTranslated(false);
     showAccountBanned();
@@ -814,9 +813,13 @@ export function usePageTranslation(tabId: string) {
         reason: (error as Error | undefined)?.message,
       });
       if (!(error as { autoToast?: boolean } | undefined)?.autoToast) {
-        Toast.error({
-          title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
-        });
+        if (isPrimeUserBannedError(error)) {
+          showAccountBanned();
+        } else {
+          Toast.error({
+            title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
+          });
+        }
       }
       return false;
     }

@@ -61,6 +61,13 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [
+    {
+      ...mockUser,
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+    },
+  ],
   usePrimeFreeTrialAtom: () => [
     { config: { status: 'idle' }, quota: { status: 'idle' } },
   ],
@@ -161,7 +168,8 @@ describe('Prime entry ban feedback through the real toast pipeline', () => {
       expect(mockToastError).toHaveBeenCalledTimes(1);
       expect(mockToastError).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: primeUserBannedMessage.defaultMessage,
+          title: 'OneKeyID',
+          message: primeUserBannedMessage.defaultMessage,
           toastId: '90012',
         }),
       );

@@ -37,9 +37,7 @@ const PrimeTransfer = LazyLoadPage(() => import('../pages/PagePrimeTransfer'));
 const PrimeTransferPreview = LazyLoadPage(
   () => import('../pages/PagePrimeTransfer/PagePrimeTransferPreview'),
 );
-const OneKeyId = withPrimeAccountGuard(
-  LazyLoadPage(() => import('../pages/OneKeyId')),
-);
+const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
 const OneKeyIdProfileEdit = withPrimeAccountGuard(
   LazyLoadPage(() => import('../pages/OneKeyId/ProfileEditPage')),
 );

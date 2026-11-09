@@ -5,6 +5,7 @@ import {
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
@@ -20,6 +21,10 @@ const mockHandleBanned = jest.fn(async () => undefined);
 const mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
 const mockReadPrimeUser = jest.fn(async () => mockUser);
 const mockReadAuthGeneration = jest.fn(async () => 7);
+const mockDevSettings = {
+  enabled: false,
+  settings: { mockPrimeUserBanned: false },
+};
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -34,7 +39,7 @@ jest.mock('../endpoints', () => ({
 }));
 jest.mock('../states/jotai/atoms/devSettings', () => ({
   devSettingsPersistAtom: {
-    get: async () => ({ enabled: false, settings: {} }),
+    get: async () => mockDevSettings,
   },
 }));
 jest.mock('../states/jotai/atoms/prime', () => ({
@@ -133,7 +138,11 @@ describe('OneKey ID client through global and service interceptors', () => {
     mockUser.isOneKeyIdBanned = false;
     mockReadPrimeUser.mockReset().mockResolvedValue(mockUser);
     mockReadAuthGeneration.mockReset().mockResolvedValue(7);
+    mockDevSettings.enabled = false;
+    mockDevSettings.settings.mockPrimeUserBanned = false;
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   function respondWith(status: number, code: number) {
     const adapter = jest.fn(async (config: InternalAxiosRequestConfig) => {
@@ -158,6 +167,53 @@ describe('OneKey ID client through global and service interceptors', () => {
     client.defaults.adapter = adapter;
     return adapter;
   }
+
+  describe('offline desktop mock', () => {
+    beforeEach(() => {
+      jest.replaceProperty(platformEnv, 'isDev', true);
+      jest.replaceProperty(platformEnv, 'isDesktop', true);
+      mockDevSettings.enabled = true;
+      mockDevSettings.settings.mockPrimeUserBanned = true;
+    });
+
+    test.each([
+      '/prime/v1/user/devices',
+      '/prime/v1/user/delete',
+      '/prime/v1/user/logout',
+      '/prime/v1/general/emailOTP',
+      '/prime/v1/account/oauth/login',
+      '/rebate/v1/user/info',
+      '/wallet/v1/account/transaction/export-task/create',
+    ])(
+      'rejects %s without a request or a real restriction update',
+      async (url) => {
+        const adapter = respondWith(200, 0);
+        await expect(client.post(url)).rejects.toMatchObject({
+          code: 90_012,
+          data: { primeUserBannedMock: true },
+        });
+        expect(adapter).not.toHaveBeenCalled();
+        expect(mockHandleBanned).not.toHaveBeenCalled();
+        expect(mockUser.isOneKeyIdBanned).toBe(false);
+      },
+    );
+
+    it('preserves independent wallet requests and restores requests when disabled', async () => {
+      const adapter = respondWith(200, 0);
+      await client.get('/wallet/v1/account/transaction/history');
+      mockDevSettings.settings.mockPrimeUserBanned = false;
+      await client.get('/prime/v1/user/info');
+      expect(adapter).toHaveBeenCalledTimes(2);
+      expect(mockUser.isOneKeyIdBanned).toBe(false);
+    });
+
+    it('ignores a persisted mock setting in production', async () => {
+      jest.replaceProperty(platformEnv, 'isDev', false);
+      const adapter = respondWith(200, 0);
+      await client.get('/prime/v1/user/info');
+      expect(adapter).toHaveBeenCalledTimes(1);
+    });
+  });
 
   test.each([
     [200, true],

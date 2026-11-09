@@ -23,6 +23,7 @@ const mockShowFreeTrialNoticeToast = jest.fn();
 const mockShowActiveRejectedFeedback = jest.fn();
 const mockToastMessage = jest.fn();
 const mockToastError = jest.fn();
+const mockShowBannedError = jest.fn<void, [unknown]>();
 const mockIsLoggedIn = jest.fn();
 const mockEnsureFeatureAccess = jest.fn();
 let mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
@@ -45,6 +46,13 @@ jest.mock('@onekeyhq/components', () => ({
     error: (...args: unknown[]) => {
       mockToastError(...args);
     },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: {
+    showToastOfError: (error: unknown) => mockShowBannedError(error),
   },
 }));
 
@@ -202,9 +210,9 @@ describe('usePageTranslation free-trial pause', () => {
       });
       expect(mockStartTranslate).not.toHaveBeenCalled();
       expect(mockIsLoggedIn).not.toHaveBeenCalled();
-      expect(mockToastError).toHaveBeenCalledTimes(1);
-      expect(mockToastError).toHaveBeenCalledWith(
-        expect.objectContaining({ toastId: 'discovery-account-banned' }),
+      expect(mockShowBannedError).toHaveBeenCalledTimes(1);
+      expect(mockShowBannedError).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 90_012, autoToast: true }),
       );
     },
   );
@@ -221,7 +229,7 @@ describe('usePageTranslation free-trial pause', () => {
       mockOnAccountBanned?.();
     });
     expect(result.current.isTranslated).toBe(false);
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockShowBannedError).toHaveBeenCalledTimes(1);
     expect(mockShowFreeTrialNoticeToast).not.toHaveBeenCalled();
   });
 
@@ -235,7 +243,7 @@ describe('usePageTranslation free-trial pause', () => {
     rerender();
     expect(mockRestoreOriginal).toHaveBeenCalledTimes(1);
     expect(result.current.isTranslated).toBe(false);
-    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockShowBannedError).not.toHaveBeenCalled();
   });
 
   it('stops a running translation when another request discovers the ban', async () => {
@@ -248,7 +256,7 @@ describe('usePageTranslation free-trial pause', () => {
     rerender();
     expect(mockRestoreOriginal).toHaveBeenCalledTimes(1);
     expect(result.current.isTranslated).toBe(false);
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockShowBannedError).toHaveBeenCalledTimes(1);
   });
 
   it('rechecks a ban discovered while the access check was pending', async () => {
@@ -267,7 +275,7 @@ describe('usePageTranslation free-trial pause', () => {
       await flush();
     });
     expect(mockStartTranslate).not.toHaveBeenCalled();
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockShowBannedError).toHaveBeenCalledTimes(1);
   });
 
   it('allows the initial login opened by the translate press to complete', async () => {
