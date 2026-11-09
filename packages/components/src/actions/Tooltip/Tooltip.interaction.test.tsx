@@ -42,7 +42,7 @@ jest.mock('@floating-ui/dom', () => ({
     update();
     return jest.fn();
   }),
-  computePosition: jest.fn(async () => ({ x: 10, y: 20 })),
+  computePosition: jest.fn(async () => ({ x: 10, y: 20, placement: 'top' })),
   flip: () => ({}),
   offset: jest.fn(() => ({})),
   shift: () => ({}),
@@ -50,6 +50,7 @@ jest.mock('@floating-ui/dom', () => ({
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OVERLAY_LEVEL_ORDER: { modal: 0 },
+  getAnchoredTransformOrigin: () => 'center bottom',
   useNestedOverlayLevel: () => 'modal',
   OverlayView: ({
     visible,
