@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useIsFocused, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { AccessibilityInfo } from 'react-native';
 import Animated, {
@@ -185,10 +185,13 @@ function HeadlessBuyOrderDetailPage() {
 
   // A status that changes while the page is open (the poll above) is
   // announced: a VoiceOver user doesn't see the badge flip. The status the
-  // page opens with is not — it is read with the page.
+  // page opens with is not — it is read with the page. Order updates still
+  // arrive while another screen covers this one; nothing is read over that
+  // screen, and a status that changed meanwhile is read once the page is back.
+  const isFocused = useIsFocused();
   const announcedStatusRef = useRef(order?.status);
   useEffect(() => {
-    if (!order) {
+    if (!order || !isFocused) {
       return;
     }
     const previous = announcedStatusRef.current;
@@ -208,7 +211,7 @@ function HeadlessBuyOrderDetailPage() {
           )}`
         : statusLabel,
     );
-  }, [order, intl]);
+  }, [order, intl, isFocused]);
 
   const now = Date.now();
   const sentenceId = order
