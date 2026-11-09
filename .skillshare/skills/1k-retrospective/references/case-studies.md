@@ -1390,9 +1390,9 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
 **Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
 
-## Case: Private account setup and receive prompts stayed in English (OK-66546, OK-66560)
-**Date**: 2026-11-06 | **Platforms**: Desktop/Web single JS runtime and iOS/Android/extension main UI. Bundled locale messages are loaded in the UI runtime; background scanning and native resources are unchanged.
-**Symptom**: Changing the App language left private-account enablement, sync-start choices, invalid-height feedback and the receive prompt in English.
-**Root Cause**: The UI still referenced temporary English mock messages and default-message fallbacks instead of formal keys in the bundled locale catalogs.
-**Fix**: Created 9 keys in all 19 locales through the approved Monorepo v5 Lokalise workflow, reused the existing full-sync explanation, and replaced mock references throughout setup, receive, account management, recovery controls and UI preview. Generated catalogs and enums come from the official pull; no generated translation was edited manually. A real react-intl regression verifies language switching, preserved sync-start selection and localized invalid-height errors. Native layout acceptance remains a manual check.
-**Catchable by**: Sections 4 and 6: Trace source keys through the bundled locale loader to rendered UI, and test a language change using real catalogs rather than a formatter mock that only returns IDs.
+## Case: Wallet selector positioned only against its first viewport (OK-64041)
+**Date**: 2026-11-09 | **Platforms**: Desktop/Web single JS runtime; mobile selector UI main with a native list instance per view. Background initialization and wallet-data ownership are unchanged.
+**Symptom**: The selected last wallet could be outside the visible list after the selector's measured viewport shrank following its first positioning request.
+**Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
+**Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
+**Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.
