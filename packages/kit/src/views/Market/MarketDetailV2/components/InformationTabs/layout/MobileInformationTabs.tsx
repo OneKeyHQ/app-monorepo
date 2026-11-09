@@ -51,8 +51,13 @@ import { StickyHeader } from './StickyHeader';
 
 import type { IMarketMobileDetailKind } from '../../../utils/marketMobileDetailKind';
 
-function getStockStickyHeaderHeight(tabKey: string) {
-  return tabKey === 'portfolio' ? 89 : 45;
+function getStickyHeaderHeight(tabKey: string) {
+  // Reserve the destination's column header before iOS displays its list.
+  return tabKey === 'transactions' ||
+    tabKey === 'portfolio' ||
+    tabKey === 'holders'
+    ? 89
+    : 45;
 }
 
 function MobileInformationTabsHeader({
@@ -395,8 +400,8 @@ export function MobileInformationTabs({
     ) : null;
   }
 
-  const initialStickyHeight = getStockStickyHeaderHeight(
-    preferPosition ? 'portfolio' : '',
+  const initialStickyHeight = getStickyHeaderHeight(
+    preferPosition ? 'portfolio' : 'overview',
   );
   return (
     <MarketDetailPager
@@ -406,7 +411,7 @@ export function MobileInformationTabs({
         initialHeaderHeight === undefined ? undefined : initialStickyHeight
       }
       getStickyHeaderHeight={
-        detailKind === 'stock' ? getStockStickyHeaderHeight : undefined
+        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
       }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       scrollEnabled={scrollEnabled}

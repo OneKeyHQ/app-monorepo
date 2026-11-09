@@ -24618,6 +24618,7 @@
     "packages/kit/src/views/FiatCrypto/components/Headless/BuyActionZone.tsx": 8571,
     "packages/kit/src/views/FiatCrypto/components/Headless/CheckoutInfoCard.tsx": 18795,
     "packages/kit/src/views/FiatCrypto/components/Headless/DetailRow.tsx": 21577,
+    "packages/kit/src/views/FiatCrypto/components/Headless/FeeRow.tsx": 2418,
     "packages/kit/src/views/FiatCrypto/components/Headless/OrderListItem.tsx": 1326,
     "packages/kit/src/views/FiatCrypto/components/Headless/OrderStatusBadge.tsx": 4656,
     "packages/kit/src/views/FiatCrypto/components/Headless/OrdersBanner.tsx": 8417,

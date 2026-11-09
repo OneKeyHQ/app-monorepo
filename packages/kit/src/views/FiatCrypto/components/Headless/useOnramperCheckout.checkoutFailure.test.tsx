@@ -6,6 +6,14 @@ import { act, renderHook } from '@testing-library/react';
 const mockListeners = new Map<string, (event: IOnramperEvent) => void>();
 const mockCheckoutFailed = jest.fn();
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    getLocale: () => 'en-US',
+    // Message ids stand in for copy: these tests check which line is shown.
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
   ...jest.requireActual<
     typeof import('@onekeyhq/shared/src/modules3rdParty/onramper/utils')
@@ -122,7 +130,9 @@ describe('useOnramperCheckout checkout failures', () => {
     );
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.errorCode).toBe('paymentFailed');
-    expect(result.current.errorMessage).toContain('Payment failed');
+    expect(result.current.errorMessage).toContain(
+      'buy_error_payment_failed__msg',
+    );
     // A definite failure: the user may retry in place.
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
     // The log keeps what the SDK said, plus the page reason behind it.
@@ -147,7 +157,9 @@ describe('useOnramperCheckout checkout failures', () => {
     expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx2', 'providerFailed');
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.errorCode).toBe('providerFailed');
-    expect(result.current.errorMessage).toContain('Payment status unknown');
+    expect(result.current.errorMessage).toContain(
+      'buy_error_payment_unknown__msg',
+    );
     expect(result.current.unknownOutcomeTransactionId).toBe('tx2');
     expect(mockCheckoutFailed.mock.calls[0][0].providerReason).toBeUndefined();
   });
@@ -194,9 +206,10 @@ describe('useOnramperCheckout checkout failures', () => {
     act(() => result.current.refreshQuote());
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
 
-    // What fails from here on is shown again.
+    // The checkout it left is spent: a late failure of it is logged, not
+    // shown over whatever the page prepares next.
     emit('failed', { transactionId: 'tx2', errorCode: 'networkError' });
-    expect(result.current.errorCode).toBe('networkError');
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
   });
 
@@ -215,7 +228,9 @@ describe('useOnramperCheckout checkout failures', () => {
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.unknownOutcomeTransactionId).toBe('tx2');
     expect(result.current.errorCode).toBe('providerFailed');
-    expect(result.current.errorMessage).toContain('Payment status unknown');
+    expect(result.current.errorMessage).toContain(
+      'buy_error_payment_unknown__msg',
+    );
     // Logged, and marked as not shown.
     expect(mockCheckoutFailed).toHaveBeenLastCalledWith(
       expect.objectContaining({
