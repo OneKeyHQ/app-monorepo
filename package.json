@@ -416,7 +416,7 @@
     "markdown-it": "14.3.1",
     "metro": "0.87.1",
     "node-notifier": "^10.0.1",
-    "oxc-parser": "0.157.0",
+    "oxc-parser": "0.156.0",
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
     "oxlint-plugin-cspell": "0.1.0",
