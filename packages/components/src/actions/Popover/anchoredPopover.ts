@@ -189,7 +189,8 @@ export function useOutsidePress({
 /**
  * Hover-driven open state: entering the trigger opens after the open delay,
  * leaving the trigger or the panel closes after the close delay unless the
- * pointer enters the other one first.
+ * pointer enters the other one first. Returns a cancellation callback for
+ * explicit trigger presses.
  */
 export function useHoverOpen({
   hoverable,
@@ -215,9 +216,23 @@ export function useHoverOpen({
       timerRef.current = undefined;
     }
   }, []);
+  // A committed close supersedes earlier hover requests; reentry gets a new timer.
+  useLayoutEffect(() => {
+    if (!open) {
+      clear();
+    }
+  }, [clear, open]);
   const delays = getHoverDelays(hoverable);
   const openDelay = delays.open;
   const closeDelay = delays.close;
+  const scheduleClose = useCallback(() => {
+    clear();
+    timerRef.current = setTimeout(() => {
+      if (callbacksRef.current.open) {
+        callbacksRef.current.onClose();
+      }
+    }, closeDelay);
+  }, [clear, closeDelay]);
 
   useEffect(() => {
     const trigger = triggerRef.current as HTMLElement | null;
@@ -232,24 +247,27 @@ export function useHoverOpen({
         }
       }, openDelay);
     };
-    const scheduleClose = () => {
-      clear();
-      timerRef.current = setTimeout(() => {
-        if (callbacksRef.current.open) {
-          callbacksRef.current.onClose();
-        }
-      }, closeDelay);
-    };
     trigger.addEventListener('mouseenter', scheduleOpen);
     trigger.addEventListener('mouseleave', scheduleClose);
-    panel?.addEventListener('mouseenter', clear);
-    panel?.addEventListener('mouseleave', scheduleClose);
     return () => {
       clear();
       trigger.removeEventListener('mouseenter', scheduleOpen);
       trigger.removeEventListener('mouseleave', scheduleClose);
-      panel?.removeEventListener('mouseenter', clear);
-      panel?.removeEventListener('mouseleave', scheduleClose);
     };
-  }, [clear, closeDelay, hoverable, openDelay, panel, triggerRef]);
+  }, [clear, hoverable, openDelay, scheduleClose, triggerRef]);
+
+  // An exiting panel must not cancel a new open scheduled on the trigger.
+  useEffect(() => {
+    if (!hoverable || !panel) {
+      return;
+    }
+    panel.addEventListener('mouseenter', clear);
+    panel.addEventListener('mouseleave', scheduleClose);
+    return () => {
+      panel.removeEventListener('mouseenter', clear);
+      panel.removeEventListener('mouseleave', scheduleClose);
+    };
+  }, [clear, hoverable, panel, scheduleClose]);
+
+  return clear;
 }
