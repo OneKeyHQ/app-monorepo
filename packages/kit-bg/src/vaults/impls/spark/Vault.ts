@@ -19,6 +19,10 @@ import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import type {
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
+} from '@onekeyhq/shared/types/history';
 import type { IEncodedTxLightningSpark } from '@onekeyhq/shared/types/lightning';
 import {
   EDecodedTxActionType,
@@ -29,6 +33,7 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHd } from './KeyringHd';
+import { withLocalHistoryFee } from './sdkSpark/historyFee';
 import {
   buildSparkInvoiceEncodedTx,
   isSparkPayableInvoice,
@@ -227,6 +232,29 @@ export default class Vault extends VaultBase {
         encodedTx: signedTx.encodedTx as IEncodedTxLightningSpark,
       });
     return { ...signedTx, txid: paymentId };
+  }
+
+  override async fetchAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const resp = await super.fetchAccountHistoryDetail(params);
+    const { networkId, txid, accountAddress, xpub } = params;
+    if (!accountAddress && !xpub) {
+      return resp;
+    }
+    const localTx =
+      await this.backgroundApi.simpleDb.localHistory.getLocalHistoryTxById({
+        networkId,
+        accountAddress,
+        xpub,
+        historyId: accountUtils.buildLocalHistoryId({
+          networkId,
+          txid,
+          accountAddress: accountAddress ?? '',
+          xpub,
+        }),
+      });
+    return withLocalHistoryFee({ resp, localTx });
   }
 
   // A recipient is a BOLT11 invoice. Spark addresses are not a send target.
