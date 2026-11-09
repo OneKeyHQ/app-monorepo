@@ -1,10 +1,5 @@
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import type {
-  ISwapProviderManager,
-  ISwapServiceProvider,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { isDustSweepNetworkSupported } from '../hooks/useNavigateToDustSweep';
 
@@ -26,30 +21,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {
-    simpleDb: {
-      swapConfigs: { getSwapProviderManager: jest.fn() },
-    },
-    serviceAllNetwork: {
-      getAllNetworkAccounts: jest.fn(),
-    },
-    serviceSwap: {
-      fetchSwapNetworks: jest.fn(),
-      fetchSwapProviderSupportNetworks: jest.fn(),
-      getSwapProviderManager: jest.fn(),
-    },
-    serviceToken: {
-      fetchAccountTokens: jest.fn(),
-      getNativeToken: jest.fn(),
-    },
-  },
-}));
-jest.mock('@onekeyhq/shared/src/config/networkIds', () => ({
-  getNetworkIdsMap: () => ({ onekeyall: 'onekeyall--0' }),
-}));
-jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
-  isExternalAccount: () => false,
-  isWatchingAccount: () => false,
+  default: {},
 }));
 
 const ethereum: ISwapNetwork = {
@@ -65,150 +37,18 @@ const bnb: ISwapNetwork = {
   name: 'BNB Smart Chain',
 };
 
-function okxProvider(
-  overrides: Partial<ISwapServiceProvider> = {},
-): ISwapServiceProvider {
-  return {
-    providerInfo: {
-      provider: 'SwapOKX',
-      protocol: EProtocolOfExchange.SWAP,
-      logo: '',
-      providerName: 'OKX Dex',
-    },
-    isSupportSingleSwap: true,
-    supportSingleSwapNetworks: [ethereum],
-    ...overrides,
-  };
-}
-
-function deferred<T>() {
-  let reject!: (error: Error) => void;
-  const promise = new Promise<T>((_, rejectPromise) => {
-    reject = rejectPromise;
-  });
-  return { promise, reject };
-}
-
 describe('Dust Sweep network capabilities', () => {
-  it('requires both general Swap support and OKX single-swap support', () => {
+  it('uses general Swap support without filtering by provider', () => {
     expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [ethereum, bnb],
-        providers: [okxProvider()],
-        savedProviders: [],
-      }),
-    ).toEqual([ethereum]);
-    expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [{ ...ethereum, supportSingleSwap: false }],
-        providers: [okxProvider()],
-        savedProviders: [],
-      }),
-    ).toEqual([]);
+      getDustSweepSupportedNetworks([
+        ethereum,
+        bnb,
+        { ...ethereum, networkId: 'unsupported', supportSingleSwap: false },
+      ]),
+    ).toEqual([ethereum, bnb]);
   });
 
-  it.each<Partial<ISwapServiceProvider>>([
-    { providerServiceDisable: true },
-    { isSupportSingleSwap: false },
-    { serviceDisableNetworks: [ethereum] },
-    { supportSingleSwapNetworks: [] },
-  ])('excludes disabled or unsupported provider networks (%j)', (overrides) => {
-    expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [ethereum],
-        providers: [okxProvider(overrides)],
-        savedProviders: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it.each<Partial<ISwapProviderManager>>([
-    { enable: false },
-    { singleSwapEnable: false },
-    { singleSwapDisableNetworks: [ethereum] },
-    { disableNetworks: [ethereum] },
-  ])('respects current and legacy saved Swap settings (%j)', (settings) => {
-    expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [ethereum],
-        providers: [okxProvider()],
-        savedProviders: [
-          {
-            providerInfo: okxProvider().providerInfo,
-            enable: true,
-            supportNetworks: [ethereum],
-            ...settings,
-          },
-        ],
-      }),
-    ).toEqual([]);
-  });
-
-  it('preserves optional single-swap capability semantics', () => {
-    expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [ethereum],
-        providers: [okxProvider({ isSupportSingleSwap: undefined })],
-        savedProviders: [],
-      }),
-    ).toEqual([ethereum]);
-  });
-
-  it('does not substitute a different provider when OKX is unavailable', () => {
-    const otherProvider = okxProvider();
-    otherProvider.providerInfo.provider = 'OtherProvider';
-    expect(
-      getDustSweepSupportedNetworks({
-        providerSupportedNetworks: [ethereum, bnb],
-        networks: [ethereum],
-        providers: [otherProvider],
-        savedProviders: [],
-      }),
-    ).toEqual([]);
-  });
-
-  it('keeps All Networks available when capabilities are unknown or empty', () => {
-    for (const supportedNetworkIds of [undefined, new Set<string>()]) {
-      expect(
-        isDustSweepNetworkSupported({
-          isAllNetworks: true,
-          supportedNetworkIds,
-        }),
-      ).toBe(true);
-      expect(
-        isDustSweepNetworkSupported({
-          networkId: ethereum.networkId,
-          supportedNetworkIds,
-        }),
-      ).toBe(false);
-    }
-  });
-
-  it.each([
-    { providerSupportedNetworks: [ethereum] },
-    { providerSupportedNetworks: [] },
-  ])(
-    'requires the provider support endpoint to include each network (%j)',
-    ({ providerSupportedNetworks }) => {
-      expect(
-        getDustSweepSupportedNetworks({
-          networks: [ethereum, bnb],
-          providers: [
-            okxProvider({ supportSingleSwapNetworks: [ethereum, bnb] }),
-          ],
-          providerSupportedNetworks,
-          savedProviders: [],
-        }),
-      ).toEqual(providerSupportedNetworks);
-    },
-  );
-
-  it('checks the current network against the same complete capability set', () => {
+  it('checks the current network against the same capability set', () => {
     const supportedNetworkIds = new Set([ethereum.networkId]);
     expect(
       isDustSweepNetworkSupported({
@@ -223,59 +63,27 @@ describe('Dust Sweep network capabilities', () => {
       }),
     ).toBe(false);
     expect(isDustSweepNetworkSupported({ supportedNetworkIds })).toBe(false);
+    expect(isDustSweepNetworkSupported({ isAllNetworks: true })).toBe(true);
   });
-});
 
-describe('optional Home capability loading', () => {
-  it('returns the same supported networks from one group of capability reads', async () => {
+  it('loads the supported networks without provider settings', async () => {
     const fetchNetworks = jest.fn().mockResolvedValue([ethereum, bnb]);
-    const fetchProviders = jest.fn().mockResolvedValue([okxProvider()]);
-    const fetchProviderNetworks = jest.fn().mockResolvedValue([ethereum]);
-    const getSavedProviders = jest.fn().mockResolvedValue([]);
     await expect(
-      loadDustSweepEntryCapabilities({
-        fetchNetworks,
-        fetchProviders,
-        fetchProviderNetworks,
-        getSavedProviders,
-      }),
-    ).resolves.toEqual([ethereum]);
+      loadDustSweepEntryCapabilities(fetchNetworks),
+    ).resolves.toEqual([ethereum, bnb]);
     expect(fetchNetworks).toHaveBeenCalledTimes(1);
-    expect(fetchProviders).toHaveBeenCalledTimes(1);
-    expect(fetchProviderNetworks).toHaveBeenCalledTimes(1);
-    expect(getSavedProviders).toHaveBeenCalledTimes(1);
   });
 
-  it('suppresses each auto-toast even when later branches fail after rejection', async () => {
-    const networks = deferred<ISwapNetwork[]>();
-    const providers = deferred<ISwapServiceProvider[]>();
-    const providerNetworks = deferred<ISwapNetwork[]>();
-    const savedProviders = deferred<ISwapProviderManager[]>();
-    const errors = [0, 1, 2, 3].map((index) =>
-      Object.assign(new Error(`Capability read ${index} failed`), {
-        autoToast: true,
-      }),
-    );
+  it('suppresses the auto-toast when network capability loading fails', async () => {
+    const error = Object.assign(new Error('Network capability read failed'), {
+      autoToast: true,
+    });
     const disableToast = jest.spyOn(errorToastUtils, 'toastIfErrorDisable');
     try {
-      const result = loadDustSweepEntryCapabilities({
-        fetchNetworks: () => networks.promise,
-        fetchProviders: () => providers.promise,
-        fetchProviderNetworks: () => providerNetworks.promise,
-        getSavedProviders: () => savedProviders.promise,
-      });
-      networks.reject(errors[0]);
-      await expect(result).rejects.toBe(errors[0]);
-      expect(errors[0].autoToast).toBe(false);
-
-      providers.reject(errors[1]);
-      providerNetworks.reject(errors[2]);
-      savedProviders.reject(errors[3]);
-      await Promise.resolve();
-      for (const error of errors) {
-        expect(error.autoToast).toBe(false);
-        expect(disableToast).toHaveBeenCalledWith(error);
-      }
+      await expect(
+        loadDustSweepEntryCapabilities(() => Promise.reject(error)),
+      ).rejects.toBe(error);
+      expect(disableToast).toHaveBeenCalledWith(error);
     } finally {
       disableToast.mockRestore();
     }

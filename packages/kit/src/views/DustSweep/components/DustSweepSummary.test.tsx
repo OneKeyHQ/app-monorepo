@@ -11,8 +11,6 @@ import type {
   IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
-import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { initialDustSweepState } from '../stateMachine';
 
@@ -186,17 +184,10 @@ const nativeToken = {
   decimals: 18,
   price: '1000',
 };
-const configuredProvider: ISwapProviderInfo = {
-  provider: 'SwapOKX',
-  protocol: EProtocolOfExchange.SWAP,
-  providerName: 'OKX from provider list',
-  logo: 'https://example.com/provider-from-list.png',
-};
 let mockCurrent: { nativeToken: typeof nativeToken } | undefined = {
   nativeToken,
 };
 let mockSelected = [selectedToken];
-let mockProviderInfo: ISwapProviderInfo | undefined = configuredProvider;
 let mockLoadStatus: 'loading' | 'ready' | 'error' = 'ready';
 let mockAssetStatus: 'refreshing' | 'ready' | 'error' = 'ready';
 let mockSelecting = true;
@@ -210,7 +201,6 @@ jest.mock('../DustSweepProvider', () => ({
     selecting: mockSelecting,
     current: mockCurrent,
     selected: mockSelected,
-    providerInfo: mockProviderInfo,
     selectedValueUsd: mockSelectedValueUsd,
     canStart: mockSelected.length > 0 && mockLoadStatus === 'ready',
     isFocused: true,
@@ -226,7 +216,6 @@ beforeEach(() => {
   appLocale.setLocale(mockLocale, appLocale.intl.messages);
   mockCurrent = { nativeToken };
   mockSelected = [selectedToken];
-  mockProviderInfo = configuredProvider;
   mockLoadStatus = 'ready';
   mockAssetStatus = 'ready';
   mockSelecting = true;
@@ -406,10 +395,7 @@ it.each([true, false])(
     expect(screen.getByText('0.01 ETH')).toBeTruthy();
     expect(screen.getByText('$10.00')).toBeTruthy();
     expect(screen.queryByTestId('dust-sweep-result-estimate-help')).toBeNull();
-    expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
-    expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
-      configuredProvider.logo,
-    );
+    expect(screen.queryByTestId('dust-sweep-provider')).toBeNull();
     expect(screen.getByTestId('dust-sweep-action').textContent).toBe(
       'button_convert_tokens_estimated_amount:1:$10.00',
     );
@@ -427,16 +413,13 @@ it('shows the receive estimate as unavailable when the native price is zero', ()
 });
 
 it.each([true, false])(
-  'shows configured provider metadata with no selected token and formats zero fiat (desktop=%s)',
+  'formats zero fiat with no selected token (desktop=%s)',
   (desktop) => {
     mockSelected = [];
     mockSelectedValueUsd = '0';
     render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
-    expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
-    expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
-      configuredProvider.logo,
-    );
+    expect(screen.queryByTestId('dust-sweep-provider')).toBeNull();
     expect(screen.getByText('0 ETH')).toBeTruthy();
     expect(screen.getByText('$0.00')).toBeTruthy();
     expect(screen.getByTestId('dust-sweep-action').textContent).toContain(
@@ -447,30 +430,6 @@ it.each([true, false])(
     ).toBe(true);
   },
 );
-
-it.each(['loading', 'error'] as const)(
-  'does not display configured metadata for an empty selection while the load is %s',
-  (status) => {
-    mockSelected = [];
-    mockLoadStatus = status;
-    render(<DustSweepSummary desktop onDetails={jest.fn()} />);
-
-    expect(screen.queryByText(configuredProvider.providerName)).toBeNull();
-    expect(screen.queryByTestId('provider-icon')).toBeNull();
-    if (status === 'loading')
-      expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
-    else expect(screen.getByText('--')).toBeTruthy();
-  },
-);
-
-it('keeps the empty provider placeholder when the list does not contain metadata', () => {
-  mockSelected = [];
-  mockProviderInfo = undefined;
-  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
-
-  expect(screen.getByText('--')).toBeTruthy();
-  expect(screen.queryByTestId('provider-icon')).toBeNull();
-});
 
 it('formats received USD to two decimal places without padding native amounts', () => {
   render(

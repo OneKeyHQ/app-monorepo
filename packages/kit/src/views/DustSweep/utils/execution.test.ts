@@ -840,6 +840,19 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
   });
 
+  it('builds a routed provider quote using the same provider', async () => {
+    const routedQuote = {
+      ...createQuote(),
+      info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
+    };
+    mockFetchQuote.mockResolvedValue(routedQuote);
+    mockBuild.mockResolvedValue({ result: routedQuote, ctx: {} });
+    await executeDustSweepItem(createOptions());
+    expect(mockBuild).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'SwapLiquidMesh', source: 'Sweep' }),
+    );
+  });
+
   it('never prepares or signs a build that changes the provider from OKX', async () => {
     mockBuild.mockResolvedValue({
       result: {
@@ -848,7 +861,7 @@ describe('Dust Sweep serial execution boundaries', () => {
       },
     });
     await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
-      reason: 'noQuote',
+      reason: 'unknown',
     });
     expect(mockPayload).not.toHaveBeenCalled();
     expect(mockAllowance).not.toHaveBeenCalled();

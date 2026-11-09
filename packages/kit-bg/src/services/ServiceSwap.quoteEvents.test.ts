@@ -224,16 +224,15 @@ describe('ServiceSwap quote event request ownership', () => {
     await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
 
-  it('preserves Sweep source and merges request restrictions with disabled providers', async () => {
+  it('preserves Sweep source without sending provider restrictions', async () => {
     const { getUri, service } = createService();
-    jest
+    const getDenySingleSwapProvider = jest
       .spyOn(service, 'getDenySingleSwapProvider')
       .mockResolvedValue('SwapOKX,SwapLiquidMesh');
 
     await service.fetchQuotesEvents({
       ...createQuoteParams('sweep-quote-request'),
       source: ESwapQuoteSource.SWEEP,
-      denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
     });
 
     expect(getUri).toHaveBeenCalledWith(
@@ -242,11 +241,14 @@ describe('ServiceSwap quote event request ownership', () => {
         params: expect.objectContaining({
           source: 'Sweep',
           protocol: 'Swap',
-          denySingleSwapProvider: 'SwapOKX,SwapLiquidMesh,Swap0x',
           fromTokenAmount: '1',
         }),
       }),
     );
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'denySingleSwapProvider',
+    );
+    expect(getDenySingleSwapProvider).not.toHaveBeenCalled();
     await service.cancelFetchQuoteEvents('sweep-quote-request');
   });
 });

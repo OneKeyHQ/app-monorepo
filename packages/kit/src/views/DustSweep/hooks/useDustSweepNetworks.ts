@@ -69,8 +69,7 @@ function matchesVerifiedContext(
     verified.network.networkId === entry.network.networkId &&
     verified.accountId === entry.accountId &&
     verified.address === entry.address &&
-    verified.deriveAddressEncoding === entry.deriveAddressEncoding &&
-    verified.denySingleSwapProvider === entry.denySingleSwapProvider
+    verified.deriveAddressEncoding === entry.deriveAddressEncoding
   );
 }
 
@@ -395,7 +394,6 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
   const isRefreshing = useCallback(() => !!scope.request, [scope]);
   return {
     networks: state.data?.networks ?? EMPTY_NETWORKS,
-    providerInfo: state.data?.providerInfo,
     failedNetworks: state.data?.failedNetworks,
     failedNetworkIds: state.data?.failedNetworkIds,
     loadFailed: !!state.loadFailed,

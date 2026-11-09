@@ -113,7 +113,7 @@ describe('loadDustSweepNetworks request ownership', () => {
     serviceToken.getCachedAccountTokens.mockResolvedValue([]);
     swapConfigs.getSwapProviderManager.mockResolvedValue([]);
     serviceSwap.getSwapProviderManager.mockResolvedValue([okxProvider()]);
-    serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum, otherNetwork]);
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum]);
     serviceSwap.fetchSwapProviderSupportNetworks
       .mockReset()
       .mockResolvedValue([ethereum, otherNetwork]);
@@ -137,11 +137,11 @@ describe('loadDustSweepNetworks request ownership', () => {
     expect(serviceSwap.fetchSwapNetworks.mock.calls).toEqual([
       [{ autoHandleError: false }],
     ]);
-    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
-    expect(serviceSwap.fetchSwapProviderSupportNetworks.mock.calls).toEqual([
-      [{ provider: 'SwapOKX' }],
-    ]);
-    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(0);
+    expect(
+      serviceSwap.fetchSwapProviderSupportNetworks.mock.calls,
+    ).toHaveLength(0);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(0);
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
   });
 
@@ -181,127 +181,46 @@ describe('loadDustSweepNetworks request ownership', () => {
     };
   }
 
-  it('filters both fresh and cached asset discovery by the provider network list', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValue([
-      { ...okxProvider(), supportSingleSwapNetworks: [ethereum, otherNetwork] },
+  it('uses Swap network support for fresh and cached asset discovery', async () => {
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([
+      ethereum,
+      { ...otherNetwork, supportSingleSwap: false },
     ]);
-    serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValue([ethereum]);
     serviceToken.getCachedAccountTokens.mockResolvedValue([cachedResponse()]);
-
     const result = await loadDustSweepNetworks(
       params,
       new AbortController().signal,
     );
-
     expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
       ethereum.networkId,
-    ]);
-    expect(serviceSwap.fetchSwapProviderSupportNetworks.mock.calls).toEqual([
-      [{ provider: 'SwapOKX' }],
     ]);
     expect(
       serviceToken.fetchAccountTokens.mock.calls.map(
         ([request]) => request.networkId,
       ),
     ).toEqual([ethereum.networkId]);
-    expect(serviceToken.getCachedAccountTokens.mock.calls).toEqual([
-      [
-        {
-          accounts: [
-            {
-              accountId: params.accountId,
-              networkId: ethereum.networkId,
-              accountAddress: '0xuser',
-            },
-          ],
-        },
-      ],
-    ]);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(0);
   });
 
-  it.each([undefined, ethereum.networkId])(
-    'returns no networks for an empty provider list (requested network: %s)',
-    async (networkId) => {
-      serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValue([]);
-      const onCache = jest.fn();
-      await expect(
-        loadDustSweepNetworks(
-          { ...params, networkId },
-          new AbortController().signal,
-          onCache,
-        ),
-      ).resolves.toMatchObject({ networks: [], partialError: false });
-      expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-      expect(serviceToken.getNativeToken.mock.calls).toHaveLength(0);
-      expect(onCache).not.toHaveBeenCalled();
-    },
-  );
-
-  it('does not grant eligibility or publish cache when the provider list fails', async () => {
-    const failure = new Error('Provider networks unavailable');
-    serviceSwap.fetchSwapProviderSupportNetworks.mockRejectedValue(failure);
+  it('does not publish assets if network capabilities fail', async () => {
+    const failure = new Error('Swap networks unavailable');
+    serviceSwap.fetchSwapNetworks.mockRejectedValue(failure);
     const onCache = jest.fn();
     await expect(
       loadDustSweepNetworks(params, new AbortController().signal, onCache),
     ).rejects.toBe(failure);
     expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-    expect(serviceToken.getCachedAccountTokens.mock.calls).toHaveLength(0);
     expect(onCache).not.toHaveBeenCalled();
   });
 
-  it('does not let a requested network bypass the provider list', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValue([
-      { ...okxProvider(), supportSingleSwapNetworks: [ethereum, otherNetwork] },
-    ]);
-    serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValue([ethereum]);
-    await expect(
-      loadDustSweepNetworks(
-        { ...params, networkId: otherNetwork.networkId },
-        new AbortController().signal,
-      ),
-    ).resolves.toMatchObject({ networks: [], partialError: false });
-    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-  });
-
-  it('waits for the provider list before reading cached or fresh assets', async () => {
-    const providerNetworks = deferred<Pick<ISwapNetwork, 'networkId'>[]>();
-    serviceSwap.fetchSwapProviderSupportNetworks.mockReturnValue(
-      providerNetworks.promise,
-    );
-    serviceToken.getCachedAccountTokens.mockResolvedValue([cachedResponse()]);
-    const onCache = jest.fn();
-    const onContexts = jest.fn();
-    const load = loadDustSweepNetworks(
-      params,
-      new AbortController().signal,
-      onCache,
-      { onContexts },
-    );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-    expect(serviceToken.getCachedAccountTokens.mock.calls).toHaveLength(0);
-    expect(onCache).not.toHaveBeenCalled();
-    expect(onContexts).not.toHaveBeenCalled();
-    providerNetworks.resolve([ethereum]);
-    await load;
-    expect(onContexts).toHaveBeenCalledTimes(1);
-    expect(onContexts.mock.calls[0][0]).toMatchObject([
-      {
-        network: { networkId: ethereum.networkId },
-        accountId: params.accountId,
-      },
-    ]);
-  });
-
-  it('clears a requested network after the provider removes it on refresh', async () => {
+  it('clears a requested network when Swap support is removed on refresh', async () => {
     const request = { ...params, networkId: ethereum.networkId };
     const first = await loadDustSweepNetworks(
       request,
       new AbortController().signal,
     );
     expect(first.networks).toHaveLength(1);
-
-    serviceSwap.fetchSwapProviderSupportNetworks.mockResolvedValue([]);
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([]);
     serviceToken.fetchAccountTokens.mockClear();
     await expect(
       loadDustSweepNetworks(request, new AbortController().signal, undefined, {
@@ -394,11 +313,9 @@ describe('loadDustSweepNetworks request ownership', () => {
   });
 
   it('identifies failed networks so the consumer can retain their cached preview', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
-      {
-        ...okxProvider(),
-        supportSingleSwapNetworks: [ethereum, otherNetwork],
-      },
+    serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([
+      ethereum,
+      otherNetwork,
     ]);
     serviceToken.fetchAccountTokens.mockRejectedValueOnce(
       new Error('Balance refresh failed'),
@@ -425,11 +342,9 @@ describe('loadDustSweepNetworks request ownership', () => {
   it.each(['ECONNABORTED', 'ERR_NETWORK', 40_001])(
     'recovers a transient asset error %s once without retrying healthy networks',
     async (code) => {
-      serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
-        {
-          ...okxProvider(),
-          supportSingleSwapNetworks: [ethereum, otherNetwork],
-        },
+      serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([
+        ethereum,
+        otherNetwork,
       ]);
       serviceToken.fetchAccountTokens.mockRejectedValueOnce(
         Object.assign(new Error('Temporary asset dependency failure'), {
@@ -453,8 +368,9 @@ describe('loadDustSweepNetworks request ownership', () => {
   );
 
   it('retains failed network identity after the bounded retry is exhausted', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
-      { ...okxProvider(), supportSingleSwapNetworks: [ethereum, otherNetwork] },
+    serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([
+      ethereum,
+      otherNetwork,
     ]);
     const response = await serviceToken.fetchAccountTokens({
       accountId: params.accountId,
@@ -619,31 +535,6 @@ describe('loadDustSweepNetworks request ownership', () => {
     await oldLoad;
   });
 
-  it.each([
-    { enable: false },
-    { singleSwapEnable: false },
-    { singleSwapDisableNetworks: [ethereum] },
-    { disableNetworks: [ethereum] },
-  ])(
-    'excludes OKX networks disabled in saved Swap settings (%j)',
-    async (settings) => {
-      swapConfigs.getSwapProviderManager.mockResolvedValue([
-        {
-          providerInfo: okxProvider().providerInfo,
-          enable: true,
-          supportNetworks: [ethereum],
-          ...settings,
-        },
-      ]);
-      const result = await loadDustSweepNetworks(
-        params,
-        new AbortController().signal,
-      );
-      expect(result.networks).toEqual([]);
-      expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-    },
-  );
-
   it('reports the network balance from regular and small-balance tokens, skipping unavailable values', async () => {
     const fiat = (fiatValue: string) => ({
       balance: '1',
@@ -681,22 +572,6 @@ describe('loadDustSweepNetworks request ownership', () => {
     expect(result.networks[0].balanceUsd).toBe('12.9');
   });
 
-  it('retains server provider metadata when supported accounts have no tokens', async () => {
-    const provider = okxProvider();
-    provider.providerInfo.providerName = 'OKX from provider list';
-    provider.providerInfo.logo = 'https://example.com/provider-from-list.png';
-    serviceSwap.getSwapProviderManager.mockResolvedValue([provider]);
-
-    const result = await loadDustSweepNetworks(
-      params,
-      new AbortController().signal,
-    );
-
-    expect(result.networks[0].tokens).toEqual([]);
-    expect(result.providerInfo).toEqual(provider.providerInfo);
-    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
-  });
-
   it('shares an in-flight load across a rapid leave and re-entry', async () => {
     const networks = deferred<ISwapNetwork[]>();
     const accounts = deferred<IAllNetworkAccountsInfoResult>();
@@ -726,7 +601,6 @@ describe('loadDustSweepNetworks request ownership', () => {
     await expect(second).resolves.toEqual({
       networks: [],
       partialError: false,
-      providerInfo: okxProvider().providerInfo,
     });
   });
 
@@ -754,13 +628,7 @@ describe('loadDustSweepNetworks request ownership', () => {
     firstController.abort();
     await expect(first).rejects.toThrow('Dust Sweep cancelled');
 
-    swapConfigs.getSwapProviderManager.mockResolvedValue([
-      {
-        providerInfo: okxProvider().providerInfo,
-        enable: false,
-        supportNetworks: [ethereum],
-      },
-    ]);
+    serviceSwap.fetchSwapNetworks.mockResolvedValue([]);
     const nextContexts = jest.fn();
     const next = loadDustSweepNetworks(
       params,
@@ -773,7 +641,6 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
     await expect(next).resolves.toMatchObject({ networks: [] });
     expect(nextContexts).toHaveBeenCalledWith([]);
-    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(2);
     previousBalances.resolve(cachedResponse());
   });
 
@@ -816,16 +683,12 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
   });
 
-  it('loads only OKX-supported networks and freezes other-provider restrictions', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValue([
-      okxProvider(),
+  it('does not use saved provider settings to exclude a supported network', async () => {
+    swapConfigs.getSwapProviderManager.mockResolvedValue([
       {
-        ...okxProvider(),
-        providerInfo: {
-          ...okxProvider().providerInfo,
-          provider: 'SwapLiquidMesh',
-        },
-        supportSingleSwapNetworks: [ethereum, otherNetwork],
+        providerInfo: okxProvider().providerInfo,
+        enable: false,
+        supportNetworks: [ethereum],
       },
     ]);
     const result = await loadDustSweepNetworks(
@@ -833,44 +696,8 @@ describe('loadDustSweepNetworks request ownership', () => {
       new AbortController().signal,
     );
     expect(result.networks.map((item) => item.network.networkId)).toEqual([
-      'evm--1',
+      ethereum.networkId,
     ]);
-    expect(result.networks[0].denySingleSwapProvider).toBe('SwapLiquidMesh');
-    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(1);
-    expect(serviceToken.fetchAccountTokens.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ networkId: 'evm--1', flag: 'dust-sweep' }),
-    );
-  });
-
-  it.each([
-    { providerServiceDisable: true },
-    { serviceDisableNetworks: [ethereum] },
-    { isSupportSingleSwap: false },
-  ])('excludes unavailable OKX capability %j', async (capability) => {
-    serviceSwap.getSwapProviderManager.mockResolvedValue([
-      { ...okxProvider(), ...capability },
-    ]);
-    await expect(
-      loadDustSweepNetworks(params, new AbortController().signal),
-    ).resolves.toEqual({
-      networks: [],
-      partialError: false,
-      providerInfo: okxProvider().providerInfo,
-    });
-    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
-  });
-
-  it('keeps missing or failed provider metadata from granting eligibility', async () => {
-    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([]);
-    await expect(
-      loadDustSweepNetworks(params, new AbortController().signal),
-    ).resolves.toEqual({ networks: [], partialError: false });
-    serviceSwap.getSwapProviderManager.mockRejectedValueOnce(
-      new Error('Provider metadata is unavailable'),
-    );
-    await expect(
-      loadDustSweepNetworks(params, new AbortController().signal),
-    ).rejects.toThrow('Provider metadata is unavailable');
-    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(0);
   });
 });
