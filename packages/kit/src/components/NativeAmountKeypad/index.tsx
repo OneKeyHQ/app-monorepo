@@ -51,8 +51,10 @@ type IProps = {
 
 function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
   const intl = useIntl();
-  // Digits and the decimal point are named by their own text; the backspace
-  // key is an icon and needs a name of its own.
+  // Each key is one accessibility element (iOS needs `accessible` for that;
+  // role and label alone don't make one). Digits and the decimal point are
+  // named by their own text; the backspace key is an icon and needs a name of
+  // its own.
   const backspaceLabel = intl.formatMessage({
     id: ETranslations.global_delete,
   });
@@ -63,6 +65,7 @@ function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
           {row.map((item) => (
             <Stack
               key={item}
+              accessible
               role="button"
               aria-label={item === 'backspace' ? backspaceLabel : undefined}
               flex={1}

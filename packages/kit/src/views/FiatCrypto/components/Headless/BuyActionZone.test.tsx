@@ -192,6 +192,15 @@ describe('BuyActionZone retryable error', () => {
 
     expect(screen.queryByTestId('headless-buy-switch-account')).toBeNull();
   });
+
+  it('leaves the switch-account action out while the payment outcome is unknown', () => {
+    const onSwitchAccount = jest.fn(() => Promise.resolve());
+    renderZone(jest.fn(), { onSwitchAccount });
+
+    // Signing out prepares a fresh checkout in place of "View order".
+    expect(screen.getByTestId('headless-buy-view-order')).toBeTruthy();
+    expect(screen.queryByTestId('headless-buy-switch-account')).toBeNull();
+  });
 });
 
 function renderFallback(onRetryInit?: () => void) {
@@ -268,7 +277,7 @@ describe('BuyActionZone reserved height', () => {
     expect(zoneMinHeight(container)).toBe(56);
   });
 
-  it('keeps and remembers the tallest pay block it measures', () => {
+  it('grows to the tallest pay block it measures and remembers it', () => {
     const { container } = renderReady();
     const reportHeight = (height: number) =>
       act(() => {
@@ -281,9 +290,25 @@ describe('BuyActionZone reserved height', () => {
     expect(zoneMinHeight(container)).toBe(92);
     expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
 
-    // A shorter pass (the button mid-swap) never shrinks the reservation.
+    // A pass under the button's minimum is the button mid-swap.
     reportHeight(50);
     expect(zoneMinHeight(container)).toBe(92);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
+  });
+
+  it('remembers the pay block of this visit for the next one, even when shorter', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, '120');
+    const { container } = renderReady();
+
+    act(() => {
+      mockLayoutHandlers[mockLayoutHandlers.length - 1]({
+        nativeEvent: { layout: { height: 92 } },
+      });
+    });
+
+    // Not shrunk on screen (the card would move under the user), but the
+    // next visit reserves what this provider's block actually needs.
+    expect(zoneMinHeight(container)).toBe(120);
     expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
   });
 

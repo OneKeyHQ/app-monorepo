@@ -25,7 +25,11 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
-    syncStorage: { getBoolean: () => undefined, set: () => {} },
+    syncStorage: {
+      getString: () => undefined,
+      getBoolean: () => undefined,
+      set: () => {},
+    },
   },
 }));
 

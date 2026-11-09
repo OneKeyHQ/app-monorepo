@@ -46,6 +46,13 @@ export const MOTION_BLOCK_EXITING = FadeOut.duration(MOTION_EXIT_MS)
   .easing(MOTION_EASE_OUT)
   .reduceMotion(ReduceMotion.Never);
 
+// A block of text that swaps in place (the order status): like the text
+// below, the newcomer waits for the old block to be gone.
+export const MOTION_BLOCK_ENTERING_AFTER_EXIT = FadeIn.duration(MOTION_ENTER_MS)
+  .delay(MOTION_EXIT_MS)
+  .easing(MOTION_EASE_OUT)
+  .reduceMotion(ReduceMotion.Never);
+
 // Small things that swap in a fixed slot (the input step's CTA slot)
 // crossfade: in over MICRO, out over EXIT. Shapes blend for a frame at most.
 export const MOTION_MICRO_ENTERING = FadeIn.duration(MOTION_MICRO_MS)

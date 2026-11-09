@@ -49,10 +49,11 @@ import {
 } from '../../components/Headless/DetailRow';
 import { FeeRow } from '../../components/Headless/FeeRow';
 import {
-  MOTION_BLOCK_ENTERING,
+  MOTION_BLOCK_ENTERING_AFTER_EXIT,
   MOTION_BLOCK_EXITING,
   MOTION_EASE_OUT,
   MOTION_ENTER_MS,
+  MOTION_EXIT_MS,
   MOTION_ROW_LAYOUT,
 } from '../../components/Headless/motionTokens';
 import { formatHeadlessBuyOrderTime } from '../../components/Headless/orderFormat';
@@ -70,12 +71,14 @@ import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 import type { RouteProp } from '@react-navigation/core';
 
 // A status that changes while the page is open (the poll below) swaps its
-// block in place: the old one fades out over EXIT, the new one in over ENTER
-// (MOTION_BLOCK_*), and the new badge settles in from 95% — the eye lands on
-// what changed. Scaled from its left edge, where it is anchored; never from
-// 0, which reads as a pop rather than a change.
+// block in place: the old one fades out over EXIT, then the new one fades in
+// over ENTER — both at once would print two statuses over each other — and
+// the new badge settles in from 95% with it: the eye lands on what changed.
+// Scaled from its left edge, where it is anchored; never from 0, which reads
+// as a pop rather than a change.
 const STATUS_BADGE_ENTERING = ZoomIn.withInitialValues({ scale: 0.95 })
   .duration(MOTION_ENTER_MS)
+  .delay(MOTION_EXIT_MS)
   .easing(MOTION_EASE_OUT);
 const STATUS_BADGE_ORIGIN = { transformOrigin: 'left center' } as const;
 
@@ -260,7 +263,7 @@ function HeadlessBuyOrderDetailPage() {
             <YStack gap="$6" pt="$2">
               <Animated.View
                 key={order.status}
-                entering={MOTION_BLOCK_ENTERING}
+                entering={MOTION_BLOCK_ENTERING_AFTER_EXIT}
                 exiting={MOTION_BLOCK_EXITING}
               >
                 <YStack gap="$3" ai="flex-start">

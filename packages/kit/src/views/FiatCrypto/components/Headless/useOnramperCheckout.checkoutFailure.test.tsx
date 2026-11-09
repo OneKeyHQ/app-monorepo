@@ -206,9 +206,10 @@ describe('useOnramperCheckout checkout failures', () => {
     act(() => result.current.refreshQuote());
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
 
-    // What fails from here on is shown again.
+    // The checkout it left is spent: a late failure of it is logged, not
+    // shown over whatever the page prepares next.
     emit('failed', { transactionId: 'tx2', errorCode: 'networkError' });
-    expect(result.current.errorCode).toBe('networkError');
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
   });
 

@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   CommonActions,
+  useIsFocused,
   useNavigation,
   useNavigationState,
   useRoute,
@@ -119,6 +127,23 @@ type IBuyMode = 'input' | 'review';
 // error under the amount) instead of offering an in-place retry.
 const AMOUNT_ERROR_CODES = new Set(['amountOutOfRange', 'quoteUnavailable']);
 
+// Reads a status line out when it appears or changes — only while this screen
+// is on top: the page keeps quoting under a pushed order detail, and its lines
+// must not be read over that page. A line that changed meanwhile is read once
+// the page is back.
+function useAnnounceStatus(text: string | undefined, isFocused: boolean) {
+  const announcedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+    if (text && text !== announcedRef.current) {
+      AccessibilityInfo.announceForAccessibility(text);
+    }
+    announcedRef.current = text;
+  }, [text, isFocused]);
+}
+
 // Mode-swap animation: the leaving lower block fades out fast (overlaid at
 // its last position), the entering one fades in slower into the cleared
 // space, and the amount block's layout
@@ -134,6 +159,7 @@ function HeadlessBuyPage() {
   const { networkId, accountId, tokenAddress, token, entryFrom } = route.params;
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
+  const isFocused = useIsFocused();
   const intl = useIntl();
   const themeVariant = useThemeVariant();
 
@@ -488,15 +514,24 @@ function HeadlessBuyPage() {
   quoteRef.current = quote;
   getLogContextRef.current = getLogContext;
 
+  // The way out of a failure, so its own failure must not pass silently:
+  // offline, a timeout or a server error would otherwise leave a button that
+  // seems to do nothing.
   const openWebFallback = useCallback(async () => {
-    const { url } =
-      await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-        networkId,
-        tokenAddress: activeToken?.address ?? tokenAddress,
-        accountId,
-        // This page is buy-only (sell always stays on the web widget).
-        type: 'buy',
-      });
+    let url: string | undefined;
+    try {
+      const widget =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId,
+          tokenAddress: activeToken?.address ?? tokenAddress,
+          accountId,
+          // This page is buy-only (sell always stays on the web widget).
+          type: 'buy',
+        });
+      url = widget.url;
+    } catch {
+      // Reported below like an empty URL.
+    }
     defaultLogger.fiatCrypto.onramper.webFallbackPressed({
       ...getLogContext(),
       errorCode,
@@ -504,7 +539,11 @@ function HeadlessBuyPage() {
     });
     if (url) {
       openFiatCryptoUrl(url);
+      return;
     }
+    Toast.error({
+      title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
+    });
   }, [
     networkId,
     activeToken?.address,
@@ -512,6 +551,7 @@ function HeadlessBuyPage() {
     accountId,
     getLogContext,
     errorCode,
+    intl,
   ]);
 
   // Leaving review abandons the mounted native pay button: the SDK's prepared
@@ -549,8 +589,10 @@ function HeadlessBuyPage() {
   // The header's left button says what it does. Input: the navigator's own
   // button — close at the root of the modal, back when pushed from the buy
   // list — restated here because header options merge, so whatever review
-  // set would otherwise stay. Review: a back arrow, because it returns to the
-  // amount (exitReview) rather than closing the page.
+  // set would otherwise stay (on iOS 26 a pushed screen gets the system back
+  // button back by clearing the items, which keeps its long-press history
+  // menu). Review: a back arrow, because it returns to the amount
+  // (exitReview) rather than closing the page.
   const isStackRoot = useNavigationState(
     (state) => state.routes[0]?.key === route.key,
   );
@@ -594,7 +636,12 @@ function HeadlessBuyPage() {
     unstable_headerLeftItems?: typeof buildIOS26HeaderLeftItems;
   };
   if (platformEnv.isNativeIOS26Plus) {
-    headerLeftOptions = { unstable_headerLeftItems: buildIOS26HeaderLeftItems };
+    headerLeftOptions = {
+      unstable_headerLeftItems:
+        mode === 'review' || isStackRoot
+          ? buildIOS26HeaderLeftItems
+          : undefined,
+    };
   } else if (platformEnv.isNativeIOS || mode === 'review') {
     headerLeftOptions = { headerLeft: renderHeaderLeft };
   } else {
@@ -604,14 +651,17 @@ function HeadlessBuyPage() {
 
   // Amount-level failures are fixed on the input screen, not retried in place.
   // The quote error stays visible under the amount (heroError below) until the
-  // next edit re-quotes; while it is showing, "Preview order" is disabled —
+  // next edit re-quotes; while it is showing, "Review order" is disabled —
   // otherwise the effect below would bounce the tap straight back to input
   // (a one-frame flash that reads as a dead button).
   const hasAmountError =
     actionState === EBuyActionState.RetryableError &&
     errorCode !== undefined &&
     AMOUNT_ERROR_CODES.has(errorCode);
-  useEffect(() => {
+  // A layout effect: the switch lands before the frame is drawn. A passive
+  // one let the review screen paint once with the error twice — under the
+  // amount and in the pay zone, with a Retry — before bouncing.
+  useLayoutEffect(() => {
     if (mode === 'review' && hasAmountError) {
       setMode('input');
     }
@@ -638,11 +688,7 @@ function HeadlessBuyPage() {
   // Status lines are read out as they appear: they change without any
   // action of the user's, so a screen-reader user would otherwise never
   // learn that the quote failed or is still coming.
-  useEffect(() => {
-    if (visibleError) {
-      AccessibilityInfo.announceForAccessibility(visibleError);
-    }
-  }, [visibleError]);
+  useAnnounceStatus(visibleError, isFocused);
 
   const heroLayout = layoutAnimReady
     ? LinearTransition.duration(MOTION_ENTER_MS).easing(MOTION_EASE_IN_OUT)
@@ -863,11 +909,7 @@ function HeadlessBuyPage() {
     !heroError && isTakingLong
       ? intl.formatMessage({ id: ETranslations.buy_quote_slow__msg })
       : undefined;
-  useEffect(() => {
-    if (slowWaitText) {
-      AccessibilityInfo.announceForAccessibility(slowWaitText);
-    }
-  }, [slowWaitText]);
+  useAnnounceStatus(slowWaitText, isFocused);
 
   // The one line under the amount. A quote error comes first; then the slow
   // wait, which only lasts until the pending answer lands; then the reminder
@@ -970,14 +1012,12 @@ function HeadlessBuyPage() {
                   justifyContent="center"
                   inputProps={{
                     placeholder: '0',
-                    // The keypad below is the input path. iPads also take a
-                    // hardware keyboard, which needs a focusable field; there
-                    // a tap on the amount without one attached brings up the
-                    // system keyboard too. Review locks it: the amount there
-                    // is a way back to editing (overlay below), and disabling
-                    // the field ends any editing in progress.
-                    editable:
-                      Boolean(platformEnv.isNativeIOSPad) && mode === 'input',
+                    // The keypad below is the only input path, iPad included:
+                    // an editable field there kept its own cleaned-up text
+                    // ("$" or "," typed into it) after the keypad or a preset
+                    // changed the amount, so the hero could show a different
+                    // amount than the one quoted and paid.
+                    editable: false,
                     keyboardType: 'decimal-pad',
                     leftAddOnProps: {
                       label: '$',
@@ -1024,6 +1064,10 @@ function HeadlessBuyPage() {
                   left={0}
                   right={0}
                   bottom="$8"
+                  // Childless, so VoiceOver only lands on this with
+                  // `accessible`: role and label alone don't make an element
+                  // on iOS.
+                  accessible
                   role="button"
                   aria-label={intl.formatMessage({
                     id: ETranslations.global_edit,
@@ -1061,8 +1105,12 @@ function HeadlessBuyPage() {
                   providerName={selectedProvider ?? quote?.ramp}
                   address={effectiveAddress}
                   accountName={accountName}
+                  // Not while the payment outcome is unknown: a new provider
+                  // means a fresh checkout in place of "View order".
                   onSelectProvider={
-                    canSwitchProvider ? handleSelectProvider : undefined
+                    canSwitchProvider && !unknownOutcomeTransactionId
+                      ? handleSelectProvider
+                      : undefined
                   }
                 />
                 <BuyActionZone

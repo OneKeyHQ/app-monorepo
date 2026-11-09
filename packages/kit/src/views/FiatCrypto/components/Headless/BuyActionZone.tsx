@@ -22,13 +22,15 @@ import type { LayoutChangeEvent } from 'react-native';
 
 // Since SDK 1.2.2-1 the native pay button reports its full height, consent
 // sentence included (~90pt with Coinbase), instead of drawing that sentence
-// outside a 56pt box. So every state the zone shows before or instead of the
-// button — the 50pt "getting quote" placeholder, retries, the web fallback —
-// is shorter, and the breakdown above jumped by the difference each time a
-// quote landed. The zone now keeps the tallest pay block it has measured
-// (remembered across launches; it only depends on the provider's consent copy)
-// as its minimum height. Content stays TOP-anchored so the button's top edge
-// never moves; the zone's bottom is pinned to the page bottom.
+// outside a 56pt box. So the 50pt "getting quote" placeholder the zone shows
+// before the button is shorter, and the breakdown above jumped by the
+// difference each time a quote landed. The zone reserves the height of the
+// tallest pay block it has measured as its minimum height. Content stays
+// TOP-anchored so the button's top edge never moves; the zone's bottom is
+// pinned to the page bottom.
+// Remembered across launches, but only from the latest visit: the height
+// depends on the routed provider's consent copy (and the text size), so a
+// taller block seen once must not leave a gap under shorter ones for good.
 const DEFAULT_ZONE_MIN_HEIGHT = 56;
 // Anything taller is a bad measurement (a layout pass mid-transition), not a
 // pay block; reserving it would leave a hole.
@@ -78,6 +80,16 @@ const SECONDARY_ACTION_PROPS = {
   hitSlop: { top: 5, bottom: 5 },
 } as const;
 
+// Actions that wait on the network (signing out, opening the web widget):
+// the button spins and ignores taps until the handler settles. Button only
+// waits on its handler with a non-zero press debounce — at the default 0 the
+// press goes through a trailing debounce that returns before the handler
+// runs, so the spinner would clear at once.
+const ASYNC_ACTION_PROPS = {
+  onPressLoadingEnabled: true,
+  onPressDebounce: 300,
+} as const;
+
 // Mock-preview only: the real SDK button renders its own consent sentence
 // (with document links) under the native Buy button; the mock mimics that
 // structure so the reserved slot reads the same in the Gallery.
@@ -99,7 +111,8 @@ type IProps = {
   // attempt may fix: offered under the web widget, which stays the main way
   // out.
   onRetryInit?: () => void;
-  onWebFallback: () => void;
+  // Settles once the widget opened or failed to: its button spins until then.
+  onWebFallback: () => Promise<void> | void;
   // Set when the failure on screen is a declined payment: the provider may
   // turn the same card down again (region, limits), while the web widget can
   // route to another one — so it is offered under the retry.
@@ -107,8 +120,10 @@ type IProps = {
   // Set when an OnramperID login may be what keeps failing (e.g. its KYC
   // country doesn't match the current region): dropping it lets the next
   // checkout verify a different email and phone. Offered only on failures —
-  // it is a way out of a stuck account, not an everyday action. Settles when
-  // the sign-out does: the button spins and ignores taps until then.
+  // it is a way out of a stuck account, not an everyday action — and never
+  // while the payment outcome is unknown: signing out prepares a fresh
+  // checkout in place. Settles when the sign-out does: the button spins and
+  // ignores taps until then.
   onSwitchAccount?: () => Promise<void>;
 };
 
@@ -133,31 +148,48 @@ export function BuyActionZone({
   const intl = useIntl();
   const [minHeight, setMinHeight] = useState(readRememberedZoneHeight);
   const minHeightRef = useRef(minHeight);
-  // Measures the pay block (native or mock) whenever it is on screen.
+  // Tallest pay block measured during this visit: what the next one reserves.
+  const visitMaxHeightRef = useRef(0);
+  // Measures the pay block (native or mock) whenever it is on screen. Grows
+  // the reservation at once; never shrinks it on screen (that would move the
+  // card under the user) — a shorter block is reserved from the next visit.
+  // Passes under the 56pt minimum are the button mid-swap, not a pay block.
   const handlePayBlockLayout = useCallback((event: LayoutChangeEvent) => {
     const height = Math.ceil(event.nativeEvent.layout.height);
-    if (height <= minHeightRef.current || height > MAX_REMEMBERED_ZONE_HEIGHT) {
+    if (
+      height < DEFAULT_ZONE_MIN_HEIGHT ||
+      height > MAX_REMEMBERED_ZONE_HEIGHT ||
+      height <= visitMaxHeightRef.current
+    ) {
       return;
     }
-    minHeightRef.current = height;
-    setMinHeight(height);
+    visitMaxHeightRef.current = height;
     void rememberZoneHeight(height);
+    if (height > minHeightRef.current) {
+      minHeightRef.current = height;
+      setMinHeight(height);
+    }
   }, []);
 
   let content: ReactNode;
   const webFallbackLabel = intl.formatMessage({
     id: ETranslations.buy_on_web__action,
   });
-  const switchAccountButton = onSwitchAccount ? (
-    <Button
-      testID="headless-buy-switch-account"
-      {...SECONDARY_ACTION_PROPS}
-      onPressLoadingEnabled
-      onPress={onSwitchAccount}
-    >
-      {intl.formatMessage({ id: ETranslations.buy_use_another_email__action })}
-    </Button>
-  ) : null;
+  // Not under "View order": signing out prepares a fresh checkout in place,
+  // which must not happen while the first payment may have gone through.
+  const switchAccountButton =
+    onSwitchAccount && !onViewOrder ? (
+      <Button
+        testID="headless-buy-switch-account"
+        {...SECONDARY_ACTION_PROPS}
+        {...ASYNC_ACTION_PROPS}
+        onPress={onSwitchAccount}
+      >
+        {intl.formatMessage({
+          id: ETranslations.buy_use_another_email__action,
+        })}
+      </Button>
+    ) : null;
 
   if (state === EBuyActionState.WebFallback) {
     // S5 — structural failure, or an init that kept failing: hand over to the
@@ -175,6 +207,7 @@ export function BuyActionZone({
           testID="headless-buy-web-fallback"
           size="large"
           variant="primary"
+          {...ASYNC_ACTION_PROPS}
           onPress={onWebFallback}
         >
           {webFallbackLabel}
@@ -253,6 +286,7 @@ export function BuyActionZone({
               <Button
                 testID="headless-buy-retry-web-fallback"
                 {...SECONDARY_ACTION_PROPS}
+                {...ASYNC_ACTION_PROPS}
                 onPress={onWebFallback}
               >
                 {webFallbackLabel}
