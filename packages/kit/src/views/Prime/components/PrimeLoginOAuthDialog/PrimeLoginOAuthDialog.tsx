@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { shouldClearKeylessOAuthSessionAfterError } from '@onekeyhq/shared/src/utils/keylessOAuthSessionUtils';
 import type {
   IIdentityExitOAuthHandoff,
@@ -264,7 +265,9 @@ function PrimeLoginOAuthDialog(props: {
           showOneKeyIdLoginFailedToast({ error, intl });
         }
         if (didCloseDialogBeforeOAuth && !isOneKeyIdLoginCommitted) {
-          if (onReopenAfterOAuthFailure) {
+          if (isPrimeUserBannedError(error)) {
+            await onCancel?.();
+          } else if (onReopenAfterOAuthFailure) {
             await onReopenAfterOAuthFailure({
               showKeylessLogoutAction: accountMismatchDetectedRef.current,
             });
