@@ -1,5 +1,6 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapEventAPIStatus } from './swapEstimateFee';
 import { SwapSendTxScene } from './swapSendTx';
@@ -75,5 +76,15 @@ describe('SwapSendTxScene', () => {
     expect(payload).not.toHaveProperty('message');
     expect(payload).not.toHaveProperty('errorName');
     expect(payload).not.toHaveProperty('errorKey');
+  });
+
+  it('reports the trade entry so a completed trade keeps its attribution', () => {
+    const payload = reportSendTx({
+      ...base,
+      status: ESwapEventAPIStatus.SUCCESS,
+      swapSource: ESwapSource.MARKET,
+    });
+    expect(payload.swapSource).toBe('market');
+    expect(payload).not.toHaveProperty('accountId');
   });
 });
