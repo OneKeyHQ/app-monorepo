@@ -12,7 +12,9 @@ import {
   getOnramperErrorFieldsForLog,
   getOnramperSignedInFromState,
   getUrlHostForLog,
+  isSelfHealingOnramperError,
   isStructuralOnramperError,
+  isUserCancelledOnramperError,
   sanitizeOnramperLogRecord,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
@@ -44,7 +46,19 @@ const DEBOUNCE_MS = 400;
 // this is what the page goes by until then. Undefined when nothing was ever
 // reported: a fresh install, or a login made on a build that did not record
 // it — the Keychain may hold one either way.
+// Stored as '1' / '0', not a boolean: on iOS/Android the main runtime reads
+// settings from a snapshot the background runtime builds at cold start with
+// getString first, and MMKV answers that with "" for a stored `false` — a
+// remembered sign-out came back as "unknown" after every relaunch (same trap
+// as the pay-zone height, BuyActionZone.tsx).
 function readRememberedSignedIn(): boolean | undefined {
+  const stored = appStorage.syncStorage.getString(
+    EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+  );
+  if (stored === '1' || stored === '0') {
+    return stored === '1';
+  }
+  // Written as a boolean by earlier builds: only `true` survives the snapshot.
   return appStorage.syncStorage.getBoolean(
     EAppSyncStorageKeys.onekey_onramper_id_signed_in,
   );
@@ -54,7 +68,7 @@ async function rememberSignedIn(signedIn: boolean) {
   try {
     await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_onramper_id_signed_in,
-      signedIn,
+      signedIn ? '1' : '0',
     );
   } catch {
     // Not remembered: the next prepared checkout reports the login again.
@@ -75,6 +89,9 @@ type IParams = {
   // Pin routing to these provider slugs; omit for Onramper's best choice.
   // Must be reference-stable (useMemo) — it is a debounce-effect dependency.
   onlyOnramps?: string[];
+  // Read when a quote is requested, never a reason to request one: a theme
+  // flip (system appearance can switch on a schedule) must not re-quote under
+  // a checkout that is already paying. The next quote picks the new style up.
   buttonStyle: IOnramperButtonStyle;
   // Surface that launched the buy page — rides on every funnel event.
   entryFrom?: string;
@@ -139,8 +156,8 @@ type IResult = {
   canSignOut: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Also re-quotes, because the SDK
-  // discards the checkout it had prepared. Exposed for the header sign-out
-  // button.
+  // discards the checkout it had prepared. Exposed for the failure states'
+  // "verify with a different email" action.
   signOut: () => Promise<void>;
   // Logging context (network / token / entry / elapsed) for page-level events
   // so they line up with the hook's own timeline.
@@ -240,6 +257,8 @@ export function useOnramperCheckout({
   amountRef.current = amount;
   const errorCodeRef = useRef<string | undefined>(undefined);
   errorCodeRef.current = errorCode;
+  const buttonStyleRef = useRef(buttonStyle);
+  buttonStyleRef.current = buttonStyle;
 
   const createClient = useCallback(
     () =>
@@ -348,18 +367,56 @@ export function useOnramperCheckout({
     [getLogContext],
   );
 
+  // refreshQuote is declared further down; the failure policy below reaches it
+  // through this ref.
+  const refreshQuoteRef = useRef<() => void>(() => undefined);
+  // Set once a self-healing failure has been answered quietly. One per visit:
+  // a failure that comes back — before the fresh quote lands or on the next
+  // checkout — shows its error and Retry instead of re-preparing on every tap.
+  const selfHealedRef = useRef(false);
+
+  // Failures the page answers by quietly preparing a fresh checkout (the
+  // tapped one is spent either way): a closed OnramperID sign-in, and the
+  // first expired / refused checkout of the visit — but neither once the
+  // checkout reached a transaction. Then a payment may be under way, and the
+  // failure stays on screen.
+  const isQuietRecovery = useCallback((event: IOnramperEvent) => {
+    if (event.transactionId) {
+      return false;
+    }
+    const error = { code: event.errorCode, message: event.message };
+    if (isUserCancelledOnramperError(error)) {
+      return true;
+    }
+    return isSelfHealingOnramperError(error) && !selfHealedRef.current;
+  }, []);
+
   // Shared failure policy for the SDK's `failed` event and the quote loop's
-  // thrown rejection: structural → web fallback, everything else retryable.
-  // Logging is the caller's job — the two paths emit different events.
+  // thrown rejection: a quiet recovery re-prepares the checkout, structural
+  // → web fallback, everything else retryable. Logging is the caller's job —
+  // the two paths emit different events.
   const applyFailure = useCallback(
     (event: IOnramperEvent) => {
-      if (
-        isStructuralOnramperError({
-          code: event.errorCode,
-          message: event.message,
-        })
-      ) {
-        goWebFallback({ code: event.errorCode, message: event.message });
+      const error = { code: event.errorCode, message: event.message };
+      if (isQuietRecovery(event)) {
+        if (isSelfHealingOnramperError(error)) {
+          selfHealedRef.current = true;
+        }
+        refreshQuoteRef.current();
+        return;
+      }
+      if (isStructuralOnramperError(error)) {
+        // The web fallback says why the in-app purchase is off.
+        setErrorMessage(
+          getOnramperErrorMessage({
+            code: event.errorCode,
+            message: event.message,
+            userMessage: event.userMessage,
+            supportCode: event.supportCode,
+          }),
+        );
+        setErrorCode(event.errorCode);
+        goWebFallback(error);
       } else {
         setErrorMessage(
           getOnramperErrorMessage({
@@ -375,7 +432,7 @@ export function useOnramperCheckout({
         setActionState(EBuyActionState.RetryableError);
       }
     },
-    [goWebFallback],
+    [goWebFallback, isQuietRecovery],
   );
 
   const handleCheckoutFailed = useCallback(
@@ -415,6 +472,7 @@ export function useOnramperCheckout({
         !readyRef.current ||
         quoteSeqRef.current !== reqSeqRef.current ||
         unknownOutcomeShownRef.current;
+      const recoveredQuietly = !stale && isQuietRecovery(event);
       defaultLogger.fiatCrypto.onramper.checkoutFailed({
         ...getLogContext(),
         ...getOnramperErrorFieldsForLog({
@@ -429,6 +487,7 @@ export function useOnramperCheckout({
         transactionId: event.transactionId,
         providerReason,
         stale,
+        recoveredQuietly,
       });
       if (stale) {
         return;
@@ -446,7 +505,7 @@ export function useOnramperCheckout({
           : event,
       );
     },
-    [applyFailure, getLogContext, noteTransactionId],
+    [applyFailure, getLogContext, isQuietRecovery, noteTransactionId],
   );
   const handleCheckoutFailedRef = useRef(handleCheckoutFailed);
   handleCheckoutFailedRef.current = handleCheckoutFailed;
@@ -766,7 +825,7 @@ export function useOnramperCheckout({
               ...(onlyOnramps?.length ? { onlyOnramps } : {}),
               wallet: { network, address: address ?? '' },
             },
-            buttonStyle,
+            buttonStyleRef.current,
           );
           const durationMs = Date.now() - startedAt;
           if (cancelled || seq !== reqSeqRef.current) {
@@ -893,7 +952,6 @@ export function useOnramperCheckout({
     address,
     country,
     onlyOnramps,
-    buttonStyle,
     retryNonce,
     applyFailure,
     getLogContext,
@@ -963,6 +1021,11 @@ export function useOnramperCheckout({
     setQuote(undefined);
     setNativeButton(null);
     hasButtonRef.current = false;
+    // Retire the spent checkout now, not when the deferred re-quote runs:
+    // its later `failed` events are stale from here, so none can flash an
+    // error over the fresh checkout or put a failure on screen that the
+    // re-quote then wipes. A quote still in flight is dropped the same way.
+    reqSeqRef.current += 1;
     // The user moved on from whatever failure was on screen.
     unknownOutcomeShownRef.current = false;
     // Enter Preparing in the SAME commit: the async reset()→re-quote path
@@ -1001,6 +1064,7 @@ export function useOnramperCheckout({
       })();
     }, 64);
   }, [getLogContext]);
+  refreshQuoteRef.current = refreshQuote;
 
   const retry = useCallback(() => {
     defaultLogger.fiatCrypto.onramper.retryPressed({
