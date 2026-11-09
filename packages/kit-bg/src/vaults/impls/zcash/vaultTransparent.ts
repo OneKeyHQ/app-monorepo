@@ -5,6 +5,7 @@ import type { IUtxoInfo } from '@onekeyhq/core/src/chains/btc/types';
 import {
   encodeAddress as encodeZcashAddress,
   getZcashAccountIndexFromXpub,
+  isShieldedAddress,
   zcashTransparentAddressForScript,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_DECIMALS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
@@ -20,6 +21,7 @@ import type {
   IZcashTransparentTxRequest,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -36,6 +38,7 @@ import {
   getZcashTransactionPolicy,
   isZcashTransparentPayable,
   sameOutpoints,
+  zcashPrivacyModeRequiredError,
   zcashTransparentError,
 } from './vaultUtils';
 
@@ -522,6 +525,18 @@ export async function zcashBuildTransparentEncodedTx(
       'INVALID_ADDRESS',
       'Invalid Zcash transparent address',
     );
+  }
+  const isHardware = accountUtils.isHwWallet({
+    walletId: accountUtils.getWalletIdFromAccountId({
+      accountId: vault.accountId,
+    }),
+  });
+  if (
+    isHardware &&
+    isShieldedAddress(transferInfo.to) &&
+    !(await vault.zcashGetStoredUfvk({ accountId: vault.accountId }))
+  ) {
+    throw zcashPrivacyModeRequiredError();
   }
   const fresh = await vault.zcashFetchFreshTransparentUtxos();
   if (!fresh.utxos.length) {

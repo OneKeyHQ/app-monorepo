@@ -4678,6 +4678,7 @@
   "privacy_send_private_paused__msg": "Synchronisation en pause. Reprenez pour envoyer des fonds privés.",
   "privacy_send_waiting_sync__msg": "Synchronisation, {blocks} blocs restants.",
   "privacy_slots_delete__desc": "Supprimez les données locales de confidentialité d’un compte activé pour libérer un emplacement.",
+  "privacy_send_needs_privacy_mode__msg": "Activez le mode confidentialité pour envoyer à une adresse privée.",
   "privacy_slots_full__desc": "Jusqu'à {max} comptes peuvent se synchroniser. Désactivez-en un pour synchroniser {accountName}.",
   "privacy_slots_full__title": "Limite de synchronisation atteinte",
   "privacy_slots_full_locked__desc": "Les {max} places sont occupées par des portefeuilles verrouillés. Déverrouillez-en un d'abord.",

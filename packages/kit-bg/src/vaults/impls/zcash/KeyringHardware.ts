@@ -30,7 +30,10 @@ import { getZcashLifecycleMutex } from './lifecycle';
 import { getZcashPcztReviewRequest } from './pcztReview';
 import { signTransparentTransaction } from './signTransparentTransaction';
 import { parseZcashTransaction } from './transactionReview';
-import { zcashTrackUserOperation } from './vaultUtils';
+import {
+  zcashPrivacyModeRequiredError,
+  zcashTrackUserOperation,
+} from './vaultUtils';
 
 import type { IZcashHardwareAddress } from './hardwareSdk';
 import type { IEncodedTxZcash } from './types';
@@ -560,9 +563,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  // A missing fingerprint asks the device without a prompt. A shielded payment uses the UFVK
-  // stored by privacy setup to keep its outputs recoverable; without one it is sent unsealed
-  // rather than asking the device to export the key.
+  // A missing fingerprint asks the device without a prompt. A shielded payment needs the UFVK
+  // stored by privacy setup to keep its outputs recoverable; without one it is refused.
   private async resolveSigningViewingKeys({
     deviceParams,
     accountIndex,
@@ -586,6 +588,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         ? (this.vault as Vault).zcashGetStoredUfvk({ accountId })
         : undefined,
     ]);
+    if (needsUfvk && !ufvk) {
+      throw zcashPrivacyModeRequiredError();
+    }
     if (stored) {
       return { seedFingerprintHex: stored, ufvk };
     }

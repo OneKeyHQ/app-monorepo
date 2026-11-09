@@ -4678,6 +4678,7 @@
   "privacy_send_private_paused__msg": "Sync paused. Resume to send private funds.",
   "privacy_send_waiting_sync__msg": "Syncing, {blocks} blocks left.",
   "privacy_slots_delete__desc": "Delete an enabled account’s local privacy data to free a slot.",
+  "privacy_send_needs_privacy_mode__msg": "Turn on privacy mode to send to a private address.",
   "privacy_slots_full__desc": "Up to {max} accounts can sync. Turn one off to sync {accountName}.",
   "privacy_slots_full__title": "Sync limit reached",
   "privacy_slots_full_locked__desc": "All {max} spots are used by locked wallets. Unlock one first.",

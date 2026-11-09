@@ -4683,6 +4683,7 @@ export enum ETranslations {
   privacy_send_private_paused__msg = 'privacy_send_private_paused__msg',
   privacy_send_waiting_sync__msg = 'privacy_send_waiting_sync__msg',
   privacy_slots_delete__desc = 'privacy_slots_delete__desc',
+  privacy_send_needs_privacy_mode__msg = 'privacy_send_needs_privacy_mode__msg',
   privacy_slots_full__desc = 'privacy_slots_full__desc',
   privacy_slots_full__title = 'privacy_slots_full__title',
   privacy_slots_full_locked__desc = 'privacy_slots_full_locked__desc',

@@ -4678,6 +4678,7 @@
   "privacy_send_private_paused__msg": "同期は一時停止中です。プライベート資金を送るには再開してください。",
   "privacy_send_waiting_sync__msg": "同期中です。残り {blocks} ブロック。",
   "privacy_slots_delete__desc": "有効なアカウントのローカルプライバシーデータを削除して、空きを作ってください。",
+  "privacy_send_needs_privacy_mode__msg": "プライベートアドレスに送金するにはプライバシーモードをオンにしてください。",
   "privacy_slots_full__desc": "同期できるのは最大 {max} アカウントです。{accountName} を同期するには 1 つをオフにしてください。",
   "privacy_slots_full__title": "同期の上限に達しました",
   "privacy_slots_full_locked__desc": "{max} 枠すべてがロック中のウォレットで使われています。先に 1 つロックを解除してください。",

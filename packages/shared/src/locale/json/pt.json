@@ -4678,6 +4678,7 @@
   "privacy_send_private_paused__msg": "Sincronização em pausa. Retome para enviar fundos privados.",
   "privacy_send_waiting_sync__msg": "A sincronizar, faltam {blocks} blocos.",
   "privacy_slots_delete__desc": "Elimine os dados locais de privacidade de uma conta ativada para libertar um espaço.",
+  "privacy_send_needs_privacy_mode__msg": "Ative o modo de privacidade para enviar para um endereço privado.",
   "privacy_slots_full__desc": "Podem sincronizar até {max} contas. Desative uma para sincronizar {accountName}.",
   "privacy_slots_full__title": "Limite de sincronização atingido",
   "privacy_slots_full_locked__desc": "As {max} vagas estão ocupadas por carteiras bloqueadas. Desbloqueie uma primeiro.",

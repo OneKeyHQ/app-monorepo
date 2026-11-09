@@ -4678,6 +4678,7 @@
   "privacy_send_private_paused__msg": "सिंक रुका हुआ है। प्राइवेट फंड भेजने के लिए फिर शुरू करें।",
   "privacy_send_waiting_sync__msg": "सिंक हो रहा है, {blocks} ब्लॉक बाकी।",
   "privacy_slots_delete__desc": "एक स्लॉट खाली करने के लिए किसी सक्षम खाते का स्थानीय गोपनीयता डेटा हटाएँ।",
+  "privacy_send_needs_privacy_mode__msg": "प्राइवेट पते पर भेजने के लिए प्राइवेसी मोड चालू करें।",
   "privacy_slots_full__desc": "अधिकतम {max} खाते सिंक हो सकते हैं। {accountName} को सिंक करने के लिए एक बंद करें।",
   "privacy_slots_full__title": "सिंक सीमा पूरी",
   "privacy_slots_full_locked__desc": "सभी {max} जगहें लॉक वॉलेट इस्तेमाल कर रहे हैं। पहले एक अनलॉक करें।",

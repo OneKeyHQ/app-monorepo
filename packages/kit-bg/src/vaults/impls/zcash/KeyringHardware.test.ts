@@ -14,7 +14,10 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import { KeyringHardware } from './KeyringHardware';
-import { zcashUserOperationsActive } from './vaultUtils';
+import {
+  zcashPrivacyModeRequiredError,
+  zcashUserOperationsActive,
+} from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 
@@ -626,8 +629,6 @@ describe('Zcash KeyringHardware', () => {
   it.each([
     ['t1-recipient', false],
     ['t1-recipient', true],
-    ['u1-recipient', false],
-    ['u1-recipient', true],
   ])(
     'signs transparent funds to %s (max=%s) without privacy setup',
     async (address, sendMax) => {
@@ -1173,38 +1174,64 @@ describe('Zcash KeyringHardware transparent signing', () => {
     );
   });
 
-  it.each([
-    ['stored', 'stored-ufvk'],
-    ['missing', undefined],
-  ])(
-    'seals a shielded payment only with a stored UFVK, never exporting one (%s UFVK)',
-    async (_label, storedUfvk) => {
-      const shieldedRecipients = [{ address: 'u1-recipient' }];
+  it('seals a shielded payment with the stored UFVK, never exporting one', async () => {
+    const shieldedRecipients = [{ address: 'u1-recipient' }];
+    const {
+      sign,
+      zcashGetAddress,
+      zcashGetFullViewingKey,
+      createTransparentHardwarePczt,
+      finalizeTransparentHardwarePczt,
+    } = createTransparentKeyring({
+      storedFingerprint: 'ef'.repeat(32),
+      storedUfvk: 'stored-ufvk',
+      recipients: shieldedRecipients,
+    });
+
+    await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
+
+    expect(zcashGetAddress).not.toHaveBeenCalled();
+    expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
+    expect(createTransparentHardwarePczt).toHaveBeenCalledWith({
+      request: { ...request, recipients: shieldedRecipients },
+      accountXpub: 'xpub-account',
+      seedFingerprintHex: 'ef'.repeat(32),
+      ufvk: 'stored-ufvk',
+    });
+    expect(finalizeTransparentHardwarePczt).toHaveBeenCalledWith(
+      expect.objectContaining({ ufvk: 'stored-ufvk' }),
+    );
+  });
+
+  it.each([true, false])(
+    'refuses a shielded payment without a stored UFVK before the device signs (stored fingerprint=%s)',
+    async (hasStoredFingerprint) => {
       const {
         sign,
         zcashGetAddress,
         zcashGetFullViewingKey,
+        zcashSignPczt,
         createTransparentHardwarePczt,
-        finalizeTransparentHardwarePczt,
+        saveTransparentPendingTx,
+        releaseTransparentReservation,
       } = createTransparentKeyring({
-        storedFingerprint: 'ef'.repeat(32),
-        storedUfvk,
-        recipients: shieldedRecipients,
+        storedFingerprint: hasStoredFingerprint ? 'ef'.repeat(32) : undefined,
+        recipients: [{ address: 'u1-recipient' }],
       });
 
-      await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
+      await expect(sign()).rejects.toThrow(
+        zcashPrivacyModeRequiredError().message,
+      );
 
       expect(zcashGetAddress).not.toHaveBeenCalled();
       expect(zcashGetFullViewingKey).not.toHaveBeenCalled();
-      expect(createTransparentHardwarePczt).toHaveBeenCalledWith({
-        request: { ...request, recipients: shieldedRecipients },
-        accountXpub: 'xpub-account',
-        seedFingerprintHex: 'ef'.repeat(32),
-        ufvk: storedUfvk,
+      expect(createTransparentHardwarePczt).not.toHaveBeenCalled();
+      expect(zcashSignPczt).not.toHaveBeenCalled();
+      expect(saveTransparentPendingTx).not.toHaveBeenCalled();
+      expect(releaseTransparentReservation).toHaveBeenCalledWith({
+        accountId,
+        ownerId: 'owner-1',
       });
-      expect(finalizeTransparentHardwarePczt).toHaveBeenCalledWith(
-        expect.objectContaining({ ufvk: storedUfvk }),
-      );
     },
   );
 
