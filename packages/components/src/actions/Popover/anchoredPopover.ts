@@ -216,6 +216,12 @@ export function useHoverOpen({
       timerRef.current = undefined;
     }
   }, []);
+  // A committed close supersedes earlier hover requests; reentry gets a new timer.
+  useLayoutEffect(() => {
+    if (!open) {
+      clear();
+    }
+  }, [clear, open]);
   const delays = getHoverDelays(hoverable);
   const openDelay = delays.open;
   const closeDelay = delays.close;
