@@ -180,8 +180,11 @@ function scanModule({
     };
     // Exported constant literals (`export const label = 'Hello world'`) are
     // module-level data, not UI copy, so keep them out of the candidate scan.
-    // Exported object properties (e.g. `export const copy = { title: '...' }`)
-    // stay in because the i18n workflow treats them as UI copy maps.
+    // Only the variable declaration directly wrapped by an export is excluded;
+    // local strings inside an exported component (`export function Page() {
+    // const title = 'Welcome back'; }`) are still UI copy. Exported object
+    // properties (`export const copy = { title: '...' }`) also stay in because
+    // the i18n workflow treats them as UI copy maps.
     const isExportedVariableInitializer = (node, parent) => {
       let initializer = node;
       let ancestor = parent;
@@ -189,14 +192,17 @@ function scanModule({
         initializer = ancestor;
         ancestor = parentOf(ancestor);
       }
+      if (
+        ancestor?.type !== 'VariableDeclarator' ||
+        ancestor.init !== initializer
+      )
+        return false;
+      const declaration = parentOf(ancestor);
+      if (declaration?.type !== 'VariableDeclaration') return false;
+      const exportNode = parentOf(declaration);
       return (
-        ancestor?.type === 'VariableDeclarator' &&
-        ancestor.init === initializer &&
-        ancestors.some(
-          (item) =>
-            item.type === 'ExportNamedDeclaration' ||
-            item.type === 'ExportDefaultDeclaration',
-        )
+        exportNode?.type === 'ExportNamedDeclaration' &&
+        exportNode.declaration === declaration
       );
     };
     const location = (node, kind) => {
