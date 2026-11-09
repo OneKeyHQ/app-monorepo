@@ -390,7 +390,13 @@ export function TranslatePopoverContent({
   }
 
   return (
-    <YStack gap="$5" p="$5">
+    <YStack
+      testID="discovery-translate-content"
+      gap="$5"
+      px="$5"
+      pb="$5"
+      pt={isNative ? '$2' : '$5'}
+    >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size={titleSize}>
           {intl.formatMessage({

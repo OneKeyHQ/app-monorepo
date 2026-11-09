@@ -55,8 +55,18 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 jest.mock('./useWebTabs', () => ({}));
 jest.mock('@onekeyhq/components', () => {
   const closePopover = jest.fn();
-  const Stack = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
+  const Stack = ({
+    children,
+    testID,
+    pt,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    pt?: string;
+  }) => (
+    <div data-testid={testID} data-padding-top={pt}>
+      {children}
+    </div>
   );
   const Badge = ({
     children,
@@ -145,6 +155,21 @@ beforeEach(() => {
   mockPrimeSubscriptionActive = false;
   Object.assign(platformEnv, { isNative: false });
 });
+
+it.each([
+  { isNative: true, paddingTop: '$2' },
+  { isNative: false, paddingTop: '$5' },
+])(
+  'uses compact content top padding only on native: %j',
+  ({ isNative, paddingTop }) => {
+    Object.assign(platformEnv, { isNative });
+    const props = { isTranslated: false, onTranslate: jest.fn(), open: true };
+    render(<TranslatePopoverTrigger {...props} />);
+    expect(
+      screen.getByTestId('discovery-translate-content').dataset.paddingTop,
+    ).toBe(paddingTop);
+  },
+);
 
 it.each([
   {
