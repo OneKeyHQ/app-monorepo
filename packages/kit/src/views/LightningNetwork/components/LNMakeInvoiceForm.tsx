@@ -191,9 +191,16 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
       return;
     }
     if (minAmount.gt(0) && maxAmount.gt(0)) {
-      const descriptionMax = maxAmount.lt(minAmount)
-        ? maxReceiveAmountDisplay
-        : BigNumber.minimum(maxAmount, maxReceiveAmount).toFixed();
+      // A limit of 0 means none, as on self-custody Lightning.
+      let descriptionMax = maxAmount.toFixed();
+      if (maxAmount.lt(minAmount)) {
+        descriptionMax = maxReceiveAmountDisplay;
+      } else if (maxReceiveAmount.gt(0)) {
+        descriptionMax = BigNumber.minimum(
+          maxAmount,
+          maxReceiveAmount,
+        ).toFixed();
+      }
       return intl.formatMessage(
         { id: ETranslations.dapp_connect_sats_between },
         {
