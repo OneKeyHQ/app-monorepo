@@ -32,7 +32,7 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  const layoutProps = ['width', 'ml', 'px', 'gap', 'flex'] as const;
+  const layoutProps = ['width', 'ml', 'px', 'gap', 'flex', 'flexGrow'] as const;
   const box = (kind: string) => {
     const MockBox = ({
       children,
@@ -40,7 +40,10 @@ jest.mock('@onekeyhq/components', () => {
     }: Record<string, unknown> & { children?: ReactNode }) => {
       const attrs: Record<string, string> = { 'data-kind': kind };
       layoutProps.forEach((key) => {
-        if (props[key] !== undefined) attrs[`data-${key}`] = String(props[key]);
+        if (props[key] !== undefined)
+          attrs[`data-${key.replace('flexGrow', 'flex-grow')}`] = String(
+            props[key],
+          );
       });
       if (props['aria-hidden']) attrs['aria-hidden'] = 'true';
       return React.createElement('div', attrs, children);
@@ -106,6 +109,9 @@ function readHeaderGeometry() {
     leadingWidth: leading?.dataset.width,
     columnGap: columns.dataset.gap,
     columnCount: columns.children.length,
+    columnWeights: Array.from(columns.children).map(
+      (column) => (column as HTMLElement).dataset.flexGrow,
+    ),
     assetInset: assetWrap?.dataset.ml,
     swapPlaceholderPx: swapPlaceholder?.dataset.px,
   };
@@ -130,7 +136,8 @@ describe('TokenListHeader table geometry', () => {
       px: '12',
       leadingWidth: '32',
       columnGap: '12',
-      columnCount: 3,
+      columnCount: 4,
+      columnWeights: ['2', '3', '3', '2'],
       assetInset: '-44',
       swapPlaceholderPx: '11',
     });
@@ -149,6 +156,7 @@ describe('TokenListHeader table geometry', () => {
     render(<TokenListHeader tableLayout />);
     expect(readHeaderGeometry()).toMatchObject({
       columnCount: 3,
+      columnWeights: ['1', '1', '1'],
       swapPlaceholderPx: undefined,
     });
   });
@@ -162,7 +170,8 @@ describe('TokenListHeader table geometry', () => {
       px: undefined,
       leadingWidth: '44',
       columnGap: '8',
-      columnCount: 3,
+      columnCount: 4,
+      columnWeights: ['2', '3', '3', '2'],
       assetInset: '-52',
       swapPlaceholderPx: '11',
     });
