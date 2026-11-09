@@ -9,6 +9,9 @@ const DYNAMIC_TOOL =
 const PINNED_ACTION = /^[\w.-]+\/[\w.-]+(?:\/[\w.-]+)*@[a-f\d]{40}$/u;
 const PINNED_IMAGE = /^docker:\/\/[^\s@]+@sha256:[a-f\d]{64}$/u;
 const DOWNLOAD_TOOL = /\b(?:npx|yarn\s+dlx)\b/u;
+// cache-refresh publishes the dependency snapshot that release jobs restore.
+const RELEASE_ROOTS =
+  /^(?:release.*|daily-build.*|cache-refresh|lint|security-checks)\.ya?ml$/u;
 
 function workflowSteps(document) {
   const steps = Object.values(document.jobs || {}).flatMap(
@@ -72,9 +75,7 @@ function checkWorkflow(root, file, errors) {
 function workflowRoots(root) {
   return fs
     .readdirSync(path.join(root, '.github/workflows'))
-    .filter((name) =>
-      /^(?:release.*|daily-build.*|lint|security-checks)\.ya?ml$/u.test(name),
-    )
+    .filter((name) => RELEASE_ROOTS.test(name))
     .map((name) => `.github/workflows/${name}`);
 }
 

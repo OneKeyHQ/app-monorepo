@@ -115,6 +115,18 @@ test('rejects package-manager downloads for all release tools', (t) => {
   assert.match(f.check().errors.join('\n'), /locked local tools/u);
 });
 
+test('checks cache-refresh because release jobs restore its snapshot', (t) => {
+  const f = fixture(t);
+  f.write(
+    '.github/workflows/cache-refresh.yml',
+    'jobs:\n  refresh:\n    steps:\n      - uses: actions/cache/save@v4\n',
+  );
+  assert.match(
+    f.check().errors.join('\n'),
+    /cache-refresh\.yml: unpinned action actions\/cache\/save@v4/u,
+  );
+});
+
 test('rejects EAS action installers even when their action is pinned', (t) => {
   const f = fixture(t);
   f.write(
