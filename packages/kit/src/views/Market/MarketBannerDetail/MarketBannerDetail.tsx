@@ -16,6 +16,7 @@ import {
   Tabs,
   XStack,
   YStack,
+  useIsOverlayPage,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -49,6 +50,7 @@ import {
   MARKET_DESKTOP_TOOLBAR_INSET,
 } from '../marketDesktopLayoutConstants';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
+import { useMarketDetailTabBarVisibility } from '../MarketDetailV2/hooks/useMarketDetailTabBarVisibility';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -543,6 +545,10 @@ function MarketBannerDetailContent({ title }: { title: string }) {
 export function MarketBannerDetail() {
   const route = useRoute<IMarketBannerDetailRouteParams>();
   const { title, tokenListId, type, assetType } = route.params;
+  const isOverlayPage = useIsOverlayPage();
+  useMarketDetailTabBarVisibility(
+    Boolean(platformEnv.isNative) && !isOverlayPage,
+  );
 
   return (
     <AccountSelectorProviderMirror

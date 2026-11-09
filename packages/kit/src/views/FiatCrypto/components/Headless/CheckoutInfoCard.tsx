@@ -1,33 +1,29 @@
 import type { ReactNode } from 'react';
 
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from 'react-native-reanimated';
+import { useIntl } from 'react-intl';
+import { LayoutAnimationConfig } from 'react-native-reanimated';
 
 import {
-  Divider,
   Icon,
   NumberSizeableText,
-  Popover,
   SizableText,
   Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getOnramperQuotePricing } from '@onekeyhq/shared/src/modules3rdParty/onramper';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { DetailRow, formatPrice } from './DetailRow';
 import {
-  MOTION_EASE_IN,
-  MOTION_EASE_IN_OUT,
-  MOTION_EASE_OUT,
-  MOTION_EXIT_MS,
-  MOTION_MICRO_MS,
-} from './motionTokens';
+  DETAIL_CARD_PROPS,
+  DetailAddressValue,
+  DetailEmptyValue,
+  DetailRow,
+  DetailRowMotion,
+  formatPrice,
+} from './DetailRow';
+import { FeeRow } from './FeeRow';
 import { ProviderLogo, getProviderDisplayName } from './ProviderLogo';
 import { RateRow } from './RateRow';
 
@@ -38,8 +34,7 @@ type IProps = {
   networkName?: string;
   // A quote is in flight. Quote-derived rows render as SKELETONS instead of
   // unmounting, so the quote landing fills values in place — zero layout
-  // change, nothing below the card moves (the pay zone below is hard-swap by
-  // design and must not be displaced).
+  // change, nothing below the card moves.
   isQuoting?: boolean;
   // Fiat the user pays, in the quote's source currency. Together with the
   // quote's fees it prices the payout at the provider's own rate
@@ -54,15 +49,18 @@ type IProps = {
   // Destination wallet address — always shown when known so the user can
   // confirm where the funds land before paying.
   address?: string;
+  // Shown before the address, as on the order detail: the name is what the
+  // user recognizes, the address is what they can check.
+  accountName?: string;
   // When provided the provider row becomes tappable (provider switching).
   onSelectProvider?: () => void;
 };
 
-// The review breakdown — a flat list of label/value rows with a divider
-// between every adjacent pair. Rows render conditionally, so they are
-// collected first and the dividers interleaved; each bundle fades in/out on
-// appearance. No height animation here by design: the hero container above
-// owns the layout transition.
+// The review breakdown, in the same card as the order detail so the two
+// surfaces read as the same order. Quote-derived rows stay mounted through
+// every state — skeleton while quoting, value once quoted, "--" when no quote
+// is coming — so the card never changes height under the pay button; only the
+// network and address rows can arrive later, and those fade in.
 export function CheckoutInfoCard({
   tokenSymbol,
   networkId,
@@ -74,10 +72,13 @@ export function CheckoutInfoCard({
   transactionFee,
   providerName,
   address,
+  accountName,
   onSelectProvider,
 }: IProps) {
-  const totalFee = (networkFee ?? 0) + (transactionFee ?? 0);
-  const hasFee = networkFee !== undefined || transactionFee !== undefined;
+  const intl = useIntl();
+  const providerLabel = intl.formatMessage({
+    id: ETranslations.swap_history_detail_provider,
+  });
   // Provider-rate value of the estimated receive (= amount − fees) and the
   // rate itself. Undefined until a full quote is in hand, or when the quote
   // can't be priced — the fiat figures are then hidden rather than replaced
@@ -99,118 +100,70 @@ export function CheckoutInfoCard({
           transactionFee,
         })
       : undefined;
-  const rows: { key: string; node: ReactNode }[] = [];
-  rows.push({
-    key: 'payout',
-    node: (
-      <DetailRow label="Est. receive" py="$2">
-        {payout !== undefined ? (
-          <XStack ai="center" gap="$1">
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol }}
-            >
-              {payout}
-            </NumberSizeableText>
-            {/* ≈ because the payout itself is the provider's estimate; the
-                delivered amount settles at execution. */}
-            {pricing ? (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {`(≈${formatPrice(pricing.payoutFiatValue)})`}
-              </SizableText>
-            ) : null}
-          </XStack>
-        ) : (
-          // Typography-matched with the $bodyMdMedium value it replaces.
-          <Skeleton.BodyMd />
-        )}
-      </DetailRow>
-    ),
-  });
-  if (pricing || isQuoting) {
-    rows.push({
+  // Loading and empty states for the quote-derived values.
+  const pendingValue = isQuoting ? <Skeleton.BodyMd /> : <DetailEmptyValue />;
+
+  let payoutValue: ReactNode = pendingValue;
+  if (payout !== undefined) {
+    payoutValue = (
+      // Wraps the ≈fiat part onto its own line when a large payout leaves no
+      // room for both.
+      <XStack ai="center" jc="flex-end" flexWrap="wrap" columnGap="$1">
+        {/* The one emphasized figure: what the user gets. */}
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          formatter="balance"
+          formatterOptions={{ tokenSymbol }}
+        >
+          {payout}
+        </NumberSizeableText>
+        {/* ≈ because the payout itself is the provider's estimate; the
+            delivered amount settles at execution. */}
+        {pricing ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {`(≈${formatPrice(pricing.payoutFiatValue)})`}
+          </SizableText>
+        ) : null}
+      </XStack>
+    );
+  }
+
+  const rows: { key: string; node: ReactNode }[] = [
+    {
+      key: 'payout',
+      node: (
+        <DetailRow
+          label={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+        >
+          {payoutValue}
+        </DetailRow>
+      ),
+    },
+    {
       key: 'rate',
       node: (
         <RateRow
           tokenSymbol={tokenSymbol}
           impliedPrice={pricing?.impliedPrice}
           providerName={providerName}
-          py="$2"
+          isLoading={isQuoting}
         />
       ),
-    });
-  }
-  if (hasFee || isQuoting) {
-    rows.push({
+    },
+    {
       key: 'fee',
       node: (
-        <DetailRow label="Fees" py="$2">
-          {!hasFee ? (
-            <Skeleton.BodyMd />
-          ) : (
-            <Popover
-              title="Fees"
-              renderTrigger={
-                <XStack ai="center" gap="$1" cursor="pointer">
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="price"
-                    formatterOptions={{ currency: '$' }}
-                  >
-                    {totalFee}
-                  </NumberSizeableText>
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              }
-              renderContent={
-                <YStack p="$5" gap="$3">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {networkName
-                      ? `Fees consist of the ${networkName} network fee and the transaction fee.`
-                      : 'Fees consist of the network fee and the transaction fee.'}
-                  </SizableText>
-                  {networkFee !== undefined ? (
-                    <XStack jc="space-between" ai="center">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        Network fee
-                      </SizableText>
-                      <SizableText size="$bodyMd">
-                        {formatPrice(networkFee)}
-                      </SizableText>
-                    </XStack>
-                  ) : null}
-                  {transactionFee !== undefined ? (
-                    <XStack jc="space-between" ai="center">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        Transaction fee
-                      </SizableText>
-                      <SizableText size="$bodyMd">
-                        {formatPrice(transactionFee)}
-                      </SizableText>
-                    </XStack>
-                  ) : null}
-                </YStack>
-              }
-            />
-          )}
-        </DetailRow>
+        <FeeRow
+          networkFee={networkFee}
+          transactionFee={transactionFee}
+          isLoading={isQuoting}
+        />
       ),
-    });
-  }
-  if (providerName || isQuoting) {
-    rows.push({
+    },
+    {
       key: 'provider',
-      node: !providerName ? (
-        <DetailRow label="Provider" py="$2">
-          <Skeleton.BodyMd />
-        </DetailRow>
-      ) : (
-        <DetailRow label="Provider" py="$2" onPress={onSelectProvider}>
+      node: providerName ? (
+        <DetailRow label={providerLabel} onPress={onSelectProvider}>
           <XStack ai="center" gap="$1.5">
             <ProviderLogo provider={providerName} />
             <SizableText size="$bodyMd">
@@ -225,14 +178,18 @@ export function CheckoutInfoCard({
             ) : null}
           </XStack>
         </DetailRow>
+      ) : (
+        <DetailRow label={providerLabel}>{pendingValue}</DetailRow>
       ),
-    });
-  }
+    },
+  ];
   if (networkName) {
     rows.push({
       key: 'network',
       node: (
-        <DetailRow label="Network" py="$2">
+        <DetailRow
+          label={intl.formatMessage({ id: ETranslations.global_network })}
+        >
           <XStack ai="center" gap="$1.5">
             {networkId ? (
               <NetworkAvatar networkId={networkId} size="$5" />
@@ -247,34 +204,27 @@ export function CheckoutInfoCard({
     rows.push({
       key: 'address',
       node: (
-        <DetailRow label="Receiving address" py="$2">
-          <SizableText size="$bodyMd">
-            {accountUtils.shortenAddress({ address })}
-          </SizableText>
+        <DetailRow
+          label={intl.formatMessage({
+            id: ETranslations.receive_address__title,
+          })}
+        >
+          <DetailAddressValue address={address} accountName={accountName} />
         </DetailRow>
       ),
     });
   }
 
   return (
-    <YStack>
-      {rows.map((row, index) => (
-        // Each bundle (leading divider + row) fades as one unit; keys keep
-        // React from remounting surviving rows when a neighbor toggles, and
-        // the layout prop glides survivors into the gap a neighbor leaves
-        // (or out of the way of one appearing) instead of snapping.
-        <Animated.View
-          key={row.key}
-          entering={FadeIn.duration(MOTION_MICRO_MS).easing(MOTION_EASE_OUT)}
-          exiting={FadeOut.duration(MOTION_EXIT_MS).easing(MOTION_EASE_IN)}
-          layout={LinearTransition.duration(MOTION_MICRO_MS).easing(
-            MOTION_EASE_IN_OUT,
-          )}
-        >
-          {index > 0 ? <Divider my="$1" /> : null}
-          {row.node}
-        </Animated.View>
-      ))}
+    <YStack {...DETAIL_CARD_PROPS}>
+      {/* Rows that mount with the card arrive with the review block's own
+          fade; only a row that lands later (network, address) fades in. */}
+      <LayoutAnimationConfig skipEntering>
+        {rows.map((row) => (
+          // Keys keep surviving rows mounted when a late row arrives.
+          <DetailRowMotion key={row.key}>{row.node}</DetailRowMotion>
+        ))}
+      </LayoutAnimationConfig>
     </YStack>
   );
 }

@@ -545,13 +545,14 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioFailed } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress,
-    xpub,
-    isStock: Boolean(isStockToken || isStockRoute),
-  });
+  const { portfolioData, isPortfolioPending, isPortfolioFailed } =
+    usePortfolioData({
+      tokenAddress,
+      networkId,
+      accountAddress,
+      xpub,
+      isStock: Boolean(isStockToken || isStockRoute),
+    });
   const tabNames = useMemo(
     () => [
       intl.formatMessage({ id: ETranslations.market_chart }),
@@ -1070,7 +1071,7 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               isPortfolioFailed={isPortfolioFailed}
               tokenLogoUrl={tokenDetail?.logoUrl}
             />
@@ -1106,7 +1107,7 @@ export function MobileLayout({
       informationHeader,
       isTradingViewScrollLocked,
       portfolioData,
-      isRefreshing,
+      isPortfolioPending,
       isPortfolioFailed,
       tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
