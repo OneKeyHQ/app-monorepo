@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import {
+  DesktopDragZoneBox,
   EPageType,
   Spinner,
   Stack,
@@ -164,14 +165,30 @@ function StandardOnboardingNavigator() {
       setSystemBarsOverride(null);
     };
   }, []);
+  const navigator = isMediaReady ? (
+    <RootModalNavigator<EOnboardingV2Routes>
+      config={onboardingRouterV2Config}
+      pageType={EPageType.onboarding}
+    />
+  ) : null;
+
   return (
     <Theme name="dark">
-      {isMediaReady ? (
-        <RootModalNavigator<EOnboardingV2Routes>
-          config={onboardingRouterV2Config}
-          pageType={EPageType.onboarding}
-        />
-      ) : null}
+      {platformEnv.isDesktop ? (
+        <Stack flex={1}>
+          {navigator}
+          <DesktopDragZoneBox
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h="$8"
+            disabled={!isFocused}
+          />
+        </Stack>
+      ) : (
+        navigator
+      )}
     </Theme>
   );
 }

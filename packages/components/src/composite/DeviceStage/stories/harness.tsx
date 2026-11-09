@@ -377,12 +377,12 @@ export const ARG_TYPES = {
   step: { table: { disable: true } },
   deviceType: {
     control: 'inline-radio',
-    options: ['classic', 'mini', 'pro', 'touch', 'pro2'],
+    options: ['classic', 'mini', 'pro', 'touch', 'pro2', 'neo'],
   },
-  // Only pro2 listens; unset is the model's default finish.
+  // Only pro2 and neo listen; unset is each model's default finish.
   deviceColor: {
     control: 'inline-radio',
-    options: ['Black', 'Silver', 'Orange'],
+    options: ['Black', 'Silver', 'Orange', 'White', 'Green', 'Pink'],
   },
   // 'usb' is the original look — the replica in the capsule seat; only
   // 'bluetooth' wears the badge.
