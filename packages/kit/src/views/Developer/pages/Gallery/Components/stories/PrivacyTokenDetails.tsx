@@ -490,7 +490,6 @@ function PrivacyTokenDetailsPreview() {
           {isPrivateReceive && receiveReady ? (
             <ReceivePrivacyStatus
               state={receiveStatus}
-              progress={0.64}
               onEnableMobileData={() => setMobileDataPaused(false)}
             />
           ) : null}
