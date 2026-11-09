@@ -3,52 +3,10 @@ import SwiftUI
 import WidgetKit
 import UIKit
 
-struct OneKeyLiveActivity: Widget {
-  var body: some WidgetConfiguration {
-    ActivityConfiguration(for: LiveActivityAttributes.self) { context in
-      VStack(alignment: .leading, spacing: 8) {
-        HStack {
-          Text(context.attributes.title)
-          Spacer()
-          Text("\(context.state.progress)%")
-            .monospacedDigit()
-        }
-        ProgressView(value: Double(context.state.progress), total: 100)
-        Text("Live Activity test · No transaction")
-          .font(.caption)
-      }
-      .padding()
-    } dynamicIsland: { context in
-      DynamicIsland {
-        DynamicIslandExpandedRegion(.center) {
-          Text(context.attributes.title)
-        }
-        DynamicIslandExpandedRegion(.bottom) {
-          HStack {
-            ProgressView(value: Double(context.state.progress), total: 100)
-            Text("\(context.state.progress)%")
-              .monospacedDigit()
-          }
-        }
-      } compactLeading: {
-        Text("1")
-      } compactTrailing: {
-        Text("\(context.state.progress)%")
-          .monospacedDigit()
-      } minimal: {
-        Text("\(context.state.progress)%")
-          .font(.caption2)
-          .monospacedDigit()
-      }
-    }
-  }
-}
-
 @main
 struct LiveActivityBundle: WidgetBundle {
   var body: some Widget {
     SwapLiveActivityWidget()
-    OneKeyLiveActivity()
   }
 }
 
@@ -255,18 +213,35 @@ private struct SwapActivityDetails: View {
 private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
 
+  private var statusLabel: String {
+    let strings = context.state.strings
+    switch context.state.status {
+    case .confirming:
+      return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
+    case .swapping: return strings?.pending ?? "Swap in progress"
+    case .receiving:
+      return strings?.confirmingTo ?? "Confirming on \(context.attributes.order.toToken.networkName) network"
+    case .refunding: return strings?.refunding ?? "Refunding"
+    case .done: return strings?.done ?? "Done"
+    case .failed: return strings?.failed ?? "Failed"
+    case .refunded: return strings?.refunded ?? "Refunded"
+    case .canceled: return strings?.canceled ?? "Order canceled"
+    }
+  }
+
   var body: some View {
     if context.state.status.isTerminal || context.state.status == .failed {
       Image(context.state.status == .done ? "SwapDone" : "SwapFailed")
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
+        .accessibilityLabel(Text(statusLabel))
     } else if (context.isStale && !context.state.status.isError) || context.state.displayPhase == "eta" {
       SwapActivityETA(context: context, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
       .renderingMode(.original).resizable().scaledToFit()
       .frame(width: 22, height: 22)
-      .accessibilityLabel("Swap in progress")
+      .accessibilityLabel(Text(statusLabel))
     }
   }
 }

@@ -517,9 +517,6 @@ class ServiceApp extends ServiceBase {
       if (recoveryErasureFailed) {
         throw new OneKeyLocalError('Recovery cache erasure failed');
       }
-      if (liveActivityCleanupFailed) {
-        throw new OneKeyLocalError('Live Activity cleanup failed');
-      }
     } catch (error) {
       console.error('resetData error', error);
       throw error;
@@ -544,6 +541,10 @@ class ServiceApp extends ServiceBase {
       await timerUtils.wait(600);
     }
 
+    if (liveActivityCleanupFailed) {
+      defaultLogger.setting.page.clearDataStep('liveActivityCleanup-failed');
+    }
+
     // resetData wipes localDb / appStorage / v4 db — the background runtime
     // is now holding stale state and bundle moduleIds may have re-keyed via
     // OTA. mode=All forces both runtimes cold so nothing reads from the
@@ -552,6 +553,9 @@ class ServiceApp extends ServiceBase {
       mode: EAppRestartMode.All,
       reason: 'auth.resetData',
     });
+    if (liveActivityCleanupFailed) {
+      throw new OneKeyLocalError('Live Activity cleanup failed');
+    }
   }
 
   @backgroundMethod()

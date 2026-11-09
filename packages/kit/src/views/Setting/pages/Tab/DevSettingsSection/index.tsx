@@ -140,7 +140,6 @@ import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
-import { LiveActivityDemo } from './LiveActivityDemo';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
@@ -1930,20 +1929,6 @@ const BaseDevSettingsSection = () => {
                             inPageDialog.cancel({
                               title: 'BTC Swap Live Activity',
                               renderContent: <SwapLiveActivityPanel />,
-                            });
-                          }}
-                        />
-                      ) : null}
-                      {platformEnv.isNativeIOS ? (
-                        <SectionPressItem
-                          icon="LabOutline"
-                          title="Live Activity Demo"
-                          subtitle="灵动岛 / 锁屏实时活动本地测试"
-                          testID="live-activity-demo-menu"
-                          onPress={() => {
-                            inPageDialog.cancel({
-                              title: 'Live Activity Demo',
-                              renderContent: <LiveActivityDemo />,
                             });
                           }}
                         />

@@ -227,7 +227,9 @@ describe('ServiceApp.resetApp', () => {
           'resetData',
         )
         .mockResolvedValue(undefined);
-      const restart = jest.spyOn(service, 'restartApp');
+      const restart = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
       jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
       jest.spyOn(console, 'error').mockImplementation(() => undefined);
       await expect(service.resetApp()).rejects.toThrow(
@@ -236,7 +238,13 @@ describe('ServiceApp.resetApp', () => {
       expect(stop.mock.invocationCallOrder[0]).toBeLessThan(
         resetData.mock.invocationCallOrder[0],
       );
-      expect(restart).not.toHaveBeenCalled();
+      expect(restart).toHaveBeenCalledWith({
+        mode: EAppRestartMode.All,
+        reason: 'auth.resetData',
+      });
+      expect(resetData.mock.invocationCallOrder[0]).toBeLessThan(
+        restart.mock.invocationCallOrder[0],
+      );
     } finally {
       platformEnv.isNativeIOS = originalIOS;
     }
@@ -265,7 +273,9 @@ describe('ServiceApp.resetApp', () => {
           'resetData',
         )
         .mockResolvedValue(undefined);
-      const restart = jest.spyOn(service, 'restartApp');
+      const restart = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
       jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
       jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -282,7 +292,13 @@ describe('ServiceApp.resetApp', () => {
         expect.objectContaining({ message: 'Live Activity cleanup failed' }),
       );
       expect(resetData).toHaveBeenCalledTimes(1);
-      expect(restart).not.toHaveBeenCalled();
+      expect(restart).toHaveBeenCalledWith({
+        mode: EAppRestartMode.All,
+        reason: 'auth.resetData',
+      });
+      expect(resetData.mock.invocationCallOrder[0]).toBeLessThan(
+        restart.mock.invocationCallOrder[0],
+      );
     } finally {
       jest.useRealTimers();
       platformEnv.isNativeIOS = originalIOS;

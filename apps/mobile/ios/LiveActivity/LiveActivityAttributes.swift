@@ -1,14 +1,6 @@
 import ActivityKit
 import Foundation
 
-struct LiveActivityAttributes: ActivityAttributes {
-  struct ContentState: Codable, Hashable {
-    let progress: Int
-  }
-
-  let title: String
-}
-
 enum SwapLiveActivityStatus: String, Codable {
   case confirming, swapping, receiving, refunding, done, failed, refunded, canceled
 
@@ -89,7 +81,30 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
     var almostDone: Bool
     var imageRevision: Int?
     var progressStoppedAtMs: Double?
+    var terminalAtMs: Double?
     var strings: SwapLiveActivityStrings?
+
+    func firstTerminalDate(now: Date) -> Date {
+      let nowMs = now.timeIntervalSince1970 * 1000
+      // Older activities lack terminalAtMs; their last update is the best available timestamp.
+      let candidate = terminalAtMs ?? updatedAtMs
+      let terminalMs = candidate.isFinite && candidate > 0 ? min(candidate, nowMs) : nowMs
+      return Date(timeIntervalSince1970: terminalMs / 1000)
+    }
+
+    func terminalSchedule(now: Date) -> (endDelay: TimeInterval, dismissalDate: Date) {
+      let terminalDate = firstTerminalDate(now: now)
+      return (
+        max(0, terminalDate.addingTimeInterval(30).timeIntervalSince(now)),
+        terminalDate.addingTimeInterval(210)
+      )
+    }
+
+    mutating func preserveTerminalDate(from previous: Self, now: Date) {
+      guard status.isTerminal else { return }
+      terminalAtMs = (previous.status.isTerminal ? previous.firstTerminalDate(now: now) : now)
+        .timeIntervalSince1970 * 1000
+    }
 
     static func make(
       order: SwapLiveActivityOrder,
@@ -109,6 +124,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
         almostDone: !status.isTerminal && !status.isError && remaining < 10,
         imageRevision: 0,
         progressStoppedAtMs: status.isError ? updatedAtMs : nil,
+        terminalAtMs: nil,
         strings: strings
       )
     }

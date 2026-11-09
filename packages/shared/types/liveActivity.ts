@@ -61,6 +61,8 @@ export type ILiveActivityPushContent = ILiveActivityContent & {
   almostDone: boolean;
   imageRevision?: number;
   progressStoppedAtMs?: number;
+  // Remote updates must preserve the first terminal timestamp across updates.
+  terminalAtMs?: number;
 };
 
 export type ILiveActivitySnapshot = {
