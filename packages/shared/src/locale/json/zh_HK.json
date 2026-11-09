@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "同步已暫停，恢復後才能發送私隱資金。",
   "privacy_send_waiting_sync__msg": "同步中，還差 {blocks} 個區塊。",
   "privacy_slots_delete__desc": "刪除一個已啟用帳戶的本機私隱資料以釋出名額",
+  "privacy_send_needs_privacy_mode__msg": "開啟私隱模式後才能發送到私隱地址。",
   "privacy_slots_full__desc": "最多同步 {max} 個帳戶，關閉一個後才能同步 {accountName}。",
   "privacy_slots_full__title": "已達同步上限",
   "privacy_slots_full_locked__desc": "{max} 個名額都被已鎖定的錢包佔用，請先解鎖一個。",

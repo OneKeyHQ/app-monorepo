@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "Synchronisierung pausiert. Fortsetzen, um private Gelder zu senden.",
   "privacy_send_waiting_sync__msg": "Synchronisierung läuft, noch {blocks} Blöcke.",
   "privacy_slots_delete__desc": "Lösche die lokalen Privatsphäre-Daten eines aktivierten Kontos, um einen Platz freizugeben.",
+  "privacy_send_needs_privacy_mode__msg": "Aktivieren Sie den Privatsphärenmodus, um an eine private Adresse zu senden.",
   "privacy_slots_full__desc": "Bis zu {max} Konten können synchronisieren. Schalten Sie eines aus, um {accountName} zu synchronisieren.",
   "privacy_slots_full__title": "Sync-Limit erreicht",
   "privacy_slots_full_locked__desc": "Alle {max} Plätze sind von gesperrten Wallets belegt. Entsperren Sie zuerst eine.",

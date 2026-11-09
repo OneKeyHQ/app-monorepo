@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "সিঙ্ক বিরতিতে আছে। প্রাইভেট তহবিল পাঠাতে আবার চালু করুন।",
   "privacy_send_waiting_sync__msg": "সিঙ্ক হচ্ছে, {blocks}টি ব্লক বাকি।",
   "privacy_slots_delete__desc": "একটি সক্রিয় অ্যাকাউন্টের স্থানীয় গোপনীয়তা ডেটা মুছে একটি স্লট খালি করুন।",
+  "privacy_send_needs_privacy_mode__msg": "প্রাইভেট ঠিকানায় পাঠাতে প্রাইভেসি মোড চালু করুন।",
   "privacy_slots_full__desc": "সর্বোচ্চ {max}টি অ্যাকাউন্ট সিঙ্ক হতে পারে। {accountName} সিঙ্ক করতে একটি বন্ধ করুন।",
   "privacy_slots_full__title": "সিঙ্ক সীমায় পৌঁছেছে",
   "privacy_slots_full_locked__desc": "সব {max}টি জায়গা লক করা ওয়ালেট ব্যবহার করছে। আগে একটি আনলক করুন।",

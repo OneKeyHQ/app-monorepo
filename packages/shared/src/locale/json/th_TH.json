@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "หยุดซิงค์ชั่วคราว ทำต่อเพื่อส่งเงินส่วนตัว",
   "privacy_send_waiting_sync__msg": "กำลังซิงค์ เหลืออีก {blocks} บล็อก",
   "privacy_slots_delete__desc": "ลบข้อมูลความเป็นส่วนตัวในเครื่องของบัญชีที่เปิดใช้งานเพื่อเพิ่มช่องว่าง",
+  "privacy_send_needs_privacy_mode__msg": "เปิดโหมดความเป็นส่วนตัวเพื่อส่งไปยังที่อยู่ส่วนตัว",
   "privacy_slots_full__desc": "ซิงค์ได้สูงสุด {max} บัญชี ปิดหนึ่งบัญชีเพื่อซิงค์ {accountName}",
   "privacy_slots_full__title": "ถึงขีดจำกัดการซิงค์แล้ว",
   "privacy_slots_full_locked__desc": "ทั้ง {max} ที่ถูกใช้โดยกระเป๋าที่ล็อกอยู่ ปลดล็อกหนึ่งกระเป๋าก่อน",

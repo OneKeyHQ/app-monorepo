@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "Sincronizzazione in pausa. Riprendi per inviare fondi privati.",
   "privacy_send_waiting_sync__msg": "Sincronizzazione, {blocks} blocchi rimanenti.",
   "privacy_slots_delete__desc": "Elimina i dati locali sulla privacy di un account abilitato per liberare uno spazio.",
+  "privacy_send_needs_privacy_mode__msg": "Attiva la modalità privacy per inviare a un indirizzo privato.",
   "privacy_slots_full__desc": "Si possono sincronizzare fino a {max} account. Disattivane uno per sincronizzare {accountName}.",
   "privacy_slots_full__title": "Limite di sincronizzazione raggiunto",
   "privacy_slots_full_locked__desc": "Tutti i {max} posti sono occupati da wallet bloccati. Sbloccane prima uno.",

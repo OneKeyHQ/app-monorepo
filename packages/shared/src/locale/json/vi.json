@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "Đã tạm dừng đồng bộ. Tiếp tục để gửi tiền riêng tư.",
   "privacy_send_waiting_sync__msg": "Đang đồng bộ, còn {blocks} khối.",
   "privacy_slots_delete__desc": "Xóa dữ liệu riêng tư cục bộ của một tài khoản đang bật để giải phóng một chỗ.",
+  "privacy_send_needs_privacy_mode__msg": "Bật chế độ riêng tư để gửi đến địa chỉ riêng tư.",
   "privacy_slots_full__desc": "Tối đa {max} tài khoản có thể đồng bộ. Tắt một tài khoản để đồng bộ {accountName}.",
   "privacy_slots_full__title": "Đã đạt giới hạn đồng bộ",
   "privacy_slots_full_locked__desc": "Cả {max} vị trí đều do ví đang khóa sử dụng. Hãy mở khóa một ví trước.",

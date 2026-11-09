@@ -4681,6 +4681,7 @@
   "privacy_send_private_paused__msg": "同步已暂停，恢复后才能发送隐私资金。",
   "privacy_send_waiting_sync__msg": "同步中，还差 {blocks} 个区块。",
   "privacy_slots_delete__desc": "删除一个已启用账户的本地隐私数据以释放名额",
+  "privacy_send_needs_privacy_mode__msg": "开启隐私模式后才能发送到隐私地址。",
   "privacy_slots_full__desc": "最多同步 {max} 个账户，关闭一个后才能同步 {accountName}。",
   "privacy_slots_full__title": "已达同步上限",
   "privacy_slots_full_locked__desc": "{max} 个名额都被已锁定的钱包占用，请先解锁一个。",

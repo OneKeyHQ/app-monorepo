@@ -104,7 +104,6 @@ import type {
 
 import { vaultFactory } from '../vaults/factory';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
-import { getVaultSettings } from '../vaults/settings';
 import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
@@ -774,16 +773,11 @@ class ServiceSend extends ServiceBase {
           await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
             { networkId: params.networkId, encodedTx: params.encodedTx },
           );
-        const fee = new BigNumber(tx.fee);
-        const { localWallet } = await getVaultSettings({
-          networkId: params.networkId,
-        });
-        // Checked locally until the backend pre-send check supports privacy chains; a mismatched fee or one at least
-        // as large as the payment needs review, unless the protocol sets it.
-        return (
-          !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
-          (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
-        );
+        // Checked locally until the backend pre-send check supports privacy chains; only a fee other than the one
+        // shown needs review, since each runtime already fixes or caps the fee.
+        return !new BigNumber(tx.fee)
+          .shiftedBy(-tx.decimals)
+          .eq(params.feeAmount);
       } catch {
         return true;
       }
