@@ -415,7 +415,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            // The Prime badge sits inline after the label.
+            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -425,7 +425,7 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {showPrimeBadge ? (
+            {!isNative && showPrimeBadge ? (
               <Badge
                 testID="discovery-translate-prime-badge"
                 badgeSize="sm"
