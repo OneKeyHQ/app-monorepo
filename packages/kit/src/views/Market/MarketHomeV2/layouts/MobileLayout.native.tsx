@@ -149,52 +149,44 @@ const STYLES = StyleSheet.create({
   pager: { flex: 1 },
 });
 
+function getMarketHomeSpotSubHeader(ctx: ITabBarDynamicContext) {
+  const categoryId = ctx.getSpotCategoryIdByTabName(ctx.activeTabName);
+  const isStockCategory = isMarketStockCategoryById(
+    ctx.filterBarProps.categories,
+    categoryId,
+  );
+  const hasStockData =
+    isStockCategory ||
+    Boolean(categoryId && ctx.stockDataCategoryMap[categoryId]);
+  const isTopCoins = categoryId === MARKET_TOP_COINS_CATEGORY_ID;
+  const showStockCategorySelector =
+    isStockCategory && ctx.stockCategories.length > 0;
+  const showTopCoinsCategorySelector =
+    isTopCoins && ctx.topCoinsCategories.length > 0;
+
+  return {
+    showCategorySelector:
+      showStockCategorySelector || showTopCoinsCategorySelector,
+    showSpotFilterBar: Boolean(categoryId && !isTopCoins && !hasStockData),
+    showSpotNetworkSelector: shouldShowSpotNetworkSelector(categoryId),
+    showSpotSubHeader: Boolean(categoryId),
+    showStockCategorySelector,
+    showTopCoinsCategorySelector,
+  };
+}
+
 function getMarketHomeTabBarLayout(
   ctx: ITabBarDynamicContext,
   watchlistTabName: string,
   perpsTabName: string,
   wideColumns: boolean,
 ) {
-  const currentFocusedTabName = ctx.activeTabName;
-  const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
-    currentFocusedTabName,
-  );
-  const showSpotSubHeader = Boolean(currentSpotCategoryId);
-  const currentSpotCategoryHasStockData = Boolean(
-    currentSpotCategoryId &&
-    (isMarketStockCategoryById(
-      ctx.filterBarProps.categories,
-      currentSpotCategoryId,
-    ) ||
-      ctx.stockDataCategoryMap[currentSpotCategoryId]),
-  );
-  const showSpotFilterBar = Boolean(
-    currentSpotCategoryId &&
-    currentSpotCategoryId !== MARKET_TOP_COINS_CATEGORY_ID &&
-    !currentSpotCategoryHasStockData,
-  );
-  const showSpotNetworkSelector = shouldShowSpotNetworkSelector(
-    currentSpotCategoryId,
-  );
-  const showStockCategorySelector = Boolean(
-    currentSpotCategoryId &&
-    isMarketStockCategoryById(
-      ctx.filterBarProps.categories,
-      currentSpotCategoryId,
-    ) &&
-    ctx.stockCategories.length > 0,
-  );
-  const showTopCoinsCategorySelector = Boolean(
-    currentSpotCategoryId === MARKET_TOP_COINS_CATEGORY_ID &&
-    ctx.topCoinsCategories.length > 0,
-  );
-  const showCategorySelector =
-    showStockCategorySelector || showTopCoinsCategorySelector;
-  const hasSpotSecondaryControls = showSpotFilterBar || showCategorySelector;
+  const spotSubHeader = getMarketHomeSpotSubHeader(ctx);
+  const showWatchlistSubHeader = ctx.activeTabName === watchlistTabName;
   const showCompactSpotSubHeader =
-    showSpotSubHeader && !hasSpotSecondaryControls;
-  const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
+    spotSubHeader.showSpotSubHeader &&
+    !spotSubHeader.showSpotFilterBar &&
+    !spotSubHeader.showCategorySelector;
   let secondaryHeaderHeight = wideColumns
     ? MARKET_MOBILE_CATEGORY_ROW_HEIGHT
     : getMarketMobileSecondaryHeaderHeight();
@@ -207,14 +199,9 @@ function getMarketHomeTabBarLayout(
   }
 
   return {
+    ...spotSubHeader,
     secondaryHeaderHeight,
-    showCategorySelector,
-    showPerpsSubHeader,
-    showSpotFilterBar,
-    showSpotNetworkSelector,
-    showSpotSubHeader,
-    showStockCategorySelector,
-    showTopCoinsCategorySelector,
+    showPerpsSubHeader: ctx.activeTabName === perpsTabName,
     showWatchlistSubHeader,
   };
 }
