@@ -75,7 +75,10 @@ import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnec
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
-import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type {
+  IEncodedTxLightning,
+  IEncodedTxLightningSpark,
+} from '@onekeyhq/shared/types/lightning';
 import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -797,13 +800,17 @@ function TxConfirmActions(props: IProps) {
 
       // Save recent recipient for all transfer types
       const isLightningNetwork =
-        networkUtils.isLightningNetworkByNetworkId(networkId);
+        networkUtils.isAnyLightningNetworkByNetworkId(networkId);
       let addressToSave: undefined | string | null =
         transferPayload?.originalRecipient;
 
       if (isLightningNetwork) {
-        addressToSave = (unsignedTxs[0].encodedTx as IEncodedTxLightning)
-          ?.lightningAddress;
+        addressToSave = (
+          unsignedTxs[0].encodedTx as
+            | IEncodedTxLightning
+            | IEncodedTxLightningSpark
+            | undefined
+        )?.lightningAddress;
 
         if (!addressToSave) {
           addressToSave = transferInfo?.lnurl;

@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import type {
   IEncodedTx,
   IUnsignedMessage,
@@ -380,23 +381,44 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
-  // Self-custody Lightning pays BOLT11 invoices only for now. LNURL and
-  // Lightning addresses need the callback invoice through a OneKey relay,
-  // so they stop here and never reach the Breez SDK.
+  // Self-custody Lightning pays LNURL and Lightning addresses the way
+  // custodial Lightning does: the OneKey server resolves the LNURL and the
+  // pay page fetches the invoice from its callback. The Breez SDK only ever
+  // receives that invoice. Withdraw and login are not supported yet.
   const lightningSparkSignatureConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      if (
-        params.transfersInfo?.some((transferInfo) =>
-          isReusableLightningRecipient(transferInfo.to),
-        )
-      ) {
-        throw new OneKeyLocalError({
-          key: ETranslations.wallet_feature_coming_soon,
+      const { transfersInfo, onSuccess, onFail, onCancel } = params;
+      const toVal =
+        transfersInfo?.length === 1 ? transfersInfo[0].to : undefined;
+      if (toVal && isReusableLightningRecipient(toVal)) {
+        const lnurlDetails =
+          await backgroundApiProxy.serviceLightning.findAndValidateLnurl({
+            toVal,
+            networkId,
+          });
+        if (lnurlDetails?.tag !== 'payRequest') {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.wallet_feature_coming_soon,
+            }),
+          });
+          return;
+        }
+        navigation.push(EModalSignatureConfirmRoutes.LnurlPayRequest, {
+          networkId,
+          accountId,
+          transfersInfo,
+          lnurlDetails,
+          onSuccess,
+          onFail,
+          onCancel,
+          isSendFlow: true,
         });
+        return;
       }
       await normalizeTxConfirm(params);
     },
-    [normalizeTxConfirm],
+    [accountId, intl, navigation, networkId, normalizeTxConfirm],
   );
 
   const navigationToTxConfirm: INavigationToTxConfirm = useCallback(
