@@ -150,7 +150,9 @@ function SupportInbox({
       const next = parseIntercomInbox(
         await session.request('conversations', {
           per_page: 20,
-          page: page.nextPage,
+          ...(page.nextPage !== undefined
+            ? { page: page.nextPage }
+            : { before: page.before }),
         }),
       );
       if (revision === moreRevision.current)

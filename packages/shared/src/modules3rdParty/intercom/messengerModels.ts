@@ -26,10 +26,12 @@ const number = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
 export function intercomText(value: unknown): string {
+  // Remove raw markup, including unfinished tags, before decoding entities
+  // so escaped user input remains literal text for React Native text nodes.
   // cspell:ignore apos
   return string(value)
     .replace(/<br\s*\/?\s*>|<\/p>|<\/div>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
+    .replace(/<[^>]*(?:>|$)/g, '')
     .replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, code: string) => {
       const point = code.toLowerCase().startsWith('x')
         ? Number.parseInt(code.slice(1), 16)
@@ -328,14 +330,14 @@ export function parseIntercomInbox(value: unknown): IIntercomInbox {
   if (!Array.isArray(values))
     throw new OneKeyLocalError('Invalid support inbox');
   const pages = intercomRecord(data.pages);
-  const page = number(pages.page) || 1;
+  const page = number(pages.page);
   const conversations = values.map(parseIntercomConversation);
   return {
     conversations,
     hasMore:
       page < number(pages.total_pages) || legacy.more_pages_available === true,
     before: conversations.at(-1)?.updatedAt,
-    nextPage: page + 1,
+    nextPage: page > 0 ? page + 1 : undefined,
   };
 }
 

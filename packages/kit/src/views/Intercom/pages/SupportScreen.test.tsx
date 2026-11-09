@@ -338,6 +338,63 @@ it('opens the RN home, message list and an existing conversation', async () => {
   });
 });
 
+it.each(['cursor', 'page'])(
+  'loads three inbox pages using %s pagination',
+  async (pagination) => {
+    mockRoute.name = 'IntercomMessages';
+    const original = mockRequest.getMockImplementation();
+    mockRequest.mockImplementation(async (path, parameters) => {
+      if (path !== 'conversations') return original?.(path, parameters);
+      let page = 1;
+      if (parameters?.page === 3 || parameters?.before === 200) page = 3;
+      else if (parameters?.page === 2 || parameters?.before === 300) page = 2;
+      const conversations = [
+        {
+          ...conversation,
+          id: String(page * 42),
+          updated_at: 400 - page * 100,
+        },
+      ];
+      return pagination === 'page'
+        ? { conversations, pages: { page, total_pages: 3 } }
+        : {
+            conversation_page: {
+              conversations,
+              more_pages_available: page < 3,
+            },
+          };
+    });
+    render(<SupportScreen />);
+    await screen.findByTestId('support-conversation-42');
+    fireEvent.click(screen.getByTestId('support-load-more'));
+    await screen.findByTestId('support-conversation-84');
+    fireEvent.click(screen.getByTestId('support-load-more'));
+    await screen.findByTestId('support-conversation-126');
+    expect(
+      mockRequest.mock.calls.filter(([path]) => path === 'conversations'),
+    ).toEqual([
+      ['conversations', { per_page: 20 }],
+      [
+        'conversations',
+        {
+          per_page: 20,
+          ...(pagination === 'page' ? { page: 2 } : { before: 300 }),
+        },
+      ],
+      [
+        'conversations',
+        {
+          per_page: 20,
+          ...(pagination === 'page' ? { page: 3 } : { before: 200 }),
+        },
+      ],
+    ]);
+    expect(screen.getByTestId('support-conversation-42')).toBeTruthy();
+    expect(screen.getByTestId('support-conversation-84')).toBeTruthy();
+    expect(screen.queryByTestId('support-load-more')).toBeNull();
+  },
+);
+
 it('discards an older inbox page when the user refreshes during pagination', async () => {
   mockRoute.name = 'IntercomMessages';
   render(<SupportScreen />);

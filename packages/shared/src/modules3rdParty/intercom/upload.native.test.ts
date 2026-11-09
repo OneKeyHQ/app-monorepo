@@ -1,3 +1,5 @@
+import { fetch as expoFetch } from 'expo/fetch';
+
 import { OneKeyLocalError } from '../../errors';
 
 import { uploadIntercomImage } from './upload';
@@ -6,6 +8,14 @@ import type { IIntercomMessengerSession } from './messengerTypes';
 import type { Image } from '@onekeyfe/react-native-image-crop-picker';
 
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('expo/fetch', () => ({
+  fetch: jest.fn(async () => new Response(null, { status: 201 })),
+}));
+jest.mock('../../utils/streamingFetch', () =>
+  jest.requireActual<typeof import('../../utils/streamingFetch.native')>(
+    '../../utils/streamingFetch.native',
+  ),
+);
 jest.mock('expo-file-system', () => ({
   File: class extends Blob {
     uri: string;
@@ -43,10 +53,11 @@ const upload = {
   metadata: { safe_app_id: 'test-app' },
 };
 
-const originalFetch = globalThis.fetch;
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 afterEach(() => {
   jest.restoreAllMocks();
-  globalThis.fetch = originalFetch;
 });
 
 it('uploads only the selected file to the signed destination without app auth headers', async () => {
@@ -56,8 +67,7 @@ it('uploads only the selected file to the signed destination without app auth he
   const append = jest
     .spyOn(FormData.prototype, 'append')
     .mockImplementation(() => {});
-  const fetchMock = jest.fn(async () => new Response(null, { status: 201 }));
-  globalThis.fetch = fetchMock;
+  const legacyFetch = jest.spyOn(globalThis, 'fetch');
   const controller = new AbortController();
   await expect(
     uploadIntercomImage(session, image, controller.signal),
@@ -83,11 +93,14 @@ it('uploads only the selected file to the signed destination without app auth he
     image.filename,
   );
   expect(append).toHaveBeenCalledWith('x-amz-meta-safe_app_id', 'test-app');
-  expect(fetchMock).toHaveBeenCalledWith(upload.upload_destination, {
+  expect(expoFetch).toHaveBeenCalledWith(upload.upload_destination, {
     method: 'POST',
     body: expect.any(FormData),
     signal: controller.signal,
+    credentials: 'omit',
+    redirect: 'error',
   });
+  expect(legacyFetch).not.toHaveBeenCalled();
   expect(assertCurrent).toHaveBeenCalledTimes(2);
 });
 
@@ -98,11 +111,10 @@ it('does not upload a file after the support session changes', async () => {
       throw new OneKeyLocalError('Session changed');
     },
   };
-  const fetchMock = jest.spyOn(globalThis, 'fetch');
   await expect(
     uploadIntercomImage(session, image, new AbortController().signal),
   ).rejects.toThrow('Session changed');
-  expect(fetchMock).not.toHaveBeenCalled();
+  expect(expoFetch).not.toHaveBeenCalled();
 });
 
 it('rejects an oversized image before requesting upload credentials', async () => {
@@ -121,17 +133,47 @@ it('rejects an oversized image before requesting upload credentials', async () =
   expect(request).not.toHaveBeenCalled();
 });
 
-it('rejects an insecure upload destination before sending file contents', async () => {
+it.each([
+  'http://uploads.intercomcdn.com/',
+  'https://unrelated.example/',
+  'https://uploads.intercomcdn.com.unrelated.example/',
+  'https://uploads-intercomcdn.com/',
+  'https://uploads.intercomcdn.com@unrelated.example/',
+  'https://user:pass@uploads.intercomcdn.com/',
+  'https://uploads.intercomcdn.com:8443/',
+])(
+  'rejects an untrusted upload destination before reading or sending the file: %s',
+  async (destination) => {
+    const session: IIntercomMessengerSession = {
+      request: async () => ({
+        ...upload,
+        upload_destination: destination,
+      }),
+      assertCurrent: async () => {},
+    };
+    const append = jest.spyOn(FormData.prototype, 'append');
+    await expect(
+      uploadIntercomImage(session, image, new AbortController().signal),
+    ).rejects.toThrow('Invalid support upload destination');
+    expect(append).not.toHaveBeenCalled();
+    expect(expoFetch).not.toHaveBeenCalled();
+  },
+);
+
+it('fails a rejected redirect without returning or sending an attachment block', async () => {
   const session: IIntercomMessengerSession = {
-    request: async () => ({
-      ...upload,
-      upload_destination: 'http://example.com',
-    }),
+    request: async () => upload,
     assertCurrent: async () => {},
   };
-  const fetchMock = jest.spyOn(globalThis, 'fetch');
+  jest
+    .mocked(expoFetch)
+    .mockRejectedValueOnce(new TypeError('Redirect is not allowed'));
   await expect(
     uploadIntercomImage(session, image, new AbortController().signal),
-  ).rejects.toThrow('Invalid support upload destination');
-  expect(fetchMock).not.toHaveBeenCalled();
+  ).rejects.toThrow('Redirect is not allowed');
+  expect(expoFetch).toHaveBeenCalledTimes(1);
+  expect(expoFetch).toHaveBeenCalledWith(
+    upload.upload_destination,
+    expect.objectContaining({ redirect: 'error', credentials: 'omit' }),
+  );
 });

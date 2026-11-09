@@ -56,6 +56,10 @@ jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: 'HyperlinkText',
 }));
 
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+  showIntercom: jest.fn(async () => undefined),
+}));
+
 let mockDeveloperMode = false;
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: mockDeveloperMode }],

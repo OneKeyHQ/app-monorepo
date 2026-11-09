@@ -469,18 +469,11 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
-  // The OneKey-track Device-not-connected card mirrors the legacy dialog
-  // verbatim (doc §4.1): the same article, the same Intercom entry.
-  // On native both help exits open inside the app — the in-app browser,
-  // the Support webview page — underneath the stage, whose window overlay
-  // and wall cover the page and take its touches. So there the stage
-  // leaves as the page opens, the way its close button would. Elsewhere
-  // nothing is covered and the card stays: the article leaves the app,
-  // and the Intercom messenger mounts on <body>, above the app root's
-  // stacking context the stage lives in.
+  // Support now opens inside the app on every platform, below the hardware
+  // overlay. External troubleshooting articles only need this exit on native.
   const leaveStageForHelpPage = useCallback(
     (via: 'troubleshoot' | 'support') => {
-      if (platformEnv.isNative) {
+      if (via === 'support' || platformEnv.isNative) {
         handleExit(via);
       }
     },
@@ -569,8 +562,7 @@ function DeviceStageContainerCmp() {
     },
     [],
   );
-  // On native Support opens underneath the stage like the
-  // Device-not-connected card's (see leaveStageForHelpPage), so the card
+  // Support opens underneath the stage on every platform, so the card
   // leaves with it. The check's owner opens Support first — the event is
   // delivered synchronously — and then reads the exit as any other
   // dismissal: the run ends with no verdict.

@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import { streamingFetch } from '../../utils/streamingFetch';
 
 import { intercomHttpUrl, intercomRecord } from './messengerModels';
 import { appendSupportImage } from './uploadFile';
@@ -8,6 +9,15 @@ import type {
   IIntercomImage,
   IIntercomMessengerSession,
 } from './messengerTypes';
+
+// Intercom's documented upload origins, including regional workspaces.
+const uploadOrigins = new Set([
+  'https://uploads.intercomcdn.com',
+  'https://uploads.intercomcdn.eu',
+  'https://uploads.au.intercomcdn.com',
+  'https://uploads.eu.intercomcdn.com',
+  'https://uploads.intercomusercontent.com',
+]);
 
 export async function uploadIntercomImage(
   session: IIntercomMessengerSession,
@@ -37,7 +47,12 @@ export async function uploadIntercomImage(
   );
   const destination = intercomHttpUrl(response.upload_destination);
   const publicUrl = intercomHttpUrl(response.public_url);
-  if (!destination || !publicUrl || typeof response.policy !== 'string') {
+  if (
+    !destination ||
+    !uploadOrigins.has(new URL(destination).origin) ||
+    !publicUrl ||
+    typeof response.policy !== 'string'
+  ) {
     throw new OneKeyLocalError('Invalid support upload destination');
   }
   await session.assertCurrent();
@@ -56,10 +71,13 @@ export async function uploadIntercomImage(
       form.append(key, String(value));
   }
   appendSupportImage(form, image, name);
-  const result = await fetch(destination, {
+  // The native transport serializes Expo Files and enforces redirect rejection.
+  const result = await streamingFetch(destination, {
     method: 'POST',
     body: form,
     signal,
+    credentials: 'omit',
+    redirect: 'error',
   });
   await session.assertCurrent();
   if (!result.ok) throw new OneKeyLocalError('Support image upload failed');

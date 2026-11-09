@@ -19,6 +19,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  jest.restoreAllMocks();
 });
 const client = () =>
   createMessengerClient({
@@ -103,4 +104,64 @@ it('preserves support request context once per client without exposing it in a U
       new URLSearchParams(String(options?.body)).get('event_list') || '{}',
     ),
   ).toEqual({ data: [{ event_name: 'client info', metadata }] });
+});
+
+it('drops an expired anonymous session from memory and storage before refreshing', async () => {
+  const now = 1_700_000_000_000;
+  const time = jest.spyOn(Date, 'now').mockReturnValue(now);
+  const visitor = {
+    anonymousId: 'old-visitor',
+    anonymousSession: 'old-session',
+    expiresAt: now + 120_000,
+  };
+  const saveVisitor = jest.fn(async () => {});
+  const api = createMessengerClient({
+    appId: 'test',
+    assertCurrent: async () => {},
+    getIdentity: async () => ({ language: 'en' }),
+    loadVisitor: async () => visitor,
+    saveVisitor,
+    onUnread: () => {},
+  });
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        user: { id: 'old', anonymous_id: visitor.anonymousId },
+        anonymous_session: visitor.anonymousSession,
+        session_expiry: visitor.expiresAt / 1000,
+      }),
+    ),
+  );
+  await api.boot();
+  expect(
+    new URLSearchParams(String(fetchMock.mock.calls[0][1]?.body)).get(
+      'anonymous_session',
+    ),
+  ).toBe('old-session');
+  time.mockReturnValue(visitor.expiresAt);
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        user: { id: 'new', anonymous_id: 'new-visitor' },
+        anonymous_session: 'new-session',
+        session_expiry: (now + 3_600_000) / 1000,
+      }),
+    ),
+  );
+  await api.request('home');
+  const ping = new URLSearchParams(String(fetchMock.mock.calls[1][1]?.body));
+  expect(ping.has('anonymous_session')).toBe(false);
+  expect(JSON.parse(ping.get('user_data') || '{}')).toEqual({
+    language_override: 'en',
+  });
+  expect(saveVisitor).toHaveBeenLastCalledWith({
+    anonymousId: 'new-visitor',
+    anonymousSession: 'new-session',
+    expiresAt: now + 3_600_000,
+  });
+  expect(
+    new URLSearchParams(String(fetchMock.mock.calls[2][1]?.body)).get(
+      'anonymous_session',
+    ),
+  ).toBe('new-session');
 });

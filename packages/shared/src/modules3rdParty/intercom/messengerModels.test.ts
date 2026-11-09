@@ -36,6 +36,7 @@ it('reads the native inbox cursor and participant/message data', () => {
     },
   });
   expect(inbox.before).toBe(1_700_000_000);
+  expect(inbox.nextPage).toBeUndefined();
   expect(inbox.hasMore).toBe(true);
   expect(inbox.conversations[0].parts[0]).toMatchObject({
     author: 'Support',
@@ -105,6 +106,18 @@ it('escapes text before sending an SDK HTML paragraph', () => {
       text: '&lt;script&gt;alert(1)&lt;/script&gt; &amp;<br>hello',
     },
   ]);
+});
+
+it.each(['<script', '<img src=x onerror=alert(1)', '<div class="unfinished'])(
+  'removes an unfinished markup fragment from plain text: %s',
+  (fragment) => {
+    expect(intercomText(`<p>Hello</p>${fragment}`)).toBe('Hello');
+  },
+);
+
+it('preserves escaped user text containing angle brackets and line breaks', () => {
+  const text = '1 < 2 > 0\n<script> stays literal';
+  expect(intercomText(intercomMessageBlocks(text)[0].text)).toBe(text);
 });
 
 it.each([

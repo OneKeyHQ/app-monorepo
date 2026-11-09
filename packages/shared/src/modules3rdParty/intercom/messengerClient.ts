@@ -127,9 +127,13 @@ export function createMessengerClient(options: IClientOptions) {
       booting = (async () => {
         identity = await options.getIdentity();
         await assertCurrent();
-        visitor = identity.token
-          ? undefined
-          : (visitor ?? (await options.loadVisitor()));
+        if (identity.token) {
+          visitor = undefined;
+        } else {
+          if (!visitor || visitor.expiresAt <= Date.now())
+            visitor = await options.loadVisitor();
+          if (visitor && visitor.expiresAt <= Date.now()) visitor = undefined;
+        }
         await assertCurrent();
         const data = intercomRecord(await post('ping', { source: 'api' }));
         if (!intercomRecord(data.user).id)
