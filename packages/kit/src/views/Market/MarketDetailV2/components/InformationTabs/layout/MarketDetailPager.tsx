@@ -16,14 +16,14 @@ export type IMarketDetailPagerProps = {
   scrollEnabled?: boolean;
   initialHeaderHeight?: number;
   initialStickyHeaderHeight?: number;
-  stickyHeaderHeights?: readonly number[];
+  getStickyHeaderHeight?: (tabKey: string) => number;
 };
 
 export function MarketDetailPager({
   scrollEnabled: _scrollEnabled,
   initialHeaderHeight: _initialHeaderHeight,
   initialStickyHeaderHeight: _initialStickyHeaderHeight,
-  stickyHeaderHeights: _stickyHeaderHeights,
+  getStickyHeaderHeight: _getStickyHeaderHeight,
   ...props
 }: IMarketDetailPagerProps) {
   return (

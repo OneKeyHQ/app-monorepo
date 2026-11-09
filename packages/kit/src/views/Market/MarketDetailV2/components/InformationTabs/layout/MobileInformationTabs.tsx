@@ -353,11 +353,6 @@ export function MobileInformationTabs({
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const stickyHeaderHeights = useMemo(
-    () =>
-      platformEnv.isNativeIOS ? tabKeys.map(getStickyHeaderHeight) : undefined,
-    [tabKeys],
-  );
   const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
   const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
   const positionTabName = intl.formatMessage({
@@ -415,7 +410,9 @@ export function MobileInformationTabs({
       initialStickyHeaderHeight={
         initialHeaderHeight === undefined ? undefined : initialStickyHeight
       }
-      stickyHeaderHeights={stickyHeaderHeights}
+      getStickyHeaderHeight={
+        platformEnv.isNativeIOS ? getStickyHeaderHeight : undefined
+      }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       scrollEnabled={scrollEnabled}
       renderHeader={renderHeader}

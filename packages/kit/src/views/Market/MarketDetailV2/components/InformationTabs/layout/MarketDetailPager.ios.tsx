@@ -45,22 +45,14 @@ export function MarketDetailPager({
   scrollEnabled = true,
   initialHeaderHeight,
   initialStickyHeaderHeight,
-  stickyHeaderHeights,
+  getStickyHeaderHeight,
 }: IMarketDetailPagerProps) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState<number | null>(
-    null,
-  );
+  const [measuredStickyHeaderHeight, setMeasuredStickyHeaderHeight] = useState<
+    number | null
+  >(null);
   const [hasViewport, setHasViewport] = useState(false);
-  const isLayoutReady =
-    hasViewport &&
-    headerHeight !== null &&
-    (stickyHeaderHeights !== undefined || stickyHeaderHeight !== null);
-  const canShowInitialLayout =
-    initialHeaderHeight !== undefined &&
-    initialStickyHeaderHeight !== undefined;
-  const isVisible = canShowInitialLayout || isLayoutReady;
   const theme = useTheme();
   const pages = useMemo(
     () =>
@@ -81,6 +73,15 @@ export function MarketDetailPager({
     onSelectionChange: onTabChange,
     onBeforeCommand,
   });
+  const stickyHeaderHeight =
+    getStickyHeaderHeight?.(pages[controller.selectedIndex]?.key ?? '') ??
+    measuredStickyHeaderHeight;
+  const isLayoutReady =
+    hasViewport && headerHeight !== null && stickyHeaderHeight !== null;
+  const canShowInitialLayout =
+    initialHeaderHeight !== undefined &&
+    initialStickyHeaderHeight !== undefined;
+  const isVisible = canShowInitialLayout || isLayoutReady;
   const context = useMemo(
     () => ({ focusedName: controller.focusedName }),
     [controller.focusedName],
@@ -112,12 +113,13 @@ export function MarketDetailPager({
           nativeSmoothHeaderScrollEnabled={isLayoutReady}
           headerHeight={headerHeight ?? initialHeaderHeight ?? 1}
           stickyHeaderHeight={
-            stickyHeaderHeights?.[controller.initialIndex] ??
-            stickyHeaderHeight ??
-            initialStickyHeaderHeight ??
-            44
+            stickyHeaderHeight ?? initialStickyHeaderHeight ?? 44
           }
-          stickyHeaderHeights={stickyHeaderHeights}
+          stickyHeaderHeights={
+            getStickyHeaderHeight
+              ? pages.map((page) => getStickyHeaderHeight(page.key))
+              : undefined
+          }
           pageRetentionDistance={children.length}
           offscreenPageLimit={Math.max(1, children.length - 1)}
           header={
@@ -139,12 +141,12 @@ export function MarketDetailPager({
               testID="market-detail-native-sticky-header"
               collapsable={false}
               onLayout={
-                stickyHeaderHeights === undefined
-                  ? ({ nativeEvent }) => {
+                getStickyHeaderHeight
+                  ? undefined
+                  : ({ nativeEvent }) => {
                       const height = Math.ceil(nativeEvent.layout.height);
-                      if (height > 0) setStickyHeaderHeight(height);
+                      if (height > 0) setMeasuredStickyHeaderHeight(height);
                     }
-                  : undefined
               }
             >
               {renderTabBar({
