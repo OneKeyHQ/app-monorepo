@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "Detalles de renovación",
   "prime_sandbox_payment_unavailable__msg": "Los pagos en Sandbox no están disponibles para esta cuenta.",
   "prime_start_new_payment__action": "Iniciar un nuevo pago",
+  "prime_subscription_china_storefront__msg": "Las compras no están disponibles en el App Store de China continental. Cambia a una región de App Store fuera de China continental e inténtalo de nuevo.",
   "prime_subscription_management_unsupported__msg": "Este método de activación no admite la gestión de suscripciones.",
   "prime_unfinished_payment__desc": "Si un pago sigue en curso, iniciar uno nuevo podría generar un pago duplicado.",
   "prime_unfinished_payment__title": "Pago sin completar",

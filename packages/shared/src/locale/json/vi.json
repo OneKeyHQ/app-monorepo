@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "Thông tin gia hạn",
   "prime_sandbox_payment_unavailable__msg": "Thanh toán Sandbox không khả dụng cho tài khoản này.",
   "prime_start_new_payment__action": "Bắt đầu thanh toán mới",
+  "prime_subscription_china_storefront__msg": "Không thể mua hàng trên App Store Trung Quốc đại lục. Chuyển vùng App Store sang khu vực ngoài Trung Quốc đại lục rồi thử lại.",
   "prime_subscription_management_unsupported__msg": "Phương thức kích hoạt này không hỗ trợ quản lý đăng ký.",
   "prime_unfinished_payment__desc": "Nếu có khoản thanh toán vẫn đang được xử lý, việc bắt đầu thanh toán mới có thể dẫn đến thanh toán trùng lặp.",
   "prime_unfinished_payment__title": "Thanh toán chưa hoàn tất",

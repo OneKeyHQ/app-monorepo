@@ -4621,6 +4621,7 @@
   "prime_renewal_reminder__title": "갱신 안내",
   "prime_sandbox_payment_unavailable__msg": "이 계정에서는 샌드박스 결제를 사용할 수 없습니다.",
   "prime_start_new_payment__action": "새 결제 시작",
+  "prime_subscription_china_storefront__msg": "중국 본토 App Store에서는 구매할 수 없습니다. App Store 지역을 중국 본토 이외의 지역으로 변경한 후 다시 시도하세요.",
   "prime_subscription_management_unsupported__msg": "이 활성화 방식으로는 구독을 관리할 수 없습니다.",
   "prime_unfinished_payment__desc": "처리 중인 결제가 있는 상태에서 새 결제를 시작하면 이중 결제가 발생할 수 있습니다.",
   "prime_unfinished_payment__title": "완료되지 않은 결제",
