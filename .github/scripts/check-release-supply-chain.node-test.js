@@ -20,6 +20,7 @@ function fixture(t) {
     `jobs:\n  build:\n    steps:\n      - uses: actions/checkout@${SHA}\n`,
   );
   write('package.json', '{"scripts":{}}');
+  write('.yarnrc.yml', 'yarnPath: .yarn/releases/yarn-4.18.1.cjs\n');
   write(
     '.github/tools/eas-cli/package.json',
     '{"dependencies":{"eas-cli":"27.2.0"}}',
@@ -126,6 +127,19 @@ test('runs sentry-cli from the checked-out node_modules for older refs', (t) => 
     '.github/workflows/release-test.yml',
     'jobs:\n  build:\n    steps:\n      - run: node_modules/.bin/sentry-cli releases new 1\n',
   );
+  assert.deepEqual(f.check().errors, []);
+});
+
+test('requires release steps to call the Yarn release the repository ships', (t) => {
+  const f = fixture(t);
+  const install = (release) =>
+    `jobs:\n  build:\n    steps:\n      - run: node ../../../.yarn/releases/${release} install --immutable\n`;
+  f.write('.github/workflows/release-test.yml', install('yarn-4.12.0.cjs'));
+  assert.match(
+    f.check().errors.join('\n'),
+    /Yarn release yarn-4\.18\.1\.cjs, not yarn-4\.12\.0\.cjs/u,
+  );
+  f.write('.github/workflows/release-test.yml', install('yarn-4.18.1.cjs'));
   assert.deepEqual(f.check().errors, []);
 });
 

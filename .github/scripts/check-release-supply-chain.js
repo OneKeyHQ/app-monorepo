@@ -12,6 +12,9 @@ const DOWNLOAD_TOOL = /\b(?:npx|yarn\s+dlx)\b/u;
 // Yarn only exposes binaries of direct dependencies, and maintenance refs
 // built through checkout_ref do not declare @sentry/cli at the root.
 const YARN_SENTRY_CLI = /\byarn\s+(?:(?:exec|run)\s+)?sentry-cli\b/u;
+// Release steps call the repository's Yarn binary by path, so a Yarn upgrade
+// that removes the previous release must update every such step.
+const YARN_RELEASE = /\.yarn\/releases\/([\w.-]+\.cjs)/gu;
 // cache-refresh publishes the dependency snapshot that release jobs restore.
 const RELEASE_ROOTS =
   /^(?:release.*|daily-build.*|cache-refresh|lint|security-checks)\.ya?ml$/u;
@@ -54,7 +57,7 @@ function checkRemoteReference(reference, file, errors) {
   }
 }
 
-function checkWorkflow(root, file, errors) {
+function checkWorkflow(root, file, errors, yarnRelease) {
   const document = YAML.parse(fs.readFileSync(path.join(root, file), 'utf8'));
   const local = [];
   for (const reference of actionReferences(document)) {
@@ -74,8 +77,28 @@ function checkWorkflow(root, file, errors) {
     if (YARN_SENTRY_CLI.test(step.run || '')) {
       errors.push(`${file}: run sentry-cli from node_modules/.bin`);
     }
+    for (const [, release] of (step.run || '').matchAll(YARN_RELEASE)) {
+      if (release !== yarnRelease) {
+        errors.push(
+          `${file}: run the repository Yarn release ${yarnRelease}, not ${release}`,
+        );
+      }
+    }
   }
   return local;
+}
+
+function repositoryYarnRelease(root, errors) {
+  try {
+    const config = YAML.parse(
+      fs.readFileSync(path.join(root, '.yarnrc.yml'), 'utf8'),
+    );
+    assert.ok(config?.yarnPath, 'yarnPath is required');
+    return path.basename(config.yarnPath);
+  } catch (error) {
+    errors.push(`.yarnrc.yml: ${error.message}`);
+    return '';
+  }
 }
 
 function workflowRoots(root) {
@@ -86,6 +109,7 @@ function workflowRoots(root) {
 }
 
 function releaseGraph(root, errors) {
+  const yarnRelease = repositoryYarnRelease(root, errors);
   const pending = workflowRoots(root);
   const visited = new Set(pending);
   if (!pending.some((name) => path.basename(name).startsWith('release'))) {
@@ -94,7 +118,7 @@ function releaseGraph(root, errors) {
   while (pending.length) {
     const file = pending.pop();
     try {
-      for (const local of checkWorkflow(root, file, errors)) {
+      for (const local of checkWorkflow(root, file, errors, yarnRelease)) {
         if (!visited.has(local)) {
           visited.add(local);
           pending.push(local);
