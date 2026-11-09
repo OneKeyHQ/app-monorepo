@@ -32,7 +32,11 @@ export function MarketDetailHeaderGesture({
 }
 
 export function MarketDetailScrollView(
-  props: Omit<ComponentProps<typeof NativeScroller>, 'ref'>,
+  props: Omit<
+    ComponentProps<typeof NativeScroller>,
+    'ref' | 'keyboardShouldPersistTaps'
+  > &
+    Pick<ScrollViewProps, 'keyboardShouldPersistTaps'>,
 ) {
   const page = useContext(MarketDetailNativePageContext);
   if (!page) {

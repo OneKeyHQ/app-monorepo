@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { formatNativeSelectorAmount } from '@onekeyhq/kit/src/components/TokenListView/nativeSelectorFormat';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -218,6 +219,7 @@ function NativeAggregateRowMirror({
       disabled: isOtherTokenProcessing,
       opacity: isOtherTokenProcessing ? 0.5 : 1,
       style: {
+        container: TOKEN_ROW_CONTAINER_STYLE,
         horizontalPadding: 12,
         verticalPadding: 8,
         leadingGap: 12,

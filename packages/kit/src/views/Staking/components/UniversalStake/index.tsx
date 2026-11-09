@@ -855,9 +855,9 @@ export function UniversalStake({
 
       setApproving(true);
 
-      const response = await fetchEstimateFeeResp(amountValue);
-
-      setApproving(false);
+      const response = await fetchEstimateFeeResp(amountValue).finally(() => {
+        setApproving(false);
+      });
       if (!response) {
         return onNext();
       }

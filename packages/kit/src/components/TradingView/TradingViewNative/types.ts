@@ -222,6 +222,13 @@ export interface ITradingViewNativeProps {
     state: ITradingViewNativeIndicatorQuickBarState,
   ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  /**
+   * Android: set while a fullscreen session rotates the window, from the
+   * session's start until the window has settled in portrait again. Only then
+   * is a landscape page layout transient; a window can also be landscape on
+   * its own, e.g. in split screen.
+   */
+  onNativeChartWindowRotationChange?: (isRotating: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }
 

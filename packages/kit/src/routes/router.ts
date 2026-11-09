@@ -4,6 +4,7 @@ import type { IStackNavigationOptions } from '@onekeyhq/components';
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -83,6 +84,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     options: ({ route }): IStackNavigationOptions =>
       platformEnv.isNativeIOS &&
       !platformEnv.isNativeIOSPad &&
+      !isFoldableIPhone() &&
       route.params?.tradingViewFullscreen === true
         ? { orientation: 'landscape' }
         : {},
@@ -112,7 +114,10 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
             // Keep the detail's native views laid out beneath the opaque chart.
             presentation: 'transparentModal',
             animation: 'none',
-            orientation: platformEnv.isNativeIOSPad ? 'default' : 'landscape',
+            orientation:
+              platformEnv.isNativeIOSPad || isFoldableIPhone()
+                ? 'default'
+                : 'landscape',
             orientationAnimated: false,
             contentReady: false,
             gestureEnabled: false,

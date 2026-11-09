@@ -37,6 +37,7 @@ import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -44,7 +45,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   accountSelectorAccountVisualV2,
   accountSelectorWalletVisualV2,
-  useAccountSelectorNativeListThemeV2,
 } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -75,7 +75,11 @@ import {
   QuickSelectListSkeleton,
 } from './QuickSelectListShared';
 import RecentRecipients from './RecentRecipients';
-import { recipientIdentityRow, recipientSnapshot } from './recipientNativeList';
+import {
+  recipientIdentityRow,
+  recipientSnapshot,
+  useRecipientNativeListTheme,
+} from './recipientNativeList';
 import {
   type IRecipientQuickSelectTab,
   type IRecipientTabMatchStatus,
@@ -96,6 +100,21 @@ import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 type IFocusMeasurable = Pick<ViewInstance, 'measureInWindow'>;
 type IFocusVisibilityRequest = (field: IFocusMeasurable | null) => void;
+
+// Tamagui's Web `onLayout` reports getBoundingClientRect() sizes, which include
+// ancestor transforms. A desktop modal mounts this page while it is still
+// scaling in (0.95 -> overshoot -> 1), so those heights follow the animation
+// and the pager moves the tabs and the list after the first paint.
+// `offsetHeight` is the untransformed layout height, as native reports it.
+function getLayoutHeight(
+  event: LayoutChangeEvent,
+  node: ViewInstance | null,
+): number {
+  const offsetHeight = platformEnv.isNative
+    ? undefined
+    : (node as unknown as HTMLElement | null)?.offsetHeight;
+  return offsetHeight ?? event.nativeEvent.layout.height;
+}
 
 function DeriveTypeLabelWithTooltip({
   label,
@@ -401,7 +420,7 @@ function AccountRecipients({
   onMatchStatusChange,
 }: IAccountRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
 
   // Single IPC call — all wallet/account aggregation happens in background.
   // useDeferredValue lets React yield to events (close button) mid-render.
@@ -825,6 +844,7 @@ function AccountRecipients({
               ? [{ kind: 'button', label: activeLabel, actionKey: 'derive' }]
               : undefined,
           style: {
+            container: TOKEN_ROW_CONTAINER_STYLE,
             horizontalPadding: 8,
             verticalPadding: 8,
             leadingGap: 8,
@@ -1169,7 +1189,7 @@ function AddressBookRecipients({
   onMatchStatusChange,
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
-  const nativeListTheme = useAccountSelectorNativeListThemeV2();
+  const nativeListTheme = useRecipientNativeListTheme();
   const navigation = useAppNavigation();
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -1404,6 +1424,8 @@ function RecipientQuickSelect({
   const nativeSegmentedTabs = pagerMode && platformEnv.isNative;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const pagerViewportRef = useRef<ViewInstance>(null);
+  const pagerHeaderRef = useRef<ViewInstance>(null);
+  const stickyHeaderRef = useRef<ViewInstance>(null);
   const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const focusGenerationRef = useRef(0);
@@ -1849,7 +1871,7 @@ function RecipientQuickSelect({
 
   const handlePagerHeaderLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const height = Math.ceil(event.nativeEvent.layout.height);
+      const height = Math.ceil(getLayoutHeight(event, pagerHeaderRef.current));
       setPagerHeaderHeight((previous) =>
         previous === height ? previous : height,
       );
@@ -1861,7 +1883,7 @@ function RecipientQuickSelect({
     ensureFocusedFieldVisible();
   }, [ensureFocusedFieldVisible, pagerHeaderHeight]);
   const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = Math.ceil(event.nativeEvent.layout.height);
+    const height = Math.ceil(getLayoutHeight(event, stickyHeaderRef.current));
     setStickyHeaderHeight((previous) =>
       previous === height ? previous : height,
     );
@@ -1914,7 +1936,11 @@ function RecipientQuickSelect({
           headerHeight={pagerHeaderHeight}
           stickyHeaderHeight={stickyHeaderHeight}
           header={
-            <Stack px="$5" onLayout={handlePagerHeaderLayout}>
+            <Stack
+              ref={pagerHeaderRef}
+              px="$5"
+              onLayout={handlePagerHeaderLayout}
+            >
               {pagerHeaderContent}
             </Stack>
           }
@@ -1923,6 +1949,7 @@ function RecipientQuickSelect({
               <Stack height={56} bg="$bgApp" pointerEvents="none" />
             ) : (
               <Stack
+                ref={stickyHeaderRef}
                 px="$5"
                 pt="$3"
                 pb="$3"

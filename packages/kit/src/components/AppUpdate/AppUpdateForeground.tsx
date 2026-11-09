@@ -53,6 +53,28 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
+let desktopUpdateBanner: { version: string; expiresAt?: number } | undefined;
+
+export function peekDesktopUpdateBanner():
+  | { version: string; expiresAt?: number }
+  | undefined {
+  if (
+    desktopUpdateBanner?.expiresAt &&
+    desktopUpdateBanner.expiresAt <= Date.now()
+  ) {
+    desktopUpdateBanner = undefined;
+  }
+  return desktopUpdateBanner;
+}
+
+export function startDesktopUpdateBanner():
+  | { version: string; expiresAt: number }
+  | undefined {
+  const banner = peekDesktopUpdateBanner();
+  if (!banner) return undefined;
+  banner.expiresAt ??= Date.now() + 6000;
+  return { version: banner.version, expiresAt: banner.expiresAt };
+}
 const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
 
 /**
@@ -365,7 +387,12 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               response?.updateStrategy ?? EUpdateStrategy.manual;
             if (needUpdate) {
               if (isAutoUpdateStrategy(updateStrategy)) {
-                void downloadPackage();
+                const canAutoDownload =
+                  !platformEnv.isDesktop ||
+                  !response ||
+                  getUpdateFileType(response) !== EUpdateFileType.appShell ||
+                  (await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate());
+                if (canAutoDownload) void downloadPackage();
               } else if (isForceUpdate) {
                 toUpdatePreviewPage(true, response);
               } else if (platformEnv.isNative || platformEnv.isDesktop) {
@@ -415,6 +442,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       const info =
         await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
+      if (
+        platformEnv.isDesktop &&
+        !platformEnv.isDesktopMac &&
+        info.status === EAppUpdateStatus.ready &&
+        getUpdateFileType(info) === EUpdateFileType.appShell &&
+        info.updateStrategy !== EUpdateStrategy.force &&
+        !info.storeUrl &&
+        !isFirstLaunchAfterUpdated(info)
+      ) {
+        await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        if (cancelled) return;
+      }
 
       if (isFirstLaunchAfterUpdated(info)) {
         // Defer, don't skip: everything below is one-shot (analytics event,
@@ -442,6 +481,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           status: 'success',
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
+        const isDesktopPackage =
+          platformEnv.isDesktop &&
+          fileType === EUpdateFileType.appShell &&
+          info.updateStrategy !== EUpdateStrategy.force &&
+          !info.storeUrl;
+        if (isDesktopPackage && info.latestVersion) {
+          await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          desktopUpdateBanner = { version: info.latestVersion };
+          appEventBus.emit(EAppEventBusNames.AppUpdateCompleted, {
+            version: info.latestVersion,
+          });
+        }
         // Auto-update strategies (silent + seamless) complete invisibly, so
         // they must NOT pop the changelog / "what's new" page after the update
         // applies — only user-facing (manual / force) updates do. Previously
@@ -449,6 +500,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         // per product requirement (silent updates must not show the changelog
         // on completion, same as seamless).
         if (
+          !isDesktopPackage &&
           !isAutoUpdateStrategy(info.updateStrategy) &&
           !info.isRollbackTarget &&
           !whatsNewAlreadyShown
@@ -622,7 +674,19 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       defaultLogger.app.appUpdate.log(
         `StartAutoDownloadUpdate received → foreground downloadPackage (${payload?.decision})`,
       );
-      void downloadPackage();
+      void (async () => {
+        const info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        if (
+          platformEnv.isDesktop &&
+          getUpdateFileType(info) === EUpdateFileType.appShell &&
+          (!isAutoUpdateStrategy(info.updateStrategy) ||
+            !(await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate()) ||
+            !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget()))
+        ) {
+          return;
+        }
+        await downloadPackage();
+      })();
     };
     appEventBus.on(EAppEventBusNames.StartAutoDownloadUpdate, handler);
     return () => {
@@ -691,4 +755,5 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
+  desktopUpdateBanner = undefined;
 }

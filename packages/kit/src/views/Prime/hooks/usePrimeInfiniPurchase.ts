@@ -232,7 +232,11 @@ export function usePrimeInfiniPurchase({
             expectedOneKeyUserId: purchaserUserId,
             authContext,
           });
-        if (lookup.pendingPayment || lookup.status === 'unavailable') {
+        if (
+          lookup.hasPendingPayments ||
+          lookup.pendingPayment ||
+          lookup.status === 'unavailable'
+        ) {
           const options = await backgroundApiProxy.servicePrime
             .apiGetInfiniPaymentOptions()
             .catch(() => []);

@@ -1036,6 +1036,7 @@ function AppDataSection() {
           ) : null}
           <Divider mx="$5" my="$2" />
           <ListItem
+            testID={PrimeTestIDs.cloudSyncNow}
             title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn

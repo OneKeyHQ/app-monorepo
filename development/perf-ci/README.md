@@ -173,6 +173,12 @@ new host to `API_HOST_PATTERNS`. Blocked URLs in the report drop query values
 and show id-like path segments and query names (addresses, hashes, tokens) as
 `:id` / `:param`.
 
+The cold-start `resourceCount` and `scriptCount` budgets deduplicate static
+assets (scripts, styles, images, fonts, media, WASM and other build files) by
+URL, preserving query parameters. API requests are counted individually.
+`rawResourceCount` and `rawScriptEntryCount` retain every timing entry for
+diagnostics; byte metrics such as `jsDecodedBytes` still use raw entries.
+
 Options:
 
 - `PERF_WEB_COLD_NETWORK=fixtures|record|live` (default `fixtures`). `live`

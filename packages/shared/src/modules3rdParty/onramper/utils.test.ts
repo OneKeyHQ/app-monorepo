@@ -2,10 +2,12 @@ import {
   annotateOnramperSdkErrorMessage,
   getErrorMessageForLog,
   getOnramperErrorFieldsForLog,
+  getOnramperSignedInFromState,
+  hasVerifiedOnramperUserInfo,
   sanitizeOnramperLogRecord,
 } from './utils';
 
-import type { IOnramperLogRecord } from './type';
+import type { IOnramperLogRecord, IOnramperStateKind } from './type';
 
 describe('annotateOnramperSdkErrorMessage', () => {
   it('appends the BFFRecoveryError case name behind the NSError index', () => {
@@ -187,5 +189,107 @@ describe('sanitizeOnramperLogRecord', () => {
         { keepMessage: false },
       ).context,
     ).toBeUndefined();
+  });
+});
+
+describe('hasVerifiedOnramperUserInfo', () => {
+  it('finds a user_info field the backend already holds', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: true }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it('finds none when nobody is signed in', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: false }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(false);
+    expect(hasVerifiedOnramperUserInfo([])).toBe(false);
+  });
+});
+
+describe('getOnramperSignedInFromState', () => {
+  it('reads a prepared checkout that needs no login as signed in', () => {
+    expect(getOnramperSignedInFromState({ kind: 'readyToCheckout' })).toBe(
+      true,
+    );
+  });
+
+  it('reads a login that starts from nothing as signed out', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'user_info'],
+        hasVerifiedUserInfo: false,
+      }),
+    ).toBe(false);
+  });
+
+  // The sign-out action must stay reachable for a user who cannot finish
+  // these, e.g. after losing the verified phone number.
+  it('keeps a known user signed in while more is asked of them', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['user_info'],
+        hasVerifiedUserInfo: true,
+      }),
+    ).toBe(true);
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['reverification'],
+      }),
+    ).toBe(true);
+  });
+
+  it('learns nothing from requirements that involve no identity', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'amount_limit'],
+      }),
+    ).toBeUndefined();
+  });
+
+  // A login made through the checkout button is only visible here: the
+  // checkout was prepared as `requireLogin` and no `readyToCheckout` has to
+  // follow the OnramperID flow.
+  it('reads a checkout that is being paid as signed in', () => {
+    const paying: IOnramperStateKind[] = [
+      'finalizing',
+      'rendering',
+      'paymentPending',
+      'completed',
+    ];
+    paying.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBe(true);
+    });
+  });
+
+  it('learns nothing from the other states', () => {
+    const silent: IOnramperStateKind[] = [
+      'idle',
+      'initializing',
+      'ready',
+      'checkoutPreparing',
+      // The OnramperID flow was opened, not finished.
+      'authenticating',
+      'failed',
+    ];
+    silent.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBeUndefined();
+    });
   });
 });
