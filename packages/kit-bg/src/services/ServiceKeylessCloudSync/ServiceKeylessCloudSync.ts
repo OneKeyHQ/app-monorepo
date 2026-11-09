@@ -561,10 +561,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
             credential.pwdHash,
             ...dataKey.previousPwdHashes,
           ]);
+          // Legacy keyless Lock rows never participate in business sync and
+          // cannot establish ownership. Keep all business rows, including
+          // tombstones, and the saved credential subject to the key checks.
           if (
             (!rebuildsLocalItemsNow &&
               items.some(
-                (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
+                (item) =>
+                  item.pwdHash &&
+                  !(
+                    item.dataType === EPrimeCloudSyncDataType.Lock &&
+                    keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+                  ) &&
+                  !knownPwdHashes.has(item.pwdHash),
               )) ||
             (existing &&
               (!knownPwdHashes.has(existing.pwdHash) ||

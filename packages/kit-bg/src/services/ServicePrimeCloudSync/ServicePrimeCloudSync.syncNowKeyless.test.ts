@@ -9,6 +9,7 @@ import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusResult,
   ICloudSyncCredential,
+  ICloudSyncDownloadPostData,
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
@@ -55,7 +56,7 @@ jest.mock('../../states/jotai/atoms', () => ({
   },
   addressBookPersistAtom: {},
   devSettingsPersistAtom: {},
-  primeMasterPasswordPersistAtom: {},
+  primeMasterPasswordPersistAtom: { get: jest.fn() },
   primePersistAtom: {},
 }));
 
@@ -146,12 +147,19 @@ jest.mock('./cloudSyncCheckUtils', () => ({
 
 jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    getPwdHash: (syncCredential: ICloudSyncCredential) =>
+      syncCredential.masterPasswordUUID,
+  },
 }));
 
 jest.mock('./keylessCloudSyncUtils', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    isKeylessPwdHash: jest.requireActual<
+      typeof import('./keylessCloudSyncUtils')
+    >('./keylessCloudSyncUtils').default.isKeylessPwdHash,
+  },
 }));
 
 type ISyncNowKeylessService = ServicePrimeCloudSync & {
@@ -1297,6 +1305,36 @@ describe('Cloud sync records from opaque server storage', () => {
     );
   });
 
+  test.each(['keyless-old-lock', 'hw-dek-old-lock'])(
+    'legacy Lock metadata under %s is not rebuilt or uploaded',
+    async (pwdHash) => {
+      const service = build();
+      const legacyLock = {
+        ...valid,
+        dataType: EPrimeCloudSyncDataType.Lock,
+        pwdHash,
+        rawData: JSON.stringify({ payload: { message: 'lock' } }),
+      };
+      db.getAllSyncItems.mockResolvedValue({ syncItems: [legacyLock] });
+      jest.spyOn(service, 'getSyncCredentialSafe').mockResolvedValue({
+        ...credential,
+        masterPasswordUUID: 'hw-dek-current',
+      });
+      const manager = jest.spyOn(service, 'getSyncManager');
+      const snapshot = { ...legacyLock };
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: true,
+      });
+      expect(manager).not.toHaveBeenCalled();
+      expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
+      expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+      expect(legacyLock).toEqual(snapshot);
+      expect(
+        service.convertLocalItemToServerItem({ localItem: legacyLock }),
+      ).toBeNull();
+    },
+  );
+
   test('scene dispatch skips old unsupported records and still applies the account record', async () => {
     jest.useFakeTimers();
     const service = build();
@@ -1322,4 +1360,63 @@ describe('Cloud sync records from opaque server storage', () => {
       forceSync: undefined,
     });
   });
+});
+
+describe('download pagination transport', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test.each([ECloudSyncMode.OnekeyId, ECloudSyncMode.Keyless])(
+    '%s preserves unbounded full downloads and explicit sample limits',
+    async (mode) => {
+      const post = jest.fn(
+        async (_url: string, _body: ICloudSyncDownloadPostData) => ({
+          data: {
+            data: {
+              nonce: 1,
+              serverData: [],
+              pwdHash: 'test-pwd',
+            },
+          },
+        }),
+      );
+      const service = new ServicePrimeCloudSync({
+        backgroundApi: {
+          servicePrime: { getPrimeClient: jest.fn(async () => ({ post })) },
+        },
+      });
+      jest
+        .mocked(primeMasterPasswordPersistAtom.get)
+        .mockResolvedValue({ masterPasswordUUID: 'test-pwd' });
+      jest.spyOn(service, 'getActiveSyncMode').mockResolvedValue(mode);
+      const download = jest
+        .spyOn(service, 'apiDownloadItemsKeyless')
+        .mockResolvedValue({
+          data: { nonce: 1, serverData: [], pwdHash: 'test-pwd' },
+          pwdHash: 'test-pwd',
+        });
+      await service.apiDownloadItems();
+      await service.apiDownloadItems({ limit: 1 });
+      await service.apiDownloadItems({
+        start: 1000,
+        limit: 1000,
+        includeDeleted: true,
+      });
+      const bodies =
+        mode === ECloudSyncMode.Keyless
+          ? download.mock.calls.map(([request]) => request.postData)
+          : post.mock.calls.map(([, body]) => body);
+      expect(bodies[0]).toMatchObject({
+        skip: undefined,
+        limit: undefined,
+        includeDeleted: false,
+      });
+      expect(bodies[1]).toMatchObject({ skip: undefined, limit: 1 });
+      expect(bodies[2]).toMatchObject({
+        skip: 1000,
+        limit: 1000,
+        includeDeleted: true,
+      });
+      bodies.forEach((body) => expect(body).not.toHaveProperty('start'));
+    },
+  );
 });
