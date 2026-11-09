@@ -128,23 +128,52 @@ jest.mock('@onekeyhq/components', () => {
       </button>
     ),
     SegmentSlider: () => null,
-    Input: ({
+    NumberInput: ({
       value,
       onChangeText,
       onBlur,
       testID,
+      showControls,
+      onStep,
+      disabled,
     }: {
       value: string;
       onChangeText: (value: string) => void;
       onBlur: () => void;
       testID: string;
+      showControls?: boolean;
+      onStep?: (direction: -1 | 1) => void;
+      disabled?: boolean;
     }) => (
-      <input
-        data-testid={testID}
-        value={value}
-        onChange={(event) => onChangeText(event.target.value)}
-        onBlur={onBlur}
-      />
+      <div>
+        <input
+          data-testid={testID}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChangeText(event.target.value)}
+          onBlur={onBlur}
+        />
+        {showControls ? (
+          <>
+            <button
+              type="button"
+              data-testid={`${testID}-decrement`}
+              disabled={disabled}
+              onClick={() => onStep?.(-1)}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              data-testid={`${testID}-increment`}
+              disabled={disabled}
+              onClick={() => onStep?.(1)}
+            >
+              +
+            </button>
+          </>
+        ) : null}
+      </div>
     ),
   };
 });

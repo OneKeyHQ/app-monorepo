@@ -3,8 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   ColorPicker,
-  IconButton,
-  Input,
+  NumberInput,
   SizableText,
   Stack,
   XStack,
@@ -37,56 +36,19 @@ export function MobileIndicatorNumberInput({
 }) {
   const testID = `mobile-indicator-number-${field.key}`;
   return (
-    <XStack
-      width={164}
-      height={48}
-      alignItems="center"
-      bg="$bgSubdued"
-      borderRadius="$3"
-      flexShrink={0}
-    >
-      <IconButton
-        testID={`${testID}-decrement`}
-        icon="MinusSmallOutline"
-        accessibilityLabel={`${field.label} −`}
-        variant="tertiary"
-        m={0}
-        width={48}
-        height={48}
-        disabled={disabled}
-        onPress={() => onStep(-1)}
-      />
-      <Input
-        testID={testID}
-        accessibilityLabel={field.label}
-        value={value}
-        disabled={disabled}
-        size="large"
-        height={48}
-        pl="$0"
-        pr="$0"
-        textAlign="center"
-        containerProps={{ flex: 1, borderWidth: 0, bg: '$transparent' }}
-        keyboardType={field.min < 0 ? 'default' : 'decimal-pad'}
-        returnKeyType="done"
-        autoCorrect={false}
-        selectTextOnFocus
-        onChangeText={onChange}
-        onBlur={onCommit}
-        onSubmitEditing={onCommit}
-      />
-      <IconButton
-        testID={`${testID}-increment`}
-        icon="PlusSmallOutline"
-        accessibilityLabel={`${field.label} +`}
-        variant="tertiary"
-        m={0}
-        width={48}
-        height={48}
-        disabled={disabled}
-        onPress={() => onStep(1)}
-      />
-    </XStack>
+    <NumberInput
+      testID={testID}
+      accessibilityLabel={field.label}
+      value={value}
+      disabled={disabled}
+      size="large"
+      showControls
+      keyboardType={field.min < 0 ? 'default' : 'decimal-pad'}
+      onChangeText={onChange}
+      onBlur={onCommit}
+      onSubmitEditing={onCommit}
+      onStep={onStep}
+    />
   );
 }
 

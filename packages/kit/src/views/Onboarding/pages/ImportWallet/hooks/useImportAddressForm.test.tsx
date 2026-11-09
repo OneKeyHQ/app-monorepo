@@ -85,6 +85,10 @@ describe('useImportAddressForm effective import method', () => {
     mockEnsureAccountNameNotDuplicate.mockResolvedValue(undefined);
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('enables a valid address after switching from public key to an address-only network', async () => {
     const { result } = renderHook(() => useImportAddressForm({}));
 
@@ -198,6 +202,7 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('ignores an older successful request after a newer invalid key completes', async () => {
+    jest.useFakeTimers();
     let resolveOld!: (value: IGeneralInputValidation) => void;
     mockValidatePublicKey.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -209,11 +214,18 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(mockValidatePublicKey).toHaveBeenCalledTimes(1));
+    // Drive each debounce explicitly; runner load must not decide whether
+    // the newer validation finishes before waitFor's wall-clock timeout.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(1);
     act(() => result.current.form.setValue('publicKeyValue', 'invalid-key'));
-    await waitFor(() =>
-      expect(result.current.validateResult?.isValid).toBe(false),
-    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(2);
+    expect(result.current.validateResult?.isValid).toBe(false);
     await act(async () => resolveOld({ isValid: true }));
     expect(result.current.isEnable).toBe(false);
     expect(result.current.validateResult?.isValid).toBe(false);
@@ -275,6 +287,7 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('re-enables an address import once a blurred duplicate account name is edited', async () => {
+    jest.useFakeTimers();
     mockEnsureAccountNameNotDuplicate.mockImplementation(async ({ name }) => {
       if (name === 'U') {
         throw new OneKeyLocalError('Duplicate name');
@@ -300,8 +313,7 @@ describe('useImportAddressForm effective import method', () => {
     });
 
     // RHF field validation settles within microtasks.
-    const flushFieldValidation = () =>
-      new Promise((resolve) => setTimeout(resolve, 0));
+    const flushFieldValidation = () => jest.advanceTimersByTimeAsync(0);
 
     await act(async () => {
       result.current.addressField.onChange({
@@ -317,15 +329,14 @@ describe('useImportAddressForm effective import method', () => {
       result.current.accountNameField.onChange('U');
       await flushFieldValidation();
     });
-    await waitFor(() =>
-      expect(
-        result.current.form.getFieldState('accountName').error?.message,
-      ).toBe('Duplicate name'),
-    );
-    // getFieldState reads the control's own state, which is set before the
-    // render that carries the error into useFormState has committed. On a slow
-    // runner the first poll wins that race, so wait for the rendered value.
-    await waitFor(() => expect(result.current.isEnable).toBe(false));
+    // Advance the debounce explicitly so runner load cannot exhaust waitFor's timeout.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(
+      result.current.form.getFieldState('accountName').error?.message,
+    ).toBe('Duplicate name');
+    expect(result.current.isEnable).toBe(false);
 
     // Dismissing the keyboard re-validates the field rules and restores
     // isValid while the duplicate-name error is still set.
@@ -344,10 +355,11 @@ describe('useImportAddressForm effective import method', () => {
     );
     expect(result.current.isEnable).toBe(true);
 
-    await waitFor(() =>
-      expect(mockEnsureAccountNameNotDuplicate).toHaveBeenLastCalledWith(
-        expect.objectContaining({ name: 'Uppp' }),
-      ),
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockEnsureAccountNameNotDuplicate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: 'Uppp' }),
     );
     expect(result.current.isEnable).toBe(true);
   });

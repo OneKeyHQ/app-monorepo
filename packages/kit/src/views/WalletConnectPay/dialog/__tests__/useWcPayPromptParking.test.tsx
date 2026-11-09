@@ -300,8 +300,7 @@ describe('useWcPayPromptParking', () => {
  * `Record<EHardwareUiStateAction, boolean>` is the real guard: a member added
  * to the enum is a missing-property COMPILE error here (this file is inside
  * packages/kit's tsconfig), so it cannot ship unclassified. `true` = the
- * container puts a dialog or a toast on screen, which the system sheet would
- * cover, so the sheet must park.
+ * container puts a dialog or a toast on screen, so the sheet must park.
  */
 const EXPECTED_PROMPT_ACTIVE: Record<EHardwareUiStateAction, boolean> = {
   [EHardwareUiStateAction.DeviceChecking]: true,

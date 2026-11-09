@@ -89,6 +89,7 @@ import {
   type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   invalidateSwapReviewForSlippageChange,
+  resolveSwapReviewResultStep,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
@@ -766,14 +767,18 @@ const PreSwapDialogContent = ({
     setSwapSteps,
   ]);
 
-  const showResultContent = useMemo(() => {
-    if (swapSteps.steps.length > 0) {
-      return (
-        lastStep?.status !== ESwapStepStatus.READY &&
-        lastStep?.status !== ESwapStepStatus.LOADING
-      );
-    }
-  }, [lastStep?.status, swapSteps.steps.length]);
+  // A result-unknown sponsored send on any step ends this review (OK-64746):
+  // the result page then reports that step even while later steps are READY.
+  const { resultStep, showResultContent } = useMemo(
+    () => resolveSwapReviewResultStep(swapSteps.steps),
+    [swapSteps.steps],
+  );
+  const retryFailedApproval =
+    resultStep?.type === ESwapStepType.APPROVE_TX &&
+    resultStep.status === ESwapStepStatus.FAILED &&
+    resultStep.canRetry &&
+    !resultStep.submitResultUnknown &&
+    resultStep !== swapSteps.steps[swapSteps.steps.length - 1];
   const supportSlippageRebuild = Boolean(
     rebuildReviewWithSlippage &&
     preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -910,12 +915,12 @@ const PreSwapDialogContent = ({
         title={intl.formatMessage({ id: ETranslations.global_review_order })}
         showExitButton={!slippageSavingScope}
       />
-      {showResultContent && swapSteps.steps.length > 0 ? (
+      {showResultContent && resultStep ? (
         <PreSwapConfirmResult
-          onConfirm={onDone}
+          onConfirm={retryFailedApproval ? onConfirm : onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
-          lastStep={swapSteps.steps[swapSteps.steps.length - 1]}
+          lastStep={resultStep}
         />
       ) : (
         <YStack gap="$4">
@@ -992,29 +997,6 @@ const PreSwapDialogContent = ({
             <>
               <Divider testID="swap-stock-review-divider" />
               <YStack testID="swap-stock-review-info" gap="$3">
-                {stockReviewDisplay.sharePrice ? (
-                  <XStack
-                    testID="swap-stock-review-share-price"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    gap="$3"
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.market_token_price,
-                      })}
-                    </SizableText>
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settingsPersist.currencyInfo.symbol,
-                      }}
-                    >
-                      {stockReviewDisplay.sharePrice}
-                    </NumberSizeableText>
-                  </XStack>
-                ) : null}
                 <XStack
                   testID="swap-stock-review-estimated-shares"
                   alignItems="center"

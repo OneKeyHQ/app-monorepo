@@ -357,6 +357,9 @@ class ServicePendingInstallTask {
     const activeRequestSeq = requestSeq ?? null;
     const activeProcessStartedAt = processStartedAt ?? now;
     let updaterInvoked = false;
+    // The native rollback marker persists across launches; only the first
+    // quarantine of a target is a new startup rollback worth reporting.
+    let isNewQuarantine = false;
     this.logPendingTaskTrace({
       traceId: activeTraceId,
       requestSeq: activeRequestSeq,
@@ -370,6 +373,10 @@ class ServicePendingInstallTask {
         now,
       );
       if (failedTargetKey) {
+        // A target ignored for another reason (e.g. retry exhaustion) has not
+        // been reported as a startup rollback yet.
+        isNewQuarantine =
+          ignoredTargets[failedTargetKey]?.reason !== 'BOOT_FAILED';
         // Keep a crashed target quarantined for this native app version.
         ignoredTargets[failedTargetKey] = {
           reason: 'BOOT_FAILED',
@@ -409,6 +416,21 @@ class ServicePendingInstallTask {
       };
     });
     if (failedTargetKey) {
+      const parsedFailedBundle = Number(failedBundleVersion);
+      if (
+        isNewQuarantine &&
+        typeof failedAppVersion === 'string' &&
+        Number.isFinite(parsedFailedBundle) &&
+        parsedFailedBundle > 0
+      ) {
+        this.reportInstallFailure({
+          category: 'hotUpdate',
+          targetVersion: failedAppVersion,
+          bundleVersion: parsedFailedBundle,
+          errorCode: 'STARTUP_ROLLBACK',
+          errorSample: 'BOOT_FAILED',
+        });
+      }
       // Read and delete synchronously so a different task cannot replace it
       // between the target check and the storage mutation.
       const task = appStorage.syncStorage.getObject<IPendingInstallTask>(
@@ -1091,6 +1113,46 @@ class ServicePendingInstallTask {
     });
   }
 
+  private reportInstallFailure(params: {
+    category: 'fullUpdate' | 'hotUpdate';
+    targetVersion: string;
+    bundleVersion?: number;
+    errorCode: 'INSTALL_OR_APPLY_ERROR' | 'STARTUP_ROLLBACK';
+    errorSample?: string;
+  }): void {
+    try {
+      const svc = this.backgroundApi?.serviceAppUpdate as
+        | {
+            reportOtaInstallFailure?: (p: typeof params) => void;
+          }
+        | undefined;
+      svc?.reportOtaInstallFailure?.(params);
+    } catch {
+      // Telemetry must never affect pending install task state
+    }
+  }
+
+  private reportTaskTerminalFailure(
+    task: IPendingInstallTask,
+    error: IUpdateErrorDTO,
+  ): void {
+    const isHot = task.type === EPendingInstallTaskType.jsBundleSwitch;
+    const bundleNum = isHot ? Number(task.targetBundleVersion) : undefined;
+    const sample = [error.code, error.step, error.httpStatus]
+      .filter((part) => part !== undefined && part !== null)
+      .join(':');
+    this.reportInstallFailure({
+      category: isHot ? 'hotUpdate' : 'fullUpdate',
+      targetVersion: task.targetAppVersion,
+      bundleVersion:
+        bundleNum !== undefined && Number.isFinite(bundleNum)
+          ? bundleNum
+          : undefined,
+      errorCode: 'INSTALL_OR_APPLY_ERROR',
+      errorSample: sample || undefined,
+    });
+  }
+
   private async markTaskFailed(
     task: IPendingInstallTask,
     error: IUpdateErrorDTO,
@@ -1159,6 +1221,7 @@ class ServicePendingInstallTask {
         'warn',
       );
       if (fullFlowRetryCount > MAX_FULL_FLOW_RETRY) {
+        this.reportTaskTerminalFailure(task, error);
         await this.clearPendingTaskWithLog({
           traceId,
           requestSeq,
@@ -1211,6 +1274,7 @@ class ServicePendingInstallTask {
     }
 
     if (!interrupted && !isRetryableUpdateError(error)) {
+      this.reportTaskTerminalFailure(task, error);
       await this.clearPendingTaskWithLog({
         traceId,
         requestSeq,
@@ -1237,6 +1301,7 @@ class ServicePendingInstallTask {
     const nextRetryCount = task.retryCount + 1;
     const now = Date.now();
     if (nextRetryCount >= MAX_TASK_RETRY) {
+      this.reportTaskTerminalFailure(task, error);
       await this.clearPendingTaskWithLog({
         traceId,
         requestSeq,
@@ -1287,6 +1352,7 @@ class ServicePendingInstallTask {
       IPendingInstallTask,
       { type: EPendingInstallTaskType.jsBundleSwitch }
     >,
+    onRestartRequested: (isBuiltinFallback: boolean) => void,
   ) {
     const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
@@ -1331,7 +1397,15 @@ class ServicePendingInstallTask {
         // re-persist the task as appliedWaitingVerify) is skipped.
         await clearPendingInstallTask();
         await BundleUpdate.resetToBuiltInBundle();
-        BundleUpdate.restart();
+        onRestartRequested(true);
+        try {
+          await BundleUpdate.restart();
+        } catch (error) {
+          if (!(await getPendingInstallTask())) {
+            await setPendingInstallTask(task);
+          }
+          throw error;
+        }
         // restart schedules app relaunch after 2.5s on native / app.exit(0)
         // on desktop, so the throw below is a safety net for unexpected
         // survival.
@@ -1376,6 +1450,7 @@ class ServicePendingInstallTask {
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
+    onRestartRequested(false);
     try {
       await BundleUpdate.switchBundle({
         appVersion,
@@ -1393,6 +1468,17 @@ class ServicePendingInstallTask {
       { type: EPendingInstallTaskType.appInstall }
     >,
   ) {
+    if (
+      platformEnv.isDesktop &&
+      task.payload.updateStrategy !== EUpdateStrategy.force &&
+      !(await (
+        this.backgroundApi?.serviceAppUpdate as
+          | { canRestartForUpdate?: () => Promise<boolean> }
+          | undefined
+      )?.canRestartForUpdate?.())
+    ) {
+      return false;
+    }
     const payload = task.payload;
     if (payload.channel !== 'direct') {
       throw createUpdateError({
@@ -1435,28 +1521,69 @@ class ServicePendingInstallTask {
         step: 'install',
       });
     }
+    const recordStartupSource =
+      platformEnv.isDesktop &&
+      payload.updateStrategy !== EUpdateStrategy.force &&
+      getUpdateFileType(appInfo) === EUpdateFileType.appShell;
+    if (recordStartupSource) {
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === payload.latestVersion &&
+        prev.downloadUrl === appInfo.downloadUrl
+          ? { ...prev, installSource: 'startup' }
+          : prev,
+      );
+    }
     await setPendingInstallTask({
       ...task,
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
-    return AppUpdate.installPackage({
-      ...appInfo,
-      latestVersion: payload.latestVersion,
-      updateStrategy: payload.updateStrategy,
-      storeUrl: payload.storeUrl || appInfo.storeUrl,
-      downloadUrl: payload.downloadUrl || appInfo.downloadUrl,
-      fileSize: payload.fileSize ?? appInfo.fileSize,
-      downloadedEvent: {
-        ...appInfo.downloadedEvent,
-        downloadUrl,
-      },
-    });
+    const restoreStartupSource = async () => {
+      if (!recordStartupSource) return;
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === payload.latestVersion &&
+        prev.downloadUrl === appInfo.downloadUrl &&
+        prev.installSource === 'startup'
+          ? { ...prev, installSource: appInfo.installSource ?? 'quit' }
+          : prev,
+      );
+    };
+    try {
+      const started = await AppUpdate.installPackage({
+        ...appInfo,
+        installSource:
+          payload.updateStrategy === EUpdateStrategy.force
+            ? undefined
+            : 'startup',
+        latestVersion: payload.latestVersion,
+        updateStrategy: payload.updateStrategy,
+        storeUrl: payload.storeUrl || appInfo.storeUrl,
+        downloadUrl: payload.downloadUrl || appInfo.downloadUrl,
+        fileSize: payload.fileSize ?? appInfo.fileSize,
+        downloadedEvent: {
+          ...appInfo.downloadedEvent,
+          downloadUrl,
+        },
+      });
+      if (!started) await restoreStartupSource();
+      return started;
+    } catch (error) {
+      await restoreStartupSource();
+      if (
+        getUpdateError(error, 'install').code === EUpdateErrorCode.cancelled
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
-  private async executePendingInstallTask(task: IPendingInstallTask) {
+  private async executePendingInstallTask(
+    task: IPendingInstallTask,
+    onRestartRequested: (isBuiltinFallback: boolean) => void,
+  ) {
     if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
-      await this.executeBundleSwitchTask(task);
+      await this.executeBundleSwitchTask(task, onRestartRequested);
       return true;
     }
     if (task.type === EPendingInstallTaskType.appInstall) {
@@ -1862,8 +1989,21 @@ class ServicePendingInstallTask {
       });
 
       try {
-        const installStarted =
-          await this.executePendingInstallTask(runningTask);
+        const installStarted = await this.executePendingInstallTask(
+          runningTask,
+          (isBuiltinFallback) => {
+            // A successful restart destroys this runtime before the await returns.
+            defaultLogger.app.appUpdate.pendingSwitchResult({
+              traceId,
+              requestSeq,
+              result: isBuiltinFallback
+                ? 'builtin_fallback_restart_requested'
+                : 'restart_requested',
+              durationMs: Date.now() - startedAt,
+              ...this.buildTaskLogFields(runningTask),
+            });
+          },
+        );
         if (!installStarted) {
           const currentTask = await getPendingInstallTask();
           if (
@@ -1887,6 +2027,9 @@ class ServicePendingInstallTask {
           return;
         }
         shouldEmitProcessFinishedEvent = false;
+        if (runningTask.type === EPendingInstallTaskType.jsBundleSwitch) {
+          return true;
+        }
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
           ...runningTask,
@@ -1918,16 +2061,15 @@ class ServicePendingInstallTask {
         ) {
           shouldEmitProcessFinishedEvent =
             message !== 'BUILTIN_FALLBACK_RELAUNCH';
-          defaultLogger.app.appUpdate.pendingSwitchResult({
-            traceId,
-            requestSeq,
-            result:
-              message === 'BUILTIN_ALREADY_ACTIVE'
-                ? 'builtin_already_active'
-                : 'builtin_fallback',
-            durationMs,
-            ...this.buildTaskLogFields(runningTask),
-          });
+          if (message === 'BUILTIN_ALREADY_ACTIVE') {
+            defaultLogger.app.appUpdate.pendingSwitchResult({
+              traceId,
+              requestSeq,
+              result: 'builtin_already_active',
+              durationMs,
+              ...this.buildTaskLogFields(runningTask),
+            });
+          }
         } else {
           defaultLogger.app.appUpdate.pendingSwitchResult(
             {
@@ -1947,6 +2089,8 @@ class ServicePendingInstallTask {
             updateError,
             traceId,
             undefined,
+            runningTask.type === EPendingInstallTaskType.jsBundleSwitch &&
+              updateError.code === EUpdateErrorCode.installFailed,
           );
           if (reachedTerminalState) {
             shouldRunPostRefresh = false;

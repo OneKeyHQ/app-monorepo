@@ -18,11 +18,9 @@ export type IWalletConnectPayLinkResult = {
 // is not lost: the container reads the current state on mount. No
 // navigation-retry loop needed anymore.
 function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
-  // Unlock gate: on native the dialog is a SYSTEM sheet that presents above
-  // the RN lock screen (the routed modal it replaced rendered under it), so
-  // the link waits for unlock. The payment's absolute deadline keeps ticking
-  // meanwhile; an expired link lands on the expired terminal, which is the
-  // correct outcome.
+  // Unlock gate: a payment never opens over a locked app, so the link waits
+  // for unlock. The payment's absolute deadline keeps ticking meanwhile; an
+  // expired link lands on the expired terminal, which is the correct outcome.
   void whenAppUnlocked()
     .then(() => {
       const { opened } = openWcPayDialog({ paymentLink });

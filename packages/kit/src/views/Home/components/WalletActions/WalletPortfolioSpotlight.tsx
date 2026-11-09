@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   rootNavigationRef,
+  useMedia,
   useOnRouterChange,
   useVisibilityChange,
 } from '@onekeyhq/components';
@@ -20,6 +21,17 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 
 import { WalletPortfolioIllustration } from './WalletPortfolioIllustration';
+
+const STRETCH_CONTAINER_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  width: 0,
+} as const;
+const FIT_CONTAINER_PROPS = {
+  flexGrow: 0,
+  flexShrink: 0,
+  width: 'auto',
+} as const;
 
 export function WalletPortfolioSpotlight({
   children,
@@ -43,6 +55,17 @@ export function WalletPortfolioSpotlight({
   const isStageShown = !!stage?.step && stage.step !== 'off';
   useDeferredGuideBlocker(isRootCovered || isStageShown);
   const [{ visible, disabled }] = usePortfolioSyncUiStateAtom();
+  const { gtSm } = useMedia();
+  // The card-style trigger stretches on narrow windows; the icon trigger sizes
+  // to its content. Choose in JS: on native, a `$gtSm` override of
+  // `flex: 1, flexBasis: 0` kept the zero basis while dropping the growth,
+  // collapsing the icon trigger to zero width (iPhone Duo inner display). Stretch
+  // with `width: 0` rather than `flexBasis: 0`: Yoga keeps a cached flex basis
+  // when a numeric basis returns, so the card stayed as wide as the icon trigger
+  // after folding back.
+  const flexContainerProps = gtSm
+    ? FIT_CONTAINER_PROPS
+    : STRETCH_CONTAINER_PROPS;
 
   return (
     <Spotlight
@@ -68,15 +91,7 @@ export function WalletPortfolioSpotlight({
       message={intl.formatMessage({
         id: ETranslations.portfolio_spotlight__desc,
       })}
-      containerProps={
-        iconOnly
-          ? undefined
-          : {
-              flex: 1,
-              flexBasis: 0,
-              $gtSm: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' },
-            }
-      }
+      containerProps={iconOnly ? undefined : flexContainerProps}
     >
       {children}
     </Spotlight>

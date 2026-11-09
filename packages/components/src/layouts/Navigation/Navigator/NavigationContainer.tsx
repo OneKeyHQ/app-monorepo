@@ -267,27 +267,38 @@ export function resetAboveMainRoute() {
  * that was superseded during that window can abandon the tab switch itself,
  * not only whatever it planned to do afterwards.
  */
-export const switchTabAsync = async (
-  route: ETabRoutes,
-  options?: { shouldContinue?: () => boolean },
+export const switchTabAsync = async <T extends ETabRoutes>(
+  route: T,
+  options?: {
+    shouldContinue?: () => boolean;
+    params?: ITabStackParamList[T] extends ParamListBase
+      ? NavigatorScreenParams<ITabStackParamList[T]>
+      : undefined;
+  },
 ): Promise<void> => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
   defaultLogger.app.router.switchTab(route);
 
+  if (options?.shouldContinue && !options.shouldContinue()) return;
+
   // Tablet/split-view: mirror the tab switch on the tablet navigator
   setTimeout(() => {
+    if (options?.shouldContinue && !options.shouldContinue()) return;
     const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
     const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
     if (
       tabletActiveTab !== undefined &&
-      (tabletHasOverlay || tabletActiveTab !== route)
+      (tabletHasOverlay ||
+        tabletActiveTab !== route ||
+        options?.params !== undefined)
     ) {
       tabletMainViewNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
           screen: route,
+          ...(options?.params !== undefined ? { params: options.params } : {}),
         },
         {
           pop: true,
@@ -304,9 +315,10 @@ export const switchTabAsync = async (
     }
   }
 
-  if (rootActiveTab !== route) {
+  if (rootActiveTab !== route || options?.params !== undefined) {
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: route,
+      ...(options?.params !== undefined ? { params: options.params } : {}),
     });
   }
 
@@ -361,7 +373,7 @@ type IRouteLike = {
   readonly params?: unknown;
   readonly state?: {
     readonly index?: number;
-    readonly routes?: ReadonlyArray<{ readonly name: string }>;
+    readonly routes?: ReadonlyArray<IRouteLike>;
   };
 };
 
@@ -398,17 +410,36 @@ function resetRoutesMatching(shouldDrop: (route: IRouteLike) => boolean) {
 /**
  * Drop ScanQrCodeModal and ActionCenter (FullScreenPush) routes,
  * preserving all other routes (e.g. onboarding).
+ * With a request ID, drop only the matching scanner.
  */
-export function resetScanModalRoute() {
+export function resetScanModalRoute(options?: { scanRequestId: string }) {
   resetRoutesMatching((route) => {
     const screen = getRouteScreenName(route);
     if (
       route.name === ERootRoutes.Modal &&
       screen === EModalRoutes.ScanQrCodeModal
     ) {
-      return true;
+      if (!options) return true;
+      const params = route.params as
+        | { params?: { params?: { scanRequestId?: string } } }
+        | undefined;
+      const modalRoute = route.state?.routes?.[route.state.index ?? 0];
+      const scanRoute =
+        modalRoute?.state?.routes?.[modalRoute.state.index ?? 0];
+      const scanParams = scanRoute?.params as
+        | { scanRequestId?: string }
+        | undefined;
+      const modalParams = modalRoute?.params as
+        | { params?: { scanRequestId?: string } }
+        | undefined;
+      return (
+        (scanParams?.scanRequestId ??
+          modalParams?.params?.scanRequestId ??
+          params?.params?.params?.scanRequestId) === options.scanRequestId
+      );
     }
     if (
+      !options &&
       route.name === ERootRoutes.FullScreenPush &&
       screen === EFullScreenPushRoutes.ActionCenter
     ) {

@@ -54,6 +54,10 @@ const fingerprintFiles = [
   'development/envExposedToClient.js',
   'development/platformEnvDefine.js',
   'package.json',
+  // Native font family names are baked into the vendor bundle; the generated
+  // manifest keeps private-font vendor bundles apart from fallback ones.
+  'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+  'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',
   'packages/components/src/utils/webFontFamily.ts',
   'packages/components/tamagui.animations.ts',
@@ -70,7 +74,6 @@ const nativeContractDependencies = {
   ],
   ios: [
     '@onramper/onramper-react-native',
-    'burnt',
     'expo-apple-authentication',
     'expo-glass-effect',
     'expo-modules-jsi',
@@ -78,12 +81,13 @@ const nativeContractDependencies = {
   shared: [
     '@expo/dom-webview',
     '@expo/log-box',
-    '@expo/ui',
+    '@intercom/intercom-react-native',
     '@notifee/react-native',
     '@onekeyfe/react-native-app-update',
     '@onekeyfe/react-native-auto-size-input',
     '@onekeyfe/react-native-background-thread',
     '@onekeyfe/react-native-ble-utils',
+    '@onekeyfe/react-native-bottom-tabs',
     '@onekeyfe/react-native-bundle-crypto',
     '@onekeyfe/react-native-bundle-update',
     '@onekeyfe/react-native-chart-webview',
@@ -98,7 +102,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-lite-card',
     '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
-    '@onekeyfe/react-native-native-sheet',
+    '@onekeyfe/react-native-native-overlay',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',
@@ -110,7 +114,6 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-sni-connect',
     '@onekeyfe/react-native-splash-screen',
     '@onekeyfe/react-native-split-bundle-loader',
-    '@onekeyfe/react-native-tab-view',
     '@onekeyfe/react-native-text-input',
     '@phantom/react-native-juicebox-sdk',
     '@react-native-async-storage/async-storage',
@@ -213,6 +216,7 @@ const shellInputDirectories = {
     'apps/mobile/android/app/src',
     'apps/mobile/android/app-update-noop/src',
     'apps/mobile/android/build-logic',
+    'apps/mobile/android/mmkv',
   ],
   ios: [
     'apps/mobile/ios/OneKeyLogo.icon',
@@ -242,7 +246,7 @@ const shellInputDirectories = {
     'apps/mobile/ios/zh-Hans.lproj',
     'apps/mobile/ios/zh-Hant.lproj',
   ],
-  shared: [],
+  shared: ['packages/components/svg', 'development/onekey-icons'],
 };
 
 const shellInputFiles = {
@@ -275,11 +279,16 @@ const shellInputFiles = {
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
     'apps/mobile/scripts/mobile-dev-shell-resource.js',
+    'apps/mobile/scripts/patch-intercom-ios.py',
+    'apps/mobile/scripts/patch-intercom-ios.json',
   ],
   shared: [
+    'apps/mobile/native/mmkv/checked-sync.patch',
+    'apps/mobile/native/mmkv/source.lock.json',
     'apps/mobile/package.json',
     'apps/mobile/react-native.config.js',
     'apps/mobile/scripts/build-mobile-dev-shell.js',
+    'development/scripts/prepare-mmkv-source.js',
     'yarn.lock',
   ],
 };

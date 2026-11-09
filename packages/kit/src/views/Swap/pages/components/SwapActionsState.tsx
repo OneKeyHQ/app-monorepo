@@ -18,6 +18,7 @@ import {
   Tooltip,
   XStack,
   resetToRoute,
+  runAfterActionListClose,
   useIsOverlayPage,
   useMedia,
   usePopoverContext,
@@ -106,6 +107,7 @@ interface ISwapActionsStateProps {
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
+  stockRecipientSnapshotScope?: string;
 }
 
 // cspell:ignore ellipsize
@@ -139,10 +141,11 @@ function IncognitoPopoverContent({ description }: { description: string }) {
   const { closePopover } = usePopoverContext();
   const handleAction = useCallback(
     (url: string) => {
-      void (async () => {
-        await closePopover?.();
-        openUrlExternal(url);
-      })();
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
     },
     [closePopover],
   );
@@ -162,6 +165,7 @@ const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
+  stockRecipientSnapshotScope,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -193,6 +197,7 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     closeQuoteEvent,
     loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
     quoteAction,
   } = useSwapActions().current;
   const swapActionState = useSwapActionState();
@@ -548,6 +553,7 @@ const SwapActionsState = ({
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      requestSelectedTokenBalanceRefresh();
       if (onRefreshQuote) {
         onRefreshQuote();
         return;
@@ -579,6 +585,7 @@ const SwapActionsState = ({
     onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
+    requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.shouldDepositToTrade,
@@ -813,13 +820,41 @@ const SwapActionsState = ({
       ? `(${recipientAccountLabel})`
       : null;
 
+  const recipientAccountComponent = useMemo(
+    () =>
+      recipientAccountDisplayLabel ? (
+        <XStack flexShrink={1} minWidth={0}>
+          <SizableText
+            testID="swap-recipient-account"
+            flexShrink={1}
+            minWidth={0}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {`(${recipientAccountLabel}`}
+          </SizableText>
+          <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+            )
+          </SizableText>
+        </XStack>
+      ) : null,
+    [recipientAccountDisplayLabel, recipientAccountLabel],
+  );
+
   const recipientComponent = useMemo(() => {
     const recipientRow = (
-      <XStack gap="$1.5" {...(isDesktopModalPage ? { flex: 1 } : { pb: '$4' })}>
+      <XStack
+        testID="swap-recipient-action-row"
+        gap="$1.5"
+        minWidth={0}
+        {...(isDesktopModalPage ? { flex: 1 } : { pb: '$4' })}
+      >
         <Stack>
           <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
         </Stack>
-        <XStack flex={1} flexWrap="wrap" gap="$1.5" minWidth={0}>
+        <XStack flex={1} gap="$1.5" minWidth={0}>
           <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
             {recipientSendToLabel}
           </SizableText>
@@ -832,18 +867,7 @@ const SwapActionsState = ({
           >
             {recipientAddressDisplayLabel}
           </SizableText>
-          {recipientAccountDisplayLabel ? (
-            <SizableText
-              flexShrink={1}
-              minWidth={0}
-              size="$bodyMd"
-              color="$textSubdued"
-              numberOfLines={1}
-              ellipsizeMode="middle"
-            >
-              {recipientAccountDisplayLabel}
-            </SizableText>
-          ) : null}
+          {recipientAccountComponent}
         </XStack>
       </XStack>
     );
@@ -854,17 +878,31 @@ const SwapActionsState = ({
     // this row mounts/unmounts on token switches; reveal it smoothly. Its
     // spacing (pb) sits inside the measured content, so no gap offset needed.
     return (
-      <SwapSmoothReveal visible={shouldShowRecipientInActionRow}>
+      <SwapSmoothReveal
+        visible={shouldShowRecipientInActionRow}
+        snapshotKey={
+          swapTypeSwitch === ESwapTabSwitchType.STOCK
+            ? 'stock-recipient'
+            : undefined
+        }
+        snapshotPending={
+          swapEnableRecipientAddress && !stockRecipientSnapshotScope
+        }
+        snapshotScope={stockRecipientSnapshotScope}
+      >
         {recipientRow}
       </SwapSmoothReveal>
     );
   }, [
-    recipientAccountDisplayLabel,
+    recipientAccountComponent,
     recipientAddressDisplayLabel,
     recipientSendToLabel,
     onOpenRecipientAddress,
     isDesktopModalPage,
     shouldShowRecipientInActionRow,
+    swapTypeSwitch,
+    swapEnableRecipientAddress,
+    stockRecipientSnapshotScope,
   ]);
 
   const recipientFooterComponent = useMemo(() => {
@@ -936,10 +974,12 @@ const SwapActionsState = ({
     }
 
     return (
-      <XStack minWidth={0} maxWidth="100%">
+      <XStack testID="swap-recipient-meta-row" flex={1} minWidth={0}>
         <XStack
+          flex={1}
+          minWidth={0}
           gap="$1.5"
-          flexWrap="wrap"
+          alignItems="center"
           justifyContent="flex-start"
           maxWidth="100%"
         >
@@ -947,7 +987,8 @@ const SwapActionsState = ({
             <Icon name="AddedPeopleOutline" size="$5" color="$iconSubdued" />
           </Stack>
           <XStack
-            flexWrap="wrap"
+            flex={1}
+            alignItems="center"
             justifyContent="flex-start"
             gap="$1.5"
             minWidth={0}
@@ -964,25 +1005,14 @@ const SwapActionsState = ({
             >
               {recipientAddressDisplayLabel}
             </SizableText>
-            {recipientAccountDisplayLabel ? (
-              <SizableText
-                flexShrink={1}
-                minWidth={0}
-                size="$bodyMd"
-                color="$textSubdued"
-                numberOfLines={1}
-                ellipsizeMode="middle"
-              >
-                {recipientAccountDisplayLabel}
-              </SizableText>
-            ) : null}
+            {recipientAccountComponent}
           </XStack>
         </XStack>
       </XStack>
     );
   }, [
     onOpenRecipientAddress,
-    recipientAccountDisplayLabel,
+    recipientAccountComponent,
     recipientAddressDisplayLabel,
     recipientSendToLabel,
     shouldShowRecipientInMetaRow,
@@ -1088,17 +1118,6 @@ const SwapActionsState = ({
     [],
   );
 
-  const desktopActionWidthProps = useMemo(
-    () =>
-      desktopActionWidth
-        ? {
-            width: desktopActionWidth,
-            minWidth: desktopActionWidth,
-          }
-        : undefined,
-    [desktopActionWidth],
-  );
-
   const actionButtonChildren = useMemo(
     () =>
       shouldShowQuoteActionLoading ? (
@@ -1190,7 +1209,7 @@ const SwapActionsState = ({
 
     if (showRecipientInMetaRow && incognitoComponent) {
       metaRow = isDesktopModalPage ? (
-        <XStack gap="$6" alignItems="center" flexWrap="wrap" width="100%">
+        <XStack gap="$6" alignItems="center" width="100%">
           {incognitoComponent}
           {recipientMetaRowComponent}
         </XStack>
@@ -1198,7 +1217,6 @@ const SwapActionsState = ({
         <XStack
           gap="$4"
           alignItems="center"
-          flexWrap="wrap"
           justifyContent="space-between"
           width="100%"
         >
@@ -1255,11 +1273,7 @@ const SwapActionsState = ({
             gapSide="bottom"
           >
             <XStack width="100%" justifyContent="flex-end">
-              <Stack
-                flexShrink={0}
-                alignItems="stretch"
-                {...desktopActionWidthProps}
-              >
+              <Stack flexShrink={0} alignItems="stretch">
                 <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
                   {costSavingsComponent}
                 </Stack>
@@ -1280,7 +1294,7 @@ const SwapActionsState = ({
               flexShrink={0}
               alignItems="stretch"
               gap="$2"
-              {...desktopActionWidthProps}
+              minWidth={desktopActionWidth}
             >
               <Button
                 testID={SwapTestIDs.actionPrimaryButton}
@@ -1289,7 +1303,7 @@ const SwapActionsState = ({
                 variant="primary"
                 disabled={isActionDisabled}
                 borderRadius="$full"
-                {...(desktopActionWidth ? { width: '100%' } : {})}
+                childrenAsText={false}
               >
                 {actionButtonChildren}
               </Button>
@@ -1307,7 +1321,6 @@ const SwapActionsState = ({
       actionButtonChildren,
       costSavingsComponent,
       desktopActionWidth,
-      desktopActionWidthProps,
       isActionDisabled,
       onActionHandlerBefore,
       onDesktopActionTagLayout,

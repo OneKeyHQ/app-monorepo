@@ -18,7 +18,11 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_NO_EXTERNAL,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -7862,6 +7866,100 @@ describe('useAccountSelectorActions', () => {
 
     expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      EAccountSelectorSceneName.home,
+      EAccountSelectorAutoSelectTriggerBy.removeAccount,
+    ],
+    [
+      EAccountSelectorSceneName.swap,
+      EAccountSelectorAutoSelectTriggerBy.removeAccount,
+    ],
+    [
+      EAccountSelectorSceneName.home,
+      EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount,
+    ],
+    [
+      EAccountSelectorSceneName.swap,
+      EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount,
+    ],
+  ] as const)(
+    'clears the disconnected external active account in %s after %s',
+    async (sceneName, triggerBy) => {
+      const externalWallet: IWallet = {
+        id: WALLET_TYPE_EXTERNAL,
+        name: 'External wallet',
+        type: WALLET_TYPE_EXTERNAL,
+        backuped: true,
+        accounts: [],
+        nextIds: {},
+        walletNo: WALLET_NO_EXTERNAL,
+      };
+      const network = { id: 'evm--1' } as IServerNetwork;
+      const clearedActiveAccount = {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        network,
+      };
+      mockGetWalletSafe.mockResolvedValue(externalWallet);
+      mockGetSingletonAccountsOfWallet.mockResolvedValue({ accounts: [] });
+      mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
+        activeAccount: clearedActiveAccount,
+      });
+
+      const { store, Wrapper } = createWrapper(sceneName);
+      store.set(selectedAccountsAtom(), {
+        0: {
+          ...defaultSelectedAccount(),
+          walletId: externalWallet.id,
+          focusedWallet: externalWallet.id,
+          othersWalletAccountId: 'external--60--removed',
+          networkId: network.id,
+          deriveType: 'default',
+        },
+      });
+      store.set(activeAccountsAtom(), {
+        0: {
+          ...defaultActiveAccountInfo(),
+          ready: true,
+          wallet: externalWallet,
+          network,
+        },
+      });
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await result.current.autoSelectNextAccount({
+          num: 0,
+          sceneName,
+          triggerBy,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        walletId: undefined,
+        focusedWallet: undefined,
+        othersWalletAccountId: undefined,
+        indexedAccountId: undefined,
+        networkId: network.id,
+      });
+      expect(store.get(activeAccountsAtom())[0]).toBe(clearedActiveAccount);
+      expect(
+        mockBuildActiveAccountInfoFromSelectedAccount,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedAccount: expect.objectContaining({
+            walletId: undefined,
+            othersWalletAccountId: undefined,
+            networkId: network.id,
+          }),
+        }),
+      );
+    },
+  );
 
   it('clears an empty standard wallet selection after the standard wallet is removed', async () => {
     const standardWalletSelection = {

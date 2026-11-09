@@ -123,11 +123,9 @@ export function useSelectAddWalletTypeDialog() {
       // Nothing was painted: fall through to the legacy dialog below.
     }
     // iOS-only: dismiss the hardware-UI dialog before mounting this one.
-    // Both dialogs render into FULL_WINDOW_OVERLAY_PORTAL and share the same
-    // useOverlayZIndex stack. The hardware DialogContainer remounts on every
-    // atom action transition, so its Sheet.Overlay can end up above this
-    // dialog's Frame on iOS and intercept taps even though the wallet-type
-    // buttons appear visually on top. skipDeviceCancel:true keeps the BLE
+    // The hardware dialog renders in the native `hardware` overlay level,
+    // above this `modal` dialog, so while it is up it covers the wallet-type
+    // buttons and takes their taps. skipDeviceCancel:true keeps the BLE
     // session alive; the hardware dialog naturally returns when the SDK
     // emits its next UI event.
     // OK-59934: the DeviceStage lives in its own portal, never remounts

@@ -79,6 +79,7 @@ import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
+import type ServicePrivacyChain from '../services/ServicePrivacyChain';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -161,7 +162,11 @@ export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
   bridgeExtBg: JsBridgeExtBackground | null;
   connectBridge(bridge: JsBridgeBase | null): void;
-  connectWebEmbedBridge(bridge: JsBridgeBase | null): void;
+  connectWebEmbedBridge(
+    bridge: JsBridgeBase | null,
+    mountId?: string,
+    mountSequence?: number,
+  ): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
@@ -249,6 +254,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceExplorer: ServiceExplorer;
   serviceCustomToken: ServiceCustomToken;
   serviceCustomRpc: ServiceCustomRpc;
+  servicePrivacyChain: ServicePrivacyChain;
   serviceReferralCode: ServiceReferralCode;
   serviceDBBackup: ServiceDBBackup;
   serviceWalletBanner: ServiceWalletBanner;

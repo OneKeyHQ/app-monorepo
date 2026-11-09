@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewPerpsV2 } from './TradingViewPerpsV2';
@@ -11,6 +12,7 @@ import { TradingViewPerpsV2 } from './TradingViewPerpsV2';
 import type { useChartLines } from './hooks';
 import type { usePerpsTradingViewMessageHandler } from './messageHandlers';
 import type { IWebViewProps } from '../../WebView';
+import type { TradingViewV2ChartControlsContainer } from '../TradingViewV2/components/TradingViewV2ChartControls';
 import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
 
 const mockWebViewProps = jest.fn<void, [IWebViewProps]>();
@@ -18,9 +20,26 @@ const mockMessageHandlerProps = jest.fn<
   void,
   Parameters<typeof usePerpsTradingViewMessageHandler>
 >();
-const mockChartLines = jest.fn<void, Parameters<typeof useChartLines>>();
+const mockChartLines = jest.fn<
+  ReturnType<typeof useChartLines>,
+  Parameters<typeof useChartLines>
+>(() => ({
+  hasAccountLinesRef: { current: false },
+  sendLinesSync: jest.fn(),
+  sendLinesClear: jest.fn(),
+}));
 const mockResetControls = jest.fn();
+const mockControls = jest.fn<
+  void,
+  [ComponentProps<typeof TradingViewV2ChartControlsContainer>]
+>();
+const mockIndicatorQuickBar = jest.fn(() => null);
 const mockSetMounted = jest.fn();
+const mockSourcePage = { hostKey: 'main', ownerKey: 'perps' };
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => mockSourcePage,
+}));
 
 jest.mock('react-intl', () => ({ useIntl: () => ({}) }));
 jest.mock('@onekeyhq/components', () => {
@@ -95,7 +114,14 @@ jest.mock('../TradingViewChartLoadingMask', () => {
   };
 });
 jest.mock('../TradingViewV2/components/TradingViewV2ChartControls', () => ({
-  TradingViewV2ChartControlsContainer: () => null,
+  TradingViewV2ChartControlsContainer: (
+    props: ComponentProps<typeof TradingViewV2ChartControlsContainer>,
+  ) => {
+    mockControls(props);
+    return null;
+  },
+  TradingViewNativeIndicatorQuickBar: () => mockIndicatorQuickBar(),
+  useShowNativeIndicatorsDialog: () => jest.fn(),
 }));
 jest.mock('./hooks', () => ({
   useChartLines: (...args: Parameters<typeof useChartLines>) =>
@@ -137,6 +163,43 @@ describe('Perps chart navigation readiness', () => {
     jest.clearAllMocks();
     platformEnv.isNativeAndroid = true;
   });
+
+  it.each([true, false])(
+    'integrates controls and indicators for native=%s',
+    (isNative) => {
+      const nativePlatform = jest.replaceProperty(
+        platformEnv,
+        'isNative',
+        isNative,
+      );
+      const onChartSwitch = jest.fn();
+      try {
+        render(
+          <TradingViewPerpsV2
+            symbol="BTC"
+            userAddress={undefined}
+            enableNativeChartControls
+            onChartSwitch={onChartSwitch}
+          />,
+        );
+        expect(mockControls.mock.lastCall?.[0]).toMatchObject({
+          layoutMode: isNative ? 'mobile' : 'desktop',
+          enableNativeChartSettings: isNative,
+          intervalControlMode: isNative ? 'dialog' : 'popover',
+          onChartSwitch,
+        });
+        expect(mockIndicatorQuickBar).not.toHaveBeenCalled();
+        expect(mockControls.mock.lastCall?.[0].isControlsReady).toBe(false);
+        expect(
+          mockControls.mock.lastCall?.[0].mobileToolbarExtra,
+        ).toBeUndefined();
+        markChartReady();
+        expect(mockIndicatorQuickBar.mock.calls.length > 0).toBe(isNative);
+      } finally {
+        nativePlatform.restore();
+      }
+    },
+  );
 
   it('keeps the Android chart and order lines ready after a same-document URL update', () => {
     render(<TradingViewPerpsV2 symbol="BTC" userAddress={undefined} />);
@@ -193,6 +256,27 @@ describe('Perps chart navigation readiness', () => {
     );
     expect(mockResetControls).toHaveBeenCalledTimes(
       navigation.shouldReset ? 1 : 0,
+    );
+  });
+
+  it('captures the page source only when opening a chart limit order', async () => {
+    render(
+      <TradingViewPerpsV2
+        symbol="BTC"
+        userAddress={undefined}
+        enablePerpsTradingUi
+      />,
+    );
+    await act(async () => {
+      mockMessageHandlerProps.mock.calls.at(-1)?.[0].onChartOrderIntent?.({
+        intent: 'limitEntry',
+        symbol: 'BTC',
+        price: '83000',
+      });
+      await Promise.resolve();
+    });
+    expect(showLimitOrderDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ sourcePage: mockSourcePage }),
     );
   });
 });

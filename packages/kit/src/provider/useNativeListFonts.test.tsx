@@ -44,7 +44,7 @@ describe('NativeList browser font bootstrap', () => {
       });
       expect(current.current).toBe(false);
       expect(load.mock.calls.map((call) => call[0])).toEqual(
-        [400, 500, 600, 700].map((weight) => `${weight} 16px "Roobert"`),
+        [400, 500, 600, 700].map((weight) => `${weight} 16px "OneKeySans"`),
       );
       expect(configure).not.toHaveBeenCalled();
       await act(async () => {
@@ -56,10 +56,10 @@ describe('NativeList browser font bootstrap', () => {
       expect(current.current).toBe(true);
       if (outcome === 'loaded')
         expect(configure).toHaveBeenCalledWith({
-          regular: 'Roobert',
-          medium: 'Roobert',
-          semibold: 'Roobert',
-          bold: 'Roobert',
+          regular: 'OneKeySans',
+          medium: 'OneKeySans',
+          semibold: 'OneKeySans',
+          bold: 'OneKeySans',
         });
       else expect(configure).not.toHaveBeenCalled();
       unmount();

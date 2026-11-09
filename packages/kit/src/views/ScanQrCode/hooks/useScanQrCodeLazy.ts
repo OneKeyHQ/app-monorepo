@@ -44,7 +44,8 @@ export default function useScanQrCodeLazy() {
       tokens,
       qrWalletScene = false,
       showProTutorial = false,
-    }: IQRCodeHandlerParseOutsideOptions) => {
+      scanRequestId,
+    }: IQRCodeHandlerParseOutsideOptions & { scanRequestId?: string }) => {
       const parseQRCodeModulePromise = import('./useParseQRCode');
       const result = await new Promise<IQRCodeHandlerParseResult<IBaseValue>>(
         (resolve, reject) => {
@@ -55,6 +56,7 @@ export default function useScanQrCodeLazy() {
             params: {
               qrWalletScene,
               showProTutorial,
+              scanRequestId,
               callback: async ({ value, popNavigation }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
@@ -71,7 +73,7 @@ export default function useScanQrCodeLazy() {
                         tokens,
                         popNavigation,
                       },
-                      { navigation, clipboard, intl },
+                      { navigation, clipboard, intl, scanRequestId },
                     );
                   } catch (error) {
                     // A transient parse failure retries the frame; an action error stays

@@ -55,7 +55,7 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-/* Disable Roobert contextual alternates that convert (1) to ① */
+/* Disable brand font contextual alternates that convert (1) to ① */
 * {
   font-feature-settings: 'calt' 0 !important;
 }
@@ -135,6 +135,21 @@ body {
 .perp-table-overlay-scrollbar:active {
   background: linear-gradient(var(--textDisabled), var(--textDisabled)),
     var(--bgApp);
+}
+
+[data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  border-radius: 2px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-corner {
+  background: var(--bgApp);
 }
 
 .show-scrollbar ::-webkit-scrollbar {
@@ -312,6 +327,20 @@ textarea {
   cursor: default;
 }
 
+/* Watchlist rows stay reorderable but keep the default cursor. */
+[data-testid='market-watchlist-list']
+  .ok-native-list-item[data-native-list-reorderable='true']
+  > .ok-native-list-row {
+  cursor: default;
+}
+
+/* NFT tiles signal hover by dimming the image, without a tile background. */
+[data-testid='home-nft-list']
+  .ok-native-list-item[data-native-list-row-press-enabled='true']:hover
+  .ok-native-list-media-image {
+  opacity: 0.8;
+}
+
 /* The package centers the index rail inside its host container through an
    inline `top`. The network selector pins it to the top of the list area so a
    short index does not float mid-list. Hit-testing reads the rail's live rect,
@@ -320,10 +349,6 @@ textarea {
 [data-testid='chain-selector-unified-section-index-container']
   > .ok-native-list-index-rail {
   top: 0 !important;
-}
-
-.onekey-img-cropper {
-  height: 100%;
 }
 
 /* 

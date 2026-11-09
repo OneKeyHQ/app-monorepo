@@ -1,11 +1,15 @@
 import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { Camera, CameraType } from 'react-native-camera-kit';
 
 import { usePreventRemove } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IScanCameraProps } from './types';
+
+const nativeCamera = platformEnv.isNativeIOSMacCatalyst
+  ? undefined
+  : (require('react-native-camera-kit') as typeof import('react-native-camera-kit'));
 
 export type { IScanCameraProps };
 
@@ -63,14 +67,14 @@ export function ScanCamera({
       {disableNavigationGuard ? null : (
         <ScanCameraNavigationGuard onPreventRemove={onPreventRemove} />
       )}
-      {isFocus ? (
-        <Camera
+      {isFocus && nativeCamera ? (
+        <nativeCamera.Camera
           style={{ flex: 1 }}
           resizeMode="cover"
           showFrame={false}
           zoom={1}
           zoomMode="on"
-          cameraType={CameraType.Back}
+          cameraType={nativeCamera.CameraType.Back}
           scanBarcode
           onReadCode={({ nativeEvent: { codeStringValue } }) => {
             if (typeof codeStringValue !== 'string') {

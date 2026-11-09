@@ -12,6 +12,7 @@ import {
   YStack,
   getTokenValue,
 } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
@@ -43,6 +44,7 @@ function FinancialCard({
   isLoading: boolean;
 }) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const [selectedPeriod, setSelectedPeriod] =
     useState<IStockFinancialPeriod>('annual');
   const [width, setWidth] = useState(640);
@@ -81,17 +83,23 @@ function FinancialCard({
       testID={`stock-financials-${kind}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
-      {/* When the title and the period switch cannot share a row (the narrow
-          mobile overview, long translations), the switch wraps onto its own
-          line, starting from the left. */}
+      {/* The period switch keeps its place at the right; when the title and
+          next-earnings date do not fit beside it (the narrow mobile overview,
+          long translations), the date wraps under the title in its own
+          column instead. */}
       <XStack
         alignItems="center"
         justifyContent="space-between"
-        flexWrap="wrap"
         gap="$2"
         minHeight="$10"
       >
-        <XStack alignItems="baseline" gap="$3" flexShrink={1}>
+        <XStack
+          alignItems="baseline"
+          flexWrap="wrap"
+          columnGap="$3"
+          flex={1}
+          minWidth={0}
+        >
           <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
@@ -100,8 +108,9 @@ function FinancialCard({
               size="$bodyXs"
               color="$textDisabled"
               numberOfLines={1}
-              flexShrink={0}
-            >{`${labels.next}: ${intl.formatDate(nextTimestamp, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}`}</SizableText>
+              flexShrink={1}
+              minWidth={0}
+            >{`${labels.next}: ${formatDate(new Date(nextTimestamp), { hideTimeForever: true, timeZone: 'UTC' })}`}</SizableText>
           ) : null}
         </XStack>
         <XStack
@@ -201,10 +210,13 @@ export function StockFinancials({
   stockId,
   labels: labelsOverride,
   withHorizontalPadding = true,
+  showTitle = true,
 }: {
   stockId: string;
   withHorizontalPadding?: boolean;
   labels?: IStockFinancialLabels;
+  /** Off where a tab already names the section. */
+  showTitle?: boolean;
 }) {
   const translatedLabels = useStockFinancialLabels();
   const labels = labelsOverride ?? translatedLabels;
@@ -218,11 +230,15 @@ export function StockFinancials({
     <YStack
       testID="stock-financials"
       px={withHorizontalPadding ? '$5' : '$0'}
-      py="$2"
+      // Without the title, cards start 32pt below the tabs like Overview.
+      pt={showTitle ? '$2' : '$8'}
+      pb="$2"
     >
-      <SizableText size="$headingXl" pt="$6" pb="$6">
-        {labels.financials}
-      </SizableText>
+      {showTitle ? (
+        <SizableText size="$headingXl" pt="$6" pb="$6">
+          {labels.financials}
+        </SizableText>
+      ) : null}
       <XStack
         flexWrap="wrap"
         columnGap={CARD_COLUMN_GAP}

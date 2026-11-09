@@ -1,89 +1,204 @@
-import { useCallback } from 'react';
+import type { PropsWithChildren } from 'react';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, rootNavigationRef, useMedia } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDustSweepPreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalSwapRoutes,
-  ERootRoutes,
-  ETabHomeRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
+import type {
+  IDustSweepEntry,
+  IDustSweepRouteParams,
+} from '@onekeyhq/shared/types/swap/dustSweep';
+
+export function isDustSweepNetworkSupported({
+  networkId,
+  isAllNetworks,
+  supportedNetworkIds,
+}: {
+  networkId?: string;
+  isAllNetworks?: boolean;
+  supportedNetworkIds?: ReadonlySet<string>;
+}) {
+  // Aggregate mode keeps its existing entry while capabilities load. Single
+  // networks must match the provider rules used by the destination.
+  return Boolean(
+    isAllNetworks || (networkId && supportedNetworkIds?.has(networkId)),
+  );
+}
+
+type IDustSweepEntryCapabilities = {
+  supportedNetworkIds?: ReadonlySet<string>;
+  isFocused: boolean;
+};
+
+const DustSweepEntryCapabilitiesContext =
+  createContext<IDustSweepEntryCapabilities>({
+    supportedNetworkIds: undefined,
+    isFocused: true,
+  });
+
+export function DustSweepEntryCapabilitiesProvider({
+  children,
+  isFocused,
+}: PropsWithChildren<{ isFocused: boolean }>) {
+  const { result } = usePromiseResult(
+    async () => {
+      const { loadDustSweepEntryCapabilities } =
+        await import('../utils/loadNetworks');
+      return loadDustSweepEntryCapabilities();
+    },
+    [],
+    {
+      checkIsMounted: true,
+      checkIsFocused: true,
+      watchLoading: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      undefinedResultIfError: true,
+    },
+  );
+  const supportedNetworkIds = useMemo(
+    () => result && new Set(result.map((network) => network.networkId)),
+    [result],
+  );
+  const capabilities = useMemo(
+    () => ({
+      supportedNetworkIds,
+      isFocused,
+    }),
+    [isFocused, supportedNetworkIds],
+  );
+  return createElement(
+    DustSweepEntryCapabilitiesContext.Provider,
+    { value: capabilities },
+    children,
+  );
+}
 
 export function useNavigateToDustSweep() {
-  const navigation = useAppNavigation();
-  const media = useMedia();
   const intl = useIntl();
-  const [, setPreferences] = useDustSweepPreferencesPersistAtom();
 
   return useCallback(
     async (
       params: Omit<IDustSweepRouteParams, 'walletId'> & { walletId?: string },
+      isCurrent?: () => boolean,
     ) => {
-      const { walletId } = params;
-      const accountId =
-        params.accountId ??
-        (!params.networkId ? params.indexedAccountId : undefined);
-      if (
-        !walletId ||
-        !accountId ||
-        accountUtils.isWatchingWallet({ walletId }) ||
-        accountUtils.isExternalWallet({ walletId })
-      ) {
-        Dialog.show({
-          title: intl.formatMessage({ id: ETranslations.title_dust_sweep }),
-          description: intl.formatMessage({
-            id: ETranslations.swap_page_alert_account_does_not_support_swap,
-          }),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_got_it,
-          }),
-          showCancelButton: false,
-        });
-        return;
-      }
-
-      const routeParams: IDustSweepRouteParams = {
-        ...params,
-        walletId,
-        accountId,
-      };
-      if (
-        platformEnv.isExtensionUiPopup ||
-        platformEnv.isExtensionUiSidePanel
-      ) {
-        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path: '/dust-sweep',
-          params: routeParams,
-        });
-      } else if (media.gtMd) {
-        rootNavigationRef.current?.navigate(
-          ERootRoutes.Main,
-          {
-            screen: ETabRoutes.Home,
-            params: {
-              screen: ETabHomeRoutes.TabHomeDustSweep,
-              params: routeParams,
-            },
-          },
-          { pop: true },
-        );
-      } else {
-        navigation.pushModal(EModalRoutes.SwapModal, {
-          screen: EModalSwapRoutes.DustSweep,
-          params: routeParams,
-        });
-      }
-      setPreferences((value) => ({ ...value, entrySeen: true }));
+      const { navigateToDustSweep } =
+        await import('../utils/navigateToDustSweep');
+      if (isCurrent && !isCurrent()) return;
+      await navigateToDustSweep({ params, intl });
     },
-    [intl, media.gtMd, navigation, setPreferences],
+    [intl],
   );
+}
+
+// Entry points that open Dust Sweep for the active Home account.
+export function useActiveAccountDustSweep() {
+  const navigateToDustSweep = useNavigateToDustSweep();
+  const { supportedNetworkIds, isFocused } = useContext(
+    DustSweepEntryCapabilitiesContext,
+  );
+  const {
+    activeAccount: { account, wallet, network, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const walletId = wallet?.id;
+  const scopeKey = JSON.stringify([
+    walletId,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+  ]);
+  const scopeRef = useRef({ scopeKey, isFocused, generation: 0 });
+  if (
+    scopeRef.current.scopeKey !== scopeKey ||
+    scopeRef.current.isFocused !== isFocused
+  ) {
+    scopeRef.current = {
+      scopeKey,
+      isFocused,
+      generation: scopeRef.current.generation + 1,
+    };
+  }
+  const mountedRef = useRef(true);
+  const openingRef = useRef<{
+    generation: number;
+    promise: Promise<void>;
+  } | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  // Mirrors the navigation handler's guards so entries never lead to the
+  // "account does not support swap" dialog.
+  const canDustSweep =
+    !!(
+      account?.id ?? (network?.isAllNetworks ? indexedAccount?.id : undefined)
+    ) &&
+    !!walletId &&
+    !accountUtils.isWatchingWallet({ walletId }) &&
+    !accountUtils.isExternalWallet({ walletId }) &&
+    isDustSweepNetworkSupported({
+      networkId: network?.id,
+      isAllNetworks: network?.isAllNetworks,
+      supportedNetworkIds,
+    });
+  const canDustSweepRef = useRef(canDustSweep);
+  canDustSweepRef.current = canDustSweep;
+  const navigate = useCallback(
+    (entry: IDustSweepEntry, generation: number) =>
+      navigateToDustSweep(
+        {
+          accountId: account?.id,
+          walletId,
+          indexedAccountId: indexedAccount?.id,
+          networkId: network?.isAllNetworks ? undefined : network?.id,
+          entry,
+        },
+        () =>
+          mountedRef.current &&
+          scopeRef.current.isFocused &&
+          canDustSweepRef.current &&
+          scopeRef.current.generation === generation &&
+          scopeRef.current.scopeKey === scopeKey,
+      ),
+    [
+      navigateToDustSweep,
+      account?.id,
+      walletId,
+      indexedAccount?.id,
+      network?.id,
+      network?.isAllNetworks,
+      scopeKey,
+    ],
+  );
+  const openDustSweep = useCallback(
+    (entry: IDustSweepEntry) => {
+      if (!canDustSweep) return undefined;
+      const { generation } = scopeRef.current;
+      if (openingRef.current?.generation === generation)
+        return openingRef.current.promise;
+      const pending = navigate(entry, generation).finally(() => {
+        if (openingRef.current?.promise === pending) openingRef.current = null;
+      });
+      openingRef.current = { generation, promise: pending };
+      return pending;
+    },
+    [canDustSweep, navigate],
+  );
+  return {
+    canDustSweep,
+    openDustSweep,
+  };
 }

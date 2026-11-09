@@ -11,7 +11,13 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Skeleton,
+  Tooltip,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
@@ -27,6 +33,11 @@ import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
   MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE,
 } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT,
+  MarketHighlightStrip,
+} from '../../MarketHighlights/MarketHighlightStrip';
+import { useMarketHighlights } from '../../MarketHighlights/useMarketHighlights';
 import { MarketTestIDs } from '../../testIDs';
 import { markMarketPerf } from '../../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../../utils/marketReactPerf';
@@ -123,17 +134,46 @@ export function DesktopLayout({
   const isFocused = useIsFirstFocus();
   const isRouteFocused = useIsFocused();
 
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
+  const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
   const containerProps = useMemo(
     () => ({
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
-            <MarketBannerList />
+            {hasHighlightSlot ? (
+              <YStack
+                testID="market-highlights-slot"
+                h={MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT}
+                flexShrink={0}
+              >
+                {highlight ? (
+                  <MarketHighlightStrip
+                    highlight={highlight}
+                    highlights={highlights}
+                    compact={false}
+                  />
+                ) : (
+                  <YStack px="$5" pt="$3">
+                    <Skeleton
+                      h={40}
+                      w="100%"
+                      maxWidth={800}
+                      borderRadius="$3"
+                    />
+                  </YStack>
+                )}
+              </YStack>
+            ) : null}
+            <MarketBannerList compactTopSpacing={hasHighlightSlot} />
           </YStack>
         </YStack>
       ),
     }),
-    [],
+    [hasHighlightSlot, highlight, highlights],
   );
 
   // Portal target for sticky column headers.
@@ -259,7 +299,9 @@ export function DesktopLayout({
         ensureTabActivated(name);
         setActiveTabNameRef.current(name);
         handleTabChangeRef.current(name);
-        tabBarProps.onTabPress?.(name);
+        // Switch instantly on click; the slide reads as a glitch on desktop.
+        // Swipe gestures still animate through the pager itself.
+        tabBarProps.onTabPress?.(name, false);
       };
       const currentFilterBarProps = filterBarPropsRef.current;
       const currentActiveTabName = activeTabNameRef.current;
@@ -401,7 +443,9 @@ export function DesktopLayout({
                       tabIntegrated
                       tabName={watchlistTabName}
                       listContainerProps={listContainerProps}
-                      enableWebSocket={activeTabName === watchlistTabName}
+                      enableWebSocket={
+                        isRouteFocused && activeTabName === watchlistTabName
+                      }
                       centerDesktopPortalContent
                     />
                   </Suspense>
@@ -458,7 +502,7 @@ export function DesktopLayout({
                 item.categoryId,
               )}
               onStockDataChange={handleStockDataChange}
-              enableWebSocket={activeTabName === item.tabName}
+              enableWebSocket={isRouteFocused && activeTabName === item.tabName}
               centerDesktopPortalContent
               desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
               useApiDefaultSort={usesTrendingStyle}

@@ -1,3 +1,4 @@
+import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/routes';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 export interface IMarketDetailResponsiveLayoutProps {
@@ -23,4 +24,6 @@ export interface IMarketDetailResponsiveLayoutProps {
   marketTokenCategory?: string;
   showFavoriteButton?: boolean;
   disableTrade?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
+  onInitialSectionShown?: () => void;
 }

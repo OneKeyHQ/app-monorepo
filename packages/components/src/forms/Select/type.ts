@@ -1,17 +1,16 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 
-import type {
-  ListItemProps,
-  SheetProps,
-} from '@onekeyhq/components/src/shared/tamagui';
+import type { ListItemProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IPopoverProps } from '../../actions';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 import type { IInputProps } from '../Input';
 import type { GestureResponderEvent } from 'react-native';
 
 export interface ISelectRenderTriggerProps {
   value?: string | number | boolean;
   label?: string;
+  labelComponent?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
   onPress?: (event: GestureResponderEvent) => void;
@@ -23,9 +22,13 @@ export interface ISelectTriggerProps {
 
 export interface ISelectItem {
   label: string;
+  /** Visual label for the trigger and options; label remains accessible text. */
+  labelComponent?: ReactNode;
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
+  /** Extra strings matched when `searchable` is set. `label` stays the visible name. */
+  searchKeywords?: string[];
   disabled?: boolean;
 }
 
@@ -57,11 +60,13 @@ export type ISelectProps<
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   defaultTriggerInputProps?: IInputProps;
   disabled?: boolean;
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   testID?: string;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
-  nativeSheet?: IPopoverProps['nativeSheet'];
+  /** Pins a search field above the list and filters `items`. */
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }>;

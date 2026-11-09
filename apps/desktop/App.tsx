@@ -4,7 +4,7 @@ import '@onekeyhq/components/src/hocs/Provider/web-fonts.css';
 import '@onekeyhq/shared/src/web/index.css';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
-import { KitProvider } from '@onekeyhq/kit';
+import type { KitProvider as IKitProvider } from '@onekeyhq/kit';
 
 import {
   flushDesktopWatchdogBreadcrumbs,
@@ -190,9 +190,7 @@ function TrayPanelApp() {
   );
 }
 
-export default function App(props: ComponentProps<typeof KitProvider>) {
-  const isTrayPanel = renderMode === 'tray';
-
+export default function App(props: ComponentProps<typeof IKitProvider>) {
   if (renderMode === 'prime-purchase') {
     // Isolated checkout container: intentionally no KitProvider / navigation /
     // desktop privileged preload. Only the RevenueCat + Stripe checkout runs
@@ -204,9 +202,15 @@ export default function App(props: ComponentProps<typeof KitProvider>) {
     );
   }
 
+  const isTrayPanel = renderMode === 'tray';
+
   if (isTrayPanel) {
     return <TrayPanelApp />;
   }
+
+  const { KitProvider } = require('@onekeyhq/kit') as {
+    KitProvider: typeof IKitProvider;
+  };
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('App render');

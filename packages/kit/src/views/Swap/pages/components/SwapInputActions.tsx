@@ -26,6 +26,7 @@ import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
 const SwapInputActions = ({
   showPercentageInput,
+  percentageInputDisabled = false,
   showActionBuy,
   actionBuyHighlighted = true,
   onDepositClose = noop,
@@ -35,6 +36,7 @@ const SwapInputActions = ({
   activeAccount,
 }: {
   showPercentageInput: boolean;
+  percentageInputDisabled?: boolean;
   showActionBuy: boolean;
   // Green when the chip is the recovery action (partial balance); subdued
   // when the main button already reads "Deposit to Trade" (zero balance).
@@ -126,6 +128,7 @@ const SwapInputActions = ({
                 <SwapPercentageStageBadge
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
+                  disabled={percentageInputDisabled}
                   onSelectStage={onSelectStage}
                 />
               ))}

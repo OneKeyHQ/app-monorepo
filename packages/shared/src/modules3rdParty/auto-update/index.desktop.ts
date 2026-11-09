@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
@@ -198,6 +200,8 @@ const installPackage: IInstallPackage = async (params) => {
         ...downloadedEvent,
         latestVersion: params.latestVersion,
         buildNumber: String(platformEnv.buildNumber || 1),
+        userInitiated: params.userInitiated,
+        installSource: params.installSource,
       }),
       new Promise<void>((resolve) => {
         setTimeout(resolve, 3500);
@@ -205,6 +209,44 @@ const installPackage: IInstallPackage = async (params) => {
     ]);
     return installStarted;
   });
+};
+
+const prepareMacInstall = async (params: IAppUpdateInfo): Promise<void> => {
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) {
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
+  }
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareMacInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
+};
+
+const prepareQuitInstall: NonNullable<
+  IAppUpdate['prepareQuitInstall']
+> = async (params, expectedTarget) => {
+  if (!params) {
+    await runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.appUpdate.prepareQuitInstall(
+        undefined,
+        expectedTarget,
+      ),
+    );
+    return;
+  }
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) return;
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareQuitInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
 };
 
 export const useDownloadProgress: IUseDownloadProgress = (scope) => {
@@ -284,10 +326,20 @@ export const AppUpdate: IAppUpdate = {
   downloadASC,
   checkPackageAvailability,
   installPackage,
+  prepareMacInstall,
+  prepareQuitInstall,
   manualInstallPackage,
   clearPackage,
   clearApkCache,
 };
+
+let bundleInstallPromise: Promise<void> | undefined;
+let bundleInstallTarget: string | undefined;
+
+export function resetBundleInstallLockForTest() {
+  bundleInstallPromise = undefined;
+  bundleInstallTarget = undefined;
+}
 
 export const BundleUpdate: IBundleUpdate = {
   getWebEmbedPath: () => '',
@@ -308,18 +360,47 @@ export const BundleUpdate: IBundleUpdate = {
     runUpdateOperation('downloadASC', () =>
       globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
     ),
-  installBundle: (params) =>
-    runUpdateOperation('install', () =>
-      globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
-    ),
+  installBundle: (params) => {
+    const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
+    if (bundleInstallPromise && bundleInstallTarget !== target) {
+      return Promise.reject(
+        new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+      );
+    }
+    if (!bundleInstallPromise) {
+      bundleInstallTarget = target;
+      // Keep the successful operation until restart; share failures with all callers.
+      bundleInstallPromise = (async () => {
+        await runUpdateOperation('install', () =>
+          globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+        );
+      })().catch((error: unknown) => {
+        bundleInstallPromise = undefined;
+        bundleInstallTarget = undefined;
+        throw error;
+      });
+    }
+    return bundleInstallPromise;
+  },
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
-  switchBundle: (params) =>
-    runUpdateOperation('install', () =>
+  switchBundle: async (params) => {
+    const exists = await globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
+      params.appVersion,
+      params.bundleVersion,
+    );
+    if (!exists) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    await runUpdateOperation('install', () =>
       globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(
         params,
       ),
-    ),
+    );
+  },
   isSkipGpgVerificationAllowed: () =>
     globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   pruneStaleAppVersionBundles: () =>
@@ -351,7 +432,7 @@ export const BundleUpdate: IBundleUpdate = {
       globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
     ),
   restart: () => {
-    void globalThis.desktopApiProxy.bundleUpdate.restart();
+    return globalThis.desktopApiProxy.bundleUpdate.restart();
   },
   clearAllJSBundleData: () =>
     runUpdateOperation('cleanup', () =>

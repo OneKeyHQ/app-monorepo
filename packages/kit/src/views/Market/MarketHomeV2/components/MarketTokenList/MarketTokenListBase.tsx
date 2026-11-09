@@ -36,9 +36,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  ECopyFrom,
-  EWatchlistFrom,
+import {
+  type ECopyFrom,
+  EEnterWay,
+  type EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -52,6 +53,7 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import {
+  MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
   applyMarketTokenListLiveOverrides,
   useMarketHomeTokenListWebSocket,
 } from './hooks/useMarketHomeTokenListWebSocket';
@@ -77,7 +79,6 @@ const SPINNER_HEIGHT = 52;
 const MARKET_HOME_MOBILE_ROW_HEIGHT_PX = 60;
 const MARKET_HOME_DESKTOP_ROW_HEIGHT_PX = 72;
 const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
-const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
@@ -339,7 +340,7 @@ function MarketTokenListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory,
-    resolveMarketAsset: isWatchlistMode,
+    from: EEnterWay.MarketList,
   });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();

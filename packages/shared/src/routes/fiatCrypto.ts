@@ -8,7 +8,8 @@ export enum EModalFiatCryptoRoutes {
   DeriveTypesAddress = 'DeriveTypesAddress',
   HeadlessBuy = 'HeadlessBuy',
   HeadlessBuyTokenSelector = 'HeadlessBuyTokenSelector',
-  HeadlessBuySuccess = 'HeadlessBuySuccess',
+  HeadlessBuyOrders = 'HeadlessBuyOrders',
+  HeadlessBuyOrderDetail = 'HeadlessBuyOrderDetail',
 }
 
 export type IModalFiatCryptoParamList = {
@@ -43,19 +44,14 @@ export type IModalFiatCryptoParamList = {
       realAccountId?: string;
     }) => void;
   };
-  // Display-only: the order is already submitted when this page mounts. It is
-  // reached via CommonActions.reset (the spent buy flow is wiped from the
-  // stack — the consumed native pay button must be unreachable via back).
-  [EModalFiatCryptoRoutes.HeadlessBuySuccess]: {
-    fiatAmount: number;
-    tokenSymbol: string;
-    networkId: string;
-    networkName?: string;
-    payout?: number;
-    providerName?: string;
-    address?: string;
-    // Durable Onramper transaction id (shown as "Order ID"); the per-attempt
-    // checkoutId is not a status-lookup key, so it is not surfaced here.
-    transactionId?: string;
+  // Device-local list of native buy orders (all accounts).
+  [EModalFiatCryptoRoutes.HeadlessBuyOrders]: undefined;
+  // One order. `fromCheckout` = reached via CommonActions.reset right after
+  // the `completed` event (the spent buy flow is wiped from the stack — the
+  // consumed native pay button must be unreachable via back — so the page
+  // shows a Done footer); otherwise pushed from the list / banner / reminder.
+  [EModalFiatCryptoRoutes.HeadlessBuyOrderDetail]: {
+    transactionId: string;
+    fromCheckout?: boolean;
   };
 };

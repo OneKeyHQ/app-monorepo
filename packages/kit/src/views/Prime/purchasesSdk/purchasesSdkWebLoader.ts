@@ -1,116 +1,85 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  isDesktopPrimePurchaseRender,
+  loadStripeJsForPrimeCheckout,
+  shouldLoadStripeForPrimeCheckout,
+} from './shouldLoadStripeForPrimeCheckout';
+import { instrumentStripePaymentElementHealth } from './stripePaymentElementHealth';
+
 import type * as PurchasesSdk from '@revenuecat/purchases-js';
 
-const OFFICIAL_STRIPE_JS_URL = 'https://js.stripe.com/v3';
+export const PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE =
+  'Embedded card checkout is unavailable in this runtime';
 
-let stripeV3Promise: Promise<unknown> | undefined;
+let stripeV3Promise: Promise<boolean> | undefined;
 let purchasesSdkPromise: Promise<typeof PurchasesSdk> | undefined;
+let isStripeV3LoadedBeforeSdk = false;
 let verboseLogLevelApplied = false;
 
+// Cold-start logout must not initialize RevenueCat (and therefore Stripe.js)
+// just to reset an SDK that was never loaded.
 export function isPurchasesSdkWebLoaded(): boolean {
   return Boolean(purchasesSdkPromise);
 }
 
-// The isolated Prime checkout runs the same app shell with
-// `?render=prime-purchase` (see apps/desktop/App.tsx). Only that view may load
-// Stripe.js inside the desktop renderer: the desktop main window calls the
-// RevenueCat REST APIs only, while the real `Purchases.purchase()` (Stripe
-// Elements) runs in the isolated <webview> container.
-function isDesktopPrimePurchaseRender() {
-  if (!platformEnv.isDesktop) {
+async function shouldLoadStripeV3() {
+  if (platformEnv.isNative) {
     return false;
   }
-  const search = globalThis.location?.search ?? '';
-  return new URLSearchParams(search).get('render') === 'prime-purchase';
-}
-
-function hasWindowStripe() {
-  const globalWithStripe = globalThis as typeof globalThis & {
-    Stripe?: unknown;
-  };
-  return 'Stripe' in globalWithStripe && Boolean(globalWithStripe.Stripe);
-}
-
-// Stripe officially does not allow pinning Stripe.js to a fixed version or
-// locking it with an SRI hash: the server hot-updates the script and its
-// sub-chunks. Always prefer the official `https://js.stripe.com/v3` entry; the
-// bundled copy is a network/offline fallback only.
-async function loadOfficialStripeJs(): Promise<void> {
-  if (hasWindowStripe()) {
-    return;
-  }
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = OFFICIAL_STRIPE_JS_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      // Drop the failed tag so a retry (after the cached promise is reset)
-      // never stacks duplicate Stripe.js script elements.
-      script.remove();
-      reject(new OneKeyLocalError('Failed to load official Stripe.js'));
-    };
-    (document.head || document.body).appendChild(script);
-  });
-}
-
-async function importLocalStripeV3(): Promise<void> {
-  await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
-}
-
-async function loadStripeV3WithFallback(): Promise<void> {
-  try {
-    await loadOfficialStripeJs();
-    if (!hasWindowStripe()) {
-      throw new OneKeyLocalError(
-        'Official Stripe.js did not expose window.Stripe',
-      );
-    }
-  } catch (error) {
-    console.warn(
-      '[Prime] Falling back to the bundled Stripe.js:',
-      error instanceof Error ? error.message : String(error),
-    );
-    await importLocalStripeV3();
-  }
-}
-
-async function loadStripeV3BeforeRevenueCat() {
-  if (platformEnv.isNative) {
-    return;
-  }
-
-  const isDesktopPrimePurchaseView = isDesktopPrimePurchaseRender();
-  if (platformEnv.isDesktop && !isDesktopPrimePurchaseView) {
+  if (platformEnv.isDesktop && !isDesktopPrimePurchaseRender()) {
     // Desktop main window: never load Stripe.js here. RevenueCat's
     // getOfferings/getCustomerInfo/changeUser only issue fetch requests, and
     // the checkout form itself lives in the isolated <webview>.
-    return;
+    return false;
   }
+  return shouldLoadStripeForPrimeCheckout();
+}
 
+async function importStripeV3(): Promise<boolean> {
+  try {
+    await loadStripeJsForPrimeCheckout();
+  } catch (error) {
+    // Stripe.js only powers the embedded card form. Keep purchases-js usable
+    // so the card checkout can fall back to the hosted Purchase Link.
+    console.error('Failed to load Stripe.js for Prime checkout', error);
+    return false;
+  }
+  if (typeof (globalThis as { Stripe?: unknown }).Stripe !== 'function') {
+    return false;
+  }
+  instrumentStripePaymentElementHealth();
+  return true;
+}
+
+async function loadStripeV3BeforeRevenueCat(): Promise<boolean> {
   if (!stripeV3Promise) {
-    const promise = (
-      platformEnv.isWeb || platformEnv.isWebEmbed || isDesktopPrimePurchaseView
-        ? loadStripeV3WithFallback()
-        : importLocalStripeV3()
-    ).catch((error: unknown) => {
-      if (stripeV3Promise === promise) {
-        stripeV3Promise = undefined;
-      }
-      throw error;
-    });
+    const promise = shouldLoadStripeV3()
+      .then((shouldLoad) => (shouldLoad ? importStripeV3() : false))
+      .catch((error: unknown) => {
+        if (stripeV3Promise === promise) {
+          stripeV3Promise = undefined;
+        }
+        throw error;
+      });
     stripeV3Promise = promise;
   }
 
-  await stripeV3Promise;
+  return stripeV3Promise;
 }
 
+// The Stripe decision is made once per JS runtime, before purchases-js is
+// first imported: purchases-js initializes its Stripe loader at import time
+// and our patch disables its remote js.stripe.com fallback.
 export async function loadPurchasesSdkWeb() {
   if (!purchasesSdkPromise) {
     const promise = loadStripeV3BeforeRevenueCat()
-      .then(() => import('@revenuecat/purchases-js'))
+      .then(async (isStripeV3Loaded) => {
+        const sdk = await import('@revenuecat/purchases-js');
+        isStripeV3LoadedBeforeSdk = isStripeV3Loaded;
+        return sdk;
+      })
       .then((sdk) => {
         if (process.env.NODE_ENV !== 'production' && !verboseLogLevelApplied) {
           console.log('Purchases.setLogLevel Verbose');
@@ -128,4 +97,14 @@ export async function loadPurchasesSdkWeb() {
     purchasesSdkPromise = promise;
   }
   return purchasesSdkPromise;
+}
+
+// Without Stripe.js preloaded, the embedded purchase() never settles. Fail
+// fast instead of leaving the checkout spinner hanging.
+export async function loadPurchasesSdkWebForEmbeddedPurchase() {
+  const sdk = await loadPurchasesSdkWeb();
+  if (!isStripeV3LoadedBeforeSdk) {
+    throw new OneKeyLocalError(PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE);
+  }
+  return sdk;
 }

@@ -96,9 +96,6 @@ export function hydrateColdStartSnapshotAfterRuntimeLaunch() {
       `[StartupTiming] contextAtom snapshot hydrated: ${Object.keys(snapshot).length} keys (+${Date.now() - ((globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number)}ms)`,
     );
 
-    const { warmCriticalIcons } =
-      require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
-    warmCriticalIcons();
     const { startColdStartImagePrewarm } =
       require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
     void startColdStartImagePrewarm();

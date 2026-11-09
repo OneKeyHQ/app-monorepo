@@ -1,7 +1,9 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { EHardwareVendor } from '../../../types/device';
+import { ETranslations } from '../../locale';
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import type {
   IHardwareErrorRecoveryHint,
@@ -285,10 +287,26 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.PayloadTooLarge:
       return new ThirdPartyErrors.ThirdPartyPayloadTooLarge(props);
+    case ThirdPartyHwErrorCode.QrRequestTooLarge:
+      return new ThirdPartyErrors.ThirdPartyQrRequestTooLarge(props);
 
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);
   }
+}
+
+/**
+ * Keystone signs Bitcoin only on account #1. The key is the one ThirdPartyPathForbidden picks for
+ * a Keystone wallet, so this follows that single decision instead of re-deriving it.
+ */
+export function isKeystoneBtcAccountLimitError(
+  error: Pick<IOneKeyError, 'code' | 'key'>,
+): boolean {
+  return (
+    error.code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+    error.key ===
+      ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+  );
 }
 
 // Classify a third-party HW batch address-create result. Shared by the auto
@@ -298,7 +316,7 @@ export function convertThirdPartyDeviceError(
 //   (the device has no app for these chains).
 // - genuineFailures: failures other than AppNotInstalled (surface these).
 export function classifyThirdPartyHwCreateFailures<
-  T extends { error: Pick<IOneKeyError, 'code'> },
+  T extends { error: Pick<IOneKeyError, 'code' | 'key' | 'payload'> },
 >(params: {
   addedCount: number;
   failedAccounts: T[];
@@ -313,6 +331,16 @@ export function classifyThirdPartyHwCreateFailures<
   const genuineFailures = failedAccounts.filter((f) => {
     if (f.error.code === ThirdPartyHwErrorCode.AppNotInstalled) return false;
     if (isThirdPartyInstallAppUserCancelCode(f.error.code)) return false;
+    // Like a missing Ledger app: quiet while other chains were added, reported when none were.
+    if (addedCount > 0 && isKeystoneBtcAccountLimitError(f.error)) return false;
+    // A manual export can omit other requested accounts while its matching accounts succeed.
+    if (
+      addedCount > 0 &&
+      f.error.code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+      f.error.payload?.params?.reason === 'account-not-exported'
+    ) {
+      return false;
+    }
     // If at least one chain succeeded, transient mid-flow re-pair errors with
     // changed BLE/USB connectId shouldn't fail the flow.
     if (
@@ -339,7 +367,12 @@ export function shouldOfferLedgerCoreAppInstallForCreateFailures(params: {
 }
 
 export function filterThirdPartyHwCreateFailureToasts<
-  T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
+  T extends {
+    error: Pick<
+      IOneKeyError,
+      'autoToast' | 'code' | 'className' | '$isHardwareError'
+    >;
+  },
 >(failedAccounts: T[]): T[] {
   let deviceOutOfMemoryShown = false;
   let passphraseAlwaysOnDeviceShown = false;
@@ -347,7 +380,13 @@ export function filterThirdPartyHwCreateFailureToasts<
     if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
       return false;
     }
-    if (failedAccount.error.autoToast === false) {
+    // The device stage clears autoToast on every hardware error and shows it without the chain, so
+    // a hardware failure still gets this per-chain toast; other errors keep their explicit opt-out.
+    const isHardwareError =
+      failedAccount.error.$isHardwareError === true ||
+      failedAccount.error.className ===
+        EOneKeyErrorClassNames.OneKeyHardwareError;
+    if (failedAccount.error.autoToast === false && !isHardwareError) {
       return false;
     }
     if (failedAccount.error.code === ThirdPartyHwErrorCode.DeviceOutOfMemory) {

@@ -2,7 +2,12 @@ import {
   annotateOnramperSdkErrorMessage,
   getErrorMessageForLog,
   getOnramperErrorFieldsForLog,
+  getOnramperSignedInFromState,
+  hasVerifiedOnramperUserInfo,
+  sanitizeOnramperLogRecord,
 } from './utils';
+
+import type { IOnramperLogRecord, IOnramperStateKind } from './type';
 
 describe('annotateOnramperSdkErrorMessage', () => {
   it('appends the BFFRecoveryError case name behind the NSError index', () => {
@@ -85,6 +90,15 @@ describe('getErrorMessageForLog', () => {
     expect(getErrorMessageForLog(null)).toBeUndefined();
     expect(getErrorMessageForLog({ message: '' })).toBeUndefined();
   });
+
+  it('never stringifies an object that carries no message', () => {
+    // goWebFallback passes { code } without a message; String({}) would log
+    // "[object Object]" instead of leaving the field empty.
+    expect(
+      getErrorMessageForLog({ code: 'initializationFailed' }),
+    ).toBeUndefined();
+    expect(getErrorMessageForLog({})).toBeUndefined();
+  });
 });
 
 describe('getOnramperErrorFieldsForLog', () => {
@@ -98,5 +112,184 @@ describe('getOnramperErrorFieldsForLog', () => {
     expect(fields.errorCode).toBe('initializationFailed');
     expect(fields.errorMessage).toContain('error 1 = sdkSessionRejected');
     expect(fields.errorInfo).toBe('{"status":401}');
+  });
+});
+
+describe('sanitizeOnramperLogRecord', () => {
+  const record: IOnramperLogRecord = {
+    timestamp: 1_700_000_000_000,
+    level: 'info',
+    category: 'checkout',
+    event: 'providerEvent',
+    message: 'Coinbase rejected card for jane@example.com',
+    context: {
+      transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+      statusCode: '402',
+      durationMs: '1532',
+      status: 'payment_failed',
+      path: '/v2/{sessionApiKey}/client-sessions',
+      host: 'api.onramper.com',
+      email: 'jane@example.com',
+      phone: '+1 415 555 0100',
+      error: 'Card declined for Jane Doe',
+      sessionId: 'sess_123',
+    },
+  };
+
+  it('keeps only allow-listed keys whose values match their strict format and drops the message by default', () => {
+    expect(sanitizeOnramperLogRecord(record, { keepMessage: false })).toEqual({
+      level: 'info',
+      category: 'checkout',
+      event: 'providerEvent',
+      context: {
+        transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+        statusCode: '402',
+        durationMs: '1532',
+        status: 'payment_failed',
+        path: '/v2/{sessionApiKey}/client-sessions',
+        host: 'api.onramper.com',
+      },
+    });
+  });
+
+  it('keeps the message only when asked (dev builds)', () => {
+    expect(
+      sanitizeOnramperLogRecord(record, { keepMessage: true }).message,
+    ).toBe(record.message);
+  });
+
+  it('drops allow-listed keys whose values are free-form or look like personal data', () => {
+    const { context } = sanitizeOnramperLogRecord(
+      {
+        ...record,
+        context: {
+          // Free text in an identifier / token slot.
+          transactionId: 'Jane Doe',
+          status: 'declined: contact Jane Doe',
+          // Card and phone numbers, with and without formatting.
+          supportCode: '4242 4242 4242 4242',
+          code: '4242424242424242',
+          intentId: 'someone@example.com',
+          // Non-numeric where a number is required, and an over-long route.
+          statusCode: 'four-oh-two',
+          path: `/v2/${'x'.repeat(200)}`,
+          // Still fine.
+          errorCode: 'providerFailed',
+        },
+      },
+      { keepMessage: false },
+    );
+    expect(context).toEqual({ errorCode: 'providerFailed' });
+  });
+
+  it('omits an empty context', () => {
+    expect(
+      sanitizeOnramperLogRecord(
+        { ...record, context: { email: 'a@b.c' } },
+        { keepMessage: false },
+      ).context,
+    ).toBeUndefined();
+  });
+});
+
+describe('hasVerifiedOnramperUserInfo', () => {
+  it('finds a user_info field the backend already holds', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: true }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it('finds none when nobody is signed in', () => {
+    expect(
+      hasVerifiedOnramperUserInfo([
+        { type: 'tos' },
+        {
+          type: 'user_info',
+          fields: [{ satisfied: false }, { satisfied: false }],
+        },
+      ]),
+    ).toBe(false);
+    expect(hasVerifiedOnramperUserInfo([])).toBe(false);
+  });
+});
+
+describe('getOnramperSignedInFromState', () => {
+  it('reads a prepared checkout that needs no login as signed in', () => {
+    expect(getOnramperSignedInFromState({ kind: 'readyToCheckout' })).toBe(
+      true,
+    );
+  });
+
+  it('reads a login that starts from nothing as signed out', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'user_info'],
+        hasVerifiedUserInfo: false,
+      }),
+    ).toBe(false);
+  });
+
+  // The sign-out action must stay reachable for a user who cannot finish
+  // these, e.g. after losing the verified phone number.
+  it('keeps a known user signed in while more is asked of them', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['user_info'],
+        hasVerifiedUserInfo: true,
+      }),
+    ).toBe(true);
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['reverification'],
+      }),
+    ).toBe(true);
+  });
+
+  it('learns nothing from requirements that involve no identity', () => {
+    expect(
+      getOnramperSignedInFromState({
+        kind: 'requireLogin',
+        requirementTypes: ['tos', 'amount_limit'],
+      }),
+    ).toBeUndefined();
+  });
+
+  // A login made through the checkout button is only visible here: the
+  // checkout was prepared as `requireLogin` and no `readyToCheckout` has to
+  // follow the OnramperID flow.
+  it('reads a checkout that is being paid as signed in', () => {
+    const paying: IOnramperStateKind[] = [
+      'finalizing',
+      'rendering',
+      'paymentPending',
+      'completed',
+    ];
+    paying.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBe(true);
+    });
+  });
+
+  it('learns nothing from the other states', () => {
+    const silent: IOnramperStateKind[] = [
+      'idle',
+      'initializing',
+      'ready',
+      'checkoutPreparing',
+      // The OnramperID flow was opened, not finished.
+      'authenticating',
+      'failed',
+    ];
+    silent.forEach((kind) => {
+      expect(getOnramperSignedInFromState({ kind })).toBeUndefined();
+    });
   });
 });

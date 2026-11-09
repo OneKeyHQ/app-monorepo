@@ -24,6 +24,10 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
@@ -262,6 +266,7 @@ function useTabAction(navigation: BottomTabBarProps['navigation']) {
       } else if (!event.defaultPrevented) {
         switchTab(route.name as ETabRoutes);
         if (route.name === ETabRoutes.Market) {
+          markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
           appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
             from: EEnterWay.HomeTab,
           });
@@ -525,7 +530,6 @@ function OverflowMoreButton({
     <LazyPopover
       title={moreLabel}
       hoverable={OVERFLOW_HOVER_CONFIG}
-      scope="desktop-sidebar-overflow"
       showHeader={false}
       usingSheet={false}
       offset={8}

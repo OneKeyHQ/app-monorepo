@@ -6,6 +6,12 @@ import vm from 'vm';
 
 import ts from 'typescript';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type {
+  IFetchStreamRequest,
+  IFetchStreamResult,
+} from '@onekeyhq/shared/types/fetchStream';
+
 import { isTrustedMainWindowUrl } from './desktopApiModuleAllowlist';
 import { shouldReloadAppShellAfterFailedLoad } from './rendererLoadRecovery';
 
@@ -116,6 +122,101 @@ function getProductionBootHandlerSource(
       compilerOptions: { target: ts.ScriptTarget.ES2022 },
     })
     .outputText.trim();
+}
+
+function getProductionFetchStreamSources() {
+  let predicate: ts.ArrowFunction | undefined;
+  let handler: ts.ArrowFunction | undefined;
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      node.left.getText(appSource) ===
+        'globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender' &&
+      ts.isArrowFunction(node.right)
+    ) {
+      predicate = node.right;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(appSource) === 'ipcMain.handle' &&
+      node.arguments[0]?.getText(appSource) === 'ipcMessageKeys.FETCH_STREAM' &&
+      node.arguments[1] &&
+      ts.isArrowFunction(node.arguments[1])
+    ) {
+      handler = node.arguments[1];
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(appSource);
+  expect(predicate).toBeDefined();
+  expect(handler).toBeDefined();
+  const transpile = (node: ts.ArrowFunction | undefined) =>
+    ts.transpileModule(node?.getText(appSource) ?? '', {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+  return { predicate: transpile(predicate), handler: transpile(handler) };
+}
+
+type IRelayFrame = { url: string };
+type IRelayEvent = {
+  sender: { id: number; isDestroyed: () => boolean; mainFrame: IRelayFrame };
+  senderFrame: IRelayFrame | undefined;
+};
+
+function createProductionFetchStreamFixture() {
+  const sources = getProductionFetchStreamSources();
+  let currentMainId = 1;
+  const frame = { url: 'file:///opt/onekey/index.html#/home' };
+  const event: IRelayEvent = {
+    sender: { id: 1, isDestroyed: () => false, mainFrame: frame },
+    senderFrame: frame,
+  };
+  const mainAppFunctions: {
+    isTrustedMainWindowSender?: (
+      id: number,
+      senderFrame: IRelayFrame | undefined,
+      mainFrame: IRelayFrame,
+    ) => boolean;
+  } = {};
+  const response: IFetchStreamResult = { ok: true, cancelled: true };
+  const fetchStreamRequest = jest.fn(
+    async (_request: IFetchStreamRequest): Promise<IFetchStreamResult> =>
+      response,
+  );
+  const context = {
+    globalThis: { $desktopMainAppFunctions: mainAppFunctions },
+    getSafelyMainWindow: () => ({ webContents: { id: currentMainId } }),
+    getSafelyBrowserWindow: () => undefined,
+    selectedShellDocumentCommitted: true,
+    trustedSameDocumentRouteUrl: undefined,
+    src: 'file:///opt/onekey/index.html',
+    isDevServer: false,
+    isTrustedMainWindowUrl,
+    fetchStreamRequest,
+  };
+  vm.runInNewContext(
+    `globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = ${sources.predicate}`,
+    context,
+  );
+  const handler = vm.runInNewContext(
+    `const handler = ${sources.handler}\nhandler`,
+    context,
+  ) as (
+    event: IRelayEvent,
+    request: IFetchStreamRequest,
+  ) => Promise<IFetchStreamResult>;
+  return {
+    context,
+    event,
+    frame,
+    handler,
+    mainAppFunctions,
+    fetchStreamRequest,
+    setMainId: (id: number) => {
+      currentMainId = id;
+    },
+  };
 }
 
 function runProductionBootThresholds(store: IStoreModule) {
@@ -615,5 +716,126 @@ describe('desktop startup with persisted state', () => {
       require('./store');
     }).toThrow(SyntaxError);
     expect(fs.readFileSync(file, 'utf8')).toBe('{invalid-wallet-preferences');
+  });
+});
+
+describe('desktop FETCH_STREAM sender trust boundary', () => {
+  it.each(['open', 'read', 'cancel'] as const)(
+    'forwards a committed main-frame %s request and preserves its result',
+    async (action) => {
+      const fixture = createProductionFetchStreamFixture();
+      if (action === 'read') {
+        fixture.context.src = 'file:///opt/onekey/ota/index.html';
+        fixture.frame.url = `${fixture.context.src}#/home`;
+      }
+      const request: IFetchStreamRequest =
+        action === 'open'
+          ? { action, url: 'https://fixture.example/stream', headers: [] }
+          : { action, id: 'fixture-stream' };
+      let response: IFetchStreamResult = { ok: true, cancelled: true };
+      if (action === 'open') {
+        response = {
+          ok: true,
+          response: {
+            id: 'fixture-stream',
+            status: 200,
+            statusText: 'OK',
+            headers: [],
+          },
+        };
+      } else if (action === 'read') {
+        response = { ok: true, chunk: { done: true, b64: '' } };
+      }
+      fixture.fetchStreamRequest.mockResolvedValue(response);
+
+      await expect(fixture.handler(fixture.event, request)).resolves.toBe(
+        response,
+      );
+      expect(fixture.fetchStreamRequest).toHaveBeenCalledTimes(1);
+      expect(fixture.fetchStreamRequest).toHaveBeenCalledWith(request);
+    },
+  );
+
+  it.each([
+    'same-ID child frame',
+    'guest or foreign sender',
+    'wrong document URL',
+    'uncommitted shell',
+    'destroyed sender',
+    'senderFrame getter throws',
+    'mainFrame getter throws',
+    'missing trust predicate',
+  ])('rejects %s without forwarding a request', async (scenario) => {
+    const fixture = createProductionFetchStreamFixture();
+    switch (scenario) {
+      case 'same-ID child frame':
+        fixture.event.senderFrame = { url: fixture.frame.url };
+        break;
+      case 'guest or foreign sender':
+        fixture.event.sender.id = 2;
+        break;
+      case 'wrong document URL':
+        fixture.frame.url = 'file:///opt/other/index.html';
+        break;
+      case 'uncommitted shell':
+        fixture.context.selectedShellDocumentCommitted = false;
+        break;
+      case 'destroyed sender':
+        fixture.event.sender.isDestroyed = () => true;
+        break;
+      case 'senderFrame getter throws':
+        Object.defineProperty(fixture.event, 'senderFrame', {
+          get() {
+            throw new OneKeyLocalError('frame destroyed');
+          },
+        });
+        break;
+      case 'mainFrame getter throws':
+        Object.defineProperty(fixture.event.sender, 'mainFrame', {
+          get() {
+            throw new OneKeyLocalError('contents destroyed');
+          },
+        });
+        break;
+      case 'missing trust predicate':
+        delete fixture.mainAppFunctions.isTrustedMainWindowSender;
+        break;
+      default:
+        throw new OneKeyLocalError(`Unexpected scenario: ${scenario}`);
+    }
+
+    await expect(
+      fixture.handler(fixture.event, {
+        action: 'cancel',
+        id: 'fixture-stream',
+      }),
+    ).resolves.toEqual({ ok: false, error: 'not allowed' });
+    expect(fixture.fetchStreamRequest).not.toHaveBeenCalled();
+  });
+
+  it('uses the live main window after its ID changes', async () => {
+    const fixture = createProductionFetchStreamFixture();
+    const request: IFetchStreamRequest = {
+      action: 'read',
+      id: 'fixture-stream',
+    };
+    fixture.setMainId(2);
+    await expect(fixture.handler(fixture.event, request)).resolves.toEqual({
+      ok: false,
+      error: 'not allowed',
+    });
+    expect(fixture.fetchStreamRequest).not.toHaveBeenCalled();
+
+    const frame = { url: fixture.frame.url };
+    const event: IRelayEvent = {
+      sender: { id: 2, isDestroyed: () => false, mainFrame: frame },
+      senderFrame: frame,
+    };
+    await expect(fixture.handler(event, request)).resolves.toEqual({
+      ok: true,
+      cancelled: true,
+    });
+    expect(fixture.fetchStreamRequest).toHaveBeenCalledTimes(1);
+    expect(fixture.fetchStreamRequest).toHaveBeenCalledWith(request);
   });
 });

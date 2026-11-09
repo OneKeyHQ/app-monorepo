@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -17,7 +18,6 @@ import {
   Haptics,
   Icon,
   Popover,
-  Portal,
   Select,
   SizableText,
   Stack,
@@ -26,6 +26,7 @@ import {
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -99,6 +100,9 @@ export function PerpBookText({ children, style, ...props }: TextProps) {
 }
 
 export const rowHeight = 24;
+const ORDER_BOOK_CONTAINER_PADDING = 8;
+const ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT = 16;
+const ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT = 24;
 
 type IWebPointerStyle = ViewStyle & { cursor?: string };
 type IWebRectElement = {
@@ -108,6 +112,10 @@ type IWebRectElement = {
   };
 };
 const ORDER_BOOK_HOVER_SUMMARY_WIDTH = 220;
+// It follows the pointer across rows; appear and disappear without motion.
+const ORDER_BOOK_HOVER_SUMMARY_ANIMATION = {
+  enter: { type: 'none' },
+} as const;
 const ORDER_BOOK_HOVER_SUMMARY_HEIGHT = 102;
 const ORDER_BOOK_HOVER_SUMMARY_GAP = 8;
 const ORDER_BOOK_HOVER_SUMMARY_VIEWPORT_INSET = 8;
@@ -244,7 +252,7 @@ interface IOrderBookProps {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    padding: 8,
+    padding: ORDER_BOOK_CONTAINER_PADDING,
     width: '100%',
     height: '100%',
   },
@@ -269,7 +277,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mobileHeaderText: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Regular' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.regular
+      : undefined,
     fontSize: 10,
     lineHeight: 16,
     fontWeight: '400',
@@ -283,18 +293,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tabularText: {
-    // Not a mono face: the app font (Roobert) ships tabular figures via the
+    // Not a mono face: the brand sans font ships tabular figures via the
     // `tnum` OpenType feature, so digits stay column-aligned while letters keep
     // their natural proportional widths. Native raw <Text> can't pick a weight
     // from a custom family via fontWeight, so name the medium face explicitly.
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontVariant: TABULAR_NUMS,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
   },
   nativeMobileHorizontalTabularText: {
-    fontFamily: 'Roobert-Regular',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.regular,
     fontWeight: '400',
   },
   interactiveRow: {
@@ -451,11 +463,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sideRatioContainerCompact: {
-    height: 24,
+    height: ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 4,
+    marginTop: ORDER_BOOK_SIDE_RATIO_GAP,
     paddingHorizontal: 4,
   },
   sideRatioTrackCompact: {
@@ -483,7 +495,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 999,
   },
   sideRatioLabel: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
@@ -710,11 +724,10 @@ const OrderBookHoverSummaryOverlay = memo(
     <Stack
       pointerEvents="none"
       style={{
-        position: 'fixed' as const,
+        position: 'absolute' as const,
         left: overlayLeft,
         top: overlayTop,
         width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
-        zIndex: 1100,
       }}
     >
       <YStack
@@ -777,7 +790,15 @@ const OrderBookHoverSummaryPortal = memo(
     }
 
     return (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <OverlayView
+        visible
+        level="modal"
+        presentation="fullscreen"
+        blocking={false}
+        backdrop={false}
+        dismissOnBackPress={false}
+        animation={ORDER_BOOK_HOVER_SUMMARY_ANIMATION}
+      >
         <OrderBookHoverSummaryOverlay
           averagePrice={averagePrice}
           baseSymbol={baseSymbol}
@@ -790,7 +811,7 @@ const OrderBookHoverSummaryPortal = memo(
           totalNotional={totalNotional}
           totalSize={totalSize}
         />
-      </Portal.Body>
+      </OverlayView>
     );
   },
 );
@@ -1322,9 +1343,25 @@ export function OrderBook({
   );
 
   if (horizontal) {
+    // Android's detail pager measures this content and then fixes its height.
+    // Reserve the rows across loading/ready changes instead of inheriting that
+    // height with 100%, which can keep the book collapsed after a coin switch.
+    const intrinsicHeightStyle =
+      platformEnv.isNativeAndroid && variant === 'mobileHorizontal'
+        ? {
+            height:
+              resolvedMaxLevelsPerSide *
+                (ORDER_BOOK_HORIZONTAL_ROW_HEIGHT +
+                  ORDER_BOOK_HORIZONTAL_ROW_MARGIN_TOP) +
+              ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT +
+              ORDER_BOOK_HORIZONTAL_SIDE_RATIO_HEIGHT +
+              ORDER_BOOK_SIDE_RATIO_GAP +
+              ORDER_BOOK_CONTAINER_PADDING * 2,
+          }
+        : undefined;
     return (
       <View
-        style={[styles.container, style]}
+        style={[styles.container, intrinsicHeightStyle, style]}
         onLayout={(event) => traceInnerLayout('horizontalContainer', event)}
       >
         <DebugRenderTracker
@@ -1334,7 +1371,7 @@ export function OrderBook({
           <View
             style={{
               gap: 4,
-              height: 16,
+              height: ORDER_BOOK_HORIZONTAL_HEADER_HEIGHT,
               alignItems: 'center',
               flexDirection: 'row',
             }}

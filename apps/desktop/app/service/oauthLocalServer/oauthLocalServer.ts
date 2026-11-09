@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { app, shell } from 'electron';
 
 import {
+  DESKTOP_BROWSER_COMPLETION_URL,
   KEYLESS_SUPABASE_PROJECT_URL,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_CALLBACK_DESKTOP_PATH,
@@ -14,6 +15,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLocale } from '../../i18n';
+import { hasUnsafeUrlChars } from '../../libs/deepLink';
 
 import { OAUTH_CALLBACK_ERROR_HTML } from './oauthCallbackHtml';
 
@@ -46,24 +48,6 @@ function isChromiumBasedBrowser(appName: string): boolean {
     n.includes('brave') ||
     n.includes('vivaldi')
   );
-}
-
-function getChromiumBinForWindows(appName: string): string | null {
-  const n = (appName || '').toLowerCase();
-  if (n.includes('edge')) {
-    return 'msedge';
-  }
-  if (n.includes('brave')) {
-    return 'brave';
-  }
-  if (n.includes('vivaldi')) {
-    return 'vivaldi';
-  }
-  // Default to chrome if the handler looks like Chrome/Chromium.
-  if (n.includes('chrome') || n.includes('chromium')) {
-    return 'chrome';
-  }
-  return null;
 }
 
 function getChromiumBinsForLinux(appName: string): string[] {
@@ -120,22 +104,9 @@ function tryOpenChromeAppWindow(url: string): boolean {
     }
 
     if (process.platform === 'win32') {
-      // Windows: best-effort. Only attempt known Chromium executable names. Fallback to default browser.
-      const bin = getChromiumBinForWindows(handlerName);
-      if (!bin) {
-        return false;
-      }
-      const child = spawn(
-        'cmd.exe',
-        ['/c', 'start', '""', bin, ...commonArgs],
-        {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        },
-      );
-      child.unref();
-      return true;
+      // Never spawn `cmd.exe /c start` with unquoted URLs on Windows because
+      // `cmd.exe` interprets `&` in OAuth query strings as a shell command separator.
+      return false;
     }
 
     // Linux: try common executable names
@@ -201,7 +172,7 @@ export async function startOAuthServer(): Promise<{ port: number }> {
 
         // Get current locale and redirect to login page
         const locale = getLocale();
-        const redirectUrl = `https://login.onekeytest.com/?locale=${encodeURIComponent(
+        const redirectUrl = `${DESKTOP_BROWSER_COMPLETION_URL}?locale=${encodeURIComponent(
           locale,
         )}`;
 
@@ -253,6 +224,9 @@ const OAUTH_ALLOWED_ORIGINS = new Set([
 ]);
 
 export async function openOAuthBrowser(url: string): Promise<void> {
+  if (!url || typeof url !== 'string' || hasUnsafeUrlChars(url)) {
+    throw new OneKeyLocalError('Invalid OAuth URL');
+  }
   let parsed: URL;
   try {
     parsed = new URL(url);

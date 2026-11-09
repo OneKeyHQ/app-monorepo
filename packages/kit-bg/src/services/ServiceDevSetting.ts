@@ -8,7 +8,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
+import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
   setNetworkThrottleRuntimeConfig,
@@ -17,10 +19,15 @@ import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import type {
+  INativeStorageRecoveryTestRequest,
+  INativeStorageRecoveryTestResult,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import {
   EAppSyncStorageKeys,
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -56,6 +63,50 @@ class ServiceDevSetting extends ServiceBase {
   private readonly devSettingsWriteMutex = new Semaphore(1);
   private environmentRestartTimer: ReturnType<typeof setTimeout> | undefined;
   private environmentRestartRequired = false;
+  private readonly hardwarePathTests = new Map<
+    string,
+    { cancel?: () => void; cancelled: boolean }
+  >();
+
+  @backgroundMethod()
+  async testHardwareDerivationPath(request: IHardwarePathTestRequest) {
+    if (this.hardwarePathTests.has(request.testId)) {
+      throw new OneKeyLocalError({
+        key: ETranslations.feedback_hardware_is_busy,
+      });
+    }
+    const operation: { cancel?: () => void; cancelled: boolean } = {
+      cancelled: false,
+    };
+    this.hardwarePathTests.set(request.testId, operation);
+    try {
+      if (!(await devSettingsPersistAtom.get()).enabled) {
+        throw new OneKeyLocalError({
+          key: ETranslations.dev_hw_path_enable__msg,
+        });
+      }
+      const { runHardwareDerivationPathTest } =
+        await import('./ServiceDevSetting/hardwareDerivationPathTest');
+      return await runHardwareDerivationPathTest({
+        backgroundApi: this.backgroundApi,
+        request,
+        onCancelChange: (cancel) => {
+          operation.cancel = cancel;
+          if (operation.cancelled) cancel?.();
+        },
+      });
+    } finally {
+      this.hardwarePathTests.delete(request.testId);
+    }
+  }
+
+  @backgroundMethod()
+  async cancelHardwareDerivationPathTest(testId: string) {
+    const operation = this.hardwarePathTests.get(testId);
+    if (!operation) return;
+    operation.cancelled = true;
+    operation.cancel?.();
+  }
 
   private async withOneKeyIdEnvironmentChange<T>(
     previous: IDevSettingsPersistAtom,
@@ -614,6 +665,19 @@ class ServiceDevSetting extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  public async testHardwareCipherKeyValue(params: {
+    connectId: string;
+    key: string;
+  }) {
+    if (!(await devSettingsPersistAtom.get()).enabled) {
+      throw new OneKeyLocalError('Developer mode is required.');
+    }
+    const { testHardwareCipherKeyValue } =
+      await import('./hardwareCipherKeyValueTest');
+    return testHardwareCipherKeyValue(this.backgroundApi, params);
+  }
+
   // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----
   //
   // Runtime model: in native production the app runs two isolated JS runtimes
@@ -669,6 +733,48 @@ class ServiceDevSetting extends ServiceBase {
   public async demoAsyncStorageBgMultiRemove(keys: string[]): Promise<void> {
     this.assertAsyncStorageTestKeys(keys);
     await appStorage.multiRemove(keys);
+  }
+
+  @backgroundMethod()
+  public async simulateRealAppStorageMissingMarker(confirmation: string) {
+    if (
+      !platformEnv.isNativeBackgroundThread ||
+      !(await devSettingsPersistAtom.get()).enabled
+    ) {
+      throw new OneKeyLocalError(
+        'Real marker simulation requires native background runtime and developer mode',
+      );
+    }
+    const { simulateNativeAppStorageMissingMarker } =
+      await import('@onekeyhq/shared/src/storage/nativeStorageExecutor');
+    return simulateNativeAppStorageMissingMarker(confirmation);
+  }
+
+  @backgroundMethod()
+  public async nativeStorageRecoveryTest(
+    request: INativeStorageRecoveryTestRequest,
+  ): Promise<INativeStorageRecoveryTestResult> {
+    if (
+      !platformEnv.isNativeBackgroundThread ||
+      !(await devSettingsPersistAtom.get()).enabled
+    ) {
+      throw new OneKeyLocalError(
+        'Storage recovery tests require native background runtime and developer mode',
+      );
+    }
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        const { runNativeStorageRecoveryTest } =
+          await import('./ServiceDevSetting/nativeStorageRecoveryTest');
+        return runNativeStorageRecoveryTest(request);
+      },
+      onBlocked: () => {
+        throw new OneKeyLocalError(
+          'Storage recovery tests are unavailable in this runtime profile',
+        );
+      },
+    });
   }
 }
 

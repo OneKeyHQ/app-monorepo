@@ -1,9 +1,12 @@
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -52,6 +55,7 @@ import type {
 } from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
+  EDecodedTxActionType,
   type IDecodedTx,
   type ISendTxBaseParams,
 } from '@onekeyhq/shared/types/tx';
@@ -62,6 +66,7 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
@@ -255,6 +260,9 @@ class ServiceSignatureConfirm extends ServiceBase {
       },
   ) {
     const { unsignedTxs, accountId, networkId, ...rest } = params;
+    const requiresPrivacyReview = await isLocalWalletNetwork({
+      networkId,
+    });
 
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
@@ -290,7 +298,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
-          address: accountAddress,
+          address: requiresPrivacyReview ? r[0].signer : accountAddress,
           showAccountName:
             networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
@@ -305,12 +313,17 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.title =
         convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
           decodedTxs: r,
-          unsignedTxs: params.unsignedTxs,
+          unsignedTxs: requiresPrivacyReview
+            ? unsignedTxs.map((unsignedTx) => ({
+                encodedTx: unsignedTx.encodedTx,
+              }))
+            : unsignedTxs,
         });
     }
 
     if (
       r[0]?.txDisplay &&
+      !requiresPrivacyReview &&
       params.unsignedTxs.some((unsignedTx) =>
         isPrivateSendTx({
           transferPayload: params.transferPayload,
@@ -345,7 +358,11 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
-    let disableParseTxThroughApi = false;
+    const requiresPrivacyReview = await isLocalWalletNetwork({
+      networkId,
+    });
+    // The local proposal may contain private viewing material; it must never reach the server parser.
+    let disableParseTxThroughApi = requiresPrivacyReview;
 
     const swapInfo = unsignedTx.swapInfo;
 
@@ -430,7 +447,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       isToContract: parsedTx?.parsedTx?.to?.isContract,
     });
 
-    if (feeInfo) {
+    if (feeInfo && !requiresPrivacyReview) {
       decodedTx.totalFeeInNative =
         feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
       decodedTx.totalFeeFiatValue =
@@ -453,11 +470,15 @@ class ServiceSignatureConfirm extends ServiceBase {
     // force the local path. Server risk alerts are retained below.
     const hasScalingRebaseAction =
       checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+    const forceLocalTonTransfer =
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
+      decodedTx.actions.some((action) => Boolean(action.assetTransfer));
 
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
-      !hasScalingRebaseAction
+      !hasScalingRebaseAction &&
+      !forceLocalTonTransfer
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -466,19 +487,21 @@ class ServiceSignatureConfirm extends ServiceBase {
           networkId,
         });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
-      const txDisplayComponents =
+      let txDisplayComponents =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
-          unsignedTx,
+          unsignedTx: requiresPrivacyReview
+            ? { encodedTx: decodedTx.encodedTx ?? unsignedTx.encodedTx }
+            : unsignedTx,
           isUTXO: vaultSettings.isUtxo,
         });
 
-      // Rebase-forced local display: the server parse ran but the rebase
-      // condition (not shouldUseLocalDisplay) forced the local path.
-      const isRebaseForcedLocal =
-        hasScalingRebaseAction &&
-        !shouldUseLocalDisplay &&
+      // Signed TON transfer facts and scaled amounts remain local. Partial
+      // TON decoding also retains identifiable server effects below.
+      const isPayloadForcedLocal =
+        ((hasScalingRebaseAction && !shouldUseLocalDisplay) ||
+          forceLocalTonTransfer) &&
         Boolean(parsedTx?.display);
 
       // The rebase-forced path did not receive `parsedTx.display` above
@@ -488,25 +511,55 @@ class ServiceSignatureConfirm extends ServiceBase {
       // `simulationComponents` are deliberately NOT consumed here: a server
       // Simulation panel carries raw (non-multiplied) server amounts and
       // would reintroduce the display/raw mismatch this mechanism removes —
-      // do not "restore" it for the rebase-forced case.
-      const rebaseDisplayExtras = isRebaseForcedLocal
+      // do not "restore" it for the rebase-forced case. The TON-specific merge
+      // below filters known Jetton amounts before retaining unknown effects.
+      const rebaseDisplayExtras = isPayloadForcedLocal
         ? getPermit2ServerDisplayExtras(parsedTx?.display)
         : undefined;
 
-      // The server may flag a risky counterparty only via `Address.tags`
-      // (no `display.alerts`); local Address components carry `tags: []`,
-      // so merge the server risk tags back or SecurityCheckCard would
-      // report "No issues" for a flagged address on the rebase-forced path.
-      const rebaseMergedComponents = isRebaseForcedLocal
-        ? mergeServerAddressRiskTagsIntoComponents({
-            localComponents: txDisplayComponents,
-            serverComponents: parsedTx?.display?.components,
-          })
-        : txDisplayComponents;
+      // Permit2 and payload-forced local displays must retain address-only server
+      // risks even when display.alerts is empty.
+      // Load TON address handling only when needed, outside background startup.
+      const normalizeAddress = forceLocalTonTransfer
+        ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
+            .normalizeTonAddress
+        : undefined;
+      const mergeUnknownTonEffects =
+        forceLocalTonTransfer &&
+        Boolean(parsedTx?.display) &&
+        decodedTx.actions.some(
+          (action) => action.type === EDecodedTxActionType.UNKNOWN,
+        );
+      if (mergeUnknownTonEffects && parsedTx?.display) {
+        const { mergeTonUnknownServerDisplay } =
+          await import('./utils/tonSignatureConfirmUtils');
+        txDisplayComponents = mergeTonUnknownServerDisplay({
+          decodedTx,
+          encodedTx: decodedTx.encodedTx as IEncodedTxTon | undefined,
+          localComponents: txDisplayComponents,
+          serverComponents: parsedTx.display.components,
+        });
+      }
+      const mergedComponents =
+        isPayloadForcedLocal || useLocalPermit2Display
+          ? mergeServerAddressRiskTagsIntoComponents({
+              localComponents: txDisplayComponents,
+              serverComponents: parsedTx?.display?.components,
+              normalizeAddress,
+              unmatchedAddressLabel: forceLocalTonTransfer
+                ? appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  })
+                : undefined,
+            })
+          : txDisplayComponents;
 
       decodedTx.txDisplay = {
         title: '',
-        components: [...rebaseMergedComponents, ...serverSimulationComponents],
+        components: [
+          ...mergedComponents,
+          ...(mergeUnknownTonEffects ? [] : serverSimulationComponents),
+        ],
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,
@@ -515,7 +568,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       // Scaled-UI forced-local: the server parse ran and its alerts are
       // retained above — mark it so SecurityCheckCard does not report a
       // false "Unverified" for this tx.
-      if (isRebaseForcedLocal) {
+      if (isPayloadForcedLocal) {
         decodedTx.hasServerSecurityAnalysis = true;
       }
     }
@@ -577,11 +630,13 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    fixPrivateSendRecipientDisplay({
-      decodedTx,
-      unsignedTx,
-      transferPayload,
-    });
+    if (!requiresPrivacyReview) {
+      fixPrivateSendRecipientDisplay({
+        decodedTx,
+        unsignedTx,
+        transferPayload,
+      });
+    }
 
     if (transferPayload?.isCustomHexData) {
       decodedTx.isCustomHexData = true;
@@ -603,6 +658,15 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
     const { accountId, networkId, encodedTx, origin } = params;
+    if (
+      await isLocalWalletNetwork({
+        networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transactions must be reviewed locally',
+      );
+    }
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,

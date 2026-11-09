@@ -43,6 +43,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAppAutoLockDue } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isEncodedSensitiveText } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -303,7 +304,8 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
-    void clearPbkdf2CacheAsync();
+    void this.backgroundApi.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     // Clear sync credential caches on lock screen (security invariant).
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
@@ -363,7 +365,7 @@ export default class ServicePassword extends ServiceBase {
         requiresPasswordSetupOrVerify: false,
       }))
       .catch(() => undefined);
-    void clearPbkdf2CacheAsync();
+    void clearPbkdf2CacheAsync().catch(() => undefined);
     if (this.cachedPasswordTimeOutObject) {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
@@ -375,6 +377,9 @@ export default class ServicePassword extends ServiceBase {
     if (password && !skipBackgroundTasks) {
       void this.backgroundApi.serviceKeylessWallet
         .tryMigrateLocalExistingKeylessBackendShareToV2()
+        .catch(() => undefined);
+      void this.backgroundApi.servicePrivacyChain
+        .runLocalWalletPasswordWork()
         .catch(() => undefined);
     }
 
@@ -1160,6 +1165,18 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
+  // BG-only: the wallet-bound manual recovery RPC owns admission checks.
+  // Match the ordinary manual mnemonic prompt (no lock-screen attempt policy)
+  // without Jotai, password caching, global unlock or post-verification work.
+  async verifyPasswordForManualMnemonicRecovery(password: string) {
+    await this.validatePasswordValidRules({
+      password,
+      passwordMode: EPasswordMode.PASSWORD,
+      skipLengthCheck: true,
+    });
+    await localDb.verifyPassword({ password, skipLazyUpgrade: true });
+  }
+
   @backgroundMethod()
   async verifyPassword(params: IVerifyPasswordParams): Promise<string> {
     const shouldEnforcePasswordErrorProtection =
@@ -1678,9 +1695,7 @@ export default class ServicePassword extends ServiceBase {
       return;
     }
     const { time: lastActivity } = await settingsLastActivityAtom.get();
-    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-    const unavailableTime = Date.now() < lastActivity;
-    if (idleDuration >= appLockDuration || unavailableTime) {
+    if (isAppAutoLockDue({ now: Date.now(), lastActivity, appLockDuration })) {
       await this.lockApp({ manual: false });
     }
   }

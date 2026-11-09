@@ -2,9 +2,9 @@ import { Suspense, lazy } from 'react';
 
 import { useWcPayDialogState } from '../../../views/WalletConnectPay/dialog/wcPayDialogStore';
 
-// Lazy on purpose: the flow chunk carries DialogV2 (@base-ui/react on web)
-// and must stay out of the startup graph (see the vendor-crypto splitChunks
-// history) — it loads on the first payment link only.
+// Lazy on purpose: the flow chunk (flow, scene, payment executor) must stay
+// out of the startup graph (see the vendor-crypto splitChunks history) — it
+// loads on the first payment link only.
 const WcPayDialogFlow = lazy(
   () => import('../../../views/WalletConnectPay/dialog/WcPayDialogFlow'),
 );

@@ -2,6 +2,7 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -43,7 +44,6 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -87,16 +87,12 @@ export async function navigateToMarketTokenDetail(
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
-  const shortCode = networkUtils.getNetworkShortCode({
-    networkId: token.networkId,
-  });
-
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
   });
-  const shouldResolveMarketAsset = Boolean(
-    opts.resolveMarketAsset && !token.assetId && !stockId,
-  );
+  const shortCode = networkUtils.getNetworkShortCode({
+    networkId: token.networkId,
+  });
 
   if (stockId) {
     opts.tokenDetailActions.current.prepareStockTokenDetail({
@@ -104,14 +100,6 @@ export async function navigateToMarketTokenDetail(
       networkId: token.networkId,
       isNative: token.isNative,
     });
-  } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
-    } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
-    }
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -133,15 +121,8 @@ export async function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
-    ...(shouldResolveMarketAsset
-      ? {
-          resolveMarketAsset: true,
-          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
-          legacyTokenPreview: opts.tokenDetailPreview,
-        }
-      : undefined),
-    ...(!shouldResolveMarketAsset &&
-    !stockId &&
+    from: EEnterWay.DetailSwitch,
+    ...(!stockId &&
     opts.tokenDetailPreview &&
     (platformEnv.isDesktop || platformEnv.isWeb)
       ? { legacyTokenPreview: opts.tokenDetailPreview }

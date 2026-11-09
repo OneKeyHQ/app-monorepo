@@ -381,7 +381,7 @@ export function AddressRiskMoreAnalysis({
         jc="space-between"
         gap="$2"
         px="$4"
-        height={50}
+        py="$3"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
@@ -390,11 +390,20 @@ export function AddressRiskMoreAnalysis({
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleLoad}
       >
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.address_risk_check_more_analysis__action,
-          })}
-        </SizableText>
+        {/* Name what the extra analysis contains so it reads differently
+            from the basic address details card above it. */}
+        <YStack flex={1} gap="$0.5">
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.address_risk_check_more_analysis__action,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.address_risk_check_more_analysis__desc,
+            })}
+          </SizableText>
+        </YStack>
         {isLoading ? (
           <Spinner size="small" />
         ) : (

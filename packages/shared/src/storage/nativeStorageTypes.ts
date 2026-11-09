@@ -19,6 +19,7 @@ export type INativeSyncStorageMutation = INativeSyncStorageLocalMutation & {
 };
 
 export type INativeStorageBootstrapSnapshot = {
+  appStorageEmergency?: INativeAppStorageEmergencyStatus;
   settings: INativeSyncStorageEntry[];
   devSettings: INativeSyncStorageEntry[];
 };
@@ -31,6 +32,28 @@ export const NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES: INativeSyncStorageName[] =
 
 export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
 
+export const NATIVE_APP_STORAGE_EMERGENCY_CONTROL_KEY =
+  '__onekey_internal_app_storage_emergency_v1__';
+export type INativeAppStorageEmergencyStatus = {
+  mode: 'emergency';
+  epoch: string;
+  phase: 'preparing' | 'active' | 'clearing';
+  policy: 'retain-current-without-legacy-merge-v1';
+};
+
+export type INativeAppStorageRepairSummary = {
+  repairId: string;
+  successfulCount: number;
+  failedCount: number;
+  preservedCount: number;
+  recoveredCount: number;
+  scanComplete: boolean;
+};
+
+export type INativeAppStorageMigrationStatus = {
+  errorMessage: string | null;
+};
+
 const NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX =
   'Native storage migration target is inconsistent:';
 
@@ -42,6 +65,22 @@ export function createNativeStorageMigrationInconsistentErrorMessage(
       ? 'App-storage MMKV migration marker is missing after migration completed'
       : 'Jotai MMKV migration marker is missing after migration completed';
   return `${NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX}${target}; ${detail}`;
+}
+
+/** Match the complete diagnostic, including when another error wraps it. */
+export function getNativeStorageRecoveryToastTarget(
+  title: string,
+  message?: string,
+): INativeStorageMigrationRecoveryTarget | undefined {
+  const matches = (['appStorage', 'jotai'] as const).filter((target) => {
+    const diagnostic =
+      createNativeStorageMigrationInconsistentErrorMessage(target);
+    return (
+      (typeof title === 'string' && title.includes(diagnostic)) ||
+      (typeof message === 'string' && message.includes(diagnostic))
+    );
+  });
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function getNativeStorageMigrationRecoveryTarget(
@@ -157,12 +196,38 @@ export type INativeSyncStorageRequest =
     };
 
 export type INativeStorageRequest =
+  | {
+      scope: 'recovery';
+      operation: 'inspectAppStorageMigration';
+    }
+  | {
+      scope: 'recovery';
+      operation: 'enableEmergencyAppStorage';
+      confirmed: true;
+    }
   | INativeAsyncStorageRequest
   | INativeSyncStorageRequest
   | {
       scope: 'recovery';
       operation: 'resetMigrationTarget';
       target: INativeStorageMigrationRecoveryTarget;
+    }
+  | {
+      scope: 'recovery';
+      operation: 'retryMigrationTarget';
+      target: 'appStorage';
+    }
+  | {
+      scope: 'recovery';
+      operation: 'prepareMigrationRepair';
+      target: 'appStorage';
+    }
+  | {
+      scope: 'recovery';
+      operation: 'completeMigrationRepair';
+      target: 'appStorage';
+      repairId: string;
+      force: boolean;
     }
   | { scope: 'bootstrap'; stores?: INativeSyncStorageName[] };
 

@@ -34,6 +34,7 @@ import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
+  normalizeMarketTokenDetailPath,
 } from './webDappUrlFallback';
 
 import type { LinkingOptions } from '@react-navigation/native';
@@ -187,7 +188,9 @@ const useBuildLinking = (): LinkingOptions<any> => {
         ) {
           return `${globalThis.location.pathname}${globalThis.location.search}`;
         }
-        const defaultPath = getPathFromStateDefault(state, options);
+        const defaultPath = normalizeMarketTokenDetailPath(
+          getPathFromStateDefault(state, options),
+        );
         const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '')
           .replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH)
           .replace(FULL_SCREEN_PUSH_PATH, MODAL_PATH);

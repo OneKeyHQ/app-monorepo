@@ -3,8 +3,13 @@
  */
 // cspell:ignore macd
 
-import { act, renderHook } from '@testing-library/react';
+import { createElement } from 'react';
+import type { PropsWithChildren } from 'react';
 
+import { act, renderHook } from '@testing-library/react';
+import { I18nManager } from 'react-native';
+
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { getTradingViewNativeIndicatorPriceRange } from '../utils/chartIndicators';
@@ -25,7 +30,10 @@ import {
   getTradingViewNativeSubIndicatorValueRange,
 } from '../utils/subIndicatorRender';
 
-import { createTradingViewNativeChartRuntime } from './chartRuntime';
+import {
+  createTradingViewNativeChartRuntime,
+  navigateTradingViewNativeChartRuntime,
+} from './chartRuntime';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -35,6 +43,7 @@ type IMockGestureHandler = (...args: unknown[]) => void;
 
 const mockPanGestureHandlers: Record<string, IMockGestureHandler>[] = [];
 const mockTapGestureHandlers: Record<string, IMockGestureHandler>[] = [];
+let mockIntervalReaction: (interval: number, previous: number | null) => void;
 
 function createMockSharedValue<T>(value: T): SharedValue<T> {
   const sharedValue: SharedValue<T> = {
@@ -75,6 +84,15 @@ function mockCreateGestureBuilder(
   return builder;
 }
 
+jest.mock(
+  '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext',
+  () => ({
+    HeaderScrollGestureContext: jest
+      .requireActual<typeof import('react')>('react')
+      .createContext({ gestures: [], excludeStartEdgeWidth: 0 }),
+  }),
+);
+
 jest.mock('react-native-gesture-handler', () => ({
   Gesture: {
     Pan: jest.fn(() => {
@@ -90,8 +108,20 @@ jest.mock('react-native-gesture-handler', () => ({
   },
 }));
 
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  I18nManager: { isRTL: false },
+  useWindowDimensions: () => ({ width: 400, height: 874 }),
+}));
+
 jest.mock('react-native-reanimated', () => ({
   cancelAnimation: jest.fn(),
+  useAnimatedReaction: (
+    _prepare: () => number,
+    reaction: typeof mockIntervalReaction,
+  ) => {
+    mockIntervalReaction = reaction;
+  },
   useSharedValue: <T>(value: T) =>
     jest.requireActual<typeof import('react')>('react').useRef({ value })
       .current,
@@ -106,7 +136,11 @@ jest.mock('react-native-worklets', () => ({
   ),
 }));
 
-function renderPriceScaleAtOffset(offset: number, withIndicators = false) {
+function renderPriceScaleAtOffset(
+  offset: number,
+  withIndicators = false,
+  excludeStartEdgeWidth = 0,
+) {
   const runtime = createTradingViewNativeChartRuntime({
     candleIntervalSeconds: 60,
     chartComponents: [],
@@ -175,27 +209,96 @@ function renderPriceScaleAtOffset(offset: number, withIndicators = false) {
     visiblePointRange,
     width: runtime.size.width,
   });
-  const { result } = renderHook(() =>
-    useTradingViewNativePriceScale({
-      chartRuntime,
-      chartSize: runtime.size,
-      chartWidth,
-      decayOffset: createMockSharedValue(0),
-      isEnabled: true,
-      isLogScaleAvailable: true,
-      priceAxisWidth: createMockSharedValue(52),
-      subIndicatorPanes: runtime.subIndicatorPanes,
-      timeAxisHeight: 20,
-    }),
+  const { result } = renderHook(
+    () =>
+      useTradingViewNativePriceScale({
+        chartRuntime,
+        chartSize: runtime.size,
+        chartWidth,
+        decayOffset: createMockSharedValue(0),
+        isEnabled: true,
+        isLogScaleAvailable: true,
+        priceAxisWidth: createMockSharedValue(52),
+        subIndicatorPanes: runtime.subIndicatorPanes,
+        timeAxisHeight: 20,
+      }),
+    {
+      wrapper: ({ children }: PropsWithChildren) =>
+        createElement(
+          HeaderScrollGestureContext.Provider,
+          { value: { gestures: [], excludeStartEdgeWidth } },
+          children,
+        ),
+    },
   );
   return { chartRuntime, layout, result };
 }
 
 describe('useTradingViewNativePriceScale', () => {
   beforeEach(() => {
+    I18nManager.isRTL = false;
     mockPanGestureHandlers.length = 0;
     mockTapGestureHandlers.length = 0;
   });
+
+  it('resets manual and logarithmic controls when the interval runtime resets', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      result.current.handleAutoScalePress();
+      result.current.handleLogScalePress();
+    });
+    expect(result.current.mode).toBe('logarithmic');
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: null,
+        priceScaleMode: 'linear',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(result.current.mode).toBe('linear');
+  });
+
+  it('restores adopted fullscreen price controls after an interval change', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      chartRuntime.value = {
+        ...chartRuntime.value,
+        candleIntervalSeconds: 900,
+        pinnedPriceRange: { minPrice: 9, maxPrice: 16 },
+        priceScaleMode: 'logarithmic',
+      };
+      mockIntervalReaction(900, 60);
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(result.current.mode).toBe('logarithmic');
+  });
+
+  it.each([
+    { isRTL: true, edgeWidth: 32, absoluteX: 384, blocked: true },
+    { isRTL: true, edgeWidth: 32, absoluteX: 368, blocked: false },
+    { isRTL: true, edgeWidth: 0, absoluteX: 384, blocked: false },
+    { isRTL: false, edgeWidth: 32, absoluteX: 384, blocked: false },
+  ])(
+    'reserves the RTL navigation edge for price-axis gestures (%j)',
+    ({ isRTL, edgeWidth, absoluteX, blocked }) => {
+      I18nManager.isRTL = isRTL;
+      renderPriceScaleAtOffset(1000, false, edgeWidth);
+      for (const handlers of [
+        mockPanGestureHandlers[0],
+        mockTapGestureHandlers[0],
+      ]) {
+        const fail = jest.fn();
+        handlers.onTouchesDown(
+          { changedTouches: [{ x: 350, y: 120, absoluteX }] },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(blocked ? 1 : 0);
+      }
+    },
+  );
 
   describe.each([
     {
@@ -343,6 +446,89 @@ describe('useTradingViewNativePriceScale', () => {
       )[0],
     ).toBe(panes[0]);
   });
+
+  it('restores Auto after navigation reset and locks the main range with one press', () => {
+    const { chartRuntime, result } = renderPriceScaleAtOffset(1000);
+    act(() => {
+      const pan = mockPanGestureHandlers[0];
+      pan.onTouchesDown(
+        { changedTouches: [{ x: 340, y: 100 }] },
+        { fail: jest.fn() },
+      );
+      pan.onStart({ y: 100 });
+      pan.onUpdate({ y: 150 });
+      pan.onFinalize();
+    });
+    expect(result.current.isAutoScale).toBe(false);
+    expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+    expect(chartRuntime.value.priceRangeScale).not.toBe(1);
+
+    act(() => {
+      result.current.handleMainPriceScaleReset();
+      chartRuntime.value = navigateTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        'reset',
+        52,
+      );
+    });
+    expect(result.current.isAutoScale).toBe(true);
+    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    expect(chartRuntime.value.priceRangeScale).toBe(1);
+
+    act(() => result.current.handleAutoScalePress());
+    expect(result.current.isAutoScale).toBe(false);
+    expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+  });
+
+  it.each([false, true])(
+    'preserves the active indicator Auto state (%s) when navigation resets the main axis',
+    (indicatorAutoScale) => {
+      const { chartRuntime, result } = renderPriceScaleAtOffset(1000, true);
+      act(() => result.current.handleAutoScalePress());
+      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+      act(() =>
+        result.current.handleTouchStart({
+          nativeEvent: { locationX: 340, locationY: 190 },
+        } as GestureResponderEvent),
+      );
+      expect(result.current.activePaneId).toBe('rsi');
+      act(() => result.current.handleLogScalePress());
+      if (!indicatorAutoScale) {
+        act(() => result.current.handleAutoScalePress());
+      }
+      const indicatorScale = chartRuntime.value.subIndicatorPriceScales.rsi;
+
+      act(() => {
+        result.current.handleMainPriceScaleReset();
+        chartRuntime.value = navigateTradingViewNativeChartRuntime(
+          chartRuntime.value,
+          'reset',
+          52,
+        );
+      });
+      expect(result.current.isAutoScale).toBe(indicatorAutoScale);
+      expect(result.current.mode).toBe('logarithmic');
+      expect(chartRuntime.value.subIndicatorPriceScales.rsi).toBe(
+        indicatorScale,
+      );
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+      expect(chartRuntime.value.priceRangeScale).toBe(1);
+
+      act(() =>
+        result.current.handleTouchStart({
+          nativeEvent: { locationX: 340, locationY: 100 },
+        } as GestureResponderEvent),
+      );
+      expect(result.current.activePaneId).toBeNull();
+      expect(result.current.isAutoScale).toBe(true);
+      act(() => result.current.handleAutoScalePress());
+      expect(result.current.isAutoScale).toBe(false);
+      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
+      expect(chartRuntime.value.subIndicatorPriceScales.rsi).toBe(
+        indicatorScale,
+      );
+    },
+  );
 
   it('rejects plot and time-axis touches and cancels indicator dragging', () => {
     const { chartRuntime } = renderPriceScaleAtOffset(1000);

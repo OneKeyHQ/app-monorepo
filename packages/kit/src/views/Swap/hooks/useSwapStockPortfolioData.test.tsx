@@ -1,580 +1,265 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+/** @jest-environment jsdom */
 
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
-import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type {
-  IMarketAccountPortfolioResponse,
-  IMarketStockTokenVariant,
-} from '@onekeyhq/shared/types/marketV2';
+import { renderHook } from '@testing-library/react';
 
-import { useSwapProPositionAccountIdentity } from './useSwapPro';
+import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
 import { useSwapStockPortfolioData } from './useSwapStockPortfolioData';
 
-const mockGetNetworkAccount = jest.fn<
-  Promise<INetworkAccount>,
-  [{ networkId: string }]
->();
-const mockFetchMarketAccountPortfolio = jest.fn<
-  Promise<IMarketAccountPortfolioResponse>,
-  [{ accountAddress: string; tokenAddress: string }]
->();
-const mockGetGlobalDeriveTypeOfNetwork = jest.fn<Promise<string>, [unknown]>();
+let mockStockId = 'AAPL';
+let mockCurrency = 'usd';
+let mockVariants: IMarketStockTokenVariant[] = [];
 
-// Arrow wrappers: the hoisted factory must not touch the `mock*` bindings
-// before their declarations run.
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceAccount: {
-      getNetworkAccount: (params: { networkId: string }) =>
-        mockGetNetworkAccount(params),
-    },
-    serviceMarketV2: {
-      fetchMarketAccountPortfolio: (params: {
-        accountAddress: string;
-        tokenAddress: string;
-      }) => mockFetchMarketAccountPortfolio(params),
-    },
-    serviceNetwork: {
-      getGlobalDeriveTypeOfNetwork: (params: unknown) =>
-        mockGetGlobalDeriveTypeOfNetwork(params),
-    },
-  },
+jest.mock('../../../components/Currency', () => ({
+  useCurrency: () => ({ id: mockCurrency }),
 }));
-// A minimal stand-in with the one property the hook relies on: the previous
-// result stays in place until the next request settles.
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  const { act } = jest.requireActual<
-    typeof import('@testing-library/react-native')
-  >('@testing-library/react-native');
-  return {
-    usePromiseResult: (method: () => Promise<unknown>, deps: unknown[]) => {
-      const [state, setState] = React.useState<{
-        result: unknown;
-        isLoading: boolean;
-      }>({ result: undefined, isLoading: false });
-      /* eslint-disable react-hooks/exhaustive-deps -- forwards the caller's list */
-      React.useEffect(() => {
-        let cancelled = false;
-        setState((prev) => ({ ...prev, isLoading: true }));
-        void method().then((result) => {
-          if (!cancelled) act(() => setState({ result, isLoading: false }));
-        });
-        return () => {
-          cancelled = true;
-        };
-      }, deps);
-      /* eslint-enable react-hooks/exhaustive-deps */
-      return { ...state, run: jest.fn() };
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [
+    {
+      currencyMap: {
+        usd: { value: '1' },
+        eur: { value: '0.5' },
+      },
     },
-  };
-});
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: jest.fn(),
-  useSelectedAccount: jest.fn(),
-}));
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
-  useSelectedDeriveTypeAtom: jest.fn(),
+  ],
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext',
-  () => ({ useStockDetail: jest.fn() }),
+  () => ({
+    useStockDetail: () => ({
+      stockId: mockStockId,
+      tokenVariants: mockVariants,
+    }),
+  }),
 );
-jest.mock('./useSwapPro', () => ({
-  useSwapProPositionAccountIdentity: jest.fn(),
-}));
 
-const getNetworkAccount = mockGetNetworkAccount;
-const fetchMarketAccountPortfolio = mockFetchMarketAccountPortfolio;
-const getGlobalDeriveTypeOfNetwork = mockGetGlobalDeriveTypeOfNetwork;
-const mockUseStockDetail = jest.mocked(useStockDetail);
-const mockUseActiveAccount = jest.mocked(useActiveAccount);
-const mockUseSelectedAccount = jest.mocked(useSelectedAccount);
-const mockUseSelectedDeriveTypeAtom = jest.mocked(useSelectedDeriveTypeAtom);
-const mockUseAccountIdentity = jest.mocked(useSwapProPositionAccountIdentity);
-
-function buildVariant(
-  overrides: Partial<IMarketStockTokenVariant>,
-): IMarketStockTokenVariant {
+type IPositions = NonNullable<Parameters<typeof useSwapStockPortfolioData>[0]>;
+const pnl = {
+  isPnlSupported: true,
+  totalPnlUsd: '12',
+  totalPnlPercent: '6',
+  unrealizedPnlUsd: '8',
+  unrealizedPnlPercent: '4',
+};
+const apple = {
+  networkId: 'evm--1',
+  contractAddress: '0xAABB',
+  accountAddress: 'account-a',
+  symbol: 'AAPLon',
+  decimals: 18,
+  balanceParsed: '2',
+  fiatValue: '200',
+  price: '100',
+  currency: 'usd',
+  stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
+} satisfies ISwapToken;
+const variant: IMarketStockTokenVariant = {
+  tokenId: 'apple-ethereum',
+  issuer: 'Ondo',
+  networkId: apple.networkId,
+  contractAddress: '0xaabb',
+  symbol: apple.symbol,
+  currency: 'USD',
+  status: 'active',
+  tradingEnabled: true,
+};
+function buildPositions(overrides: Partial<IPositions> = {}): IPositions {
   return {
-    tokenId: 'aapl-ondo-ethereum',
-    issuer: 'ondo',
-    symbol: 'AAPLon',
-    networkId: 'evm--1',
-    contractAddress: '0xAAPL',
-    currency: 'USD',
-    status: 'active',
-    tradingEnabled: true,
+    hasAccount: true,
+    positionTokenList: [apple],
+    positionLoading: false,
+    resolvedNetworkIds: ['evm--1'],
+    pnlMap: new Map([[`${apple.networkId}-${apple.contractAddress}`, pnl]]),
     ...overrides,
   };
 }
 
-const ethVariant = buildVariant({});
-const bscVariant = buildVariant({
-  tokenId: 'aapl-ondo-bsc',
-  networkId: 'evm--56',
-  contractAddress: '0xAAPLbsc',
-});
-const solVariant = buildVariant({
-  tokenId: 'aapl-xstocks-solana',
-  issuer: 'xstocks',
-  symbol: 'AAPLx',
-  networkId: 'sol--101',
-  contractAddress: 'AaplSolana',
-});
-
-// Value per contract so each test can shape the table it expects.
-const holdings: Record<string, { amount: string; totalPrice: string }> = {
-  '0xAAPL': { amount: '0.06', totalPrice: '21.19' },
-  '0xAAPLbsc': { amount: '0.00001', totalPrice: '0.003' },
-  AaplSolana: { amount: '0.065', totalPrice: '22.27' },
-};
-
-function setStockDetail(
-  stockId: string | undefined,
-  tokenVariants: IMarketStockTokenVariant[],
-) {
-  mockUseStockDetail.mockReturnValue({
-    stockId,
-    tokenVariants,
-    portfolioNetworkId: tokenVariants[0]?.networkId,
-  } as unknown as ReturnType<typeof useStockDetail>);
-}
-
 beforeEach(() => {
-  jest.clearAllMocks();
-  mockUseAccountIdentity.mockReturnValue({
-    indexedAccountId: 'indexed-1',
-    accountId: undefined,
-  });
-  mockUseActiveAccount.mockReturnValue({
-    activeAccount: {
-      ready: true,
-      indexedAccount: { id: 'indexed-1' },
-      account: undefined,
-      deriveType: 'default',
-    },
-  } as unknown as ReturnType<typeof useActiveAccount>);
-  mockUseSelectedAccount.mockReturnValue({
-    selectedAccount: {
-      indexedAccountId: 'indexed-1',
-      networkId: 'evm--1',
-      deriveType: 'default',
-    },
-  } as unknown as ReturnType<typeof useSelectedAccount>);
-  mockUseSelectedDeriveTypeAtom.mockReturnValue([
-    undefined,
-    jest.fn(),
-  ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
-  getGlobalDeriveTypeOfNetwork.mockResolvedValue('default');
-  getNetworkAccount.mockImplementation(
-    async ({ networkId }) =>
-      ({
-        id: `account-${networkId}`,
-        address: `address-${networkId}`,
-      }) as unknown as INetworkAccount,
-  );
-  fetchMarketAccountPortfolio.mockImplementation(
-    async ({ accountAddress, tokenAddress }) =>
-      ({
-        list: [
-          {
-            accountAddress,
-            tokenAddress,
-            symbol: 'AAPL',
-            tokenPrice: '340',
-            ...holdings[tokenAddress],
-          },
-        ],
-      }) as IMarketAccountPortfolioResponse,
-  );
-  setStockDetail('AAPL', [ethVariant, bscVariant, solVariant]);
+  mockStockId = 'AAPL';
+  mockCurrency = 'usd';
+  mockVariants = [variant];
 });
 
-describe('useSwapStockPortfolioData', () => {
-  it('ignores stale Market derive types and uses Swap global types across networks', async () => {
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount: {
-        ready: true,
-        indexedAccount: { id: 'indexed-1' },
-        account: undefined,
-        deriveType: 'default',
-      },
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    mockUseSelectedDeriveTypeAtom.mockReturnValue([
-      { networkId: 'evm--1', deriveType: 'ledgerLegacy' },
-      jest.fn(),
-    ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
-
-    renderHook(() => useSwapStockPortfolioData());
-
-    await waitFor(() => expect(getNetworkAccount).toHaveBeenCalledTimes(3));
-
-    expect(
-      getNetworkAccount.mock.calls.find(
-        ([params]) => params.networkId === 'evm--1',
-      )?.[0],
-    ).toEqual(expect.objectContaining({ deriveType: 'default' }));
-    expect(
-      getNetworkAccount.mock.calls.find(
-        ([params]) => params.networkId === 'evm--56',
-      )?.[0],
-    ).toEqual(expect.objectContaining({ deriveType: 'default' }));
+it('projects the same balance and complete PnL, including positions beyond the first six', () => {
+  const others = Array.from({ length: 6 }, (_, i) => ({
+    ...apple,
+    contractAddress: `other-${i}`,
+    stock: { ...apple.stock, stockId: 'MSFT' },
+  }));
+  const positions = buildPositions({ positionTokenList: [...others, apple] });
+  const { result } = renderHook(() => useSwapStockPortfolioData(positions));
+  expect(result.current.positionListData).toHaveLength(1);
+  expect(result.current.positionListData[0]).toMatchObject({
+    amount: apple.balanceParsed,
+    totalPrice: apple.fiatValue,
+    currency: apple.currency,
+    tokenId: variant.tokenId,
+    issuer: variant.issuer,
   });
-
-  it('uses the actual same-network account and invalidates rows after an address change', async () => {
-    const activeAccount = {
-      ready: true,
-      indexedAccount: { id: 'indexed-1' },
-      network: { id: 'evm--1' },
-      deriveType: 'default',
-      account: { id: 'default-account', address: 'default-address' },
-    };
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount,
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    mockUseSelectedDeriveTypeAtom.mockReturnValue([
-      { networkId: 'evm--1', deriveType: 'ledgerLegacy' },
-      jest.fn(),
-    ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() =>
-      expect(
-        result.current.portfolioData.find(
-          (item) => item.tokenId === ethVariant.tokenId,
-        )?.accountAddress,
-      ).toBe('default-address'),
-    );
-    expect(
-      getNetworkAccount.mock.calls.some(
-        ([params]) => params.networkId === 'evm--1',
-      ),
-    ).toBe(false);
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount: {
-        ...activeAccount,
-        deriveType: 'ledgerLegacy',
-        account: { id: 'legacy-account', address: 'legacy-address' },
-      },
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    rerender({});
-    expect(result.current.portfolioData).toEqual([]);
-    await waitFor(() =>
-      expect(
-        result.current.portfolioData.find(
-          (item) => item.tokenId === ethVariant.tokenId,
-        )?.accountAddress,
-      ).toBe('legacy-address'),
-    );
-  });
-
-  it('does not reuse cached network accounts after the global derive type changes', async () => {
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
-    getGlobalDeriveTypeOfNetwork.mockResolvedValue('ledgerLegacy');
-    setStockDetail('MSFT', [ethVariant, bscVariant, solVariant]);
-    rerender({});
-    await waitFor(() => expect(getNetworkAccount).toHaveBeenCalledTimes(6));
-    expect(getNetworkAccount.mock.calls.slice(3)).toEqual(
-      expect.arrayContaining([
-        [
-          expect.objectContaining({
-            networkId: 'evm--1',
-            deriveType: 'ledgerLegacy',
-          }),
-        ],
-      ]),
-    );
-  });
-
-  it('lists the holdings largest first and keeps dust out of the table only', async () => {
-    const { result } = renderHook(() => useSwapStockPortfolioData());
-
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
-
-    expect(result.current.positionListData.map((item) => item.tokenId)).toEqual(
-      ['aapl-xstocks-solana', 'aapl-ondo-ethereum'],
-    );
-    // The selector still needs the dust holding to report a real balance.
-    expect(result.current.portfolioData.map((item) => item.tokenId)).toContain(
-      'aapl-ondo-bsc',
-    );
-    expect(result.current.resolvedVariantKeys).toHaveLength(3);
-  });
-
-  it('reuses account lookups across variant refreshes and stock switches', async () => {
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
-    expect(getNetworkAccount).toHaveBeenCalledTimes(3);
-    expect(fetchMarketAccountPortfolio).toHaveBeenCalledTimes(3);
-
-    // The 6s metadata poll hands back a new array with the same identities:
-    // nothing should be requested again.
-    setStockDetail('AAPL', [
-      { ...ethVariant },
-      { ...bscVariant },
-      { ...solVariant },
-    ]);
-    rerender({});
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchMarketAccountPortfolio).toHaveBeenCalledTimes(3);
-
-    // A new stock on the same networks pays only for the portfolio requests.
-    setStockDetail('NVDA', [
-      buildVariant({
-        tokenId: 'nvda-ondo-ethereum',
-        symbol: 'NVDAon',
-        contractAddress: '0xNVDA',
-      }),
-    ]);
-    holdings['0xNVDA'] = { amount: '0.09', totalPrice: '21.97' };
-    rerender({});
-    await waitFor(() =>
-      expect(result.current.portfolioData.map((item) => item.tokenId)).toEqual([
-        'nvda-ondo-ethereum',
-      ]),
-    );
-    expect(getNetworkAccount).toHaveBeenCalledTimes(3);
-    expect(fetchMarketAccountPortfolio).toHaveBeenCalledTimes(4);
-  });
-
-  it('does not show the previous stock while the next one loads', async () => {
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
-
-    let releasePortfolio: (() => void) | undefined;
-    fetchMarketAccountPortfolio.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          releasePortfolio = () =>
-            resolve({
-              list: [
-                {
-                  accountAddress: 'address-evm--1',
-                  tokenAddress: '0xNVDA',
-                  symbol: 'NVDAon',
-                  tokenPrice: '226',
-                  amount: '0.09',
-                  totalPrice: '21.97',
-                },
-              ],
-            });
-        }),
-    );
-    setStockDetail('NVDA', [
-      buildVariant({
-        tokenId: 'nvda-ondo-ethereum',
-        symbol: 'NVDAon',
-        contractAddress: '0xNVDA',
-      }),
-    ]);
-    rerender({});
-
-    // Apple's rows are gone at once; Nvidia's arrive when the request lands.
-    expect(result.current.portfolioData).toEqual([]);
-    expect(result.current.resolvedVariantKeys).toEqual([]);
-    await waitFor(() => expect(releasePortfolio).toBeDefined());
-    releasePortfolio?.();
-    await waitFor(() =>
-      expect(result.current.portfolioData.map((item) => item.tokenId)).toEqual([
-        'nvda-ondo-ethereum',
-      ]),
-    );
-  });
-
-  it('does not show the previous account while the same stock loads', async () => {
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
-
-    let releasePortfolio: (() => void) | undefined;
-    fetchMarketAccountPortfolio.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          releasePortfolio = () =>
-            resolve({
-              list: [
-                {
-                  accountAddress: 'address-new-account-evm--1',
-                  tokenAddress: '0xAAPL',
-                  symbol: 'AAPL',
-                  tokenPrice: '340',
-                  amount: '0.2',
-                  totalPrice: '68',
-                },
-              ],
-            });
-        }),
-    );
-    mockUseAccountIdentity.mockReturnValue({
-      indexedAccountId: 'indexed-2',
-      accountId: undefined,
-    });
-    rerender({});
-
-    expect(result.current.portfolioData).toEqual([]);
-    expect(releasePortfolio).toBeUndefined();
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount: {
-        ready: true,
-        indexedAccount: { id: 'indexed-2' },
-        account: undefined,
-        deriveType: 'default',
-      },
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    rerender({});
-    await waitFor(() => expect(releasePortfolio).toBeDefined());
-    releasePortfolio?.();
-    await waitFor(() =>
-      expect(result.current.portfolioData[0]?.accountAddress).toBe(
-        'address-new-account-evm--1',
-      ),
-    );
-  });
-
-  it.each(['indexed', 'imported'] as const)(
-    'waits for the selected %s wallet to synchronize before reading holdings',
-    async (kind) => {
-      const oldAccount = {
-        ready: true,
-        indexedAccount: kind === 'indexed' ? { id: 'indexed-1' } : undefined,
-        account: { id: 'old-account', address: 'old-address' },
-        network: { id: ethVariant.networkId },
-        deriveType: 'default',
-      };
-      setStockDetail('AAPL', [ethVariant]);
-      mockUseAccountIdentity.mockReturnValue(
-        kind === 'indexed'
-          ? { indexedAccountId: 'indexed-1', accountId: undefined }
-          : { indexedAccountId: undefined, accountId: 'old-account' },
-      );
-      mockUseActiveAccount.mockReturnValue({
-        activeAccount: oldAccount,
-      } as unknown as ReturnType<typeof useActiveAccount>);
-      const { result, rerender } = renderHook(() =>
-        useSwapStockPortfolioData(),
-      );
-      await waitFor(() =>
-        expect(result.current.portfolioData[0]?.accountAddress).toBe(
-          'old-address',
-        ),
-      );
-      fetchMarketAccountPortfolio.mockClear();
-      getNetworkAccount.mockClear();
-      mockUseAccountIdentity.mockReturnValue(
-        kind === 'indexed'
-          ? { indexedAccountId: 'indexed-2', accountId: undefined }
-          : { indexedAccountId: undefined, accountId: 'new-account' },
-      );
-      rerender({});
-      expect(result.current.portfolioData).toEqual([]);
-      expect(result.current.hasAccount).toBe(false);
-      expect(fetchMarketAccountPortfolio).not.toHaveBeenCalled();
-      expect(getNetworkAccount).not.toHaveBeenCalled();
-      mockUseActiveAccount.mockReturnValue({
-        activeAccount: {
-          ...oldAccount,
-          indexedAccount: kind === 'indexed' ? { id: 'indexed-2' } : undefined,
-          account: { id: 'new-account', address: 'new-address' },
-        },
-      } as unknown as ReturnType<typeof useActiveAccount>);
-      rerender({});
-      await waitFor(() =>
-        expect(result.current.portfolioData[0]?.accountAddress).toBe(
-          'new-address',
-        ),
-      );
-    },
+  expect(result.current.positionListData[0].pnl).toBe(
+    positions.pnlMap.get('evm--1-0xAABB'),
   );
+});
 
-  it('does not restore old holdings when the same account ID changes address and refresh fails', async () => {
-    const activeAccount = {
-      ready: true,
-      indexedAccount: { id: 'indexed-1' },
-      account: { id: 'same-account', address: 'old-address' },
-      network: { id: ethVariant.networkId },
-      deriveType: 'default',
-    };
-    setStockDetail('AAPL', [ethVariant]);
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount,
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() =>
-      expect(result.current.portfolioData[0]?.accountAddress).toBe(
-        'old-address',
-      ),
-    );
-    fetchMarketAccountPortfolio.mockRejectedValue(
-      new OneKeyLocalError('refresh failed'),
-    );
-    mockUseActiveAccount.mockReturnValue({
-      activeAccount: {
-        ...activeAccount,
-        account: { id: 'same-account', address: 'new-address' },
-      },
-    } as unknown as ReturnType<typeof useActiveAccount>);
-    rerender({});
-    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
-    expect(fetchMarketAccountPortfolio).toHaveBeenLastCalledWith(
-      expect.objectContaining({ accountAddress: 'new-address' }),
-    );
-    expect(result.current.portfolioData).toEqual([]);
-    expect(result.current.resolvedVariantKeys).toEqual([]);
+it('publishes changed holdings immediately while PnL is still pending, then shares its result', () => {
+  const initial = buildPositions({ pnlMap: new Map() });
+  const { result, rerender } = renderHook(
+    ({ positions }) => useSwapStockPortfolioData(positions),
+    { initialProps: { positions: initial } },
+  );
+  rerender({
+    positions: {
+      ...initial,
+      positionTokenList: [{ ...apple, balanceParsed: '3' }],
+    },
   });
+  expect(result.current.positionListData[0].amount).toBe('3');
+  expect(result.current.positionListData[0].pnl).toBeUndefined();
+  rerender({
+    positions: buildPositions({
+      positionTokenList: [{ ...apple, balanceParsed: '3' }],
+    }),
+  });
+  expect(result.current.positionListData[0].pnl).toBe(pnl);
+  rerender({ positions: buildPositions({ positionTokenList: [] }) });
+  expect(result.current.positionListData).toEqual([]);
+});
 
-  it('retries an account lookup that failed instead of pinning the failure', async () => {
-    getNetworkAccount.mockImplementation(async ({ networkId }) => {
-      if (networkId === 'sol--101' && getNetworkAccount.mock.calls.length < 4) {
-        throw new OneKeyLocalError('no solana address yet');
-      }
-      return {
-        id: `account-${networkId}`,
-        address: `address-${networkId}`,
-      } as unknown as INetworkAccount;
-    });
-    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
-    await waitFor(() => expect(result.current.portfolioData).toHaveLength(2));
-    // Solana was never read, so it is not reported as a resolved zero.
-    expect(result.current.resolvedVariantKeys).toHaveLength(2);
+it('switches stocks by filtering the shared list without retaining the old company', () => {
+  const other: ISwapToken = {
+    ...apple,
+    symbol: 'MSFTon',
+    contractAddress: '0xCCDD',
+    stock: { ...apple.stock, stockId: 'MSFT' },
+  };
+  const positions = buildPositions({ positionTokenList: [apple, other] });
+  const { result, rerender } = renderHook(() =>
+    useSwapStockPortfolioData(positions),
+  );
+  mockStockId = 'MSFT';
+  mockVariants = [];
+  rerender();
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'MSFTon',
+  ]);
+});
 
-    setStockDetail('NVDA', [
-      buildVariant({
-        tokenId: 'nvda-xstocks-solana',
-        symbol: 'NVDAx',
-        networkId: 'sol--101',
-        contractAddress: 'NvdaSolana',
+it('projects two holdings directly to one preview holding before the trade identity commits', () => {
+  const google: ISwapToken = {
+    ...apple,
+    symbol: 'GOOGLon',
+    contractAddress: '0xCCDD',
+    stock: { ...apple.stock, stockId: 'GOOGL' },
+  };
+  const positions = buildPositions({
+    positionTokenList: [
+      apple,
+      { ...apple, symbol: 'AAPLB', contractAddress: '0xEEFF' },
+      google,
+    ],
+  });
+  const initialScope: { stockId?: string } = { stockId: 'AAPL' };
+  const { result, rerender } = renderHook(
+    ({ stockId }: { stockId?: string }) =>
+      useSwapStockPortfolioData(positions, {
+        stockId,
+        tokenVariants: stockId === mockStockId ? mockVariants : [],
       }),
-    ]);
-    holdings.NvdaSolana = { amount: '1', totalPrice: '262' };
-    rerender({});
-    await waitFor(() =>
-      expect(result.current.portfolioData.map((item) => item.tokenId)).toEqual([
-        'nvda-xstocks-solana',
-      ]),
-    );
-    expect(
-      getNetworkAccount.mock.calls.filter(
-        ([params]) => params.networkId === 'sol--101',
-      ),
-    ).toHaveLength(2);
-  });
+    { initialProps: initialScope },
+  );
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'AAPLon',
+    'AAPLB',
+  ]);
+  // The old variants are still in StockDetailContext during token resolution.
+  rerender({ stockId: 'GOOGL' });
+  expect(mockStockId).toBe('AAPL');
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'GOOGLon',
+  ]);
+  expect(result.current.resolvedVariantKeys).toEqual([]);
+  rerender({ stockId: 'MSFT' });
+  expect(result.current.positionListData).toEqual([]);
+  rerender({ stockId: 'AAPL' });
+  expect(result.current.positionListData).toHaveLength(2);
+  rerender({ stockId: undefined });
+  expect(result.current.positionListData).toEqual([]);
+});
 
-  it('reports nothing without an account or a stock', async () => {
-    mockUseAccountIdentity.mockReturnValue({
-      indexedAccountId: undefined,
-      accountId: undefined,
-    });
-    const { result } = renderHook(() => useSwapStockPortfolioData());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(result.current.hasAccount).toBe(false);
-    expect(result.current.portfolioData).toEqual([]);
-    expect(fetchMarketAccountPortfolio).not.toHaveBeenCalled();
+it('classifies legacy holdings using only the display company variants', () => {
+  const legacyApple = { ...apple, stock: undefined };
+  const legacyGoogle = {
+    ...legacyApple,
+    symbol: 'GOOGLB',
+    contractAddress: '0xCCDD',
+  };
+  const googleVariants = [
+    { ...variant, contractAddress: legacyGoogle.contractAddress },
+  ];
+  const positions = buildPositions({
+    positionTokenList: [legacyApple, legacyGoogle],
   });
+  const { result } = renderHook(() =>
+    useSwapStockPortfolioData(positions, {
+      stockId: 'GOOGL',
+      tokenVariants: googleVariants,
+    }),
+  );
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'GOOGLB',
+  ]);
+  expect(result.current.positionListData[0].tokenId).toBe(variant.tokenId);
+});
+
+it('accepts an exact variant or underlying ticker when stock metadata omits its stock ID', () => {
+  const withoutId = { ...apple, stock: undefined };
+  const ticker = {
+    ...apple,
+    contractAddress: 'another-issuer',
+    stock: { subtitle: '', sourceLogoUri: '', underlyingAssetTicker: ' aapl ' },
+  };
+  const positions = buildPositions({ positionTokenList: [withoutId, ticker] });
+  const { result } = renderHook(() => useSwapStockPortfolioData(positions));
+  expect(result.current.positionListData).toHaveLength(2);
+});
+
+it('keeps dust in selector balances and applies the same USD floor to a non-USD position', () => {
+  mockCurrency = 'eur';
+  const positions = buildPositions({
+    positionTokenList: [
+      { ...apple, fiatValue: '0.006', currency: 'eur' },
+      {
+        ...apple,
+        contractAddress: 'dust',
+        fiatValue: '0.004',
+        currency: 'eur',
+      },
+    ],
+  });
+  const { result } = renderHook(() => useSwapStockPortfolioData(positions));
+  expect(result.current.portfolioData).toHaveLength(2);
+  expect(result.current.positionListData).toHaveLength(1);
+  expect(result.current.positionListData[0]).toMatchObject({
+    totalPrice: '0.006',
+    currency: 'eur',
+  });
+});
+
+it('only establishes zero balances on networks that actually completed a holdings lookup', () => {
+  mockVariants = [
+    variant,
+    { ...variant, tokenId: 'apple-bsc', networkId: 'evm--56' },
+  ];
+  const positions = buildPositions({ positionTokenList: [] });
+  const { result, rerender } = renderHook(
+    ({ shared }) => useSwapStockPortfolioData(shared),
+    { initialProps: { shared: positions } },
+  );
+  expect(result.current.resolvedVariantKeys).toEqual(['evm--1:0xaabb']);
+  rerender({
+    shared: { ...positions, hasAccount: false, positionTokenList: [apple] },
+  });
+  expect(result.current.resolvedVariantKeys).toEqual([]);
+  expect(result.current.portfolioData).toEqual([]);
 });

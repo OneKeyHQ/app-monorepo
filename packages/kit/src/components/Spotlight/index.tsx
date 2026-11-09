@@ -15,13 +15,15 @@ import {
   useState,
 } from 'react';
 
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
-import { I18nManager, useWindowDimensions } from 'react-native';
+import { I18nManager, Platform, useWindowDimensions } from 'react-native';
 
 import {
   Button,
-  EPortalContainerConstantName,
-  Portal,
   SizableText,
   Stack,
   View,
@@ -50,7 +52,8 @@ import { useSplitViewDetailOffset } from '../../provider/Container/TableSplitVie
 
 import { useSpotlightAnchorVisibility } from './useSpotlightAnchorVisibility';
 
-import type { View as NativeView } from 'react-native';
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
+import type { ViewInstance } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{
   anchorRef?: RefObject<IElement | null>;
@@ -88,7 +91,7 @@ interface IFloatingPosition {
 }
 
 type ISpotlightContentEvent = ISpotlightViewProps & {
-  triggerRef: RefObject<NativeView>;
+  triggerRef: RefObject<ViewInstance>;
   floatingOffset: number;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
@@ -127,7 +130,13 @@ export type ISpotlightProps = PropsWithChildren<{
 function SpotlightContent({
   initProps,
   triggerPropsRef,
+  level,
+  visible,
+  onClose,
 }: {
+  level: IOverlayLevel;
+  visible: boolean;
+  onClose: () => void;
   initProps: ISpotlightContentEvent;
   triggerPropsRef: MutableRefObject<{
     defer?: IDeferredPromise<unknown>;
@@ -143,6 +152,7 @@ function SpotlightContent({
   const [props, setProps] = useState(initProps);
   const usePortalCoordinates =
     platformEnv.isNative && props.alignCardToAnchorEnd;
+  // Track pane changes for measurement; the overlay itself spans the window.
   const detailOffset = useSplitViewDetailOffset();
   const portalStartOffset =
     platformEnv.isNativeAndroid && usePortalCoordinates ? detailOffset : 0;
@@ -158,6 +168,46 @@ function SpotlightContent({
     height: 0,
   });
 
+  // Keep the closing guide's offset, but require a fresh report on every
+  // opening (including a reopen before the previous exit finishes).
+  const correctAnchorByWindowOffset = Platform.select({
+    ios: Boolean(usePortalCoordinates),
+    default: false,
+  });
+  const needsWindowOffset = visible && correctAnchorByWindowOffset;
+  const offsetCycleRef = useRef({ active: false, id: 0 });
+  if (needsWindowOffset && !offsetCycleRef.current.active) {
+    offsetCycleRef.current.id += 1;
+  }
+  offsetCycleRef.current.active = needsWindowOffset;
+  const offsetCycle = offsetCycleRef.current.id;
+  const [reportedOffset, setReportedOffset] = useState<{
+    cycle: number;
+    x: number;
+    y: number;
+  }>();
+  const anchorWindowOffset = reportedOffset;
+  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  const handleAnchorWindowOffset = useCallback(
+    (offset: { x: number; y: number }) => {
+      if (
+        !offsetCycleRef.current.active ||
+        offsetCycleRef.current.id !== offsetCycle
+      )
+        return;
+      setReportedOffset((previous) =>
+        previous?.cycle === offsetCycle &&
+        previous.x === offset.x &&
+        previous.y === offset.y
+          ? previous
+          : { ...offset, cycle: offsetCycle },
+      );
+    },
+    [offsetCycle],
+  );
+  const anchorWindowOffsetReady =
+    !correctAnchorByWindowOffset || reportedOffset?.cycle === offsetCycle;
+
   const md = useMedia();
 
   const measureTriggerInWindow = useCallback(() => {
@@ -169,6 +219,14 @@ function SpotlightContent({
       const extraY = noNativeNavigator ? -30 : 0;
 
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        // The modal origin can move while the trigger keeps the same local rect.
+        if (
+          needsWindowOffset &&
+          offsetCycleRef.current.active &&
+          offsetCycleRef.current.id === offsetCycle
+        ) {
+          setWindowOffsetRequest((request) => request + 1);
+        }
         if (
           floatingPosition.x === x &&
           floatingPosition.y === y + extraY &&
@@ -185,11 +243,11 @@ function SpotlightContent({
         });
       });
     }
-  }, [initProps.triggerRef, floatingPosition]);
+  }, [initProps.triggerRef, floatingPosition, needsWindowOffset, offsetCycle]);
 
   useLayoutEffect(() => {
     measureTriggerInWindow();
-  }, [md, measureTriggerInWindow, windowWidth]);
+  }, [md, measureTriggerInWindow, windowHeight, windowWidth]);
 
   useLayoutEffect(() => {
     if (triggerPropsRef.current) {
@@ -202,7 +260,6 @@ function SpotlightContent({
     }
   }, [initProps.triggerRef, measureTriggerInWindow, triggerPropsRef]);
   const {
-    visible,
     children,
     content,
     cardBorderRadius,
@@ -227,6 +284,11 @@ function SpotlightContent({
   } = props;
 
   const isRendered = floatingPosition.width > 0;
+  const overlayVisible =
+    visible &&
+    isRendered &&
+    !(deferUntilIdle && isGuideBlocked) &&
+    anchorWindowOffsetReady;
   const hasPortalLayout =
     !usePortalCoordinates ||
     ((portalFrame?.width ?? 0) > 0 &&
@@ -238,11 +300,16 @@ function SpotlightContent({
     : windowWidth;
   const anchorLeftProperty =
     usePortalCoordinates && I18nManager.isRTL ? 'end' : 'left';
-  const shouldMeasurePortal =
-    usePortalCoordinates &&
-    visible &&
-    isRendered &&
-    !(deferUntilIdle && isGuideBlocked);
+  const anchorPosition = useMemo(() => {
+    if (!correctAnchorByWindowOffset || !anchorWindowOffset)
+      return floatingPosition;
+    return {
+      ...floatingPosition,
+      x: floatingPosition.x + anchorWindowOffset.x,
+      y: floatingPosition.y + anchorWindowOffset.y,
+    };
+  }, [correctAnchorByWindowOffset, anchorWindowOffset, floatingPosition]);
+  const shouldMeasurePortal = usePortalCoordinates && overlayVisible;
   const measurePortalInWindow = useCallback(() => {
     if (!usePortalCoordinates) return;
     const portal = portalRef.current;
@@ -270,8 +337,6 @@ function SpotlightContent({
   useLayoutEffect(() => {
     if (shouldMeasurePortal) {
       measurePortalInWindow();
-    } else {
-      setPortalFrame(undefined);
     }
     return () => {
       portalMeasureRequest.current += 1;
@@ -293,8 +358,8 @@ function SpotlightContent({
   const floatingStyle = useMemo(() => {
     if (!isRendered) return undefined;
     const top =
-      floatingPosition.y +
-      floatingPosition.height +
+      anchorPosition.y +
+      anchorPosition.height +
       floatingOffset +
       childrenPaddingVertical -
       portalY;
@@ -309,8 +374,8 @@ function SpotlightContent({
       const availableWidth = Math.max(0, maxRight - minLeft);
       const width = Math.min(cardMaxWidth ?? availableWidth, availableWidth);
       const anchorRight =
-        floatingPosition.x +
-        floatingPosition.width +
+        anchorPosition.x +
+        anchorPosition.width +
         childrenPaddingHorizontal -
         portalX;
 
@@ -327,16 +392,16 @@ function SpotlightContent({
 
     return {
       top,
-      left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
+      left: gtMd ? anchorPosition.x - childrenPaddingHorizontal : '$4',
       right: gtMd ? undefined : '$4',
       maxWidth: cardMaxWidth ?? (gtMd ? 354 : undefined),
     };
   }, [
     isRendered,
-    floatingPosition.y,
-    floatingPosition.height,
-    floatingPosition.x,
-    floatingPosition.width,
+    anchorPosition.y,
+    anchorPosition.height,
+    anchorPosition.x,
+    anchorPosition.width,
     floatingOffset,
     childrenPaddingVertical,
     gtMd,
@@ -353,9 +418,36 @@ function SpotlightContent({
   ]);
 
   const handleBackPress = useCallback(() => true, []);
-  useBackHandler(handleBackPress);
-  if (visible && isRendered && !(deferUntilIdle && isGuideBlocked))
-    return (
+  const handleConfirm = useCallback(() => {
+    if (overlayVisible) onConfirm?.();
+  }, [onConfirm, overlayVisible]);
+  const hasOverlayRef = useRef(false);
+  if (overlayVisible) hasOverlayRef.current = true;
+  const handleOverlayClose = useCallback(() => {
+    hasOverlayRef.current = false;
+    setPortalFrame(undefined);
+    onClose();
+  }, [onClose]);
+  useEffect(() => {
+    // A cancelled, unmeasured or deferred guide has no host exit to await.
+    if (!visible && !hasOverlayRef.current) onClose();
+  }, [onClose, visible]);
+  useBackHandler(handleBackPress, overlayVisible);
+  return (
+    <OverlayView
+      visible={overlayVisible}
+      onClose={handleOverlayClose}
+      level={level}
+      presentation="fullscreen"
+      dismissOnBackPress={false}
+      // The offset probe needs the content mounted while the host is still
+      // hidden, so the guide can be placed before it is presented.
+      keepContentMounted={correctAnchorByWindowOffset}
+      windowOffsetRequest={windowOffsetRequest}
+      onWindowOffset={
+        correctAnchorByWindowOffset ? handleAnchorWindowOffset : undefined
+      }
+    >
       <Stack
         ref={usePortalCoordinates ? portalRef : undefined}
         onLayout={usePortalCoordinates ? measurePortalInWindow : undefined}
@@ -368,10 +460,8 @@ function SpotlightContent({
         position="absolute"
         top={0}
         bottom={0}
-        // Home is in the main pane, while this portal is hosted in the detail pane.
-        // Extend only the opted-in Android guide, as the hardware stage does.
         {...(platformEnv.isNativeAndroid && usePortalCoordinates
-          ? { start: -portalStartOffset, end: 0 }
+          ? { start: 0, end: 0 }
           : { left: 0, right: 0 })}
         enterStyle={{
           opacity: 0,
@@ -384,26 +474,26 @@ function SpotlightContent({
               testID="spotlight-backdrop"
               position="absolute"
               inset={0}
-              onPress={closeOnBackdropPress ? onConfirm : undefined}
+              onPress={closeOnBackdropPress ? handleConfirm : undefined}
               accessible={false}
             />
             <Stack
               testID="spotlight-highlight"
               position="absolute"
               pointerEvents="none"
-              top={floatingPosition.y - portalY - childrenPaddingVertical}
+              top={anchorPosition.y - portalY - childrenPaddingVertical}
               {...{
                 [anchorLeftProperty]:
-                  floatingPosition.x - portalX - childrenPaddingHorizontal,
+                  anchorPosition.x - portalX - childrenPaddingHorizontal,
               }}
               width={
                 matchTriggerSize
-                  ? floatingPosition.width + childrenPaddingHorizontal * 2
+                  ? anchorPosition.width + childrenPaddingHorizontal * 2
                   : undefined
               }
               height={
                 matchTriggerSize
-                  ? floatingPosition.height + childrenPaddingVertical * 2
+                  ? anchorPosition.height + childrenPaddingVertical * 2
                   : undefined
               }
               borderRadius={highlightBorderRadius ?? '$3'}
@@ -419,7 +509,17 @@ function SpotlightContent({
                   opacity={highlightBackgroundOpacity}
                 />
               ) : null}
-              {children}
+              {/* The copy must occupy the same box the trigger had on the page.
+                  A bare wrapper collapses flex triggers (they size from
+                  `flexBasis: 0`) and their content clips to nothing. */}
+              <Stack
+                testID="spotlight-highlight-body"
+                position="relative"
+                width="100%"
+                height="100%"
+              >
+                {children}
+              </Stack>
             </Stack>
             <YStack
               testID="spotlight-card"
@@ -444,7 +544,7 @@ function SpotlightContent({
                   borderRadius={confirmButtonBorderRadius ?? '$2'}
                   px={confirmButtonPaddingHorizontal}
                   size="small"
-                  onPress={onConfirm}
+                  onPress={handleConfirm}
                 >
                   {confirmText ??
                     intl.formatMessage({ id: ETranslations.global_done })}
@@ -454,9 +554,8 @@ function SpotlightContent({
           </>
         ) : null}
       </Stack>
-    );
-
-  return null;
+    </OverlayView>
+  );
 }
 
 export function SpotlightView({
@@ -487,10 +586,20 @@ export function SpotlightView({
   matchTriggerSize,
   deferUntilIdle,
 }: ISpotlightViewProps) {
+  const level = useNestedOverlayLevel();
   useDeferredGuideBlocker(visible && !deferUntilIdle);
   const defer = useDeferredPromise();
   const localTriggerRef = useRef<IElement | null>(null);
   const triggerRef = anchorRef ?? localTriggerRef;
+  const [contentMounted, setContentMounted] = useState(visible);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  useEffect(() => {
+    if (visible) setContentMounted(true);
+  }, [visible]);
+  const handleClose = useCallback(() => {
+    if (!visibleRef.current) setContentMounted(false);
+  }, []);
   const triggerPropsRef = useRef<{
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
     defer: IDeferredPromise<unknown>;
@@ -521,7 +630,7 @@ export function SpotlightView({
         closeOnBackdropPress,
         matchTriggerSize,
         deferUntilIdle,
-        triggerRef: triggerRef as RefObject<NativeView>,
+        triggerRef: triggerRef as RefObject<ViewInstance>,
         floatingOffset,
         childrenPaddingVertical,
         childrenPaddingHorizontal,
@@ -577,40 +686,38 @@ export function SpotlightView({
           {children}
         </View>
       )}
-      {visible ? (
-        <Portal.Body
-          destroyDelayMs={deferUntilIdle ? 0 : 1200}
-          container={EPortalContainerConstantName.SPOTLIGHT_OVERLAY_PORTAL}
-        >
-          <SpotlightContent
-            triggerPropsRef={triggerPropsRef}
-            initProps={{
-              visible,
-              children: replaceChildren || children,
-              content,
-              cardBorderRadius,
-              highlightBorderRadius,
-              confirmButtonBorderRadius,
-              confirmButtonPaddingHorizontal,
-              cardPadding,
-              cardPaddingBottom,
-              cardGap,
-              cardMaxWidth,
-              alignCardToAnchorEnd,
-              onConfirm,
-              confirmText,
-              closeOnBackdropPress,
-              matchTriggerSize,
-              deferUntilIdle,
-              floatingOffset,
-              childrenPaddingVertical,
-              childrenPaddingHorizontal,
-              showHighlightBackground,
-              highlightBackgroundOpacity,
-              triggerRef: triggerRef as RefObject<NativeView>,
-            }}
-          />
-        </Portal.Body>
+      {visible || contentMounted ? (
+        <SpotlightContent
+          visible={visible}
+          onClose={handleClose}
+          level={level}
+          triggerPropsRef={triggerPropsRef}
+          initProps={{
+            visible,
+            children: replaceChildren || children,
+            content,
+            cardBorderRadius,
+            highlightBorderRadius,
+            confirmButtonBorderRadius,
+            confirmButtonPaddingHorizontal,
+            cardPadding,
+            cardPaddingBottom,
+            cardGap,
+            cardMaxWidth,
+            alignCardToAnchorEnd,
+            onConfirm,
+            confirmText,
+            closeOnBackdropPress,
+            matchTriggerSize,
+            deferUntilIdle,
+            floatingOffset,
+            childrenPaddingVertical,
+            childrenPaddingHorizontal,
+            showHighlightBackground,
+            highlightBackgroundOpacity,
+            triggerRef: triggerRef as RefObject<ViewInstance>,
+          }}
+        />
       ) : null}
     </>
   );

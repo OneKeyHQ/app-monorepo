@@ -68,6 +68,7 @@ jest.mock('../BorrowProvider', () => ({
       provider: 'aave',
       networkId: 'evm--1',
       marketAddress: '0xMarket',
+      logoURI: 'https://example.com/aave.png',
     },
     earnAccount: { data: { account: { id: 'account-1' } } },
   }),
@@ -111,6 +112,20 @@ jest.mock('./OverviewMetric', () => ({
 describe('BorrowEModeMetric terminal error', () => {
   beforeEach(() => {
     pushToBorrowEModeSwitch.mockClear();
+  });
+
+  it('passes the selected market logo to the E-Mode screen', () => {
+    const { getByTestId } = render(<BorrowEModeMetric eModeStatus={status} />);
+    fireEvent.click(getByTestId('emode-metric'));
+    expect(pushToBorrowEModeSwitch).toHaveBeenCalledWith(
+      navigation,
+      expect.objectContaining({
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        providerLogoURI: 'https://example.com/aave.png',
+      }),
+    );
   });
 
   it('hides a stale E-Mode value and disables its metric action after error', () => {

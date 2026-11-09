@@ -12,6 +12,7 @@ export enum EOneKeyDeepLinkPath {
   invited_by_friend = 'invited_by_friend',
   redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   prime_subscription = 'prime_subscription',
+  prime_purchase_complete = 'prime_purchase_complete',
   cross_device_transfer = 'cross_device_transfer',
   // Value MUST equal the on-wire URL segment (compared as a raw string in the
   // deeplink switch); hence the hyphenated literal, not an underscore alias.
@@ -37,6 +38,7 @@ export type IEOneKeyDeepLinkParams = {
     code?: string;
   };
   [EOneKeyDeepLinkPath.prime_subscription]: undefined;
+  [EOneKeyDeepLinkPath.prime_purchase_complete]: undefined;
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
     server?: string;
@@ -51,6 +53,16 @@ export type IEOneKeyDeepLinkParams = {
 
 export const PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY = 'prime_subscription';
 export const PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE = '1';
+// Popup -> expand tab handoff for card checkout; the value is the plan period.
+export const PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY = 'prime_card_checkout';
+export const PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY =
+  'prime_card_checkout_feature';
+export const PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY =
+  'prime_card_checkout_currency';
+// Set when the popup's embedded Stripe checkout failed; the value is the
+// fallback trigger and the expand tab opens the hosted Purchase Link at once.
+export const PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY =
+  'prime_card_checkout_fallback';
 
 // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
 export const ONEKEY_UNIVERSAL_LINK_HOST = 'app.onekey.so';
@@ -67,3 +79,15 @@ export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
 export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`; // do not add ? at the end (which meaning optional)
 // use /wc/connect but not /wc/connect/wc, the last /wc will be added by WalletConnect SDK
 export const WalletConnectUniversalLinkFull = `https://${ONEKEY_UNIVERSAL_LINK_HOST}/wc/connect`;
+
+// Reject ASCII control characters (<= 0x20, 0x7f), raw whitespace, and raw double quotes (`"`, 0x22).
+// Prevents quote-splitting command injection on Windows (`"%1"`) and malformed URL smuggling across platforms.
+export function hasUnsafeUrlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x20 || code === 0x22 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}

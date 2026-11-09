@@ -61,6 +61,8 @@ export class LedgerAdapter
 
   private activeOperationId: string | undefined;
 
+  private walletMatchCheckDepth = 0;
+
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
@@ -81,24 +83,33 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.searching,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
           break;
-        case EConnectorInteraction.ConfirmOpenApp:
+        case EConnectorInteraction.ConfirmOpenApp: {
+          const appName =
+            this.walletMatchCheckDepth > 0 ? event.payload?.appName : undefined;
           void this.publishUiState(
             {
               action: EThirdPartyHardwareUiAction.openApp,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
+              ...(appName
+                ? { payload: { appName, openAppReason: 'walletMatch' } }
+                : {}),
             },
             event.payload?.sessionId,
           );
           break;
+        }
         case EConnectorInteraction.UnlockDevice:
           void this.publishUiState(
             {
               action: EThirdPartyHardwareUiAction.unlockDevice,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
@@ -108,12 +119,13 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.confirmOnDevice,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          void this.clearUiState(event.payload?.sessionId);
+          void this.clearUiState(event.payload?.sessionId, event.operationId);
           break;
         case EConnectorInteraction.AppInstallProgress: {
           // Ledger DMK install progress (0..1); throttled log avoids flooding.
@@ -128,11 +140,18 @@ export class LedgerAdapter
           // Dedicated install atom (separate from the single-slot ui-state):
           // the imperatively-shown install dialog reads progress here and
           // coexists with any device-prompt toast.
-          void thirdPartyAppInstallAtom.set({
+          void thirdPartyAppInstallAtom.set((previous) => ({
             vendor: EHardwareVendor.ledger,
+            // The SDK's initial progress event may omit the confirmation's operation ID.
+            operationId:
+              event.operationId ??
+              (previous?.vendor === EHardwareVendor.ledger &&
+              previous.appName === appName
+                ? previous.operationId
+                : undefined),
             appName,
             progress,
-          });
+          }));
           break;
         }
         default: {
@@ -159,6 +178,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceNotFound,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor,
           reason,
@@ -185,6 +207,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceSelection,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor: EHardwareVendor.ledger,
           deviceSearchTargets,
@@ -205,6 +230,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor,
           path,
@@ -221,14 +249,22 @@ export class LedgerAdapter
       // Drive the dedicated install dialog (confirm state: no progress yet).
       void thirdPartyAppInstallAtom.set({
         vendor: EHardwareVendor.ledger,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         appName,
       });
     });
 
-    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
+    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, (event) => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
-      void this.clearUiState();
-      void thirdPartyAppInstallAtom.set(undefined);
+      const operationId = event.payload?.operationId;
+      void this.clearUiState(undefined, operationId);
+      void thirdPartyAppInstallAtom.set((state) =>
+        operationId === undefined || state?.operationId === operationId
+          ? undefined
+          : state,
+      );
     });
 
     this.hw.on('operation-ended', (event) => {
@@ -238,9 +274,9 @@ export class LedgerAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
       if (this.activeOperationId !== operationId) return;
       void Promise.all([
-        this.clearUiState(),
+        this.clearUiState(undefined, operationId),
         thirdPartyAppInstallAtom.set((state) =>
-          this.activeOperationId === operationId &&
+          state?.operationId === operationId &&
           state?.vendor === EHardwareVendor.ledger
             ? undefined
             : state,
@@ -265,6 +301,7 @@ export class LedgerAdapter
         void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.ledger,
+          ...(event.operationId ? { operationId: event.operationId } : {}),
           payload: {
             reason,
             message,
@@ -308,6 +345,15 @@ export class LedgerAdapter
       });
     }
     return shouldLog;
+  }
+
+  async runWalletMatchCheck<T>(check: () => Promise<T>): Promise<T> {
+    this.walletMatchCheckDepth += 1;
+    try {
+      return await check();
+    } finally {
+      this.walletMatchCheckDepth -= 1;
+    }
   }
 
   async searchDevices(

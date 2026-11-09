@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
@@ -86,6 +87,7 @@ export interface IMarketTradingViewProps {
   nativeIntervalControlMode?: 'dialog' | 'popover';
   nativePriceMarketCapControlMode?: 'settings' | 'select';
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  mobileToolbarExtra?: ReactNode;
   isNativeChartFullscreen?: boolean;
   showNativeIndicatorQuickBar?: boolean;
   onChartSwitch?: () => void;
@@ -125,6 +127,7 @@ export const MarketTradingView = memo(
     nativeIntervalControlMode,
     nativePriceMarketCapControlMode,
     nativeControlsLayoutMode,
+    mobileToolbarExtra,
     isNativeChartFullscreen,
     showNativeIndicatorQuickBar,
     onChartSwitch,
@@ -208,6 +211,7 @@ export const MarketTradingView = memo(
         nativeIntervalControlMode={nativeIntervalControlMode}
         nativePriceMarketCapControlMode={nativePriceMarketCapControlMode}
         nativeControlsLayoutMode={nativeControlsLayoutMode}
+        mobileToolbarExtra={mobileToolbarExtra}
         isNativeChartFullscreen={isNativeChartFullscreen}
         onChartSwitch={onChartSwitch}
         nativeChartFullscreenHeader={

@@ -17,6 +17,8 @@ export type IFetchAccountDeFiPositionsParams = {
   sourceCurrencyInfo?: ICurrencyItem;
   targetCurrencyInfo?: ICurrencyItem;
   isForceRefresh?: boolean;
+  requireComplete?: boolean;
+  timeoutMs?: number;
   // When false, the request is NOT registered with the shared abort pool and
   // will not be cancelled by abortFetchAccountDeFiPositions(). Use for
   // background schedulers whose fetches should survive UI-initiated aborts.
@@ -181,6 +183,8 @@ export type IFetchAccountDeFiPositionsResult = {
   protocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
   isSameAllNetworksAccountData: boolean;
+  isNetworkQueried?: boolean;
+  overviewRequestRevision?: number;
 };
 
 export type IDeFiProtocol = {

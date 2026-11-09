@@ -1,6 +1,6 @@
 import {
   useCallback,
-  useImperativeHandle,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -20,6 +20,7 @@ import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/use
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
 
+import { debugHomeVisual } from './homeVisualTrace';
 import { debugPerpsChain } from './perpsChainTrace';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
@@ -29,7 +30,11 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   headerHeightHint,
+  topOverlayHeightHint,
   renderHeader,
   topOverlay,
   onTopScrollEdgeCapability,
@@ -55,6 +60,26 @@ export function HomeNativePager({
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const theme = useTheme();
   const themeName = useThemeName();
+  const hasTopOverlay = Boolean(topOverlay);
+  useEffect(() => {
+    debugHomeVisual('pager-props', {
+      overlay: hasTopOverlay,
+      topEdgeActive: Boolean(topEdgeActive),
+      headerHint: headerHeightHint ?? -1,
+      overlayHint: topOverlayHeightHint ?? -1,
+      headerHeight: headerLayout.height,
+      stickyHeight,
+      theme: themeName,
+    });
+  }, [
+    hasTopOverlay,
+    topEdgeActive,
+    headerHeightHint,
+    topOverlayHeightHint,
+    headerLayout.height,
+    stickyHeight,
+    themeName,
+  ]);
   const capabilityCallbackRef = useRef(onTopScrollEdgeCapability);
   capabilityCallbackRef.current = onTopScrollEdgeCapability;
   const capabilitySessionRef = useRef<{
@@ -115,6 +140,7 @@ export function HomeNativePager({
     pages,
     initialTabName,
     pagerRef,
+    ref,
     onSelectionChange: handleSelectionChange,
     onBeforeCommand: handleBeforeCommand,
   });
@@ -126,22 +152,7 @@ export function HomeNativePager({
     focusedTab,
     indexDecimal,
     jumpToTab,
-    setIndex,
-    syncCurrentPage,
-    getCurrentIndex,
-    getFocusedTab,
   } = controller;
-  useImperativeHandle(
-    ref,
-    () => ({
-      jumpToTab,
-      setIndex,
-      getCurrentIndex,
-      getFocusedTab,
-      syncCurrentPage,
-    }),
-    [jumpToTab, setIndex, getCurrentIndex, getFocusedTab, syncCurrentPage],
-  );
   // Explicit top requests affect the active pane; owner changes remount all panes.
   const scrollToTop = useCallback(() => {
     pagerRef.current?.scrollToPageTop({ animated: false });
@@ -169,22 +180,47 @@ export function HomeNativePager({
       <CollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: theme.bgApp.val }}
+        nativeTabBar={
+          nativeTabBar
+            ? {
+                ...nativeTabBar,
+                style: {
+                  ...nativeTabBar.style,
+                  backgroundColor: topEdgeActive
+                    ? 'transparent'
+                    : theme.bgApp.val,
+                },
+              }
+            : undefined
+        }
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         initialPage={initialIndex}
         nestedScrollEnabled
         nativeSmoothHeaderScrollEnabled
         topScrollEdgeEffect={topOverlay ? ScrollEdgeEffect.Hard : undefined}
         topOverlayColorScheme={topOverlay ? themeName : undefined}
+        topOverlayHeightHint={topOverlayHeightHint}
         topOverlay={topOverlay}
         onScrollEdgeCapability={(event) => {
           const session = capabilitySessionRef.current;
           if (!session.active && session.mounted) return;
-          session.lastAvailable = event.nativeEvent.available;
+          const available = event.nativeEvent.available;
+          if (session.lastAvailable !== available) {
+            debugHomeVisual('native-capability', {
+              available,
+              active: session.active,
+              mounted: session.mounted,
+              overlay: hasTopOverlay,
+            });
+          }
+          session.lastAvailable = available;
           if (session.active) {
-            capabilityCallbackRef.current?.(event.nativeEvent.available);
+            capabilityCallbackRef.current?.(available);
           }
         }}
         headerHeight={headerLayout.height}
-        stickyHeaderHeight={stickyHeight}
+        stickyHeaderHeight={nativeTabBar?.style?.height ?? stickyHeight}
         // Spot remains the owner of shared asset loading even while offscreen.
         pageRetentionDistance={tabs.length}
         offscreenPageLimit={Math.max(1, tabs.length - 1)}
@@ -192,6 +228,13 @@ export function HomeNativePager({
           <View
             onLayout={(event) => {
               const height = Math.ceil(event.nativeEvent.layout.height);
+              if (height !== headerLayout.height) {
+                debugHomeVisual('header-layout', {
+                  measuredHeight: height,
+                  previousHeight: headerLayout.height,
+                  generation: headerLayout.generation,
+                });
+              }
               setHeaderLayout((current) =>
                 current.generation === headerLayout.generation
                   ? { ...current, height }
@@ -217,9 +260,18 @@ export function HomeNativePager({
             style={{
               backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
             }}
-            onLayout={(event) =>
-              setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
-            }
+            onLayout={(event) => {
+              const measured = Math.ceil(event.nativeEvent.layout.height);
+              setStickyHeight((current) => {
+                if (measured !== current) {
+                  debugHomeVisual('sticky-layout', {
+                    measuredHeight: measured,
+                    previousHeight: current,
+                  });
+                }
+                return measured;
+              });
+            }}
           >
             {renderTabBar({ ...tabBarProps, topEdgeActive })}
           </View>

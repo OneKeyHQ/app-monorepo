@@ -11,7 +11,10 @@ import type {
   ISwapReviewReady,
   ISwapReviewStage,
 } from '@onekeyhq/shared/types/swap/reviewAnalytics';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapSource,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { getSwapExecutionTypeFromQuoteResult } from './swapTypeUtils';
 
@@ -69,12 +72,20 @@ export function createSwapReviewAnalytics({
   clock = now,
   reviewSessionId = generateUUID(),
   logger = defaultLogger.swap.swapReview,
+  swapSource,
 }: {
   clock?: () => number;
   reviewSessionId?: string;
   logger?: ISwapReviewLogger;
+  swapSource?: ESwapSource;
 } = {}) {
   const clickedAt = clock();
+  // Every review event and the context handed to order/send events carry the
+  // entry, so a completed trade can be attributed without a cross-event join.
+  const createIdentity = (quoteId?: string): ISwapReviewAnalyticsContext =>
+    swapSource
+      ? { reviewSessionId, quoteId, swapSource }
+      : { reviewSessionId, quoteId };
   let openedAt: number | undefined;
   let readyAt: number | undefined;
   let closed = false;
@@ -83,7 +94,7 @@ export function createSwapReviewAnalytics({
   let supportsPreBuild = false;
   let closeStage: ISwapReviewClose['closeStage'] = 'loading';
   let preparation: ISwapReviewPreparation | undefined;
-  let identity: ISwapReviewAnalyticsContext = { reviewSessionId };
+  let identity: ISwapReviewAnalyticsContext = createIdentity();
   let orderId: string | undefined;
 
   return {
@@ -91,14 +102,14 @@ export function createSwapReviewAnalytics({
       return confirmed;
     },
     context(quoteId?: string): ISwapReviewAnalyticsContext {
-      return { reviewSessionId, quoteId: quoteId ?? identity.quoteId };
+      return createIdentity(quoteId ?? identity.quoteId);
     },
     open(params: Omit<ISwapReviewOpen, 'reviewSessionId' | 'openDelayMs'>) {
       if (closed || openedAt !== undefined) return;
       const currentOpenedAt = clock();
       openedAt = currentOpenedAt;
       supportsPreBuild = params.supportPreBuild;
-      identity = { reviewSessionId, quoteId: params.quoteId };
+      identity = createIdentity(params.quoteId);
       safelyLogSwapReview(() => {
         logger.swapReviewOpen({
           ...params,
@@ -173,7 +184,7 @@ export function createSwapReviewAnalytics({
     }) {
       const currentOpenedAt = openedAt;
       if (closed || currentOpenedAt === undefined) return;
-      identity = { reviewSessionId, quoteId };
+      identity = createIdentity(quoteId);
       orderId = currentOrderId;
       if (error) {
         closeStage = 'error';
@@ -263,8 +274,6 @@ export function logSwapReviewApiResult({
       quoteId: swapInfo.reviewAnalyticsContext?.quoteId ?? quote.quoteId,
       orderId: getSwapReviewOrderId(swapInfo) ?? '',
       status,
-      message:
-        error === undefined ? undefined : getSwapReviewErrorMessage(error),
       swapType: getSwapExecutionTypeFromQuoteResult(quote),
       slippage: String(quote.slippage ?? ''),
       fromNetworkId: swapInfo.sender.token.networkId,
@@ -284,10 +293,12 @@ export function logSwapReviewApiResult({
     if (event === 'estimateFee') {
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         ...params,
+        message:
+          error === undefined ? undefined : getSwapReviewErrorMessage(error),
         isBatch,
       });
     } else {
-      defaultLogger.swap.swapSendTx.swapSendTx(params);
+      defaultLogger.swap.swapSendTx.swapSendTx({ ...params, error });
     }
   } catch {
     // Analytics payload/transport failures must not interrupt transaction execution.

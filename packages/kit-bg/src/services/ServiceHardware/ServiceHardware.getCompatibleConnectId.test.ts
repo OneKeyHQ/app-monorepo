@@ -15,6 +15,8 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -924,7 +926,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'SELECTED_DEVICE',
           }),
-        ).resolves.toBe('LIVE_USB_PATH');
+        ).resolves.toEqual({
+          connectId: 'LIVE_USB_PATH',
+          transportType: EHardwareTransportType.WEBUSB,
+        });
       } else {
         resolve.mockRejectedValue(new Error('USB required'));
         await expect(
@@ -2510,7 +2515,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           connectId: selected ?? path,
         });
         if (mode === 'bootloader' && !selected) {
-          await expect(result).resolves.toBe(path);
+          await expect(result).resolves.toEqual({
+            connectId: path,
+            transportType: EHardwareTransportType.WEBUSB,
+          });
           expect(read).toHaveBeenCalledWith(
             expect.objectContaining({
               connectId: path,
@@ -2570,7 +2578,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             connectId: 'LOADER_BLE_ID',
             features,
           }),
-        ).resolves.toBe(path);
+        ).resolves.toEqual({
+          connectId: path,
+          transportType: EHardwareTransportType.WEBUSB,
+        });
         await expect(
           service.checkDeviceReachableForFirmwareUpdate({
             connectId: 'LOADER_BLE_ID',
@@ -5383,4 +5394,135 @@ describe('Trezor XFP identity-based discovery', () => {
       });
     },
   );
+});
+
+describe('ServiceHardware.searchDevices BLE color log', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('logs one entry per Bluetooth result with its advertised color', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'prepareHardwareTransport')
+      .mockResolvedValue(EHardwareTransportType.BLE);
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [
+        {
+          connectId: 'PRO2_BLE_ID',
+          name: 'Pro 2 A1B2',
+          deviceType: EDeviceType.Pro2,
+          commType: 'ble',
+          serialNo: null,
+          uuid: '',
+          deviceId: null,
+          bleColorCode: 'D',
+        },
+        {
+          connectId: 'NEO_BLE_ID',
+          name: 'Neo 47B9',
+          deviceType: EDeviceType.Neo,
+          commType: 'electron-ble',
+          serialNo: null,
+          uuid: '',
+          deviceId: null,
+        },
+        {
+          connectId: 'PRO2_USB_PATH',
+          name: 'OneKey Pro 2',
+          deviceType: EDeviceType.Pro2,
+          commType: 'webusb',
+          serialNo: 'P20001A',
+          uuid: '',
+          deviceId: null,
+        },
+      ],
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const colorLog = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'bleSearchDevicesColor')
+      .mockImplementation((params) => params);
+
+    await service.searchDevices({ transportType: 'ble' });
+
+    // USB results carry no advertisement and are not logged.
+    expect(colorLog).toHaveBeenCalledTimes(2);
+    expect(colorLog).toHaveBeenNthCalledWith(1, {
+      connectId: 'PRO2_BLE_ID',
+      name: 'Pro 2 A1B2',
+      deviceType: EDeviceType.Pro2,
+      bleColorCode: 'D',
+    });
+    expect(colorLog).toHaveBeenNthCalledWith(2, {
+      connectId: 'NEO_BLE_ID',
+      name: 'Neo 47B9',
+      deviceType: EDeviceType.Neo,
+      bleColorCode: undefined,
+    });
+  });
+
+  it('logs nothing when the search fails', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'prepareHardwareTransport')
+      .mockResolvedValue(EHardwareTransportType.BLE);
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices: jest.fn().mockResolvedValue({
+        success: false,
+        payload: { error: 'scan failed', code: HardwareErrorCode.BleScanError },
+      }),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const colorLog = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'bleSearchDevicesColor')
+      .mockImplementation((params) => params);
+
+    await service.searchDevices({ transportType: 'ble' });
+
+    expect(colorLog).not.toHaveBeenCalled();
+  });
+});
+
+describe('Cloud key error boundaries inside hardware service helpers', () => {
+  test('state SDK rejections are converted before logging within the sensitive scope', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceDevSetting: { getFirmwareUpdateDevSettings: async () => false },
+      } as unknown as IBackgroundApi,
+    });
+    const signature = 'ab'.repeat(65);
+    const sdk = {
+      getDeviceState: jest.fn().mockRejectedValue(
+        Object.assign(new Error(`Failure: ${signature}`), {
+          errorCode: HardwareErrorCode.ActionCancelled,
+          data: { signature },
+        }),
+      ),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>;
+    jest.spyOn(service, 'getSDKInstance').mockResolvedValue(sdk);
+    const logged = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        service.runWithSensitiveCloudKeyOperation(() =>
+          service._getDeviceStateLowLevel({
+            connectId: 'cloud-device',
+            params: { scope: 'runtime', connectProtocol: 'V2' },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        key: ETranslations.hardware_user_cancel_error,
+      });
+      expect(JSON.stringify(logged.mock.calls)).not.toContain(signature);
+    } finally {
+      logged.mockRestore();
+    }
+  });
 });

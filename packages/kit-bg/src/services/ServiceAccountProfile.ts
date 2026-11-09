@@ -51,6 +51,10 @@ import {
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
+import {
+  isAddressWithheldFromBackend,
+  isLocalWalletNetwork,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -269,7 +273,10 @@ class ServiceAccountProfile extends ServiceBase {
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
-    if (isCustomNetwork) {
+    if (
+      isCustomNetwork ||
+      (await isAddressWithheldFromBackend({ networkId }))
+    ) {
       return emptyAccountBadgeResult();
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -514,6 +521,25 @@ class ServiceAccountProfile extends ServiceBase {
     );
   }
 
+  // A private address read back from the chain names only the receiver it paid, so an entry holding
+  // that receiver is the same recipient even when its address string differs.
+  private async findAddressBookItemBySameRecipient({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    if (!(await isLocalWalletNetwork({ networkId }))) return undefined;
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const isSameRecipient = vault.getLocalWalletCapability()?.isSameRecipient;
+    if (!isSameRecipient) return undefined;
+    const items = await this.backgroundApi.serviceAddressBook.getItemsByNetwork(
+      { networkId },
+    );
+    return items.find((item) => isSameRecipient(item.address, address));
+  }
+
   @backgroundMethod()
   public async queryAddress({
     networkId,
@@ -540,6 +566,17 @@ class ServiceAccountProfile extends ServiceBase {
     const result: IAddressQueryResult = {
       input: rawAddress,
     };
+
+    // Start the combined local/server check before address normalization so a local WASM load cannot delay the server round trip.
+    const validation =
+      !skipValidateAddress &&
+      networkId &&
+      (await isLocalWalletNetwork({
+        networkId,
+      }))
+        ? serviceValidator.validateAddress({ networkId, address })
+        : undefined;
+    validation?.catch(() => undefined);
 
     let isLocalValid = false;
     try {
@@ -590,10 +627,8 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await serviceValidator.validateAddress({
-        networkId,
-        address,
-      });
+      result.validStatus = await (validation ??
+        serviceValidator.validateAddress({ networkId, address }));
     }
 
     if (enableNameResolve) {
@@ -622,12 +657,16 @@ class ServiceAccountProfile extends ServiceBase {
       try {
         // handleAddressBookName
         const addressBookItem =
-          await this.backgroundApi.serviceAddressBook.findItem({
+          (await this.backgroundApi.serviceAddressBook.findItem({
             networkId: !networkUtils.isEvmNetwork({ networkId })
               ? networkId
               : undefined,
             address: resolveAddress,
-          });
+          })) ??
+          (await this.findAddressBookItemBySameRecipient({
+            networkId,
+            address: resolveAddress,
+          }));
         result.addressBookId = addressBookItem?.id;
         result.isAllowListed = addressBookItem?.isAllowListed;
         result.addressNote = addressBookItem?.note;

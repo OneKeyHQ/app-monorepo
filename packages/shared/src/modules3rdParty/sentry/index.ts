@@ -25,6 +25,7 @@ import {
   buildBasicOptions,
   buildIntegrations,
   buildSentryOptions,
+  sanitizeSensitiveNavigationBreadcrumb,
 } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
@@ -71,6 +72,8 @@ export const initSentry = () => {
       },
     }),
     ...buildSentryOptions(sentryRuntime),
+    beforeBreadcrumb: (breadcrumb) =>
+      sanitizeSensitiveNavigationBreadcrumb(breadcrumb),
     integrations: [
       ...buildIntegrations(sentryRuntime),
       // https://github.com/getsentry/sentry-javascript/issues/3040

@@ -563,21 +563,20 @@ describe('getSharedDomainIpTableCandidates', () => {
 
   test('production table without an active config spreads the CN CDN providers', () => {
     expect(getCandidates(undefined)).toEqual([
-      '216.19.3.115',
+      '216.19.4.106',
       '43.168.19.96',
-      '216.19.2.116',
+      '43.168.24.171',
     ]);
   });
 
   test('maxCandidates bounds the list', () => {
     expect(getCandidates(undefined, 4)).toEqual([
-      '216.19.3.115',
-      '43.168.19.96',
-      '216.19.2.116',
       '216.19.4.106',
+      '43.168.19.96',
+      '43.168.24.171',
     ]);
-    expect(getCandidates(undefined, 10)).toHaveLength(4);
-    expect(getCandidates(undefined, 1)).toEqual(['216.19.3.115']);
+    expect(getCandidates(undefined, 10)).toHaveLength(3);
+    expect(getCandidates(undefined, 1)).toEqual(['216.19.4.106']);
   });
 
   test('null active config (main runtime) matches a missing one', () => {
@@ -609,15 +608,14 @@ describe('getSharedDomainIpTableCandidates', () => {
   test('mixed-case provider labels are matched case-insensitively', () => {
     const activeConfig = makeActiveConfig({
       endpoints: [
-        { ip: '216.19.3.115', provider: 'CloudFlare' },
+        { ip: '216.19.4.106', provider: 'CloudFlare' },
         { ip: '43.168.19.96', provider: 'EDGEONE' },
       ],
-      selection: '216.19.3.115',
+      selection: '216.19.4.106',
     });
     expect(getCandidates(activeConfig, 4)).toEqual([
-      '216.19.2.116',
       '43.168.19.96',
-      '216.19.4.106',
+      '43.168.24.171',
     ]);
   });
 
@@ -629,8 +627,8 @@ describe('getSharedDomainIpTableCandidates', () => {
     });
     expect(getCandidates(activeConfig)).toEqual([
       '43.168.19.96',
-      '216.19.3.115',
-      '216.19.2.116',
+      '216.19.4.106',
+      '43.168.24.171',
     ]);
   });
 
@@ -650,10 +648,10 @@ describe('getSharedDomainIpTableCandidates', () => {
   test('a preferred ip endorsed by the active table goes first', () => {
     expect(
       getCandidates(makeActiveConfig({ selection: '216.19.4.106' })),
-    ).toEqual(['216.19.4.106', '43.168.19.96', '216.19.3.115']);
+    ).toEqual(['216.19.4.106', '43.168.19.96', '43.168.24.171']);
     expect(
       getCandidates(makeActiveConfig({ lastBestIp: '43.168.19.96' })),
-    ).toEqual(['43.168.19.96', '216.19.3.115', '216.19.2.116']);
+    ).toEqual(['43.168.19.96', '216.19.4.106', '43.168.24.171']);
   });
 
   test('selection is ordered before lastBestIp', () => {
@@ -665,7 +663,7 @@ describe('getSharedDomainIpTableCandidates', () => {
         }),
         4,
       ),
-    ).toEqual(['216.19.4.106', '43.168.19.96', '216.19.3.115', '216.19.2.116']);
+    ).toEqual(['216.19.4.106', '43.168.19.96', '43.168.24.171']);
   });
 
   test('a preferred ip the active table does not endorse is ignored', () => {
@@ -715,6 +713,6 @@ describe('getSharedDomainIpTableCandidates', () => {
         }),
         10,
       ),
-    ).toEqual(['43.168.19.96', '216.19.3.115', '216.19.2.116', '216.19.4.106']);
+    ).toEqual(['43.168.19.96', '216.19.4.106', '43.168.24.171']);
   });
 });

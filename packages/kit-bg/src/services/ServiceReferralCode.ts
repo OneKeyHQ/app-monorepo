@@ -62,7 +62,11 @@ import type {
   IInviteLevelDetail,
   IInvitePaidHistory,
   IInvitePostConfig,
+  IInviteRewardScope,
+  IInviteRewardScopesResponse,
   IInviteSummary,
+  IInviteeRewardsModuleResult,
+  IInviteeRewardsOverview,
   IPerpsCumulativeRewardsParams,
   IPerpsCumulativeRewardsResponse,
   IPerpsInviteeRewardsResponse,
@@ -86,9 +90,13 @@ import type {
   IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+
+import { primePersistAtom } from '../states/jotai/atoms/prime';
 
 import ServiceBase from './ServiceBase';
 
@@ -121,17 +129,53 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async getSummaryInfo() {
+    const { onekeyUserId } = await primePersistAtom.get();
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const summary = await client.get<{
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
-    if (summary.data.data.inviteCode) {
+    if (summary.data.data.inviteCode && onekeyUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         summary.data.data.inviteCode,
+        onekeyUserId,
       );
     }
     return summary.data.data;
   }
+
+  // Unauthenticated, so invitees without a OneKey ID login see it too.
+  @backgroundMethod()
+  async getInviteRewardScopes(): Promise<IInviteRewardScope[]> {
+    try {
+      const locale = await this.backgroundApi.serviceSetting.getCurrentLocale();
+      return await this._getInviteRewardScopesMemo(locale.toLowerCase());
+    } catch (error) {
+      // Optional hint copy: callers hide it on failure, so never toast.
+      errorToastUtils.toastIfErrorDisable(error);
+      throw error;
+    }
+  }
+
+  // Both tabs share localized copy, while failed requests are not cached.
+  private _getInviteRewardScopesMemo = memoizee(
+    async (locale: string): Promise<IInviteRewardScope[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Rebate);
+      const response = await client.get<{
+        data: IInviteRewardScopesResponse;
+      }>('/rebate/v1/invite/reward-scopes');
+      // Interceptors choose the request locale. Reject if the app locale
+      // differs from the cache key when the response arrives.
+      const currentLocale =
+        await this.backgroundApi.serviceSetting.getCurrentLocale();
+      if (currentLocale.toLowerCase() !== locale) {
+        throw new OneKeyLocalError(
+          'Locale changed during reward scopes request',
+        );
+      }
+      return response.data.data?.rewardScopes ?? [];
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 5 }) },
+  );
 
   @backgroundMethod()
   async getLevelDetail() {
@@ -626,9 +670,63 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMyReferralCode() {
-    const myReferralCode =
-      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+  async getInviteeRewardsOverview({
+    walletAddress,
+  }: {
+    walletAddress: string;
+  }): Promise<IInviteeRewardsOverview> {
+    const toModuleResult = <T>(
+      result: PromiseSettledResult<T>,
+    ): IInviteeRewardsModuleResult<T> =>
+      result.status === 'fulfilled'
+        ? { status: 'success', data: result.value }
+        : { status: 'error' };
+
+    // Each module degrades independently so one failing backend does not
+    // hide the rewards from the others.
+    const [perps, swap, earn] = await Promise.allSettled([
+      this.getPerpsInviteeRewards({ walletAddress }),
+      this.getSwapInviteeRewards({ walletAddress }),
+      this.backgroundApi.serviceStaking.getEarnSummaryV2({
+        accountAddress: walletAddress,
+        networkId: getNetworkIdsMap().eth,
+      }),
+    ]);
+
+    return {
+      perps: toModuleResult(perps),
+      swap: toModuleResult(swap),
+      earn: toModuleResult(earn),
+    };
+  }
+
+  @backgroundMethod()
+  async getCachedMyReferralCode(params?: { onekeyUserId: string }) {
+    const user = await primePersistAtom.get();
+    const onekeyUserId = params?.onekeyUserId ?? user.onekeyUserId;
+    if (
+      !onekeyUserId ||
+      user.onekeyUserId !== onekeyUserId ||
+      !user.isLoggedIn ||
+      !user.isLoggedInOnServer
+    ) {
+      return '';
+    }
+    const code =
+      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode({
+        onekeyUserId,
+      });
+    const currentUser = await primePersistAtom.get();
+    return currentUser.onekeyUserId === onekeyUserId &&
+      currentUser.isLoggedIn &&
+      currentUser.isLoggedInOnServer
+      ? code
+      : '';
+  }
+
+  @backgroundMethod()
+  async getMyReferralCode(params?: { onekeyUserId: string }) {
+    const myReferralCode = await this.getCachedMyReferralCode(params);
     setTimeout(async () => {
       const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
       if (isLogin) {
@@ -745,10 +843,33 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateMyReferralCode(code: string) {
-    await this.backgroundApi.simpleDb.referralCode.updateCode({
-      myReferralCode: code,
-    });
+  async updateMyReferralCode(code: string, onekeyUserId: string) {
+    const staleWriteError = new OneKeyLocalError('Referral code owner changed');
+    try {
+      // Check ownership inside the storage mutex, after any queued writes.
+      await this.backgroundApi.simpleDb.referralCode.setRawData(
+        async (rawData) => {
+          const user = await primePersistAtom.get();
+          if (
+            !onekeyUserId ||
+            onekeyUserId !== user.onekeyUserId ||
+            !user.isLoggedIn ||
+            !user.isLoggedInOnServer
+          ) {
+            throw staleWriteError;
+          }
+          return {
+            ...rawData,
+            myReferralCode: code,
+            myReferralCodeUserId: onekeyUserId,
+          };
+        },
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
+    }
   }
 
   @backgroundMethod()

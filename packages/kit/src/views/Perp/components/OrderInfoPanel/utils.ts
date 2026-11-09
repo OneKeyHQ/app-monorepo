@@ -12,7 +12,10 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsFrontendOrder,
+  ITwapState,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -106,6 +109,37 @@ export function getTwapHistoryEventTimeMs(record: {
   return normalizeEpochMs(record.time) ?? record.state.timestamp;
 }
 
+export function getTwapSideInfo(
+  state: Pick<ITwapState, 'coin' | 'side' | 'reduceOnly'>,
+  intl: IntlShape,
+) {
+  if (isSpotInstrument(state.coin)) {
+    return {
+      text: intl.formatMessage({
+        id:
+          state.side === 'B'
+            ? ETranslations.global_buy
+            : ETranslations.global_sell,
+      }),
+      color: state.side === 'B' ? '$green11' : '$red11',
+    };
+  }
+  if (state.side === 'B') {
+    return {
+      text: state.reduceOnly
+        ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
+        : intl.formatMessage({ id: ETranslations.perp_long }),
+      color: '$green11',
+    };
+  }
+  return {
+    text: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
+      : intl.formatMessage({ id: ETranslations.perp_short }),
+    color: '$red11',
+  };
+}
+
 export const getPerpFillDirectionType = (
   direction?: string,
 ): IPerpFillDirectionType => {
@@ -152,6 +186,7 @@ export const getFillDirectionDisplayInfo = ({
 
   let color = fill.side === 'B' ? '$green11' : '$red11';
   const directionType = getPerpFillDirectionType(fill.dir);
+  const normalizedDirection = fill.dir?.trim().toLowerCase();
   let text = fill.dir ?? '';
 
   if (directionType === 'openLong') {
@@ -162,7 +197,15 @@ export const getFillDirectionDisplayInfo = ({
     text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
     text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
-  } else if (fill.dir?.trim().toLowerCase() === 'settlement') {
+  } else if (normalizedDirection === 'long > short') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_long_to_short__title,
+    });
+  } else if (normalizedDirection === 'short > long') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_short_to_long__title,
+    });
+  } else if (normalizedDirection === 'settlement') {
     text = intl.formatMessage({
       id: ETranslations.perp_trade_settlement__title,
     });

@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -31,7 +32,10 @@ import {
   EmailOtpCaptchaCancelledError,
   useEmailOtpCaptcha,
 } from '@onekeyhq/kit/src/components/Captcha/useEmailOtpCaptcha';
-import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import {
+  getEmailOtpRequestErrorMessage,
+  isEmailOtpSignupDisabledError,
+} from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -124,8 +128,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const didRequestInitialCodeRef = useRef(false);
   const previousRequestConfiguration = useRef(requestConfiguration);
   const didSendCodeSucceedRef = useRef(false);
+  const suppressCodeAutoFocusRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
+  // Code edits and failed retries do not resolve a rejected signup request.
+  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
   const isVerificationCodeValid = /^\d+$/.test(verificationCode);
   const [state, setState] = useState<{
     status: 'initial' | 'error' | 'done';
@@ -163,9 +170,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
   }, [dialogInstance, navigation]);
 
+  const dismissCodeInput = useCallback(() => {
+    codeInputRef.current?.blur();
+    if (platformEnv.isNative) Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
-    if (active && isCodeInputEnabled) codeInputRef.current?.focus();
-  }, [active, isCodeInputEnabled]);
+    if (!active) return;
+    if (!isCodeInputEnabled) {
+      dismissCodeInput();
+    } else if (!sendAttemptRef.current && !suppressCodeAutoFocusRef.current) {
+      codeInputRef.current?.focus();
+    }
+  }, [active, dismissCodeInput, isCodeInputEnabled]);
 
   const cancelPendingCaptchaSend = useCallback(() => {
     const attempt = sendAttemptRef.current;
@@ -215,14 +232,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       allowPreviousCode: isCodeInputEnabled,
     };
     sendAttemptRef.current = attempt;
+    dismissCodeInput();
     setIsResending(true);
     setIsCodeInputEnabled(false);
     setState({ status: 'initial' });
-    setVerificationCode('');
     try {
       const captchaToken = await takeCaptchaToken();
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       attempt.stage = 'sending';
+      setVerificationCode('');
       await sendCode({ email, ...(captchaToken ? { captchaToken } : {}) });
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       didSendCodeSucceedRef.current = true;
@@ -234,7 +252,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         return;
       }
       setIsApiReady(true);
+      suppressCodeAutoFocusRef.current = false;
       setIsCodeInputEnabled(true);
+      setIsSignupDisabled(false);
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
       // Leaving the CAPTCHA step or changing its target is not a login failure.
@@ -258,10 +278,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       if (errorMessage) {
         Toast.error({ title: errorMessage });
       }
+      if (attempt.stage === 'sending' && isEmailOtpSignupDisabledError(error)) {
+        setIsSignupDisabled(true);
+      }
       setIsApiReady(true);
-      // Only the server can validate an existing code. A failed CAPTCHA or
-      // send request must not prevent the user from submitting one.
+      // Keep existing-code entry available without opening the keyboard over
+      // CAPTCHA troubleshooting guidance, including failures without an error key.
+      suppressCodeAutoFocusRef.current = attempt.stage === 'captcha';
       setIsCodeInputEnabled(true);
+      if (attempt.stage === 'captcha') dismissCodeInput();
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
       return;
@@ -274,6 +299,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     if (!isolatedTest) defaultLogger.referral.page.signupOneKeyID();
   }, [
+    dismissCodeInput,
     email,
     intl,
     isCodeInputEnabled,
@@ -298,6 +324,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     setIsResending(false);
     setIsCodeInputEnabled(false);
     setVerificationCode('');
+    setIsSignupDisabled(false);
     setState({ status: 'initial' });
     setIsApiReady(true);
     setCountdown(0);
@@ -440,6 +467,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       // silently logged in with the flow reported as cancelled. Only the
       // local state update needs the mount guard.
       if (isMountedRef.current) {
+        setIsSignupDisabled(false);
         setState({ status: 'done' });
       }
       if (!isolatedTest) defaultLogger.referral.page.signupOneKeyIDResult(true);
@@ -497,6 +525,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     isAuthActionInProgressRef.current = true;
     try {
       setVerificationCode('');
+      setIsSignupDisabled(false);
       setState({ status: 'initial' });
       await onChooseAnotherSignInMethod();
     } finally {
@@ -520,7 +549,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const otpAutoComplete = platformEnv.isNativeAndroid
     ? 'sms-otp'
     : 'one-time-code';
-
   return (
     <Stack>
       <Dialog.Header>
@@ -568,6 +596,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
                         size="$3.5"
                         color="$iconSubdued"
                         pointerEvents="none"
+                        // The web Icon renders a flex container, which breaks
+                        // onto its own line inside text; keep it inline.
+                        display={
+                          platformEnv.isNative ? undefined : 'inline-flex'
+                        }
                         transform={[{ translateY: 2 }]}
                       />
                     </SizableText>
@@ -608,6 +641,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           autoComplete={platformEnv.isDesktop ? 'off' : otpAutoComplete}
           disabled={!isCodeInputEnabled || state.status === 'done'}
+          editable={isCodeInputEnabled && state.status !== 'done'}
+          onFocus={() => {
+            // Native focus events can arrive after a pending attempt was reset.
+            if (!isCodeInputEnabled || sendAttemptRef.current)
+              dismissCodeInput();
+          }}
           value={verificationCode}
           onChangeText={(value) => {
             if (!isCodeInputEnabled || state.status === 'done') return;
@@ -620,8 +659,20 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           <DevOTPAutoFill email={email} />
         ) : null}
 
+        {isSignupDisabled ? (
+          <SizableText
+            testID="prime-otp-signup-disabled-hint"
+            size="$bodyMd"
+            color="$red9"
+          >
+            {intl.formatMessage({
+              id: ETranslations.onekey_id_email_existing_only__desc,
+            })}
+          </SizableText>
+        ) : null}
+
         {state.errorMessageId ? (
-          <SizableText size="$bodyMd" color="$red9">
+          <SizableText testID="prime-otp-error" size="$bodyMd" color="$red9">
             {intl.formatMessage({
               id: state.errorMessageId,
             })}

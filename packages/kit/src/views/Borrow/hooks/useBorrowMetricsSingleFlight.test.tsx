@@ -175,7 +175,7 @@ describe('Borrow metric request reuse', () => {
     },
   );
 
-  it.each(cases)(
+  it.each([cases[2]])(
     '$name uses a fresh preload snapshot once without extending its TTL',
     async ({ useHook, service, payload, resultField }) => {
       const scopeKey = JSON.stringify([
@@ -207,6 +207,62 @@ describe('Borrow metric request reuse', () => {
 
       await method?.();
       expect(service).toHaveBeenCalledTimes(1);
+      view.unmount();
+    },
+  );
+
+  it.each([cases[0], cases[1]])(
+    '$name keeps the cached result while fetching and then publishes the full fresh result',
+    async ({ useHook, service, payload, resultField, displayField }) => {
+      const scopeKey = JSON.stringify([
+        baseParams.networkId,
+        baseParams.provider,
+        baseParams.marketAddress,
+        baseParams.accountId,
+        true,
+      ]);
+      const oldData =
+        useHook === useBorrowHealthFactor
+          ? {
+              ...healthFactor,
+              alerts: [{ title: { text: 'Old warning' }, badge: 'warning' }],
+            }
+          : payload;
+      const newData =
+        useHook === useBorrowHealthFactor
+          ? {
+              ...healthFactor,
+              alerts: [{ title: { text: 'New warning' }, badge: 'warning' }],
+            }
+          : { ...rewards, title: { text: 'Updated rewards' } };
+      const pending = deferred<typeof newData>();
+      service.mockReturnValueOnce(pending.promise);
+      const snapshot = {
+        scopeKey,
+        state: 'resolved' as const,
+        [resultField]: oldData,
+        resolvedAt: Date.now(),
+      };
+      mockGetCache.mockReturnValue({ data: snapshot, updatedAt: Date.now() });
+      mockResultSnapshot = snapshot;
+      const view = renderHook(() => useHook(baseParams));
+      expect(view.result.current).toMatchObject({ [displayField]: oldData });
+
+      const request = mockPromiseResults.at(-1)?.method();
+      await Promise.resolve();
+      expect(service).toHaveBeenCalledTimes(1);
+      expect(view.result.current).toMatchObject({ [displayField]: oldData });
+
+      pending.resolve(newData);
+      const result = await request;
+      expect(result).toMatchObject({
+        state: 'resolved',
+        [resultField]: newData,
+      });
+      expect(result?.fromFreshCache).not.toBe(true);
+      mockResultSnapshot = result ?? null;
+      view.rerender(undefined);
+      expect(view.result.current).toMatchObject({ [displayField]: newData });
       view.unmount();
     },
   );

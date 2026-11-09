@@ -1,5 +1,8 @@
 import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
-import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapAnalyticsCategory,
+  ESwapSource,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -26,6 +29,8 @@ export class CreateOrderScene extends BaseScene {
     swapProvider,
     swapProviderName,
     createFrom,
+    swapSource,
+    fromRecentTokenPair,
     router,
     slippage,
     quoteToTokenAmount,
@@ -63,6 +68,10 @@ export class CreateOrderScene extends BaseScene {
     feeType: string;
     isFirstTime: boolean;
     createFrom: string;
+    // Entry that opened the trade, from the review analytics context.
+    swapSource?: ESwapSource;
+    // Whether the traded pair is the one last picked from "Recent trades".
+    fromRecentTokenPair: boolean;
     toTokenAmount: string;
     fromTokenAmount: string;
     fromAddress: string;
@@ -102,6 +111,8 @@ export class CreateOrderScene extends BaseScene {
       router,
       slippage,
       createFrom,
+      swapSource,
+      fromRecentTokenPair,
       walletType,
       deviceType,
     };

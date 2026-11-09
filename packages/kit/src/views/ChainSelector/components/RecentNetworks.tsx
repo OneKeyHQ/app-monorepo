@@ -20,18 +20,21 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
+
+import { buildRecentNetworksSwrKey } from './recentNetworksCache';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 function RecentNetworkItem({
   network,
+  label,
   onPressItem,
 }: {
   network: IServerNetwork;
+  label: string;
   onPressItem?: (network: IServerNetwork) => void;
 }) {
   const handlePress = useCallback(() => {
@@ -56,7 +59,7 @@ function RecentNetworkItem({
           size="$bodyMdMedium"
           numberOfLines={1}
         >
-          {network.name}
+          {label}
         </SizableText>
       </XStack>
     </Button>
@@ -82,9 +85,10 @@ function RecentNetworks({
   // the resolved network list to MMKV and skip the cold-start N+1
   // getNetwork round-trips.
   swrKeyScope?: EAppSWRCacheScopes;
-  // Pass wallet/account for account-scoped surfaces (Editable selector).
-  // Omit for account-agnostic surfaces (Pure selector) — that shares a
-  // single slot per scope across callers.
+  // Pass wallet/account for account-scoped surfaces (Editable selector);
+  // see `buildRecentNetworksSwrKey` for how they scope the slot. Omit for
+  // account-agnostic surfaces (Pure selector) — that shares a single slot per
+  // scope across callers.
   walletId?: string;
   accountId?: string;
 }) {
@@ -92,7 +96,7 @@ function RecentNetworks({
 
   const swrKey = useMemo(() => {
     if (!swrKeyScope) return undefined;
-    return swrKeys.recentNetworks({
+    return buildRecentNetworksSwrKey({
       scope: swrKeyScope,
       showAllNetwork,
       walletId,
@@ -102,20 +106,21 @@ function RecentNetworks({
 
   const { result: recentNetworks, run } = usePromiseResult(
     async () => {
-      const networks: IServerNetwork[] = [];
-      const resp = await backgroundApiProxy.serviceNetwork.getRecentNetworks({
-        availableNetworks,
-      });
-      for (const networkId of resp) {
-        try {
-          const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-            networkId,
-          });
-          networks.push(network);
-        } catch (_error) {
-          // ignore
-        }
-      }
+      const networkIds =
+        await backgroundApiProxy.serviceNetwork.getRecentNetworks({
+          availableNetworks,
+        });
+      // One round-trip for all ids instead of one per id: the cached first
+      // paint is replaced by this result, so the shorter the wait the less
+      // chance a stale slot is visible (OK-65230).
+      const { networks: found } =
+        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+          networkIds,
+        });
+      const byId = new Map(found.map((network) => [network.id, network]));
+      const networks = networkIds
+        .map((networkId) => byId.get(networkId))
+        .filter((network): network is IServerNetwork => Boolean(network));
       if (!showAllNetwork) {
         return networks.filter(
           (n) => !networkUtils.isAllNetwork({ networkId: n.id }),
@@ -204,6 +209,13 @@ function RecentNetworks({
           <RecentNetworkItem
             key={network.id}
             network={network}
+            // The preset carries the English name; the list rows localize it
+            // the same way.
+            label={
+              networkUtils.isAllNetwork({ networkId: network.id })
+                ? intl.formatMessage({ id: ETranslations.global_all_networks })
+                : network.name
+            }
             onPressItem={onPressItem}
           />
         ))}

@@ -4,6 +4,9 @@
 // no signal is available — anything else would silently disable the
 // schema-invalidation gate across deploys.
 
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { SWAP_TOKEN_SELECTOR_SNAPSHOT_MAX_CHARS } from '@onekeyhq/shared/src/utils/swapTokenSelectorSnapshotUtils';
+
 import {
   computeEffectiveBuildHash,
   countNonMetaEntries,
@@ -127,6 +130,120 @@ describe('filterDevSafeL2CtxSnapshot', () => {
         },
       }),
     ).toEqual({});
+  });
+
+  it('hydrates complete selector snapshots for display without runtime refresh authority', () => {
+    const scopeKey = `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`;
+    const queryKey = JSON.stringify({ networkId: 'evm--1', keywords: '' });
+    const emptyQueryKey = JSON.stringify({
+      networkId: 'evm--10',
+      keywords: '',
+    });
+    const searchQueryKey = JSON.stringify({
+      networkId: 'evm--1',
+      keywords: 'eth',
+    });
+    const tokens = [
+      {
+        networkId: 'evm--1',
+        contractAddress: '',
+        symbol: 'ETH',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+    ];
+    const entry = {
+      data: tokens,
+      updatedAt: 10,
+      refreshVersion: 5,
+      identityVersion: 3,
+    };
+    expect(
+      filterDevSafeL2CtxSnapshot({
+        [scopeKey]: {
+          version: 1,
+          tokenCatch: {
+            [queryKey]: entry,
+            [emptyQueryKey]: { ...entry, data: [] },
+            [searchQueryKey]: entry,
+          },
+        },
+      }),
+    ).toEqual({
+      [scopeKey]: {
+        version: 1,
+        updatedAt: 10,
+        tokenCatch: {
+          [queryKey]: {
+            data: tokens,
+            updatedAt: 10,
+            identityVersion: 0,
+            persisted: true,
+          },
+          [emptyQueryKey]: {
+            data: [],
+            updatedAt: 10,
+            identityVersion: 0,
+            persisted: true,
+          },
+        },
+      },
+    });
+  });
+
+  it.each([
+    { tokenCatch: {} },
+    { version: 2, tokenCatch: {} },
+    { version: 1 },
+    { version: 1, tokenCatch: [] },
+    { version: 1, tokenCatch: null },
+  ])('rejects incompatible selector snapshot envelopes %j', (value) => {
+    expect(
+      filterDevSafeL2CtxSnapshot({
+        [`store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`]:
+          value,
+      }),
+    ).toEqual({});
+  });
+
+  it('applies selector limits by evicting whole entries before dev hydration', () => {
+    const scopeKey = `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`;
+    const queryKey = JSON.stringify({ networkId: 'evm--1', keywords: '' });
+    const emptyQueryKey = JSON.stringify({
+      networkId: 'evm--10',
+      keywords: '',
+    });
+    const largeToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+      name: 'x'.repeat(SWAP_TOKEN_SELECTOR_SNAPSHOT_MAX_CHARS),
+    };
+    expect(
+      filterDevSafeL2CtxSnapshot({
+        [scopeKey]: {
+          version: 1,
+          tokenCatch: {
+            [queryKey]: { data: [largeToken], updatedAt: 20 },
+            [emptyQueryKey]: { data: [], updatedAt: 10 },
+          },
+        },
+      }),
+    ).toEqual({
+      [scopeKey]: {
+        version: 1,
+        updatedAt: 10,
+        tokenCatch: {
+          [emptyQueryKey]: {
+            data: [],
+            updatedAt: 10,
+            identityVersion: 0,
+            persisted: true,
+          },
+        },
+      },
+    });
   });
 });
 

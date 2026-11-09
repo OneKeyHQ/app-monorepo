@@ -3,6 +3,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPushMessageAckAction,
   ENotificationPushMessageMode,
@@ -31,6 +32,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
+import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import timerUtils from './timerUtils';
@@ -95,6 +97,7 @@ const popToMainRoute = async () => {
 
 export async function navigateToNotificationDetailByLocalParams({
   payload,
+  navigationAction,
   localParams: originalLocalParams,
   getEarnAccount,
 }: {
@@ -102,6 +105,7 @@ export async function navigateToNotificationDetailByLocalParams({
     screen: string;
     params: Record<string, any>;
   };
+  navigationAction?: 'push';
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
 }) {
@@ -114,6 +118,8 @@ export async function navigateToNotificationDetailByLocalParams({
       'navigateToNotificationDetail: payload has no target screen',
     );
   }
+  const isLegacyModalPush =
+    navigationAction === 'push' && screen === ERootRoutes.Modal;
   // Recursively find and merge the deepest params
 
   const localParams = { ...originalLocalParams };
@@ -123,11 +129,28 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
 
-  if (targetParams) {
-    if (targetParams?.networkId) {
+  const hasLocalTemplate =
+    isLegacyModalPush &&
+    Object.values(targetParams || {}).some(
+      (value) => typeof value === 'string' && /\{local_\w+\}/.test(value),
+    );
+
+  if (targetParams && (!isLegacyModalPush || hasLocalTemplate)) {
+    const networkId =
+      typeof targetParams.networkId === 'string'
+        ? targetParams.networkId.replace(
+            /\{local_(\w+)\}/g,
+            (match, param: string) => localParams[param] || match,
+          )
+        : undefined;
+    if (
+      networkId &&
+      !networkId.includes('{local_') &&
+      !networkUtils.isAllNetwork({ networkId })
+    ) {
       const accountInfos = await getEarnAccount({
         accountId: localParams.accountId || '',
-        networkId: targetParams.networkId,
+        networkId,
         indexedAccountId: localParams.indexedAccountId || '',
       });
       if (accountInfos) {
@@ -297,6 +320,37 @@ export async function navigateToNotificationDetailByLocalParams({
       redirectTab();
     }
   } else if (screen === ERootRoutes.Modal) {
+    if (isLegacyModalPush) {
+      if (
+        navigationParams?.screen === EModalRoutes.NotificationsModal &&
+        navigationParams?.params?.screen ===
+          EModalNotificationsRoutes.NotificationList
+      ) {
+        const state = appGlobals.$navigationRef.current?.getState();
+        const currentRoute = state?.routes[state.index ?? 0];
+        const currentModalParams = currentRoute?.params as
+          | { screen?: EModalRoutes }
+          | undefined;
+        const currentModalState = currentRoute?.state;
+        const currentModalRoute =
+          currentModalState?.routes[currentModalState.index ?? 0];
+        if (
+          currentRoute?.name === ERootRoutes.Modal &&
+          (currentModalRoute?.name ?? currentModalParams?.screen) ===
+            EModalRoutes.NotificationsModal
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.UpdateNotificationBadge,
+            undefined,
+          );
+          return;
+        }
+      }
+      appGlobals.$navigationRef.current?.dispatch(
+        StackActions.push(screen, navigationParams),
+      );
+      return;
+    }
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();
     if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
@@ -326,32 +380,147 @@ export interface INavigateToNotificationDetailParams {
 export type INotificationPageNavigationEvent =
   IAppEventBusPayload[EAppEventBusNames.ShowNotificationPageNavigation];
 
-// --- Durable page-navigation delivery -------------------------------------
-// Notification page-navigation (e.g. Perps deep-link) is emitted via
-// appEventBus. On native, the click is processed in the BACKGROUND runtime
-// (system push / cold start) and reaches the foreground via the cross-process
-// bus — but during a cold start the foreground UI handler is mounted LATE, so a
-// plain emit is dropped (the race that broke OK-55681).
-//
-// To make it cold-start safe we register a PERMANENT foreground listener at
-// module load that BUFFERS the latest intent, and let the UI register a
-// processor that drains the buffer whenever it mounts. The intent therefore
-// survives until the UI is ready, regardless of ordering.
+// Foreground page events are buffered after they reach this JS runtime. Native
+// BG legacy and page clicks keep their latest intent in one BG slot:
+// SharedRPC writes made before main installs its observer are not replayed.
 type INotificationPageNavigationProcessor = (
   event: INotificationPageNavigationEvent,
-) => void;
+) => void | Promise<void>;
+type IConsumePendingLegacyNavigation = () => Promise<
+  INotificationPageNavigationEvent | undefined
+>;
+type INotificationPageNavigationRegistration = {
+  processor: INotificationPageNavigationProcessor;
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation;
+  retryCount: number;
+  retryTimer?: ReturnType<typeof setTimeout>;
+};
 
-let notificationPageNavigationProcessor: INotificationPageNavigationProcessor | null =
+const LEGACY_NAVIGATION_RETRY_DELAYS = [250, 1000, 3000];
+
+let notificationPageNavigationRegistration: INotificationPageNavigationRegistration | null =
   null;
 let pendingNotificationPageNavigationEvent: INotificationPageNavigationEvent | null =
   null;
+let pendingLegacyNavigationEvent: INotificationPageNavigationEvent | undefined;
+let pendingTakenLegacyNavigationEvent:
+  | INotificationPageNavigationEvent
+  | undefined;
+let legacyNavigationDrainPromise: Promise<void> | undefined;
+let legacyNavigationDrainDirty = false;
+
+export function takePendingLegacyNavigationEvent() {
+  const pending = pendingLegacyNavigationEvent;
+  pendingLegacyNavigationEvent = undefined;
+  return pending;
+}
+
+function scheduleLegacyNavigationRetry(
+  registration: INotificationPageNavigationRegistration,
+) {
+  if (notificationPageNavigationRegistration !== registration) {
+    return;
+  }
+  legacyNavigationDrainDirty = true;
+  const delay = LEGACY_NAVIGATION_RETRY_DELAYS[registration.retryCount];
+  registration.retryCount += 1;
+  if (delay !== undefined) {
+    registration.retryTimer = setTimeout(() => {
+      if (notificationPageNavigationRegistration !== registration) {
+        return;
+      }
+      registration.retryTimer = undefined;
+      startLegacyNavigationDrain();
+    }, delay);
+  }
+}
+
+async function drainPendingLegacyNavigation() {
+  for (;;) {
+    const registration = notificationPageNavigationRegistration;
+    if (!registration?.consumePendingLegacyNavigation) {
+      return;
+    }
+    let event = pendingTakenLegacyNavigationEvent;
+    if (event) {
+      pendingTakenLegacyNavigationEvent = undefined;
+    } else if (legacyNavigationDrainDirty) {
+      legacyNavigationDrainDirty = false;
+      try {
+        event = await registration.consumePendingLegacyNavigation();
+      } catch (error) {
+        console.error(
+          'Failed to consume pending legacy notification navigation',
+          error,
+        );
+        scheduleLegacyNavigationRetry(registration);
+        return;
+      }
+    } else {
+      return;
+    }
+
+    if (event) {
+      const currentRegistration = notificationPageNavigationRegistration;
+      if (!currentRegistration?.consumePendingLegacyNavigation) {
+        pendingTakenLegacyNavigationEvent = event;
+        return;
+      }
+      try {
+        await currentRegistration.processor(event);
+      } catch (error) {
+        console.error(
+          'Failed to process legacy notification navigation',
+          error,
+        );
+      }
+    }
+  }
+}
+
+function startLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
+  if (
+    legacyNavigationDrainPromise ||
+    !registration?.consumePendingLegacyNavigation ||
+    registration.retryTimer !== undefined ||
+    // The initial attempt can schedule three retries; the fourth failure stops.
+    registration.retryCount > LEGACY_NAVIGATION_RETRY_DELAYS.length ||
+    (!legacyNavigationDrainDirty && !pendingTakenLegacyNavigationEvent)
+  ) {
+    return;
+  }
+  legacyNavigationDrainPromise = Promise.resolve()
+    .then(drainPendingLegacyNavigation)
+    .finally(() => {
+      legacyNavigationDrainPromise = undefined;
+      startLegacyNavigationDrain();
+    });
+}
+
+function requestLegacyNavigationDrain() {
+  const registration = notificationPageNavigationRegistration;
+  if (registration) {
+    registration.retryCount = 0;
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
+  }
+  legacyNavigationDrainDirty = true;
+  startLegacyNavigationDrain();
+}
 
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
-  if (notificationPageNavigationProcessor) {
+  if (event.navigationAction === 'push' || event.isNativeBackgroundNavigation) {
+    requestLegacyNavigationDrain();
+    return;
+  }
+  if (notificationPageNavigationRegistration) {
     pendingNotificationPageNavigationEvent = null;
-    notificationPageNavigationProcessor(event);
+    void notificationPageNavigationRegistration.processor(event);
     return;
   }
   pendingNotificationPageNavigationEvent = event;
@@ -359,16 +528,34 @@ function deliverNotificationPageNavigation(
 
 export function registerNotificationPageNavigationProcessor(
   processor: INotificationPageNavigationProcessor,
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation,
 ) {
-  notificationPageNavigationProcessor = processor;
+  const previousRegistration = notificationPageNavigationRegistration;
+  if (previousRegistration?.retryTimer !== undefined) {
+    clearTimeout(previousRegistration.retryTimer);
+    previousRegistration.retryTimer = undefined;
+  }
+  const registration: INotificationPageNavigationRegistration = {
+    processor,
+    consumePendingLegacyNavigation,
+    retryCount: 0,
+  };
+  notificationPageNavigationRegistration = registration;
   const pending = pendingNotificationPageNavigationEvent;
   if (pending) {
     pendingNotificationPageNavigationEvent = null;
-    processor(pending);
+    void processor(pending);
+  }
+  if (consumePendingLegacyNavigation) {
+    requestLegacyNavigationDrain();
   }
   return () => {
-    if (notificationPageNavigationProcessor === processor) {
-      notificationPageNavigationProcessor = null;
+    if (registration.retryTimer !== undefined) {
+      clearTimeout(registration.retryTimer);
+      registration.retryTimer = undefined;
+    }
+    if (notificationPageNavigationRegistration === registration) {
+      notificationPageNavigationRegistration = null;
     }
   };
 }
@@ -463,10 +650,19 @@ export function parseNotificationPayload(
           // display restrictions (hides attacker-supplied title, etc.).
           leaf.source = 'notification';
         }
-        appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+        const event: INotificationPageNavigationEvent = {
           payload: payloadObj,
           extras,
-        });
+        };
+        if (platformEnv.isNative && platformEnv.isNativeBackgroundThread) {
+          // Main treats this broadcast only as a wake for the BG-owned slot.
+          event.isNativeBackgroundNavigation = true;
+          pendingLegacyNavigationEvent = event;
+        }
+        appEventBus.emit(
+          EAppEventBusNames.ShowNotificationPageNavigation,
+          event,
+        );
         return true;
       } catch (_error) {
         fallbackHandler();
@@ -581,6 +777,29 @@ export function parseNotificationPayload(
         }
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
+        if (action === ENotificationCommand.openSupportConversation) {
+          const { conversationId } = mergedData;
+          if (
+            conversationId !== undefined &&
+            conversationId !== null &&
+            typeof conversationId !== 'string'
+          ) {
+            fallbackHandler();
+            return false;
+          }
+          void appGlobals.$backgroundApiProxy.serviceNotification
+            .requestOpenSupportConversation({
+              sourceNodeId: platformEnv.isExtensionUi
+                ? appEventBus.nodeId
+                : undefined,
+              conversationId:
+                typeof conversationId === 'string'
+                  ? conversationId.trim() || undefined
+                  : undefined,
+            })
+            .catch(fallbackHandler);
+          return true;
+        }
         appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
           action,
           data: mergedData,
@@ -727,7 +946,14 @@ async function navigateToNotificationDetail({
       screens: routes,
       routeParams: params,
     });
-    if (
+    if (platformEnv.isNativeBackgroundThread) {
+      const event: INotificationPageNavigationEvent = {
+        payload: modalParams,
+        navigationAction: 'push',
+      };
+      pendingLegacyNavigationEvent = event;
+      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
+    } else if (
       navigation &&
       routes?.length === 3 &&
       routes?.[0] === ERootRoutes.Modal

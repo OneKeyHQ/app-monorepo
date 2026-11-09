@@ -8,6 +8,7 @@ import {
   Button,
   Divider,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   View,
@@ -24,7 +25,11 @@ import {
   prepareMarketSwapEntry,
   prepareStockSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import {
+  EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -42,7 +47,20 @@ import {
   resolveMarketMobileTradeDestination,
 } from '../../utils/marketMobileDetailKind';
 
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
+
+function getPortfolioPositionValue(item: IMarketAccountPortfolioDisplayItem) {
+  const amount = new BigNumber(item.amount || '0');
+  if (amount.isZero()) return new BigNumber(0);
+  const totalPrice = new BigNumber(item.totalPrice || NaN);
+  return totalPrice.isFinite()
+    ? totalPrice
+    : new BigNumber(item.tokenPrice || '0').multipliedBy(amount);
+}
 
 function TradeButton({
   swapToken,
@@ -95,9 +113,12 @@ function TradeButton({
   );
 }
 
-function MobileWebTradeActions(
-  props: ComponentProps<typeof SwapPanelFooterButtons>,
-) {
+function MobileWebTradeActions({
+  executionReady,
+  ...props
+}: ComponentProps<typeof SwapPanelFooterButtons> & {
+  executionReady: boolean;
+}) {
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     showConnectWalletModalInDappMode: true,
@@ -108,6 +129,7 @@ function MobileWebTradeActions(
   return (
     <SwapPanelFooterButtons
       {...props}
+      tradeDisabled={noAccount ? !executionReady : props.tradeDisabled}
       onConnect={noAccount ? showAccountSelector : undefined}
     />
   );
@@ -117,6 +139,9 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  isPortfolioPending = false,
+  isPortfolioIncomplete = false,
+  onRefreshPortfolio,
   onShowSwapDialog,
   executionReady = true,
   footerMode = 'buy-sell',
@@ -128,6 +153,9 @@ export function SwapPanel({
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
+  onRefreshPortfolio?: () => void;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
@@ -146,7 +174,47 @@ export function SwapPanel({
   const tabBarHeight = usePageFooterTabBarHeight();
   const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const myPositionInfo = useMemo(() => {
+    if (platformEnv.isNative && detailKind === 'stock') {
+      const positions = (portfolioData ?? []).filter((item) =>
+        isTradePositionVisible({
+          balance: item.amount,
+          isStock: true,
+          fiatValue: item.totalPrice,
+          currency: item.currency ?? 'usd',
+          currencyMap,
+        }),
+      );
+      const value = positions.reduce(
+        (sum, item) => sum.plus(getPortfolioPositionValue(item)),
+        new BigNumber(0),
+      );
+      const isPnlSupported =
+        positions.length > 0 &&
+        positions.every(
+          (item) =>
+            item.pnl?.isPnlSupported &&
+            new BigNumber(item.pnl.unrealizedPnlUsd).isFinite(),
+        );
+      const unrealizedPnl = positions.reduce(
+        (sum, item) => sum.plus(item.pnl?.unrealizedPnlUsd ?? 0),
+        new BigNumber(0),
+      );
+      // Unrealized PNL is measured against the remaining position cost.
+      // Summing or averaging the per-token percentages uses the wrong base.
+      const cost = value.minus(unrealizedPnl);
+      return {
+        formattedValue: value.toFixed(),
+        pnl: {
+          isPnlSupported,
+          unrealizedPnlUsd: unrealizedPnl.toFixed(),
+          unrealizedPnlPercent: cost.gt(0)
+            ? unrealizedPnl.dividedBy(cost).multipliedBy(100).toFixed(2)
+            : undefined,
+        },
+      };
+    }
     const positionInfo = portfolioData?.find(
       (item) =>
         (!item.networkId || item.networkId === swapToken.networkId) &&
@@ -160,12 +228,8 @@ export function SwapPanel({
         pnl: undefined,
       };
     }
-    const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
-    const totalPriceBN = new BigNumber(positionInfo?.totalPrice || NaN);
-    const valueBN = totalPriceBN.isFinite()
-      ? totalPriceBN
-      : tokenPriceBN.multipliedBy(amountBN);
+    const valueBN = getPortfolioPositionValue(positionInfo);
     const isZero = amountBN.eq(0);
     const formattedValue = isZero ? '0.00' : valueBN.toFixed();
     const formattedAmount = isZero ? '0.00' : amountBN.toFixed();
@@ -175,13 +239,27 @@ export function SwapPanel({
       isZero,
       pnl: positionInfo.pnl,
     };
-  }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
+  }, [
+    currencyMap,
+    detailKind,
+    portfolioData,
+    swapToken.contractAddress,
+    swapToken.networkId,
+  ]);
+
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapToken.isStock ? '' : swapToken.networkId,
+    true,
+    swapToken.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
 
   const handleTrade = useCallback(
     (direction: 'from' | 'to') => {
       // Swap needs the token's decimals; the buttons are disabled until then,
       // but Android's gesture layer can still deliver a tap.
-      if (!executionReady) {
+      if (!executionReady || (!swapToken.isStock && !speedConfigReady)) {
         return;
       }
       const tradeDestination = swapToken.isStock
@@ -195,7 +273,10 @@ export function SwapPanel({
       const swapEntry =
         tradeDestination === 'stock'
           ? prepareStockSwapEntry(entryParams)
-          : prepareMarketSwapEntry(entryParams);
+          : prepareMarketSwapEntry({
+              ...entryParams,
+              defaultTokens,
+            });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -208,7 +289,14 @@ export function SwapPanel({
         },
       });
     },
-    [detailKind, executionReady, swapToken, navigation],
+    [
+      detailKind,
+      executionReady,
+      speedConfigReady,
+      defaultTokens,
+      swapToken,
+      navigation,
+    ],
   );
 
   const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
@@ -234,7 +322,11 @@ export function SwapPanel({
   if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
-    const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
+    const hasPnl =
+      !isPortfolioPending &&
+      !isPortfolioIncomplete &&
+      pnl?.isPnlSupported &&
+      !unrealizedBN.isNaN();
     const pnlIsPositive = hasPnl && unrealizedBN.gt(0);
     const pnlIsNegative = hasPnl && unrealizedBN.lt(0);
 
@@ -251,53 +343,66 @@ export function SwapPanel({
       onBuy: handleBuy,
       onSell: handleSell,
       onPerps,
-      tradeDisabled: !executionReady,
+      tradeDisabled:
+        !executionReady || (!swapToken.isStock && !speedConfigReady),
       perpsDisabled,
     };
+    let positionValue = (
+      <Currency
+        size="$bodyMdMedium"
+        formatter="value"
+        sourceCurrency={USD_CURRENCY_ID}
+      >
+        {myPositionInfo.formattedValue}
+      </Currency>
+    );
+    if (isPortfolioPending) {
+      positionValue = <Skeleton width="$12" height="$5" />;
+    } else if (isPortfolioIncomplete) {
+      positionValue = (
+        <>
+          <SizableText size="$bodyMdMedium">—</SizableText>
+          <Button
+            testID="market-stock-position-retry"
+            size="small"
+            variant="tertiary"
+            onPress={onRefreshPortfolio}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </>
+      );
+    }
 
     return (
       <YStack>
         <Divider />
         <XStack
           px="$5"
-          pt="$2.5"
+          // 10pt footer padding plus the row's own 4pt.
+          pt="$3.5"
+          pb="$1"
           justifyContent="space-between"
           alignItems="center"
         >
-          <XStack gap="$2" alignItems="center">
-            <SizableText size="$bodySmMedium">
+          <XStack gap="$1" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
-            {myPositionInfo.isZero ? (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                0.00
-              </Currency>
-            ) : (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                {myPositionInfo.formattedValue}
-              </Currency>
-            )}
+            {positionValue}
           </XStack>
           {hasPnl ? (
             <XStack gap="$1" alignItems="center">
               <XStack alignItems="center">
                 {pnlPrefix ? (
-                  <SizableText size="$bodySmMedium" color={pnlColor}>
+                  <SizableText size="$bodyMdMedium" color={pnlColor}>
                     {pnlPrefix}
                   </SizableText>
                 ) : null}
                 <Currency
-                  size="$bodySmMedium"
+                  size="$bodyMdMedium"
                   color={pnlColor}
                   formatter="value"
                   sourceCurrency={USD_CURRENCY_ID}
@@ -305,9 +410,11 @@ export function SwapPanel({
                   {unrealizedBN.abs().toFixed()}
                 </Currency>
               </XStack>
-              <SizableText size="$bodySm" color={pnlColor}>
-                {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
-              </SizableText>
+              {pnl?.unrealizedPnlPercent !== undefined ? (
+                <SizableText size="$bodyMd" color={pnlColor}>
+                  {`(${pnl.unrealizedPnlPercent}%)`}
+                </SizableText>
+              ) : null}
             </XStack>
           ) : null}
         </XStack>
@@ -320,7 +427,10 @@ export function SwapPanel({
               }}
               enabledNum={[0]}
             >
-              <MobileWebTradeActions {...footerButtonProps} />
+              <MobileWebTradeActions
+                {...footerButtonProps}
+                executionReady={executionReady}
+              />
             </AccountSelectorProviderMirror>
           ) : (
             <SwapPanelFooterButtons {...footerButtonProps} />

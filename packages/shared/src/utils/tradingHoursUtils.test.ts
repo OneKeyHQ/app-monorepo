@@ -234,25 +234,65 @@ describe('usMarketSessionKeyFromBackendSession', () => {
 });
 
 describe('resolveUSMarketStatusVariant', () => {
-  const ondo = 'ondo';
-
-  it('returns undefined for non-Ondo issuers regardless of signals', () => {
+  it('resolves market status without a token issuer', () => {
     expect(
       resolveUSMarketStatusVariant({
-        source: 'xstock',
         isOpen: true,
         status: status('REGULAR'),
+        now: new Date('2026-01-15T15:00:00Z'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Open);
+    expect(
+      resolveUSMarketStatusVariant({ isOpen: false, status: status('CLOSED') }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+  });
+
+  it('shows no US status for a non-US listing', () => {
+    // The stock feed reports a US session for HK listings too.
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: false,
+        isOpen: true,
+        status: status('OVERNIGHT'),
       }),
     ).toBeUndefined();
     expect(
-      resolveUSMarketStatusVariant({ isOpen: false, status: status('CLOSED') }),
+      resolveUSMarketStatusVariant({
+        isUSListing: false,
+        isOpen: false,
+        isPaused: true,
+      }),
     ).toBeUndefined();
   });
 
-  it('returns undefined for Ondo tokens without stock signals', () => {
-    expect(resolveUSMarketStatusVariant({ source: ondo })).toBeUndefined();
+  it('reads a US listing as closed through a market-wide closure', () => {
+    // A retained detail can still say isOpen while the market has closed;
+    // the listing itself is never the 7×24 instrument Open247 describes.
     expect(
-      resolveUSMarketStatusVariant({ source: ondo, status: status('REGULAR') }),
+      resolveUSMarketStatusVariant({
+        isUSListing: true,
+        isOpen: true,
+        status: status('CLOSED'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+    // Clock fallback: Saturday noon New York, status unavailable.
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: true,
+        isOpen: true,
+        now: new Date('2026-01-17T17:00:00Z'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+    // Tokens keep the 7×24 reading.
+    expect(
+      resolveUSMarketStatusVariant({ isOpen: true, status: status('CLOSED') }),
+    ).toBe(EUSMarketStatusVariant.Open247);
+  });
+
+  it('returns undefined without stock signals', () => {
+    expect(resolveUSMarketStatusVariant({})).toBeUndefined();
+    expect(
+      resolveUSMarketStatusVariant({ status: status('REGULAR') }),
     ).toBeUndefined();
   });
 
@@ -263,7 +303,6 @@ describe('resolveUSMarketStatusVariant', () => {
   it('reports halted whenever the stock is paused, regardless of isOpen', () => {
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: false,
         isPaused: true,
         status: status('REGULAR'),
@@ -274,7 +313,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // whether it can trade, so a tradable-but-paused instrument reads Halted.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         isPaused: true,
         status: status('REGULAR'),
@@ -288,7 +326,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // not a per-stock halt, so the awaiting-open chip wins.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         isPaused: true,
         status: status('PRE_MARKET'),
@@ -302,7 +339,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // minutes — only isOpen === true instruments take the gap treatment.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: false,
         isPaused: true,
         status: status('PRE_MARKET'),
@@ -311,7 +347,6 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.Halted);
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isPaused: true,
         status: status('PRE_MARKET'),
         now: GAP_NOW,
@@ -325,7 +360,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // oscillate Halted ↔ 24/7 several times per closed day).
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         isPaused: true,
         status: status('CLOSED'),
@@ -340,7 +374,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // happening, so the halt must not be suppressed.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         isPaused: true,
         status: status('CLOSED'),
@@ -352,7 +385,6 @@ describe('resolveUSMarketStatusVariant', () => {
   it('honors the per-stock closed signal', () => {
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: false,
         status: status('REGULAR'),
       }),
@@ -362,7 +394,6 @@ describe('resolveUSMarketStatusVariant', () => {
   it('refines an open instrument with the market-wide session', () => {
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('PRE_MARKET'),
         now: midSessionNow,
@@ -370,7 +401,6 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.PreMarket);
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('REGULAR'),
         now: midSessionNow,
@@ -378,7 +408,6 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.Open);
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('POST_MARKET'),
         now: midSessionNow,
@@ -386,7 +415,6 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.PostMarket);
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('OVERNIGHT'),
         now: midSessionNow,
@@ -399,7 +427,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // instrument — surface the "24/7" chip instead of a discouraging Closed.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('CLOSED'),
       }),
@@ -410,7 +437,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // Clock gap overrides the backend session refinement…
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('PRE_MARKET'),
         now: GAP_NOW,
@@ -419,7 +445,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // …and applies on the pure clock fallback as well.
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         now: GAP_NOW,
       }),
@@ -432,7 +457,6 @@ describe('resolveUSMarketStatusVariant', () => {
     const cycleEdgeGapNow = new Date('2026-01-16T08:58:00Z');
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('OVERNIGHT'),
         now: cycleEdgeGapNow,
@@ -440,7 +464,6 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.AwaitingOpen);
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         now: cycleEdgeGapNow,
       }),
@@ -452,7 +475,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // open through it → the 7×24 chip
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         status: status('REGULAR', true),
         now: new Date('2026-01-17T15:00:00Z'),
@@ -461,7 +483,6 @@ describe('resolveUSMarketStatusVariant', () => {
     // Thu 2026-01-15 15:00 UTC = 10:00 EST → regular session chip
     expect(
       resolveUSMarketStatusVariant({
-        source: ondo,
         isOpen: true,
         now: new Date('2026-01-15T15:00:00Z'),
       }),

@@ -11,7 +11,9 @@ import {
   getFillDirectionDisplayInfo,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
+  getPerpFillDirectionType,
   getTwapHistoryEventTimeMs,
+  getTwapSideInfo,
   getVisibleSpotHoldingsCount,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
@@ -24,6 +26,10 @@ describe('fill direction translations', () => {
     [ETranslations.perp_short]: '做空',
     [ETranslations.perp_order_close_long]: '平多',
     [ETranslations.perp_order_close_short]: '平空',
+    [ETranslations.perp_trade_long_to_short__title]: '多转空',
+    [ETranslations.perp_trade_short_to_long__title]: '空转多',
+    [ETranslations.global_buy]: '买入',
+    [ETranslations.global_sell]: '卖出',
   };
   const intl = createIntl(
     {
@@ -67,8 +73,30 @@ describe('fill direction translations', () => {
   });
 
   it.each([
-    ['Long > Short', 'A', '$red11'],
-    ['Short > Long', 'B', '$green11'],
+    ['Long > Short', 'A', '多转空', '$red11'],
+    ['Short > Long', 'B', '空转多', '$green11'],
+    [' long > SHORT ', 'A', '多转空', '$red11'],
+    [' short > LONG ', 'B', '空转多', '$green11'],
+  ])(
+    'localizes the reversal %s without reclassifying it',
+    (dir, side, text, color) => {
+      expect(
+        getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+      ).toEqual({ text, color });
+      expect(getPerpFillDirectionType(dir)).toBe('unknown');
+    },
+  );
+
+  it.each([
+    ['Long > Short', 'A', '卖出', '$red11'],
+    ['Short > Long', 'B', '买入', '$green11'],
+  ])('preserves spot buy/sell display for %s', (dir, side, text, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: '@107', dir, side }, intl }),
+    ).toEqual({ text, color });
+  });
+
+  it.each([
     ['Liquidated Cross Long', 'A', '$red11'],
     ['Liquidated Isolated Long', 'A', '$red11'],
     ['Liquidated Cross Short', 'B', '$green11'],
@@ -78,6 +106,58 @@ describe('fill direction translations', () => {
     expect(
       getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
     ).toEqual({ text: dir, color });
+  });
+});
+
+describe('TWAP order direction translations', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.global_buy]: 'Buy',
+    [ETranslations.global_sell]: 'Sell',
+    [ETranslations.perp_long]: 'Long',
+    [ETranslations.perp_short]: 'Short',
+    [ETranslations.perp_order_close_long]: 'Close Long',
+    [ETranslations.perp_order_close_short]: 'Close Short',
+  };
+  const intl = createIntl(
+    {
+      locale: 'en-US',
+      messages,
+    },
+    createIntlCache(),
+  );
+
+  describe.each(['@107', 'PURR/USDC'])('spot instrument %s', (coin) => {
+    it.each([
+      ['B', false, 'Buy', '$green11'],
+      ['A', false, 'Sell', '$red11'],
+      ['B', true, 'Buy', '$green11'],
+      ['A', true, 'Sell', '$red11'],
+    ] as const)(
+      'shows side=%s reduceOnly=%s as %s',
+      (side, reduceOnly, text, color) => {
+        expect(getTwapSideInfo({ coin, side, reduceOnly }, intl)).toEqual({
+          text,
+          color,
+        });
+      },
+    );
+  });
+
+  describe.each(['BTC', 'xyz:TSLA'])('perp instrument %s', (coin) => {
+    it.each([
+      ['B', false, 'Long', '$green11'],
+      ['A', false, 'Short', '$red11'],
+      ['B', true, 'Close Short', '$green11'],
+      ['A', true, 'Close Long', '$red11'],
+    ] as const)(
+      'preserves side=%s reduceOnly=%s as %s',
+      (side, reduceOnly, text, color) => {
+        expect(getTwapSideInfo({ coin, side, reduceOnly }, intl)).toEqual({
+          text,
+          color,
+        });
+      },
+    );
   });
 });
 

@@ -1,10 +1,13 @@
 import {
   createContext,
+  forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,8 +17,11 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { Dialog, Toast } from '@onekeyhq/components';
-import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog, DialogContainer, Toast } from '@onekeyhq/components';
+import type {
+  IDialogContainerProps,
+  IDialogInstance,
+} from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import {
   appUpdatePersistAtom,
@@ -34,6 +40,7 @@ import type {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -45,6 +52,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
+import {
+  markPendingContactSupportHandoff,
+  useForceUpdateContactSupport,
+} from '../hooks/useForceUpdateContactSupport';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
 
@@ -265,15 +276,32 @@ function useFeatures(): IFeaturedItem[] {
 function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
+  onLockChange,
+  onSupportOpen,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
+  onLockChange?: (locked: boolean) => void;
+  onSupportOpen?: () => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
   const features = useFeatures();
+  const {
+    updateInfo,
+    isForceUpdate: isLiveLocked,
+    handleContactSupport,
+  } = useForceUpdateContactSupport({
+    initialForceUpdate: isLocked,
+    enabled: isPreInstall && !isPreview,
+  });
+
+  useEffect(() => {
+    onLockChange?.(isLiveLocked);
+  }, [isLiveLocked, onLockChange]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeFeature = features[activeIndex] ?? features[0];
@@ -286,15 +314,53 @@ function FeaturedChangelogContent({
 
   const { ctaText, onCtaPress } = useFeaturedCta({
     isPreInstall,
-    isLocked,
+    isLocked: isLiveLocked,
     activeFeature,
     hasNext: activeIndex < features.length - 1,
     onNext,
     closeDialog,
   });
 
-  // Drive an explicit pixel height on the dialog content. The dialog frame on
-  // desktop (TMDialog.Content) doesn't transition auto-height when child layout
+  const handleContactSupportPress = useCallback(async () => {
+    if (platformEnv.isNative) {
+      // On Native, Dialog.show renders inside FULL_WINDOW_OVERLAY_PORTAL above
+      // React Navigation. Hand the force-update lock and support-polling state
+      // off to UpdatePreview so the WebViewModal opened by showIntercom()
+      // renders on top and UpdatePreview continues polling while Intercom is open.
+      markPendingContactSupportHandoff();
+      const release = acquireDeferredGuideBlocker();
+      try {
+        await closeDialog();
+        navigation.pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.UpdatePreview,
+          params: {
+            latestVersion: updateInfo?.latestVersion,
+            isForceUpdate: isLiveLocked,
+          },
+        });
+      } finally {
+        release();
+      }
+      // Allow the AppUpdateModal -> UpdatePreview stack to commit before
+      // openUrlByWebview navigates to WebViewModal inside ERootRoutes.Modal.
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 50);
+      });
+    } else {
+      onSupportOpen?.();
+    }
+    await handleContactSupport();
+  }, [
+    closeDialog,
+    handleContactSupport,
+    isLiveLocked,
+    navigation,
+    onSupportOpen,
+    updateInfo?.latestVersion,
+  ]);
+
+  // Drive an explicit pixel height on the dialog content. The centered dialog
+  // card on desktop doesn't transition auto-height when child layout
   // changes, so we give it a single child with a Reanimated-driven height that
   // smoothly animates per frame, and the frame's natural height tracks it.
   const totalCarouselHeight = useSharedValue(0);
@@ -335,7 +401,7 @@ function FeaturedChangelogContent({
         ref={carouselRef}
         features={features}
         badgeText={badgeText}
-        showCloseButton={!isLocked}
+        showCloseButton={!isLiveLocked}
         onClose={() => void closeDialog()}
         onActiveFeatureChange={onActiveFeatureChange}
         totalHeight={totalCarouselHeight}
@@ -343,7 +409,9 @@ function FeaturedChangelogContent({
       <FeaturedFooter
         ctaText={ctaText}
         onCtaPress={() => void onCtaPress()}
-        showFullChangelog={Boolean(!isLocked && !isPreview)}
+        showFullChangelog={Boolean(!isLiveLocked && !isPreview)}
+        showContactSupport={Boolean(isLiveLocked && !isPreview)}
+        onContactSupportPress={() => void handleContactSupportPress()}
         isPreInstall={isPreInstall}
         closeDialog={closeDialog}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -351,6 +419,63 @@ function FeaturedChangelogContent({
     </Animated.View>
   );
 }
+
+interface IFeaturedDialogState {
+  isLocked: boolean;
+  isSupportOpen: boolean;
+}
+
+function createFeaturedDialogStore(initial: IFeaturedDialogState) {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set: (patch: Partial<IFeaturedDialogState>) => {
+      const next = { ...state, ...patch };
+      if (
+        next.isLocked === state.isLocked &&
+        next.isSupportOpen === state.isSupportOpen
+      ) {
+        return;
+      }
+      state = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+type IFeaturedDialogStore = ReturnType<typeof createFeaturedDialogStore>;
+
+// Dialog.show props are fixed at creation, so the dismissal switches are
+// rendered here from the live lock: a force strategy that arrives after the
+// dialog opened must close overlay/drag/system-close entry points too.
+const FeaturedChangelogDialogContainer = forwardRef<
+  IDialogInstance,
+  IDialogContainerProps & { store: IFeaturedDialogStore }
+>(function FeaturedChangelogDialogContainer({ store, ...props }, ref) {
+  const { isLocked, isSupportOpen } = useSyncExternalStore(
+    store.subscribe,
+    store.get,
+  );
+  return (
+    <DialogContainer
+      ref={ref}
+      {...props}
+      dismissOnOverlayPress={!isLocked}
+      disableDrag={isLocked}
+      disableSystemClose={isLocked}
+      // Keep keyboard focus inside the blocker on desktop/web, but release it
+      // once the in-page Intercom messenger opens so its input can take focus.
+      trapFocus={platformEnv.isNative ? false : !isSupportOpen}
+    />
+  );
+});
 
 export function showFeaturedChangelogDialog(
   params: IShowFeaturedChangelogDialogParams = {},
@@ -375,6 +500,11 @@ export function showFeaturedChangelogDialog(
     : !!atomInfo &&
       isForceUpdateStrategy(atomInfo.updateStrategy) &&
       isPreInstall;
+  const isLockedRef = { current: isLocked };
+  const dialogStore = createFeaturedDialogStore({
+    isLocked,
+    isSupportOpen: false,
+  });
 
   const mountTime = Date.now();
 
@@ -383,25 +513,44 @@ export function showFeaturedChangelogDialog(
     current: undefined,
   };
   const closeDialog = async () => {
-    await instanceRef.current?.close();
+    await instanceRef.current?.close({ flag: 'programmatic' });
   };
 
   const dialogInstance = Dialog.show({
-    showFooter: false,
-    showHeader: false,
-    dismissOnOverlayPress: !isLocked,
-    disableDrag: isLocked,
-    disableSystemClose: isLocked,
-    floatingPanelProps: { width: 480, overflow: 'hidden' },
-    renderContent: (
-      <FeaturedChangelogPreviewContext.Provider value={previewData}>
-        <FeaturedChangelogContent
-          isPreInstall={isPreInstall}
-          isLocked={isLocked}
-          closeDialog={closeDialog}
-        />
-      </FeaturedChangelogPreviewContext.Provider>
+    // Block dismissal at the source while locked: on native the sheet animates
+    // closed before onBeforeClose runs, so the guard alone cannot keep it open.
+    // Once support unlocks the device, the close button reappears instead.
+    // A custom container gets only the mount wiring (close, exit, guard) from
+    // Dialog.show, so every presentational prop is passed to it directly.
+    dialogContainer: ({ ref }) => (
+      <FeaturedChangelogDialogContainer
+        ref={ref}
+        store={dialogStore}
+        showFooter={false}
+        showHeader={false}
+        floatingPanelProps={{ width: 480, overflow: 'hidden' }}
+        renderContent={
+          <FeaturedChangelogPreviewContext.Provider value={previewData}>
+            <FeaturedChangelogContent
+              isPreInstall={isPreInstall}
+              isLocked={isLocked}
+              onLockChange={(nextLocked) => {
+                isLockedRef.current = nextLocked;
+                dialogStore.set({ isLocked: nextLocked });
+              }}
+              onSupportOpen={() => {
+                dialogStore.set({ isSupportOpen: true });
+              }}
+              closeDialog={closeDialog}
+            />
+          </FeaturedChangelogPreviewContext.Provider>
+        }
+        // Dialog.show's close forwarder runs alongside this no-op.
+        onClose={async () => undefined}
+      />
     ),
+    onBeforeClose: (extra) =>
+      extra?.flag === 'programmatic' || !isLockedRef.current,
     onClose: async () => {
       // Preview mode must stay side-effect-free: whatsNewClosed is
       // @LogToServer (a real analytics event), so skipping it keeps ops

@@ -7,6 +7,66 @@ import {
 
 describe('selected desktop app shell URL', () => {
   it.each([
+    ['http://localhost:3001/', 'http://localhost:3001/market'],
+    ['http://localhost:3001/', 'http://localhost:3001/market/stock/BRK.B'],
+    [
+      'http://localhost:3001/',
+      'http://localhost:3001/market/stock/JNJ?stockPreviewSymbol=JNJ',
+    ],
+    ['http://127.0.0.1:3001/', 'http://127.0.0.1:3001/swap'],
+    ['http://[::1]:3001/', 'http://[::1]:3001/market'],
+    ['https://localhost:3001/', 'https://localhost:3001/market'],
+  ])(
+    'allows dev reloads only for an observed same-document route',
+    (selected, frame) => {
+      expect(isTrustedMainWindowUrl(selected, frame, undefined, true)).toBe(
+        false,
+      );
+      expect(isTrustedMainWindowUrl(selected, frame, frame, true)).toBe(true);
+    },
+  );
+
+  it.each([
+    ['http://localhost:3001/', 'http://localhost:3002/market'],
+    ['http://localhost:3001/', 'https://localhost:3001/market'],
+    ['http://localhost:3001/', 'http://127.0.0.1:3001/market'],
+    ['http://localhost:3001/', 'http://localhost.evil.example:3001/market'],
+    ['http://localhost:3001/', 'https://evil.example/market'],
+    ['https://app.onekey.so/', 'https://app.onekey.so/market'],
+    ['http://localhost:3001/', 'not a URL'],
+  ])(
+    'keeps dev-server trust scoped to the selected local origin',
+    (selected, frame) => {
+      expect(isTrustedMainWindowUrl(selected, frame, frame, true)).toBe(false);
+    },
+  );
+
+  it.each([
+    '/static/js-sdk/iframe.html',
+    '/static/other.htm',
+    '/market/other.HTML',
+    '/market/other%2ehtml',
+    '/?render=tray',
+    '/market?render=tray',
+    '/market?render=tray&render=main',
+  ])('rejects non-app documents and tray selection: %s', (path) => {
+    const selected = 'http://localhost:3001/';
+    const frame = new URL(path, selected).href;
+    expect(isTrustedMainWindowUrl(selected, frame, frame, true)).toBe(false);
+  });
+
+  it('does not carry a previously observed route into a different document', () => {
+    expect(
+      isTrustedMainWindowUrl(
+        'http://localhost:3001/',
+        'http://localhost:3001/static/js-sdk/iframe.html',
+        'http://localhost:3001/market',
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
     [
       'file:///opt/onekey/index.html',
       'file:///opt/onekey/index.html#/home',

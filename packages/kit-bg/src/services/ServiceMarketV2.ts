@@ -11,7 +11,8 @@ import {
   DEFAULT_MARKET_STOCK_SORT_TYPE,
   MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -44,6 +45,7 @@ import type {
   IMarketBannerTokenListResponse,
   IMarketBasicConfigResponse,
   IMarketChainsResponse,
+  IMarketHighlight,
   IMarketPerpsTokenListData,
   IMarketPerpsTokenListResponse,
   IMarketStockDetail,
@@ -346,8 +348,11 @@ class ServiceMarketV2 extends ServiceBase {
     return this.memoizedFetchMarketChains();
   }
 
+  // Category names in the config are localized by the server. Some language
+  // pickers (e.g. onboarding) switch locale without restarting the app, so the
+  // locale must be part of the cache key.
   private memoizedFetchMarketBasicConfig = memoizee(
-    async () => {
+    async (locale: string, autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -355,6 +360,8 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
+          ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
       return response.data;
@@ -366,13 +373,22 @@ class ServiceMarketV2 extends ServiceBase {
   );
 
   @backgroundMethod()
-  async fetchMarketBasicConfig() {
+  async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
+    const locale = await this._getMarketTokenBatchCacheLocale();
     try {
-      return await this.memoizedFetchMarketBasicConfig();
+      return await this.memoizedFetchMarketBasicConfig(
+        locale,
+        options?.autoHandleError,
+      );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.clear();
+      void this.memoizedFetchMarketBasicConfig.delete(
+        locale,
+        options?.autoHandleError,
+      );
+      if (options?.autoHandleError === false)
+        errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
   }
@@ -634,35 +650,45 @@ class ServiceMarketV2 extends ServiceBase {
 
     const { data } = response.data;
 
-    if (!data?.list) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
-        {
-          requestIds: missingTokens.map(
-            (t) => `${t.chainId}:${t.contractAddress}`,
-          ),
-        },
-      );
-      return { list: cachedResults };
+    if (!Array.isArray(data?.list)) {
+      throw new OneKeyLocalError('Invalid market token batch response');
     }
 
-    // Update cache and merge results using positional index (API preserves
-    // request order). Cache keys use the request-side chainId:contractAddress
-    // to stay consistent with the lookup keys built above.
-    data.list.forEach((item, apiIndex) => {
-      const token = missingTokens[apiIndex];
-      if (!token) return;
+    // The API omits unknown tokens, so response indices cannot identify requests.
+    data.list.forEach((item) => {
+      if (!item) return;
+      const itemNetworkId = item.networkId || item.chainId;
+      const itemAddress = (item.address ?? '').toLowerCase();
+      const matches = missingTokens.filter(
+        (token) =>
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          (token.isNative && item.isNative !== false
+            ? item.isNative === true ||
+              itemAddress === '' ||
+              itemAddress === token.contractAddress.toLowerCase()
+            : itemAddress === token.contractAddress.toLowerCase()),
+      );
+      if (matches.length !== 1) return;
+      const token = matches[0];
       const cacheKey = `${cacheLocale}:${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       const originalIndex = tokenIndexMap.get(cacheKey);
 
       // Update cache
-      this._marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+      const matchedItem = {
+        ...item,
+        networkId: itemNetworkId || token.chainId,
+        isNative: item.isNative ?? token.isNative,
+      };
+      this._marketTokenBatchCache.set(cacheKey, {
+        data: matchedItem,
+        timestamp: now,
+      });
 
       // Place in correct position
       if (originalIndex !== undefined) {
-        cachedResults[originalIndex] = item;
+        cachedResults[originalIndex] = matchedItem;
       }
     });
 
@@ -1064,11 +1090,53 @@ class ServiceMarketV2 extends ServiceBase {
         error,
       );
       if (throwOnError) {
+        errorToastUtils.toastIfErrorDisable(error);
         throw error;
       }
       // Return empty list on error instead of throwing
       return { list: [] };
     }
+  }
+
+  private memoizedFetchMarketHighlights = memoizee(
+    async (locale: string): Promise<IMarketHighlight[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const requestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        headers: { 'x-onekey-request-locale': locale },
+        autoHandleError: false,
+      };
+      const response = await client.get<{
+        code: number;
+        data: { data: IMarketHighlight[] };
+      }>('/utility/v1/market/highlight', requestConfig);
+      const items = response.data.data?.data;
+      if (response.data.code !== 0 || !Array.isArray(items)) {
+        throw new OneKeyLocalError('Invalid market highlights response');
+      }
+      return items.map((item) => ({
+        ...item,
+        assets: item.assets.map((asset) => {
+          // Existing highlights use the documented slug for Bitcoin. Market
+          // detail, candles and favorites use the listing's canonical ID.
+          if (asset.type === 'asset' && asset.assetId === 'bitcoin') {
+            return {
+              ...asset,
+              assetId: 'btc',
+              favorite: { ...asset.favorite, assetId: 'btc' },
+            };
+          }
+          return asset;
+        }),
+      }));
+    },
+    { maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }), promise: true },
+  );
+
+  @backgroundMethod()
+  async fetchMarketHighlights(locale: string): Promise<IMarketHighlight[]> {
+    return this.memoizedFetchMarketHighlights(locale);
   }
 
   private memoizedFetchMarketBannerData = memoizee(

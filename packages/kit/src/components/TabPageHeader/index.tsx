@@ -136,7 +136,7 @@ function BaseDesktopTabPageHeader({
             px="$5"
             alignItems={platformEnv.isDesktop ? 'center' : undefined}
           >
-            <GiftAction copyAsUrl />
+            <GiftAction />
           </XStack>
         ) : null}
         {tabRoute === ETabRoutes.Discovery ? (
@@ -164,6 +164,7 @@ function BaseDesktopTabPageHeader({
       <Page.Header
         headerShown
         headerTitleAlign="center"
+        headerContainerBackgroundColor={theme.bgSubdued.val}
         headerStyle={desktopHeaderStyle}
         headerTitle={renderUniversalSearchInput}
         headerRight={renderDesktopModeRightButtons}

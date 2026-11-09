@@ -1,5 +1,4 @@
-import type { PropsWithChildren } from 'react';
-import { createContext, useCallback, useContext } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,39 +9,27 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
-import { useSwapStockPortfolioData } from '../../hooks/useSwapStockPortfolioData';
-
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockPositions } from './SwapStockPositions';
 
-type ISwapStockPortfolio = ReturnType<typeof useSwapStockPortfolioData>;
-
-const SwapStockPortfolioContext = createContext<
-  ISwapStockPortfolio | undefined
->(undefined);
-
-export function SwapStockPortfolioProvider({ children }: PropsWithChildren) {
-  const portfolio = useSwapStockPortfolioData();
-  return (
-    <SwapStockPortfolioContext.Provider value={portfolio}>
-      {children}
-    </SwapStockPortfolioContext.Provider>
-  );
-}
-
 export function useSwapStockPortfolio() {
-  return useContext(SwapStockPortfolioContext);
+  return useSwapStockPositions()?.portfolio;
 }
 
 // The Market stock page's "My position" table, listing every token of the
 // current stock the account holds. Hidden until there is something to list.
 export function SwapStockMyPosition() {
   const intl = useIntl();
-  const portfolio = useSwapStockPortfolio();
   const positions = useSwapStockPositions();
+  const portfolio = positions?.displayPortfolio;
   const selection = useSwapStockSelection();
-  const { stockId, tokenVariants } = useStockDetail();
+  const { stockId: committedStockId, tokenVariants: committedVariants } =
+    useStockDetail();
+  const stockId = selection ? selection.displayStockId : committedStockId;
+  const tokenVariants = selection
+    ? selection.displayTokenVariants
+    : committedVariants;
   const selectPosition = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
       const identity = {
@@ -75,30 +62,43 @@ export function SwapStockMyPosition() {
   );
   const portfolioData = portfolio?.positionListData ?? [];
   return (
-    <SwapSmoothReveal
-      visible={portfolioData.length > 0}
-      parentGap={28}
-      keepMounted
-    >
-      <YStack testID="swap-stock-my-position" gap="$3">
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
-          })}
-        </SizableText>
-        {/* The table carries the Market page's 20px gutter in its header and
+    // Include the table gutters inside the reveal's clipping boundary while
+    // keeping the parent gap collapsed when there are no positions.
+    <Stack mx="$-5" mt={-28}>
+      <SwapSmoothReveal
+        visible={portfolioData.length > 0}
+        keepMounted
+        snapshotKey="stock-position"
+        snapshotPending={
+          !positions?.positionOwnerKey || positions.positionLoading
+        }
+        snapshotScope={
+          positions?.positionOwnerKey && stockId
+            ? JSON.stringify([positions.positionOwnerKey, stockId])
+            : undefined
+        }
+      >
+        <YStack testID="swap-stock-my-position" gap="$3" px="$5" pt="$7">
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_myposition,
+            })}
+          </SizableText>
+          {/* The table carries the Market page's 20px gutter in its header and
             rows; pulling it back by the card padding lines the Token column
             up with the title. */}
-        <Stack mx="$-5">
-          <Portfolio
-            standalone
-            hasAccount={portfolio?.hasAccount}
-            portfolioData={portfolioData}
-            isRefreshing={portfolio?.isRefreshing}
-            onItemPress={selectPosition}
-          />
-        </Stack>
-      </YStack>
-    </SwapSmoothReveal>
+          <Stack mx="$-5">
+            <Portfolio
+              standalone
+              isStock
+              hasAccount={portfolio?.hasAccount}
+              portfolioData={portfolioData}
+              isRefreshing={portfolio?.isRefreshing}
+              onItemPress={selectPosition}
+            />
+          </Stack>
+        </YStack>
+      </SwapSmoothReveal>
+    </Stack>
   );
 }

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { setGlassHeaderUIStyle } from '../../primitives/Button/GlassHeaderContext';
 import { Haptics } from '../../primitives/Haptics';
 
+import { reportBrandFontFallback } from './fonts/reportBrandFontFallback';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
@@ -51,6 +52,9 @@ const MemoizedTamaguiProvider = memo(TamaguiProvider);
 
 function FontProvider({ children }: IFontProviderProps) {
   const [loaded, error] = useLoadCustomFonts();
+  useEffect(() => {
+    reportBrandFontFallback();
+  }, []);
   const shouldBypassFontGate =
     platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
 

@@ -2,18 +2,21 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
+  NavigationMetaContext,
   type ParamListBase,
   type Route,
+  StackActions,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { Spinner, Stack } from '../../../primitives';
+import { BottomTabBarVerticalContext } from '../../Page/BottomTabBarVisibilityContext';
 
 import { TabSceneContext } from './TabSceneContext';
 
@@ -22,6 +25,7 @@ import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
+import type { TabBarPlacement } from '@onekeyfe/react-native-bottom-tabs';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
@@ -29,11 +33,16 @@ type Props = NativeBottomTabNavigationConfig & {
   descriptors: NativeBottomTabDescriptorMap;
 };
 
+// Native stacks pop to their root on every press of the focused tab unless they
+// sit in native tabs. Here a single press does nothing and a double press is
+// resolved in `onTabDoublePress`.
+const NATIVE_TABS_NAVIGATION_META = { type: 'native-tabs' };
+
 const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  androidHiddenTabBarScene: {
+  hiddenTabBarScene: {
     width: '100%',
     height: '100%',
   },
@@ -122,8 +131,18 @@ export function NativeBottomTabView({
   descriptors,
   tabBar,
   tabBarHidden,
+  sideAccessoryIcon,
+  onTabBarPlacementChange,
   ...rest
 }: Props) {
+  const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
+  const handleTabBarPlacementChange = useCallback(
+    (placement: TabBarPlacement) => {
+      setIsVerticalTabBar(placement !== 'bottom');
+      onTabBarPlacementChange?.(placement);
+    },
+    [onTabBarPlacementChange],
+  );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
     return focusedRouteKey ? [focusedRouteKey] : [];
@@ -145,7 +164,9 @@ export function NativeBottomTabView({
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
-        {descriptors[route.key]?.render()}
+        <NavigationMetaContext.Provider value={NATIVE_TABS_NAVIGATION_META}>
+          {descriptors[route.key]?.render()}
+        </NavigationMetaContext.Provider>
       </SceneWithActivationPlaceholder>
     ),
     [
@@ -247,26 +268,38 @@ export function NativeBottomTabView({
   const getSceneStyle = useCallback(
     ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-      // Android can report the old scene height once after its native tab bar
-      // becomes GONE. Fill the expanded holder immediately so a screen pushed
-      // during that frame does not inherit the stale tab-bar viewport.
-      Platform.OS === 'android' && tabBarHidden
-        ? styles.androidHiddenTabBarScene
-        : undefined,
+      // Hidden-tab scenes follow the native holder through bar changes and
+      // rotation without waiting for JS to receive its new dimensions.
+      tabBarHidden ? styles.hiddenTabBarScene : undefined,
     ],
     [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
-    (index: number) => {
+  const onTabDoublePress = useCallback(
+    (index: number, didScrollToTop?: boolean) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
+
+      // The native side already scrolled the visible page when it was not at
+      // the top, so only a page sitting at the top leaves for the tab root.
+      // Native builds without the flag report nothing and must not pop.
+      const stackState = route.state;
+      if (
+        didScrollToTop === false &&
+        stackState?.key &&
+        (stackState.index ?? 0) > 0
+      ) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: stackState.key,
+        });
+      }
     },
     [state.routes, navigation],
   );
@@ -311,28 +344,32 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
-      {...rest}
-      tabBarHidden={tabBarHidden}
-      navigationState={state}
-      renderScene={renderScene}
-      renderLazyPlaceholder={renderLazyPlaceholder}
-      getActiveTintColor={getActiveTintColor}
-      getLabelText={getLabelText}
-      getBadge={getBadge}
-      getBadgeBackgroundColor={getBadgeBackgroundColor}
-      getBadgeTextColor={getBadgeTextColor}
-      getHidden={getHidden}
-      getTestID={getTestID}
-      getRole={getRole}
-      tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon}
-      getLazy={getLazy}
-      getFreezeOnBlur={getFreezeOnBlur}
-      getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
-      getPreventsDefault={getPreventsDefault}
-      onIndexChange={onIndexChange}
-    />
+    <BottomTabBarVerticalContext.Provider value={isVerticalTabBar}>
+      <BottomTabs
+        {...rest}
+        sideAccessoryIcon={sideAccessoryIcon}
+        tabBarHidden={tabBarHidden}
+        navigationState={state}
+        renderScene={renderScene}
+        renderLazyPlaceholder={renderLazyPlaceholder}
+        getActiveTintColor={getActiveTintColor}
+        getLabelText={getLabelText}
+        getBadge={getBadge}
+        getBadgeBackgroundColor={getBadgeBackgroundColor}
+        getBadgeTextColor={getBadgeTextColor}
+        getHidden={getHidden}
+        getTestID={getTestID}
+        getRole={getRole}
+        tabBar={tabBar ? tabBarCallback : undefined}
+        getIcon={getIcon}
+        getLazy={getLazy}
+        getFreezeOnBlur={getFreezeOnBlur}
+        getSceneStyle={getSceneStyle}
+        onTabDoublePress={onTabDoublePress}
+        getPreventsDefault={getPreventsDefault}
+        onIndexChange={onIndexChange}
+        onTabBarPlacementChange={handleTabBarPlacementChange}
+      />
+    </BottomTabBarVerticalContext.Provider>
   );
 }

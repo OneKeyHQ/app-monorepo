@@ -11,12 +11,16 @@ import {
   historySectionKey,
   prepareHomeNativeListSnapshot,
 } from './homeNativeListSnapshot';
+import { NFT_WEB_ROW_FILL_THEME } from './NFTListView/nativeNFTRows';
 
 import type {
   ActivityRow,
   MediaTileRow,
   NativeListSnapshot,
+  NativeListTheme,
 } from '@onekeyfe/react-native-native-list';
+
+let mockValidationDevelopmentMode = true;
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const { execFileSync } =
@@ -33,6 +37,7 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
   const validatorPath = path.join(packageDir, 'lib/module/validation.js');
   const script = `
     const { pathToFileURL } = await import('node:url');
+    globalThis.__DEV__ = process.argv[3] === 'true';
     const validator = await import(pathToFileURL(process.argv[1]).href);
     let input = '';
     for await (const chunk of process.stdin) input += chunk;
@@ -44,11 +49,18 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
     }
   `;
   // Jest cannot parse the package's ESM entry; Node executes its installed
-  // validator so these tests still exercise the real snapshot contract.
+  // validator in the selected mode; child processes do not inherit __DEV__.
   const runValidator = (method: string, snapshot: NativeListSnapshot) => {
     const output = execFileSync(
       process.execPath,
-      ['--input-type=module', '-e', script, validatorPath, method],
+      [
+        '--input-type=module',
+        '-e',
+        script,
+        validatorPath,
+        method,
+        String(mockValidationDevelopmentMode),
+      ],
       { input: JSON.stringify(snapshot), encoding: 'utf8' },
     );
     const result = JSON.parse(output) as {
@@ -90,6 +102,10 @@ function activity(key: string, title: string): ActivityRow {
 }
 
 describe('Home NativeList snapshot boundaries', () => {
+  afterEach(() => {
+    mockValidationDevelopmentMode = true;
+  });
+
   it('serializes non-adjacent date groups after frozen rows receive newer dates', () => {
     const displayed = [
       history('a', 4),
@@ -173,7 +189,10 @@ describe('Home NativeList snapshot boundaries', () => {
     expect(prepared.rows[1]).toMatchObject({ key: 'normal', title: 'Normal' });
   });
 
-  it('drops a malformed activity while preserving its valid peer', () => {
+  // NativeList 6.7.0-alpha.402 repairs a malformed image descriptor (it
+  // clears the image and keeps the row) instead of rejecting the row, and the
+  // prepared snapshot must carry that repaired row, not the malformed input.
+  it('keeps a malformed activity with its image cleared while preserving its valid peer', () => {
     const snapshot: NativeListSnapshot = {
       schemaVersion: 1,
       generation: 1,
@@ -190,9 +209,100 @@ describe('Home NativeList snapshot boundaries', () => {
       ],
     };
     const prepared = prepareHomeNativeListSnapshot(snapshot);
+    expect(prepared.rows.map((row) => row.key)).toEqual(['bad', 'normal']);
+    expect(prepared.rows[0]).toMatchObject({ leading: { kind: 'token' } });
+    expect(
+      prepared.rows[0].type === 'activity' &&
+        prepared.rows[0].leading &&
+        'image' in prepared.rows[0].leading,
+    ).toBe(false);
+    expect(() => serializeSnapshot(prepared)).not.toThrow();
+  });
+
+  it('drops a row the validator still rejects while preserving its valid peer', () => {
+    const snapshot: NativeListSnapshot = {
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'sectioned' },
+      rows: [
+        { ...activity('bad', 'Bad'), key: '' },
+        activity('normal', 'Normal'),
+      ],
+    };
+    const prepared = prepareHomeNativeListSnapshot(snapshot);
     expect(prepared.rows.map((row) => row.key)).toEqual(['normal']);
     expect(() => serializeSnapshot(prepared)).not.toThrow();
   });
+
+  it('keeps the optional empty-image fallback in production', () => {
+    mockValidationDevelopmentMode = false;
+    const snapshot: NativeListSnapshot = {
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'sectioned' },
+      rows: [
+        {
+          ...activity('fallback', 'Fallback'),
+          leading: {
+            kind: 'token',
+            image: { uri: '', width: 40, height: 40 },
+          },
+        },
+        activity('normal', 'Normal'),
+      ],
+    };
+    const prepared = prepareHomeNativeListSnapshot(snapshot);
+    const serialized = JSON.parse(
+      serializeSnapshot(prepared),
+    ) as NativeListSnapshot;
+    expect(serialized.rows).toEqual([
+      { ...activity('fallback', 'Fallback'), leading: { kind: 'token' } },
+      activity('normal', 'Normal'),
+    ]);
+  });
+
+  it('still drops invalid row geometry in production and keeps valid peers', () => {
+    mockValidationDevelopmentMode = false;
+    const snapshot: NativeListSnapshot = {
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'sectioned' },
+      rows: [
+        { ...activity('bad', 'Bad'), height: -1 },
+        activity('normal', 'Normal'),
+      ],
+    };
+    const prepared = prepareHomeNativeListSnapshot(snapshot);
+    expect(prepared.rows.map((row) => row.key)).toEqual(['normal']);
+    expect(() => serializeSnapshot(prepared)).not.toThrow();
+  });
+
+  it.each([true, false])(
+    'keeps NFT tiles and their clear row fills with development mode %s',
+    (developmentMode) => {
+      mockValidationDevelopmentMode = developmentMode;
+
+      const prepared = prepareHomeNativeListSnapshot({
+        schemaVersion: 1,
+        generation: 1,
+        layout: { kind: 'grid', gridColumns: 2 },
+        theme: NFT_WEB_ROW_FILL_THEME as NativeListTheme,
+        rows: [
+          {
+            key: 'nft',
+            type: 'mediaTile',
+            variant: 'gallery',
+            title: 'NFT',
+            subtitle: 'Collection',
+            imageState: 'error',
+          },
+        ],
+      });
+
+      expect(prepared.rows.map((row) => row.key)).toEqual(['nft']);
+      expect(prepared.theme).toMatchObject(NFT_WEB_ROW_FILL_THEME);
+    },
+  );
 
   it('bounds NFT names and collection names before serializing mixed tiles', () => {
     const longTile: MediaTileRow = {

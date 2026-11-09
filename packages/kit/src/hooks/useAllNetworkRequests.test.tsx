@@ -224,6 +224,13 @@ describe('Home All Networks dispatch ownership', () => {
         expect(hook.fetch).toHaveBeenCalledTimes(21);
         expect(hook.published.mock.calls[0][0]).toHaveLength(21);
         expect(hook.finished).toHaveBeenCalledTimes(1);
+        const generation = hook.published.mock.calls[0][1];
+        expect(hook.started).toHaveBeenCalledWith(
+          expect.objectContaining({ generation }),
+        );
+        expect(hook.finished).toHaveBeenCalledWith(
+          expect.objectContaining({ generation }),
+        );
         if (enabled) {
           expect(trace).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -330,14 +337,36 @@ describe('Home All Networks dispatch ownership', () => {
     await act(() => hook.result.current.run());
 
     const nftAccounts = accounts.filter((item) => item.isNftEnabled);
+    // Only the fetch set is narrowed; `allAccounts` stays the owner's whole
+    // account set so every request kind reports the same visible networks.
     expect(hook.accountsData).toHaveBeenCalledWith({
       accounts: nftAccounts,
-      allAccounts: nftAccounts,
+      allAccounts: accounts,
     });
     expect(hook.fetch.mock.calls.map(([item]) => item.networkId)).toEqual(
       nftAccounts.map((item) => item.networkId),
     );
     expect(accounts).toHaveLength(22);
+  });
+
+  it('reports an owner whose only address has no NFT support as having accounts', async () => {
+    // All Networks narrowed to a network outside the NFT list (Monero, Zcash,
+    // TON): the NFT run has nothing to fetch, but the owner is not address-less.
+    const accounts = accountsFor('a', 1).accountsInfo.map((item) => ({
+      ...item,
+      isNftEnabled: false,
+    }));
+    getAccounts.mockResolvedValueOnce(accounts);
+    const hook = setup({ warm: false, isNFTRequests: true });
+
+    await act(() => hook.result.current.run());
+
+    expect(hook.accountsData).toHaveBeenCalledWith({
+      accounts: [],
+      allAccounts: accounts,
+    });
+    expect(hook.fetch).not.toHaveBeenCalled();
+    expect(hook.result.current.isEmptyAccount).toBe(true);
   });
 
   it('does not start an obsolete runner or its preflight RPC', async () => {
@@ -363,6 +392,35 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.cache).not.toHaveBeenCalled();
     expect(hook.fetch).not.toHaveBeenCalled();
     expect(hook.published).not.toHaveBeenCalled();
+    expect(hook.finished).not.toHaveBeenCalled();
+  });
+
+  it('does not publish the previous owner accounts when their preflight resolves after a switch without an external guard', async () => {
+    const oldAccounts = deferred<IAllNetworkAccountInfo[]>();
+    getAccounts.mockReturnValueOnce(oldAccounts.promise);
+    const hook = setup({ guarded: false });
+    const oldRun = hook.result.current.run();
+    await waitFor(() => expect(getAccounts).toHaveBeenCalledTimes(1));
+
+    hook.switchOwner('b');
+    await act(() => hook.result.current.run());
+    await act(async () => {
+      oldAccounts.resolve(accountsFor('a').accountsInfo);
+      await oldRun;
+    });
+
+    await waitFor(() => expect(hook.published).toHaveBeenCalledTimes(1));
+    expect(hook.accountsData).toHaveBeenCalledTimes(1);
+    expect(hook.accountsData).toHaveBeenCalledWith({
+      accounts: accountsFor('b').accountsInfo,
+      allAccounts: accountsFor('b').accountsInfo,
+    });
+    expect(hook.fetch.mock.calls.map(([request]) => request.accountId)).toEqual(
+      accountsFor('b').accountsInfo.map(({ accountId }) => accountId),
+    );
+    expect(hook.published.mock.calls[0][0]).toEqual(
+      accountsFor('b').accountsInfo.map(({ networkId }) => ({ networkId })),
+    );
   });
 
   it('stops queued cache probes and does not seed their stale results', async () => {
@@ -505,6 +563,37 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.published.mock.calls[0][0]).toHaveLength(21);
   });
 
+  it('publishes the queued run with its own result counts', async () => {
+    getAccounts
+      .mockResolvedValueOnce(accountsFor('a', 2).accountsInfo)
+      .mockResolvedValueOnce(accountsFor('a', 3).accountsInfo);
+    const pending = deferred<IRound>();
+    const hook = setup();
+    hook.fetch.mockImplementation(() => pending.promise);
+    const firstRun = hook.result.current.run();
+    await waitFor(() => expect(hook.fetch).toHaveBeenCalledTimes(2));
+    await act(() =>
+      hook.result.current.run({
+        alwaysSetState: true,
+        skipAccountsCache: true,
+      }),
+    );
+    hook.fetch.mockImplementation(async ({ networkId }) => ({
+      networkId: `new-${networkId}`,
+    }));
+    await act(async () => {
+      pending.resolve({ networkId: 'old' });
+      await firstRun;
+    });
+    await waitFor(() => expect(hook.published).toHaveBeenCalledTimes(1));
+    expect(hook.finished).toHaveBeenCalledTimes(2);
+    expect(hook.published).toHaveBeenCalledWith(
+      expect.arrayContaining([{ networkId: 'new-evm--1' }]),
+      expect.any(Number),
+      { didComplete: true, requestCount: 3, resultCount: 3 },
+    );
+  });
+
   it('preserves all requests for consumers without a Home ownership predicate', async () => {
     const pending = deferred<IRound>();
     const hook = setup({ guarded: false });
@@ -521,5 +610,41 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.fetch).toHaveBeenCalledTimes(21);
     expect(hook.settled).toHaveBeenCalledTimes(21);
     expect(hook.published.mock.calls[0][0]).toHaveLength(21);
+  });
+});
+
+describe('Home All Networks empty-account flag', () => {
+  it('re-derives the flag per owner so consecutive empty owners each transition', async () => {
+    getAccounts.mockImplementation(async () => []);
+    const hook = setup({ warm: false });
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+    expect(hook.finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runResult: { didComplete: true, requestCount: 0, resultCount: 0 },
+      }),
+    );
+
+    // The flag belongs to the owner whose run derived it. A new owner starts
+    // unknown: carrying `true` over would skip the false→true transition the
+    // consumers' effects key on, and their list would stay on its skeleton.
+    hook.switchOwner('b');
+    expect(hook.result.current.isEmptyAccount).toBe(false);
+
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+  });
+
+  it('clears the flag once the owner resolves accounts', async () => {
+    getAccounts.mockImplementation(async ({ accountId }) =>
+      accountId === 'a' ? [] : accountsFor(accountId).accountsInfo,
+    );
+    const hook = setup({ warm: false });
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(true);
+
+    hook.switchOwner('b');
+    await act(() => hook.result.current.run());
+    expect(hook.result.current.isEmptyAccount).toBe(false);
   });
 });

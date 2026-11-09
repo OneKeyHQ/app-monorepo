@@ -40,6 +40,7 @@ interface ISwapQuoteResultRateProps {
   showLoadingText?: boolean;
   showNoProvider?: boolean;
   canOpenResult?: boolean;
+  fixedReverse?: boolean;
   refreshAction: (manual?: boolean) => void;
   openResult?: boolean;
 }
@@ -58,11 +59,13 @@ const SwapQuoteResultRate = ({
   showLoadingText = true,
   showNoProvider,
   canOpenResult,
+  fixedReverse,
   openResult,
   refreshAction,
 }: ISwapQuoteResultRateProps) => {
   const intl = useIntl();
-  const [isReverse, setIsReverse] = useState(false);
+  const [userReversed, setUserReversed] = useState(false);
+  const isReverse = fixedReverse ?? userReversed;
   const shouldUseInlineSlippageLayout = Boolean(customSlippageValue);
   const rateIsExit = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
@@ -95,14 +98,16 @@ const SwapQuoteResultRate = ({
         flex={shouldUseInlineSlippageLayout ? 1 : undefined}
         flexBasis={shouldUseInlineSlippageLayout ? 0 : undefined}
         minWidth={shouldUseInlineSlippageLayout ? 0 : undefined}
-        hoverStyle={{
-          opacity: 0.5,
-        }}
-        onPress={(event) => {
-          event.stopPropagation();
-          setIsReverse(!isReverse);
-        }}
-        cursor="pointer"
+        hoverStyle={fixedReverse === undefined ? { opacity: 0.5 } : undefined}
+        onPress={
+          fixedReverse === undefined
+            ? (event) => {
+                event.stopPropagation();
+                setUserReversed(!userReversed);
+              }
+            : undefined
+        }
+        cursor={fixedReverse === undefined ? 'pointer' : undefined}
       >
         <SizableText
           size="$bodyMd"
@@ -132,12 +137,14 @@ const SwapQuoteResultRate = ({
     );
   }, [
     fromToken,
+    fixedReverse,
     intl,
     isReverse,
     rate,
     rateIsExit,
     showNoProvider,
     toToken,
+    userReversed,
     shouldUseInlineSlippageLayout,
   ]);
   return (

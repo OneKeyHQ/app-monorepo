@@ -63,6 +63,7 @@ export function usePrimeFreeTrialPendingActionRunner() {
         return;
       }
       const access = await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.BulkCopyAddresses,
         networkId: action.networkId,
       });
@@ -80,6 +81,7 @@ export function usePrimeFreeTrialPendingActionRunner() {
     }
     if (action.type === EPrimeFreeTrialPendingActionType.AddressRiskCheck) {
       const access = await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: action.networkId,
         loginOnly: true,

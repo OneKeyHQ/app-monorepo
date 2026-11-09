@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Keyboard, TextInput } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Keyboard as DeviceKeyboard,
+  Dialog,
+  SizableText,
+  Tabs,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EManagePageActionType,
@@ -115,6 +125,7 @@ export function NormalManageContent({
   preferManagePageActionText = false,
 }: INormalManageContentProps) {
   const intl = useIntl();
+  const navigation = useNavigation();
   const useBorrowApi = useMemo(
     () => type !== EManagePositionType.Staking,
     [type],
@@ -376,6 +387,25 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const pendingKeyboardHandoffRef = useRef<
+    | {
+        index: number;
+        name: string;
+        contextKey: string;
+        cleanup: () => void;
+      }
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!platformEnv.isNativeIOSPhone) return undefined;
+    const unsubscribe = navigation.addListener('blur', () => {
+      pendingKeyboardHandoffRef.current?.cleanup();
+    });
+    return () => {
+      unsubscribe();
+      pendingKeyboardHandoffRef.current?.cleanup();
+    };
+  }, [navigation]);
   const [
     repayWithCollateralSetupReadyProgressKey,
     setRepayWithCollateralSetupReadyProgressKey,
@@ -622,6 +652,33 @@ export function NormalManageContent({
     appNavigation,
   ]);
 
+  const tabContextKey = JSON.stringify([
+    networkId,
+    provider,
+    _vault,
+    symbol,
+    type,
+    marketAddress,
+    reserveAddress,
+    earnAccount?.accountId,
+  ]);
+  const latestTabStateRef = useRef({
+    tabContextKey,
+    selectedTabIndex,
+    shouldDisablePrimaryTab,
+    isWithdrawOrder,
+    tabData,
+    onTabChange,
+  });
+  latestTabStateRef.current = {
+    tabContextKey,
+    selectedTabIndex,
+    shouldDisablePrimaryTab,
+    isWithdrawOrder,
+    tabData,
+    onTabChange,
+  };
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
@@ -630,15 +687,99 @@ export function NormalManageContent({
           return;
         }
         if (index === 1 && isWithdrawOrder) {
+          pendingKeyboardHandoffRef.current?.cleanup();
           openWithdrawOptions();
           return;
         }
+        if (pendingKeyboardHandoffRef.current) {
+          pendingKeyboardHandoffRef.current.index = index;
+          pendingKeyboardHandoffRef.current.name = name;
+          return;
+        }
+        if (index === selectedTabIndex) return;
 
-        focusedTab.value = name;
-        setSelectedTabIndex(index);
+        const switchTab = () => {
+          focusedTab.value = name;
+          setSelectedTabIndex(index);
+          onTabChange?.(index === 0 ? 'deposit' : 'withdraw');
+        };
 
-        const newTab = index === 0 ? 'deposit' : 'withdraw';
-        onTabChange?.(newTab);
+        if (
+          platformEnv.isNativeIOSPhone &&
+          (Keyboard.isVisible() || DeviceKeyboard.Controller.isVisible())
+        ) {
+          // A new accessory can be omitted from the keyboard frame while the
+          // previous input is still closing. Switch after the hide completes.
+          const handoff: {
+            subscription?: ReturnType<typeof Keyboard.addListener>;
+            timeout?: ReturnType<typeof setTimeout>;
+          } = {};
+          const cleanup = () => {
+            handoff.subscription?.remove();
+            clearTimeout(handoff.timeout);
+            pendingKeyboardHandoffRef.current = undefined;
+          };
+          const finishHandoff = () => {
+            const pending = pendingKeyboardHandoffRef.current;
+            const latest = latestTabStateRef.current;
+            cleanup();
+            if (
+              !pending ||
+              !navigation.isFocused() ||
+              pending.contextKey !== latest.tabContextKey ||
+              TextInput.State.currentlyFocusedInput() ||
+              pending.index === latest.selectedTabIndex ||
+              latest.tabData[pending.index]?.title !== pending.name ||
+              (pending.index === 0 && latest.shouldDisablePrimaryTab) ||
+              (pending.index === 1 && latest.isWithdrawOrder)
+            ) {
+              return;
+            }
+            focusedTab.value = pending.name;
+            setSelectedTabIndex(pending.index);
+            latest.onTabChange?.(pending.index === 0 ? 'deposit' : 'withdraw');
+          };
+          handoff.subscription = Keyboard.addListener('keyboardDidHide', () => {
+            finishHandoff();
+          });
+          handoff.timeout = setTimeout(() => {
+            if (
+              !Keyboard.isVisible() &&
+              !DeviceKeyboard.Controller.isVisible()
+            ) {
+              finishHandoff();
+            } else {
+              const pending = pendingKeyboardHandoffRef.current;
+              const latest = latestTabStateRef.current;
+              cleanup();
+              if (
+                pending &&
+                navigation.isFocused() &&
+                !TextInput.State.currentlyFocusedInput() &&
+                pending.contextKey === latest.tabContextKey &&
+                pending.index !== latest.selectedTabIndex &&
+                latest.tabData[pending.index]?.title === pending.name &&
+                !(pending.index === 0 && latest.shouldDisablePrimaryTab) &&
+                !(pending.index === 1 && latest.isWithdrawOrder)
+              ) {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_try_again,
+                  }),
+                });
+              }
+            }
+          }, 1500);
+          pendingKeyboardHandoffRef.current = {
+            index,
+            name,
+            contextKey: tabContextKey,
+            cleanup,
+          };
+          Keyboard.dismiss();
+        } else {
+          switchTab();
+        }
       }
     },
     [
@@ -648,6 +789,10 @@ export function NormalManageContent({
       tabData,
       onTabChange,
       openWithdrawOptions,
+      selectedTabIndex,
+      tabContextKey,
+      intl,
+      navigation,
     ],
   );
 

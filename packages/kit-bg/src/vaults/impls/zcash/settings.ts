@@ -1,0 +1,148 @@
+/* cspell:ignore xprvs */
+
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
+import {
+  ZCASH_CURRENT_SHIELDED_POOL,
+  ZCASH_LIGHTWALLETD_MAINNET,
+  ZCASH_POOL_IDS,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
+  ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
+  ZCASH_SPAM_REGION_END_MAINNET,
+  ZCASH_SPAM_REGION_START_MAINNET,
+  ZCASH_TARGET_BLOCK_SECONDS,
+} from '@onekeyhq/shared/src/config/zcash';
+import {
+  COINNAME_ZCASH,
+  COINTYPE_ZCASH,
+  IMPL_ZCASH,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+
+import settingsBtc from '../btc/settings';
+
+import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+
+const accountDeriveInfo: IAccountDeriveInfoMapBase = {
+  default: {
+    namePrefix: 'ZEC',
+    label: 'Legacy',
+    template: `m/44'/${COINTYPE_ZCASH}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_ZCASH,
+    coinName: COINNAME_ZCASH,
+    addressEncoding: EAddressEncodings.P2PKH,
+    desc: 'BIP44, P2PKH, Base58.',
+  },
+};
+
+const settings: IVaultSettings = {
+  ...settingsBtc,
+  supportedThirdPartyVendors: undefined,
+  // Only Pro 2 and Neo firmware has the Zcash app.
+  supportedDeviceTypes: [EDeviceType.Pro2, NEO_DEVICE_TYPE],
+  accountDeriveInfo,
+  impl: IMPL_ZCASH,
+  coinTypeDefault: COINTYPE_ZCASH,
+  hideTxUtxoListWhenPending: true,
+  disabledSwapAction: true,
+  // No minTransferAmount/utxoDustAmount override: the real dust floor is
+  // the height-dependent minimum fee, enforced by the Shield action.
+  hasFrozenBalance: true,
+  showAddressType: false,
+  estimatedFeePollingInterval: 60,
+
+  dappInteractionEnabled: false,
+  mergeDeriveAssetsEnabled: false,
+  qrAccountEnabled: false,
+  replaceTxEnabled: false,
+  localWallet: {
+    activation: 'account-opt-in',
+    feeSetByProtocol: true,
+    balanceShape: 'pooled',
+    // t1/t3, or a ZIP-320 TEX address (tex1 + 38 bech32m chars).
+    publicAddressPattern:
+      '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
+    privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
+    hiddenEndpointLabelId: ETranslations.private_send_private_option,
+    tipLagWarningBlocks: 48,
+    syncedBelowBlocks: 48,
+    // The first release exposes transparent funds and the Ironwood pool.
+    pools: [
+      {
+        id: ZCASH_POOL_IDS.transparent,
+        key: 'transparent',
+        kind: 'public',
+        source: 'backend',
+        label: 'Public',
+      },
+      {
+        id: ZCASH_POOL_IDS.ironwood,
+        key: 'ironwood',
+        kind: 'private',
+        source: 'localScan',
+        label: 'Private',
+        isDefaultPrivate: ZCASH_CURRENT_SHIELDED_POOL === 'ironwood',
+      },
+    ],
+    accountSetup: {
+      requiresBirthday: true,
+      // Ironwood is the first supported shielded history in this release.
+      earliestBirthday: {
+        height: ZCASH_IRONWOOD_ACTIVATION_HEIGHT_MAINNET,
+        timestamp: ZCASH_IRONWOOD_ACTIVATION_TIMESTAMP_MS,
+      },
+    },
+    addressForms: {
+      // Same words as the token tabs and send source.
+      publicLabel: ETranslations.privacy_balance_public__title,
+      privateLabel: ETranslations.private_send_private_option,
+    },
+    blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
+    blockTimeChange: {
+      fromHeight: ZCASH_NU7_ACTIVATION_HEIGHT_MAINNET,
+      blockTimeSeconds: ZCASH_POST_NU7_TARGET_BLOCK_SECONDS,
+    },
+    scanRegionHints: [
+      {
+        fromHeight: ZCASH_SPAM_REGION_START_MAINNET,
+        toHeight: ZCASH_SPAM_REGION_END_MAINNET,
+        labelId: ETranslations.privacy_sync_spam_region__msg,
+      },
+    ],
+  },
+  editFeeEnabled: false,
+  withTxMessage: false,
+  withMemo: true,
+  memoMaxLength: 512,
+  // buildEncodedTx already converges max-send to spendable-fee; a confirm-page rewrite would differ from the signed amount.
+  ignoreUpdateNativeAmount: true,
+  // A fully authorized PCZT has a deterministic txid before broadcast; pending reconciliation depends on it.
+  withoutBroadcastTxId: false,
+
+  createAllDeriveTypeAccountsByDefault: false,
+  enabledInternalSignAndVerify: false,
+  // A BTC xprv/xpub covers only the transparent branch; wallet recovery stays mnemonic-only.
+  publicKeyExportEnabled: false,
+  supportExportedSecretKeys: [],
+
+  importedAccountEnabled: true,
+  watchingAccountEnabled: true,
+  hardwareAccountEnabled: true,
+  // The lightwalletd the scanner reads from; transparent sends stay on the backend either way.
+  customRpcEnabled: true,
+  builtInRpcUrls: [ZCASH_LIGHTWALLETD_MAINNET],
+  // - note selection happens inside the wasm wallet; the BTC coin-control
+  //   screen would call a blockbook backend that does not index zcash
+  coinControlEnabled: false,
+  // - bulk send would fall into BTC's coin-selection path, bypassing PCZT
+  nativeBatchTransferEnabled: false,
+};
+
+export default Object.freeze(settings);

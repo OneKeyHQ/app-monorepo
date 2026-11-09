@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../../forms/Input';
-import type { SheetProps } from '../../shared/tamagui';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export type DatePickerMode = 'date' | 'range' | 'month' | 'year' | 'multiple';
@@ -21,7 +21,7 @@ export interface IDatePickerBaseProps {
   testID?: string;
   renderTrigger?: (props: IDatePickerRenderTriggerProps) => ReactElement;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
   onOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -37,6 +37,8 @@ export interface IDatePickerProps extends IDatePickerBaseProps {
   mode?: 'date';
   value?: Date | null;
   onChange?: (date: Date | null) => void;
+  /** Defaults to true; the day grid still marks today with a dot. */
+  showTodayShortcut?: boolean;
 }
 
 export interface IRangePickerProps extends IDatePickerBaseProps {

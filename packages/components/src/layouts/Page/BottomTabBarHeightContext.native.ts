@@ -1,1 +1,1 @@
-export { BottomTabBarHeightContext } from '@onekeyfe/react-native-tab-view';
+export { BottomTabBarHeightContext } from '@onekeyfe/react-native-bottom-tabs';

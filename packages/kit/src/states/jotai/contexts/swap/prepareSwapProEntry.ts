@@ -1,5 +1,9 @@
 import type { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import { filterStockPayTokenCandidates } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
+import {
+  filterStockPayTokenCandidates,
+  getTokenIdentityKey,
+  settleSwapStockTokenKey,
+} from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
 import { getMarketSwapDefaultPair } from '@onekeyhq/kit/src/views/Swap/utils/marketSwapDefaultPair';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -72,6 +76,9 @@ export function prepareStockSwapEntry({
     storeName,
   });
   const stockToken = token.isStock ? token : { ...token, isStock: true };
+  // The user picked this exact variant on Market; Swap must not move it to
+  // the default issuer.
+  settleSwapStockTokenKey(getTokenIdentityKey(stockToken));
   const fromToken = store.get(swapSelectFromTokenAtom());
   if (direction === 'from') {
     const toToken = store.get(swapSelectToTokenAtom());
@@ -133,10 +140,12 @@ export function prepareStockSwapEntry({
 export function prepareMarketSwapEntry({
   token,
   direction = 'to',
+  defaultTokens,
   storeName = EJotaiContextStoreNames.swap,
 }: {
   token: ISwapToken;
   direction?: 'from' | 'to';
+  defaultTokens: ISwapToken[];
   storeName?: EJotaiContextStoreNames.swap | EJotaiContextStoreNames.swapModal;
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
@@ -148,7 +157,7 @@ export function prepareMarketSwapEntry({
     fromToken: nextFromToken,
     toToken: nextToToken,
     swapType,
-  } = getMarketSwapDefaultPair({ token, direction });
+  } = getMarketSwapDefaultPair({ token, direction, defaultTokens });
   store.set(swapSelectFromTokenAtom(), nextFromToken);
   store.set(swapSelectToTokenAtom(), nextToToken);
   // Amounts belong to the complete directed pair, including the trade side.

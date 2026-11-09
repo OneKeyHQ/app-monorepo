@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,16 +22,25 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
+import { useInviteRewardScopes } from '../../../hooks/useInviteRewardScopes';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import {
   type IInviteRewardRow,
+  type IInviteRewardScopeItem,
   type IInviteRewardSubject,
   INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
   getInviteRewardRows,
+  getInviteRewardScopeItems,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+  withRewardScopesHint,
+} from './RewardScopeInfo';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -41,15 +50,6 @@ import {
 } from './useInviteCardStyle';
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
-
-// Product names match the level targets and rates ("Perps volume", "Swap
-// fees"), so each product reads the same everywhere on the referral pages.
-const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
-  hardware: ETranslations.referral_referred_type_3,
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  defi: ETranslations.referral_referred_type_2,
-};
 
 interface IRewardLabelTooltip {
   title: string;
@@ -82,6 +82,7 @@ function RewardListRow({
   pendingLabel: string;
   onPress: () => void;
 }) {
+  const scopeDescription = row.scopeDescription;
   return (
     <ListItem
       {...COMPACT_ROW_BLEED_PROPS}
@@ -89,6 +90,15 @@ function RewardListRow({
       iconProps={COMPACT_ROW_ICON_PROPS}
       titleProps={COMPACT_ENTRY_TITLE_PROPS}
       title={title}
+      renderItemText={
+        scopeDescription ? (
+          <RewardScopeCompactTitle
+            title={title}
+            subject={row.subject}
+            description={scopeDescription}
+          />
+        ) : undefined
+      }
       drillIn
       onPress={onPress}
     >
@@ -193,21 +203,19 @@ function DesktopRewardHeader({
 
 // The product's icon on a round neutral tile, the row's visual anchor like a
 // token logo in the wallet lists; the page keeps its green for the few
-// figures that need it. The folded group keeps the tile's width blank.
-function ProductTile({ subject }: { subject?: IInviteRewardSubject }) {
+// figures that need it.
+function ProductTile({ subject }: { subject: IInviteRewardSubject }) {
   return (
     <Stack
       w="$10"
       h="$10"
       borderRadius="$full"
-      bg={subject ? '$bgStrong' : undefined}
+      bg="$bgStrong"
       ai="center"
       jc="center"
       flexShrink={0}
     >
-      {subject ? (
-        <Icon name={INVITE_REWARD_SUBJECT_ICON[subject]} size="$5" />
-      ) : null}
+      <Icon name={INVITE_REWARD_SUBJECT_ICON[subject]} size="$5" />
     </Stack>
   );
 }
@@ -243,9 +251,11 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={row.subject}
+          description={row.scopeDescription}
+        />
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -291,39 +301,6 @@ function DesktopRewardRow({
   );
 }
 
-// Two or more products without rewards fold into one line that expands in
-// place (and goes away once open); a blank tile keeps the names aligned with
-// the rows above.
-function DesktopFoldedRow({
-  title,
-  noRewardLabel,
-  onPress,
-}: {
-  title: string;
-  noRewardLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <XStack
-      ai="center"
-      gap="$3"
-      {...DESKTOP_ROW_BLEED_PROPS}
-      py="$3"
-      {...PRESSABLE_SURFACE_PROPS}
-      onPress={onPress}
-    >
-      <ProductTile />
-      <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-        {title}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {noRewardLabel}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
-    </XStack>
-  );
-}
-
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
 // action that changes it. Native already has the share footer, so only the
@@ -331,17 +308,20 @@ function DesktopFoldedRow({
 function RewardsEmpty({
   cardStyle,
   onCopyLink,
+  scopeItems,
 }: {
   cardStyle: IInviteCardStyle;
   onCopyLink?: () => void;
+  scopeItems: readonly IInviteRewardScopeItem[];
 }) {
   const intl = useIntl();
+  const description = intl.formatMessage({
+    id: ETranslations.referral_earnings_empty__desc,
+  });
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={intl.formatMessage({
-        id: ETranslations.referral_earnings_empty__desc,
-      })}
+      description={withRewardScopesHint(description, scopeItems)}
       buttonProps={
         onCopyLink
           ? {
@@ -400,11 +380,18 @@ export function InviteRewardRows({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
-  const [isFoldedOpen, setIsFoldedOpen] = useState(false);
+  const rewardScopes = useInviteRewardScopes();
   const rows = useMemo(
-    () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
-    [summaryInfo],
+    () =>
+      getInviteRewardRows(
+        summaryInfo,
+        summaryInfo.rebateConfig.configs,
+        rewardScopes,
+      ),
+    [summaryInfo, rewardScopes],
   );
+  const scopeItems = useMemo(() => getInviteRewardScopeItems(rows), [rows]);
+  const hasAnyData = rows.some((row) => row.hasData);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
     inviteCode: summaryInfo.inviteCode,
@@ -414,7 +401,7 @@ export function InviteRewardRows({
   );
   const titleFor = useCallback(
     (subject: IInviteRewardSubject) =>
-      intl.formatMessage({ id: SUBJECT_TITLE[subject] }),
+      intl.formatMessage({ id: INVITE_REWARD_SUBJECT_TITLE[subject] }),
     [intl],
   );
   const monthlyLabel = intl.formatMessage({
@@ -437,12 +424,8 @@ export function InviteRewardRows({
   const noRewardLabel = intl.formatMessage({
     id: ETranslations.referral_no_reward,
   });
-  const foldedTitle = rows.foldedRows
-    .map((row) => titleFor(row.subject))
-    .join(' · ');
 
   if (!md) {
-    const hasAnyData = rows.visibleRows.length > 0;
     const desktopLabels: IDesktopRewardLabels = {
       product: intl.formatMessage({
         id: ETranslations.referral_product__title,
@@ -452,8 +435,8 @@ export function InviteRewardRows({
       pending: pendingLabel,
     };
     const desktopColumns: IDesktopRewardColumns = {
-      monthly: rows.visibleRows.some((row) => row.monthlySalesFiatValue),
-      pending: rows.visibleRows.some((row) => row.pending),
+      monthly: rows.some((row) => row.hasData && row.monthlySalesFiatValue),
+      pending: rows.some((row) => row.hasData && row.pending),
     };
     return (
       // A wider gap splits the overview cards from the per-product
@@ -470,12 +453,7 @@ export function InviteRewardRows({
               labels={desktopLabels}
               columns={desktopColumns}
             />
-            {[
-              ...rows.visibleRows,
-              ...(rows.foldedRows.length === 1 || isFoldedOpen
-                ? rows.foldedRows
-                : []),
-            ].map((row) => (
+            {rows.map((row) => (
               <DesktopRewardRow
                 key={row.subject}
                 row={row}
@@ -488,18 +466,13 @@ export function InviteRewardRows({
                 }}
               />
             ))}
-            {rows.foldedRows.length > 1 && !isFoldedOpen ? (
-              <DesktopFoldedRow
-                title={foldedTitle}
-                noRewardLabel={noRewardLabel}
-                onPress={() => {
-                  setIsFoldedOpen(true);
-                }}
-              />
-            ) : null}
           </YStack>
         ) : (
-          <RewardsEmpty cardStyle={cardStyle} onCopyLink={copyLink} />
+          <RewardsEmpty
+            cardStyle={cardStyle}
+            onCopyLink={copyLink}
+            scopeItems={scopeItems}
+          />
         )}
       </YStack>
     );
@@ -516,11 +489,11 @@ export function InviteRewardRows({
     </SizableText>
   );
 
-  if (rows.visibleRows.length === 0) {
+  if (!hasAnyData) {
     return (
       <YStack gap="$2">
         {compactTitle}
-        <RewardsEmpty cardStyle={cardStyle} />
+        <RewardsEmpty cardStyle={cardStyle} scopeItems={scopeItems} />
       </YStack>
     );
   }
@@ -543,40 +516,7 @@ export function InviteRewardRows({
       {/* In a card like the blocks above, so the row text lines up with
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
-        {rows.visibleRows.map(renderRow)}
-        {/* Like desktop: one product without rewards is listed directly; two
-          or more fold into one row that expands in place. */}
-        {rows.foldedRows.length > 1 ? (
-          <ListItem
-            {...COMPACT_ROW_BLEED_PROPS}
-            // Icon-wide gap so the names line up with the product rows.
-            renderIcon={<Stack w="$5" flexShrink={0} />}
-            titleProps={COMPACT_ENTRY_TITLE_PROPS}
-            title={foldedTitle}
-            onPress={() => {
-              setIsFoldedOpen((open) => !open);
-            }}
-          >
-            <XStack ai="center" gap="$1" flexShrink={0}>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {noRewardLabel}
-              </SizableText>
-              <Icon
-                name={
-                  isFoldedOpen
-                    ? 'ChevronTopSmallOutline'
-                    : 'ChevronDownSmallOutline'
-                }
-                // Same size and edge as the list drill-in chevrons.
-                color="$iconSubdued"
-                mx="$-1.5"
-              />
-            </XStack>
-          </ListItem>
-        ) : null}
-        {rows.foldedRows.length === 1 || isFoldedOpen
-          ? rows.foldedRows.map(renderRow)
-          : null}
+        {rows.map(renderRow)}
       </YStack>
     </YStack>
   );

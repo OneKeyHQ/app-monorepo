@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv from '../platformEnv';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -27,6 +28,7 @@ jest.mock('axios', () => ({
 jest.mock('../platformEnv', () => ({
   __esModule: true,
   default: {
+    isDev: false,
     isNative: true,
     isDesktop: false,
   },
@@ -75,10 +77,10 @@ const CONFIG_URL = 'https://data.onekey.so/config.json?noCache=1';
 const PRE_RELEASE_CONFIG_URL =
   'https://data.onekey.so/pre-config.json?noCache=1';
 // Cloudflare endpoints lead the builtin table but are skipped for this host.
-const BUILTIN_FIRST_IP = '216.19.3.115';
+const BUILTIN_FIRST_IP = '216.19.4.106';
 // The builtin fill alternates between the two non-Cloudflare providers.
 const BUILTIN_SECOND_IP = '43.168.19.96';
-const BUILTIN_THIRD_IP = '216.19.2.116';
+const BUILTIN_THIRD_IP = '43.168.24.171';
 
 function buildRemoteConfig(): RemoteConfigResponse {
   const deviceConfig = { firmware: [], ble: [] };
@@ -198,6 +200,45 @@ describe('firmware config provider', () => {
       signal: expect.any(AbortSignal),
     });
   });
+
+  it.each([
+    {
+      name: 'desktop development',
+      isDesktop: true,
+      isDev: true,
+      baseUrl: '/__onekey_firmware_config',
+    },
+    {
+      name: 'desktop production',
+      isDesktop: true,
+      isDev: false,
+      baseUrl: 'https://data.onekey.so',
+    },
+    {
+      name: 'native development',
+      isDesktop: false,
+      isDev: true,
+      baseUrl: 'https://data.onekey.so',
+    },
+  ])(
+    'selects manifest URLs for $name',
+    async ({ isDesktop, isDev, baseUrl }) => {
+      jest.replaceProperty(platformEnv, 'isDesktop', isDesktop);
+      jest.replaceProperty(platformEnv, 'isNative', !isDesktop);
+      jest.replaceProperty(platformEnv, 'isDev', isDev);
+      const config = buildRemoteConfig();
+      directGet.mockResolvedValue({ data: config });
+
+      for (const preRelease of [false, true]) {
+        await expect(fetchFirmwareConfig({ preRelease })).resolves.toBe(config);
+        expect(directGet).toHaveBeenLastCalledWith(
+          `${baseUrl}/${preRelease ? 'pre-config' : 'config'}.json?noCache=1`,
+          { timeout: 10_000, signal: expect.any(AbortSignal) },
+        );
+      }
+      expect(mockedSniRequest).not.toHaveBeenCalled();
+    },
+  );
 
   it('normalizes a stable config published before the Pro2 manifest', async () => {
     const { pro2: _pro2, ...stableConfig } = buildRemoteConfig();
@@ -689,8 +730,8 @@ describe('firmware config provider', () => {
     ).resolves.toBeNull();
     expect(getSniRequestIps()).toEqual([
       '5.5.5.5',
-      BUILTIN_THIRD_IP,
       BUILTIN_SECOND_IP,
+      BUILTIN_THIRD_IP,
     ]);
   });
 

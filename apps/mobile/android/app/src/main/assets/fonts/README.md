@@ -1,21 +1,27 @@
 # Native-embedded app fonts (Android)
 
-These TTFs are copies of `packages/components/src/hocs/Provider/fonts/` and MUST
-stay in sync with the font families referenced by JS (tamagui.config.ts `face`
-mapping and `useLoadCustomFonts`).
+These TTFs mirror the font families referenced by JS (tamagui.config.ts `face`
+mapping and `useLoadCustomFonts`):
+
+- `GeistMono-*.ttf` are committed copies of
+  `packages/components/src/hocs/Provider/fonts/`.
+- Brand sans faces (`<PostScript name>.ttf`) are generated and gitignored.
+  `yarn fonts:sync` (runs on postinstall) copies the licensed brand font when a
+  private source is available, otherwise open-source Inter. See
+  `docs/private-font-split-design.md`.
 
 Why they exist: React Native resolves a `fontFamily` from `assets/fonts/<family>.ttf`
 synchronously (ReactFontManager). Without these files, fonts are only available
 after expo-font's async runtime registration. Production builds
 (ENABLE_NATIVE_BACKGROUND_THREAD=true) bypass the FontProvider loading gate on
 the main UI runtime, so first-frame text was measured with the fallback typeface
-(Roboto) and later drawn with Roobert — RN's TextMeasureCache keeps the stale
+(Roboto) and later drawn with the brand font — RN's TextMeasureCache keeps the stale
 width for the whole session, clipping/ellipsizing cold-start texts (e.g. home
 account name and balance). iOS has the same guarantee via `UIAppFonts` in
 Info.plist.
 
-File names must match the JS family strings exactly (e.g. `Roobert-Medium.ttf`
-for family "Roobert-Medium"); no `_bold` suffix variants are needed because
+File names must match the JS family strings exactly (e.g. `Inter-Medium.ttf`
+for family "Inter-Medium"); no `_bold` suffix variants are needed because
 Tamagui's face resolution strips `fontWeight` before it reaches RN.
 
 Run `node development/lint/font.js` from the repository root to check every
@@ -35,7 +41,7 @@ NativeList startup is wired through `packages/kit/src/provider/useNativeListFont
   faces available synchronously before the first list mounts. The existing
   expo-font loading path remains responsible for React Native text.
 - Web/desktop/extension UI imports the existing `web-fonts.css`, requests all
-  four Roobert weights (400/500/600/700), then configures the SDK and mounts the
+  four brand sans weights (400/500/600/700), then configures the SDK and mounts the
   provider children. Missing faces, rejection, or a 3-second timeout fall back
   to system fonts so authentication UI remains accessible.
 - On native/extension targets, this configuration belongs to the UI/main JS

@@ -50,6 +50,7 @@ import {
 } from '../MarketStockList/utils';
 import { getTokenAgeLabel } from '../MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { getMarketWatchlistRowKind } from '../MarketTokenList/utils/marketWatchlistRowKind';
+import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import { buildMarketNativeRowPatches } from './marketNativeListRows';
 
@@ -200,8 +201,13 @@ export function WebMarketTokenList({
         ? node
         : null;
   }, []);
+  const sticky = useContext(DesktopStickyHeaderContext);
+  const [stickyInset, setStickyInset] = useState(0);
   const registeredHeight = Math.max(
     400,
+    // Removing a favorite must not shorten the visible page and clamp the
+    // outer scroll offset, which would move all remaining rows downward.
+    watchlistMode ? (scrollElement?.clientHeight ?? 0) - stickyInset : 0,
     data.length * 72 +
       contentPaddingBottom +
       (footer ? 132 : 0) +
@@ -212,8 +218,6 @@ export function WebMarketTokenList({
     if (!element) return undefined;
     return registerContent?.(element, registeredHeight);
   }, [registerContent, registeredHeight]);
-  const sticky = useContext(DesktopStickyHeaderContext);
-  const [stickyInset, setStickyInset] = useState(0);
   useEffect(() => {
     const element = sticky?.portalTarget?.parentElement;
     if (!element) return undefined;
@@ -241,6 +245,8 @@ export function WebMarketTokenList({
     anchor: NativeListActionAnchor;
     actionKey: string;
     rowKey: string;
+    left: number;
+    top: number;
   }>();
   const stockPresentation = stockRows !== undefined;
   const webColumns = useMemo<WebMarketTableColumn[]>(
@@ -284,7 +290,8 @@ export function WebMarketTokenList({
       background: theme.bgApp.val,
       rowBackground: theme.bgApp.val,
       rowSelectedBackground: theme.bgActive.val,
-      rowPressedBackground: theme.bgHover.val,
+      rowPressedBackground: theme.bgActive.val,
+      rowHoverBackground: theme.bgHover.val,
       subduedBackground: theme.bgSubdued.val,
       strongBackground: theme.bgStrong.val,
       imageFallbackBackground: theme.gray5.val,
@@ -1105,7 +1112,7 @@ export function WebMarketTokenList({
           };
         });
         const row: MarketRow = {
-          key: item.id,
+          key: marketTokenKey(item),
           type: 'market',
           variant: 'token',
           leading: {
@@ -1194,7 +1201,9 @@ export function WebMarketTokenList({
   }, [patches, snapshot, baseSnapshot]);
   const handleAction = useCallback(
     (event: RowActionEvent) => {
-      const index = data.findIndex((item) => item.id === event.rowKey);
+      const index = data.findIndex(
+        (item) => marketTokenKey(item) === event.rowKey,
+      );
       const item = data[index];
       if (!item) return;
       if (
@@ -1207,10 +1216,15 @@ export function WebMarketTokenList({
           token: event.anchor.token,
           open: true,
         });
+        // The pager and scroll host are transformed, which turns them into
+        // the containing block of `position: fixed`; anchor relative to root.
+        const rootRect = rootRef.current?.getBoundingClientRect();
         setTooltip({
           anchor: event.anchor,
           actionKey: event.actionKey,
           rowKey: item.id,
+          left: event.anchor.windowRect.x - (rootRect?.left ?? 0),
+          top: event.anchor.windowRect.y - (rootRect?.top ?? 0),
         });
         return;
       }
@@ -1370,6 +1384,7 @@ export function WebMarketTokenList({
     <Stack ref={setRootRef} width="100%" minHeight={registeredHeight}>
       <NativeList
         ref={listRef}
+        testID={watchlistMode ? 'market-watchlist-list' : undefined}
         snapshot={baseSnapshot}
         webScrollHost={isFocusedTab ? (scrollElement ?? null) : null}
         webStickyInset={stickyInset}
@@ -1381,7 +1396,9 @@ export function WebMarketTokenList({
           onScrollBegin?.();
         }}
         onReorder={(event) => {
-          const from = data.findIndex((item) => item.id === event.key);
+          const from = data.findIndex(
+            (item) => marketTokenKey(item) === event.key,
+          );
           if (from < 0) return;
           const next = [...data];
           const [dragItem] = next.splice(from, 1);
@@ -1399,9 +1416,9 @@ export function WebMarketTokenList({
       />
       {tooltip ? (
         <Stack
-          position="fixed"
-          left={tooltip.anchor.windowRect.x}
-          top={tooltip.anchor.windowRect.y}
+          position="absolute"
+          left={tooltip.left}
+          top={tooltip.top}
           width={tooltip.anchor.windowRect.width}
           height={tooltip.anchor.windowRect.height}
           pointerEvents="none"

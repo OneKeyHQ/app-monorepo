@@ -13,6 +13,7 @@ import type {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketNativeSnapshot } from '../components/MarketNativeList/marketNativeListRows';
 
@@ -30,11 +31,17 @@ type IMockLayoutEvent = { nativeEvent: { layout: { height: number } } };
 type IMockListContainerProps = {
   paddingBottom: number;
   emptyContentHeight?: number;
+  emptyContentPaddingTop?: number;
+  emptyScrollContentMinHeight?: number;
 };
 
 type IMockPagerProps = {
   children?: ReactNode;
+  header?: ReactNode;
+  headerHeight: number;
   stickyHeader?: ReactNode;
+  stickyHeaderHeight?: number;
+  stickyHeaderHeights?: readonly number[];
   initialPage?: number;
   onLayout?: (event: IMockLayoutEvent) => void;
   externalTopOverlayTag?: number;
@@ -63,7 +70,8 @@ type IMockCategorySelectorProps = {
 const mockInsetCommits: { padding: string | null | undefined; tag?: number }[] =
   [];
 let mockStickyHeaderLayout: ((event: IMockLayoutEvent) => void) | undefined;
-let mockListContainerProps: IMockListContainerProps | undefined;
+let mockTrendingListContainerProps: IMockListContainerProps | undefined;
+let mockWatchlistContainerProps: IMockListContainerProps | undefined;
 const mockControllerInputs: Array<
   Parameters<
     typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController').useAppPagerController
@@ -90,6 +98,7 @@ let mockUseRealTabsLogic = false;
 let mockPerpDisabled = false;
 const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
+let mockHighlights: IMarketHighlight[] = [];
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
 let mockPreferences: IMarketHomePreferences;
@@ -152,6 +161,7 @@ jest.mock('react-native-pager-view', () => {
         }));
         return (
           <div ref={hostRef}>
+            {props.header}
             {props.stickyHeader}
             {props.children}
           </div>
@@ -172,6 +182,12 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 // Every @onekeyhq/components import path resolves to one jest module.
 jest.mock('@onekeyhq/components', () => ({
+  BRAND_FONT_NATIVE_FAMILY: {
+    regular: 'Inter-Regular',
+    medium: 'Inter-Medium',
+    semibold: 'Inter-SemiBold',
+    bold: 'Inter-Bold',
+  },
   IconButton: () => null,
   Tabs: { TabBar: () => null },
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -246,6 +262,15 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
   },
 }));
+jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
+  useMarketHighlights: () => ({ items: mockHighlights }),
+}));
+jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 62,
+  MarketHighlightStrip: ({ highlight }: { highlight: IMarketHighlight }) => (
+    <div>{highlight.title}</div>
+  ),
+}));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
   useMarketBannerState: () => ({
@@ -272,10 +297,14 @@ jest.mock('../components/MarketNativeList/MobileMarketNativeLists', () => ({
   },
   MobileMarketNativeTokenList: ({
     listContainerProps,
+    selectedCategory,
   }: {
     listContainerProps: IMockListContainerProps;
+    selectedCategory: string;
   }) => {
-    mockListContainerProps = listContainerProps;
+    if (selectedCategory === 'trending') {
+      mockTrendingListContainerProps = listContainerProps;
+    }
     return null;
   },
   MobileMarketNativeTopCoinsList: ({
@@ -288,9 +317,12 @@ jest.mock('../components/MarketNativeList/MobileMarketNativeLists', () => ({
   },
   MobileMarketNativeWatchlist: ({
     selectedFilter,
+    listContainerProps,
   }: {
     selectedFilter: string;
+    listContainerProps: IMockListContainerProps;
   }) => {
+    mockWatchlistContainerProps = listContainerProps;
     mockNativeSelections.watchlist = selectedFilter;
     return null;
   },
@@ -310,7 +342,10 @@ jest.mock('../components/MarketPerpsList/MarketPerpsCategorySelector', () => ({
 }));
 jest.mock(
   '../components/MarketTokenList/hooks/useMarketWatchlistTokenList',
-  () => ({ useIsWatchlistTokenCacheReady: () => true }),
+  () => ({
+    marketWatchlistDataCacheRef: { current: undefined },
+    useIsWatchlistTokenCacheReady: () => true,
+  }),
 );
 jest.mock('../components/MarketTokenList/MarketStockCategorySelector', () => ({
   MarketStockCategorySelector: (props: IMockCategorySelectorProps) => {
@@ -376,8 +411,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockInsetCommits.length = 0;
   mockPagerProps = undefined;
+  mockHighlights = [];
   mockStickyHeaderLayout = undefined;
-  mockListContainerProps = undefined;
+  mockTrendingListContainerProps = undefined;
+  mockWatchlistContainerProps = undefined;
   mockCategorySelectorProps = undefined;
   mockSelection = { tab: 'trending' };
   mockPreferences = {};
@@ -399,6 +436,43 @@ function pressNativeTab(key: string) {
 }
 
 describe('native market home tab presses', () => {
+  it.each([
+    ['jumpToTab', true, 4, 'Perps', false],
+    ['setIndex', true, 4, 'Perps', false],
+    ['jumpToTab', true, 1, 'Trending', true],
+    ['jumpToTab', false, 4, 'Perps', true],
+    ['setIndex', false, 4, 'Perps', true],
+  ] as const)(
+    '%s keeps iOS=%s selection of tab %s (%s) animated=%s',
+    (command, isIOS, index, tabName, animated) => {
+      jest.replaceProperty(platformEnv, 'isNativeIOS', isIOS);
+      jest.replaceProperty(platformEnv, 'isNativeAndroid', !isIOS);
+      const tabsRef = createRef<IAppPagerRef>();
+      render(
+        <MobileLayout
+          filterBarProps={filterBarProps}
+          selectedNetworkId="evm--1"
+          onTabChange={jest.fn()}
+          tabsRef={tabsRef}
+        />,
+      );
+
+      act(() => {
+        if (command === 'jumpToTab') tabsRef.current?.jumpToTab(tabName);
+        else tabsRef.current?.setIndex(index);
+      });
+
+      expect(tabsRef.current?.getFocusedTab()).toBe(tabName);
+      if (animated) {
+        expect(mockSetPage).toHaveBeenCalledWith(index);
+        expect(mockSetPageWithoutAnimation).not.toHaveBeenCalled();
+      } else {
+        expect(mockSetPageWithoutAnimation).toHaveBeenCalledWith(index);
+        expect(mockSetPage).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('commits a press immediately and ignores stale non-drag selection callbacks', () => {
     const tabsRef = createRef<IAppPagerRef>();
     render(
@@ -416,6 +490,19 @@ describe('native market home tab presses', () => {
     );
     expect(tabsRef.current?.getFocusedTab()).toBe('Perps');
     expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('provides the destination height while the source header is still visible', () => {
+    renderLayout();
+    expect(mockPagerProps?.stickyHeaderHeights?.slice(0, 2)).toEqual([44, 132]);
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(44);
+
+    pressNativeTab('Trending');
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(44);
+    act(() =>
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 1 } }),
+    );
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(132);
   });
 
   it('keeps the local command during an in-flight stale atom sync', () => {
@@ -521,6 +608,9 @@ describe('native market home selection restoration', () => {
     expect(mockPagerProps?.nativeSubHeader?.selectedKey).toBe('consumer-tech');
 
     pressNativeTab('Top coins');
+    act(() =>
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 3 } }),
+    );
     expect(mockPagerProps?.nativeSubHeader?.selectedKey).toBe('defi');
     act(() => {
       mockPagerProps?.onNativeSubHeaderPress?.({
@@ -574,6 +664,41 @@ describe('native market home selection restoration', () => {
     expect(mockNativeSelections.stocks).toBe('consumer-tech');
     expect(mockSelection.selectedTopCoinsCategory).toBe('defi');
   });
+});
+
+it('reserves room for a hotspot that arrives without banners', () => {
+  const { queryByText, getByText, rerender } = renderLayout();
+  const title = 'Market hotspot';
+  expect(queryByText(title)).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(1);
+
+  mockHighlights = [
+    {
+      highlightId: 'highlight-1',
+      title,
+      description: 'An editorial summary',
+      publishedAt: '2026-11-04T02:00:00Z',
+      assets: [
+        {
+          type: 'asset',
+          assetId: 'bitcoin',
+          symbol: 'BTC',
+          favorite: { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+        },
+      ],
+      links: [],
+    },
+  ];
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+
+  expect(getByText(title)).toBeTruthy();
+  expect(mockPagerProps?.headerHeight).toBe(62);
 });
 
 describe('external header inset ownership', () => {
@@ -669,7 +794,7 @@ const mockPresentation: IMarketNativeListPresentation = {
 };
 
 function readEmptySnapshot(failed: boolean) {
-  if (!mockListContainerProps)
+  if (!mockTrendingListContainerProps)
     throw new OneKeyLocalError('Market list must receive layout props');
   return buildMarketNativeSnapshot({
     rows: [],
@@ -679,8 +804,8 @@ function readEmptySnapshot(failed: boolean) {
     noDataMessage: 'No data',
     retryMessage: 'Retry',
     errorMessage: failed ? 'Request failed' : undefined,
-    contentPaddingBottom: mockListContainerProps.paddingBottom,
-    emptyContentHeight: mockListContainerProps.emptyContentHeight,
+    contentPaddingBottom: mockTrendingListContainerProps.paddingBottom,
+    emptyContentHeight: mockTrendingListContainerProps.emptyContentHeight,
   });
 }
 
@@ -698,6 +823,24 @@ describe.each([false, true])(
       const snapshot = readEmptySnapshot(failed);
       return failed ? snapshot.rows[0] : snapshot.emptyState;
     };
+    it('keeps the destination row height stable before and after native page selection', () => {
+      renderLayout();
+      measureMarketViewport(700);
+
+      pressNativeTab('Trending');
+      expect(mockPagerProps?.stickyHeaderHeight).toBe(44);
+      expect(row()).toMatchObject({
+        height: 568,
+        variant: failed ? 'retry' : 'noMatch',
+      });
+
+      act(() =>
+        mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 1 } }),
+      );
+      expect(mockPagerProps?.stickyHeaderHeight).toBe(132);
+      expect(row()?.height).toBe(568);
+    });
+
     it('passes the corrected viewport to real noMatch/retry rows and updates memoized geometry', () => {
       const props = {
         filterBarProps,
@@ -709,7 +852,7 @@ describe.each([false, true])(
       const screen = render(<MobileLayout {...props} />);
       measureMarketViewport(700);
       expect(row()).toMatchObject({
-        height: 656,
+        height: 568,
         variant: failed ? 'retry' : 'noMatch',
       });
       act(() =>
@@ -718,7 +861,7 @@ describe.each([false, true])(
         }),
       );
       expect(row()).toMatchObject({
-        height: 556,
+        height: 468,
         variant: failed ? 'retry' : 'noMatch',
       });
       if (failed)
@@ -726,31 +869,31 @@ describe.each([false, true])(
           actionKey: 'retry',
           actionText: 'Retry',
         });
-      const previousProps = mockListContainerProps;
+      const previousProps = mockTrendingListContainerProps;
       screen.rerender(
         <MobileLayout {...props} externalTopOverlayHeight={120} />,
       );
-      expect(mockListContainerProps).not.toBe(previousProps);
-      expect(row()?.height).toBe(536);
+      expect(mockTrendingListContainerProps).not.toBe(previousProps);
+      expect(row()?.height).toBe(448);
       screen.rerender(
         <MobileLayout {...props} externalTopOverlayTag={undefined} />,
       );
-      expect(row()?.height).toBe(656);
+      expect(row()?.height).toBe(568);
       screen.rerender(<MobileLayout {...props} />);
-      expect(row()?.height).toBe(556);
+      expect(row()?.height).toBe(468);
       act(() =>
         mockPagerProps?.onScrollEdgeCapability?.({
           nativeEvent: { available: false },
         }),
       );
-      expect(row()?.height).toBe(656);
+      expect(row()?.height).toBe(568);
       act(() =>
         mockPagerProps?.onScrollEdgeCapability?.({
           nativeEvent: { available: true },
         }),
       );
       measureMarketViewport(80);
-      expect(mockListContainerProps?.emptyContentHeight).toBe(0);
+      expect(mockTrendingListContainerProps?.emptyContentHeight).toBe(0);
       expect(row()?.height).toBe(failed ? 120 : 88);
     });
 
@@ -772,7 +915,7 @@ describe.each([false, true])(
             nativeEvent: { available: true },
           }),
         );
-        expect(row()?.height).toBe(656);
+        expect(row()?.height).toBe(568);
       },
     );
 
@@ -792,7 +935,7 @@ describe.each([false, true])(
           nativeEvent: { available: false },
         }),
       );
-      expect(row()?.height).toBe(656);
+      expect(row()?.height).toBe(568);
     });
 
     it('keeps Android geometry even when capability is reported', () => {
@@ -888,4 +1031,26 @@ it('keeps native Market controller inputs stable on unrelated renders', () => {
   expect(next.pages).toBe(first.pages);
   expect(next.onSelectionChange).toBe(first.onSelectionChange);
   expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
+});
+
+it('leaves Android header avoidance to the pager while keeping empty Favorites scrollable', () => {
+  jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+  jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+  render(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  measureMarketViewport(700);
+  expect(mockWatchlistContainerProps?.emptyContentPaddingTop).toBe(16);
+  expect(
+    mockWatchlistContainerProps?.emptyScrollContentMinHeight,
+  ).toBeGreaterThan(700);
+
+  act(() => {
+    mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 132 } } });
+  });
+  expect(mockWatchlistContainerProps?.emptyContentPaddingTop).toBe(16);
 });

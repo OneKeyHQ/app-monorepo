@@ -25,9 +25,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSwapStockIssuerPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPreferredStockTokenVariant } from '@onekeyhq/shared/src/utils/stockTokenVariant';
+import {
+  isPreferredStockTokenVariant,
+  normalizeStockIssuer,
+} from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
@@ -79,15 +83,11 @@ const StockTokenVariantResolvedContext = createContext<Set<string>>(
   new Set<string>(),
 );
 
+// Keyed by normalizeStockIssuer() so every alias shares one label.
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
-  // cspell:disable-next-line
-  bstock: 'bStocks',
-  coingecko: 'Ondo',
   ondo: 'Ondo',
-  // cspell:disable-next-line
-  xstock: 'xStocks',
   // cspell:disable-next-line
   xstocks: 'xStocks',
 };
@@ -95,11 +95,28 @@ const ISSUER_LABELS: Record<string, string> = {
 export function getIssuerLabel(issuer: string) {
   const normalizedIssuer = issuer.trim();
   if (!normalizedIssuer) return VALUE_FALLBACK;
-  return ISSUER_LABELS[normalizedIssuer.toLowerCase()] ?? normalizedIssuer;
+  return ISSUER_LABELS[normalizeStockIssuer(issuer)] ?? normalizedIssuer;
 }
 
 function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
   return /^7\s*[x×]\s*24$/i.test(variant.tradingHours?.days?.trim() ?? '');
+}
+
+function AlwaysOpenTag() {
+  return (
+    <Stack
+      minWidth={36}
+      px="$1.5"
+      py="$0.5"
+      borderRadius="$1"
+      bg="$bgStrong"
+      alignItems="center"
+    >
+      <SizableText size="$bodyXsMedium" color="$textSubdued">
+        24/7
+      </SizableText>
+    </Stack>
+  );
 }
 
 function findVariantBalance({
@@ -159,6 +176,7 @@ function StockTokenVariantRow({
   portfolioData,
   onSelect,
   compact = false,
+  alignPriceRight = false,
 }: {
   index: number;
   variant: IMarketStockTokenVariant;
@@ -167,6 +185,7 @@ function StockTokenVariantRow({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
   compact?: boolean;
+  alignPriceRight?: boolean;
 }) {
   const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
@@ -218,20 +237,7 @@ function StockTokenVariantRow({
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
           </SizableText>
-          {isAlwaysOpenVariant(variant) ? (
-            <Stack
-              minWidth={36}
-              px="$1.5"
-              py="$0.5"
-              borderRadius="$1"
-              bg="$bgStrong"
-              alignItems="center"
-            >
-              <SizableText size="$bodyXsMedium" color="$textSubdued">
-                24/7
-              </SizableText>
-            </Stack>
-          ) : null}
+          {isAlwaysOpenVariant(variant) ? <AlwaysOpenTag /> : null}
         </XStack>
         {balance ? (
           <NumberSizeableText
@@ -267,6 +273,7 @@ function StockTokenVariantRow({
         flexBasis={0}
         minWidth={0}
         alignItems="center"
+        justifyContent={alignPriceRight ? 'flex-end' : undefined}
       >
         {variant.price ? (
           <NumberSizeableText
@@ -274,6 +281,7 @@ function StockTokenVariantRow({
             formatter="price"
             formatterOptions={{ currency: '$' }}
             numberOfLines={1}
+            flexShrink={alignPriceRight ? 1 : undefined}
           >
             {variant.price}
           </NumberSizeableText>
@@ -300,6 +308,7 @@ function StockTokenVariantSelectorContent({
   const portfolioData = useContext(StockTokenVariantPortfolioContext);
   const { md } = useMedia();
   const compactColumns = compact && md;
+  const alignPriceRight = Boolean(platformEnv.isNative && compactColumns);
   const {
     tokenVariants,
     selectedTokenId,
@@ -307,6 +316,7 @@ function StockTokenVariantSelectorContent({
     setSelectedTokenId,
     portfolioNetworkId,
   } = useStockDetail();
+  const [, setIssuerPreference] = useSwapStockIssuerPreferencePersistAtom();
   const portfolioScopeTokenId = useMemo(() => {
     if (!portfolioNetworkId || !selectedTokenVariant?.networkId) {
       return undefined;
@@ -378,7 +388,7 @@ function StockTokenVariantSelectorContent({
             flex={compactColumns ? 1 : PRICE_COLUMN_FLEX}
             flexBasis={0}
             minWidth={0}
-            alignItems="flex-start"
+            alignItems={alignPriceRight ? 'flex-end' : 'flex-start'}
           >
             <DashText
               size="$bodySmMedium"
@@ -411,15 +421,24 @@ function StockTokenVariantSelectorContent({
             key={variant.tokenId}
             index={index}
             compact={compactColumns}
+            alignPriceRight={alignPriceRight}
             variant={variant}
             selected={variant.tokenId === selectedTokenId}
             isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
             portfolioData={portfolioData}
             onSelect={(item) => {
               if (onSelect) {
+                // The caller applies the pick and remembers its issuer once
+                // the switch commits (Swap: after any risk confirmation).
                 void onSelect(item);
               } else {
                 setSelectedTokenId(item.tokenId);
+                // A hand-picked issuer becomes the default for every stock.
+                const issuer = normalizeStockIssuer(item.issuer);
+                // Unchanged picks skip the persisted write and its broadcast.
+                setIssuerPreference((previous) =>
+                  previous.issuer === issuer ? previous : { issuer },
+                );
               }
               closePopover();
             }}
@@ -636,11 +655,18 @@ export function StockTokenVariantSelector({
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
-              <SizableText size="$headingMd" numberOfLines={1}>
-                {renderedSelectedVariant.symbol ||
-                  renderedSelectedVariant.name ||
-                  VALUE_FALLBACK}
-              </SizableText>
+              {/* Same 24/7 tag as the list row, so the always-open token stays
+                  marked after it is picked. */}
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+                  {renderedSelectedVariant.symbol ||
+                    renderedSelectedVariant.name ||
+                    VALUE_FALLBACK}
+                </SizableText>
+                {isAlwaysOpenVariant(renderedSelectedVariant) ? (
+                  <AlwaysOpenTag />
+                ) : null}
+              </XStack>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
                   trigger names who backs the token, not just which one it is.
                   The compact (Trade) trigger shows it too so both surfaces
