@@ -5,10 +5,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  Popover,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
   useMedia,
@@ -21,10 +19,10 @@ import { useNavigateToHardwareSalesReward } from '@onekeyhq/kit/src/views/ReferF
 import { useNavigateToPerpsReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/PerpsReward/hooks/useNavigateToPerpsReward';
 import { useNavigateToSwapReward } from '@onekeyhq/kit/src/views/ReferFriends/pages/SwapReward/hooks/useNavigateToSwapReward';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralCardEmpty } from '../../../components/ReferralCardEmpty';
+import { useInviteRewardScopes } from '../../../hooks/useInviteRewardScopes';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
 import {
@@ -32,11 +30,17 @@ import {
   type IInviteRewardScopeItem,
   type IInviteRewardSubject,
   INVITE_REWARD_SUBJECT_ICON,
+  INVITE_REWARD_SUBJECT_TITLE,
   getInviteRewardRows,
   getInviteRewardScopeItems,
 } from './getInviteRewardRows';
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
+import {
+  RewardScopeCompactTitle,
+  RewardScopeDesktopTitle,
+  withRewardScopesHint,
+} from './RewardScopeInfo';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
@@ -47,15 +51,6 @@ import {
 
 import type { IInviteCardStyle } from './useInviteCardStyle';
 
-// Product names match the level targets and rates ("Perps volume", "Swap
-// fees"), so each product reads the same everywhere on the referral pages.
-const SUBJECT_TITLE: Record<IInviteRewardSubject, ETranslations> = {
-  hardware: ETranslations.referral_referred_type_3,
-  perps: ETranslations.perps_perps,
-  swap: ETranslations.global_swap,
-  defi: ETranslations.referral_referred_type_2,
-};
-
 interface IRewardLabelTooltip {
   title: string;
   content: string;
@@ -63,91 +58,6 @@ interface IRewardLabelTooltip {
 
 function stopPropagation(e: { stopPropagation: () => void }) {
   e.stopPropagation();
-}
-
-// Sits on the product name. Its press must not open the detail page.
-function RewardScopeInfo({
-  title,
-  content,
-}: {
-  title: string;
-  content: string;
-}) {
-  return (
-    <Stack
-      onPress={stopPropagation}
-      flexShrink={0}
-      m={platformEnv.isNative ? '$-3' : undefined}
-    >
-      <InfoIcon
-        size="$4"
-        color="$iconSubdued"
-        triggerPadding={platformEnv.isNative ? '$3' : undefined}
-        tooltip={{ title, content }}
-      />
-    </Stack>
-  );
-}
-
-function RewardScopeListContent({
-  items,
-}: {
-  items: readonly IInviteRewardScopeItem[];
-}) {
-  const intl = useIntl();
-  return (
-    <YStack gap="$3">
-      {items.map((item) => (
-        <YStack key={item.subject} gap="$1">
-          <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({ id: SUBJECT_TITLE[item.subject] })}
-          </SizableText>
-          <SizableText size="$bodyMd">{item.description}</SizableText>
-        </YStack>
-      ))}
-    </YStack>
-  );
-}
-
-// One entry for every visible product that has scope copy. The whole line
-// opens it, because the empty card has no product rows to hang an icon on.
-function RewardScopesHint({
-  items,
-}: {
-  items: readonly IInviteRewardScopeItem[];
-}) {
-  const intl = useIntl();
-  const { gtMd } = useMedia();
-  const title = intl.formatMessage({
-    id: ETranslations.referral_earnings_by_product__title,
-  });
-  const trigger = (
-    <XStack ai="center" jc="center" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.global_learn_more })}
-      </SizableText>
-      <Icon name="InfoCircleOutline" size="$4" />
-    </XStack>
-  );
-  const content = <RewardScopeListContent items={items} />;
-
-  // Native Tooltip returns only its trigger, so wide tablets still open Popover.
-  if (!gtMd || platformEnv.isNative) {
-    return (
-      <Popover
-        placement="top"
-        title={title}
-        renderTrigger={trigger}
-        renderContent={
-          <YStack px="$5" py="$4">
-            {content}
-          </YStack>
-        }
-      />
-    );
-  }
-
-  return <Tooltip renderTrigger={trigger} renderContent={content} />;
 }
 
 function RewardLabel({ label }: { label: string }) {
@@ -182,26 +92,11 @@ function RewardListRow({
       title={title}
       renderItemText={
         scopeDescription ? (
-          <XStack
-            flex={1}
-            ai="center"
-            gap="$1"
-            minWidth={0}
-            // Keep the full native trigger inside its parent's touch bounds.
-            minHeight={platformEnv.isNative ? '$10' : undefined}
-            my={platformEnv.isNative ? '$-2' : undefined}
-          >
-            <SizableText
-              {...COMPACT_ENTRY_TITLE_PROPS}
-              flexShrink={1}
-              minWidth={0}
-              numberOfLines={1}
-              userSelect="none"
-            >
-              {title}
-            </SizableText>
-            <RewardScopeInfo title={title} content={scopeDescription} />
-          </XStack>
+          <RewardScopeCompactTitle
+            title={title}
+            subject={row.subject}
+            description={scopeDescription}
+          />
         ) : undefined
       }
       drillIn
@@ -356,17 +251,11 @@ function DesktopRewardRow({
     >
       <DesktopCell first>
         <ProductTile subject={row.subject} />
-        <SizableText
-          flexShrink={1}
-          minWidth={0}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-        >
-          {title}
-        </SizableText>
-        {row.scopeDescription ? (
-          <RewardScopeInfo title={title} content={row.scopeDescription} />
-        ) : null}
+        <RewardScopeDesktopTitle
+          title={title}
+          subject={row.subject}
+          description={row.scopeDescription}
+        />
       </DesktopCell>
       {columns.monthly ? (
         <DesktopCell>
@@ -412,25 +301,6 @@ function DesktopRewardRow({
   );
 }
 
-function rewardEmptyDescription(
-  description: string,
-  scopeItems: readonly IInviteRewardScopeItem[],
-) {
-  if (scopeItems.length === 0) {
-    return description;
-  }
-  // String descriptions pick up Empty's text style. A custom node does not,
-  // so the copy keeps the same size and color beside the scope line.
-  return (
-    <YStack ai="center" gap="$2">
-      <SizableText size="$bodyMd" textAlign="center" color="$textSubdued">
-        {description}
-      </SizableText>
-      <RewardScopesHint items={scopeItems} />
-    </YStack>
-  );
-}
-
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
 // action that changes it. Native already has the share footer, so only the
@@ -451,7 +321,7 @@ function RewardsEmpty({
   return (
     <ReferralCardEmpty
       {...cardStyle}
-      description={rewardEmptyDescription(description, scopeItems)}
+      description={withRewardScopesHint(description, scopeItems)}
       buttonProps={
         onCopyLink
           ? {
@@ -510,15 +380,17 @@ export function InviteRewardRows({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
+  const rewardScopes = useInviteRewardScopes();
   const rows = useMemo(
-    () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
-    [summaryInfo],
-  );
-  const scopeItems = useMemo(
     () =>
-      getInviteRewardScopeItems(summaryInfo, summaryInfo.rebateConfig.configs),
-    [summaryInfo],
+      getInviteRewardRows(
+        summaryInfo,
+        summaryInfo.rebateConfig.configs,
+        rewardScopes,
+      ),
+    [summaryInfo, rewardScopes],
   );
+  const scopeItems = useMemo(() => getInviteRewardScopeItems(rows), [rows]);
   const hasAnyData = rows.some((row) => row.hasData);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
@@ -529,7 +401,7 @@ export function InviteRewardRows({
   );
   const titleFor = useCallback(
     (subject: IInviteRewardSubject) =>
-      intl.formatMessage({ id: SUBJECT_TITLE[subject] }),
+      intl.formatMessage({ id: INVITE_REWARD_SUBJECT_TITLE[subject] }),
     [intl],
   );
   const monthlyLabel = intl.formatMessage({

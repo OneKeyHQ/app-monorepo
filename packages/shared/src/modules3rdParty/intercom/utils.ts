@@ -1,5 +1,11 @@
 import appGlobals from '../../appGlobals';
 
+import {
+  type EIntercomBridge,
+  INTERCOM_SUPPORT_URL,
+  resolveIntercomSupportUrlOverride,
+} from './bridge';
+
 const INTERCOM_LANGUAGE_OVERRIDES: Record<string, string> = {
   bn: 'bn',
   de: 'de',
@@ -91,6 +97,30 @@ export const getCurrentLocale = async (): Promise<string | undefined> => {
 
 export const getIntercomLanguageOverride = async (): Promise<string> =>
   toIntercomLanguageOverride(await getCurrentLocale());
+
+// Reads the developer-mode support page override from the background runtime.
+export const getIntercomSupportUrlOverride = async (): Promise<
+  string | undefined
+> => {
+  try {
+    const backgroundApiProxy = appGlobals.$backgroundApiProxy;
+
+    if (!backgroundApiProxy) {
+      return undefined;
+    }
+
+    return resolveIntercomSupportUrlOverride(
+      await backgroundApiProxy.serviceDevSetting.getDevSetting(),
+    );
+  } catch (error) {
+    console.warn('Failed to read Intercom support URL override:', error);
+  }
+
+  return undefined;
+};
+
+export const getIntercomSupportUrl = async (): Promise<string> =>
+  (await getIntercomSupportUrlOverride()) ?? INTERCOM_SUPPORT_URL;
 
 export type IShowIntercomParams = {
   requestId?: string;
@@ -191,10 +221,13 @@ export type IIntercomLockPolicy = {
   lockAtMs: number;
 };
 
+// Credentials never belong here: URLs reach gateway logs, browser history,
+// Sentry and analytics. The JWT travels over the bridge named in the fragment.
 export const buildIntercomUrl = (
   baseUrl: string,
-  params?: {
-    token?: string;
+  params: {
+    bridge: EIntercomBridge;
+    parentOrigin?: string;
     instanceId?: string;
     requestId?: string;
     languageOverride?: string;
@@ -202,29 +235,28 @@ export const buildIntercomUrl = (
 ): string => {
   let url = baseUrl;
 
-  // Add token if provided
-  if (params?.token) {
-    const separator = url.includes('?') ? '&' : '?';
-    url += `${separator}intercom_user_jwt=${encodeURIComponent(params.token)}`;
-  }
-
   // Add instanceId if provided
-  if (params?.instanceId) {
+  if (params.instanceId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}instanceId=${encodeURIComponent(params.instanceId)}`;
   }
 
   // Add requestId if provided
-  if (params?.requestId) {
+  if (params.requestId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}requestId=${encodeURIComponent(params.requestId)}`;
   }
 
-  if (params?.languageOverride) {
+  if (params.languageOverride) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}language_override=${encodeURIComponent(
       params.languageOverride,
     )}`;
+  }
+
+  url += `#bridge=${params.bridge}`;
+  if (params.parentOrigin) {
+    url += `&parentOrigin=${encodeURIComponent(params.parentOrigin)}`;
   }
 
   return url;

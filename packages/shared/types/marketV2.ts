@@ -1,3 +1,5 @@
+import type { IMarketWatchListItemV2 } from './market';
+
 export interface IBtcMetadataNextHalving {
   nextHalvingBlockHeight: number;
   blocksUntilHalving: number;
@@ -765,6 +767,9 @@ export interface IMarketBannerDescription {
 }
 
 export interface IMarketBannerTokenPreview {
+  stockId?: string;
+  networkId?: string;
+  address?: string;
   logo: string;
   name: string;
   symbol: string;
@@ -1064,4 +1069,29 @@ export interface IMarketStockTokenVariantsResponse {
   stockId: string;
   items: IMarketStockTokenVariant[];
   defaultTokenId?: string;
+}
+
+export type IMarketHighlightAsset = {
+  symbol: string;
+  name?: string;
+  favorite: IMarketWatchListItemV2;
+} & (
+  | {
+      type: 'token';
+      chainId: string;
+      contractAddress: string;
+      isNative?: boolean;
+    }
+  | { type: 'stock'; stockId: string }
+  | { type: 'perp'; perpsCoin: string }
+  | { type: 'asset'; assetId: string }
+);
+
+export interface IMarketHighlight {
+  highlightId: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  assets: IMarketHighlightAsset[];
+  links: { title: string; url: string }[];
 }

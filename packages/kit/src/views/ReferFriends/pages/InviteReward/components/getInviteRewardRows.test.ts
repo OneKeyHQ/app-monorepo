@@ -117,16 +117,14 @@ describe('getInviteRewardRows', () => {
   });
 
   it('maps server scope copy onto the matching product', () => {
-    const rows = getInviteRewardRows({
-      rewardScopes: [
-        { subject: 'Swap', description: '  Swap providers  ' },
-        { subject: 'Unknown', description: 'ignored' },
-        { subject: 'Onchain', description: '  first defi  ' },
-        { subject: 'Earn', description: 'second defi' },
-        { subject: 'Perp', description: '   ' },
-        { subject: 'HardwareSales', description: 'Hardware stores' },
-      ],
-    });
+    const rows = getInviteRewardRows({}, undefined, [
+      { subject: 'Swap', description: '  Swap providers  ' },
+      { subject: 'Unknown', description: 'ignored' },
+      { subject: 'Onchain', description: '  first defi  ' },
+      { subject: 'Earn', description: 'second defi' },
+      { subject: 'Perp', description: '   ' },
+      { subject: 'HardwareSales', description: 'Hardware stores' },
+    ]);
     const scopeOf = (subject: IInviteRewardRow['subject']) =>
       rows.find((row) => row.subject === subject)?.scopeDescription;
 
@@ -136,12 +134,10 @@ describe('getInviteRewardRows', () => {
     expect(scopeOf('hardware')).toBe('Hardware stores');
     expect(scopeOf('perps')).toBeNull();
 
-    const blankThenEarn = getInviteRewardRows({
-      rewardScopes: [
-        { subject: 'Onchain', description: ' ' },
-        { subject: 'Earn', description: 'DeFi venues' },
-      ],
-    });
+    const blankThenEarn = getInviteRewardRows({}, undefined, [
+      { subject: 'Onchain', description: ' ' },
+      { subject: 'Earn', description: 'DeFi venues' },
+    ]);
     expect(
       blankThenEarn.find((row) => row.subject === 'defi')?.scopeDescription,
     ).toBe('DeFi venues');
@@ -158,7 +154,7 @@ describe('getInviteRewardRows', () => {
         (row) => row.scopeDescription === null,
       ),
     ).toBe(true);
-    expect(getInviteRewardScopeItems(null)).toEqual([]);
+    expect(getInviteRewardScopeItems(getInviteRewardRows(null))).toEqual([]);
   });
 
   it('lists scope copy only for products still on the breakdown', () => {
@@ -168,15 +164,11 @@ describe('getInviteRewardRows', () => {
       Onchain: { enabled: false },
     };
     const items = getInviteRewardScopeItems(
-      {
-        rewardScopes: [
-          { subject: 'Swap', description: 'Swap providers' },
-          { subject: 'Earn', description: 'DeFi venues' },
-          { subject: 'HardwareSales', description: 'Hardware stores' },
-        ],
-        Onchain: { swap: [reward('3')] },
-      },
-      configs,
+      getInviteRewardRows({ Onchain: { swap: [reward('3')] } }, configs, [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+        { subject: 'HardwareSales', description: 'Hardware stores' },
+      ]),
     );
 
     // Swap is off but has earnings, so its scope stays. DeFi is off and empty.

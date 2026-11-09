@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
   formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
   getPrivacyChainNetworkSyncDisplay,
@@ -36,11 +37,13 @@ import {
   BirthdayDialogForm,
   type IBirthdayFormState,
   type IEarliestBirthday,
-  PrivacyEnableDisclosure,
-  createEnableBirthdayForm,
   getBirthdayInputError,
   readEnableBirthday,
 } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
+import {
+  PrivacyEnableContent,
+  createPrivacyEnableForm,
+} from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/PrivacyEnableContent';
 import {
   useDevSettingsPersistAtom,
   usePrivacyChainAtom,
@@ -51,7 +54,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -90,10 +93,14 @@ function SectionTitle({ children }: { children: string }) {
 async function getEarliestBirthday(
   networkId: string,
 ): Promise<IEarliestBirthday | undefined> {
+  return (await getAccountSetup(networkId))?.earliestBirthday;
+}
+
+async function getAccountSetup(networkId: string) {
   const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
     networkId,
   });
-  return settings.localWallet?.accountSetup.earliestBirthday;
+  return settings.localWallet?.accountSetup;
 }
 
 function formatBytes(bytes: number): string {
@@ -215,11 +222,11 @@ function PrivacyChainNetworkSections({
     endpointStatus = `${endpointHealth.latencyMs} ms`;
   }
 
-  const { result: allowCellular, run: refreshAllowCellular } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.servicePrivacyChain.getAllowPrivacySyncOnCellular(),
-    [],
-  );
+  // Published, so a Use mobile data pressed on the light or token page shows here at once.
+  const [{ allowCellularSync: allowCellular }] = usePrivacyChainAtom();
+  useEffect(() => {
+    void backgroundApiProxy.servicePrivacyChain.isPrivacySyncOnCellularAllowed();
+  }, []);
   const run = useCallback(
     async (fn: () => Promise<void>) => {
       setBusy(true);
@@ -263,7 +270,6 @@ function PrivacyChainNetworkSections({
                 await backgroundApiProxy.servicePrivacyChain.setAllowCellularSync(
                   { allow: next },
                 );
-                await refreshAllowCellular();
               })
             }
           />
@@ -309,6 +315,8 @@ type IPrivacyAccountEntry = {
   networkId: string;
   enabled: boolean;
   paused: boolean;
+  // An enable still waiting on its password or device: neither on nor off yet.
+  enabling: boolean;
   privacyDisabled?: boolean;
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
@@ -362,12 +370,27 @@ function PrivacyChainSettingsProgress({
 }) {
   const intl = useIntl();
   const [state] = usePrivacyChainAtom();
+  const [resuming, setResuming] = useState(false);
   const { result: localWalletSettings } = usePromiseResult(
     async () =>
       (await backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }))
         .localWallet,
     [networkId],
   );
+  // The same chain switch as the sync light's Continue.
+  const resumeChain = useCallback(async () => {
+    setResuming(true);
+    try {
+      await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+        networkId,
+        trigger: 'manual-sync',
+      });
+    } catch (error) {
+      console.error('[privacyChain] chain resume failed', error);
+    } finally {
+      setResuming(false);
+    }
+  }, [networkId]);
   const accounts = entries.filter(
     (entry) =>
       entry.networkId === networkId &&
@@ -375,30 +398,38 @@ function PrivacyChainSettingsProgress({
       (entry.enabled || entry.paused),
   );
   const {
-    entry,
+    status,
+    progress: entry,
     labelId,
-    isPaused,
-    isHeldByData,
-    isStorageUnsupported,
     syncError,
   } = getPrivacyChainNetworkSyncDisplay({
     state,
     networkId,
+    syncedBelowBlocks: localWalletSettings?.syncedBelowBlocks ?? 1,
+    blockTime: localWalletSettings,
+    // Only accounts that scan: a server-disabled one never gets a position.
+    accountIds: accounts
+      .filter((account) => account.enabled && !account.privacyDisabled)
+      .map((account) => account.accountId),
     accountPaused:
       accounts.length > 0 && accounts.every((account) => account.paused),
+    unavailable:
+      accounts.length > 0 &&
+      accounts.every((account) => account.privacyDisabled),
   });
   if (!accounts.length) return null;
-  const error = isStorageUnsupported
-    ? intl.formatMessage({
-        id: ETranslations.privacy_error_webview_outdated__msg,
-      })
-    : formatPrivacyChainSyncError(syncError, intl);
+  const error =
+    status === 'storageUnsupported'
+      ? intl.formatMessage({
+          id: ETranslations.privacy_error_webview_outdated__msg,
+        })
+      : formatPrivacyChainSyncError(syncError, intl);
   const detail =
     error ??
     formatPrivacyChainSyncDetail({
       progress: entry,
       settings: localWalletSettings,
-      stopped: isPaused || isHeldByData,
+      stopped: ['accountPaused', 'chainPaused', 'waitingWifi'].includes(status),
       intl,
     }) ??
     undefined;
@@ -413,7 +444,19 @@ function PrivacyChainSettingsProgress({
         title={intl.formatMessage({ id: labelId })}
         subtitle={detail}
         subtitleProps={error ? { color: '$textCaution' } : undefined}
-      />
+      >
+        {status === 'chainPaused' ? (
+          <Button
+            testID="privacy-sync-resume-btn"
+            size="small"
+            variant="secondary"
+            loading={resuming}
+            onPress={() => void resumeChain()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_resume })}
+          </Button>
+        ) : null}
+      </ListItem>
     </>
   );
 }
@@ -435,11 +478,25 @@ export default function PrivacyNetworkSettings({
     >();
   const walletId = walletIdProp ?? route.params?.walletId;
   const networkIdFilter = networkIdProp ?? route.params?.networkId;
+  const enableAccountId = route.params?.accountId;
+  const enableSync = route.params?.enableSync;
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const isFocused = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [{ storageUnsupportedNetworkIds }] = usePrivacyChainAtom();
   const [busyAccountId, setBusyAccountId] = useState<string | undefined>();
+  const handledEnableRequestRef = useRef<string | undefined>(undefined);
+  const mountedRef = useRef(true);
+  const focusedRef = useRef(isFocused);
+  focusedRef.current = isFocused;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const { result: filteredNetwork } = usePromiseResult(async () => {
     if (!networkIdFilter) return undefined;
@@ -477,6 +534,7 @@ export default function PrivacyNetworkSettings({
               networkId: account.networkId,
               enabled: state.enabled,
               paused: state.paused,
+              enabling: state.pendingOperation === 'enable',
               privacyDisabled: state.privacyDisabled,
               birthdayTimestamp: state.birthdayTimestamp,
               birthdayHintTimestamp: state.birthdayHintTimestamp,
@@ -530,7 +588,10 @@ export default function PrivacyNetworkSettings({
   );
 
   const askBirthdayAndEnable = useCallback(
-    async (entry: IPrivacyAccountEntry) => {
+    async (
+      entry: IPrivacyAccountEntry,
+      options?: { onCancel?: () => void; isActive?: () => boolean },
+    ) => {
       // A full network refuses before the birthday form asks for anything.
       try {
         await backgroundApiProxy.servicePrivacyChain.assertLocalWalletAccountAdmission(
@@ -538,9 +599,11 @@ export default function PrivacyNetworkSettings({
         );
       } catch (error) {
         if (!isLocalWalletSlotsFullError(error)) throw error;
+        if (options?.isActive && !options.isActive()) return;
         showPrivacyChainSlotsFullDialog({ intl });
         return;
       }
+      if (options?.isActive && !options.isActive()) return;
       const enableWith = async (birthday: {
         birthdayHeight?: number;
         birthdayTimestamp?: number;
@@ -567,33 +630,38 @@ export default function PrivacyNetworkSettings({
         await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday(
           { networkId: entry.networkId, accountId: entry.accountId },
         );
+      if (options?.isActive && !options.isActive()) return;
       if (twinBirthday) {
         await enableWith(twinBirthday);
         return;
       }
-      const earliestBirthday = await getEarliestBirthday(entry.networkId);
-      const formRef = createEnableBirthdayForm(
-        entry.birthdayHintTimestamp,
-        earliestBirthday,
-      );
-      Dialog.confirm({
-        title: entry.accountName,
+      // Read once on enabling, not for every listed account.
+      const accountSetup = await getAccountSetup(entry.networkId);
+      const earliestBirthday = accountSetup?.earliestBirthday;
+      if (options?.isActive && !options.isActive()) return;
+      const formRef = createPrivacyEnableForm({ earliestBirthday });
+      Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslationsMock.privacy_enable_account__title,
+          defaultMessage: ETranslationsMock.privacy_enable_account__title,
+        }),
+        showConfirmButton: true,
+        showCancelButton: true,
+        description: entry.accountName,
         renderContent: (
-          <YStack gap="$4">
-            <PrivacyEnableDisclosure
-              hasRecommendedMonth={
-                typeof entry.birthdayHintTimestamp === 'number'
-              }
-            />
-            <BirthdayDialogForm
-              networkId={entry.networkId}
-              formRef={formRef}
-              allowSavedBirthday={false}
-              earliestBirthday={earliestBirthday}
-            />
-          </YStack>
+          <PrivacyEnableContent
+            accountId={entry.accountId}
+            deviceExportsViewKey={accountSetup?.deviceExportsViewKey}
+            networkId={entry.networkId}
+            formRef={formRef}
+            earliestBirthday={earliestBirthday}
+            birthdayHintTimestamp={entry.birthdayHintTimestamp}
+          />
         ),
         onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
+        onClose: (extra) => {
+          if (extra?.flag !== 'confirm') options?.onCancel?.();
+        },
         onConfirm: async ({ preventClose }) => {
           const birthday = readEnableBirthday(
             formRef.current,
@@ -638,12 +706,86 @@ export default function PrivacyNetworkSettings({
         await refreshEntries();
       } catch (error) {
         console.error('[privacyChain] account sync control failed', error);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
       } finally {
         setBusyAccountId(undefined);
       }
     },
-    [refreshEntries],
+    [intl, refreshEntries],
   );
+
+  useEffect(() => {
+    if (
+      !isFocused ||
+      !enableSync ||
+      !enableAccountId ||
+      !networkIdFilter ||
+      !entries
+    ) {
+      return;
+    }
+    const requestKey = `${networkIdFilter}:${enableAccountId}`;
+    if (handledEnableRequestRef.current === requestKey) return;
+    // Refreshes and dialog focus changes must not reopen the requested flow.
+    handledEnableRequestRef.current = requestKey;
+    const entry = entries.find(
+      (account) =>
+        account.accountId === enableAccountId &&
+        account.networkId === networkIdFilter,
+    );
+    if (!entry || entry.walletIsTemp || entry.privacyDisabled) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_not_available }),
+      });
+      return;
+    }
+    if (entry.enabling || (entry.enabled && !entry.paused)) return;
+
+    void (async () => {
+      setBusyAccountId(entry.accountId);
+      try {
+        if (entry.paused) {
+          // Resume uses the saved birthday; do not ask for a new scan start.
+          await toggleAccountPause(entry);
+        } else {
+          await askBirthdayAndEnable(entry, {
+            isActive: () =>
+              mountedRef.current &&
+              focusedRef.current &&
+              handledEnableRequestRef.current === requestKey,
+            onCancel: () => {
+              if (mountedRef.current) navigation.popStack();
+            },
+          });
+        }
+      } catch (error) {
+        console.error('[privacyChain] receive enable flow failed', error);
+        if (mountedRef.current) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+      } finally {
+        if (mountedRef.current) setBusyAccountId(undefined);
+      }
+    })();
+  }, [
+    askBirthdayAndEnable,
+    enableAccountId,
+    enableSync,
+    entries,
+    intl,
+    isFocused,
+    navigation,
+    networkIdFilter,
+    toggleAccountPause,
+  ]);
 
   const editBirthday = useCallback(
     async (entry: IPrivacyAccountEntry) => {
@@ -750,15 +892,19 @@ export default function PrivacyNetworkSettings({
     showDeriveLabel: boolean,
   ) => {
     const busy = busyAccountId !== undefined;
-    const statusId: ETranslations = entry.enabled
+    // Same order as the sync status: unavailable, enabling, paused, then the switch itself.
+    let statusId: ETranslations = entry.enabled
       ? ETranslations.global_enabled
       : ETranslations.global_disabled;
-    let status = intl.formatMessage({
-      id: entry.paused ? ETranslations.syncing_paused__title : statusId,
-    });
     if (entry.walletIsTemp || entry.privacyDisabled) {
-      status = intl.formatMessage({ id: ETranslations.global_not_available });
+      statusId = ETranslations.global_not_available;
+    } else if (entry.enabling) {
+      statusId = PRIVACY_CHAIN_SYNC_STATUS_LABELS.enabling;
+    } else if (entry.paused) {
+      statusId = PRIVACY_CHAIN_SYNC_STATUS_LABELS.accountPaused;
     }
+    const status = intl.formatMessage({ id: statusId });
+    const canEnable = !entry.enabled && !entry.paused && !entry.enabling;
     return (
       <YStack
         key={entry.accountId}
@@ -798,7 +944,7 @@ export default function PrivacyNetworkSettings({
               })}
             </Button>
           ) : null}
-          {!entry.walletIsTemp && !entry.enabled && !entry.paused ? (
+          {!entry.walletIsTemp && canEnable ? (
             <Button
               testID={`privacy-network-enable-${entry.accountId}`}
               size="small"

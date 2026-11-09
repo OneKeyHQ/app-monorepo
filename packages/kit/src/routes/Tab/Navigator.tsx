@@ -113,7 +113,7 @@ export function TabNavigator() {
     () =>
       platformEnv.isNativeIOS && !isTravelMode
         ? {
-            icon: require('@onekeyhq/components/svg/outline/help-support.svg'),
+            icon: 'HelpSupportOutline' as const,
             label: intl.formatMessage({
               id: ETranslations.settings_contact_us,
             }),

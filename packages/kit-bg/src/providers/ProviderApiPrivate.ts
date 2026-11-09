@@ -4,6 +4,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { getBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   providerApiMethod,
@@ -38,8 +39,8 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { getAdvertisedHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -64,10 +65,7 @@ import {
   isWebEmbedChannelRequest,
 } from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
-import {
-  createPrivacyChainFetchStreamRelay,
-  relayPrivacyChainNodeRequest,
-} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainFetchStreamRelay } from '../utils/privacyChainNodeRelay';
 import { createPrivacyChainRelayTargetSource } from '../utils/privacyChainRelayTargets';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -662,27 +660,6 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   // Relays the web-embed's node requests (native networking ignores CORS). Web-embed page and configured
   // nodes only, otherwise it is a POST-anywhere proxy.
-  @providerApiMethod()
-  async privacyChainNodeRequest(
-    request: IJsBridgeMessagePayload,
-    {
-      url,
-      contentType,
-      b64,
-    }: { url: string; contentType: string; b64: string },
-  ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
-    if (!platformEnv.isNative) {
-      throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
-    }
-    this.assertWebEmbedChannel(request, 'privacyChainNodeRequest');
-    return relayPrivacyChainNodeRequest({
-      url,
-      contentType,
-      body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
-      targets: this.relayTargets,
-    });
-  }
-
   private fetchStreamRequest = createPrivacyChainFetchStreamRelay(
     this.relayTargets,
   );
@@ -701,28 +678,168 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   isWebEmbedApiReady = false;
 
+  private webEmbedRequestId: string | undefined;
+
+  private webEmbedMountId: string | undefined;
+
+  private webEmbedMountRequestId: string | undefined;
+
+  private webEmbedMountPending = false;
+
+  private webEmbedMountSequence = 0;
+
+  private webEmbedMainRuntimeId: string | undefined;
+
+  private syncWebEmbedMainRuntime(): void {
+    if (!platformEnv.isNative || !platformEnv.enableNativeBackgroundThread)
+      return;
+    const runtimeId = appGlobals.$$webEmbedMainRuntime?.currentRuntimeId;
+    if (runtimeId !== this.webEmbedMainRuntimeId) {
+      this.webEmbedMainRuntimeId = runtimeId;
+      this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
+      this.webEmbedMountPending = false;
+      this.webEmbedMountSequence = 0;
+      this.isWebEmbedApiReady = false;
+    }
+  }
+
+  reserveWebEmbedRequest(requestId: string): { ready: boolean } {
+    this.syncWebEmbedMainRuntime();
+    if (this.isWebEmbedApiReady && this.webEmbedMountId) {
+      return { ready: true };
+    }
+    const canAdoptPendingMount =
+      !this.webEmbedMountRequestId &&
+      Boolean(this.webEmbedMountId) &&
+      this.webEmbedMountPending;
+    this.webEmbedRequestId = requestId;
+    if (canAdoptPendingMount) {
+      this.webEmbedMountRequestId = requestId;
+    } else {
+      this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
+      this.webEmbedMountPending = false;
+    }
+    this.isWebEmbedApiReady = false;
+    return { ready: false };
+  }
+
+  activateWebEmbedMount({
+    mountId,
+    mountSequence,
+    requestId,
+  }: {
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }): boolean {
+    if (requestId && requestId !== this.webEmbedRequestId) return false;
+    if (platformEnv.isNative && platformEnv.enableNativeBackgroundThread) {
+      const suffix = `-${mountSequence}`;
+      if (!mountId.endsWith(suffix)) return false;
+      const runtimeId = mountId.slice(0, -suffix.length);
+      if (!runtimeId) return false;
+      const state = (appGlobals.$$webEmbedMainRuntime ??= {
+        retiredRuntimeIds: new Set<string>(),
+      });
+      if (state.retiredRuntimeIds.has(runtimeId)) return false;
+      if (!state.currentRuntimeId) {
+        let advertisedRuntimeId: string | undefined;
+        try {
+          advertisedRuntimeId = getAdvertisedHomeTokenMainRuntimeId();
+        } catch {
+          // A missing native advertisement must not prevent the first mount.
+        }
+        state.currentRuntimeId = advertisedRuntimeId || runtimeId;
+      }
+      if (runtimeId !== state.currentRuntimeId) {
+        (state.pendingMountRuntimeIds ??= new Set()).add(runtimeId);
+        return false;
+      }
+    }
+    this.syncWebEmbedMainRuntime();
+    if (mountSequence < this.webEmbedMountSequence) {
+      return false;
+    }
+    if (mountSequence === this.webEmbedMountSequence) {
+      if (mountId !== this.webEmbedMountId) {
+        return false;
+      }
+      if (requestId) {
+        this.webEmbedMountRequestId = requestId;
+      }
+      return true;
+    }
+    this.webEmbedMountSequence = mountSequence;
+    this.webEmbedMountId = mountId;
+    this.webEmbedMountRequestId = requestId;
+    this.webEmbedMountPending = true;
+    this.isWebEmbedApiReady = false;
+    return true;
+  }
+
+  deactivateWebEmbedMount(mountId: string): void {
+    this.syncWebEmbedMainRuntime();
+    if (this.webEmbedMountId === mountId) {
+      this.webEmbedMountId = undefined;
+      this.webEmbedMountRequestId = undefined;
+      this.webEmbedMountPending = false;
+      this.isWebEmbedApiReady = false;
+    }
+  }
+
+  getWebEmbedApiReadyState(): { ready: boolean; mountId?: string } {
+    this.syncWebEmbedMainRuntime();
+    return {
+      ready: this.isWebEmbedApiReady,
+      mountId: this.webEmbedMountId,
+    };
+  }
+
   @providerApiMethod()
-  async webEmbedApiReady(request: IJsBridgeMessagePayload): Promise<void> {
+  async webEmbedApiReady(
+    request: IJsBridgeMessagePayload,
+    params?: { mountId?: string },
+  ): Promise<void> {
     if (platformEnv.isNative) {
       this.assertWebEmbedChannel(request, 'webEmbedApiReady');
     }
+    this.syncWebEmbedMainRuntime();
+    if (!params?.mountId || params.mountId !== this.webEmbedMountId) {
+      return;
+    }
     defaultLogger.app.webembed.webembedApiReady();
+    this.webEmbedMountPending = false;
     this.isWebEmbedApiReady = true;
-    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
-    return Promise.resolve();
+    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
+      mountId: params.mountId,
+      requestId: this.webEmbedRequestId,
+    });
   }
 
   @providerApiMethod()
-  async webEmbedApiNotReady(request: IJsBridgeMessagePayload): Promise<void> {
+  async webEmbedApiNotReady(
+    request: IJsBridgeMessagePayload,
+    params?: { mountId?: string },
+  ): Promise<void> {
     if (platformEnv.isNative) {
       this.assertWebEmbedChannel(request, 'webEmbedApiNotReady');
     }
-    return this.setWebEmbedApiNotReady();
+    return this.setWebEmbedApiNotReady(params?.mountId);
   }
 
-  async setWebEmbedApiNotReady(): Promise<void> {
+  async setWebEmbedApiNotReady(mountId?: string): Promise<void> {
+    this.syncWebEmbedMainRuntime();
+    if (mountId !== this.webEmbedMountId) {
+      return;
+    }
     defaultLogger.app.webembed.webembedApiNotReady();
+    this.webEmbedMountPending = false;
     this.isWebEmbedApiReady = false;
+    if (mountId) {
+      appEventBus.emit(EAppEventBusNames.WebEmbedWebViewNotReady, { mountId });
+    }
     return Promise.resolve();
   }
 
@@ -732,6 +849,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
+    this.syncWebEmbedMainRuntime();
     defaultLogger.app.webembed.callWebEmbedApiProxyEntry({
       module: data?.module || '',
       method: data?.method || '',
@@ -740,7 +858,10 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
 
     await waitForDataLoaded({
-      data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
+      data: () => {
+        const state = this.getWebEmbedApiReadyState();
+        return state.ready && bg?.isWebEmbedBridgeOwnedBy(state.mountId);
+      },
       logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
         module: data?.module,
         method: data?.method,
@@ -751,7 +872,12 @@ class ProviderApiPrivate extends ProviderApiBase {
       timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
     });
 
-    if (!bg?.webEmbedBridge?.request) {
+    const state = this.getWebEmbedApiReadyState();
+    if (
+      !bg?.webEmbedBridge?.request ||
+      !state.ready ||
+      !bg.isWebEmbedBridgeOwnedBy(state.mountId)
+    ) {
       throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 

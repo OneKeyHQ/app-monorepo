@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 
+import { hasVerifiedOnramperUserInfo } from './utils';
+
 import type {
   ICreateOnramperClientParams,
   IOnramperClient,
@@ -102,6 +104,7 @@ function toOnramperState(s: OnramperState): IOnramperState {
       return {
         kind: s.kind,
         requirementTypes: s.requirements.map((r) => r.type),
+        hasVerifiedUserInfo: hasVerifiedOnramperUserInfo(s.requirements),
       };
     case 'rendering':
       return {

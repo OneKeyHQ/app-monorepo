@@ -10,11 +10,16 @@ import {
   render,
   renderHook,
   screen,
+  waitFor,
 } from '@testing-library/react';
 
 import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPrimeInfiniPendingPaymentSession } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeInfiniPendingPaymentLookup,
+  IPrimeInfiniPendingPaymentSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   PrimePurchaseDialog,
@@ -122,6 +127,16 @@ const mockSupersedePaymentSession = jest.fn<
   ]
 >();
 let mockPendingChoice: 'replace' | 'resume' | 'cancel' = 'resume';
+const mockAuthContext = {
+  onekeyUserId: 'user-1',
+  authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+  authStateGeneration: 3,
+};
+const mockRemoteLookup = jest.fn<
+  Promise<IPrimeInfiniPendingPaymentLookup>,
+  unknown[]
+>();
+const mockValidateRemoteAuth = jest.fn(async () => true);
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
 const mockGetHostedPendingSession = jest.fn<Promise<unknown>, []>();
 const mockClearHostedPendingSession = jest.fn<Promise<boolean>, [unknown]>();
@@ -173,7 +188,20 @@ let mockPackagesResult:
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    servicePrime: { getLocalUserInfo: () => mockGetLocalUserInfo() },
+    servicePrime: {
+      getLocalUserInfo: () => mockGetLocalUserInfo(),
+      getInfiniCheckoutAuthContext: async () => mockAuthContext,
+      isInfiniCheckoutAuthContextCurrent: () => mockValidateRemoteAuth(),
+      apiGetInfiniPendingPayment: (...args: unknown[]) =>
+        mockRemoteLookup(...args),
+      apiGetInfiniPaymentOptions: async () => [
+        {
+          chain: 'ETHEREUM',
+          networkId: 'evm--1',
+          tokens: [{ symbol: 'USDC', contract: '0xa0b8' }],
+        },
+      ],
+    },
     simpleDb: {
       prime: {
         getWebCheckoutPendingSession: () => mockGetHostedPendingSession(),
@@ -394,6 +422,8 @@ type IPaymentMethodDialogContent = ReactElement<{
 describe('usePrimePurchaseCallback pending payment entry guard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRemoteLookup.mockResolvedValue({ authContext: mockAuthContext });
+    mockValidateRemoteAuth.mockResolvedValue(true);
     mockPlatformEnv.isDev = false;
     mockDevSettings.enabled = false;
     mockEnsurePrimePurchaseEligible.mockResolvedValue(true);
@@ -418,7 +448,10 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     });
     mockSupersedePaymentSession.mockResolvedValue(mockPendingSession);
     mockDialogShow.mockImplementation((config) => {
-      if (config.title === ETranslations.prime_unfinished_payment__title) {
+      if (
+        config.title === ETranslations.prime_unfinished_payment__title ||
+        config.title === ETranslations.prime_payment_refresh_failed__title
+      ) {
         if (mockPendingChoice === 'replace') config.onConfirm?.();
         if (mockPendingChoice === 'resume') config.onCancel?.();
         config.onClose?.();
@@ -429,6 +462,193 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it.each([
+    ['isMas', false],
+    ['isMas', true],
+    ['isNativeIOS', false],
+    ['isNativeIOS', true],
+    ['isNativeAndroidGooglePlay', false],
+    ['isNativeAndroidGooglePlay', true],
+  ] as const)(
+    'lets store IAP %s continue after a warned old or unknown payment: unavailable=%s',
+    async (store, unavailable) => {
+      mockPlatformEnv[store] = true;
+      mockPendingChoice = 'replace';
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      mockRemoteLookup.mockResolvedValue(
+        unavailable
+          ? { authContext: mockAuthContext, status: 'unavailable' }
+          : {
+              authContext: mockAuthContext,
+              pendingPayment: { paymentId: 'remote-id', hasTransactions: true },
+            },
+      );
+      const { result } = renderHook(() =>
+        usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+      );
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      expect(mockPurchasePackageNative).toHaveBeenCalledTimes(1);
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    [false, 'embedded'],
+    [true, 'embedded'],
+    [false, 'hostedLink'],
+    [true, 'hostedLink'],
+  ] as const)(
+    'does not start Stripe until the old/unknown warning is confirmed: unavailable=%s mode=%s',
+    async (unavailable, mode) => {
+      mockCardCheckoutMode = mode;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      mockRemoteLookup.mockResolvedValue(
+        unavailable
+          ? { authContext: mockAuthContext, status: 'unavailable' }
+          : {
+              authContext: mockAuthContext,
+              pendingPayment: { paymentId: 'remote-id', hasTransactions: true },
+            },
+      );
+      const { result } = renderHook(() =>
+        usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+      );
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      const picker = mockDialogShow.mock.calls.find(([config]) =>
+        Boolean(config.renderContent),
+      )?.[0].renderContent as IPaymentMethodDialogContent;
+      let warning: IMockDialogConfig | undefined;
+      mockDialogShow.mockImplementation((config) => {
+        warning = config;
+        return { close: mockPaymentMethodDialogClose };
+      });
+      let purchase: Promise<boolean>;
+      await act(async () => {
+        purchase = picker.props.children.props.onSelect('webStripe');
+      });
+      await waitFor(() => expect(warning?.onConfirm).toBeDefined());
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
+      await act(async () => {
+        warning?.onConfirm?.();
+        warning?.onClose?.();
+        await purchase!;
+      });
+      if (mode === 'hostedLink')
+        expect(mockPurchaseByHostedLink).toHaveBeenCalledTimes(1);
+      else expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+    },
+  );
+
+  it('lets the same card picker retry and confirm after cancelling a failed lookup', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    mockRemoteLookup.mockResolvedValue({
+      authContext: mockAuthContext,
+      status: 'unavailable',
+    });
+    const { result } = renderHook(() =>
+      usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+    );
+    await act(async () => {
+      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+    });
+    const picker = mockDialogShow.mock.calls.find(([config]) =>
+      Boolean(config.renderContent),
+    )?.[0].renderContent as IPaymentMethodDialogContent;
+    mockPendingChoice = 'cancel';
+    await act(async () => {
+      await picker.props.children.props.onSelect('webStripe');
+    });
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(mockPaymentMethodDialogClose).not.toHaveBeenCalled();
+    mockPendingChoice = 'replace';
+    await act(async () => {
+      await picker.props.children.props.onSelect('webStripe');
+    });
+    expect(mockRemoteLookup).toHaveBeenCalledTimes(2);
+    expect(
+      mockDialogShow.mock.calls.filter(
+        ([config]) =>
+          config.title === ETranslations.prime_payment_refresh_failed__title,
+      ),
+    ).toHaveLength(2);
+    expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
+    expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['cancel', 'authChanged'] as const)(
+    'does not proceed with IAP after %s during a failed-discovery warning',
+    async (reason) => {
+      mockPlatformEnv.isMas = true;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      mockRemoteLookup.mockResolvedValue({
+        authContext: mockAuthContext,
+        status: 'unavailable',
+      });
+      mockDialogShow.mockImplementation((config) => {
+        if (reason === 'authChanged') {
+          mockValidateRemoteAuth.mockResolvedValue(false);
+          config.onConfirm?.();
+        } else config.onCancel?.();
+        config.onClose?.();
+        return { close: mockPaymentMethodDialogClose };
+      });
+      const { result } = renderHook(() =>
+        usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+      );
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    },
+  );
+
+  it('leaves crypto discovery to the wallet page rather than asking twice across routes', async () => {
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    const { result } = renderHook(() =>
+      usePrimePurchaseCallback({ onPurchase: jest.fn() }),
+    );
+    await act(async () => {
+      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+    });
+    const picker = mockDialogShow.mock.calls.find(([config]) =>
+      Boolean(config.renderContent),
+    )?.[0].renderContent as IPaymentMethodDialogContent;
+    await act(async () => {
+      await picker.props.children.props.onSelect('crypto');
+    });
+    expect(mockRemoteLookup).not.toHaveBeenCalled();
+    expect(mockPurchaseByCrypto).toHaveBeenCalledTimes(1);
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
   });
 
   it('resumes the crypto flow when the user chooses to keep waiting', async () => {

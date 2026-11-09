@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { PasswordKeyboard } from '../components/PasswordKeyboard';
 
@@ -45,6 +47,14 @@ function PasswordKeyboardDescription({
 
 export default function usePIN() {
   const intl = useIntl();
+  const pendingCancels = useRef(new Set<() => void>());
+  useEffect(
+    () => () => {
+      for (const cancel of pendingCancels.current) cancel();
+      pendingCancels.current.clear();
+    },
+    [],
+  );
   const showPINFormDialog = useCallback(
     (isSetNewPassword?: boolean, shouldConfirmPassword?: string) => {
       const config = {
@@ -71,8 +81,41 @@ export default function usePIN() {
           });
         }
       }
-      return new Promise<string>((resolve) => {
-        Dialog.confirm({
+      const operationId = generateUUID();
+      const startedAt = Date.now();
+      const logDialog = (
+        phase:
+          | 'dialog-show-request'
+          | 'dialog-show-returned'
+          | 'pin-confirm-resolve'
+          | 'dialog-close-start'
+          | 'dialog-close',
+        closeReason?: 'confirm' | 'cancel' | 'other',
+      ) => {
+        defaultLogger.hardware.liteCard.diagnostic({
+          operation: 'pin',
+          operationId,
+          phase,
+          elapsedMs: Date.now() - startedAt,
+          isSetNewPassword: Boolean(isSetNewPassword),
+          isConfirm: Boolean(shouldConfirmPassword),
+          closeReason,
+        });
+      };
+      return new Promise<string>((resolve, reject) => {
+        const dialog: { current?: ReturnType<typeof Dialog.confirm> } = {};
+        let confirmed = false;
+        const cancel = () => {
+          pendingCancels.current.delete(cancel);
+          if (!confirmed) {
+            confirmed = true;
+            reject(new Error('Lite PIN cancelled'));
+            void dialog.current?.close();
+          }
+        };
+        pendingCancels.current.add(cancel);
+        logDialog('dialog-show-request');
+        dialog.current = Dialog.confirm({
           icon: 'GiroCardOutline',
           title: config.title,
           renderContent: (
@@ -93,10 +136,25 @@ export default function usePIN() {
             },
           },
           onConfirm: (dialogInstance) => {
+            if (confirmed) return;
             const pin = dialogInstance.getForm()?.getValues().password;
+            confirmed = true;
+            pendingCancels.current.delete(cancel);
+            logDialog('pin-confirm-resolve');
             resolve(pin);
           },
+          onCloseStart: () => logDialog('dialog-close-start'),
+          onClose: (extra) => {
+            cancel();
+            logDialog(
+              'dialog-close',
+              extra?.flag === 'confirm' || extra?.flag === 'cancel'
+                ? extra.flag
+                : 'other',
+            );
+          },
         });
+        logDialog('dialog-show-returned');
       });
     },
     [intl],

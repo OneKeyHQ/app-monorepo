@@ -1,4 +1,39 @@
-import { getPageFooterBottomMetrics } from './BottomTabBarVisibilityContext';
+import {
+  getNativeTabBarHeight,
+  getPageFooterBottomMetrics,
+} from './BottomTabBarVisibilityContext';
+
+describe('getNativeTabBarHeight', () => {
+  it('keeps the measured height of a bottom tab bar', () => {
+    expect(
+      getNativeTabBarHeight({
+        bottom: 34,
+        isVerticalTabBar: false,
+        measuredHeight: 83,
+      }),
+    ).toBe(83);
+  });
+
+  it('reserves only the safe area for a vertical tab bar', () => {
+    expect(
+      getNativeTabBarHeight({
+        bottom: 34,
+        isVerticalTabBar: true,
+        measuredHeight: 678,
+      }),
+    ).toBe(34);
+  });
+
+  it('stays undefined outside a tab navigator', () => {
+    expect(
+      getNativeTabBarHeight({
+        bottom: 34,
+        isVerticalTabBar: true,
+        measuredHeight: undefined,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('getPageFooterBottomMetrics', () => {
   it('assigns the safe area to the footer outside a tab navigator', () => {

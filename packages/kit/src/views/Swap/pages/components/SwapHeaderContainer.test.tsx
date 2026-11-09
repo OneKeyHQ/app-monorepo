@@ -323,6 +323,21 @@ describe('SwapHeaderContainer', () => {
       native: true,
       modal: true,
       type: ESwapTabSwitchType.STOCK,
+      hideKLine: true,
+    },
+    {
+      label: 'native Swap modal',
+      desktop: false,
+      native: true,
+      modal: true,
+      type: ESwapTabSwitchType.SWAP,
+    },
+    {
+      label: 'native Stock page',
+      desktop: false,
+      native: true,
+      modal: false,
+      type: ESwapTabSwitchType.STOCK,
     },
     {
       label: 'web Stock modal',
@@ -332,8 +347,8 @@ describe('SwapHeaderContainer', () => {
       type: ESwapTabSwitchType.STOCK,
     },
   ])(
-    'preserves K-line visibility for $label',
-    ({ desktop, native, modal, type }) => {
+    'sets K-line visibility for $label',
+    ({ desktop, native, modal, type, hideKLine = false }) => {
       const originalDesktop = platformEnv.isDesktop;
       platformEnv.isDesktop = desktop;
       platformEnv.isNative = native;
@@ -348,7 +363,7 @@ describe('SwapHeaderContainer', () => {
           getByTestId('swap-header-right-actions').getAttribute(
             'data-hide-kline',
           ),
-        ).toBe('false');
+        ).toBe(String(hideKLine));
       } finally {
         platformEnv.isDesktop = originalDesktop;
       }

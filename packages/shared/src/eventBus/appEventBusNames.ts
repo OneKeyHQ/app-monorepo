@@ -53,6 +53,10 @@ export enum EAppEventBusNames {
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
   FirmwareUpdateDetectStatusChanged = 'FirmwareUpdateDetectStatusChanged',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
+  WebEmbedWebViewMountRequested = 'WebEmbedWebViewMountRequested',
+  WebEmbedWebViewNotReady = 'WebEmbedWebViewNotReady',
+  WebEmbedWebViewProviderReady = 'WebEmbedWebViewProviderReady',
+  WebEmbedWebViewRuntimeProbe = 'WebEmbedWebViewRuntimeProbe',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   DeviceStageAuthAction = 'DeviceStageAuthAction',
@@ -189,6 +193,8 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  OpenAppUpdateDetails = 'OpenAppUpdateDetails',
+  AppUpdateCompleted = 'AppUpdateCompleted',
   BundleUpdateRestartFailed = 'BundleUpdateRestartFailed',
   ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',

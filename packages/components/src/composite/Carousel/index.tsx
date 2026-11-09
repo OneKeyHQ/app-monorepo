@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -111,6 +112,7 @@ export const useCarouselIndex = () => {
 export function Carousel<T>({
   data = [],
   autoPlayInterval = 2500,
+  autoPlayEnabled = true,
   loop = true,
   ref: instanceRef,
   renderItem,
@@ -132,6 +134,10 @@ export function Carousel<T>({
 }: ICarouselProps<T>) {
   const pagerRef = useRef<NativePagerView>(undefined);
   const [pageIndex, setPageIndex] = useState<number>(defaultIndex);
+  const [layout, setLayout] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
   const currentPage = useRef<number>(defaultIndex);
   currentPage.current = pageIndex;
   const lastNotifiedPageRef = useRef<number | null>(null);
@@ -250,7 +256,15 @@ export function Carousel<T>({
   ]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerGenerationRef = useRef(0);
   const isPageVisibleRef = useRef(true);
+  const isFocused = useOptionalIsFocused();
+  const autoPlayAllowed =
+    loop &&
+    autoPlayEnabled &&
+    isFocused &&
+    Boolean(pageWidthProp || (layout.width > 0 && layout.height > 0));
+  const autoPlayAllowedRef = useRef(autoPlayAllowed);
   // True from the moment the pager leaves `idle` — a finger on the page, or
   // the deceleration after it — until the pager settles again. Autoplay yields
   // to it and the infinite-wrap jump waits for it. Web's pager shim never
@@ -264,25 +278,42 @@ export function Carousel<T>({
   const lastScrollEndAtRef = useRef(0);
 
   const stopAutoPlay = useCallback(() => {
+    timerGenerationRef.current += 1;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
   }, []);
 
-  const startAutoPlay = useCallback(() => {
-    if (loop && isPageVisibleRef.current) {
+  useLayoutEffect(() => {
+    autoPlayAllowedRef.current = autoPlayAllowed;
+    return () => {
+      autoPlayAllowedRef.current = false;
       stopAutoPlay();
-      timerRef.current = setTimeout(() => {
-        // Turning the page out from under a finger is what puts the pager into
-        // the state that crashes; skip this beat and try again later instead.
-        if (!isInteractingRef.current) {
-          scrollToNextPage();
-        }
-        startAutoPlay();
-      }, autoPlayInterval);
+    };
+  }, [autoPlayAllowed, stopAutoPlay]);
+
+  const startAutoPlay = useCallback(() => {
+    stopAutoPlay();
+    if (!autoPlayAllowedRef.current || !isPageVisibleRef.current) {
+      return;
     }
-  }, [loop, autoPlayInterval, scrollToNextPage, stopAutoPlay]);
+    const generation = timerGenerationRef.current;
+    timerRef.current = setTimeout(() => {
+      if (generation !== timerGenerationRef.current) {
+        return;
+      }
+      timerRef.current = null;
+      if (!autoPlayAllowedRef.current || !isPageVisibleRef.current) {
+        return;
+      }
+      // Never advance the pager while its own gesture is still settling.
+      if (!isInteractingRef.current) {
+        scrollToNextPage();
+      }
+      startAutoPlay();
+    }, autoPlayInterval);
+  }, [autoPlayInterval, scrollToNextPage, stopAutoPlay]);
 
   // Pause auto-play when the Carousel is not visible in the viewport
   // (e.g. user switched to another in-app tab). This avoids unnecessary
@@ -319,10 +350,8 @@ export function Carousel<T>({
   // stops it (onPressIn) and nothing ever starts it again — onPressOut does not
   // arrive once the screen is leaving, and the IntersectionObserver above is
   // web-only. Coming back re-focuses the screen and picks it up again.
-  const isFocused = useOptionalIsFocused();
-
   useEffect(() => {
-    if (isFocused) {
+    if (autoPlayAllowed) {
       startAutoPlay();
     } else {
       stopAutoPlay();
@@ -330,14 +359,7 @@ export function Carousel<T>({
     return () => {
       stopAutoPlay();
     };
-  }, [
-    isFocused,
-    loop,
-    autoPlayInterval,
-    scrollToNextPage,
-    startAutoPlay,
-    stopAutoPlay,
-  ]);
+  }, [autoPlayAllowed, startAutoPlay, stopAutoPlay]);
 
   useImperativeHandle(instanceRef, () => {
     return {
@@ -461,11 +483,6 @@ export function Carousel<T>({
     [onPageScrollStateChanged, pagerOnPageScrollStateChanged],
   );
 
-  const [layout, setLayout] = useState<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
-
   const pageWidth = useMemo(() => {
     if (pageWidthProp) {
       return pageWidthProp;
@@ -491,10 +508,8 @@ export function Carousel<T>({
   );
 
   const handleHoverIn = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-  }, []);
+    stopAutoPlay();
+  }, [stopAutoPlay]);
   const handleHoverOut = useCallback(() => {
     startAutoPlay();
   }, [startAutoPlay]);

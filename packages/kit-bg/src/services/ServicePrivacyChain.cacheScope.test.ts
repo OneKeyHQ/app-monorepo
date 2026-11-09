@@ -36,7 +36,10 @@ function lifecycleHarness() {
       syncFailureBackoff: new Map(),
       orphanCleanupGeneration: new Map(),
       scheduleBackgroundSync: jest.fn(),
-    },
+      // Starting the scan after a reset is covered by the service's own tests.
+      listUserRescanAccountIds: jest.fn(async () => []),
+      startUserSync: jest.fn(async () => undefined),
+    } as Record<string, unknown>,
     backgroundApi: {
       serviceAccount: {
         getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({
@@ -170,9 +173,16 @@ describe('Privacy storage reset when the database cannot be read', () => {
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => capability,
     });
-    return Object.create(ServicePrivacyChain.prototype) as InstanceType<
-      typeof ServicePrivacyChain
-    >;
+    return Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: {
+          serviceCustomRpc: { resolveDefaultRpcUrl: async () => undefined },
+        },
+      },
+    );
   }
 
   it('reports the size as unknown instead of hiding it', async () => {

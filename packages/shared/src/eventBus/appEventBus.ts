@@ -339,8 +339,20 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewMountRequested]: {
+    mountId: string;
+    mountSequence: number;
+  };
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]:
+    | { mainRuntimeId: string; probeId?: string }
+    | undefined;
+  [EAppEventBusNames.WebEmbedWebViewRuntimeProbe]: { probeId: string };
+  [EAppEventBusNames.WebEmbedWebViewNotReady]: { mountId: string };
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
+    mountId: string;
+    requestId?: string;
+  };
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
   // whoever is running the check (OK-59934).
@@ -721,6 +733,8 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.OpenAppUpdateDetails]: undefined;
+  [EAppEventBusNames.AppUpdateCompleted]: { version: string };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;

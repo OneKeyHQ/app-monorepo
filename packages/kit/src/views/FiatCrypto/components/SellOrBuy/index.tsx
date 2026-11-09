@@ -32,7 +32,7 @@ type ISellOrBuyContentProps = {
 export const SellOrBuyContent = memo(
   ({ type, networkId, accountId, listHeader }: ISellOrBuyContentProps) => {
     const {
-      result: { tokens, networksMap, mergeDeriveAssetsNetworkIds },
+      result: { tokens, networksMap, mergeDeriveAssetsNetworkIds, fetchedAt },
       isLoading,
     } = useGetTokensListWithNetworks({
       networkId,
@@ -105,6 +105,9 @@ export const SellOrBuyContent = memo(
             tokenAddress: token.address,
             accountId: realAccountId,
             token,
+            // The rows may be the persisted snapshot or a list left open: the
+            // gate re-checks the region flag once this is no longer recent.
+            tokenFetchedAt: fetchedAt,
             entryFrom: EHeadlessBuyEntry.BuyTokenList,
           }))
         ) {
@@ -120,7 +123,7 @@ export const SellOrBuyContent = memo(
         if (!url) return;
         openFiatCryptoUrl(url);
       },
-      [type],
+      [type, fetchedAt],
     );
 
     return (

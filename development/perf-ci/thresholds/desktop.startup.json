@@ -40,7 +40,8 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "bytes": 589824
+        "_comment": "The verified Lokalise pull adds 71 catalog keys and brings this input to 598429 emitted bytes; allow 590 KiB for catalog growth while retaining every total-bundle budget.",
+        "bytes": 604160
       },
       {
         "pattern": "locale/json/",

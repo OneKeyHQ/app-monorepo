@@ -75,6 +75,13 @@ jobs:
           CI_DEPENDENCY_INTEGRATION: 'true'
         run: python3 .github/scripts/ci-dependencies-test.py
 
+      - name: Verify App-owned icon resources
+        run: |
+          yarn icon:build
+          yarn workspace @onekeyhq/components icon:check
+          node --test development/onekey-icons/generate-icons.test.mjs packages/components/src/primitives/Icon/script.node-test.js
+          git diff --exit-code -- packages/components/src/primitives/Icon/Icons.tsx
+
       - name: Check third-party native storage compatibility
         run: yarn check:third-party-native-storage
 
@@ -102,9 +109,13 @@ jobs:
           development/lint/background-api-contract.node-test.js
           development/lint/test-integrity.node-test.js
           development/lint/onekeyfe-patches.node-test.js
+          development/lint/external-sdk.node-test.js
           apps/cli/esbuild.config.node-test.js
           apps/mobile/scripts/check-third-party-async-storage.node-test.js
           apps/mobile/scripts/native-storage-metro-policy.node-test.js
+
+      - name: Test JPush native SDK patchers
+        run: python3 -B apps/mobile/scripts/__tests__/patch-jpush-sdks.test.py
 
       - name: Build CLI
         run: yarn workspace @onekeyfe/cli build

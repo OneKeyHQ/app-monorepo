@@ -6,8 +6,12 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { formatPrivacyChainSyncError } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
+import {
+  PRIVACY_CHAIN_SYNC_STATUS_LABELS,
+  formatPrivacyChainSyncError,
+} from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isLocalWalletScanStopped } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import type { ILocalWalletSendReadiness } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
@@ -22,9 +26,20 @@ export function getLocalWalletSendSyncStatusText({
   intl: Pick<IntlShape, 'formatMessage'>;
 }): string | undefined {
   if (readiness?.canSend !== false) return undefined;
-  if (readiness.paused) {
+  const { status } = readiness;
+  if (status === 'storageUnsupported') {
+    return intl.formatMessage({
+      id: ETranslations.privacy_error_webview_outdated__msg,
+    });
+  }
+  if (status && isLocalWalletScanStopped(status)) {
     return intl.formatMessage({
       id: ETranslations.privacy_send_private_paused__msg,
+    });
+  }
+  if (status === 'waitingWifi') {
+    return intl.formatMessage({
+      id: PRIVACY_CHAIN_SYNC_STATUS_LABELS.waitingWifi,
     });
   }
   const errorText = formatPrivacyChainSyncError(readiness.syncError, intl);
@@ -56,9 +71,13 @@ export function useLocalWalletSendReadiness({
   const intl = useIntl();
   const scope = `${networkId}:${accountId ?? ''}:${sourcePool ?? ''}`;
 
-  // Keyed on account and pool only, so typing an amount never restarts it.
+  // Keyed on account and pool only, so typing an amount never restarts it. Every send catches up
+  // at once; one with a send sync also waits for it.
   useEffect(() => {
     if (!enabled || !accountId) return;
+    void backgroundApiProxy.servicePrivacyChain
+      .onLocalWalletPageOpened({ networkId })
+      .catch(() => undefined);
     void backgroundApiProxy.servicePrivacyChain
       .requestLocalWalletSendSync({ networkId, accountId, sourcePool })
       .catch(() => undefined);

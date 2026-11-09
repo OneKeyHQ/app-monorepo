@@ -17,8 +17,15 @@ const mockScrollHeaderBy = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 let mockInitialPage: number | undefined;
 let mockNativeRowAction: NativeListProps['onRowAction'];
+let mockNativeRows: NativeListProps['snapshot']['rows'] | undefined;
 let mockHeaderLayout:
   | ((event: { nativeEvent: { layout: { height: number } } }) => void)
+  | undefined;
+let mockStickyHeaderLayout: typeof mockHeaderLayout;
+// Untransformed DOM height of a mocked Stack, as `offsetHeight` reports it.
+let mockStackOffsetHeight: number | undefined;
+let mockPagerHeights:
+  | { headerHeight?: number; stickyHeaderHeight?: number }
   | undefined;
 let mockShowWalletAccounts = false;
 const mockWalletGroups = [
@@ -101,6 +108,8 @@ jest.mock('react-native-pager-view', () => {
         onPageScrollStateChanged,
         nativeTabBar,
         initialPage,
+        headerHeight,
+        stickyHeaderHeight,
       }: {
         children?: React.ReactNode;
         header?: React.ReactNode;
@@ -109,6 +118,8 @@ jest.mock('react-native-pager-view', () => {
         onPageScrollStateChanged?: typeof mockPageScrollStateChanged;
         nativeTabBar?: typeof mockNativeTabBar;
         initialPage?: number;
+        headerHeight?: number;
+        stickyHeaderHeight?: number;
       },
       ref,
     ) => {
@@ -116,6 +127,7 @@ jest.mock('react-native-pager-view', () => {
       mockPageScrollStateChanged = onPageScrollStateChanged;
       mockNativeTabBar = nativeTabBar;
       mockInitialPage = initialPage;
+      mockPagerHeights = { headerHeight, stickyHeaderHeight };
       React.useImperativeHandle(ref, () => ({
         scrollHeaderToOffset: mockScrollHeaderToOffset,
         scrollHeaderBy: mockScrollHeaderBy,
@@ -142,23 +154,31 @@ jest.mock('@onekeyhq/components', () => {
         onTouchStart,
         onWheel,
         onLayout,
+        pt,
       }: {
         children?: React.ReactNode;
         onTouchStart?: React.TouchEventHandler;
         onWheel?: React.WheelEventHandler;
         onLayout?: typeof mockHeaderLayout;
+        pt?: string;
       },
       ref,
     ) => {
-      if (onLayout) mockHeaderLayout = onLayout;
+      // Only the Web sticky tab bar pads its top; the header does not.
+      if (onLayout && pt) mockStickyHeaderLayout = onLayout;
+      else if (onLayout) mockHeaderLayout = onLayout;
       React.useImperativeHandle(ref, () => ({
         measureInWindow: (callback: (...bounds: number[]) => void) =>
           callback(0, 100, 320, 600),
+        get offsetHeight() {
+          return mockStackOffsetHeight;
+        },
       }));
       return React.createElement(
         'div',
         {
-          'data-testid': ref ? 'pager-viewport' : undefined,
+          // The header Stacks hold refs too; only the viewport takes touches.
+          'data-testid': onTouchStart ? 'pager-viewport' : undefined,
           onTouchStart,
           onWheel,
         },
@@ -197,8 +217,9 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyfe/react-native-native-list', () => ({
-  NativeList: ({ onRowAction }: NativeListProps) => {
+  NativeList: ({ onRowAction, snapshot }: Partial<NativeListProps>) => {
     mockNativeRowAction = onRowAction;
+    if (snapshot) mockNativeRows = snapshot.rows;
     return null;
   },
 }));
@@ -295,8 +316,9 @@ jest.mock('./QuickSelectListShared', () => ({
   QuickSelectListSkeleton: () => null,
 }));
 jest.mock('./recipientNativeList', () => ({
-  recipientIdentityRow: jest.fn(),
-  recipientSnapshot: jest.fn(),
+  recipientIdentityRow: jest.fn((row: unknown) => row),
+  recipientSnapshot: jest.fn((rows: unknown[]) => ({ rows })),
+  useRecipientNativeListTheme: () => ({}),
 }));
 
 const keyboardFrame = {
@@ -361,7 +383,11 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     mockNativeTabBar = undefined;
     mockRecentMatchStatus = undefined;
     mockHeaderLayout = undefined;
+    mockStickyHeaderLayout = undefined;
+    mockStackOffsetHeight = undefined;
+    mockPagerHeights = undefined;
     mockNativeRowAction = undefined;
+    mockNativeRows = undefined;
     mockShowWalletAccounts = false;
     jest.mocked(ActionList.show).mockClear();
     globalThis.requestAnimationFrame = jest.fn(
@@ -615,6 +641,41 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
   });
 
+  // A desktop modal mounts this page while it is still scaling in, and Web
+  // layout events report the scaled box.
+  it('sizes the Web pager from untransformed header heights', () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = false;
+    renderPager(['addressBook']);
+
+    mockStackOffsetHeight = 128;
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 121.6 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(128);
+    // The modal overshoots past 1x before it settles.
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 128.55 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(128);
+
+    mockStackOffsetHeight = 56;
+    act(() =>
+      mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 53.2 } } }),
+    );
+    expect(mockPagerHeights?.stickyHeaderHeight).toBe(56);
+  });
+
+  it('sizes the native pager header from the layout event', () => {
+    renderPager();
+    mockStackOffsetHeight = 128;
+    act(() =>
+      mockHeaderLayout?.({ nativeEvent: { layout: { height: 239.2 } } }),
+    );
+    expect(mockPagerHeights?.headerHeight).toBe(240);
+  });
+
   it.each(['touch', 'wheel', 'page', 'drag', 'unmount'])(
     'cancels queued focus work after %s',
     (interruption) => {
@@ -668,6 +729,34 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
           expect(frames).toHaveLength(0);
           expect(field.measureInWindow).not.toHaveBeenCalled();
         }
+      }
+    },
+  );
+  // The private entries never arrive here (the read is mocked out), so only
+  // the wait can end the hold.
+  it.each(['private', undefined] as const)(
+    'holds the Zcash account list only for a send from a private pool (%s)',
+    (senderAddressForm) => {
+      jest.useFakeTimers();
+      try {
+        mockShowWalletAccounts = true;
+        render(
+          <RecipientQuickSelect
+            networkId="zec--0"
+            senderAddressForm={senderAddressForm}
+            activeTab="account"
+            hideTabs={['recent', 'addressBook']}
+            pagerHeader={null}
+          />,
+        );
+        const isHeld = senderAddressForm === 'private';
+        expect(mockNativeRows?.length === 0).toBe(isHeld);
+        act(() => {
+          jest.advanceTimersByTime(300);
+        });
+        expect(mockNativeRows?.length).toBeGreaterThan(0);
+      } finally {
+        jest.useRealTimers();
       }
     },
   );

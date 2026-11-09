@@ -9,9 +9,20 @@ import {
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type { IHardwareCloudSyncAuthContext } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HardwareCloudSyncCancelledError,
+  HardwareCloudSyncUnlockError,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
+import type {
+  IHardwareCloudSyncKeySource,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
+
+import {
+  HardwareCloudSyncCheckError,
+  logHardwareCloudSyncFailure,
+} from './hardwareCloudSyncLog';
 
 export type IHardwareCloudKeyIdentity = {
   connectId: string;
@@ -38,7 +49,10 @@ export type IHardwareCloudKeyAdapter = {
 
 // Signs a server sign-in challenge on HARDWARE_CLOUD_SYNC_AUTH_PATH; returns a
 // base64 BIP-137 signature.
-export type IHardwareCloudSyncAuthSigner = (message: string) => Promise<string>;
+export type IHardwareCloudSyncAuthSigner = (
+  message: string,
+  expected: IHardwareCloudSyncAuthContext,
+) => Promise<string>;
 
 type IExpectedIdentity = Pick<
   IHardwareCloudKeyIdentity,
@@ -48,8 +62,8 @@ type IExpectedIdentity = Pick<
 const SECP256K1_ORDER =
   0xff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_ff_fe_ba_ae_dc_e6_af_48_a0_3b_bf_d2_5e_8c_d0_36_41_41n;
 
-function identityError(): OneKeyLocalError {
-  return new OneKeyLocalError('Hardware Cloud key identity changed');
+function identityError(): HardwareCloudSyncCheckError {
+  return new HardwareCloudSyncCheckError('Hardware Cloud key identity changed');
 }
 
 export function normalizeHardwareCloudWalletXfp(walletXfp: string): string {
@@ -111,7 +125,9 @@ function assertIdentity(
 // the recovery parity when changing S so equivalent ECDSA encodings agree.
 export function normalizeHardwareCloudSignature(signatureHex: string): Buffer {
   if (!/^[\da-f]{130}$/i.test(signatureHex)) {
-    throw new OneKeyLocalError('Invalid Hardware Cloud key signature');
+    throw new HardwareCloudSyncCheckError(
+      'Invalid Hardware Cloud key signature',
+    );
   }
   const signature = Buffer.from(signatureHex, 'hex');
   const r = BigInt(`0x${signature.subarray(1, 33).toString('hex')}`);
@@ -125,7 +141,9 @@ export function normalizeHardwareCloudSignature(signatureHex: string): Buffer {
     s >= SECP256K1_ORDER
   ) {
     signature.fill(0);
-    throw new OneKeyLocalError('Invalid Hardware Cloud key signature');
+    throw new HardwareCloudSyncCheckError(
+      'Invalid Hardware Cloud key signature',
+    );
   }
   if (s > SECP256K1_ORDER / 2n) {
     const recovery = signature[0] - 31;
@@ -161,7 +179,7 @@ export async function deriveHardwareCloudSyncKek({
   let second: Buffer | undefined;
   const assertCurrent = () => {
     if (!isCurrent() || !credentialId) {
-      throw new OneKeyLocalError('Hardware Cloud key operation expired');
+      throw new HardwareCloudSyncCancelledError();
     }
   };
   try {
@@ -199,15 +217,17 @@ export async function deriveHardwareCloudSyncKek({
         }
         await checkCurrentIdentity();
         return normalized;
-      } catch {
+      } catch (error) {
         normalized.fill(0);
-        throw identityError();
+        throw error;
       }
     };
     first = await sign();
     second = await sign();
     if (!first.equals(second)) {
-      throw new OneKeyLocalError('Hardware Cloud key signature is not stable');
+      throw new HardwareCloudSyncCheckError(
+        'Hardware Cloud key signature is not stable',
+      );
     }
     assertCurrent();
     const kek = hkdf(
@@ -223,13 +243,11 @@ export async function deriveHardwareCloudSyncKek({
       kek.fill(0);
     }
   } catch (error) {
-    // A firmware rejection carries only its failure text, so the user sees it.
-    if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
-    // SDK errors may carry request/response objects. Do not propagate them into
-    // ordinary RPC error logging, analytics, or the message-signing UI.
-    throw new OneKeyLocalError(
-      'Hardware Cloud key could not be unlocked. Check the standard wallet and try again.',
-    );
+    if (error instanceof HardwareCloudSyncCheckError) {
+      logHardwareCloudSyncFailure('Unlock failed', error);
+      throw new HardwareCloudSyncUnlockError();
+    }
+    throw error;
   } finally {
     first?.fill(0);
     second?.fill(0);
@@ -240,6 +258,7 @@ export async function deriveHardwareCloudSyncKek({
 // challenge, and derive a KEK for an envelope's salt.
 export type IHardwareCloudKeyDevice = {
   credentialId: string;
+  source?: IHardwareCloudSyncKeySource;
   signAuth: IHardwareCloudSyncAuthSigner;
   deriveKek: (kekSalt: string) => Promise<string>;
 };

@@ -214,6 +214,14 @@ jest.mock(
   () => ({ useNavigateToEditAddress: () => mockNavigateToEditAddress }),
 );
 
+let mockRewardScopes: { subject: string; description: string }[] = [];
+jest.mock(
+  '@onekeyhq/kit/src/views/ReferFriends/hooks/useInviteRewardScopes',
+  () => ({
+    useInviteRewardScopes: () => mockRewardScopes,
+  }),
+);
+
 jest.mock('./useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
@@ -278,6 +286,7 @@ describe('InviteTabContent entry points', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMd = false;
+    mockRewardScopes = [];
   });
 
   it('copies the invite link and the invite code', () => {
@@ -441,23 +450,23 @@ describe('InviteTabContent entry points', () => {
     'shows server reward scope without opening the product (compact: %s)',
     (md) => {
       mockMd = md;
-      renderTab({
-        ...SUMMARY,
-        rewardScopes: [
-          { subject: 'Swap', description: 'Swap providers' },
-          { subject: 'Earn', description: 'DeFi venues' },
-        ],
-      } as IInviteSummary);
+      mockRewardScopes = [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+      ];
+      renderTab();
 
-      expect(
-        screen.getByTestId(`info-${ETranslations.global_swap}`),
-      ).toBeTruthy();
-      expect(
-        screen.getByTestId(`info-${ETranslations.referral_referred_type_2}`),
-      ).toBeTruthy();
+      // Swap and DeFi each carry scope copy.
+      const scopeInfos = screen.getAllByTestId(
+        ReferFriendsTestIDs.inviteRewardScopeInfo,
+      );
+      expect(scopeInfos).toHaveLength(2);
 
-      fireEvent.click(screen.getByTestId(`info-${ETranslations.global_swap}`));
+      for (const scopeInfo of scopeInfos) {
+        fireEvent.click(scopeInfo);
+      }
       expect(mockNavigateToSwapReward).not.toHaveBeenCalled();
+      expect(mockNavigateToEarnReward).not.toHaveBeenCalled();
     },
   );
 
@@ -465,17 +474,20 @@ describe('InviteTabContent entry points', () => {
     'offers reward scope from the empty earnings card (compact: %s)',
     (md) => {
       mockMd = md;
+      mockRewardScopes = [
+        { subject: 'Swap', description: 'Swap providers' },
+        { subject: 'Earn', description: 'DeFi venues' },
+      ];
       renderTab({
         ...SUMMARY,
-        rewardScopes: [
-          { subject: 'Swap', description: 'Swap providers' },
-          { subject: 'Earn', description: 'DeFi venues' },
-        ],
         HardwareSales: { ...SUMMARY.HardwareSales, available: [], pending: [] },
         Perp: { ...SUMMARY.Perp, available: [] },
         Onchain: { ...SUMMARY.Onchain, available: [], swap: [] },
       } as IInviteSummary);
 
+      expect(
+        screen.getByTestId(ReferFriendsTestIDs.inviteRewardScopeLearnMore),
+      ).toBeTruthy();
       expect(screen.getByText(ETranslations.global_learn_more)).toBeTruthy();
       expect(screen.queryByText(ETranslations.global_swap)).toBeNull();
       expect(

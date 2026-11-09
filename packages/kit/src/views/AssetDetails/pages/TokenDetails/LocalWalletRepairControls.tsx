@@ -1,39 +1,31 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Checkbox,
   DatePicker,
-  Dialog,
   Input,
-  ScrollView,
   SegmentControl,
   SizableText,
-  Toast,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import type {
-  ILocalWalletAccountAddresses,
-  ILocalWalletAccountBalance,
-  ILocalWalletAccountState,
-  ILocalWalletSyncProgress,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-// Recovery controls for a local-wallet account; every action goes through servicePrivacyChain.
+// The sync start (birthday) form and the enable disclosure for a local-wallet account.
 
 export type IBirthdayFormState = {
   mode: 'saved-birthday' | 'date' | 'height';
   date: Date | null;
   height?: string;
   fromEarliest?: boolean;
+  // The chain tip once known; a height above it is not a valid sync start.
+  maxHeight?: number;
 };
 
 export type IEarliestBirthday = { height: number; timestamp: number };
@@ -88,7 +80,8 @@ export function readEnableBirthday(
       !/^\d+$/.test(value) ||
       !Number.isSafeInteger(height) ||
       exceedsRuntimeHeight ||
-      height < Math.max(1, earliest?.height ?? 1)
+      height < Math.max(1, earliest?.height ?? 1) ||
+      (form.maxHeight !== undefined && height > form.maxHeight)
     ) {
       return undefined;
     }
@@ -108,6 +101,40 @@ export function readEnableBirthday(
   };
 }
 
+// A rejected height names the bound it breaks; anything else is just invalid.
+export function getBirthdayHeightHint({
+  height,
+  invalid,
+  minHeight,
+  maxHeight,
+  label,
+  invalidText,
+  format = (value: number) => value.toLocaleString('en-US'),
+}: {
+  height: string;
+  invalid: boolean;
+  minHeight: number;
+  maxHeight?: number;
+  label: string;
+  invalidText: string;
+  format?: (value: number) => string;
+}): string {
+  if (!invalid) {
+    return maxHeight === undefined
+      ? `${label} ≥ ${format(minHeight)}`
+      : `${label} ${format(minHeight)} – ${format(maxHeight)}`;
+  }
+  const isWholeNumber = /^\d+$/.test(height);
+  const value = Number(height);
+  if (isWholeNumber && value < minHeight) {
+    return `${label} ≥ ${format(minHeight)}`;
+  }
+  if (isWholeNumber && maxHeight !== undefined && value > maxHeight) {
+    return `${label} ≤ ${format(maxHeight)}`;
+  }
+  return invalidText;
+}
+
 export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
   return mode === 'height'
     ? ETranslations.global_bulk_accounts_page_number_error
@@ -117,16 +144,30 @@ export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
 // Shared by both enable entry points. Repair dialogs must NOT show it: the
 // account is already scanning by then.
 export function PrivacyEnableDisclosure({
+  accountId,
+  deviceExportsViewKey,
   hasRecommendedMonth,
 }: {
+  accountId: string;
+  deviceExportsViewKey?: boolean;
   hasRecommendedMonth: boolean;
 }) {
   const intl = useIntl();
   return (
     <YStack gap="$3">
       <SizableText size="$bodyMd">
-        {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_enable_account__desc,
+          defaultMessage: ETranslationsMock.privacy_enable_account__desc,
+        })}
       </SizableText>
+      {deviceExportsViewKey && accountUtils.isHwAccount({ accountId }) ? (
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.privacy_enable_device_view_key__msg,
+          })}
+        </SizableText>
+      ) : null}
       {hasRecommendedMonth ? (
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
@@ -169,19 +210,32 @@ export function BirthdayDialogForm({
   const displayedBirthdayHeight = locked
     ? earliestBirthday.height
     : currentBirthdayHeight;
+  // Shown without waiting; the upper bound applies once the tip is known.
+  const { result: chainTip } = usePromiseResult(
+    () =>
+      backgroundApiProxy.servicePrivacyChain.getLocalWalletLatestHeight({
+        networkId,
+      }),
+    [networkId],
+  );
+  const maxHeight = chainTip ?? undefined;
+  useEffect(() => {
+    formRef.current.maxHeight = maxHeight;
+  }, [formRef, maxHeight]);
   const invalidHeight =
     !locked &&
     height.length > 0 &&
     !readEnableBirthday(
-      { mode: 'height', date: null, height },
+      { mode: 'height', date: null, height, maxHeight },
       earliestBirthday,
       networkId,
     );
   const showHeightError =
     displayedMode === 'height' && heightTouched && invalidHeight;
   const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
-  const heightBelowMinimum =
-    /^\d+$/.test(height.trim()) && Number(height) < minHeight;
+  // A defined `disabled`, even false, reaches the input through Tamagui Group
+  // and makes the read-only field editable on Android.
+  const dateDisabled = locked ? true : undefined;
   let editor: React.ReactNode = null;
   if (displayedMode === 'date') {
     editor = (
@@ -195,7 +249,8 @@ export function BirthdayDialogForm({
           })}
           minDate={minDate}
           maxDate={new Date()}
-          disabled={locked}
+          disabled={dateDisabled}
+          showTodayShortcut={false}
           value={locked ? earliestDate : date}
           onChange={(value) => {
             if (locked) return;
@@ -295,11 +350,19 @@ export function BirthdayDialogForm({
                 color="$textCritical"
                 accessibilityRole="alert"
               >
-                {heightBelowMinimum
-                  ? `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`
-                  : intl.formatMessage({
-                      id: getBirthdayInputError('height'),
-                    })}
+                {getBirthdayHeightHint({
+                  height: height.trim(),
+                  invalid: true,
+                  minHeight,
+                  maxHeight,
+                  label: intl.formatMessage({
+                    id: ETranslations.global_block_height,
+                  }),
+                  invalidText: intl.formatMessage({
+                    id: getBirthdayInputError('height'),
+                  }),
+                  format: (value) => intl.formatNumber(value),
+                })}
               </SizableText>
             ) : null}
           </YStack>
@@ -316,216 +379,16 @@ export function BirthdayDialogForm({
               formRef.current.fromEarliest = next;
             }}
             label={intl.formatMessage({
-              id: ETranslations.privacy_sync_start_from_beginning__desc,
+              id: ETranslationsMock.privacy_sync_start_existing_unknown__desc,
+              defaultMessage:
+                ETranslationsMock.privacy_sync_start_existing_unknown__desc,
             })}
+            containerProps={{ py: '$0', mt: '$1' }}
+            labelProps={{ variant: '$bodyMd', color: '$textSubdued' }}
             labelContainerProps={{ flex: 1 }}
           />
         </YStack>
       ) : null}
     </YStack>
-  );
-}
-
-export function SetupRepairControl({
-  networkId,
-  accountId,
-  onDone,
-  onError,
-}: {
-  networkId: string;
-  accountId: string;
-  onDone: () => void;
-  // A failed repair can change what the caller shows (e.g. identity mismatch).
-  onError?: () => void;
-}) {
-  const intl = useIntl();
-  const [busy, setBusy] = useState(false);
-  const handlePress = useCallback(async () => {
-    setBusy(true);
-    try {
-      await backgroundApiProxy.servicePrivacyChain.retryLocalWalletAccountSetup(
-        { networkId, accountId },
-      );
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.privacy_sync_setup_done__msg,
-        }),
-      });
-      onDone();
-    } catch (e) {
-      console.error('[privacyChain] retryLocalWalletAccountSetup failed', e);
-      onError?.();
-    } finally {
-      setBusy(false);
-    }
-  }, [networkId, accountId, onDone, onError, intl]);
-
-  return (
-    <Button
-      testID="local-wallet-repair-setup-btn"
-      size="small"
-      variant="tertiary"
-      loading={busy}
-      onPress={handlePress}
-    >
-      {intl.formatMessage({ id: ETranslations.global_retry })}
-    </Button>
-  );
-}
-
-export function ScanRepairControl({
-  networkId,
-  accountId,
-  currentBirthdayHeight,
-  earliestBirthday,
-  onDone,
-}: {
-  networkId: string;
-  accountId: string;
-  currentBirthdayHeight?: number;
-  earliestBirthday?: IEarliestBirthday;
-  onDone: () => void;
-}) {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    const formRef: { current: IBirthdayFormState } = {
-      current: {
-        mode: 'saved-birthday',
-        date: null,
-        height: currentBirthdayHeight?.toString(),
-      },
-    };
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      }),
-      tone: 'warning',
-      description: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__desc,
-      }),
-      renderContent: (
-        <BirthdayDialogForm
-          networkId={networkId}
-          formRef={formRef}
-          currentBirthdayHeight={currentBirthdayHeight}
-          earliestBirthday={earliestBirthday}
-        />
-      ),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      }),
-      onConfirm: async ({ preventClose }) => {
-        const { fromEarliest } = formRef.current;
-        let mode = formRef.current.mode;
-        let birthdayTimestamp: number | undefined;
-        let birthdayHeightValue: number | undefined;
-        if (fromEarliest && earliestBirthday) {
-          mode = 'height';
-        }
-        if (mode === 'date' || mode === 'height') {
-          const birthday = readEnableBirthday(
-            formRef.current,
-            earliestBirthday,
-            networkId,
-          );
-          if (!birthday) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: getBirthdayInputError(mode),
-              }),
-            });
-            preventClose();
-            return;
-          }
-          birthdayTimestamp = birthday.birthdayTimestamp;
-          birthdayHeightValue = birthday.birthdayHeight;
-        }
-        await backgroundApiProxy.servicePrivacyChain.repairLocalChainData({
-          networkId,
-          accountId,
-          // The existing timestamp API accepts any day, despite its mode name.
-          mode: mode === 'date' ? 'month' : mode,
-          birthdayTimestamp,
-          birthdayHeight: birthdayHeightValue,
-        });
-        onDone();
-      },
-    });
-  }, [
-    networkId,
-    accountId,
-    currentBirthdayHeight,
-    earliestBirthday,
-    onDone,
-    intl,
-  ]);
-
-  return (
-    <Button
-      testID="local-wallet-repair-scan-btn"
-      size="small"
-      variant="tertiary"
-      onPress={handlePress}
-    >
-      {intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      })}
-    </Button>
-  );
-}
-
-export function LocalWalletDebugControl({
-  networkId,
-  accountId,
-  state,
-  addresses,
-  balance,
-  syncProgress,
-}: {
-  networkId: string;
-  accountId: string;
-  state: ILocalWalletAccountState | undefined;
-  addresses: ILocalWalletAccountAddresses | null | undefined;
-  balance: ILocalWalletAccountBalance | null | undefined;
-  syncProgress: ILocalWalletSyncProgress | null | undefined;
-}) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const { copyText } = useClipboard();
-
-  const handlePress = useCallback(() => {
-    const dump = {
-      account: { networkId, accountId },
-      state: state ?? null,
-      addresses: addresses ?? null,
-      syncProgress: syncProgress ?? null,
-      balance: balance ?? null,
-    };
-    const text = JSON.stringify(dump, null, 2);
-    Dialog.show({
-      title: 'Local wallet account debug',
-      renderContent: (
-        <ScrollView maxHeight={420} showsVerticalScrollIndicator>
-          <SizableText size="$bodySm" selectable>
-            {text}
-          </SizableText>
-        </ScrollView>
-      ),
-      onConfirmText: 'Copy',
-      onConfirm: () => copyText(text),
-    });
-  }, [networkId, accountId, state, addresses, balance, syncProgress, copyText]);
-
-  if (!devSettings.enabled) {
-    return null;
-  }
-  return (
-    <Button
-      testID="local-wallet-debug-btn"
-      size="small"
-      variant="tertiary"
-      onPress={handlePress}
-    >
-      Debug
-    </Button>
   );
 }
