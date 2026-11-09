@@ -3,7 +3,8 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, fireEvent, render } from '@testing-library/react';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import {
   InvalidPIN,
   NeedFirmwareUpgradeFromWeb,
@@ -23,13 +24,27 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { setNativeAppStorageEmergencyStatus } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
 const mockOpenChangeLogModal = jest.fn();
+const mockRootNavigate = jest.fn<void, unknown[]>();
+let mockPrimeUser: Pick<
+  IPrimeUserInfo,
+  'isLoggedIn' | 'isLoggedInOnServer' | 'onekeyUserId'
+>;
+const mockGetPrimeUser = jest.fn(async () => mockPrimeUser);
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [mockPrimeUser],
+  primePersistAtom: { get: () => mockGetPrimeUser() },
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const actual = jest.requireActual<
@@ -82,6 +97,10 @@ jest.mock('@onekeyhq/components', () => ({
     success: jest.fn(),
     warning: jest.fn(),
   },
+  Dialog: { show: jest.fn() },
+  rootNavigationRef: {
+    current: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
+  },
   globalNetInfo: {
     currentState: jest.fn(() => ({
       isInternetReachable: true,
@@ -116,11 +135,211 @@ const mockedGlobalNetInfo = globalNetInfo as unknown as {
 describe('ErrorToastContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getErrorAction).mockReset();
+    mockPrimeUser = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'signed-in-user',
+    };
+    jest.mocked(Dialog.show).mockImplementation((options) => ({
+      close: async (extra) => {
+        await options.onClose?.(extra);
+      },
+      getForm: () => undefined,
+      isExist: () => true,
+    }));
     setNativeAppStorageEmergencyStatus(undefined);
     mockSubscribeNativeStorageContractViolations.mockReturnValue(jest.fn());
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
+  });
+
+  it.each([90_012, '90012'])(
+    'shows the localized OneKeyID restriction and opens its panel for code %s',
+    async (errorCode) => {
+      const actual =
+        jest.requireActual<typeof import('./ErrorToasts')>('./ErrorToasts');
+      jest.mocked(getErrorAction).mockImplementationOnce(actual.getErrorAction);
+      const view = render(<ErrorToastContainer />);
+      act(() => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: 'This account has been banned.',
+          errorCode,
+          httpStatusCode: 403,
+        });
+      });
+      expect(mockedToast.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'OneKeyID',
+          message: '账号已被封禁',
+          toastId: '90012',
+        }),
+      );
+      const toast = jest.mocked(Toast.error).mock.calls[0][0];
+      const action = render(<>{toast.actions}</>);
+      await act(async () => {
+        fireEvent.click(action.getByRole('button', { name: '查看' }));
+      });
+      expect(Toast.dismiss).toHaveBeenCalledWith('90012');
+      expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Modal, {
+        screen: EModalRoutes.PrimeModal,
+        params: { screen: EPrimePages.OneKeyId },
+      });
+      expect(Dialog.show).not.toHaveBeenCalled();
+      action.unmount();
+      view.unmount();
+    },
+  );
+
+  it.each([
+    { isLoggedIn: false, isLoggedInOnServer: false, onekeyUserId: undefined },
+    {
+      isLoggedIn: true,
+      isLoggedInOnServer: false,
+      onekeyUserId: 'pending-user',
+    },
+    { isLoggedIn: false, isLoggedInOnServer: true, onekeyUserId: 'stale-user' },
+    { isLoggedIn: true, isLoggedInOnServer: true, onekeyUserId: undefined },
+  ])(
+    'shows a persistent restriction dialog without a completed login: %j',
+    async (user) => {
+      mockPrimeUser = user;
+      const actual =
+        jest.requireActual<typeof import('./ErrorToasts')>('./ErrorToasts');
+      jest.mocked(getErrorAction).mockImplementationOnce(actual.getErrorAction);
+      render(<ErrorToastContainer />);
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: '',
+          errorCode: '90012',
+          httpStatusCode: 403,
+          requestId: 'login-denied',
+          diagnosticText: 'Restricted OAuth sign-in',
+        });
+      });
+      expect(Dialog.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'OneKeyID',
+          description: '账号已被封禁',
+          showCancelButton: false,
+          onConfirmText: '我明白了',
+          dismissOnOverlayPress: false,
+          disableDrag: true,
+        }),
+      );
+      expect(mockedToast.error).not.toHaveBeenCalled();
+      expect(actual.getErrorAction({ errorCode: '90012' })).toBeUndefined();
+      expect(mockRootNavigate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('waits for the login dialog to close and deduplicates the persistent error', async () => {
+    mockPrimeUser = {
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+      onekeyUserId: undefined,
+    };
+    let finishClosing: (() => void) | undefined;
+    const closing = new Promise<void>((resolve) => {
+      finishClosing = resolve;
+    });
+    const onLoginClose = jest.fn();
+    const close = jest.fn(async () => {
+      await closing;
+      await onLoginClose();
+    });
+    jest.mocked(Dialog.show).mockReturnValueOnce({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+    showOneKeyIdLoginDialog({ title: 'Login' });
+    render(<ErrorToastContainer />);
+    const showBan = () =>
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: '',
+        errorCode: 90_012,
+      });
+    act(() => {
+      showBan();
+      showBan();
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finishClosing?.();
+    });
+    expect(onLoginClose).toHaveBeenCalledTimes(1);
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    expect(Dialog.show).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        title: 'OneKeyID',
+        description: '账号已被封禁',
+      }),
+    );
+    await act(async () => {
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(2);
+    const errorDialog = jest.mocked(Dialog.show).mock.calls[1][0];
+    await act(async () => {
+      await errorDialog.onClose?.();
+      showBan();
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(3);
+    expect(mockedToast.error).not.toHaveBeenCalled();
+  });
+
+  it.each(['logout', 'switch-account'])(
+    'does not follow a stale View action after %s',
+    async (change) => {
+      const actual =
+        jest.requireActual<typeof import('./ErrorToasts')>('./ErrorToasts');
+      const oneKeyIdUserId = mockPrimeUser.onekeyUserId;
+      const actionElement = actual.getErrorAction({
+        errorCode: 90_012,
+        oneKeyIdUserId,
+      });
+      const action = render(<>{actionElement}</>);
+      const button = action.getByRole('button', { name: '查看' });
+      mockPrimeUser =
+        change === 'logout'
+          ? {
+              isLoggedIn: false,
+              isLoggedInOnServer: false,
+              onekeyUserId: undefined,
+            }
+          : { ...mockPrimeUser, onekeyUserId: 'other-user' };
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      expect(mockGetPrimeUser).toHaveBeenCalledTimes(1);
+      expect(Toast.dismiss).toHaveBeenCalledWith('90012');
+      expect(mockRootNavigate).not.toHaveBeenCalled();
+      action.rerender(
+        <>{actual.getErrorAction({ errorCode: 90_012, oneKeyIdUserId })}</>,
+      );
+      expect(action.queryByRole('button', { name: '查看' })).toBeNull();
+    },
+  );
+
+  it('can show a serialized ban with no background fallback title', () => {
+    const view = render(<ErrorToastContainer />);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: '',
+        errorCode: 90_012,
+      });
+    });
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'OneKeyID', message: '账号已被封禁' }),
+    );
+    view.unmount();
   });
 
   const emergencyStatus = {

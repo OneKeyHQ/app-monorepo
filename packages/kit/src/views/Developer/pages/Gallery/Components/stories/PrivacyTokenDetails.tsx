@@ -44,7 +44,7 @@ import { ReceiveQRCode } from '@onekeyhq/kit/src/views/Receive/components/Receiv
 import { ReceiveTitle } from '@onekeyhq/kit/src/views/Receive/components/ReceiveTitle';
 import xmrSettings from '@onekeyhq/kit-bg/src/vaults/impls/xmr/settings';
 import zcashSettings from '@onekeyhq/kit-bg/src/vaults/impls/zcash/settings';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrivacyAccountManagementPreview } from './PrivacyAccountManagement';
 
@@ -131,8 +131,7 @@ function PrivacyTokenDetailsPreview() {
       const formRef = createPrivacyEnableForm({ earliestBirthday });
       Dialog.show({
         title: intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__title,
-          defaultMessage: ETranslationsMock.privacy_enable_account__title,
+          id: ETranslations.privacy_enable_account__title,
         }),
         renderContent: (
           <PrivacyEnableContent

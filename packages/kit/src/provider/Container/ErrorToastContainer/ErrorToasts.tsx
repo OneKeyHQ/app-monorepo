@@ -11,6 +11,10 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  primePersistAtom,
+  usePrimePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -23,6 +27,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  PRIME_USER_BANNED_CODE,
+  getLoggedInOneKeyIdUserId,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -35,6 +43,7 @@ interface IErrorActionParams {
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
+  oneKeyIdUserId?: string;
 }
 
 function ContactSupportButton({ requestId }: { requestId: string }) {
@@ -135,6 +144,36 @@ function NavigateToCloudSyncSwitchButton() {
   );
 }
 
+function ViewOneKeyIdButton({ oneKeyIdUserId }: { oneKeyIdUserId: string }) {
+  const intl = useIntl();
+  const [user] = usePrimePersistAtom();
+
+  if (getLoggedInOneKeyIdUserId(user) !== oneKeyIdUserId) {
+    return null;
+  }
+
+  return (
+    <Button
+      testID="error-toast-view-onekey-id-btn"
+      variant="primary"
+      size="small"
+      onPress={async () => {
+        const currentUser = await primePersistAtom.get();
+        Toast.dismiss(String(PRIME_USER_BANNED_CODE));
+        if (getLoggedInOneKeyIdUserId(currentUser) !== oneKeyIdUserId) {
+          return;
+        }
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.PrimeModal,
+          params: { screen: EPrimePages.OneKeyId },
+        });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_view })}
+    </Button>
+  );
+}
+
 function ClearPendingTransactionsButton() {
   const intl = useIntl();
 
@@ -183,7 +222,13 @@ export function getErrorAction({
   requestId,
   diagnosticText,
   i18nKey,
+  oneKeyIdUserId,
 }: IErrorActionParams) {
+  if (Number(errorCode) === PRIME_USER_BANNED_CODE) {
+    return oneKeyIdUserId ? (
+      <ViewOneKeyIdButton oneKeyIdUserId={oneKeyIdUserId} />
+    ) : undefined;
+  }
   // Special case: firmware upgrade button
   if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
     return <NeedFirmwareUpgradeFromWebButton />;
