@@ -115,6 +115,20 @@ test('rejects package-manager downloads for all release tools', (t) => {
   assert.match(f.check().errors.join('\n'), /locked local tools/u);
 });
 
+test('runs sentry-cli from the checked-out node_modules for older refs', (t) => {
+  const f = fixture(t);
+  f.write(
+    '.github/workflows/release-test.yml',
+    'jobs:\n  build:\n    steps:\n      - run: yarn exec sentry-cli releases new 1\n',
+  );
+  assert.match(f.check().errors.join('\n'), /node_modules\/\.bin/u);
+  f.write(
+    '.github/workflows/release-test.yml',
+    'jobs:\n  build:\n    steps:\n      - run: node_modules/.bin/sentry-cli releases new 1\n',
+  );
+  assert.deepEqual(f.check().errors, []);
+});
+
 test('checks cache-refresh because release jobs restore its snapshot', (t) => {
   const f = fixture(t);
   f.write(

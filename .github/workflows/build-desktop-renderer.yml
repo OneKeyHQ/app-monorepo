@@ -241,9 +241,9 @@ jobs:
           fi
 
           RELEASE="$BUILD_APP_VERSION ($BUILD_NUMBER)"
-          yarn exec sentry-cli releases new "$RELEASE" || true
-          if yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "~/" ./apps/desktop/web-build; then
-            yarn exec sentry-cli releases finalize "$RELEASE" || true
+          node_modules/.bin/sentry-cli releases new "$RELEASE" || true
+          if node_modules/.bin/sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "~/" ./apps/desktop/web-build; then
+            node_modules/.bin/sentry-cli releases finalize "$RELEASE" || true
             echo "uploaded=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Desktop Sentry sourcemap upload failed; archiving sourcemaps before stripping them from renderer artifact."

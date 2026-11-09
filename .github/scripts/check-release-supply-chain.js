@@ -9,6 +9,9 @@ const DYNAMIC_TOOL =
 const PINNED_ACTION = /^[\w.-]+\/[\w.-]+(?:\/[\w.-]+)*@[a-f\d]{40}$/u;
 const PINNED_IMAGE = /^docker:\/\/[^\s@]+@sha256:[a-f\d]{64}$/u;
 const DOWNLOAD_TOOL = /\b(?:npx|yarn\s+dlx)\b/u;
+// Yarn only exposes binaries of direct dependencies, and maintenance refs
+// built through checkout_ref do not declare @sentry/cli at the root.
+const YARN_SENTRY_CLI = /\byarn\s+(?:(?:exec|run)\s+)?sentry-cli\b/u;
 // cache-refresh publishes the dependency snapshot that release jobs restore.
 const RELEASE_ROOTS =
   /^(?:release.*|daily-build.*|cache-refresh|lint|security-checks)\.ya?ml$/u;
@@ -67,6 +70,9 @@ function checkWorkflow(root, file, errors) {
   for (const step of workflowSteps(document)) {
     if (DOWNLOAD_TOOL.test(step.run || '')) {
       errors.push(`${file}: use locked local tools instead of npx/yarn dlx`);
+    }
+    if (YARN_SENTRY_CLI.test(step.run || '')) {
+      errors.push(`${file}: run sentry-cli from node_modules/.bin`);
     }
   }
   return local;

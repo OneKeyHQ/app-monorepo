@@ -326,9 +326,9 @@ jobs:
           # Sentry expects a literal tilde URL prefix.
           # shellcheck disable=SC2088
           URL_PREFIX='~/'
-          yarn exec sentry-cli releases new "$RELEASE" || true
-          if yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/desktop/web-build; then
-            yarn exec sentry-cli releases finalize "$RELEASE" || true
+          node_modules/.bin/sentry-cli releases new "$RELEASE" || true
+          if node_modules/.bin/sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/desktop/web-build; then
+            node_modules/.bin/sentry-cli releases finalize "$RELEASE" || true
             echo "uploaded=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Desktop bundle Sentry sourcemap upload failed; archiving sourcemaps before stripping them."

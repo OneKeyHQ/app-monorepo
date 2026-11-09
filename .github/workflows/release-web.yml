@@ -320,7 +320,7 @@ jobs:
             exit 0
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
-          yarn exec sentry-cli releases new "$RELEASE" || true
+          node_modules/.bin/sentry-cli releases new "$RELEASE" || true
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
@@ -338,8 +338,8 @@ jobs:
           # Without this the maps upload as `~/static/js/*.js` while events report
           # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
           URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
-          yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
-          yarn exec sentry-cli releases finalize "$RELEASE" || true
+          node_modules/.bin/sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          node_modules/.bin/sentry-cli releases finalize "$RELEASE" || true
           # Upload succeeded (set -e would have aborted before here otherwise):
           # authorize the cleanup step to strip the now-redundant .map files.
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
@@ -612,7 +612,7 @@ jobs:
             exit 0
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
-          yarn exec sentry-cli releases new "$RELEASE" || true
+          node_modules/.bin/sentry-cli releases new "$RELEASE" || true
           # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
           # built .js files in place (prepends a _sentryDebugIds IIFE + appends
           # //# debugId), which would invalidate the sha384 Subresource
@@ -630,8 +630,8 @@ jobs:
           # Without this the maps upload as `~/static/js/*.js` while events report
           # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
           URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
-          yarn exec sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
-          yarn exec sentry-cli releases finalize "$RELEASE" || true
+          node_modules/.bin/sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          node_modules/.bin/sentry-cli releases finalize "$RELEASE" || true
           # Upload succeeded (set -e would have aborted before here otherwise):
           # authorize the cleanup step to strip the now-redundant .map files.
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
