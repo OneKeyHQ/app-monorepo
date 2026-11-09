@@ -213,3 +213,321 @@ index 94b4dc7b..dce0f2cf 100644
 +        peripheral.emit('connect', connectError);
 +      }
        peripheral.emit('disconnect', reason);
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
+index 19d0991..92f8964 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
++++ b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.cc
+@@ -63,6 +63,19 @@ std::string gattStatusToString(GattCommunicationStatus status) {
+     }
+ }
+ 
++// OneKey patch: name the failure; callers treat "status: <n>" as abortable.
++std::string gattWriteFailureToString(const GattWriteResult& result) {
++    std::string message = "GATT write failed: " + gattStatusToString(result.Status());
++    auto protocolError = result.ProtocolError();
++    if (protocolError) {
++        char code[8];
++        snprintf(code, sizeof(code), "0x%02X", protocolError.Value());
++        message += ", ATT error ";
++        message += code;
++    }
++    return message;
++}
++
+ std::string asyncStatusToString(AsyncStatus status) {
+     switch (status) {
+         case AsyncStatus::Completed:
+@@ -297,19 +310,95 @@ bool BLEManager::Connect(const std::string& uuid)
+     }
+ 
+     PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    // OneKey patch: settle the connect only once the GATT session is active
++    BeginConnect(peripheral);
+     if (!peripheral.device.has_value())
+     {
+         auto completed = bind2(this, &BLEManager::OnConnected, uuid);
+         BluetoothLEDevice::FromBluetoothAddressAsync(peripheral.bluetoothAddress)
+             .Completed(completed);
+     }
+-    else
++    else if (peripheral.gattSession.has_value())
+     {
+-        mEmit.Connected(uuid);
++        // OneKey patch: a device object alone is not a link
++        // mEmit.Connected(uuid);
++        MaintainSession(uuid);
++    }
++    // OneKey patch: otherwise the session is still being created; OnGattSessionCreated settles it
++    return true;
++}
++
++// OneKey patch: begin / take / finish one pending connect. Every path settles
++// through FinishConnect so the status check and a session event cannot both emit.
++// No native timeout, as on macOS: the caller's timeout or cancel ends the wait.
++void BLEManager::BeginConnect(PeripheralWinrt& peripheral)
++{
++    std::lock_guard<std::mutex> lock(mConnectMutex);
++    peripheral.connectPending = true;
++}
++
++bool BLEManager::TakeConnect(PeripheralWinrt& peripheral)
++{
++    std::lock_guard<std::mutex> lock(mConnectMutex);
++    if (!peripheral.connectPending)
++    {
++        return false;
+     }
++    peripheral.connectPending = false;
+     return true;
+ }
+ 
++void BLEManager::FinishConnect(const std::string& uuid, const std::string& error)
++{
++    auto it = mDeviceMap.find(uuid);
++    if (it == mDeviceMap.end() || !TakeConnect(it->second))
++    {
++        return;
++    }
++    if (error.empty())
++    {
++        mEmit.Connected(uuid);
++        return;
++    }
++    it->second.Disconnect();
++    mNotifyMap.Remove(uuid);
++    mEmit.Connected(uuid, error);
++}
++
++void BLEManager::MaintainSession(const std::string& uuid)
++{
++    PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    if (!peripheral.gattSession.has_value())
++    {
++        return;
++    }
++    // A local reference: a concurrent cancel may reset peripheral.gattSession.
++    GattSession session = *peripheral.gattSession;
++    try
++    {
++        session.MaintainConnection(true);
++        if (session.SessionStatus() == GattSessionStatus::Active)
++        {
++            FinishConnect(uuid, "");
++        }
++    }
++    catch (winrt::hresult_error const& e)
++    {
++        FinishConnect(uuid, "could not maintain GATT session: " + winrt::to_string(e.message()));
++    }
++}
++
++void BLEManager::OnSessionStatusChanged(GattSession session,
++                                        GattSessionStatusChangedEventArgs args,
++                                        const std::string uuid)
++{
++    // Closed while pending: Windows keeps retrying a maintained session until cancelled.
++    if (args.Status() == GattSessionStatus::Active)
++    {
++        FinishConnect(uuid, "");
++    }
++}
++
+ void BLEManager::OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncStatus status,
+                              const std::string uuid)
+ {
+@@ -325,7 +414,8 @@ void BLEManager::OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncSt
+             PeripheralWinrt& peripheral = mDeviceMap[uuid];
+             peripheral.device = device;
+             peripheral.connectionToken = token;
+-            mEmit.Connected(uuid);
++            // OneKey patch: connected is reported once the GATT session is active
++            // mEmit.Connected(uuid);
+             
+             // Get GATT session to access the MTU
+             auto completed = bind2(this, &BLEManager::OnGattSessionCreated, uuid);
+@@ -333,12 +423,16 @@ void BLEManager::OnConnected(IAsyncOperation<BluetoothLEDevice> asyncOp, AsyncSt
+         }
+         else
+         {
+-            mEmit.Connected(uuid, "could not connect to device: result is null");
++            // OneKey patch: settle through FinishConnect to clear the pending wait
++            // mEmit.Connected(uuid, "could not connect to device: result is null");
++            FinishConnect(uuid, "could not connect to device: result is null");
+         }
+     }
+     else
+     {
+-        mEmit.Connected(uuid, "could not connect to device");
++        // OneKey patch: settle through FinishConnect to clear the pending wait
++        // mEmit.Connected(uuid, "could not connect to device");
++        FinishConnect(uuid, "could not connect to device");
+     }
+ }
+ 
+@@ -349,6 +443,28 @@ void BLEManager::OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, Asyn
+         auto session = asyncOp.GetResults();
+         if (session)
+         {
++            // OneKey patch: drop a session whose connect was cancelled or timed out
++            // meanwhile, or a duplicate from a repeated connect call.
++            PeripheralWinrt& pendingPeripheral = mDeviceMap[uuid];
++            bool pending;
++            {
++                std::lock_guard<std::mutex> lock(mConnectMutex);
++                pending = pendingPeripheral.connectPending;
++            }
++            if (!pending || pendingPeripheral.gattSession.has_value())
++            {
++                session.Close();
++                if (pending)
++                {
++                    MaintainSession(uuid);
++                }
++                else if (!pendingPeripheral.gattSession.has_value())
++                {
++                    pendingPeripheral.Disconnect();
++                }
++                return;
++            }
++
+             // MaxPduSize is equivalent to the MTU-3 (MTU minus ATT header)
+             // MTU = MaxPduSize + 3
+             int mtu = session.MaxPduSize();
+@@ -362,15 +478,24 @@ void BLEManager::OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, Asyn
+             peripheral.gattSession = session;
+             auto token = session.MaxPduSizeChanged(onPduSizeChanged);
+             peripheral.maxPduSizeChangedToken = token;
++
++            // OneKey patch: keep the link up and settle the connect when the session is active
++            peripheral.sessionStatusChangedToken = session.SessionStatusChanged(
++                bind2(this, &BLEManager::OnSessionStatusChanged, uuid));
++            MaintainSession(uuid);
+         }
+         else
+         {
+             LOGE("Failed to get GattSession for device %s", uuid.c_str());
++            // OneKey patch: without a session there is no link to wait for
++            FinishConnect(uuid, "could not open GATT session");
+         }
+     }
+     else
+     {
+         LOGE("Failed to create GattSession: %s", asyncStatusToString(status).c_str());
++        // OneKey patch: without a session there is no link to wait for
++        FinishConnect(uuid, "could not open GATT session: " + asyncStatusToString(status));
+     }
+ }
+ 
+@@ -386,6 +511,8 @@ bool BLEManager::Disconnect(const std::string& uuid)
+ {
+     CHECK_DEVICE();
+     PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    // OneKey patch: a disconnect also ends a pending connect wait
++    TakeConnect(peripheral);
+     peripheral.Disconnect();
+     mNotifyMap.Remove(uuid);
+     mEmit.Disconnected(uuid);
+@@ -396,8 +523,16 @@ bool BLEManager::CancelConnect(const std::string& uuid)
+ {
+     CHECK_DEVICE();
+     PeripheralWinrt& peripheral = mDeviceMap[uuid];
++    // OneKey patch: noble.js already reported the cancel; never emit a late connect
++    bool wasPending = TakeConnect(peripheral);
++    // OneKey patch: cancelling an established link is a disconnect, as CoreBluetooth reports it
++    bool wasLinked = !wasPending && peripheral.device.has_value();
+     peripheral.Disconnect();
+     mNotifyMap.Remove(uuid);
++    if (wasLinked)
++    {
++        mEmit.Disconnected(uuid);
++    }
+     return true;
+ }
+ 
+@@ -661,6 +796,13 @@ void BLEManager::OnWrite(IAsyncOperation<GattWriteResult> asyncOp, AsyncStatus s
+ {
+     if (status == AsyncStatus::Completed)
+     {
++        // OneKey patch: a completed request can still carry a GATT failure
++        auto result = asyncOp.GetResults();
++        if (result && result.Status() != GattCommunicationStatus::Success)
++        {
++            mEmit.Write(uuid, serviceId, characteristicId, gattWriteFailureToString(result));
++            return;
++        }
+         mEmit.Write(uuid, serviceId, characteristicId);
+     }
+     else
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
+index 646c6d7..b9d0233 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
++++ b/node_modules/@stoprocent/noble/lib/win/src/ble_manager.h
+@@ -3,6 +3,9 @@
+ #include <winrt/Windows.Devices.Bluetooth.Advertisement.h>
+ #include <winrt/Windows.Devices.Bluetooth.GenericAttributeProfile.h>
+ 
++// OneKey patch: guards the pending-connect state across WinRT callback threads
++#include <mutex>
++
+ #include "Emit.h"
+ #include "notify_map.h"
+ #include "peripheral_winrt.h"
+@@ -46,6 +49,12 @@ private:
+     void OnConnectionStatusChanged(BluetoothLEDevice device, winrt::Windows::Foundation::IInspectable inspectable);
+     void OnGattSessionCreated(IAsyncOperation<GattSession> asyncOp, AsyncStatus status, std::string uuid);
+     void OnMaxPduSizeChanged(GattSession session, winrt::Windows::Foundation::IInspectable object, std::string uuid);
++    // OneKey patch: maintained GATT session connect
++    void OnSessionStatusChanged(GattSession session, GattSessionStatusChangedEventArgs args, std::string uuid);
++    void BeginConnect(PeripheralWinrt& peripheral);
++    bool TakeConnect(PeripheralWinrt& peripheral);
++    void FinishConnect(const std::string& uuid, const std::string& error);
++    void MaintainSession(const std::string& uuid);
+     void OnServicesDiscovered(IAsyncOperation<GattDeviceServicesResult> asyncOp, AsyncStatus status, std::string uuid, std::vector<winrt::guid> serviceUUIDs);
+     void OnIncludedServicesDiscovered(IAsyncOperation<GattDeviceServicesResult> asyncOp, AsyncStatus status, std::string uuid, std::string serviceId, std::vector<winrt::guid> serviceUUIDs);
+     void OnCharacteristicsDiscovered(IAsyncOperation<GattCharacteristicsResult> asyncOp, AsyncStatus status, std::string uuid, std::string serviceId, std::vector<winrt::guid> characteristicUUIDs);
+@@ -74,4 +83,5 @@ private:
+     std::vector<winrt::guid> mScanServiceUUIDs;
+     std::set<std::string> mAdvertismentMap;
+     NotifyMap mNotifyMap;
++    std::mutex mConnectMutex;
+ };
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
+index f10edb9..c2573ba 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
++++ b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.cc
+@@ -191,7 +191,21 @@ void PeripheralWinrt::Disconnect()
+         {
+             gattSession->MaxPduSizeChanged(maxPduSizeChangedToken);
+         }
++        // OneKey patch: release the maintained link, otherwise Windows keeps it up
++        if (sessionStatusChangedToken)
++        {
++            gattSession->SessionStatusChanged(sessionStatusChangedToken);
++            sessionStatusChangedToken = {};
++        }
++        try
++        {
++            gattSession->MaintainConnection(false);
++        }
++        catch (winrt::hresult_error const&)
++        {
++        }
+         gattSession->Close();
++        gattSession = std::nullopt;
+     }
+     if (device.has_value())
+     {
+diff --git a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
+index ad59d02..66fa61e 100644
+--- a/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
++++ b/node_modules/@stoprocent/noble/lib/win/src/peripheral_winrt.h
+@@ -72,6 +72,9 @@ public:
+     winrt::event_token connectionToken;
+     std::optional<GattSession> gattSession;
+     winrt::event_token maxPduSizeChangedToken;
++    // OneKey patch: a connect settles once the maintained GATT session is active
++    winrt::event_token sessionStatusChangedToken;
++    bool connectPending { false };
+     std::unordered_map<winrt::guid, CachedService> cachedServices;
+     bool nameIsComplete { false }; // `name` is the Complete Local Name
+ 
