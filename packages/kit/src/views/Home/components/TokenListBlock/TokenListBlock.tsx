@@ -3968,6 +3968,12 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
+    // Extension popup and expand-tab runtimes are independent. Listening to
+    // focus/visibility here lets both windows trigger the same forced refresh
+    // and makes the token list continuously rebuild while both are open.
+    if (platformEnv.isExtensionUi) {
+      return undefined;
+    }
     const removeSubscription = onVisibilityStateChange((visible) => {
       if (visible && isFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();
