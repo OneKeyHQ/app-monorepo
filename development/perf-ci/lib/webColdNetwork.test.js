@@ -24,52 +24,6 @@ function tempFixturePath() {
 }
 
 describe('web cold network fixtures', () => {
-  test('covers the homepage highlight quote prefetch with recordable fixtures', () => {
-    const file = readFixtureFile(
-      path.join(__dirname, '..', 'fixtures', 'web-cold-api.json'),
-    );
-    const store = createFixtureStore(file);
-    const highlights = store.lookup({
-      method: 'GET',
-      url: 'https://utility.onekeycn.com/utility/v1/market/highlight',
-    }).entry.json.data.data;
-    const assets = highlights
-      .slice(0, 3)
-      .flatMap((item) => item.assets.slice(0, 3));
-    const requests = [
-      {
-        path: '/utility/v2/market/token/list/batch',
-        body: {
-          currency: 'usd',
-          tokenAddressList: assets
-            .filter((asset) => asset.type === 'token')
-            .map(({ chainId, contractAddress, isNative }) => ({
-              chainId,
-              contractAddress,
-              isNative,
-            })),
-        },
-      },
-      {
-        path: '/utility/v1/stocks/batch',
-        body: {
-          stockIds: assets
-            .filter((asset) => asset.type === 'stock')
-            .map((asset) => asset.stockId),
-        },
-      },
-    ];
-    for (const { path: endpoint, body } of requests) {
-      const request = {
-        method: 'POST',
-        url: `https://utility.onekeycn.com${endpoint}`,
-        postData: JSON.stringify(body),
-      };
-      expect(recordRefusal(request)).toBeNull();
-      expect(store.lookup(request).entry?.json.code).toBe(0);
-    }
-  });
-
   test('keys GET requests by host, path and sorted query without volatile params', () => {
     expect(
       requestKey({

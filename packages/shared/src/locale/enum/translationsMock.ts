@@ -45,7 +45,5 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
-  market_highlights__title = 'Market highlights',
-  market_highlights_disclaimer__desc = 'Disclaimer: Curated by OneKey from public sources. May contain errors or third-party content. Not endorsed. Not financial advice.',
   // ----------------------------------------------
 }
