@@ -40,6 +40,10 @@ var mockPausedNetworks: string[] = [];
 // eslint-disable-next-line no-var, vars-on-top
 var mockBoostingNetworks: string[] = [];
 // eslint-disable-next-line no-var, vars-on-top
+var mockDataBlockedNetworks: string[] = [];
+// eslint-disable-next-line no-var, vars-on-top
+var mockSyncErrors: IPrivacyChainScanState['syncErrorByNetworkId'] = {};
+// eslint-disable-next-line no-var, vars-on-top
 var mockBirthdaySettings: {
   earliestBirthday?: IEarliestBirthday;
   deviceExportsViewKey?: boolean;
@@ -69,7 +73,9 @@ const mockDisable = jest.fn<
   [{ accountId: string; networkId: string }]
 >();
 const mockRepair = jest.fn(async (_params: unknown) => undefined);
-const mockResumeChain = jest.fn(async (_params: unknown) => undefined);
+const mockResumeChain = jest.fn<Promise<void>, [unknown]>();
+const mockPauseChain = jest.fn<Promise<void>, [{ networkId: string }]>();
+const mockLogError = jest.fn<void, [string]>();
 const mockAdmission = jest.fn(
   async (_params: unknown): Promise<void> => undefined,
 );
@@ -88,6 +94,12 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     typeof import('@onekeyhq/shared/src/eventBus/appEventBusNames')
   >('@onekeyhq/shared/src/eventBus/appEventBusNames').EAppEventBusNames,
   appEventBus: { on: jest.fn(), off: jest.fn() },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: { error: { log: (message: string) => mockLogError(message) } },
+  },
 }));
 
 jest.mock('react-intl', () => ({
@@ -138,12 +150,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{ enabled: false }],
   usePrivacyChainAtom: () => [
     {
-      dataBlockedNetworkIds: [],
+      dataBlockedNetworkIds: mockDataBlockedNetworks,
       pausedNetworkIds: mockPausedNetworks,
       preparingAccountKeys: [],
       boostingNetworkIds: mockBoostingNetworks,
       storageUnsupportedNetworkIds: mockUnsupportedNetworks,
-      syncErrorByNetworkId: {},
+      syncErrorByNetworkId: mockSyncErrors,
       progress: mockProgress,
       allowCellularSync: mockAllowCellular,
     },
@@ -217,6 +229,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       }) => mockDelete(params),
       repairLocalChainData: (params: unknown) => mockRepair(params),
       startForegroundBoost: (params: unknown) => mockResumeChain(params),
+      pauseLocalWalletScan: (params: { networkId: string }) =>
+        mockPauseChain(params),
       getLocalWalletSyncProgress: async () => undefined,
       getLocalWalletNetworkInfo: async () => undefined,
       isPrivacySyncOnCellularAllowed: async () => false,
@@ -275,16 +289,19 @@ jest.mock('@onekeyhq/components', () => {
       testID,
       onPress,
       disabled,
+      loading,
     }: {
       children?: ReactNode;
       testID?: string;
       onPress?: () => void;
       disabled?: boolean;
+      loading?: boolean;
     }) => (
       <button
         type="button"
         data-testid={testID}
         disabled={disabled}
+        aria-busy={loading}
         onClick={onPress}
       >
         {children}
@@ -330,6 +347,21 @@ function progressText(row: HTMLElement) {
     .join(' · ');
 }
 
+function scanProgress(synced = false): ILocalWalletSyncProgress {
+  return {
+    birthdayHeight: 1,
+    backfillScannedHeight: synced ? 100 : 50,
+    backfillTargetHeight: 100,
+    backfillProgress: synced ? 1 : 0.5,
+    isBackfillComplete: synced,
+    tipScannedHeight: 100,
+    chainTip: 100,
+    tipLag: 0,
+    isTipCaughtUp: true,
+    isSyncing: !synced,
+  };
+}
+
 describe('Privacy network settings for a temp wallet', () => {
   beforeEach(() => {
     mockRouteParams = undefined;
@@ -346,6 +378,8 @@ describe('Privacy network settings for a temp wallet', () => {
     mockProgress = {};
     mockPausedNetworks = [];
     mockBoostingNetworks = [];
+    mockDataBlockedNetworks = [];
+    mockSyncErrors = {};
     mockBirthdaySettings = {};
     mockGetVaultSettings.mockClear();
     mockEnable.mockReset().mockResolvedValue(undefined);
@@ -354,7 +388,9 @@ describe('Privacy network settings for a temp wallet', () => {
     mockDisable.mockReset().mockResolvedValue(undefined);
     mockDelete.mockReset().mockResolvedValue(undefined);
     mockRepair.mockClear();
-    mockResumeChain.mockClear();
+    mockResumeChain.mockReset().mockResolvedValue(undefined);
+    mockPauseChain.mockReset().mockResolvedValue(undefined);
+    mockLogError.mockClear();
     mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockAccounts = [
       listItem({}),
@@ -789,6 +825,164 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(mockAccountStates['hd-1--0'].birthdayHeight).toBe(3_500_000);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockRepair).not.toHaveBeenCalled();
+    expect(mockPauseChain).not.toHaveBeenCalled();
+  });
+
+  describe('chain pause control', () => {
+    beforeEach(() => {
+      mockAccounts = [
+        listItem({}),
+        listItem({ accountId: 'hd-1--1' }),
+        listItem({
+          accountId: 'hd-2--0',
+          walletId: 'hd-2',
+          networkId: 'xmr--0',
+        }),
+      ];
+      mockAccountStates = {
+        'hd-1--0': { enabled: true, paused: false },
+        'hd-1--1': { enabled: true, paused: false },
+        'hd-2--0': { enabled: true, paused: false },
+      };
+      mockBoostingNetworks = ['zec--0', 'xmr--0'];
+      mockProgress = {
+        'zec--0:hd-1--0': scanProgress(),
+        'zec--0:hd-1--1': scanProgress(),
+        'xmr--0:hd-2--0': scanProgress(),
+      };
+    });
+
+    it('pauses and resumes the selected chain without changing account controls or another chain', async () => {
+      const { rerender } = render(
+        <PrivacyNetworkSettings networkId="zec--0" />,
+      );
+      const pause = await screen.findByTestId('privacy-sync-pause-btn');
+      expect(pause.textContent).toBe(ETranslations.global_pause);
+      await act(async () => {
+        fireEvent.click(pause);
+      });
+      expect(mockPauseChain).toHaveBeenCalledTimes(1);
+      expect(mockPauseChain).toHaveBeenCalledWith({ networkId: 'zec--0' });
+      expect(mockDisable).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('privacy-sync-resume-btn')).toBeNull();
+
+      mockPausedNetworks = ['zec--0'];
+      mockBoostingNetworks = ['xmr--0'];
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      const resume = screen.getByTestId('privacy-sync-resume-btn');
+      expect(resume.textContent).toBe(ETranslations.global_resume);
+      expect(screen.queryByTestId('privacy-sync-pause-btn')).toBeNull();
+      expect(screen.getByTestId('privacy-network-pause-hd-1--0')).toBeTruthy();
+      expect(screen.getByTestId('privacy-network-pause-hd-1--1')).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(resume);
+      });
+      expect(mockResumeChain).toHaveBeenCalledTimes(1);
+      expect(mockResumeChain).toHaveBeenCalledWith({
+        networkId: 'zec--0',
+        trigger: 'manual-sync',
+      });
+      expect(mockEnable).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('privacy-sync-pause-btn')).toBeNull();
+
+      mockPausedNetworks = [];
+      mockBoostingNetworks = ['zec--0', 'xmr--0'];
+      rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+      expect(screen.getByTestId('privacy-sync-pause-btn')).toBeTruthy();
+      expect(mockAccountStates['hd-2--0']).toEqual({
+        enabled: true,
+        paused: false,
+      });
+    });
+
+    it.each(['pause', 'resume'] as const)(
+      'blocks repeated %s presses while pending and permits retry after failure',
+      async (action) => {
+        if (action === 'resume') mockPausedNetworks = ['zec--0'];
+        const control = action === 'pause' ? mockPauseChain : mockResumeChain;
+        let rejectRequest: (reason: Error) => void = () => {};
+        control.mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              rejectRequest = reject;
+            }),
+        );
+        render(<PrivacyNetworkSettings networkId="zec--0" />);
+        const button = await screen.findByTestId(`privacy-sync-${action}-btn`);
+        act(() => {
+          fireEvent.click(button);
+          fireEvent.click(button);
+        });
+        expect(control).toHaveBeenCalledTimes(1);
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+        expect(button.getAttribute('aria-busy')).toBe('true');
+        const otherAction = action === 'pause' ? 'resume' : 'pause';
+        expect(
+          screen.queryByTestId(`privacy-sync-${otherAction}-btn`),
+        ).toBeNull();
+        await act(async () => rejectRequest(new Error('request failed')));
+        expect((button as HTMLButtonElement).disabled).toBe(false);
+        expect(button.getAttribute('aria-busy')).toBe('false');
+        expect(
+          screen.queryByTestId(`privacy-sync-${otherAction}-btn`),
+        ).toBeNull();
+        expect(mockLogError).toHaveBeenCalledWith(
+          'Privacy chain sync control failed',
+        );
+        await act(async () => {
+          fireEvent.click(button);
+        });
+        expect(control).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it.each([
+      'preparing',
+      'syncing',
+      'waitingWifi',
+      'error',
+      'storageUnsupported',
+    ])('can pause an active chain while %s', async (status) => {
+      if (status === 'preparing') mockProgress = {};
+      if (status === 'waitingWifi') {
+        mockBoostingNetworks = ['xmr--0'];
+        mockDataBlockedNetworks = ['zec--0'];
+      }
+      if (status === 'error') mockSyncErrors = { 'zec--0': 'nodeUnreachable' };
+      if (status === 'storageUnsupported') mockUnsupportedNetworks = ['zec--0'];
+      render(<PrivacyNetworkSettings networkId="zec--0" />);
+      const pause = await screen.findByTestId('privacy-sync-pause-btn');
+      await act(async () => {
+        fireEvent.click(pause);
+      });
+      expect(mockPauseChain).toHaveBeenCalledWith({ networkId: 'zec--0' });
+      expect(mockDisable).not.toHaveBeenCalled();
+    });
+
+    it.each(['synced', 'inactive', 'off', 'accountPaused', 'unavailable'])(
+      'does not expose a chain pause while %s',
+      async (status) => {
+        if (status === 'synced') {
+          mockProgress['zec--0:hd-1--0'] = scanProgress(true);
+          mockProgress['zec--0:hd-1--1'] = scanProgress(true);
+        }
+        if (status === 'inactive') mockBoostingNetworks = ['xmr--0'];
+        for (const accountId of ['hd-1--0', 'hd-1--1']) {
+          if (status === 'off')
+            mockAccountStates[accountId] = { enabled: false, paused: false };
+          if (status === 'accountPaused')
+            mockAccountStates[accountId] = { enabled: false, paused: true };
+          if (status === 'unavailable')
+            mockAccountStates[accountId].privacyDisabled = true;
+        }
+        render(<PrivacyNetworkSettings networkId="zec--0" />);
+        await screen.findByTestId(
+          'account-manager-privacy-network-account-hd-1--0',
+        );
+        expect(screen.queryByTestId('privacy-sync-pause-btn')).toBeNull();
+        expect(screen.queryByTestId('privacy-sync-resume-btn')).toBeNull();
+      },
+    );
   });
 
   it('does not show a pause as successful before it is saved, or when it fails', async () => {
