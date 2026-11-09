@@ -31,6 +31,16 @@ const SKIPPED_DIRECTORIES = new Set([
 
 const NODE_META_KEYS = new Set(['type', 'start', 'end', 'range', 'loc']);
 
+// TS expression wrappers around a literal initializer (e.g. `as const`).
+const TS_EXPRESSION_WRAPPERS = new Set([
+  'TSAsExpression',
+  'TSSatisfiesExpression',
+  'TSNonNullExpression',
+  'TSConstAssertion',
+  'TSTypeAssertion',
+  'TSInstantiationExpression',
+]);
+
 function roleFor(name) {
   if (/title|label/i.test(name)) return 'title';
   if (/description|details|hint|placeholder|subtitle/i.test(name))
@@ -167,6 +177,27 @@ function scanModule({
     const parentOf = (node) => {
       const index = ancestors.lastIndexOf(node);
       return index > 0 ? ancestors[index - 1] : undefined;
+    };
+    // Exported constant literals (`export const label = 'Hello world'`) are
+    // module-level data, not UI copy, so keep them out of the candidate scan.
+    // Exported object properties (e.g. `export const copy = { title: '...' }`)
+    // stay in because the i18n workflow treats them as UI copy maps.
+    const isExportedVariableInitializer = (node, parent) => {
+      let initializer = node;
+      let ancestor = parent;
+      while (ancestor && TS_EXPRESSION_WRAPPERS.has(ancestor.type)) {
+        initializer = ancestor;
+        ancestor = parentOf(ancestor);
+      }
+      return (
+        ancestor?.type === 'VariableDeclarator' &&
+        ancestor.init === initializer &&
+        ancestors.some(
+          (item) =>
+            item.type === 'ExportNamedDeclaration' ||
+            item.type === 'ExportDefaultDeclaration',
+        )
+      );
     };
     const location = (node, kind) => {
       const offset =
@@ -313,6 +344,7 @@ function scanModule({
           property?.type === 'ImportDeclaration' ||
           property?.type === 'ExportNamedDeclaration' ||
           property?.type === 'ExportAllDeclaration' ||
+          isExportedVariableInitializer(node, parent) ||
           (property?.type === 'CallExpression' &&
             IGNORED_CALLEE.test(textOf(property.callee)));
         if (
