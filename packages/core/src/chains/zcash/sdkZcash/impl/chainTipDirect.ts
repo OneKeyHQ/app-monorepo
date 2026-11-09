@@ -1,5 +1,5 @@
 // cspell:ignore lightd Zaino
-import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeRequest';
+import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 
 // A lightweight gRPC-web probe without loading WASM.
 

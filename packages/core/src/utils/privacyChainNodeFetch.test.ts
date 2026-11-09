@@ -1,6 +1,6 @@
 import { streamingFetch } from '@onekeyhq/shared/src/utils/streamingFetch';
 
-import { privacyChainNodeRequest } from './privacyChainNodeRequest';
+import { privacyChainNodeRequest } from './privacyChainNodeFetch';
 
 jest.mock('@onekeyhq/shared/src/utils/hostFetchStream', () => ({
   hostFetchStream: undefined,

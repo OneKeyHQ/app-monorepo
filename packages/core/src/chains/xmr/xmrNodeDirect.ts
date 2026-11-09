@@ -1,5 +1,5 @@
 // cspell:ignore stagenet
-import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeRequest';
+import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 // Genesis block hashes; the Monero runtime checks nodes against the same table.
