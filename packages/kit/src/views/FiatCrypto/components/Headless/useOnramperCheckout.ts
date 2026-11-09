@@ -377,19 +377,18 @@ export function useOnramperCheckout({
 
   // Failures the page answers by quietly preparing a fresh checkout (the
   // tapped one is spent either way): a closed OnramperID sign-in, and the
-  // first expired / refused checkout of the visit — but only while it never
-  // reached a transaction. Once one exists a payment may be under way, and
-  // the failure stays on screen.
+  // first expired / refused checkout of the visit — but neither once the
+  // checkout reached a transaction. Then a payment may be under way, and the
+  // failure stays on screen.
   const isQuietRecovery = useCallback((event: IOnramperEvent) => {
+    if (event.transactionId) {
+      return false;
+    }
     const error = { code: event.errorCode, message: event.message };
     if (isUserCancelledOnramperError(error)) {
       return true;
     }
-    return (
-      isSelfHealingOnramperError(error) &&
-      !event.transactionId &&
-      !selfHealedRef.current
-    );
+    return isSelfHealingOnramperError(error) && !selfHealedRef.current;
   }, []);
 
   // Shared failure policy for the SDK's `failed` event and the quote loop's

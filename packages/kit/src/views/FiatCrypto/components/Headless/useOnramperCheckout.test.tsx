@@ -337,6 +337,20 @@ describe('useOnramperCheckout OnramperID login state', () => {
     expect(result.current.errorMessage).toBeDefined();
   });
 
+  it('shows a closed sign-in that comes after a transaction was created', async () => {
+    mockGetCheckoutRequirements.mockResolvedValueOnce({
+      button: 'button-1',
+      quote: QUOTE,
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    // The transaction may still need tracking: no quiet fresh button.
+    publishFailed({ errorCode: 'oidcFlowCancelled', transactionId: 'tx-1' });
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
+  });
+
   it('shows the error when a self-healing failure comes after a transaction was created', async () => {
     mockGetCheckoutRequirements.mockResolvedValueOnce({
       button: 'button-1',
