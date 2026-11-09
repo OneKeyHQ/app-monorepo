@@ -62,7 +62,7 @@ import { usableWindowBottom } from '../../utils/usableWindowBottom';
 import { dynamicIslandRect } from './dynamicIsland';
 
 import type { IStackProps } from '../../primitives';
-import type { LayoutChangeEvent } from 'react-native';
+import type { BlurEvent, KeyDownEvent, LayoutChangeEvent } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 /**
@@ -145,8 +145,11 @@ function handleMountAutoFocus(event: Event) {
   focusInitialCandidate(container);
 }
 
-function handleFocusKeyDown(event: KeyboardEvent<HTMLElement>) {
+// React Native types the capture handlers with its own events; on web,
+// react-native-web passes the DOM events these handlers read.
+function handleFocusKeyDown(event: KeyDownEvent | KeyboardEvent<HTMLElement>) {
   if (
+    !('key' in event) ||
     event.defaultPrevented ||
     event.key !== 'Tab' ||
     event.altKey ||
@@ -167,8 +170,8 @@ function handleFocusKeyDown(event: KeyboardEvent<HTMLElement>) {
   (candidates[next] ?? container).focus({ preventScroll: true });
 }
 
-function handleFocusBlur(event: FocusEvent<HTMLElement>) {
-  if (event.relatedTarget) return;
+function handleFocusBlur(event: BlurEvent | FocusEvent<HTMLElement>) {
+  if (!('relatedTarget' in event) || event.relatedTarget) return;
   const container = event.currentTarget;
   // A step change can make the focused control inert without unmounting it.
   requestAnimationFrame(() => {
