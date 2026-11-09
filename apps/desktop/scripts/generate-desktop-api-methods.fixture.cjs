@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const vm = require('node:vm');
 
-const ts = require('typescript');
+const { transformSync } = require('@swc/core');
 
 const {
   generate,
@@ -53,7 +53,16 @@ test('fails closed for inheritance and dynamic callable names', () => {
 test('the committed policy is reproducible from every registered desktop API', async () => {
   await update(true);
   const output = await generate();
-  const code = ts.transpile(output, { module: ts.ModuleKind.CommonJS });
+  // TypeScript 7 no longer exposes the classic compiler API, so transpile the
+  // generated module with SWC before evaluating it in the build runtime.
+  const code = transformSync(output, {
+    filename: 'desktopApiPublicMethods.generated.ts',
+    jsc: {
+      parser: { syntax: 'typescript' },
+      target: 'es2022',
+    },
+    module: { type: 'commonjs' },
+  }).code;
   const module = { exports: {} };
   vm.runInNewContext(code, { exports: module.exports });
   const table = module.exports.desktopApiPublicMethods;

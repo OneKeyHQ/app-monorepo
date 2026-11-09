@@ -22,6 +22,7 @@ import {
   assertSafeBundleVersion,
   resolveBundlePath,
 } from '@onekeyhq/desktop/app/libs/bundlePaths';
+import { restartAppForBundleUpdate as restartAppForBundleUpdateImpl } from '@onekeyhq/desktop/app/libs/bundleUpdateRestart';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import {
   clearWindowProgressBar,
@@ -1478,41 +1479,14 @@ class DesktopApiAppBundleUpdate {
   //   main process (which hosts all kit-bg desktopApis and the bundle store)
   //   stays alive, and createMainWindow() re-reads the new bundle pointer.
   async restartAppForBundleUpdate() {
-    const bundleData = store.getUpdateBundleData();
-    logger.info('bundle-restart', {
-      mode: process.mas ? 'soft' : 'hard',
-      mas: process.mas,
-      appVersion: bundleData?.appVersion,
-      bundleVersion: bundleData?.bundleVersion,
+    await restartAppForBundleUpdateImpl({
+      app,
+      logger,
+      getUpdateBundleData: () => store.getUpdateBundleData(),
+      getMainWindow: () => this.getMainWindow(),
+      getSoftRestartRenderer: () =>
+        globalThis.$desktopMainAppFunctions?.softRestartRenderer,
     });
-    if (process.mas) {
-      const softRestart =
-        globalThis.$desktopMainAppFunctions?.softRestartRenderer;
-      if (!softRestart) {
-        // Should not happen once the main window exists (the full
-        // $desktopMainAppFunctions is assigned in createMainWindow). Log loudly
-        // so an online "update applied but UI didn't refresh" report is
-        // diagnosable, then fall back to a hard exit.
-        logger.error(
-          'bundle-restart: softRestartRenderer unavailable, falling back to app.exit',
-        );
-        this.getMainWindow()?.destroy();
-        app.exit(0);
-        return;
-      }
-      await softRestart();
-      return;
-    }
-    // Destroy window first to ensure renderer process is fully terminated
-    // before relaunch, preventing webview custom element double registration
-    this.getMainWindow()?.destroy();
-    app.relaunch();
-    if (process.platform === 'darwin') {
-      // before-quit releases BLE native managers before Node environment teardown.
-      app.quit();
-    } else {
-      app.exit(0);
-    }
   }
 
   async restart() {
