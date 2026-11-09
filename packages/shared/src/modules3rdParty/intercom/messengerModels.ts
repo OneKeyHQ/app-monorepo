@@ -29,27 +29,31 @@ export function intercomText(value: unknown): string {
   // Remove raw markup, including unfinished tags, before decoding entities
   // so escaped user input remains literal text for React Native text nodes.
   // cspell:ignore apos
-  return string(value)
-    .replace(/<br\s*\/?\s*>|<\/p>|<\/div>/gi, '\n')
-    .replace(/<[^>]*(?:>|$)/g, '')
-    .replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, code: string) => {
-      const point = code.toLowerCase().startsWith('x')
-        ? Number.parseInt(code.slice(1), 16)
-        : Number.parseInt(code, 10);
-      return point > 0 &&
-        point <= 0x10_ff_ff &&
-        !(point >= 0xd8_00 && point <= 0xdf_ff)
-        ? String.fromCodePoint(point)
-        : entity;
-    })
-    .replace(
-      /&(amp|lt|gt|quot|apos|nbsp);/g,
-      (_, entity: string) =>
-        ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' })[
-          entity
-        ] ?? '',
-    )
-    .trim();
+  return (
+    string(value)
+      // Comparisons are literal text, not the start of an HTML tag.
+      .replace(/<(?!\/?[a-z!])/gi, '&lt;')
+      .replace(/<br\s*\/?\s*>|<\/p>|<\/div>/gi, '\n')
+      .replace(/<[^>]*(?:>|$)/g, '')
+      .replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (entity, code: string) => {
+        const point = code.toLowerCase().startsWith('x')
+          ? Number.parseInt(code.slice(1), 16)
+          : Number.parseInt(code, 10);
+        return point > 0 &&
+          point <= 0x10_ff_ff &&
+          !(point >= 0xd8_00 && point <= 0xdf_ff)
+          ? String.fromCodePoint(point)
+          : entity;
+      })
+      .replace(
+        /&(amp|lt|gt|quot|apos|nbsp);/g,
+        (_, entity: string) =>
+          ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' })[
+            entity
+          ] ?? '',
+      )
+      .trim()
+  );
 }
 
 export function intercomHttpUrl(value: unknown): string | undefined {

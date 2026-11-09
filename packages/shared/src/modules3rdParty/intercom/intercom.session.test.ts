@@ -26,6 +26,10 @@ jest.mock('./utils', () => ({
 }));
 jest.mock('./visitorStorage', () => ({
   intercomVisitorStorageKey: 'test-visitor-key',
+  withVisitorSessionLock: async (
+    _key: string,
+    operation: () => Promise<void>,
+  ) => operation(),
   bindVisitorStorage: async () => {
     const epoch = mockStorageEpoch;
     return {

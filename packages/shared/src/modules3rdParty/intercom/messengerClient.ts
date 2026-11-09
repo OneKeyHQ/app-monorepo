@@ -16,6 +16,7 @@ type IClientOptions = {
   loadVisitor: () => Promise<IIntercomVisitor | undefined>;
   saveVisitor: (visitor: IIntercomVisitor) => Promise<void>;
   onUnread: (ids: string[]) => void;
+  withBootLock?: (initialize: () => Promise<void>) => Promise<void>;
 };
 
 // This undocumented end-user Messenger protocol is separate from the admin
@@ -124,14 +125,15 @@ export function createMessengerClient(options: IClientOptions) {
     )
       return;
     if (!booting) {
-      booting = (async () => {
+      const initialize = async () => {
         identity = await options.getIdentity();
         await assertCurrent();
         if (identity.token) {
           visitor = undefined;
         } else {
-          if (!visitor || visitor.expiresAt <= Date.now())
-            visitor = await options.loadVisitor();
+          // A different window may have refreshed the shared visitor while
+          // this client waited for the boot lock. Storage is authoritative.
+          visitor = await options.loadVisitor();
           if (visitor && visitor.expiresAt <= Date.now()) visitor = undefined;
         }
         await assertCurrent();
@@ -165,7 +167,10 @@ export function createMessengerClient(options: IClientOptions) {
           await assertCurrent();
         }
         bootedAt = Date.now();
-      })().finally(() => {
+      };
+      booting = (
+        options.withBootLock ? options.withBootLock(initialize) : initialize()
+      ).finally(() => {
         booting = undefined;
       });
     }

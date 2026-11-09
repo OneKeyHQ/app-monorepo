@@ -15,6 +15,8 @@ let mockStageProps: ComponentProps<typeof DeviceStage>;
 const mockClose = jest.fn(async (_params: unknown) => {});
 const mockEmit = jest.fn();
 
+jest.mock('react-native', () => ({ Keyboard: { dismiss: jest.fn() } }));
+
 jest.mock('@onekeyhq/components', () => ({
   DeviceStage: (props: ComponentProps<typeof DeviceStage>) => {
     mockStageProps = props;

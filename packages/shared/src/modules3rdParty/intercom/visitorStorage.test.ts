@@ -39,6 +39,10 @@ const legacyVisitor = JSON.stringify({
   expiresAt: 9_999_999_999_000,
 });
 const originalFetch = globalThis.fetch;
+const originalNavigator = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'navigator',
+);
 let subject: typeof import('./visitorStorage');
 beforeEach(async () => {
   jest.resetModules();
@@ -53,6 +57,120 @@ beforeEach(async () => {
 });
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  if (originalNavigator)
+    Object.defineProperty(globalThis, 'navigator', originalNavigator);
+  else Reflect.deleteProperty(globalThis, 'navigator');
+});
+
+function installSharedLocks() {
+  let pending = Promise.resolve();
+  const request = jest.fn((_key: string, operation: () => Promise<void>) => {
+    const next = pending.catch(() => undefined).then(operation);
+    pending = next;
+    return next;
+  });
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { locks: { request } },
+  });
+  return request;
+}
+
+function visitorResponse(id: string) {
+  return new Response(
+    JSON.stringify({
+      user: { id, anonymous_id: id },
+      anonymous_session: `${id}-session`,
+      session_expiry: 9_999_999_999,
+    }),
+  );
+}
+
+it('serializes first boot across independent extension windows and restores the same visitor', async () => {
+  const locks = installSharedLocks();
+  let finishFirst!: (response: Response) => void;
+  const firstPing = new Promise<Response>((resolve) => {
+    finishFirst = resolve;
+  });
+  let creations = 0;
+  const fetch = jest.fn(async (_url: string, options?: RequestInit) => {
+    const body = new URLSearchParams(String(options?.body));
+    if (!body.has('anonymous_session')) {
+      creations += 1;
+      return creations === 1 ? firstPing : visitorResponse('forked');
+    }
+    return visitorResponse('shared');
+  });
+  // Keep mock call history across isolated module registries in Jest 30.
+  globalThis.fetch = (url, options) => fetch(String(url), options);
+  const firstWindow = await import('./messenger');
+  const first = firstWindow.createIntercomMessengerSession(null);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(fetch).toHaveBeenCalledTimes(1);
+  jest.resetModules();
+  const secondWindow = await import('./messenger');
+  const second = secondWindow.createIntercomMessengerSession(null);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(locks).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  finishFirst(visitorResponse('shared'));
+  const [a, b] = await Promise.all([first, second]);
+  expect(creations).toBe(1);
+  await Promise.all([a.request('home'), b.request('home')]);
+  jest.resetModules();
+  const reopened = await import('./messenger');
+  await reopened.createIntercomMessengerSession(null);
+  expect(creations).toBe(1);
+  for (const [, options] of fetch.mock.calls.slice(1)) {
+    expect(
+      new URLSearchParams(String(options?.body)).get('anonymous_session'),
+    ).toBe('shared-session');
+  }
+  expect(
+    await subject.visitorStorage.get(subject.intercomVisitorStorageKey),
+  ).toContain('shared-session');
+});
+
+it('revokes a boot in flight without blocking reset and lets the queued window start fresh', async () => {
+  installSharedLocks();
+  let finishFirst!: (response: Response) => void;
+  const fetch = jest.fn(async (_url: string, _options?: RequestInit) =>
+    visitorResponse('new'),
+  );
+  fetch.mockImplementationOnce(
+    () =>
+      new Promise<Response>((resolve) => {
+        finishFirst = resolve;
+      }),
+  );
+  globalThis.fetch = (url, options) => fetch(String(url), options);
+  const firstWindow = await import('./messenger');
+  const first = firstWindow
+    .createIntercomMessengerSession(null)
+    .catch((error: unknown) => error);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  jest.resetModules();
+  const secondWindow = await import('./messenger');
+  const second = secondWindow.createIntercomMessengerSession(null);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(fetch).toHaveBeenCalledTimes(1);
+  mockItems.clear();
+  finishFirst(visitorResponse('old'));
+  const [revoked] = await Promise.all([first, second]);
+  expect(revoked).toBeInstanceOf(Error);
+  expect(revoked).toHaveProperty(
+    'message',
+    'Support visitor installation changed',
+  );
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const body = new URLSearchParams(String(fetch.mock.calls[1][1]?.body));
+  expect(body.has('anonymous_session')).toBe(false);
+  expect(
+    await subject.visitorStorage.get(subject.intercomVisitorStorageKey),
+  ).toContain('new-session');
+  expect(
+    [...mockItems.values()].some((value) => value.includes('old-session')),
+  ).toBe(false);
 });
 
 it('restores a scoped visitor after a normal browser reload', async () => {

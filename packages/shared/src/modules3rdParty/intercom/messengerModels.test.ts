@@ -120,6 +120,14 @@ it('preserves escaped user text containing angle brackets and line breaks', () =
   expect(intercomText(intercomMessageBlocks(text)[0].text)).toBe(text);
 });
 
+it.each(['Balance < 1', 'Balance < 1 > 0', 'A < B', 'Value <= 10', 'I <3 RN'])(
+  'preserves literal comparisons inside a support paragraph: %s',
+  (text) => {
+    expect(intercomText(text)).toBe(text);
+    expect(intercomText(`<p>${text}</p>`)).toBe(text);
+  },
+);
+
 it.each([
   // eslint-disable-next-line no-script-url -- Verify that executable URLs are rejected.
   'javascript:alert(1)',

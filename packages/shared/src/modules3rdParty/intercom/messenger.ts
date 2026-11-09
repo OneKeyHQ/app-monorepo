@@ -14,6 +14,7 @@ import {
   bindVisitorStorage,
   intercomVisitorStorageKey as storageKey,
   visitorStorage,
+  withVisitorSessionLock,
 } from './visitorStorage';
 
 import type { IIntercomVisitor } from './messengerClient';
@@ -121,10 +122,7 @@ export async function createIntercomMessengerSession(
     throw new OneKeyLocalError('Support session changed');
   if (!client) {
     const generation = revision;
-    const visitorBinding =
-      expectedUserId === null
-        ? storageOperation(() => bindVisitorStorage(storageKey))
-        : undefined;
+    let visitorBinding: ReturnType<typeof bindVisitorStorage> | undefined;
     const assertCurrent = async () => {
       const userId = await getCurrentIntercomUserId();
       if (isLocked() || generation !== revision || userId !== expectedUserId)
@@ -141,6 +139,20 @@ export async function createIntercomMessengerSession(
     client = createMessengerClient({
       appId,
       assertCurrent,
+      withBootLock: async (initialize) => {
+        if (expectedUserId !== null) return initialize();
+        // The lock covers root creation, ping and credential commit across
+        // extension windows. Reset still revokes the root immediately.
+        return withVisitorSessionLock(storageKey, async () => {
+          await assertCurrent();
+          visitorBinding ??= storageOperation(() =>
+            bindVisitorStorage(storageKey),
+          );
+          await visitorBinding;
+          await assertCurrent();
+          await initialize();
+        });
+      },
       getIdentity: async () => {
         const [credentials, language] = await Promise.all([
           expectedUserId ? getIntercomCredentials(expectedUserId) : undefined,

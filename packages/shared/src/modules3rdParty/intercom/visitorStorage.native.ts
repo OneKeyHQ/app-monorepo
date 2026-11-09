@@ -4,6 +4,14 @@ import { generateUUID } from '../../utils/miscUtils';
 
 export const intercomVisitorStorageKey = `onekey-support-visitor-v1-${process.env.INTERCOM_APP_ID || 'vbbj4ssb'}`;
 
+export async function withVisitorSessionLock(
+  _key: string,
+  operation: () => Promise<void>,
+) {
+  // Native boots only in main. bg can revoke storage without waiting for boot.
+  return operation();
+}
+
 function isSecureReference(key: string, reference: string | null) {
   return (
     !!reference &&

@@ -1,8 +1,21 @@
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { generateUUID } from '../../utils/miscUtils';
 
 export const intercomVisitorStorageKey = `onekey-support-visitor-v1-${process.env.INTERCOM_APP_ID || 'vbbj4ssb'}`;
+
+export async function withVisitorSessionLock(
+  key: string,
+  operation: () => Promise<void>,
+) {
+  if (platformEnv.isDesktop) return operation();
+  const locks = globalThis.navigator?.locks;
+  if (locks) return locks.request(key, operation);
+  if (platformEnv.isExtension)
+    throw new OneKeyLocalError('Support session coordination is unavailable');
+  return operation();
+}
 
 function visitorValueKey(key: string, reference: string) {
   if (reference.startsWith(`${key}-ref-`) && /^[\w.-]+$/.test(reference))
