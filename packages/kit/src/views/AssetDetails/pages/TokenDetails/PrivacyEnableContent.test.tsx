@@ -2,8 +2,13 @@
 import type { ReactNode } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
+import { createIntl } from 'react-intl';
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
+import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
+
+import { ReceivePrivacyPromotion } from '../../../Receive/components/ReceivePrivacyPromotion';
 
 import { readEnableBirthday } from './LocalWalletRepairControls';
 import {
@@ -19,18 +24,24 @@ const mockDialog = jest.fn((_options: ITestDialog) => undefined);
 const mockToast = jest.fn((_options: unknown) => undefined);
 const mockPreventClose = jest.fn();
 let mockChainTip: number | undefined;
+let mockIntl: ReturnType<typeof createIntl> | undefined;
 const earliest = {
   height: 3_428_143,
   timestamp: Date.UTC(2026, 6, 28),
 };
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }, values?: { height?: string }) =>
-      values?.height ? `${id}: ${values.height}` : id,
-    formatNumber: (value: number) => String(value),
-  }),
-}));
+jest.mock('react-intl', () => {
+  const actual = jest.requireActual<typeof import('react-intl')>('react-intl');
+  return {
+    ...actual,
+    useIntl: () =>
+      mockIntl ?? {
+        formatMessage: ({ id }: { id: string }, values?: { height?: string }) =>
+          values?.height ? `${id}: ${values.height}` : id,
+        formatNumber: (value: number) => String(value),
+      },
+  };
+});
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
     getLocale: () => 'en-US',
@@ -60,6 +71,7 @@ jest.mock('@onekeyhq/components', () => {
     testID?: string;
   }) => <div data-testid={testID}>{children}</div>;
   return {
+    Icon: () => null,
     YStack: Stack,
     XStack: Stack,
     SizableText: Stack,
@@ -182,10 +194,111 @@ describe('privacy enable start selection', () => {
     mockToast.mockClear();
     mockPreventClose.mockClear();
     mockChainTip = undefined;
+    mockIntl = undefined;
     jest.useFakeTimers().setSystemTime(new Date(2026, 10, 4, 12));
   });
 
   afterEach(() => jest.useRealTimers());
+
+  it('localizes receive and sync setup after a language change without resetting the start', async () => {
+    const onIntlError = jest.fn();
+    const [enMessages, zhMessages] = await Promise.all([
+      loadLocaleMessages('en-US'),
+      loadLocaleMessages('zh-CN'),
+    ]);
+    mockIntl = createIntl({
+      locale: 'en-US',
+      messages: enMessages,
+      onError: onIntlError,
+    });
+    const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
+    const content = () => (
+      <>
+        <ReceivePrivacyPromotion onEnable={jest.fn()} />
+        <PrivacyEnableContent
+          accountId="hd-1--0"
+          networkId="zec--0"
+          formRef={formRef}
+          earliestBirthday={earliest}
+        />
+      </>
+    );
+    const page = render(content());
+    expect(page.getByTestId('receive-privacy-promotion').textContent).toContain(
+      'Enable private account',
+    );
+    expect(
+      page.getByTestId('privacy-enable-start-summary').textContent,
+    ).toContain('First time using this account');
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const editor = render(mockDialog.mock.calls[0][0].renderContent);
+    expect(editor.getByText('Start from today')).toBeTruthy();
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-date'));
+    const selectedDate = new Date(2026, 9, 12).getTime();
+    fireEvent.change(editor.getByTestId('privacy-start-date'), {
+      target: { value: String(selectedDate) },
+    });
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    editor.unmount();
+    expect(
+      page.getByTestId('privacy-enable-start-summary').textContent,
+    ).toContain('Used this account before');
+
+    mockIntl = createIntl({
+      locale: 'zh-CN',
+      messages: zhMessages,
+      onError: onIntlError,
+    });
+    page.rerender(content());
+    expect(page.getByTestId('receive-privacy-promotion').textContent).toContain(
+      zhCN.privacy_enable_account__title,
+    );
+    expect(page.queryByText('Enable private account')).toBeNull();
+    expect(
+      page.getByTestId('privacy-enable-start-summary').textContent,
+    ).toContain(zhCN.privacy_sync_start_used__title);
+    expect(page.getByText(zhCN.privacy_enable_account__desc)).toBeTruthy();
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayTimestamp: selectedDate,
+    });
+
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const translatedEditor = render(mockDialog.mock.calls[1][0].renderContent);
+    expect(
+      translatedEditor.getByText(zhCN.privacy_sync_start_new__desc),
+    ).toBeTruthy();
+    expect(
+      translatedEditor.getByText(zhCN.privacy_sync_start_used__desc),
+    ).toBeTruthy();
+    expect(
+      translatedEditor.getByText(zhCN.privacy_sync_start_unknown__title),
+    ).toBeTruthy();
+    expect(
+      translatedEditor.getByText(zhCN.privacy_sync_start_unknown__desc),
+    ).toBeTruthy();
+    fireEvent.click(
+      translatedEditor.getByTestId('privacy-sync-start-advanced'),
+    );
+    fireEvent.click(
+      translatedEditor.getByTestId('privacy-sync-start-choice-height'),
+    );
+    fireEvent.change(
+      translatedEditor.getByTestId('privacy-sync-start-height'),
+      {
+        target: { value: 'abc' },
+      },
+    );
+    fireEvent.click(translatedEditor.getByTestId('privacy-start-save'));
+    expect(
+      translatedEditor.getByTestId('privacy-sync-start-height-error')
+        .textContent,
+    ).toBe(zhCN.privacy_sync_start_height_invalid__msg);
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayTimestamp: selectedDate,
+    });
+    expect(onIntlError).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['hw-1--0', true, true],
@@ -230,9 +343,7 @@ describe('privacy enable start selection', () => {
       const summary = page.getByTestId(
         'privacy-enable-start-summary',
       ).textContent;
-      expect(summary).toContain(
-        ETranslationsMock.privacy_sync_start_new__title,
-      );
+      expect(summary).toContain(ETranslations.privacy_sync_start_new__title);
       expect(summary).not.toMatch(/\d/);
       fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
       const editor = render(mockDialog.mock.calls[0][0].renderContent);
@@ -346,7 +457,7 @@ describe('privacy enable start selection', () => {
     const summary = page.getByTestId(
       'privacy-enable-start-summary',
     ).textContent;
-    expect(summary).toContain(ETranslationsMock.privacy_sync_start_used__title);
+    expect(summary).toContain(ETranslations.privacy_sync_start_used__title);
     expect(summary).not.toMatch(/\d/);
   });
 
@@ -377,7 +488,7 @@ describe('privacy enable start selection', () => {
         'privacy-enable-start-summary',
       ).textContent;
       expect(summary).toContain(
-        ETranslationsMock.privacy_sync_start_unknown__title,
+        ETranslations.privacy_sync_start_unknown__title,
       );
       expect(summary).not.toMatch(/\d/);
     },
@@ -521,7 +632,7 @@ describe('privacy enable start selection', () => {
       expect(input.getAttribute('aria-invalid')).toBe('true');
       expect(
         editor.getByTestId('privacy-sync-start-height-error').textContent,
-      ).toBe(ETranslationsMock.privacy_sync_start_height_invalid__msg);
+      ).toBe(ETranslations.privacy_sync_start_height_invalid__msg);
       expect(formRef.current.startChoice).toBe('today');
       expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
         birthdayTimestamp: today,
