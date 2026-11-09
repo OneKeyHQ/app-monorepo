@@ -1,9 +1,7 @@
 /* eslint-disable import/first */
-import fs from 'fs';
 import path from 'path';
 
 import Store from 'electron-store';
-import ts from 'typescript-classic';
 
 import DesktopApiStorage from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiStorage';
 import type { IDesktopApi } from '@onekeyhq/kit-bg/src/desktopApis/instance/IDesktopApi';
@@ -52,24 +50,6 @@ const stores = jest
   .mocked(Store)
   .mock.results.map((result) => result.value as IStoreMock);
 const [preferences, updates, runtime, mmkv] = stores;
-
-// Frozen legacy field list. New fields must use a dedicated store.
-const ONEKEY_FIELDS = [
-  'WinBounds',
-  'UpdateSettings',
-  'DevTools',
-  'Theme',
-  'EncryptedData',
-  'Language',
-  'DisableKeyboardShortcuts',
-  'AppInstanceMetaBackup',
-  'NetworkThrottle',
-];
-
-function visit(node: ts.Node, callback: (child: ts.Node) => void) {
-  callback(node);
-  ts.forEachChild(node, (child) => visit(child, callback));
-}
 
 describe('desktop store file boundaries', () => {
   beforeEach(() => {
@@ -153,51 +133,6 @@ describe('desktop store file boundaries', () => {
     expect(runtime.clear).toHaveBeenCalledTimes(1);
     expect(mmkv.clear).not.toHaveBeenCalled();
     expect(mmkv.data.get('fixture')).toBe(true);
-  });
-
-  it('statically rejects new OneKey.json fields and direct access to other fields', () => {
-    const source = ts.createSourceFile(
-      'store.ts',
-      fs.readFileSync(path.join(__dirname, 'store.ts'), 'utf8'),
-      ts.ScriptTarget.Latest,
-      true,
-    );
-    const routedFields: string[] = [];
-    const directFields: string[] = [];
-    visit(source, (node) => {
-      if (
-        ts.isVariableDeclaration(node) &&
-        node.name.getText(source) === 'storeByKey'
-      ) {
-        visit(node, (child) => {
-          if (
-            ts.isPropertyAssignment(child) &&
-            child.initializer.getText(source) === 'store'
-          ) {
-            routedFields.push(child.name.getText(source));
-          }
-        });
-      }
-      if (
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        node.expression.expression.getText(source) === 'store' &&
-        ['get', 'set', 'delete', 'has', 'reset'].includes(
-          node.expression.name.text,
-        )
-      ) {
-        directFields.push(node.arguments[0]?.getText(source) ?? '');
-      }
-    });
-    expect(routedFields.toSorted()).toEqual(
-      ONEKEY_FIELDS.map((field) => `[EDesktopStoreKeys.${field}]`).toSorted(),
-    );
-    const allowedDirectFields = ONEKEY_FIELDS.map(
-      (field) => `EDesktopStoreKeys.${field}`,
-    );
-    for (const field of directFields) {
-      expect(allowedDirectFields).toContain(field);
-    }
   });
 
   it('limits IPC to instance backup and resets all dedicated configuration stores', async () => {

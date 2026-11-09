@@ -4,8 +4,8 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { transformFileSync } = require('@babel/core');
+const { parse } = require('@babel/parser');
 const { resolve } = require('metro-resolver');
-const ts = require('typescript-classic');
 
 const repoRoot = path.resolve(__dirname, '../../../..');
 const originModulePath = path.join(
@@ -77,24 +77,29 @@ function createContext() {
 it.each(['ios', 'android'])(
   'resolves the actual backup export dependencies with Metro on %s',
   (platform) => {
-    const source = ts.createSourceFile(
-      originModulePath,
-      fs.readFileSync(originModulePath, 'utf8'),
-      ts.ScriptTarget.Latest,
-      true,
-    );
+    const ast = parse(fs.readFileSync(originModulePath, 'utf8'), {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'],
+    });
     const imports = [];
-    function visit(node) {
+    const visit = (node) => {
+      if (!node || typeof node.type !== 'string') return;
       if (
-        ts.isCallExpression(node) &&
-        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        ts.isStringLiteral(node.arguments[0])
+        node.type === 'CallExpression' &&
+        node.callee?.type === 'Import' &&
+        node.arguments[0]?.type === 'StringLiteral'
       ) {
-        imports.push(node.arguments[0].text);
+        imports.push(node.arguments[0].value);
       }
-      ts.forEachChild(node, visit);
-    }
-    visit(source);
+      for (const key of Object.keys(node)) {
+        if (!['loc', 'start', 'end', 'extra'].includes(key)) {
+          const child = node[key];
+          if (Array.isArray(child)) child.forEach(visit);
+          else if (child && typeof child.type === 'string') visit(child);
+        }
+      }
+    };
+    visit(ast.program);
     expect(imports).toHaveLength(2);
     for (const specifier of imports) {
       const resolved = resolve(createContext(), specifier, platform);

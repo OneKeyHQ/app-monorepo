@@ -2,8 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { parseSync } = require('oxc-parser');
 const { format } = require('oxfmt');
-const ts = require('typescript-classic');
 
 const apiDirectory = path.resolve(
   __dirname,
@@ -15,62 +15,75 @@ const outputPath = path.join(
 );
 
 function parse(source, fileName) {
-  const file = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  if (file.parseDiagnostics.length) {
+  const { program, errors } = parseSync(fileName, source, {
+    lang: 'ts',
+    sourceType: 'module',
+  });
+  if (errors.length) {
     throw new Error(`Cannot parse desktop API: ${fileName}`);
   }
-  return file;
+  return program;
 }
 
 function memberName(member) {
-  if (ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)) {
-    return member.name.text;
+  // ESTree wraps dynamic member names in a computed key; they cannot be
+  // enumerated statically.
+  if (member.computed) {
+    throw new Error('Desktop API callable names must be statically known');
   }
+  const key = member.key;
+  if (key.type === 'Identifier') return key.name;
+  if (key.type === 'Literal' && typeof key.value === 'string') return key.value;
   throw new Error('Desktop API callable names must be statically known');
 }
 
-function publicMethods(source, fileName) {
-  const file = parse(source, fileName);
-  const assignment = file.statements.find(ts.isExportAssignment);
-  const declaration = file.statements.find(
-    (node) =>
-      ts.isClassDeclaration(node) &&
-      ((assignment &&
-        ts.isIdentifier(assignment.expression) &&
-        node.name?.text === assignment.expression.text) ||
-        ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Default),
-  );
+function isCallableMember(member) {
   if (
-    !declaration ||
-    declaration.heritageClauses?.some(
-      (clause) => clause.token === ts.SyntaxKind.ExtendsKeyword,
-    )
-  ) {
+    member.type === 'MethodDefinition' &&
+    member.kind === 'method' &&
+    // Overload signatures are TSEmptyBodyFunctionExpression (no body).
+    member.value?.type === 'FunctionExpression'
+  )
+    return true;
+  return (
+    member.type === 'PropertyDefinition' &&
+    (member.value?.type === 'ArrowFunctionExpression' ||
+      member.value?.type === 'FunctionExpression')
+  );
+}
+
+function publicMethods(source, fileName) {
+  const program = parse(source, fileName);
+  const defaultExport = program.body.find(
+    (node) => node.type === 'ExportDefaultDeclaration',
+  );
+  const defaultDeclaration = defaultExport?.declaration;
+  // `export default class X {}` nests the class in the export declaration,
+  // while `export default X;` needs the class declaration resolved by name.
+  const declaration =
+    (defaultDeclaration?.type === 'ClassDeclaration'
+      ? defaultDeclaration
+      : undefined) ??
+    program.body.find(
+      (node) =>
+        node.type === 'ClassDeclaration' &&
+        defaultDeclaration?.type === 'Identifier' &&
+        node.id?.name === defaultDeclaration.name,
+    );
+  if (!declaration || declaration.superClass) {
     // New inheritance must get an explicit visibility resolver before exposure.
     throw new Error(`Unsupported desktop API class: ${fileName}`);
   }
   const methods = new Set();
-  declaration.members.forEach((member) => {
-    const flags = ts.getCombinedModifierFlags(member);
+  declaration.body.body.forEach((member) => {
     if (
-      flags &
-      (ts.ModifierFlags.Private |
-        ts.ModifierFlags.Protected |
-        ts.ModifierFlags.Static)
+      member.accessibility === 'private' ||
+      member.accessibility === 'protected' ||
+      member.static
     )
       return;
-    const callable =
-      (ts.isMethodDeclaration(member) && member.body) ||
-      (ts.isPropertyDeclaration(member) &&
-        member.initializer &&
-        (ts.isArrowFunction(member.initializer) ||
-          ts.isFunctionExpression(member.initializer)));
-    if (!callable || ts.isPrivateIdentifier(member.name)) return;
+    if (!isCallableMember(member) || member.key?.type === 'PrivateIdentifier')
+      return;
     const name = memberName(member);
     if (!name.startsWith('_')) methods.add(name);
   });
@@ -80,26 +93,35 @@ function publicMethods(source, fileName) {
 async function generate(directory = apiDirectory) {
   const registryPath = path.join(directory, 'instance/desktopApi.ts');
   const registry = parse(fs.readFileSync(registryPath, 'utf8'), registryPath);
-  const declaration = registry.statements.find(
-    (node) => ts.isClassDeclaration(node) && node.name?.text === 'DesktopApi',
+  const declaration = registry.body.find(
+    (node) =>
+      node.type === 'ClassDeclaration' && node.id?.name === 'DesktopApi',
   );
   if (!declaration) throw new Error('Desktop API registry is missing');
   const table = {};
   const developmentTable = {};
-  for (const getter of declaration.members.filter(
-    ts.isGetAccessorDeclaration,
+  for (const getter of declaration.body.body.filter(
+    (member) => member.type === 'MethodDefinition' && member.kind === 'get',
   )) {
     const imports = [];
     const visit = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(visit);
+        return;
+      }
       if (
-        ts.isCallExpression(node) &&
-        ts.isIdentifier(node.expression) &&
-        node.expression.text === 'require' &&
+        node.type === 'CallExpression' &&
+        node.callee?.type === 'Identifier' &&
+        node.callee.name === 'require' &&
         node.arguments.length === 1 &&
-        ts.isStringLiteral(node.arguments[0])
+        node.arguments[0].type === 'Literal' &&
+        typeof node.arguments[0].value === 'string'
       )
-        imports.push(node.arguments[0].text);
-      ts.forEachChild(node, visit);
+        imports.push(node.arguments[0].value);
+      Object.entries(node).forEach(([key, value]) => {
+        if (key !== 'parent') visit(value);
+      });
     };
     visit(getter);
     if (imports.length !== 1 || !imports[0].startsWith('../DesktopApi')) {

@@ -1,11 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import vm from 'vm';
-
-import ts from 'typescript-classic';
-
 import { OneKeyLocalError } from '../../errors';
 import { unwrapElectronIpcError } from '../../errors/utils/electronIpcError';
+import { makeIpcSafeError } from '../../errors/utils/ipcSafeError';
 
 import {
   EUpdateErrorCode,
@@ -19,40 +14,8 @@ import {
 const wire = (payload: unknown) =>
   `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(payload)}`;
 
-const appSource = ts.createSourceFile(
-  'app.ts',
-  fs.readFileSync(
-    path.resolve(__dirname, '../../../../../apps/desktop/app/app.ts'),
-    'utf8',
-  ),
-  ts.ScriptTarget.Latest,
-  true,
-);
-const ipcSafeErrorDeclaration = appSource.statements.find(
-  (node): node is ts.FunctionDeclaration =>
-    ts.isFunctionDeclaration(node) && node.name?.text === 'makeIpcSafeError',
-);
-if (!ipcSafeErrorDeclaration) {
-  throw new OneKeyLocalError('makeIpcSafeError declaration missing');
-}
-const ipcSafeErrorSource = ts.transpileModule(
-  ipcSafeErrorDeclaration.getText(appSource),
-  { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
-).outputText;
-
-const makeProductionIpcSafeError = (inputError: Error): Error => {
-  const result: unknown = vm.runInNewContext(
-    `${ipcSafeErrorSource}\nmakeIpcSafeError(inputError, 'DESKTOP_API_CALL failed')`,
-    { Error, inputError, UPDATE_ERROR_WIRE_PREFIX },
-  );
-  if (!(result instanceof Error)) {
-    throw new OneKeyLocalError('makeIpcSafeError did not return an Error');
-  }
-  return result;
-};
-
 const invokeError = (error: Error) => {
-  const safeError = makeProductionIpcSafeError(error);
+  const safeError = makeIpcSafeError(error, 'DESKTOP_API_CALL failed');
   return unwrapElectronIpcError(
     new Error(
       `Error invoking remote method 'DESKTOP_API_CALL': ${safeError.name}: ${safeError.message}`,
@@ -221,7 +184,10 @@ test('rebinds a controlled inner step before Electron invoke serialization', () 
 
 test('does not decode arbitrary Electron invoke error text', () => {
   expect(
-    makeProductionIpcSafeError(new OneKeyLocalError('ordinary')).name,
+    makeIpcSafeError(
+      new OneKeyLocalError('ordinary'),
+      'DESKTOP_API_CALL failed',
+    ).name,
   ).toBe('OneKeyLocalError');
   const error = unwrapElectronIpcError(
     new Error(
