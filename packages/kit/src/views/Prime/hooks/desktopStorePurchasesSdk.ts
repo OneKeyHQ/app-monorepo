@@ -85,6 +85,16 @@ export function createDesktopStorePurchasesSdk(
       }),
     getOfferings: () =>
       globalThis.desktopApiProxy.inAppPurchase.revenueCatGetOfferings(),
+    getStorefront: async () => {
+      const api = globalThis.desktopApiProxy?.inAppPurchase;
+      if (typeof api?.revenueCatGetStorefront !== 'function') return null;
+      try {
+        return await api.revenueCatGetStorefront();
+      } catch {
+        // Old Electron shells or native addons may not expose this capability.
+        return null;
+      }
+    },
     purchasePackage: (offering, expectedAppUserId) => {
       const offeringIdentifier =
         offering.presentedOfferingContext?.offeringIdentifier;

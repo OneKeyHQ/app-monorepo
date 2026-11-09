@@ -15,6 +15,7 @@ import {
   getHardwareDeviceColor,
   getHardwareDeviceColorFromCode,
 } from './hardwareDeviceColors';
+import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -30,6 +31,10 @@ describe('HwWalletAvatarImages', () => {
     ['Pro2Black.png', 'ProBlack.png'],
     ['Pro2Silver.png', 'Pro2Black.png'],
     ['Pro2Orange.png', 'Pro2Black.png'],
+    ['NeoBlack.png', 'ProBlack.png'],
+    ['NeoWhite.png', 'NeoBlack.png'],
+    ['NeoGreen.png', 'NeoBlack.png'],
+    ['NeoPink.png', 'NeoBlack.png'],
   ])('gives %s its own artwork rather than %s', (name, other) => {
     expect(readAvatar(name).equals(readAvatar(other))).toBe(false);
   });
@@ -53,6 +58,8 @@ describe('HwWalletAvatarImages', () => {
     model: 'Classic1s' | 'ClassicPure' | 'Pro' | 'Pro2',
     color: string,
   ) => `\`\${EDeviceType.${model}}${color}\``;
+  /** The same for the model keyed by its device-type constant. */
+  const neoColorKey = (color: string) => `\`\${NEO_DEVICE_TYPE}${color}\``;
   it.each([
     ['EDeviceType.Classic1s', 'Classic.png'],
     ['EDeviceType.ClassicPure', 'ClassicPure.png'],
@@ -64,6 +71,11 @@ describe('HwWalletAvatarImages', () => {
     [colorKey('Pro2', 'Orange'), 'Pro2Orange.png'],
     [colorKey('Pro', 'Black'), 'ProBlack.png'],
     [colorKey('Pro', 'White'), 'ProWhite.png'],
+    ['NEO_DEVICE_TYPE', 'NeoWhite.png'],
+    [neoColorKey('Black'), 'NeoBlack.png'],
+    [neoColorKey('White'), 'NeoWhite.png'],
+    [neoColorKey('Green'), 'NeoGreen.png'],
+    [neoColorKey('Pink'), 'NeoPink.png'],
   ])('wires %s to %s', (key, file) => {
     expect(requiredFileOf(key)).toBe(file);
   });
@@ -138,6 +150,20 @@ describe('getDeviceAvatarImage', () => {
     expect(getDeviceAvatarImage(EDeviceType.Pro2, serialNo)).toBe(expected);
   });
 
+  it.each([
+    ['NE0001A', 'neoBlack'],
+    ['NE0001B', 'neoWhite'],
+    ['NE0001E', 'neoGreen'],
+    ['NE0001F', 'neoPink'],
+    // Letters the Neo does not come in, and no serial, wear white — the
+    // Neo's default finish, unlike the Pro 2's black.
+    ['NE0001C', 'neoWhite'],
+    ['NE0001D', 'neoWhite'],
+    [undefined, 'neoWhite'],
+  ])('resolves a Neo serial %s to %s', (serialNo, expected) => {
+    expect(getDeviceAvatarImage(NEO_DEVICE_TYPE, serialNo)).toBe(expected);
+  });
+
   it('returns the model itself for models without color variants', () => {
     expect(getDeviceAvatarImage(EDeviceType.Touch, 'TC0001A')).toBe(
       EDeviceType.Touch,
@@ -188,7 +214,11 @@ describe('Bluetooth-advertised color code', () => {
     'keeps the Neo default artwork for letter %s',
     (code) => {
       const device = bleDevice(EDeviceType.Neo, code);
-      expect(getSearchDeviceAvatarImage(device)).toBe(EDeviceType.Neo);
+      // Only the Pro 2's scan letter is read; the Neo keeps its default
+      // finish, white, until a serial number names another.
+      expect(getSearchDeviceAvatarImage(device)).toBe(
+        `${EDeviceType.Neo}White`,
+      );
       expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(
         undefined,
       );

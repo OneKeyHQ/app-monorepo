@@ -45,6 +45,7 @@ it.each([false, true])(
       }),
     );
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId: "hd-1--m/44'/133'/0'",
       getBtcForkNetwork: async () => getBtcForkNetwork('zec'),
       validateAddress: async () => ({ isValid: true }),
       zcashFetchFreshTransparentUtxos: async () => ({

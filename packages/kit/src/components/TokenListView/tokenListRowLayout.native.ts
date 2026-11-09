@@ -1,4 +1,5 @@
 import type {
+  ITokenListFooterLayout,
   ITokenListHeaderLayout,
   ITokenRowContainerStyle,
 } from './tokenListRowLayoutShared';
@@ -18,5 +19,20 @@ export function getTokenListHeaderLayout(
   return {
     leadingWidth: NATIVE_LEADING_WIDTH,
     cellGap: NATIVE_CELL_GAP,
+  };
+}
+
+// Native slot content pulls the list inset back out (see
+// `getTokenListSlotInsetCompensation`), so footer rows keep their own margins.
+export function getTokenListFooterLayout({
+  tableLayout,
+  plainMode,
+}: {
+  tableLayout?: boolean;
+  plainMode?: boolean;
+}): ITokenListFooterLayout {
+  return {
+    mx: tableLayout ? undefined : '$2',
+    itemProps: tableLayout && plainMode ? undefined : { mx: 0, px: '$3' },
   };
 }

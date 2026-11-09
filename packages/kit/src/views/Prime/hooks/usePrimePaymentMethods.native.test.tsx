@@ -825,11 +825,13 @@ describe('usePrimePaymentMethods native purchase', () => {
   );
 
   it('reports initialization failure without waiting indefinitely', async () => {
+    const initializationError = new OneKeyLocalError('Store SDK unavailable');
     mockConfigure.mockImplementationOnce(() => {
-      throw new OneKeyLocalError('Store SDK unavailable');
+      throw initializationError;
     });
     const { result } = renderHook(() => usePrimePaymentMethods());
     await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current).toMatchObject({ initializationError });
     await expect(result.current.getPackagesNative?.()).rejects.toThrow(
       'Store SDK unavailable',
     );

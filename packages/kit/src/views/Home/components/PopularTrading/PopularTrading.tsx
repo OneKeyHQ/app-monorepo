@@ -1473,15 +1473,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            <YStack
-              minHeight={
-                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              }
-            >
-              {renderEmptyStateCards()}
-            </YStack>
+            {renderEmptyStateCards()}
             <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
