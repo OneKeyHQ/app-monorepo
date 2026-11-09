@@ -61,7 +61,12 @@ const loadIntercomSdk = () => {
   return intercomSdkPromise;
 };
 
-export const setIntercomTheme = async (theme: 'light' | 'dark') => {
+// Web and desktop observe OS appearance changes live, so the resolved theme
+// is enough here; `followSystem` only matters for the native SDK.
+export const setIntercomTheme = async (
+  theme: 'light' | 'dark',
+  _followSystem?: boolean,
+) => {
   currentTheme = theme;
   if (hasBooted) {
     const sdk = await loadIntercomSdk();

@@ -23,7 +23,10 @@ export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
-export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
+export const setIntercomTheme = async (
+  _theme: 'light' | 'dark',
+  _followSystem?: boolean,
+) => {
   // The extension embeds the hosted page instead of the native SDK.
 };
 
