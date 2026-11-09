@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -32,7 +31,6 @@ import {
   formatPrivacyChainSyncError,
   getPrivacyChainNetworkSyncDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
-import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
 import {
   BirthdayDialogForm,
   type IBirthdayFormState,
@@ -60,6 +58,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes/setting';
 import { formatDate, formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
+
+import { PrivacyAccountRow } from './PrivacyAccountRow';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
@@ -906,116 +906,85 @@ export default function PrivacyNetworkSettings({
     const status = intl.formatMessage({ id: statusId });
     const canEnable = !entry.enabled && !entry.paused && !entry.enabling;
     return (
-      <YStack
+      <PrivacyAccountRow
         key={entry.accountId}
-        mx="$5"
-        mb="$3"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        overflow="hidden"
+        accountId={entry.accountId}
+        accountName={entry.accountName}
+        networkId={entry.networkId}
+        subtitle={[
+          entry.walletName,
+          showDeriveLabel ? entry.deriveLabel : undefined,
+          status,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        action={
+          <>
+            {!entry.walletIsTemp && (entry.enabled || entry.paused) ? (
+              <Button
+                testID={`privacy-network-${entry.paused ? 'resume' : 'pause'}-${entry.accountId}`}
+                size="small"
+                variant="secondary"
+                loading={busyAccountId === entry.accountId}
+                disabled={busy || entry.privacyDisabled}
+                onPress={() => void toggleAccountPause(entry)}
+              >
+                {intl.formatMessage({
+                  id: entry.paused
+                    ? ETranslations.global_resume
+                    : ETranslations.global_pause,
+                })}
+              </Button>
+            ) : null}
+            {!entry.walletIsTemp && canEnable ? (
+              <Button
+                testID={`privacy-network-enable-${entry.accountId}`}
+                size="small"
+                variant="primary"
+                loading={busyAccountId === entry.accountId}
+                disabled={busy || entry.privacyDisabled}
+                onPress={() => void enableAccount(entry)}
+              >
+                {intl.formatMessage({ id: ETranslations.global_enable })}
+              </Button>
+            ) : null}
+          </>
+        }
+        showBirthday={entry.enabled || entry.paused}
+        birthday={formatShownBirthday(entry, intl)}
+        birthdayDisabled={busy || entry.paused}
+        deleteDisabled={busy}
+        onEditBirthday={() => void editBirthday(entry)}
+        onDelete={() => deleteAccountData(entry)}
       >
-        <ListItem
-          mx="$0"
-          testID={AccountManagerTestIDs.privacyNetworkAccount(entry.accountId)}
-          icon="ShieldOutline"
-          title={entry.accountName}
-          subtitle={[
-            entry.walletName,
-            showDeriveLabel ? entry.deriveLabel : undefined,
-            status,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        >
-          {!entry.walletIsTemp && (entry.enabled || entry.paused) ? (
-            <Button
-              testID={`privacy-network-${entry.paused ? 'resume' : 'pause'}-${entry.accountId}`}
-              size="small"
-              variant="secondary"
-              loading={busyAccountId === entry.accountId}
-              disabled={busy || entry.privacyDisabled}
-              onPress={() => void toggleAccountPause(entry)}
-            >
-              {intl.formatMessage({
-                id: entry.paused
-                  ? ETranslations.global_resume
-                  : ETranslations.global_pause,
-              })}
-            </Button>
-          ) : null}
-          {!entry.walletIsTemp && canEnable ? (
-            <Button
-              testID={`privacy-network-enable-${entry.accountId}`}
-              size="small"
-              variant="primary"
-              loading={busyAccountId === entry.accountId}
-              disabled={busy || entry.privacyDisabled}
-              onPress={() => void enableAccount(entry)}
-            >
-              {intl.formatMessage({ id: ETranslations.global_enable })}
-            </Button>
-          ) : null}
-        </ListItem>
-        <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
-          <Divider mx="$4" />
-          {entry.walletIsTemp ? (
-            <SizableText
-              testID={`privacy-network-temp-wallet-${entry.accountId}`}
-              px="$5"
-              py="$3"
-              size="$bodySm"
-              color="$textSubdued"
-            >
-              {intl.formatMessage({
-                id: ETranslations.privacy_temp_wallet_unavailable__desc,
-              })}
-            </SizableText>
-          ) : null}
-          {entry.enabled &&
-          storageUnsupportedNetworkIds.includes(entry.networkId) ? (
-            <SizableText
-              testID={`privacy-network-storage-error-${entry.accountId}`}
-              px="$5"
-              py="$3"
-              size="$bodySm"
-              color="$textCaution"
-            >
-              {intl.formatMessage({
-                id: ETranslations.privacy_error_webview_outdated__msg,
-              })}
-            </SizableText>
-          ) : null}
-          {entry.enabled || entry.paused ? (
-            <ListItem
-              mx="$0"
-              testID={`privacy-network-birthday-${entry.accountId}`}
-              icon="Calendar2Outline"
-              title={intl.formatMessage({
-                id: ETranslations.privacy_sync_start__title,
-              })}
-              subtitle={formatShownBirthday(entry, intl)}
-              disabled={busy || entry.paused}
-              drillIn
-              onPress={() => void editBirthday(entry)}
-            />
-          ) : null}
-          <ListItem
-            mx="$0"
-            testID={`privacy-network-delete-${entry.accountId}`}
-            icon="DeleteOutline"
-            title={intl.formatMessage({
-              id: ETranslations.privacy_delete_data__title,
+        {entry.walletIsTemp ? (
+          <SizableText
+            testID={`privacy-network-temp-wallet-${entry.accountId}`}
+            px="$3"
+            pb="$3"
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {intl.formatMessage({
+              id: ETranslations.privacy_temp_wallet_unavailable__desc,
             })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.privacy_delete_data__desc,
+          </SizableText>
+        ) : null}
+        {entry.enabled &&
+        storageUnsupportedNetworkIds.includes(entry.networkId) ? (
+          <SizableText
+            testID={`privacy-network-storage-error-${entry.accountId}`}
+            px="$3"
+            pb="$3"
+            size="$bodySm"
+            color="$textCaution"
+          >
+            {intl.formatMessage({
+              id: ETranslations.privacy_error_webview_outdated__msg,
             })}
-            titleProps={{ color: '$textCritical' }}
-            disabled={busy}
-            onPress={() => deleteAccountData(entry)}
-          />
-        </YStack>
-      </YStack>
+          </SizableText>
+        ) : null}
+      </PrivacyAccountRow>
     );
   };
 
