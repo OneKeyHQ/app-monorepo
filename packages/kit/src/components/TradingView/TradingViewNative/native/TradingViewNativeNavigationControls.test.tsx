@@ -10,11 +10,26 @@ import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigati
 
 const mockStack = jest.fn<void, [Record<string, unknown>]>();
 const mockXStack = jest.fn<void, [Record<string, unknown>]>();
+const mockAnimatedView = jest.fn<void, [Record<string, unknown>]>();
+const mockWithTiming = jest.fn((value: number) => value);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
+}));
+
+jest.mock('react-native-reanimated', () => ({
+  __esModule: true,
+  default: {
+    View: ({ children, ...props }: { children?: ReactNode }) => {
+      mockAnimatedView(props);
+      return <div>{children}</div>;
+    },
+  },
+  useAnimatedStyle: (factory: () => unknown) => factory(),
+  useSharedValue: <T,>(value: T) => ({ value }),
+  withTiming: (value: number) => mockWithTiming(value),
 }));
 
 jest.mock('react-native-svg', () => ({
@@ -63,6 +78,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
         backgroundColor="#ffffff"
         chartWidth={320}
         isResetVisible
+        isVisible
         onAction={onAction}
         timeAxisHeight={24}
         testID="chart"
@@ -94,6 +110,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
         backgroundColor="#ffffff"
         chartWidth={320}
         isResetVisible
+        isVisible
         onAction={jest.fn()}
         timeAxisHeight={24}
       />,
@@ -126,6 +143,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
         backgroundColor="#ffffff"
         chartWidth={320}
         isResetVisible={false}
+        isVisible
         onAction={jest.fn()}
         timeAxisHeight={24}
         testID="chart"
@@ -142,6 +160,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
         backgroundColor="#ffffff"
         chartWidth={320}
         isResetVisible
+        isVisible
         onAction={jest.fn()}
         timeAxisHeight={24}
         testID="chart"
@@ -168,6 +187,7 @@ describe('Native TradingViewNativeNavigationControls', () => {
         backgroundColor="#ffffff"
         chartWidth={180}
         isResetVisible
+        isVisible
         onAction={jest.fn()}
         timeAxisHeight={24}
         testID="chart"
@@ -182,5 +202,52 @@ describe('Native TradingViewNativeNavigationControls', () => {
     )?.[0];
     // 152 + 28 ends exactly at the 180px chart edge.
     expect(resetProps).toEqual(expect.objectContaining({ left: 152 }));
+  });
+
+  it('fades out hidden buttons and lets touches reach the chart', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible
+        isVisible={false}
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+      />,
+    );
+
+    expect(mockWithTiming).toHaveBeenLastCalledWith(0);
+    expect(mockAnimatedView.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ pointerEvents: 'box-none' }),
+    );
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants',
+        pointerEvents: 'none',
+      }),
+    );
+  });
+
+  it('fades in visible buttons and makes them pressable', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible
+        isVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+      />,
+    );
+
+    expect(mockWithTiming).toHaveBeenLastCalledWith(1);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        accessibilityElementsHidden: false,
+        importantForAccessibility: 'auto',
+        pointerEvents: 'box-none',
+      }),
+    );
   });
 });
