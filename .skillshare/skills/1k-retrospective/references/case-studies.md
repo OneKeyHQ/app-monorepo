@@ -1369,6 +1369,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Created 9 keys in all 19 locales through the approved Monorepo v5 Lokalise workflow, reused the existing full-sync explanation, and replaced mock references throughout setup, receive, account management, recovery controls and UI preview. Generated catalogs and enums come from the official pull; no generated translation was edited manually. A real react-intl regression verifies language switching, preserved sync-start selection and localized invalid-height errors. Native layout acceptance remains a manual check.
 **Catchable by**: Sections 4 and 6: Trace source keys through the bundled locale loader to rendered UI, and test a language change using real catalogs rather than a formatter mock that only returns IDs.
 
+## Case: Extracted privacy sync effects blocked strict native bundling
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. The effects run in the main UI runtime and report network changes through the background bridge; native wake-lock ownership and separate main/bg JS heaps are unchanged. Web/Desktop single-runtime and extension bundling do not use this native registry.
+**Symptom**: The Native CI job failed before producing its startup reports after the floating privacy sync indicator was replaced with a nonvisual effects component.
+**Root Cause**: The new PrivacyChainSyncEffects.tsx import entered the native graph without a stable module ID; the registry still contained only the removed PrivacyChainSyncLight.tsx path.
+**Fix**: Register the new module through the existing allocator and add a strict-registry regression test that fails without the entry. Split threshold loading, network reporting and wake-lock cleanup into scoped hooks without changing their behavior. Focused tests pass; the local full native graph build remains blocked by external symlinked dependencies, so the remote Native job must confirm full bundling after push.
+**Catchable by**: Sections 3, 4 and 6: When extracting a shared component, verify the strict native registry as well as its runtime behavior; add a regression test for the new imported path.
+
+## Case: Removing a floating sync panel removed the chain pause entry
+**Date**: 2026-11-09 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI through the existing background service bridge. Native resource ownership and separate main/bg heaps are unchanged.
+**Symptom**: After the global privacy sync panel was removed, an active chain had no UI action that could pause scanning across page visits. Settings retained only chain Resume and separate account Pause controls.
+**Root Cause**: The deleted panel was the only foreground caller of pauseLocalWalletScan. Account pause changes account participation and does not set the persisted network pause flag.
+**Fix**: Add Pause beside the existing settings status for active unfinished chains, retain Resume for a paused chain, and reuse the existing background operations. Keep busy state and an immediate re-entry guard; render the resulting state only from background publication. Show the existing localized error Toast when either chain action fails so the unchanged scan state is explained. Tests cover network scoping, account controls, paused/resumed publication, pending and failed requests, retry, and available-state boundaries. Native-device interaction remains unverified.
+**Catchable by**: Sections 4-6: Before removing a UI surface, trace every action to its last remaining caller and distinguish account-level controls from network-level controls; test reachable actions as well as rendered status.
+
 ## Case: Privacy account management modules were missing from the native registry (OK-66558)
 **Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
 **Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.

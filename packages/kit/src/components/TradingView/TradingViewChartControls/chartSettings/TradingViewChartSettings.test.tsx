@@ -47,17 +47,20 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: View,
     Checkbox: ({
+      description,
       label,
       onChange,
       testID,
       value,
     }: {
+      description?: string;
       label?: ReactNode;
       onChange?: (value: boolean) => void;
       testID?: string;
       value?: boolean;
     }) => (
       <button
+        data-description={description}
         data-testid={testID}
         data-value={String(value)}
         onClick={() => onChange?.(!value)}
@@ -244,6 +247,14 @@ describe('TradingViewChartSettings', () => {
     expect(navigationButtonsCheckbox.textContent).toBe(
       'chart_navigation_buttons__title',
     );
+    expect(navigationButtonsCheckbox.getAttribute('data-description')).toBe(
+      'chart_navigation_buttons__desc',
+    );
+    expect(
+      screen
+        .getByTestId('trading-view-settings-checkbox-click-interaction')
+        .getAttribute('data-description'),
+    ).toBe('chart_interaction__desc');
     expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(navigationButtonsCheckbox);
