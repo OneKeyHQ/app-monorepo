@@ -55,7 +55,7 @@ import {
 } from '@onekeyhq/shared/src/consts/appMenuConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { makeIpcSafeError } from '@onekeyhq/shared/src/errors/utils/ipcSafeError';
+import { makeIpcSafeError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';

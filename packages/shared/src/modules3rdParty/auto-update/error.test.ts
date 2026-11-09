@@ -1,6 +1,8 @@
 import { OneKeyLocalError } from '../../errors';
-import { unwrapElectronIpcError } from '../../errors/utils/electronIpcError';
-import { makeIpcSafeError } from '../../errors/utils/ipcSafeError';
+import {
+  makeIpcSafeError,
+  unwrapElectronIpcError,
+} from '../../errors/utils/electronIpcError';
 
 import {
   EUpdateErrorCode,

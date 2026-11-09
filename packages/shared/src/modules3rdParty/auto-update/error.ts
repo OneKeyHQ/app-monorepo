@@ -1,5 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
-import { UPDATE_ERROR_WIRE_PREFIX } from '../../errors/utils/ipcSafeError';
+import { UPDATE_ERROR_WIRE_PREFIX } from '../../errors/utils/electronIpcError';
 import { ETranslations } from '../../locale';
 
 export { UPDATE_ERROR_WIRE_PREFIX };
