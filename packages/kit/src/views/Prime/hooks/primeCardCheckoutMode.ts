@@ -1,5 +1,3 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
 // 'embedded': purchases-js purchase() with the bundled Stripe Elements form.
 // 'hostedLink': RevenueCat Web Purchase Link opened outside the app.
 export type IPrimeCardCheckoutMode = 'embedded' | 'hostedLink';
@@ -64,6 +62,8 @@ function getPrimeCardCheckoutSettings(): Promise<IPrimeCardCheckoutSettings> {
         return windowOverride;
       }
       try {
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         const devSettings =
           await backgroundApiProxy.serviceDevSetting.getDevSetting();
         if (devSettings?.enabled) {

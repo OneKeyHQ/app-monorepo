@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import type { IIpTableConfigWithRuntime } from '@onekeyhq/shared/src/request/types/ipTable';
 
@@ -71,5 +72,29 @@ describe('requestHelper IP Table provider', () => {
     updateInterceptorRequestHelper();
 
     await expect(requestHelper.getIpTableConfig()).resolves.toBe(config);
+  });
+
+  it('skips overriding requestHelper in isolated desktop renderers (?render=prime-purchase)', async () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    const originalLocation = globalThis.location;
+    const sentinel = jest.fn(async () => false);
+    requestHelper.checkIsOneKeyDomain = sentinel;
+
+    platformEnv.isDesktop = true;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: { search: '?render=prime-purchase' },
+    });
+
+    try {
+      updateInterceptorRequestHelper();
+      expect(requestHelper.checkIsOneKeyDomain).toBe(sentinel);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 });
