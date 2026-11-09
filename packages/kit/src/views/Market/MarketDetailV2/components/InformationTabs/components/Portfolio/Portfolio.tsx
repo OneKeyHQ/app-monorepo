@@ -104,7 +104,7 @@ function PortfolioBase({
   );
 
   let emptyContent: ReactElement;
-  if (isPending || (canShowPortfolio && isRefreshing)) {
+  if (isPending || (!isMarketDetail && canShowPortfolio && isRefreshing)) {
     emptyContent = <PortfolioSkeleton />;
   } else if (isMarketDetail && !isFailed) {
     // Same illustration and title as the Perps positions empty state, without

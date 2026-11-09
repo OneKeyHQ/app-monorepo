@@ -245,9 +245,10 @@ const SwapMainLoad = ({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const analyticsSwapSource = swapInitParams?.swapSource;
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
-    swapInitParams?.swapSource === ESwapSource.MARKET;
+    analyticsSwapSource === ESwapSource.MARKET;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
@@ -1271,7 +1272,9 @@ const SwapMainLoad = ({
       reviewGenerationRef.current += 1;
       beginSwapReview();
       const reviewGeneration = reviewGenerationRef.current;
-      const reviewAnalytics = createSwapReviewAnalytics();
+      const reviewAnalytics = createSwapReviewAnalytics({
+        swapSource: analyticsSwapSource,
+      });
       reviewAnalyticsRef.current?.close('reviewChanged');
       reviewAnalyticsRef.current = reviewAnalytics;
       let analyticsCreateFrom = 'swapPage';
@@ -1370,6 +1373,7 @@ const SwapMainLoad = ({
       beginSwapReview,
       invalidateSwapReview,
       isMarketEmbeddedSwap,
+      analyticsSwapSource,
       pageType,
     ],
   );

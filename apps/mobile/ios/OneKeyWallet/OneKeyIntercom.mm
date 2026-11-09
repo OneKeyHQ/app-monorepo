@@ -22,6 +22,7 @@ extern "C" void OneKeyInitializeIntercom(void)
   @try {
     [IntercomModule initialize:apiKey withAppId:@"vbbj4ssb"];
     [Intercom setLauncherVisible:NO];
+    // JS re-enables in-app messages only on unlocked main tabs.
     [Intercom setInAppMessagesVisible:NO];
     [Intercom suppressProactiveContent:@[@(IntercomProactiveContentTypeCarousel),
                                         @(IntercomProactiveContentTypeSurvey)]];

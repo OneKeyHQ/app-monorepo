@@ -53,6 +53,8 @@ jest.mock('./openUrlUtils', () => ({
 jest.mock('./timerUtils', () => ({
   __esModule: true,
   default: {
+    ...jest.requireActual<typeof import('./timerUtils')>('./timerUtils')
+      .default,
     wait: jest.fn(async () => undefined),
   },
 }));

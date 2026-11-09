@@ -62,6 +62,7 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -614,6 +615,7 @@ function MarketDetailV2(
     effectiveIsChartFullscreen ||
       platformEnv.isNative ||
       (!platformEnv.isExtension && media.md),
+    finishMarketDetailTabBarTransition,
   );
 
   return (
