@@ -152,6 +152,7 @@ function StockPrice({
   const intl = useIntl();
   const { color } = formatPriceChangeDisplay(percent);
   const size = mobile ? '$bodySm' : '$bodyLg';
+  const changeSize = mobile ? '$bodySm' : '$bodyLgMedium';
   const pendingStock = Boolean(selection?.stockSelectionPending);
   const hasError =
     priceMode === 'share' &&
@@ -225,7 +226,7 @@ function StockPrice({
         <XStack gap="$1.5" alignItems="baseline" flexShrink={0}>
           {change ? (
             <NumberSizeableText
-              size={size}
+              size={changeSize}
               color={color}
               formatter="price"
               formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
@@ -235,15 +236,15 @@ function StockPrice({
           ) : null}
           <XStack alignItems="baseline">
             {change ? (
-              <SizableText size={size} color={color}>
+              <SizableText size={changeSize} color={color}>
                 (
               </SizableText>
             ) : null}
-            <PriceChangePercentage size={size}>
+            <PriceChangePercentage size={changeSize}>
               {percent ?? '--'}
             </PriceChangePercentage>
             {change ? (
-              <SizableText size={size} color={color}>
+              <SizableText size={changeSize} color={color}>
                 )
               </SizableText>
             ) : null}
