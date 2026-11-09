@@ -40,6 +40,8 @@ type IMockPagerProps = {
   header?: ReactNode;
   headerHeight: number;
   stickyHeader?: ReactNode;
+  stickyHeaderHeight?: number;
+  stickyHeaderHeights?: readonly number[];
   initialPage?: number;
   onLayout?: (event: IMockLayoutEvent) => void;
   externalTopOverlayTag?: number;
@@ -484,6 +486,19 @@ describe('native market home tab presses', () => {
     expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
   });
 
+  it('provides the destination height while the source header is still visible', () => {
+    renderLayout();
+    expect(mockPagerProps?.stickyHeaderHeights?.slice(0, 2)).toEqual([44, 132]);
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(44);
+
+    pressNativeTab('Trending');
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(44);
+    act(() =>
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 1 } }),
+    );
+    expect(mockPagerProps?.stickyHeaderHeight).toBe(132);
+  });
+
   it('keeps the local command during an in-flight stale atom sync', () => {
     const tabsRef = createRef<IAppPagerRef>();
     render(
@@ -587,6 +602,9 @@ describe('native market home selection restoration', () => {
     expect(mockPagerProps?.nativeSubHeader?.selectedKey).toBe('consumer-tech');
 
     pressNativeTab('Top coins');
+    act(() =>
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 3 } }),
+    );
     expect(mockPagerProps?.nativeSubHeader?.selectedKey).toBe('defi');
     act(() => {
       mockPagerProps?.onNativeSubHeaderPress?.({
