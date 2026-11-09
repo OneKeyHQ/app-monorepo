@@ -92,6 +92,7 @@ const mockSimpleChart = jest.fn<
       onRangeChange?: (
         change: IStockSimpleChartRangeChange | undefined,
       ) => void;
+      retainPreviousRange?: boolean;
     },
   ]
 >(() => null);
@@ -230,6 +231,7 @@ jest.mock(
       onRangeChange?: (
         change: IStockSimpleChartRangeChange | undefined,
       ) => void;
+      retainPreviousRange?: boolean;
     }) => mockSimpleChart(props),
   }),
 );
@@ -486,10 +488,13 @@ describe('Swap Stock chart and headline price ownership', () => {
     expect(mockProChart).toHaveBeenCalled();
   });
 
-  it('shows the drawn range change and rejects stale range, asset and mode updates', () => {
+  it('keeps the drawn range while loading and rejects stale range, asset and mode updates', () => {
     mockProSourceAvailable = true;
     const { rerender } = render(<SwapStockMarketPanel />);
     fireEvent.click(screen.getByTestId('swap-stock-chart-range-1H'));
+    expect(mockSimpleChart.mock.calls.at(-1)?.[0].retainPreviousRange).toBe(
+      true,
+    );
     const hourUpdate = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
     act(() =>
       hourUpdate?.({
@@ -510,13 +515,26 @@ describe('Swap Stock chart and headline price ownership', () => {
         priceMode: 'share',
         range: '1H',
         baseline: 100,
-        latest: 90,
+        latest: 10,
       }),
     );
+    expect(screen.getByTestId('swap-stock-price').textContent).toContain('-10');
     expect(screen.getByTestId('swap-stock-price').textContent).not.toContain(
-      '-10',
+      '-90',
     );
     const dayUpdate = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
+    act(() =>
+      dayUpdate?.({
+        priceMode: 'share',
+        range: '1H',
+        baseline: 100,
+        latest: 95,
+      }),
+    );
+    expect(screen.getByTestId('swap-stock-price').textContent).toContain('-5');
+    expect(
+      screen.getByTestId('swap-stock-price-change-label').textContent,
+    ).toBe(ETranslations.market_range_change_past_hour);
     act(() =>
       dayUpdate?.({
         priceMode: 'share',
@@ -592,6 +610,36 @@ describe('Swap Stock chart and headline price ownership', () => {
     );
     const price = screen.getByTestId('swap-stock-price');
     expect(price.querySelector('[data-color="$text"]')?.textContent).toBe('0');
+  });
+
+  it('keeps the displayed range across rapid switches while ignoring earlier callbacks', () => {
+    render(<SwapStockMarketPanel />);
+    const initial = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
+    act(() =>
+      initial?.({
+        priceMode: 'share',
+        range: '1D',
+        baseline: 100,
+        latest: 110,
+      }),
+    );
+    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1H'));
+    const hour = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
+    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1W'));
+    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1D'));
+    const current = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
+    act(() => {
+      initial?.({ priceMode: 'share', range: '1D', baseline: 100, latest: 1 });
+      hour?.({ priceMode: 'share', range: '1H', baseline: 100, latest: 2 });
+    });
+    expect(screen.getByTestId('swap-stock-price').textContent).toContain('10');
+    expect(screen.getByTestId('swap-stock-price').textContent).not.toContain(
+      '-99',
+    );
+    act(() => current?.(undefined));
+    expect(screen.getByTestId('swap-stock-price').textContent).not.toContain(
+      '10',
+    );
   });
 
   it('uses the visible chart close and rejects callbacks from a previous token or mode', () => {

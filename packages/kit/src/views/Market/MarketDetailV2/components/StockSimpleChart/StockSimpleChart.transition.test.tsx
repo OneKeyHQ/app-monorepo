@@ -147,6 +147,67 @@ it('hides the previous Swap range until the requested range completes', () => {
   expect(screen.getByTestId('rendered-chart')).toBeTruthy();
 });
 
+it('reports the retained range until the next range succeeds, fails, or is empty', () => {
+  const onRangeChange = jest.fn();
+  const props = {
+    ...base,
+    isNative: false,
+    retainPreviousRange: true,
+    onRangeChange,
+  };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1D'),
+    isLoading: true,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(screen.getByTestId('rendered-chart')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1D',
+    baseline: 10,
+    latest: 12,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: result('1W', [
+      [1_800_000_000, 20],
+      [1_800_000_300, 15],
+    ]),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1W" />);
+  expect(onRangeChange).toHaveBeenLastCalledWith({
+    priceMode: 'token',
+    range: '1W',
+    baseline: 20,
+    latest: 15,
+  });
+  mockPromiseResult.mockReturnValue({
+    result: { ...result('1D', []), status: 'error' },
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1D" />);
+  expect(screen.getByTestId('stock-simple-chart-error')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+  mockPromiseResult.mockReturnValue({
+    result: result('1D', []),
+    isLoading: false,
+    run: jest.fn(),
+  });
+  rerender(<StockSimpleChartContent {...props} range="1D" />);
+  expect(screen.getByTestId('stock-simple-chart-empty')).toBeTruthy();
+  expect(onRangeChange).toHaveBeenLastCalledWith(undefined);
+});
+
 it('keeps the drawn series through consecutive range changes and replaces it on completion', () => {
   const { rerender } = render(
     <StockSimpleChart range="1D" priceMode="token" />,

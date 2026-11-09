@@ -222,7 +222,7 @@ function StockPrice({
             {quote}
           </MarketTooltipLabel>
         )}
-        <XStack gap="$1.5" alignItems="baseline">
+        <XStack gap="$1.5" alignItems="baseline" flexShrink={0}>
           {change ? (
             <NumberSizeableText
               size={size}
@@ -264,10 +264,13 @@ function StockPrice({
   return (
     <Stack
       testID="swap-stock-price"
-      height={mobile ? 44 : 40}
+      height={mobile ? 44 : undefined}
+      minHeight={mobile ? undefined : 40}
       flexDirection={mobile ? 'column' : 'row'}
+      flexWrap={mobile ? 'nowrap' : 'wrap'}
       alignItems={mobile ? 'flex-end' : 'baseline'}
       gap={mobile ? '$0' : '$3.5'}
+      rowGap={mobile ? '$0' : '$1.5'}
     >
       {content}
     </Stack>
@@ -532,6 +535,8 @@ export function SwapStockMarketPanel() {
     ],
   );
   const activeChartPriceScopeRef = useRef<typeof chartPriceScope | null>(null);
+  // The callback follows the requested range; the displayed value follows the
+  // asset so it can remain visible with the retained chart during a switch.
   const rangeChangeScope = useMemo(
     () => ({ chartPriceScope, range }),
     [chartPriceScope, range],
@@ -556,17 +561,18 @@ export function SwapStockMarketPanel() {
         !rangeChangeScope.chartPriceScope.isSimpleChart ||
         rangeChangeScope.chartPriceScope.selectionPending ||
         !change ||
-        change.priceMode !== priceMode ||
-        change.range !== range
+        change.priceMode !== priceMode
       ) {
         setChartRangeChange((current) =>
-          current?.scope === rangeChangeScope ? undefined : current,
+          current?.scope.chartPriceScope === chartPriceScope
+            ? undefined
+            : current,
         );
         return;
       }
       setChartRangeChange({ scope: rangeChangeScope, change });
     },
-    [priceMode, range, rangeChangeScope],
+    [chartPriceScope, priceMode, rangeChangeScope],
   );
   const [chartPrice, setChartPrice] = useState<{
     scope: typeof chartPriceScope;
@@ -686,11 +692,17 @@ export function SwapStockMarketPanel() {
           gap="$2"
           flexWrap="wrap"
         >
-          <YStack gap="$2">
+          <YStack
+            flexGrow={1}
+            flexShrink={1}
+            flexBasis={0}
+            minWidth="min-content"
+            gap="$2"
+          >
             <StockPrice
               priceMode={priceMode}
               rangeChange={
-                chartRangeChange?.scope === rangeChangeScope
+                chartRangeChange?.scope.chartPriceScope === chartPriceScope
                   ? chartRangeChange.change
                   : undefined
               }
@@ -756,6 +768,7 @@ export function SwapStockMarketPanel() {
             {!selection?.stockSelectionPending && isSimpleChart ? (
               <StockSimpleChartContent
                 retainOnRemount={retainOnRemount}
+                retainPreviousRange
                 priceMode={priceMode}
                 priceScaleFormat="full"
                 onPriceUpdate={handleChartPriceUpdate}
