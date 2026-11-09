@@ -20,8 +20,7 @@ Production runtime topology differs by target:
 
 - iOS, Android, and browser extension run `main` (UI) and `background` (`bg`)
   as isolated JS runtimes. Their JS heaps and objects are not shared. Native
-  resources such as MMKV, DB/file handles, and native singletons may still be
-  shared underneath.
+  resources (MMKV, DB/file handles, singletons) may still be shared underneath.
 - Desktop and web execute app `main`/`background` code in one JS runtime/thread.
   Do not apply split-heap or per-runtime deserialization assumptions to them.
 
@@ -33,9 +32,9 @@ platform first. On iOS/Android/extension, also state:
 - JS heap copies: whether data is deserialized once per runtime.
 - Timing/order: `main` and `bg` initialize independently; do not assume readiness.
 
-For desktop/web, label the conclusion as single-runtime and identify any native
-or process-owned resource separately. `main` and `bg` JS bundles on split-runtime
-targets ship version-locked; practical skew is native-vs-JS, not `bg`-vs-`main`.
+For desktop/web, label the conclusion as single-runtime; identify any native
+or process-owned resource separately. `main`/`bg` bundles on split-runtime targets
+ship version-locked; practical skew is native-vs-JS, not `bg`-vs-`main`.
 
 ## Import Hierarchy
 
@@ -76,31 +75,33 @@ Never violate this dependency order:
 
 ## Debugging And Verification
 
-- For normal React Native launches, use `/1k-dev-commands` Mobile DevSession;
-  use direct mobile workspace scripts only for native rebuilds or diagnosis.
-- If a command emits `ONEKEY_USER_NOTICE`, or its run receipt has
-  `userNoticeRequired: true`, report every notice explicitly to the user even
-  when the fallback succeeds. Never describe that run as a clean cache hit.
+- For RN launches, use `/1k-dev-commands` Mobile DevSession; use direct mobile
+  scripts only for native rebuilds or diagnosis.
+- If a command emits `ONEKEY_USER_NOTICE` (or its receipt has
+  `userNoticeRequired: true`), report every notice to the user even when the
+  fallback succeeds; never call the run a clean cache hit.
 - If a fix fails, re-analyze the root cause instead of retrying small variations.
 - For visual bugs, establish platform and expected vs actual behavior first.
-- For Electron, DApp, UI, startup, and interaction fixes, state the repro,
-  non-passing conditions, and final pass condition before editing.
-- Element existence is not proof. Verify active state, real webview rendering,
-  URL/title/content readiness, and relevant console/log evidence.
+- For Electron/DApp/UI/startup/interaction fixes, state repro, non-passing
+  conditions, and final pass condition first.
+- Element existence is not proof: verify active state, real rendering,
+  URL/title/content readiness, and console/log evidence.
 
 ## Git And Validation
 
 - Base branch is `x`; never work directly on `x`.
 - Commit format: `type: short description`. Do not add tool attribution or
   `Co-Authored-By` lines.
+- `tsc` runs the TypeScript 7 native compiler; `typescript-classic` covers
+  only legacy compiler-API scripts, never type checks.
 - Before commit run `yarn agent:check --profile commit`; before PR readiness run
   `yarn agent:check --profile pr`.
 - For remote-only status run `yarn agent:check --profile ci --pr <number>`.
-- Use lower-level commands only to debug a failed `agent:check`; logs are under
+- Debug a failed `agent:check` with lower-level commands; logs:
   `node_modules/.cache/agent-checks`.
-- Run targeted tests when scope or risk requires them; avoid the ambiguous root
-  `yarn test` alias.
+- Run targeted tests when scope or risk requires them; avoid the root `yarn test`
+  alias.
 
-Use `.skillshare/skills` for detailed workflows instead of duplicating them here.
+Use `.skillshare/skills` for detailed workflows; don't duplicate them here.
 `apps/cli/` has separate guidance; external wallet CLI skills belong in
 `https://github.com/OneKeyHQ/onekey-wallet-skills`.

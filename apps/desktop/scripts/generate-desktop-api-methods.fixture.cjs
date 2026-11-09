@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const vm = require('node:vm');
 
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 const {
   generate,

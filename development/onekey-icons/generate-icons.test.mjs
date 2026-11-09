@@ -469,7 +469,7 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
 
   const appRequire = createRequire(path.join(appRoot, 'package.json'));
   const { JSDOM } = appRequire('jsdom');
-  const ts = appRequire('typescript');
+  const ts = appRequire('typescript-classic');
 
   const evaluateProvider = (baseUrl, contextGlobals) => {
     const rewrittenTs = assetUrlsTs.replaceAll(

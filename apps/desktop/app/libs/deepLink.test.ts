@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
 
-import ts from 'typescript';
+import ts from 'typescript-classic';
 
 import {
   DESKTOP_DEEP_LINK_PROTOCOLS,

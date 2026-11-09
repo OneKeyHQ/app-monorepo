@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import Store from 'electron-store';
-import ts from 'typescript';
+import ts from 'typescript-classic';
 
 import DesktopApiStorage from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiStorage';
 import type { IDesktopApi } from '@onekeyhq/kit-bg/src/desktopApis/instance/IDesktopApi';

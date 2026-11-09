@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 // Worker exit runs Node environment cleanup, unlike main-process process.exit().
 // Keep the native binding real: this catches the macOS ThreadSafeFunction deadlock.

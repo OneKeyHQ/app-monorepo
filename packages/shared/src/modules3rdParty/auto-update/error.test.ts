@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
 
-import ts from 'typescript';
+import ts from 'typescript-classic';
 
 import { OneKeyLocalError } from '../../errors';
 import { unwrapElectronIpcError } from '../../errors/utils/electronIpcError';

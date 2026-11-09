@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const vm = require('vm');
 
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 const appSource = ts.createSourceFile(
   'app.ts',

@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const { transformFileSync } = require('@babel/core');
 const { resolve } = require('metro-resolver');
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 const repoRoot = path.resolve(__dirname, '../../../..');
 const originModulePath = path.join(

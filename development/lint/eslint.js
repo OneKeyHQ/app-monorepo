@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const { exit } = require('process');
 
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const OXLINT_CONFIG_PATH = path.join(ROOT_DIR, '.oxlintrc.json');

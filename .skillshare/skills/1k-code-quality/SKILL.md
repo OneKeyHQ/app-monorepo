@@ -28,6 +28,11 @@ yarn lint:agent-context # Skill metadata and startup-context budgets
 `yarn agent:check` first; use lower-level commands only when debugging the log
 path reported by `agent:check`.
 
+**Type check compiler:** `tsc`, `npx tsc`, and `yarn tsc` run the TypeScript 7
+native compiler (`tsgo`). The `typescript-classic` package is kept only for
+legacy repo scripts that import the classic compiler API; never use it to run
+type checks.
+
 This repository uses **oxlint**, not ESLint, for active lint validation. Do not
 run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`; those entries are
 legacy compatibility remnants and `yarn eslint` runs a whole-repository

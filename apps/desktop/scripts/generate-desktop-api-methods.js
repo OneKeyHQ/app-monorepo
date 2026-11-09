@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { format } = require('oxfmt');
-const ts = require('typescript');
+const ts = require('typescript-classic');
 
 const apiDirectory = path.resolve(
   __dirname,

@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import vm from 'vm';
 
-import ts from 'typescript';
+import ts from 'typescript-classic';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {

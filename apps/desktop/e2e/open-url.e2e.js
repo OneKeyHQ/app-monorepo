@@ -898,7 +898,7 @@ async function runSniRequestFlow(page) {
 async function runFetchStreamSenderFlow() {
   const crypto = require('node:crypto');
   const { pathToFileURL } = require('node:url');
-  const ts = require('typescript');
+  const ts = require('typescript-classic');
   const out = path.join(repoRoot, '.tmp', 'fetch-stream-electron');
   fs.mkdirSync(out, { recursive: true });
   const executablePath =
