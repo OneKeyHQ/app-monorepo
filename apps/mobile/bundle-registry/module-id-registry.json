@@ -22866,6 +22866,7 @@
     "packages/kit/src/components/OneKeyAuth/extOneKeyIdAuthExpandTab.ts": 2066,
     "packages/kit/src/components/OneKeyAuth/oauthUtils.ts": 20862,
     "packages/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils.ts": 5083,
+    "packages/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs.ts": 13376,
     "packages/kit/src/components/OneKeyAuth/oneKeyIdLogoutDialogContent.ts": 15745,
     "packages/kit/src/components/OneKeyAuth/supabase/SupabaseAuthContext.tsx": 7049,
     "packages/kit/src/components/OneKeyAuth/supabase/SupabaseAuthProvider.tsx": 2202,
