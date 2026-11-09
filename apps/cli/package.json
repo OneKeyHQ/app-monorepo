@@ -16,7 +16,7 @@
     "test": "yarn test:unit && yarn test:integration:cli",
     "test:unit": "npx jest",
     "test:integration:cli": "yarn build && npx jest --runInBand --runTestsByPath src/__tests__/cli.integration.test.ts --testPathIgnorePatterns='-smoke\\.test\\.ts$'",
-    "typecheck": "node ../../node_modules/@typescript/native/bin/tsc --noEmit",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit",
     "prepublishOnly": "yarn build",
     "package:macos-standalone": "yarn build && node scripts/package-macos-standalone.js",
     "version:patch": "node scripts/bump-version.js patch",
