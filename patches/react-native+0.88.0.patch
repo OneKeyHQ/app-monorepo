@@ -1,24 +1,30 @@
 diff --git a/node_modules/react-native/Libraries/AppDelegate/RCTAppSetupUtils.mm b/node_modules/react-native/Libraries/AppDelegate/RCTAppSetupUtils.mm
-index ae3ae25..4b420fc 100644
+index ae3ae25..e42f8b0 100644
 --- a/node_modules/react-native/Libraries/AppDelegate/RCTAppSetupUtils.mm
 +++ b/node_modules/react-native/Libraries/AppDelegate/RCTAppSetupUtils.mm
-@@ -80,12 +80,28 @@
+@@ -80,12 +80,31 @@
          initWithHandlersProvider:^NSArray<id<RCTURLRequestHandler>> *(RCTModuleRegistry *moduleRegistry) {
            NSArray *URLRequestHandlerModules =
                extractModuleConformingToProtocol(moduleRegistry, @protocol(RCTURLRequestHandler));
 -          return [@[
-+          // OneKey patch(OK-66758): `moduleRegistry` is a weak reference to the host's module
-+          // registry, so it is nil while a JS runtime is being torn down (reload/restart).
-+          // `[moduleRegistry moduleForName:"BlobModule"]` then returns nil, and inserting nil
-+          // into an Objective-C array literal raises NSInvalidArgumentException
-+          // ("attempt to insert nil object from objects[3]") and aborts the app. Keep the
-+          // built-in handlers always, and append BlobModule only when it can be resolved.
++          // OneKey patch(OK-66758): `moduleRegistry` is weak and RCTTurboModuleManager returns
++          // nil for every lookup while the runtime is invalidating. A request block can still
++          // reach this provider after -[RCTNetworking invalidate] cleared the handler cache,
++          // because `buildRequest` re-dispatches the send to the method queue. Handlers created
++          // here are not owned by the TurboModuleManager, so their NSURLSession would never be
++          // invalidated. Treat an unresolvable BlobModule as a dying runtime and reject the late
++          // request instead: this also stops the nil lookup from being inserted into an array
++          // literal, which raised NSInvalidArgumentException ("objects[3]").
 +          // return [@[
 +          //   [RCTHTTPRequestHandler new],
 +          //   [RCTDataRequestHandler new],
 +          //   [RCTFileRequestHandler new],
 +          //   [moduleRegistry moduleForName:"BlobModule"],
 +          // ] arrayByAddingObjectsFromArray:URLRequestHandlerModules];
++          id<RCTURLRequestHandler> blobModuleHandler = [moduleRegistry moduleForName:"BlobModule"];
++          if (blobModuleHandler == nil) {
++            return @[];
++          }
 +          NSMutableArray<id<RCTURLRequestHandler>> *defaultHandlers = [@[
              [RCTHTTPRequestHandler new],
              [RCTDataRequestHandler new],
@@ -26,10 +32,7 @@ index ae3ae25..4b420fc 100644
 -            [moduleRegistry moduleForName:"BlobModule"],
 -          ] arrayByAddingObjectsFromArray:URLRequestHandlerModules];
 +          ] mutableCopy];
-+          id<RCTURLRequestHandler> blobModuleHandler = [moduleRegistry moduleForName:"BlobModule"];
-+          if (blobModuleHandler != nil) {
-+            [defaultHandlers addObject:blobModuleHandler];
-+          }
++          [defaultHandlers addObject:blobModuleHandler];
 +          return [defaultHandlers arrayByAddingObjectsFromArray:URLRequestHandlerModules];
          }];
    }
