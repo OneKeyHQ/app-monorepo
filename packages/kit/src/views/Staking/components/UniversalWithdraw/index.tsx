@@ -61,6 +61,7 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
   EApproveType,
   ECheckAmountActionType,
+  EClaimType,
   EStakingActionType,
 } from '@onekeyhq/shared/types/staking';
 import type {
@@ -261,6 +262,10 @@ type IWithdrawPathDialogContentProps = {
     current: number;
   };
   onTipAction?: (tip: IEarnTransactionTip) => void | Promise<void>;
+  onClaimAction?: (onPress: () => void) => void;
+  onClaimSuccess?: () => void;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 };
 
 function WithdrawPathDialogContent({
@@ -268,6 +273,10 @@ function WithdrawPathDialogContent({
   initialSelectedIndex,
   selectedIndexRef,
   onTipAction,
+  onClaimAction,
+  onClaimSuccess,
+  protocolInfo,
+  tokenInfo,
 }: IWithdrawPathDialogContentProps) {
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
   const handleSelect = useCallback(
@@ -283,6 +292,15 @@ function WithdrawPathDialogContent({
       {boxes.map((box, index) => {
         const isSelected = index === selectedIndex;
         const isDisabled = !!box.disabled;
+        const claimButton = box.tip?.button;
+        const claimData =
+          claimButton?.type === EClaimType.Claim ? claimButton.data : undefined;
+        const hasClaimAction =
+          box.tip?.text &&
+          claimButton?.type === EClaimType.Claim &&
+          claimData &&
+          protocolInfo &&
+          tokenInfo;
         const tipAction =
           box.tip?.button?.type === EStakingActionType.CancelWithdrawal
             ? {
@@ -363,7 +381,36 @@ function WithdrawPathDialogContent({
                 ) : null}
               </YStack>
             </XStack>
-            {box.tip?.text ? (
+            {hasClaimAction && claimData ? (
+              <EarnActionIcon
+                actionIcon={claimButton}
+                protocolInfo={{
+                  ...protocolInfo,
+                  claimable: claimData.balance,
+                }}
+                tokenInfo={tokenInfo}
+                token={claimData.token.info}
+                onActionSuccess={onClaimSuccess}
+                trigger={({ onPress, disabled }) => (
+                  <Alert
+                    icon="InfoCircleOutline"
+                    type={resolveEarnAlertType(box.tip?.type)}
+                    renderTitle={() => (
+                      <EarnText text={box.tip?.text} size="$bodyMdMedium" />
+                    )}
+                    action={
+                      disabled
+                        ? undefined
+                        : {
+                            primary: claimButton.text.text,
+                            onPrimaryPress: () => onClaimAction?.(onPress),
+                          }
+                    }
+                  />
+                )}
+              />
+            ) : null}
+            {!hasClaimAction && box.tip?.text ? (
               <Alert
                 icon="InfoCircleOutline"
                 type={resolveEarnAlertType(box.tip?.type)}
@@ -478,6 +525,7 @@ export function UniversalWithdraw({
     return amount.isFinite() ? amount.toFixed() : amountValue;
   }, [amountValue, maxWithdrawAmountMode]);
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
   // Default selection always prefers the first enabled option (instant); this
   // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
@@ -592,6 +640,7 @@ export function UniversalWithdraw({
         amount: amountForRequest,
         amountUnit,
         areWithdrawAssetsReady,
+        claimRefreshKey,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
         isDisabled,
@@ -607,6 +656,7 @@ export function UniversalWithdraw({
       amountForRequest,
       amountUnit,
       areWithdrawAssetsReady,
+      claimRefreshKey,
       identity,
       isDisabled,
       networkId,
@@ -2107,6 +2157,15 @@ export function UniversalWithdraw({
           boxes={withdrawPathConfirmBoxes}
           initialSelectedIndex={effectiveSelectedWithdrawPathIndex}
           selectedIndexRef={selectedIndexRef}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+          onClaimSuccess={() => setClaimRefreshKey((key) => key + 1)}
+          onClaimAction={(pressClaim) => {
+            void (async () => {
+              await dialogRef.close?.();
+              pressClaim();
+            })();
+          }}
           onTipAction={async (tip) => {
             await dialogRef.close?.();
             await handleTipAction(tip);
@@ -2125,6 +2184,8 @@ export function UniversalWithdraw({
     handleSelectWithdrawPath,
     handleTipAction,
     intl,
+    protocolInfo,
+    tokenInfo,
     transactionConfirmation?.withdrawPath?.text?.text,
     withdrawPathConfirmBoxes,
   ]);

@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 
 import type {
@@ -224,6 +225,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
+  NetworkAvatarBase: ({
+    logoURI,
+    networkName,
+  }: {
+    logoURI: string;
+    networkName?: string;
+  }) => <img src={logoURI} alt={networkName} />,
+}));
+
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   const ListItem = ({
     title,
@@ -232,6 +243,8 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
     children,
     onPress,
     disabled,
+    renderAvatar,
+    renderItemText,
   }: {
     onPress?: () => void;
     disabled?: boolean;
@@ -239,6 +252,8 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
     subtitle?: string;
     testID?: string;
     children?: ReactNode;
+    renderAvatar?: ReactNode;
+    renderItemText?: ReactNode;
   }) =>
     onPress ? (
       <button
@@ -247,14 +262,24 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
         onClick={onPress}
         disabled={disabled}
       >
-        <span>{title}</span>
-        <span>{subtitle}</span>
+        {renderAvatar}
+        {renderItemText ?? (
+          <>
+            <span>{title}</span>
+            <span>{subtitle}</span>
+          </>
+        )}
         {children}
       </button>
     ) : (
       <div data-testid={testID}>
-        <span>{title}</span>
-        <span>{subtitle}</span>
+        {renderAvatar}
+        {renderItemText ?? (
+          <>
+            <span>{title}</span>
+            <span>{subtitle}</span>
+          </>
+        )}
         {children}
       </div>
     );
@@ -269,27 +294,32 @@ jest.mock('@onekeyhq/components', () => {
     children?: ReactNode;
     testID?: string;
   }) => <div data-testid={testID}>{children}</div>;
+  const Action = ({
+    children,
+    testID,
+    onPress,
+    disabled,
+    title,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    onPress?: () => void;
+    disabled?: boolean;
+    title?: string;
+  }) => (
+    <button
+      type="button"
+      data-testid={testID}
+      disabled={disabled}
+      onClick={onPress}
+      aria-label={title}
+    >
+      {children}
+    </button>
+  );
   return {
-    Button: ({
-      children,
-      testID,
-      onPress,
-      disabled,
-    }: {
-      children?: ReactNode;
-      testID?: string;
-      onPress?: () => void;
-      disabled?: boolean;
-    }) => (
-      <button
-        type="button"
-        data-testid={testID}
-        disabled={disabled}
-        onClick={onPress}
-      >
-        {children}
-      </button>
-    ),
+    Button: Action,
+    IconButton: Action,
     Dialog: { confirm: jest.fn(), show: jest.fn() },
     Divider: () => null,
     ESwitchSize: { small: 'small' },
@@ -1090,12 +1120,21 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(screen.queryByTestId('privacy-network-enable-hd-1--0')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByTestId('privacy-sync-toggle-btn')).toBeNull();
-    fireEvent.click(screen.getByTestId('privacy-network-delete-hd-1--0'));
+    expect(screen.queryByText('privacy_delete_data__desc')).toBeNull();
+    const settingsCalls = mockGetVaultSettings.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('privacy-network-delete-hd-1--0'));
+    });
     const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+      title: string;
       description: string;
       onConfirm: () => Promise<void>;
     };
+    expect(Dialog.confirm).toHaveBeenCalledTimes(1);
+    expect(args.title).toBe('privacy_delete_data__title');
     expect(args.description).toBe('privacy_delete_data__desc');
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(settingsCalls);
+    expect(mockRepair).not.toHaveBeenCalled();
     await act(async () => {
       await args.onConfirm();
     });
@@ -1104,6 +1143,68 @@ describe('Privacy network settings for a temp wallet', () => {
       accountId: 'hd-1--0',
     });
     expect(screen.getByTestId('privacy-network-enable-hd-1--0')).toBeTruthy();
+  });
+
+  it('identifies same-name accounts by chain and deletes only the selected network account', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockAccounts = [
+      listItem({}),
+      listItem({
+        accountId: 'hd-2--0',
+        walletId: 'hd-2',
+        walletName: 'Wallet 2',
+        networkId: 'xmr--0',
+      }),
+    ];
+    mockAccountStates = {
+      'hd-1--0': { enabled: true, paused: false },
+      'hd-2--0': { enabled: true, paused: false },
+    };
+    render(<PrivacyNetworkSettings />);
+
+    const firstAccount = await screen.findByTestId(
+      'account-manager-privacy-network-account-hd-1--0',
+    );
+    const secondAccount = screen.getByTestId(
+      'account-manager-privacy-network-account-hd-2--0',
+    );
+    expect(firstAccount.textContent).toContain('Account #1');
+    expect(firstAccount.textContent).toContain('Wallet 1');
+    expect(secondAccount.textContent).toContain('Account #1');
+    expect(secondAccount.textContent).toContain('Wallet 2');
+    expect(
+      screen.getByTestId('privacy-network-chain-hd-1--0').textContent,
+    ).toBe('Zcash');
+    expect(
+      screen.getByTestId('privacy-network-chain-hd-2--0').textContent,
+    ).toBe('Monero');
+    expect(
+      within(firstAccount)
+        .getByRole('img', { name: 'Zcash' })
+        .getAttribute('src'),
+    ).toBe('https://uni.onekey-asset.com/static/chain/zec.png');
+    expect(
+      within(secondAccount)
+        .getByRole('img', { name: 'Monero' })
+        .getAttribute('src'),
+    ).toBe('https://common.onekey-asset.com/chain/monero.png');
+
+    fireEvent.click(screen.getByTestId('privacy-network-delete-hd-2--0'));
+    const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+      onConfirm: () => Promise<void>;
+    };
+    await act(async () => {
+      await args.onConfirm();
+    });
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(mockDelete).toHaveBeenCalledWith({
+      networkId: 'xmr--0',
+      accountId: 'hd-2--0',
+    });
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect(mockRepair).not.toHaveBeenCalled();
   });
 
   it('does not disable Delete while background preparation is pending', async () => {
