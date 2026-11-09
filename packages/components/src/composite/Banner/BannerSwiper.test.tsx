@@ -1,0 +1,144 @@
+/** @jest-environment jsdom */
+/* oxlint-disable react-perf/jsx-no-new-function-as-prop -- Callbacks in test fixtures are intentionally recreated for each render. */
+
+import type { ReactNode } from 'react';
+
+import { ok as assert } from 'node:assert/strict';
+
+import { act, fireEvent, render, screen } from '@testing-library/react';
+
+jest.mock('../../primitives', () => ({
+  Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+const { BannerSwiper } =
+  require('./BannerSwiper.web') as typeof import('./BannerSwiper.web');
+
+function pointer(target: EventTarget, type: string, x: number) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    clientX: x,
+    clientY: 40,
+  });
+  Object.defineProperty(event, 'pointerId', { value: 1 });
+  act(() => {
+    target.dispatchEvent(event);
+  });
+}
+
+function setup({ count = 2, autoplay = false } = {}) {
+  const onOpen = jest.fn();
+  const { container } = render(
+    <BannerSwiper
+      data={Array.from({ length: count }, (_, index) => index)}
+      autoplay={autoplay}
+      autoplayDelayMs={1000}
+      renderItem={({ item }) => (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen(item);
+          }}
+        >
+          {item}
+        </button>
+      )}
+      renderPagination={({ currentIndex }) => (
+        <output data-testid="index">{currentIndex}</output>
+      )}
+    />,
+  );
+  const viewport = container.firstElementChild?.firstElementChild;
+  assert(viewport, 'Missing banner viewport');
+  const activeCard = () => {
+    const card = container.querySelector<HTMLButtonElement>(
+      '[aria-hidden="false"] button',
+    );
+    assert(card, 'Missing active banner');
+    return card;
+  };
+  return { viewport, activeCard, onOpen };
+}
+
+describe('Banner Web pointer interaction', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // The shared Jest setup replaces this with a no-op for non-DOM suites.
+    const eventTarget: EventTarget = globalThis;
+    jest
+      .spyOn(eventTarget, 'addEventListener')
+      .mockImplementation((...args) =>
+        EventTarget.prototype.addEventListener.call(eventTarget, ...args),
+      );
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      right: 360,
+      top: 0,
+      bottom: 160,
+      width: 360,
+      height: 160,
+      toJSON: () => ({}),
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('blocks a delayed click after a short drag and allows the next click', () => {
+    const { viewport, activeCard, onOpen } = setup();
+    pointer(viewport, 'pointerdown', 180);
+    pointer(globalThis, 'pointermove', 165);
+    pointer(globalThis, 'pointerup', 165);
+    act(() => jest.advanceTimersByTime(5000));
+    fireEvent.click(activeCard(), { detail: 1 });
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.getByTestId('index').textContent).toBe('0');
+
+    pointer(viewport, 'pointerdown', 180);
+    pointer(globalThis, 'pointerup', 180);
+    fireEvent.click(activeCard(), { detail: 1 });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('remembers a drag that returns to its starting point', () => {
+    const { viewport, activeCard, onOpen } = setup();
+    pointer(viewport, 'pointerdown', 180);
+    pointer(globalThis, 'pointermove', 80);
+    pointer(globalThis, 'pointermove', 180);
+    pointer(globalThis, 'pointerup', 180);
+    fireEvent.click(activeCard(), { detail: 1 });
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.getByTestId('index').textContent).toBe('0');
+  });
+
+  it('loops two banners in both directions when released outside the viewport', () => {
+    const { viewport } = setup();
+    pointer(viewport, 'pointerdown', 180);
+    pointer(globalThis, 'pointermove', 600);
+    pointer(globalThis, 'pointerup', 600);
+    act(() => jest.advanceTimersByTime(350));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+
+    pointer(viewport, 'pointerdown', 180);
+    pointer(globalThis, 'pointerup', -80);
+    act(() => jest.advanceTimersByTime(350));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+  });
+
+  it('pauses autoplay while pressed and resumes after release', () => {
+    const { viewport } = setup({ autoplay: true });
+    pointer(viewport, 'pointerdown', 180);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+    pointer(globalThis, 'pointerup', 180);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+  });
+});
