@@ -818,6 +818,7 @@ function MoreActionOneKeyId() {
   if (!isLoggedIn) {
     return (
       <XStack
+        testID="more-action-onekey-id"
         alignItems="center"
         py={isDesktopMode ? '$2.5' : '$4'}
         px={isDesktopMode ? '$3' : '$4'}
@@ -863,6 +864,7 @@ function MoreActionOneKeyId() {
 
   return (
     <XStack
+      testID="more-action-onekey-id"
       alignItems="center"
       py={isDesktopMode ? '$2.5' : '$4'}
       px={isDesktopMode ? '$3' : '$4'}
