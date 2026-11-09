@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
@@ -388,15 +389,26 @@ function GetStarted() {
       ? '$heading4xl'
       : '$heading5xl';
 
+  // The notice sits right above these options, so choosing any of them is the
+  // new user's acceptance of the current terms.
+  const acceptTerms = () => {
+    void backgroundApiProxy.serviceSetting
+      .acceptTermsConsent({ source: 'onboarding' })
+      .catch(() => undefined);
+  };
+
   const handleCreateNewWallet = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.CreateNewWallet);
   };
 
   const handleMoreOptions = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
   const handleConnectHardwareWallet = () => {
+    acceptTerms();
     navigation.push(EOnboardingPagesV2.PickYourDevice);
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
@@ -502,6 +514,7 @@ function GetStarted() {
         }}
       >
         <TermsAndPrivacy
+          messageId={ETranslations.onboarding_terms_consent__desc}
           contentContainerProps={{
             $md: {
               px: '$5',

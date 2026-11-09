@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "description": "Reviewed method bodies neutralized in the pinned Jiguang JPush/JCore iOS static libraries. The SDK has no public switch for these server-driven paths, so the first instruction of each method is replaced with a `ret`, and relocation rows that target the overwritten entry instruction are removed (e.g. ARM64_RELOC_PAGE21 on an ADRP entry), so the linked archive remains valid. Removed paths: pasteboard writes and clipboard collection, in-app/rich-media HTML5 dispatch (WKWebView, evaluateJavaScript and the script-message bridge), remote geofence control, remote location-strategy commands, and SDK log upload. Input SHA-256 values pin the reviewed SDK bytes; output SHA-256 values pin the resulting archives so an accidental edit or a new SDK version fails the build loudly. The vendor simulator slice stubs the in-app message and geofence controllers, so that slice pins only the clipboard methods that contain code.",
+  "libraries": [
+    {
+      "name": "JPush",
+      "packageJson": "jpush-react-native/package.json",
+      "packageVersion": "3.2.1",
+      "xcframework": "jpush-react-native/ios/RCTJPushModule/jpush-ios-5.9.0.xcframework",
+      "binary": "libJPush.a",
+      "symbols": [
+        "-[JPUSHPasteController handleCmdControl:]",
+        "-[JPUSHPasteController handleBoardContent:]",
+        "-[JPUSHPasteController setBoardContent:]",
+        "+[JPUSHInMessageManager handleNotiInMessageDic:]",
+        "+[JPUSHInMessageManager handleInMessageDic:]",
+        "-[JPUSHInMessageManager handleInMessageDic:]",
+        "-[JPUSHInMessageManager handleInAppDic:]",
+        "-[JPUSHNotiInMessageManager handleInMessageDic:]",
+        "+[JPUSHInAppManager handleInMessageDic:]",
+        "-[JPUSHInAppManager handleInAppDic:]",
+        "-[JPUSHInAppManager addInAppMesDic:]",
+        "-[JPUSHGeofenceManager handleCmdControl:]",
+        "-[JPUSHGeofenceManager handleCustomPushMessage:]",
+        "-[JPUSHGeofenceManager handlePushGeofenceMessage:]",
+        "-[JPUSHGeofenceManager handleSilentPushGeofenceMessage:]"
+      ],
+      "slices": {
+        "ios-arm64": {
+          "inputSha256": "744e0ed2bfb4ee423c8675b462b7d64294500b6a4ee91d41a208b5cab02fbf3b",
+          "outputSha256": "75b36a21d02477a12079029a67d9af9c748468091abfb0cf52f46840f64a885a"
+        },
+        "ios-arm64_x86_64-simulator": {
+          "inputSha256": "b21c2d4727d5d8b31e6abacf8c388a351379fab1f34e3e49ff9a83c9d7793aa9",
+          "outputSha256": "6496a08c1e8c28a868a14e5311bfeb4c03561f421d551e19acb2dfbafb93d07d",
+          "symbols": [
+            "-[JPUSHPasteController handleCmdControl:]",
+            "-[JPUSHPasteController handleBoardContent:]",
+            "-[JPUSHPasteController setBoardContent:]"
+          ]
+        }
+      }
+    },
+    {
+      "name": "JCore",
+      "packageJson": "jcore-react-native/package.json",
+      "packageVersion": "2.3.2",
+      "xcframework": "jcore-react-native/ios/RCTJCoreModule/jcore-ios-5.2.1.xcframework",
+      "binary": "libJCore.a",
+      "symbols": [
+        "-[JCommonPasteController handleCmdControl:]",
+        "-[JCommonPasteController startPasteStrategy]",
+        "-[JCommonPasteController startCollectAction]",
+        "-[JCommonPasteController handlePasteboardChanged:]",
+        "-[JCommonPasteController addReportTimer]",
+        "-[JCommonPasteReportManager report]",
+        "-[JCORELogger handleCmdControl:]",
+        "-[JCommonServiceController handleCmdControl:]",
+        "-[JCORELocationController handleContrlCommand:]"
+      ],
+      "slices": {
+        "ios-arm64": {
+          "inputSha256": "3b47e451061ed2fda00a265bc29c9543a04f842e97dc5ae2f990587834bbf057",
+          "outputSha256": "ce4445727e73f6b5614c6527ae24fe14433a066e3200bc4f8b3ef3af2db9428a"
+        },
+        "ios-arm64_x86_64-simulator": {
+          "inputSha256": "b23ec25ee6761944b8a845200e69f9b6a5a2d9605c737b8f6063cf061de06e77",
+          "outputSha256": "818f8c489b7bd3c2e28b0180ac6a4b33cd8f12c9151bb16f051fee53382f19b5"
+        }
+      }
+    }
+  ]
+}

@@ -155,6 +155,7 @@ function WebDappEmptyView() {
             <OneKeyWalletConnectionOptions showInModal={false} />
           </YStack>
           <TermsAndPrivacy
+            messageId={ETranslations.connect_wallet_terms_consent__desc}
             contentContainerProps={{
               pb: '$0',
             }}

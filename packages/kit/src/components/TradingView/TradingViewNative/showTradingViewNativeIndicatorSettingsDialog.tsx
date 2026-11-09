@@ -13,6 +13,7 @@ import {
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 
 import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
+import type { ITradingViewNativeStorageNamespace } from './types';
 import type { ITradingViewNativeAnyIndicator } from './utils/chartIndicators';
 import type { ITradingViewSettingsDialogRef } from '../TradingViewChartControls/chartSettings/TradingViewSettingsDialog';
 
@@ -21,6 +22,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   initialIndicatorId,
   intl,
   onConfirm,
+  storageNamespace,
   value,
 }: {
   displayMode?: 'focused' | 'full';
@@ -29,6 +31,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   onConfirm: (
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   value: ITradingViewIndicatorSettingsValue;
 }) {
   const isFocused = displayMode === 'focused';
@@ -46,12 +49,16 @@ export function showTradingViewNativeIndicatorSettingsDialog({
       mobileLayout={isFocused}
       initialIndicatorId={initialIndicatorId}
       value={value}
-      createDefaultValue={() =>
-        localizeTradingViewNativeIndicatorSettingsValue(
-          createTradingViewNativeIndicatorSettingsValue(),
-          intl,
-        )
-      }
+      createDefaultValue={() => {
+        const defaults = createTradingViewNativeIndicatorSettingsValue();
+        if (storageNamespace === 'perps') {
+          const volume = defaults.indicators.find(({ id }) => id === 'VOL');
+          if (volume) {
+            volume.active = true;
+          }
+        }
+        return localizeTradingViewNativeIndicatorSettingsValue(defaults, intl);
+      }}
       maxActiveSubIndicatorCount={null}
       onClose={() => {
         void closeDialog();
