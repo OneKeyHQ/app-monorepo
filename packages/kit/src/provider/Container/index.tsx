@@ -14,7 +14,7 @@ import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/Jot
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
-import { AppStateLockContainer } from './AppStateLockContainer';
+import { AppLockBoundary } from './AppLockBoundary';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
@@ -143,7 +143,7 @@ export function Container() {
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
-        <AppStateLockContainer>
+        <AppLockBoundary>
           {/* Page.Every must register before routers render their active page. */}
           <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
@@ -159,17 +159,17 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-        </AppStateLockContainer>
+        </AppLockBoundary>
       </RootSiblingParent>
     );
   }
   return (
     <RootSiblingParent>
-      <AppStateLockContainer>
+      <AppLockBoundary>
         {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
         <DetailRouter />
-      </AppStateLockContainer>
+      </AppLockBoundary>
     </RootSiblingParent>
   );
 }
