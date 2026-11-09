@@ -178,7 +178,7 @@ it('skips an outpoint another send is spending', async () => {
   expect(getRawTransactions).not.toHaveBeenCalled();
 });
 
-it('preserves coinbase exclusion and reports its balance', async () => {
+it('leaves mining rewards out of the spendable set', async () => {
   const { vault } = createVault({
     parsed: [
       {
@@ -190,7 +190,6 @@ it('preserves coinbase exclusion and reports its balance', async () => {
   });
   const result = await vault['zcashFetchFreshTransparentUtxos']();
   expect(result.utxos).toEqual([]);
-  expect(result.coinbaseZat).toBe(utxo.value);
 });
 
 it.each(['missing', 'amount', 'output'])(

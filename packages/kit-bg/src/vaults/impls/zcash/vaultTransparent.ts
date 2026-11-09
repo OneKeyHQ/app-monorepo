@@ -228,8 +228,6 @@ export async function zcashFetchFreshTransparentUtxos(
   accountIndex: number;
   targetHeight: number;
   utxos: IZcashTransparentTxRequest['utxos'];
-  // Owned mining rewards this build path cannot spend or shield.
-  coinbaseZat: string;
 }> {
   const account =
     options?.account ?? ((await vault.getAccount()) as IDBUtxoAccount);
@@ -363,7 +361,6 @@ export async function zcashFetchFreshTransparentUtxos(
     }
   }
 
-  let coinbaseZat = new BigNumber(0);
   const utxos: IZcashTransparentTxRequest['utxos'] = [];
   for (const { utxo, derivationPath } of candidates) {
     const previous = previousTransactions.get(utxo.txid.toLowerCase());
@@ -382,18 +379,10 @@ export async function zcashFetchFreshTransparentUtxos(
         'Zcash UTXO does not match its previous transaction',
       );
     }
-    const coinbase = previous.isCoinbase;
-    // Mining rewards are real funds this path can't move, so they are reported apart from the spendable set.
-    if (coinbase === true) {
-      try {
-        coinbaseZat = coinbaseZat.plus(utxo.value);
-      } catch {
-        // A malformed value is already excluded from every other total.
-      }
-    }
     const { scriptPubKey } = output;
+    // Mining rewards (or an unknown origin) stay out: this build path cannot spend or shield them.
     if (
-      coinbase !== false ||
+      previous.isCoinbase !== false ||
       !ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE.test(scriptPubKey)
     ) {
       // eslint-disable-next-line no-continue
@@ -426,7 +415,6 @@ export async function zcashFetchFreshTransparentUtxos(
     accountIndex,
     targetHeight,
     utxos,
-    coinbaseZat: coinbaseZat.toFixed(0),
   };
 }
 
