@@ -3,7 +3,7 @@ import { LogToLocal } from '../../../base/decorators';
 import { NO_LOG_OUTPUT } from '../../../types';
 
 type ICardInfo = {
-  hasBackup: boolean;
+  hasBackup: boolean | null;
   isNewCard: boolean;
   serialNum: string;
   pinRetryCount: number;
