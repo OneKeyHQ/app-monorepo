@@ -9841,10 +9841,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/monero-runtime@npm:0.1.0-alpha.12":
-  version: 0.1.0-alpha.12
-  resolution: "@onekeyfe/monero-runtime@npm:0.1.0-alpha.12"
-  checksum: 10/a9e5303f61d9063a59dbdbf43b3d4c07dbe5f7360938d7b0cf3c46b3653653e1a371b1a77c3b68930a51168f8c153918b0532700bd33ca9145756ea5edcd0c58
+"@onekeyfe/monero-runtime@npm:0.1.0-alpha.13":
+  version: 0.1.0-alpha.13
+  resolution: "@onekeyfe/monero-runtime@npm:0.1.0-alpha.13"
+  checksum: 10/09e23bc49aa1eeebaa51d1aec4e67a0ee8e35c7352f4a26d6e1e904405090f150cb0113575acdfb1564a7d3cbe637caf10705302a2dc8c9bebda2222e02d5433
   languageName: node
   linkType: hard
 
@@ -10519,17 +10519,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/zcash-keys@npm:0.1.0-alpha.15":
-  version: 0.1.0-alpha.15
-  resolution: "@onekeyfe/zcash-keys@npm:0.1.0-alpha.15"
-  checksum: 10/a218487d348b02e84985fa725f34ab651093fcf63e859b00454ecdc7377d29928379e0577b950147cf5910e2bf9d0a849fae8dce583c77815730bfabc645007f
+"@onekeyfe/zcash-keys@npm:0.1.0-alpha.16":
+  version: 0.1.0-alpha.16
+  resolution: "@onekeyfe/zcash-keys@npm:0.1.0-alpha.16"
+  checksum: 10/3f94a23c8b55706bcfa242d844bdc5f446837565998fe9a8c1450f75c8550c33be69685ac31547df9d9e9dbde6d3d7c5ad8fc3516370345f7cb1542de481ebd0
   languageName: node
   linkType: hard
 
-"@onekeyfe/zcash-runtime@npm:0.1.0-alpha.15":
-  version: 0.1.0-alpha.15
-  resolution: "@onekeyfe/zcash-runtime@npm:0.1.0-alpha.15"
-  checksum: 10/49a119c5eddc4e65044c87369dbcd866ada85c6ddde2da11c3fd39e9576ac3e9c74bf7ecdc055e0ce0234e9391035febe847fdc737ffdefbb8ac7aca84839e16
+"@onekeyfe/zcash-runtime@npm:0.1.0-alpha.16":
+  version: 0.1.0-alpha.16
+  resolution: "@onekeyfe/zcash-runtime@npm:0.1.0-alpha.16"
+  checksum: 10/79574c5e901d7a8f49465a30a41b8316f02ac07c0a8c00d0a782f640226171fc730658ea0bad704a33a3065e2240f0e52588b8efba46ea98d50be8506183f9c5
   languageName: node
   linkType: hard
 
@@ -10861,9 +10861,9 @@ __metadata:
     "@onekeyfe/coinselect": "npm:3.1.17"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
     "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
-    "@onekeyfe/monero-runtime": "npm:0.1.0-alpha.12"
-    "@onekeyfe/zcash-keys": "npm:0.1.0-alpha.15"
-    "@onekeyfe/zcash-runtime": "npm:0.1.0-alpha.15"
+    "@onekeyfe/monero-runtime": "npm:0.1.0-alpha.13"
+    "@onekeyfe/zcash-keys": "npm:0.1.0-alpha.16"
+    "@onekeyfe/zcash-runtime": "npm:0.1.0-alpha.16"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:1.98.2"
     "@starcoin/starcoin": "npm:^2.3.7"
