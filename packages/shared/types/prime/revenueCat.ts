@@ -9,6 +9,8 @@ export type IRevenueCatAuthContext = {
 
 export type IRevenueCatCustomerInfo = {
   managementURL: string | null;
+  // RevenueCat server time of the response, ISO 8601.
+  requestDate?: string;
   entitlements: {
     active: Record<
       string,
@@ -44,8 +46,14 @@ export type IRevenueCatOfferings = {
   current: { availablePackages: IRevenueCatPackage[] } | null;
 };
 
+export type IRevenueCatStoreTransaction = {
+  // Store charge date of this transaction, ISO 8601.
+  purchaseDate: string;
+};
+
 export type IRevenueCatPurchaseResult = {
   customerInfo: IRevenueCatCustomerInfo;
+  transaction?: IRevenueCatStoreTransaction | null;
 };
 
 export type IRevenueCatRequestMap = {
