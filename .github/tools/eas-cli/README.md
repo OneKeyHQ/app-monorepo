@@ -6,7 +6,7 @@ Expo or signing credentials:
 
 ```sh
 cd .github/tools/eas-cli
-node ../../../.yarn/releases/yarn-4.12.0.cjs install --immutable
+node ../../../.yarn/releases/yarn-4.18.1.cjs install --immutable
 node node_modules/eas-cli/bin/run --version
 ```
 

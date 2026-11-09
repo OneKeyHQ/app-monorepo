@@ -219,7 +219,7 @@ jobs:
 
       - name: Install locked EAS CLI
         working-directory: .github/tools/eas-cli
-        run: node ../../../.yarn/releases/yarn-4.12.0.cjs install --immutable
+        run: node ../../../.yarn/releases/yarn-4.18.1.cjs install --immutable
 
       - name: Build on EAS
         env:
