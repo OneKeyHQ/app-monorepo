@@ -40,6 +40,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -365,6 +369,7 @@ function MobileBrowser() {
       });
       previousDefaultTab.current = defaultTab;
       if (defaultTab === ETranslations.global_market) {
+        markMarketHomeEntry(EMarketHomeEntrySource.Discovery);
         navigation.switchTab(ETabRoutes.Market);
       } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
@@ -430,6 +435,7 @@ function MobileBrowser() {
         showWebPage: event.showWebPage,
       });
       if (event.tab === ETranslations.global_market) {
+        markMarketHomeEntry(EMarketHomeEntrySource.Discovery);
         navigation.switchTab(ETabRoutes.Market);
         return;
       }
