@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -17,6 +18,16 @@ let mockStockTokens = false;
 let mockIncludeNonStockToken = false;
 let mockIsWeb = true;
 let mockIsNative = false;
+let mockIsOverlayPage = false;
+let mockIsFocused = true;
+const mockFocusListeners = new Map<string, () => void>();
+const mockNavigation = {
+  isFocused: () => mockIsFocused,
+  addListener: (event: string, callback: () => void) => {
+    mockFocusListeners.set(event, callback);
+    return () => mockFocusListeners.delete(event);
+  },
+};
 
 it('chooses banner metric columns from the list width', () => {
   expect(resolveBannerDetailColumnMode(767)).toBe('compact');
@@ -48,6 +59,9 @@ jest.mock('@react-navigation/core', () => ({
   }),
 }));
 jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 0 }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => mockNavigation,
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: () => 'Change' }),
 }));
@@ -97,6 +111,8 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     NavBackButton: () => null,
     HeaderButtonGroup: () => null,
+    rootNavigationRef: { current: undefined },
+    useIsOverlayPage: () => mockIsOverlayPage,
     useMedia: () => ({ gtMd: mockWide }),
     useSafeAreaInsets: () => ({ top: 0 }),
   };
@@ -112,6 +128,9 @@ jest.mock(
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   EJotaiContextStoreNames: { marketWatchListV2: 'market' },
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  getRootRoutersLength: () => 1,
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -230,8 +249,43 @@ beforeEach(() => {
   mockWide = false;
   mockIsWeb = true;
   mockIsNative = false;
+  mockIsOverlayPage = false;
+  mockIsFocused = true;
+  mockFocusListeners.clear();
   mockType = EMarketBannerType.Mixed;
 });
+
+it('hides the bottom tab bar while the native banner tab route is focused', () => {
+  mockIsNative = true;
+  mockIsWeb = false;
+  const { unmount } = render(<MarketBannerDetail />);
+  expect(isTabBarHiddenByRequest()).toBe(true);
+
+  mockIsFocused = false;
+  mockFocusListeners.get('blur')?.();
+  expect(isTabBarHiddenByRequest()).toBe(false);
+
+  mockIsFocused = true;
+  mockFocusListeners.get('focus')?.();
+  expect(isTabBarHiddenByRequest()).toBe(true);
+
+  unmount();
+  expect(isTabBarHiddenByRequest()).toBe(false);
+});
+
+it.each([
+  { name: 'web route', isNative: false, isOverlay: false },
+  { name: 'native modal route', isNative: true, isOverlay: true },
+])(
+  'leaves tab bar visibility alone on the $name',
+  ({ isNative, isOverlay }) => {
+    mockIsNative = isNative;
+    mockIsWeb = !isNative;
+    mockIsOverlayPage = isOverlay;
+    render(<MarketBannerDetail />);
+    expect(isTabBarHiddenByRequest()).toBe(false);
+  },
+);
 
 // The mixed banner's spot section is the desktop stock table on wide layouts
 // and the compact stock list on narrow ones.

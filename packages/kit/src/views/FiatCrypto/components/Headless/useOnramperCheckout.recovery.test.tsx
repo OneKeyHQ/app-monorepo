@@ -14,10 +14,22 @@ const mockGetCheckoutRequirements = jest.fn<
 >();
 const mockLog = new Map<string, jest.Mock>();
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    getLocale: () => 'en-US',
+    // Message ids stand in for copy: these tests check which line is shown.
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
-    syncStorage: { getBoolean: () => undefined, set: () => {} },
+    syncStorage: {
+      getString: () => undefined,
+      getBoolean: () => undefined,
+      set: () => {},
+    },
   },
 }));
 
@@ -231,7 +243,7 @@ describe('useOnramperCheckout init recovery', () => {
     expect(mockFetchOnramperSession).toHaveBeenCalledTimes(3);
     expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
     expect(result.current.canRetryInit).toBe(true);
-    expect(result.current.errorMessage).toContain('Initialization failed');
+    expect(result.current.errorMessage).toContain('buy_error_service__msg');
     expect(logged('sessionMintFailed')[2]).toEqual(
       expect.objectContaining({ attempt: 3, retryInMs: undefined }),
     );
