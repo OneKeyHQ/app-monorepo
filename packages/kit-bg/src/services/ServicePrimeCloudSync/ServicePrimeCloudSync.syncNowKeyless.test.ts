@@ -1386,7 +1386,10 @@ describe('download pagination transport', () => {
       });
       jest
         .mocked(primeMasterPasswordPersistAtom.get)
-        .mockResolvedValue({ masterPasswordUUID: 'test-pwd' });
+        .mockResolvedValue({
+          masterPasswordUUID: 'test-pwd',
+          encryptedSecurityPasswordR1: '',
+        });
       jest.spyOn(service, 'getActiveSyncMode').mockResolvedValue(mode);
       const download = jest
         .spyOn(service, 'apiDownloadItemsKeyless')
