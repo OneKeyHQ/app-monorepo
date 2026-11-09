@@ -91,9 +91,10 @@ function buildNoopSyncManager() {
   return {
     buildSyncTargetByDBQuery: jest.fn(async () => ({})),
     buildSyncKeyAndPayload: jest.fn(async () => undefined),
+    buildSyncKeyInfo: jest.fn(async () => undefined),
     buildExistingSyncItemsInfo: jest.fn(async () => ({
-      existingSyncItems: {},
-      newSyncItems: {},
+      existingSyncItems: [],
+      newSyncItems: [],
     })),
     txWithSyncFlowOfDBRecordCreating: jest.fn(
       async ({ runDbTxFn }: { runDbTxFn: () => Promise<void> }) => runDbTxFn(),
@@ -156,6 +157,7 @@ class TestLocalDb extends LocalDbBase {
         syncManagers: {
           wallet: buildNoopSyncManager(),
           account: buildNoopSyncManager(),
+          indexedAccount: buildNoopSyncManager(),
         },
       },
     } as any);

@@ -1269,3 +1269,74 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `localDb.getAccount` throws `OneKeyLocalError('Account not found')` before `getNetworkAccount` can throw `indexedAccounts not found`. The category fetch only treated the latter message as a confirmed empty Perps balance, so the real missing-account error stayed unknown and blocked upload.
 **Fix**: Treat both confirmed local lookup misses as zero Perps equity, and leave other lookup failures unknown. Regression tests cover the uncreated Perps account, the indexed-account miss, and unrelated not-found errors.
 **Catchable by**: Section 4: Business Logic & Regression — trace the thrown error from the missing DB record, not only the error the caller expected; Section 6: A bug fix includes a regression test for the confirmed empty case and for nearby errors that must stay unknown.
+
+## Case: Chart settings dialog flashed on Reset (OK-66403)
+**Date**: 2026-11-05 | **Platforms**: Shared chart settings dialog (Market / Swap / Perps) on Web/Desktop single runtime and extension/iOS/Android main UI; verified on Web. No native resource changes.
+**Symptom**: Pressing Reset in Chart settings made the whole dialog flash: for 2-3 frames every control turned disabled, Confirm showed a spinner and the header close button disappeared.
+**Root Cause**: Reset reused Confirm's `commitValue`, which toggles the dialog-wide submitting state. Persisting local defaults resolves within a frame or two, so the state flipped on and straight back off. The first fix kept controls editable during the save, but `commitSettingsValue()` committed the current draft rather than the persisted defaults, so an edit made before the save resolved was marked as saved and then overwritten by the controlled value refresh.
+**Fix**: Reset persists through `persistValue` without the submitting state, guarded by a ref against repeat presses. `useSettingsDraftValue` now commits the value that was actually persisted and keeps later edits as a dirty draft. Regression tests cover controls staying enabled during Reset, repeat presses, and an edit made before the Reset promise resolves.
+**Catchable by**: Section 5: No race conditions in async operations — when a control stays interactive during an async save, commit the persisted snapshot, not the live draft; Section 8: Manual Verification — record frames after the click when a short-lived busy state could read as a flash.
+
+## Case: Perps indicator reset removed default volume (OK-66449)
+**Date**: 2026-11-06 | **Platforms**: Shared chart UI; verified on Web (single runtime).
+**Symptom**: Resetting Perps Original chart indicators removed VOL instead of restoring it.
+**Root Cause**: Reset used generic inactive indicator defaults without the Perps storage namespace.
+**Fix**: Pass the namespace through reset and enable VOL only for Perps defaults. Regression tests and Web reset/refresh verification cover persistence and unchanged market/swap defaults.
+**Catchable by**: Section 4: Business Logic & Regression — module defaults must survive shared reset flows.
+
+## Case: Empty desktop order headers could not scroll (OK-65891)
+**Date**: 2026-11-06 | **Platforms**: Desktop/Web single runtime; verified in Web.
+**Symptom**: Narrow or zoomed empty order tables clipped rightmost columns with no way to reach them.
+**Root Cause**: The empty state had no body scroller, and the separate header scroller was disabled.
+**Fix**: Enable horizontal header scrolling only for the desktop empty state. Hide the scroll indicator to match the existing table presentation. Web verification covers reaching the final columns while the empty state and fixed actions stay in place.
+**Catchable by**: Section 8: Manual Verification — test empty and populated layouts at constrained widths.
+
+## Case: Historical trade shares skipped current-position leverage (OK-65726)
+**Date**: 2026-11-06 | **Platforms**: Shared main UI on mobile/extension and single-runtime desktop/Web.
+**Symptom**: Share leverage and ROE differed from Hyperliquid when current-position leverage differed from the cached setting.
+**Root Cause**: The lookup started with last-used leverage and omitted the matching current position.
+**Fix**: Prefer account-scoped same-coin position leverage before last-used and maximum-leverage fallbacks. Regression tests cover precedence and unrelated coins. This aligns the accepted Hyperliquid display convention, not historical execution leverage; fills do not provide that field.
+**Catchable by**: Section 4: Data flow end-to-end — verify the reference product's data precedence and distinguish current state from historical facts.
+
+## Case: Perps interval switches remounted the native canvas (OK-65650)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main chart UI and UI worklet; bg is not involved. Direct device verification uses iOS Simulator.
+**Symptom**: Switching intervals briefly blanked the full plot. Retaining the canvas then exposed a fullscreen handoff regression: returning after changing interval reset the adopted viewport again.
+**Root Cause**: The interval in the React key remounted the canvas. The retained inline canvas later compared stale pre-fullscreen props and overwrote the fullscreen runtime after handoff. Price controls also assumed every interval change meant automatic/linear mode.
+**Fix**: Retain the native Perps canvas, reset runtime for a genuinely different interval, and check the actual UI runtime interval after handoff before resetting. Synchronize controls from the runtime's actual scale state. Component lifecycle tests cover candle replacement, ordinary interval reset, and preservation of the fullscreen viewport and price scale. The transient flash has iOS recording evidence; prolonged loading remains unverified. Android jitter (OK-65337) is associated only as a suspected common cause, not a successfully reproduced or verified fix.
+**Catchable by**: Section 5: No stale state after parent transitions — test fullscreen interval changes and exit, including queued UI ownership transfer, rather than only mounting or resizing a canvas.
+
+## Case: Perps showed an extra chart selector while TradingView loaded (OK-66555)
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI; verified on iOS Simulator. No bg or shared native resource changes.
+**Symptom**: Switching from Original to TradingView briefly showed a standalone TradingView dropdown above the loading chart.
+**Root Cause**: The Perps wrapper passed a loading-only chart selector through `mobileToolbarExtra`, outside the normal toolbar readiness visibility gate.
+**Fix**: Remove that extra selector and its import. Keep a settings icon accessible before readiness, with a chart-switch-only menu so stalled or failed TV loading does not trap users. Hide full settings and chart style until readiness. Regression coverage includes a chart that never becomes ready and switching after closing the recovery dialog. iOS verification covers the visible before/after loading state, delayed local chart loading, rendered candles after recovery, and switching back to Original while TV remains stalled; Android device verification remains for QA.
+**Catchable by**: Section 8: Manual Verification — inspect loading and ready states separately when moving controls into a settings menu.
+
+## Case: Lite backup completion outlived its owning dialog
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and asynchronous bg wallet service. The process-owned native NFC operation can finish after the main UI owner unmounts; the two JS heaps are separate.
+**Symptom**: Closing a parent menu cancelled a pending Lite operation. If a native backup then completed, the card could contain the backup while the wallet remained marked unbacked up. Retrying a failed first write could also reuse stale new-card state after PIN initialization.
+**Root Cause**: React parent dismissal unmounted the operation owner, UI cancellation discarded the native result, and retries assumed the first card state was still current.
+**Fix**: Keep the owning parent mounted until the operation settles, settle UI cancellation once, refresh card state on retry, retain card identity and request overwrite confirmation. Persist backup status inside the native write callback only for an error-free true result with the expected serial and captured wallet ID; gate subsequent UI on the owner still being mounted. Focused hook tests cover successful completion after unmount/cancellation and reject errors, false results and other-card results. Physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: Trace native completion through UI cancellation and bg persistence; test an owner unmount before native success and stale card state after a failed first write.
+
+## Case: Closing a lower iOS dialog blurred an independent upper overlay
+**Date**: 2026-11-06 | **Platforms**: iOS main UI runtime and process-owned native overlay windows. Android and Web/Desktop keyboard behavior is unchanged.
+**Symptom**: Closing a lower dialog dismissed the keyboard and blurred an input in an independent upper overlay window.
+**Root Cause**: Both dialog close paths requested a delayed global keyboard dismissal, which could target another native window's first responder after the lower dialog closed.
+**Fix**: Skip the two global keyboard dismissals on iOS and let the closing entry release its own input. Add independent overlay, handoff and reopening scenarios to the existing Gallery. Focused dialog tests check both close paths on iOS and retain non-iOS dismissal. Native/device keyboard acceptance remains open.
+**Catchable by**: Sections 3, 5 and 8: Check global input side effects against independently owned windows and verify focus while closing a lower overlay with an upper input active.
+
+
+## Case: Lite PIN changes checked card identity after mutation
+**Date**: 2026-11-06 | **Platforms**: iOS/Android main UI runtime and process-owned native NFC operation; no bg heap sharing is assumed.
+**Symptom**: Verifying the old PIN on card A and presenting card B with the same PIN could change B's PIN before the App reported a card mismatch.
+**Root Cause**: The native changePin call did not receive the verified serial; the App's result handler compared card identity only after the write.
+**Fix**: Forward the verified serial to the SDK. On Android, validate the acquired card state and mutate through the same connection. On iOS, refresh card identity before PIN dispatch and claim the pending completion with its identity snapshot so a late connection after cancellation cannot become unguarded. Reuse DeviceMismatch and require native rebuilds. Focused App, wrapper and native host regressions cover forwarding, mismatch rejection, V1/V2 and cancellation; physical-card acceptance remains open.
+**Catchable by**: Sections 4-6: A device identity used to authorize mutation must be checked before the mutation on the same native resource; result validation alone cannot undo a wrong-device write.
+
+## Case: Email signup rejection disappeared with the Toast and hid later OTP errors (OK-65956)
+**Date**: 2026-11-06 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI; the error metadata also survives background bridge serialization. No native resource ownership changes.
+**Symptom**: New email users could miss the signup-disabled Toast while checking their inbox. Persisting the existing-account guidance in the verification error slot then hid invalid-code and network errors when users submitted an earlier OTP.
+**Root Cause**: The OTP request wrapper discarded the SDK error code, and failed sends reset the inline error state. The initial persistent-guidance implementation prioritized the send rejection over independent verification failures.
+**Fix**: Preserve the exact Supabase code in local error metadata, retain the existing Toast, and render the existing localized signup guidance independently from verification errors. Keep the guidance during edits and failed retries; clear it on successful send/login or a new email, configuration, or sign-in method. Regression tests cover structured matching, serialization, both visible errors, editing only the verification error away, recovery, and stale requests. Real-client acceptance remains open.
+**Catchable by**: Sections 4-6: Trace structured errors through wrappers to the UI and test sequential failures from different operations; retaining one diagnostic must not hide another operation's actionable error.

@@ -4614,6 +4614,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     names,
     skipIfExists,
     applyRestoreSyncPolicy,
+    walletSnapshot,
   }: {
     walletId: string;
     indexes: number[];
@@ -4622,10 +4623,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
     applyRestoreSyncPolicy?: boolean;
+    walletSnapshot?: { wallet: IDBWallet; device: IDBDevice };
   }): Promise<IIndexedAccountsCreationPreparedData> {
     this.validateIndexedAccountWalletId({ walletId });
 
-    const dbWallet = await this.getWallet({ walletId });
+    const dbWallet =
+      walletSnapshot?.wallet ?? (await this.getWallet({ walletId }));
+    if (dbWallet.id !== walletId) {
+      throw new OneKeyLocalError('Indexed account wallet snapshot mismatch');
+    }
 
     const accountDefaultNameMap: {
       [indexedAccountId: string]: string;
@@ -4685,10 +4691,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       };
     }
 
-    let dbDevice: IDBDevice | undefined;
+    let dbDevice: IDBDevice | undefined = walletSnapshot?.device;
     if (
-      accountUtils.isHwWallet({ walletId }) ||
-      accountUtils.isQrWallet({ walletId })
+      !dbDevice &&
+      (accountUtils.isHwWallet({ walletId }) ||
+        accountUtils.isQrWallet({ walletId }))
     ) {
       const deviceId = dbWallet.associatedDevice;
       if (deviceId) {
@@ -7514,6 +7521,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         },
       });
 
+    // The wallet is not persisted yet. Prepare its first account from the
+    // same snapshot so Cloud credentials and crypto never suspend the tx.
+    const firstIndexedAccountPrepared = isMockedStandardHwWallet
+      ? undefined
+      : await this.prepareIndexedAccountsCreationData({
+          walletId: dbWalletId,
+          indexes: [firstAccountIndex],
+          // Prepare even an existing first account: it may be deleted before
+          // the tx, whose own recheck still skips records that remain present.
+          skipIfExists: false,
+          walletSnapshot: {
+            wallet: {
+              ...existingWallet,
+              ...walletToAdd,
+              xfp: xfp || existingWallet?.xfp,
+            },
+            device: deviceToAddHydrated,
+          },
+        });
+
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await syncManager.txWithSyncFlowOfDBRecordCreating({
         tx,
@@ -7631,6 +7658,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               walletId: dbWalletId,
               onlyAddFirst: true,
               skipServerSyncFlow: false,
+              expectedIndex: firstAccountIndex,
+              prepared: firstIndexedAccountPrepared,
             });
             addedHdAccountIndex = nextIndex;
           }

@@ -202,6 +202,7 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('ignores an older successful request after a newer invalid key completes', async () => {
+    jest.useFakeTimers();
     let resolveOld!: (value: IGeneralInputValidation) => void;
     mockValidatePublicKey.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -213,11 +214,18 @@ describe('useImportAddressForm effective import method', () => {
       result.current.setMethod(EImportMethod.PublicKey);
       result.current.form.setValue('publicKeyValue', 'first-key');
     });
-    await waitFor(() => expect(mockValidatePublicKey).toHaveBeenCalledTimes(1));
+    // Drive each debounce explicitly; runner load must not decide whether
+    // the newer validation finishes before waitFor's wall-clock timeout.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(1);
     act(() => result.current.form.setValue('publicKeyValue', 'invalid-key'));
-    await waitFor(() =>
-      expect(result.current.validateResult?.isValid).toBe(false),
-    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(2);
+    expect(result.current.validateResult?.isValid).toBe(false);
     await act(async () => resolveOld({ isValid: true }));
     expect(result.current.isEnable).toBe(false);
     expect(result.current.validateResult?.isValid).toBe(false);

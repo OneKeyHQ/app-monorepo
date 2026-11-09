@@ -10,6 +10,7 @@ export enum EUpdateErrorCode {
   integrityFailed = 'INTEGRITY_FAILED',
   incompatible = 'INCOMPATIBLE',
   installFailed = 'INSTALL_FAILED',
+  installLocation = 'INSTALL_LOCATION',
   cancelled = 'CANCELLED',
   unknown = 'UNKNOWN',
   invalidArgument = 'INVALID_ARGUMENT',

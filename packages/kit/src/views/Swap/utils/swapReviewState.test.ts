@@ -759,6 +759,70 @@ describe('resolveSwapReviewResultStep', () => {
     });
   });
 
+  it('reports a retryable approval error before the final step', () => {
+    const failedApproval = {
+      ...approveStep,
+      status: ESwapStepStatus.FAILED,
+      errorMessage: 'Enable Passphrase on your device',
+    };
+    expect(resolveSwapReviewResultStep([failedApproval, sendStep])).toEqual({
+      resultStep: failedApproval,
+      showResultContent: true,
+    });
+    expect(
+      resolveSwapReviewResultStep([approveStep, failedApproval, sendStep]),
+    ).toEqual({ resultStep: failedApproval, showResultContent: true });
+  });
+
+  it('keeps the review for an approval failure without an error or retry', () => {
+    for (const failedApproval of [
+      { ...approveStep, status: ESwapStepStatus.FAILED },
+      {
+        ...approveStep,
+        status: ESwapStepStatus.FAILED,
+        errorMessage: 'error',
+        canRetry: false,
+      },
+    ]) {
+      expect(resolveSwapReviewResultStep([failedApproval, sendStep])).toEqual({
+        resultStep: sendStep,
+        showResultContent: false,
+      });
+    }
+  });
+
+  it('keeps the final result authoritative after the swap has progressed', () => {
+    const failedApproval = {
+      ...approveStep,
+      status: ESwapStepStatus.FAILED,
+      errorMessage: 'error',
+    };
+    for (const status of [
+      ESwapStepStatus.PENDING,
+      ESwapStepStatus.SUCCESS,
+      ESwapStepStatus.FAILED,
+    ]) {
+      const finalStep = { ...sendStep, status };
+      expect(resolveSwapReviewResultStep([failedApproval, finalStep])).toEqual({
+        resultStep: finalStep,
+        showResultContent: true,
+      });
+    }
+    for (const status of [
+      ESwapStepStatus.LOADING,
+      ESwapStepStatus.PENDING,
+      ESwapStepStatus.SUCCESS,
+    ]) {
+      expect(
+        resolveSwapReviewResultStep([
+          failedApproval,
+          { ...approveStep, status },
+          sendStep,
+        ]),
+      ).toEqual({ resultStep: sendStep, showResultContent: false });
+    }
+  });
+
   it('reports a nonfinal result-unknown step even though later steps are READY', () => {
     // OK-64746: the sponsored approve may already be on chain; the review is
     // over, so the user must see the check-activity result and Done rather
@@ -773,6 +837,14 @@ describe('resolveSwapReviewResultStep', () => {
       resultStep: unknownApprove,
       showResultContent: true,
     });
+    const failedApproval = {
+      ...approveStep,
+      status: ESwapStepStatus.FAILED,
+      errorMessage: 'error',
+    };
+    expect(
+      resolveSwapReviewResultStep([failedApproval, unknownApprove, sendStep]),
+    ).toEqual({ resultStep: unknownApprove, showResultContent: true });
   });
 });
 

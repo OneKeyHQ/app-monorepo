@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { getNativeListTokenFallback } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
 import type { INativeListTokenFallbackTheme } from '@onekeyhq/kit/src/components/Token/nativeListTokenFallback';
+import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -59,6 +60,9 @@ function formatSwapListAmount(
   return { text: segments.map((part) => part.text).join(''), segments };
 }
 
+// NativeList applies this inset to the rows and to its header and empty slots.
+export const SWAP_TOKEN_LIST_CONTENT_INSET = 8;
+
 export function buildSwapTokenNativeListSnapshot({
   tokens,
   theme,
@@ -102,7 +106,7 @@ export function buildSwapTokenNativeListSnapshot({
         heightRounding: 'nearest',
         pressDisabled: true,
         style: {
-          horizontalPadding: isDesktopSelector ? 12 : 20,
+          horizontalPadding: 12,
           title: {
             fontSize: 14,
             lineHeight: 20,
@@ -143,7 +147,7 @@ export function buildSwapTokenNativeListSnapshot({
             borderWidth: warningBorderWidth,
             borderColor: theme.separator,
           },
-          horizontalPadding: 20,
+          horizontalPadding: isDesktopSelector ? 20 : 12,
           verticalPadding: 14,
           leadingGap: 8,
           image: { width: 20, height: 20 },
@@ -243,8 +247,8 @@ export function buildSwapTokenNativeListSnapshot({
         },
       ],
       style: {
-        ...(isDesktopSelector ? { container: { cornerRadius: 12 } } : {}),
-        horizontalPadding: isDesktopSelector ? 12 : 20,
+        container: TOKEN_ROW_CONTAINER_STYLE,
+        horizontalPadding: 12,
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },
@@ -264,7 +268,7 @@ export function buildSwapTokenNativeListSnapshot({
       generation: 1,
       layout: {
         kind: 'linear',
-        contentPaddingHorizontal: isDesktopSelector ? 8 : 0,
+        contentPaddingHorizontal: SWAP_TOKEN_LIST_CONTENT_INSET,
       },
       selection: { mode: 'none', selectedKeys: [] },
       theme,

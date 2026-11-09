@@ -80,9 +80,7 @@ describe('Swap NativeList row adapter', () => {
         (item) => item.type === 'sectionHeader',
       );
       expect(section?.style?.horizontalPadding).toBe(padding);
-      expect(row?.style?.container?.cornerRadius).toBe(
-        isDesktopSelector ? 12 : undefined,
-      );
+      expect(row?.style?.container?.cornerRadius).toBe(12);
     },
   );
 

@@ -163,7 +163,7 @@ beforeEach(() => {
   mockAddresses = { publicAddress: OWN_T, privateAddress: OWN_UA };
 });
 
-it('names own notes by pool unless the note names the displayed address', async () => {
+it('labels own notes as private unless the note names the displayed address', async () => {
   mockDetails = {
     inputOutputSource: 'account',
     sends: [entry({ poolId: 4, isOwn: true })],
@@ -184,6 +184,7 @@ it('names own notes by pool unless the note names the displayed address', async 
   const text = result.container.textContent ?? '';
   expect(text).not.toContain(DIVERSIFIED);
   expect(text).toContain(RECIPIENT);
+  expect(text).not.toContain('Sapling');
   expect(result.getAllByText(OWN_UA)).toHaveLength(1);
   // The Ironwood spend, the hidden change and the Sapling note.
   expect(result.getAllByText(PRIVATE)).toHaveLength(3);

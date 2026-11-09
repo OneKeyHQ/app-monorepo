@@ -113,6 +113,7 @@ import {
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
 import {
+  isTransientLandscapePageLayout,
   shouldShowMobileNativeChart,
   shouldShowMobileSimpleChart,
 } from './mobileChartVisibility';
@@ -734,14 +735,25 @@ export function MobileLayout({
   const preserveInlineViewport =
     preservesPortraitLayout &&
     (isChartFullscreen || windowWidth > windowHeight);
+  // Android: set while the native chart fullscreen rotates the window. Keep the
+  // page's portrait measurements through those rotations only; the window can
+  // also be landscape on its own, e.g. in split screen.
+  const isChartRotatingWindowRef = useRef(false);
+  const handleChartWindowRotationChange = useCallback((isRotating: boolean) => {
+    isChartRotatingWindowRef.current = isRotating;
+  }, []);
 
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       if (
         preserveInlineViewport ||
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -774,9 +786,13 @@ export function MobileLayout({
         (preservesAndroidTabHeight && Keyboard.isVisible()) ||
         preserveInlineViewport ||
         // A queued landscape layout can arrive after Dimensions is portrait.
-        (preservesPortraitLayout &&
-          Math.round(event.nativeEvent.layout.width) >
-            Math.round(Math.min(windowWidth, windowHeight)))
+        isTransientLandscapePageLayout({
+          keepsPortraitLayout:
+            preservesPortraitLayout || isChartRotatingWindowRef.current,
+          layoutWidth: event.nativeEvent.layout.width,
+          windowHeight,
+          windowWidth,
+        })
       ) {
         return;
       }
@@ -793,8 +809,8 @@ export function MobileLayout({
     [
       pageViewportCacheKey,
       preserveInlineViewport,
-      preservesPortraitLayout,
       preservesAndroidTabHeight,
+      preservesPortraitLayout,
       usesMeasuredPageViewport,
       windowHeight,
       windowWidth,
@@ -1037,6 +1053,9 @@ export function MobileLayout({
                         }
                         onChartSwitch={onChartSwitch}
                         onNativeChartFullscreenChange={onChartFullscreenChange}
+                        onNativeChartWindowRotationChange={
+                          handleChartWindowRotationChange
+                        }
                       />
                     ) : (
                       // Same controls row + masked canvas the chart mounts with.
@@ -1131,6 +1150,7 @@ export function MobileLayout({
     chartHeaderLogoUrl,
     chartHeaderSymbol,
     detailKind,
+    handleChartWindowRotationChange,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
     handleNativeChartPriceUpdate,

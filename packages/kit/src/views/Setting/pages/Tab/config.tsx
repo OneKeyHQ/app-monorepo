@@ -63,6 +63,7 @@ import { useLanguageSearchKeywords } from '../../hooks/useLocaleOptions';
 import { SettingTestIDs, settingsSidebarTabTestID } from '../../testIDs';
 
 import {
+  AutoDownloadAppUpdateListItem,
   AutoLockListItem,
   BTCFreshAddressListItem,
   BiologyAuthListItem,
@@ -960,6 +961,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ListVersionItem />,
             },
+            platformEnv.isDesktop && !platformEnv.isDesktopStore
+              ? {
+                  id: 'auto-download-app-update',
+                  icon: 'FileDownloadOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.app_update_auto_download__desc,
+                  }),
+                  renderElement: <AutoDownloadAppUpdateListItem />,
+                }
+              : undefined,
           ],
           [
             {

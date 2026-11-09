@@ -19,6 +19,7 @@ import {
   ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapStep } from '@onekeyhq/shared/types/swap/types';
 
 import type { ISwapReviewState } from '../../utils/swapReviewState';
 
@@ -123,7 +124,20 @@ jest.mock('../../utils/swapReviewState', () => ({
 }));
 jest.mock('../../components/PreSwapConfirmResult', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({
+    lastStep,
+    onConfirm,
+  }: {
+    lastStep: ISwapStep;
+    onConfirm: () => void;
+  }) => (
+    <div data-testid="swap-review-result">
+      <span>{lastStep.errorMessage}</span>
+      <button type="button" onClick={onConfirm}>
+        result-action
+      </button>
+    </div>
+  ),
 }));
 jest.mock('../../components/PreSwapInfoGroup', () => ({
   __esModule: true,
@@ -269,6 +283,93 @@ function createSession() {
     session: createSwapReviewAnalytics({ logger, clock: () => 0 }),
   };
 }
+
+describe('PreSwapDialogContent approval failure result', () => {
+  it('shows the failed approval and retries it without closing the review', () => {
+    const initial = makeState();
+    initial.preSwapData.supportPreBuild = false;
+    initial.steps = [
+      {
+        type: ESwapStepType.APPROVE_TX,
+        status: ESwapStepStatus.SUCCESS,
+        isResetApprove: true,
+        canRetry: true,
+      },
+      {
+        type: ESwapStepType.APPROVE_TX,
+        status: ESwapStepStatus.FAILED,
+        errorMessage: 'Enable Passphrase',
+        canRetry: true,
+      },
+      { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+    ];
+    const onDone = jest.fn();
+    const onConfirm = jest.fn(() => {
+      mockSetReviewState((prev) => ({
+        ...prev,
+        steps: prev.steps.map((step, index) =>
+          index === 1 ? { ...step, status: ESwapStepStatus.LOADING } : step,
+        ),
+      }));
+    });
+    render(
+      <StateProvider initialState={initial}>
+        <PreSwapDialogContent
+          onConfirm={onConfirm}
+          onDone={onDone}
+          preSwapBeforeStepActions={jest.fn()}
+          preSwapStepsStart={jest.fn()}
+        />
+      </StateProvider>,
+    );
+
+    expect(screen.getByText('Enable Passphrase')).toBeTruthy();
+    fireEvent.click(screen.getByText('result-action'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('swap-review-result')).toBeNull();
+  });
+
+  it.each([
+    { unknown: true, type: ESwapStepType.APPROVE_TX },
+    { unknown: false, type: ESwapStepType.SEND_TX },
+  ])(
+    'keeps the existing done action for $type (unknown=$unknown)',
+    ({ unknown, type }) => {
+      const initial = makeState();
+      initial.preSwapData.supportPreBuild = false;
+      const failedStep = {
+        type,
+        status: ESwapStepStatus.FAILED,
+        errorMessage: 'Failure',
+        submitResultUnknown: unknown,
+        canRetry: !unknown,
+      };
+      initial.steps = unknown
+        ? [
+            failedStep,
+            { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+          ]
+        : [failedStep];
+      const onConfirm = jest.fn();
+      const onDone = jest.fn();
+      render(
+        <StateProvider initialState={initial}>
+          <PreSwapDialogContent
+            onConfirm={onConfirm}
+            onDone={onDone}
+            preSwapBeforeStepActions={jest.fn()}
+            preSwapStepsStart={jest.fn()}
+          />
+        </StateProvider>,
+      );
+
+      fireEvent.click(screen.getByText('result-action'));
+      expect(onDone).toHaveBeenCalledTimes(1);
+      expect(onConfirm).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe('PreSwapDialogContent analytics integration', () => {
   it.each([

@@ -186,6 +186,8 @@ export type IPrimeInfiniPendingPaymentLookup = {
   authContext: IPrimeInfiniCheckoutAuthContext;
   // Unavailable discovery requires a risk warning, not a claim of no old order.
   status?: 'unavailable';
+  // Multiple known orders require a warning without selecting a recovery candidate.
+  hasPendingPayments?: boolean;
   pendingPayment?: {
     paymentId?: string;
     payment?: IPrimeInfiniPayment;

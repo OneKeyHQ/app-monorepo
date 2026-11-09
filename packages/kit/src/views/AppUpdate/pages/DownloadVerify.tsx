@@ -141,6 +141,7 @@ function DownloadVerify({
           setIsInstalling(false);
         }, 350);
       },
+      { userInitiated: true, installSource: 'legacy' },
     );
   }, [installPackage, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];

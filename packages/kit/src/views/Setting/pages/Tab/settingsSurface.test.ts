@@ -2,6 +2,7 @@ import {
   isVisibleSubSettingsItem,
   resolveSettingsHeaderBackgroundTokenKey,
   resolveSettingsPageBackgroundTokenKey,
+  resolveSettingsRowHoverMaskColor,
   resolveSettingsSectionPresentation,
   resolveSettingsSectionSurface,
 } from './settingsSurface';
@@ -190,4 +191,18 @@ describe('resolveSettingsSectionSurface', () => {
       expect(resolveSettingsSectionSurface(presentation)).toEqual(expected);
     },
   );
+});
+
+describe('resolveSettingsRowHoverMaskColor', () => {
+  it('maps theme tokens to their CSS variables', () => {
+    expect(resolveSettingsRowHoverMaskColor('$bgApp')).toBe('var(--bgApp)');
+  });
+
+  it('keeps raw colors unchanged', () => {
+    expect(resolveSettingsRowHoverMaskColor('#fff')).toBe('#fff');
+  });
+
+  it('skips non-string backgrounds', () => {
+    expect(resolveSettingsRowHoverMaskColor(undefined)).toBeUndefined();
+  });
 });

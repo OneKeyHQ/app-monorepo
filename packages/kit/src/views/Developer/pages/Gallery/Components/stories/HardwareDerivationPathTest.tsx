@@ -6,6 +6,7 @@ import {
   Button,
   Dialog,
   Input,
+  Page,
   ScrollView,
   Select,
   SizableText,
@@ -28,7 +29,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-export function HardwareDerivationPathTest() {
+export function HardwareDerivationPathTest({
+  asPage = false,
+}: {
+  asPage?: boolean;
+}) {
   const intl = useIntl();
   const [connectId, setConnectId] = useState('');
   const [path, setPath] = useState(HARDWARE_PATH_TEST_PRESETS[0].path);
@@ -109,15 +114,69 @@ export function HardwareDerivationPathTest() {
     }
   };
 
+  const title = intl.formatMessage({ id: ETranslations.dev_hw_path__title });
+  const results = (
+    <SizableText size="$bodySm" selectable testID="hardware-path-results">
+      {reports.join('\n\n') ||
+        intl.formatMessage({ id: ETranslations.dev_hw_path_results__msg })}
+    </SizableText>
+  );
+  const actions = (
+    <YStack gap="$2" testID="hardware-path-actions">
+      <XStack gap="$2">
+        <Button
+          variant="primary"
+          disabled={busy || !connectId || !path.trim()}
+          onPress={run}
+          testID="hardware-path-run"
+        >
+          {intl.formatMessage({ id: ETranslations.global_test })}
+        </Button>
+        <Button
+          disabled={!busy}
+          onPress={() =>
+            backgroundApiProxy.serviceDevSetting.cancelHardwareDerivationPathTest(
+              testId.current,
+            )
+          }
+        >
+          {intl.formatMessage({ id: ETranslations.global_cancel })}
+        </Button>
+      </XStack>
+      <XStack gap="$2">
+        <Button
+          size="small"
+          disabled={!reports.length}
+          onPress={() => copyText(reports.join('\n\n'))}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+        <Button size="small" disabled={busy} onPress={() => setReports([])}>
+          {intl.formatMessage({ id: ETranslations.global_clear })}
+        </Button>
+      </XStack>
+    </YStack>
+  );
+
   if (platformEnv.isExtension) {
-    return (
+    const unsupported = (
       <SizableText>
         {intl.formatMessage({ id: ETranslations.dev_hw_path_platform__msg })}
       </SizableText>
     );
+    return asPage ? (
+      <Page>
+        <Page.Header title={title} />
+        <Page.Body px="$5" py="$4">
+          {unsupported}
+        </Page.Body>
+      </Page>
+    ) : (
+      unsupported
+    );
   }
 
-  return (
+  const form = (
     <YStack gap="$3" testID="hardware-path-test">
       <SizableText size="$bodySm" color="$textSubdued">
         {intl.formatMessage({
@@ -171,19 +230,36 @@ export function HardwareDerivationPathTest() {
         onChange={setSignType}
       />
       <XStack gap="$2" flexWrap="wrap">
-        {HARDWARE_PATH_TEST_PRESETS.map((preset) => (
-          <Button
-            key={preset.path}
-            size="small"
-            disabled={busy}
-            variant={path === preset.path ? 'primary' : 'secondary'}
-            onPress={() => setPath(preset.path)}
-          >
-            {'labelKey' in preset
-              ? intl.formatMessage({ id: preset.labelKey }, preset.values)
-              : preset.label}
-          </Button>
-        ))}
+        {HARDWARE_PATH_TEST_PRESETS.map((preset, index) => {
+          const button = (
+            <Button
+              key={preset.path}
+              size="small"
+              disabled={busy}
+              variant={path === preset.path ? 'primary' : 'secondary'}
+              onPress={() => setPath(preset.path)}
+              testID={`hardware-path-preset-${index}`}
+            >
+              {'labelKey' in preset
+                ? intl.formatMessage({ id: preset.labelKey }, preset.values)
+                : preset.label}
+            </Button>
+          );
+          return index < 2 ? (
+            <YStack key={preset.path} gap="$1" width="100%">
+              {button}
+              <SizableText
+                size="$bodySm"
+                selectable
+                testID={`hardware-path-default-${index}`}
+              >
+                {preset.path}
+              </SizableText>
+            </YStack>
+          ) : (
+            button
+          );
+        })}
       </XStack>
       <SizableText>
         {intl.formatMessage({ id: ETranslations.global_derivation_path })}
@@ -196,44 +272,30 @@ export function HardwareDerivationPathTest() {
         testID="hardware-path-input"
       />
       <SizableText size="$bodySm">{HARDWARE_PATH_TEST_MESSAGE}</SizableText>
-      <XStack gap="$2">
-        <Button
-          variant="primary"
-          disabled={busy || !connectId || !path.trim()}
-          onPress={run}
-          testID="hardware-path-run"
-        >
-          {intl.formatMessage({ id: ETranslations.global_test })}
-        </Button>
-        <Button
-          disabled={!busy}
-          onPress={() =>
-            backgroundApiProxy.serviceDevSetting.cancelHardwareDerivationPathTest(
-              testId.current,
-            )
-          }
-        >
-          {intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
-      </XStack>
-      <XStack gap="$2">
-        <Button
-          size="small"
-          disabled={!reports.length}
-          onPress={() => copyText(reports.join('\n\n'))}
-        >
-          {intl.formatMessage({ id: ETranslations.global_copy })}
-        </Button>
-        <Button size="small" disabled={busy} onPress={() => setReports([])}>
-          {intl.formatMessage({ id: ETranslations.global_clear })}
-        </Button>
-      </XStack>
-      <ScrollView maxHeight={300}>
-        <SizableText size="$bodySm" selectable testID="hardware-path-results">
-          {reports.join('\n\n') ||
-            intl.formatMessage({ id: ETranslations.dev_hw_path_results__msg })}
-        </SizableText>
-      </ScrollView>
+      {asPage ? results : <ScrollView maxHeight={300}>{results}</ScrollView>}
     </YStack>
   );
+
+  return asPage ? (
+    <Page scrollEnabled>
+      <Page.Header title={title} />
+      <Page.Body px="$5" py="$4">
+        {form}
+      </Page.Body>
+      <Page.Footer>
+        <YStack px="$5" py="$3" bg="$bgApp">
+          {actions}
+        </YStack>
+      </Page.Footer>
+    </Page>
+  ) : (
+    <YStack gap="$3">
+      {form}
+      {actions}
+    </YStack>
+  );
+}
+
+export default function HardwareDerivationPathTestPage() {
+  return <HardwareDerivationPathTest asPage />;
 }

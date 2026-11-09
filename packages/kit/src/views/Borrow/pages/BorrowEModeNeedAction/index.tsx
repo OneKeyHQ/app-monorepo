@@ -339,6 +339,7 @@ function BorrowEModeNeedActionView() {
     networkId,
     provider,
     marketAddress,
+    providerLogoURI,
     targetEModeId,
     categoryLabel,
   } = route.params;
@@ -379,6 +380,7 @@ function BorrowEModeNeedActionView() {
     accountId,
     provider,
     marketAddress,
+    providerLogoURI,
     targetEModeId,
     onAllDone: () => navigation.popStack(),
   });

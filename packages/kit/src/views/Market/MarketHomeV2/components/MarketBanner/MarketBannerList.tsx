@@ -76,6 +76,7 @@ function BannerContainerDesktop({
   itemCount,
   hidden = false,
   divided,
+  compactTopSpacing,
 }: {
   children: ReactNode;
   itemCount: number;
@@ -83,11 +84,16 @@ function BannerContainerDesktop({
   // True when every card renders token previews, which desktop web separates
   // with dividers.
   divided: boolean;
+  compactTopSpacing?: boolean;
 }) {
   if (!platformEnv.isNative) {
     // Web never renders a hidden desktop banner; it unmounts the row instead.
     return (
-      <MarketBannerDesktopScroller itemCount={itemCount} divided={divided}>
+      <MarketBannerDesktopScroller
+        itemCount={itemCount}
+        divided={divided}
+        compactTopSpacing={compactTopSpacing}
+      >
         {children}
       </MarketBannerDesktopScroller>
     );
@@ -112,8 +118,10 @@ function BannerContainerDesktop({
 
 function MarketBannerListSkeletonComponent({
   isSmallScreen,
+  compactTopSpacing,
 }: {
   isSmallScreen: boolean;
+  compactTopSpacing?: boolean;
 }) {
   const skeletonCount = isSmallScreen ? 3 : 7;
   const skeletonItems = Array.from({ length: skeletonCount }, (_, i) => (
@@ -125,7 +133,11 @@ function MarketBannerListSkeletonComponent({
   }
 
   return (
-    <BannerContainerDesktop itemCount={skeletonCount} divided>
+    <BannerContainerDesktop
+      itemCount={skeletonCount}
+      divided
+      compactTopSpacing={compactTopSpacing}
+    >
       {skeletonItems}
     </BannerContainerDesktop>
   );
@@ -133,7 +145,11 @@ function MarketBannerListSkeletonComponent({
 
 const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
 
-function MarketBannerListComponent() {
+function MarketBannerListComponent({
+  compactTopSpacing,
+}: {
+  compactTopSpacing?: boolean;
+}) {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
   const { bannerList, isLoading, isFetched } = useMarketBannerState();
@@ -158,7 +174,12 @@ function MarketBannerListComponent() {
   // Skip skeleton on re-fetch to avoid header height flicker when
   // navigating back with no banners.
   if (isLoading && !isFetched) {
-    return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
+    return (
+      <MarketBannerListSkeleton
+        isSmallScreen={isSmallScreen}
+        compactTopSpacing={compactTopSpacing}
+      />
+    );
   }
 
   const hidden = bannerList.length === 0;
@@ -196,13 +217,23 @@ function MarketBannerListComponent() {
       itemCount={bannerItems.length}
       hidden={hidden}
       divided={isDividedList}
+      compactTopSpacing={compactTopSpacing}
     >
       {bannerItems}
     </BannerContainerDesktop>
   );
 }
 
-export const MarketBannerList = memo(function MarketBannerList() {
+export const MarketBannerList = memo(function MarketBannerList({
+  compactTopSpacing,
+}: {
+  compactTopSpacing?: boolean;
+}) {
   const { scope } = useMarketBannerState();
-  return <MarketBannerListComponent key={scope} />;
+  return (
+    <MarketBannerListComponent
+      key={scope}
+      compactTopSpacing={compactTopSpacing}
+    />
+  );
 });

@@ -1,11 +1,16 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  IPerpsAssetPosition,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useShareTradeHistory } from './useShareTradeHistory';
 
 const mockShowPositionShare = jest.fn();
+let mockPositions: IPerpsAssetPosition[] = [];
+let mockLastUsedLeverage: Record<string, number> = { ETH: 10 };
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -13,9 +18,18 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAssetAtom: () => [{}],
-  usePerpsLastUsedLeverageAtom: () => [{ ETH: 10 }],
+  usePerpsLastUsedLeverageAtom: () => [mockLastUsedLeverage],
   useSpotPairDisplayMapAtom: () => [{}],
 }));
+jest.mock('./usePerpsAccountScopedActivePositions', () => ({
+  usePerpsAccountScopedActivePositions: () => mockPositions,
+}));
+
+beforeEach(() => {
+  mockPositions = [];
+  mockLastUsedLeverage = { ETH: 10 };
+  mockShowPositionShare.mockClear();
+});
 jest.mock('./useShowPositionShare', () => ({
   useShowPositionShare: () => ({ showPositionShare: mockShowPositionShare }),
 }));
@@ -95,6 +109,56 @@ it.each([
         pnl,
         pnlPercent,
       }),
+    );
+  },
+);
+
+it.each([
+  { positionCoin: 'ETH', leverage: 40, pnlPercent: '360.00' },
+  { positionCoin: 'BTC', leverage: 17, pnlPercent: '153.00' },
+])(
+  'uses only the matching current position before cached leverage ($positionCoin)',
+  async ({ positionCoin, leverage, pnlPercent }) => {
+    mockLastUsedLeverage = { ETH: 17 };
+    mockPositions = [
+      {
+        type: 'oneWay',
+        position: {
+          coin: positionCoin,
+          leverage: { type: 'cross', value: 40 },
+          szi: '1',
+          entryPx: '100',
+          positionValue: '110',
+          unrealizedPnl: '10',
+          returnOnEquity: '4',
+          liquidationPx: null,
+          marginUsed: '2.5',
+          maxLeverage: 50,
+          cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+        },
+      },
+    ];
+    const fill: IFill = {
+      coin: 'ETH',
+      dir: 'Close Long',
+      side: 'A',
+      px: '110',
+      sz: '1',
+      startPosition: '2',
+      closedPnl: '10',
+      time: 1_800_000_000_000,
+      hash: '0x1234',
+      oid: 1,
+      tid: 1,
+      crossed: false,
+      fee: '1',
+      feeToken: 'USDC',
+      twapId: null,
+    };
+    const { result } = renderHook(() => useShareTradeHistory());
+    await act(async () => result.current(fill));
+    expect(mockShowPositionShare).toHaveBeenCalledWith(
+      expect.objectContaining({ leverage, pnlPercent, pnl: '9' }),
     );
   },
 );

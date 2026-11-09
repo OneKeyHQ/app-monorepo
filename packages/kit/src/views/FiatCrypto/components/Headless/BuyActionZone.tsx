@@ -32,6 +32,14 @@ type IProps = {
   errorText?: string;
   onMockPay: () => void;
   onRetry: () => void;
+  // Set when the failure on screen left the payment outcome unknown: the
+  // retry gives way to opening that order, so a second payment is never one
+  // tap away while the first may have gone through.
+  onViewOrder?: () => void;
+  // Set when the fallback on screen came from a failed init that another
+  // attempt may fix: offered under the web widget, which stays the main way
+  // out.
+  onRetryInit?: () => void;
   onWebFallback: () => void;
 };
 
@@ -49,12 +57,15 @@ export function BuyActionZone({
   errorText,
   onMockPay,
   onRetry,
+  onViewOrder,
+  onRetryInit,
   onWebFallback,
 }: IProps) {
   let content: ReactNode;
 
   if (state === EBuyActionState.WebFallback) {
-    // S5 — structural failure: hand over to the web widget.
+    // S5 — structural failure, or an init that kept failing: hand over to the
+    // web widget, with an in-place retry when another init may pass.
     content = (
       <YStack gap="$2">
         {errorText ? (
@@ -70,11 +81,32 @@ export function BuyActionZone({
         >
           Buy via web instead
         </Button>
+        {onRetryInit ? (
+          <Button
+            testID="headless-buy-retry-init"
+            size="medium"
+            variant="tertiary"
+            onPress={onRetryInit}
+          >
+            Try again
+          </Button>
+        ) : null}
       </YStack>
     );
   } else if (state === EBuyActionState.RetryableError) {
     // S4 — retryable error (message rendered in the amount hero slot above).
-    content = (
+    // With the payment outcome unknown the action is checking the order;
+    // buying again stays possible by going back to the amount screen.
+    content = onViewOrder ? (
+      <Button
+        testID="headless-buy-view-order"
+        size="large"
+        variant="primary"
+        onPress={onViewOrder}
+      >
+        View order
+      </Button>
+    ) : (
       <Button
         testID="headless-buy-retry"
         size="large"

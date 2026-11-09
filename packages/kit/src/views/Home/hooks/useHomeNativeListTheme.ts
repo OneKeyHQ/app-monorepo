@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useTheme } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { NativeListTheme } from '@onekeyfe/react-native-native-list';
 
@@ -12,6 +13,8 @@ export function useHomeNativeListTheme(): NativeListTheme {
       rowBackground: theme.bgApp.val,
       rowSelectedBackground: theme.bgActive.val,
       rowPressedBackground: theme.bgActive.val,
+      // Web only: without it the engine reuses the pressed fill for hover.
+      rowHoverBackground: platformEnv.isNative ? undefined : theme.bgHover.val,
       subduedBackground: theme.bgSubdued.val,
       strongBackground: theme.bgStrong.val,
       primaryText: theme.text.val,

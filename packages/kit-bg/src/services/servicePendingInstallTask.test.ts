@@ -135,10 +135,22 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   memoFn: (fn: any) => fn,
 }));
 
+function createBackgroundApiMock() {
+  return {
+    serviceAppUpdate: {
+      // Desktop app-install execution is gated by canRestartForUpdate.
+      canRestartForUpdate: jest.fn(async () => true),
+    },
+  };
+}
+
 function createService(refreshUpdateStatus = jest.fn(async () => undefined)) {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
-  return new ServicePendingInstallTask({ refreshUpdateStatus });
+  return new ServicePendingInstallTask({
+    backgroundApi: createBackgroundApiMock(),
+    refreshUpdateStatus,
+  });
 }
 
 function setState(overrides: Partial<IAppUpdateInfo>) {

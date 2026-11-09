@@ -107,6 +107,7 @@ interface ISwapActionsStateProps {
   onPreSwap: () => void;
   onOpenRecipientAddress: () => void;
   onSelectPercentageStage?: (stage: number) => void;
+  stockRecipientSnapshotScope?: string;
 }
 
 // cspell:ignore ellipsize
@@ -164,6 +165,7 @@ const SwapActionsState = ({
   onPreSwap,
   onOpenRecipientAddress,
   onSelectPercentageStage,
+  stockRecipientSnapshotScope,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -876,7 +878,18 @@ const SwapActionsState = ({
     // this row mounts/unmounts on token switches; reveal it smoothly. Its
     // spacing (pb) sits inside the measured content, so no gap offset needed.
     return (
-      <SwapSmoothReveal visible={shouldShowRecipientInActionRow}>
+      <SwapSmoothReveal
+        visible={shouldShowRecipientInActionRow}
+        snapshotKey={
+          swapTypeSwitch === ESwapTabSwitchType.STOCK
+            ? 'stock-recipient'
+            : undefined
+        }
+        snapshotPending={
+          swapEnableRecipientAddress && !stockRecipientSnapshotScope
+        }
+        snapshotScope={stockRecipientSnapshotScope}
+      >
         {recipientRow}
       </SwapSmoothReveal>
     );
@@ -887,6 +900,9 @@ const SwapActionsState = ({
     onOpenRecipientAddress,
     isDesktopModalPage,
     shouldShowRecipientInActionRow,
+    swapTypeSwitch,
+    swapEnableRecipientAddress,
+    stockRecipientSnapshotScope,
   ]);
 
   const recipientFooterComponent = useMemo(() => {

@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -9,7 +10,9 @@ import {
   screen,
 } from '@testing-library/react';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 
 import {
   chooseCloudSyncKey,
@@ -27,11 +30,13 @@ type IDialogParams = {
   description?: string;
   onConfirmText?: string;
   tone?: string;
+  dismissOnOverlayPress?: boolean;
+  disableDrag?: boolean;
   renderContent?: ReactNode;
   onConfirm?: () => Promise<void> | void;
   onClose?: () => Promise<void> | void;
 };
-const mockDialogClose = jest.fn(async () => undefined);
+const mockDialogClose = jest.fn<Promise<void>, []>(async () => undefined);
 const mockDialogShow = jest.fn((_params: IDialogParams) => ({
   close: mockDialogClose,
 }));
@@ -39,7 +44,9 @@ const mockClearForceTransport = jest.fn(async () => undefined);
 const mockOpenExpandTab = jest.fn(async (_params: unknown) => undefined);
 const mockCancel = jest.fn(async () => true);
 const mockSyncNow = jest.fn(async (_params: unknown) => true);
+const mockHideLoading = jest.fn<Promise<void>, []>(async () => undefined);
 const mockToast = jest.fn((_params: unknown) => undefined);
+const mockAutoToast = jest.fn<void, unknown[]>();
 const credentialId = `hardware-cloud-v1-0123456789abcdef${'0'.repeat(48)}`;
 type IMockConfig = {
   isCloudSyncEnabled: boolean;
@@ -129,7 +136,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceApp: {
       openExtensionExpandTab: (params: unknown) => mockOpenExpandTab(params),
       showDialogLoading: async () => undefined,
-      hideDialogLoading: async () => undefined,
+      hideDialogLoading: () => mockHideLoading(),
       showToast: (params: unknown) => mockToast(params),
     },
     serviceSetting: {
@@ -154,8 +161,15 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     ShowDialogLoading: 'ShowDialogLoading',
     HardwareCloudKeyDropped: 'HardwareCloudKeyDropped',
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
+    ShowHardwareErrorDialog: 'ShowHardwareErrorDialog',
+    ShowFirmwareUpdateForce: 'ShowFirmwareUpdateForce',
+  },
+  HARDWARE_ERROR_DIALOG_TYPES: {
+    DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
   },
   appEventBus: {
+    emit: (...params: unknown[]) => mockAutoToast(...params),
     on: () => undefined,
     once: (_name: string, fn: () => void) => {
       mockOnSyncLoading = fn;
@@ -168,6 +182,12 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: () => ({ result: mockKeyMissing }),
 }));
+jest.mock(
+  '@onekeyhq/kit/src/provider/Container/DeviceStageContainer/waitForDeviceStageExit',
+  () => ({
+    yieldDeviceStageToDialog: jest.fn(async () => true),
+  }),
+);
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ hardwareTransportType: 'WEBUSB' }],
 }));
@@ -228,6 +248,275 @@ test('turns sync on by picking a device, without adding a wallet first', async (
     switchDevice: false,
   });
   expect(mockClearForceTransport).toHaveBeenCalled();
+});
+
+test.each([
+  'cloud_sync_hardware_hidden_wallet__msg',
+  'cloud_sync_hardware_unlock_failed__msg',
+  'cloud_sync_data_unreadable__msg',
+  'error_network',
+])(
+  'a wallet refusal shows an explanation after the waiting dialog closes (%s)',
+  async (key) => {
+    mockEnable.mockRejectedValueOnce({
+      key,
+      autoToast: false,
+    });
+    let finishWaitingClose: (() => void) | undefined;
+    mockDialogClose.mockResolvedValueOnce(undefined).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWaitingClose = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    await act(() => result.current.openPicker());
+    render(<>{lastDialog().renderContent}</>);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mock-device-picker'));
+    });
+    expect(mockDialogShow).toHaveBeenCalledTimes(2);
+    expect(finishWaitingClose).toBeDefined();
+
+    await act(async () => finishWaitingClose?.());
+
+    expect(lastDialog()).toMatchObject({
+      description: key,
+      onConfirmText: 'global.ok',
+    });
+    expect(result.current.pending).toBe(false);
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(mockEnable).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('manual sync shows the original failure after loading closes', async () => {
+  mockSyncNow.mockRejectedValueOnce({
+    key: 'cloud_sync_data_unreadable__msg',
+    message: 'Synthetic cloud data failure',
+    autoToast: false,
+  });
+  const { result } = renderHook(() => useHardwareCloudSyncKey());
+  await act(() => result.current.syncNow());
+  expect(lastDialog().description).toBe('cloud_sync_data_unreadable__msg');
+  expect(mockToast).not.toHaveBeenCalled();
+});
+
+test.each(['enable', 'reset'] as const)(
+  'a toast-enabled %s failure has one owner while the waiting dialog closes',
+  async (action) => {
+    jest.useFakeTimers();
+    try {
+      const failure = Object.assign(new Error('Synthetic cloud failure'), {
+        key: 'cloud_sync_data_unreadable__msg',
+        autoToast: true,
+      });
+      (action === 'enable' ? mockEnable : mockReset).mockImplementationOnce(
+        async () => {
+          // BackgroundApiProxyBase schedules its toast before rethrowing to UI.
+          setTimeout(() => errorToastUtils.showToastOfError(failure), 50);
+          throw failure;
+        },
+      );
+      let finishWaitingClose: (() => void) | undefined;
+      mockDialogClose.mockResolvedValueOnce(undefined).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishWaitingClose = resolve;
+          }),
+      );
+      if (action === 'reset') {
+        await pickResetDevice();
+      } else {
+        await pickDeviceA();
+      }
+      await act(async () => {
+        jest.advanceTimersByTime(50);
+      });
+      expect(mockAutoToast).not.toHaveBeenCalled();
+      expect(mockDialogShow).toHaveBeenCalledTimes(action === 'reset' ? 3 : 2);
+      await act(async () => finishWaitingClose?.());
+      expect(lastDialog().description).toBe(failure.key);
+      expect(mockDialogShow).toHaveBeenCalledTimes(action === 'reset' ? 4 : 3);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+test('manual sync claims a business failure before awaiting loading dismissal', async () => {
+  jest.useFakeTimers();
+  try {
+    const failure = Object.assign(new Error('Synthetic manual sync failure'), {
+      autoToast: true,
+    });
+    mockSyncNow.mockImplementationOnce(async () => {
+      setTimeout(() => errorToastUtils.showToastOfError(failure), 50);
+      throw failure;
+    });
+    let finishLoading: (() => void) | undefined;
+    mockHideLoading.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishLoading = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useHardwareCloudSyncKey());
+    let syncing: Promise<void> | undefined;
+    await act(async () => {
+      syncing = result.current.syncNow();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(50);
+    });
+    expect(mockAutoToast).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    await act(async () => {
+      finishLoading?.();
+      await syncing;
+    });
+    expect(lastDialog().description).toBe(failure.message);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('an error already shown by the proxy does not open a second business dialog', async () => {
+  const failure = Object.assign(
+    new Error('Synthetic previously shown failure'),
+    {
+      autoToast: true,
+    },
+  );
+  mockEnable.mockImplementationOnce(async () => {
+    errorToastUtils.showToastOfError(failure);
+    throw failure;
+  });
+  await pickDeviceA();
+  expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
+});
+
+test.each(['enable', 'reset'] as const)(
+  'standard-wallet PIN refusal during %s has a persistent Cloud dialog',
+  async (action) => {
+    const failure = Object.assign(
+      new Error('The entered PIN does not correspond to the current wallet'),
+      {
+        code: 118,
+        key: 'hardware.device_pin_state_error',
+        $isHardwareError: true,
+        autoToast: false,
+        info: { hardwareCloudSyncRefusal: 'standardPinRequired' },
+      },
+    );
+    (action === 'enable' ? mockEnable : mockReset).mockRejectedValueOnce(
+      failure,
+    );
+    if (action === 'enable') await pickDeviceA();
+    else await pickResetDevice();
+    expect(lastDialog()).toMatchObject({
+      description: 'cloud_sync_hardware_hidden_wallet__msg',
+      onConfirmText: 'global.ok',
+      dismissOnOverlayPress: false,
+      disableDrag: true,
+    });
+    expect(mockAutoToast).not.toHaveBeenCalled();
+    expect(failure).toMatchObject({
+      code: 118,
+      key: 'hardware.device_pin_state_error',
+    });
+  },
+);
+
+test('setup preserves a failure without a translation key', async () => {
+  mockEnable.mockRejectedValueOnce(new Error('Synthetic network failure'));
+  const dialog = await pickDeviceA();
+  expect(dialog.description).toBe('Synthetic network failure');
+});
+
+test.each([
+  [
+    HardwareErrorCode.BlePoweredOff,
+    EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BlePermissionError,
+    EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BleLocationError,
+    EHardwareUiStateAction.LOCATION_PERMISSION,
+  ],
+  [
+    HardwareErrorCode.BleLocationServicesDisabled,
+    EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+  ],
+] as const)(
+  'direct SDK code %s opens the shared recovery dialog',
+  async (code, uiRequestType) => {
+    mockEnable.mockRejectedValueOnce(
+      Object.assign(new Error('Synthetic SDK permission error'), {
+        code,
+        $isHardwareError: true,
+        autoToast: false,
+        info: { hardwareCloudSyncErrorOrigin: 'directSdk' },
+      }),
+    );
+    await pickDeviceA();
+    expect(mockAutoToast).toHaveBeenCalledWith('RequestHardwareUIDialog', {
+      uiRequestType,
+    });
+    expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  },
+);
+
+test.each([
+  [HardwareErrorCode.DeviceNotOpenedPassphrase, 'ShowHardwareErrorDialog'],
+  [HardwareErrorCode.NewFirmwareForceUpdate, 'ShowFirmwareUpdateForce'],
+] as const)(
+  'direct SDK code %s hands off to its dedicated recovery owner',
+  async (code, event) => {
+    mockEnable.mockRejectedValueOnce(
+      Object.assign(new Error('Synthetic SDK recovery error'), {
+        code,
+        $isHardwareError: true,
+        autoToast: false,
+        payload: { code, connectId: 'connect-A' },
+        info: { hardwareCloudSyncErrorOrigin: 'directSdk' },
+      }),
+    );
+    await pickDeviceA();
+    expect(mockAutoToast).toHaveBeenCalledWith(
+      event,
+      expect.objectContaining(
+        code === HardwareErrorCode.NewFirmwareForceUpdate
+          ? { connectId: 'connect-A' }
+          : {
+              errorType: 'DeviceNotOpenedPassphrase',
+              payload: { code, connectId: 'connect-A' },
+            },
+      ),
+    );
+    expect(mockAutoToast).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('hardware failures already owned by DeviceStage do not open a generic dialog', async () => {
+  mockEnable.mockRejectedValueOnce({
+    key: 'hardware.device_pin_state_error',
+    code: 118,
+    $isHardwareError: true,
+    autoToast: false,
+  });
+  await pickDeviceA();
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
+});
+
+test('a cancelled Cloud operation stays silent', async () => {
+  mockEnable.mockRejectedValueOnce({ key: 'update.operation_canceled' });
+  await pickDeviceA();
+  expect(mockDialogShow).toHaveBeenCalledTimes(2);
 });
 
 test('closing the connect window does not turn sync on', async () => {
@@ -342,7 +631,7 @@ test('a mismatched hardware wallet continues after the user confirms', async () 
 async function pickResetDevice() {
   const { result } = renderHook(() => useHardwareCloudSyncKey());
   let resetting: Promise<void> | undefined;
-  act(() => {
+  await act(async () => {
     resetting = result.current.resetKey();
   });
   const resetConfirm = lastDialog();

@@ -1,18 +1,35 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
+  assertHardwareCloudSyncAuthContext,
+  getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   HardwareCloudSyncCancelledError,
+  HardwareCloudSyncLocalError,
   HardwareCloudSyncUnlockError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
-import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import {
+  HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN,
+  HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED,
+  HardwareCloudKeyPrerequisiteError,
+  isHardwareCloudSyncDirectSdkDialogError,
+  isHardwareCloudSyncStandardPinRequired,
+} from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncKeySource,
@@ -24,8 +41,9 @@ import {
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
 import {
-  assertHardwareCloudSyncAuthTemplate,
   convertHardwareCloudSyncDeviceError,
+  createHardwareCloudSyncDataError,
+  logHardwareCloudSyncFailure,
   sanitizeHardwareCloudSyncDeviceError,
 } from './hardwareCloudSyncLog';
 
@@ -34,11 +52,31 @@ import type {
   IHardwareCloudKeyIdentity,
   IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
+import type { IHardwareCloudSyncDiagnosticContext } from './hardwareCloudSyncLog';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function unlockError() {
   return new HardwareCloudSyncUnlockError();
+}
+
+const DIRECT_SDK_STAGES = new Set([
+  'openWalletSession',
+  'btcGetPublicKey',
+  'btcGetAddress',
+  'btcSignMessage.key',
+  'btcSignMessage.auth',
+]);
+
+function hiddenWalletError() {
+  const error = new HardwareCloudSyncLocalError(
+    ETranslations.cloud_sync_hardware_hidden_wallet__msg,
+    "Hidden wallets can't sync. Unlock with the standard wallet PIN.",
+  );
+  // The Cloud page owns this refusal and shows it after the waiting dialog
+  // closes, rather than relying on a toast behind that dialog.
+  error.autoToast = false;
+  return error;
 }
 
 function assertSdkSuccess<T>(
@@ -88,6 +126,15 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   if (!selectedConnectId) throw unlockError();
   return await backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
     async (lease) => {
+      let stage = 'Open device operation';
+      let diagnostics: IHardwareCloudSyncDiagnosticContext = {};
+      let validationFailure: string | undefined;
+      let stageOpened = false;
+      let hardwareFailure: IOneKeyError | undefined;
+      const failWalletCheck = (reason: string) => {
+        validationFailure = reason;
+        return unlockError();
+      };
       // Same path as closing a device prompt: abort the lease and cancel the
       // in-flight SDK request so the device and the hardware lock are freed.
       onDeviceCancelChange?.(() => {
@@ -101,13 +148,23 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         });
       });
       try {
+        // Direct SDK calls must share the same error owner as wrapped
+        // hardware calls, including failures before runtime state is read.
+        await backgroundApi.serviceHardwareUI.deviceStageJoinBurst({
+          connectId: selectedConnectId,
+        });
+        stageOpened = true;
         const assertCurrent = () => {
           if (!isCurrent() || lease.signal?.aborted) {
             throw new HardwareCloudSyncCancelledError();
           }
         };
         let activeConnectId = selectedConnectId;
-        const call = async <T>(operation: () => Promise<T>): Promise<T> => {
+        const call = async <T>(
+          deviceStage: string,
+          operation: () => Promise<T>,
+        ): Promise<T> => {
+          stage = deviceStage;
           assertCurrent();
           let result: T;
           try {
@@ -121,45 +178,77 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
         return await backgroundApi.serviceHardware.runWithSensitiveCloudKeyOperation(
           async () => {
             const hardware = backgroundApi.serviceHardware;
-            const connectId = await call(() =>
+            const connectId = await call('getCompatibleConnectId', () =>
               hardware.getCompatibleConnectId({
                 connectId: selectedConnectId,
                 hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
               }),
             );
-            if (!connectId) throw unlockError();
+            if (!connectId) {
+              throw failWalletCheck('Compatible connection ID unavailable');
+            }
             activeConnectId = connectId;
-            const sdk = await call(() =>
+            const sdk = await call('getSDKInstance', () =>
               hardware.getSDKInstance({ connectId }),
             );
-            const session = await call(() =>
+            const session = await call('openWalletSession', () =>
               sdk.openWalletSession(connectId, { mode: 'standard' }),
             );
             assertSdkSuccess(session, connectId);
+            diagnostics = {
+              walletType: session.payload.walletType,
+              hasPassphraseState: !!session.payload.passphraseState,
+              hasDeviceId: !!session.payload.deviceId,
+            };
+            if (
+              session.payload.walletType === 'hidden' ||
+              session.payload.passphraseState
+            ) {
+              validationFailure =
+                'Hidden wallet session returned instead of standard wallet';
+              throw hiddenWalletError();
+            }
             if (
               session.payload.walletType !== 'standard' ||
               session.payload.passphraseState ||
               !session.payload.deviceId
             ) {
-              throw unlockError();
+              throw failWalletCheck('Standard wallet session invalid');
             }
             const { deviceId } = session.payload;
             const readStandardWallet = async () => {
-              const state = await call(() =>
+              const state = await call('getDeviceState', () =>
                 hardware.getDeviceState({
                   connectId,
                   params: { scope: 'runtime' },
                   silentMode: true,
                 }),
               );
+              diagnostics = {
+                ...diagnostics,
+                deviceType: state.identity.deviceType,
+                firmwareVersion: state.versions?.firmware,
+                protocol: state.protocol,
+                unlocked: state.status.unlocked,
+                passphraseProtection: state.status.passphraseProtection,
+                attachToPinEnabled: state.status.attachToPinEnabled,
+                unlockedAttachPin: state.status.unlockedAttachPin,
+                deviceIdMatches: state.identity.deviceId === deviceId,
+              };
+              // Legacy firmware omits attach-PIN state. The explicit standard
+              // session, matching device ID and unlocked state still gate access.
               if (
                 state.identity.deviceId !== deviceId ||
                 state.status.unlocked !== true ||
-                state.status.unlockedAttachPin !== false
+                (state.status.unlockedAttachPin ?? false) !== false
               ) {
-                throw unlockError();
+                if (state.status.unlockedAttachPin === true) {
+                  validationFailure = 'Hidden wallet unlocked with attach PIN';
+                  throw hiddenWalletError();
+                }
+                throw failWalletCheck('Standard wallet runtime state invalid');
               }
-              const walletXfp = await call(() =>
+              const walletXfp = await call('buildHwWalletXfp', () =>
                 hardware.buildHwWalletXfp({
                   connectId,
                   deviceId,
@@ -168,7 +257,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                   withUserInteraction: true,
                 }),
               );
-              if (!walletXfp) throw unlockError();
+              if (!walletXfp) {
+                throw failWalletCheck(
+                  'Standard wallet fingerprint unavailable',
+                );
+              }
               return { state, walletXfp };
             };
 
@@ -180,6 +273,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               appCrypto.hash.sha256Sync(Buffer.from(canonicalXfp, 'utf8')),
             ).toString('hex')}`;
             if (expectedCredentialId && credentialId !== expectedCredentialId) {
+              stage = 'Check sync wallet identity';
               throw new HardwareCloudKeyPrerequisiteError('walletMismatch', {
                 targetCredentialId: credentialId,
               });
@@ -194,10 +288,10 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 if (
                   normalizeHardwareCloudWalletXfp(walletXfp) !== canonicalXfp
                 ) {
-                  throw unlockError();
+                  throw failWalletCheck('Standard wallet fingerprint changed');
                 }
                 if (!standard) {
-                  const pub = await call(() =>
+                  const pub = await call('btcGetPublicKey', () =>
                     sdk.btcGetPublicKey(connectId, deviceId, {
                       path: HARDWARE_CLOUD_SYNC_PATH,
                       coin: 'Bitcoin',
@@ -206,7 +300,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     }),
                   );
                   assertSdkSuccess(pub, connectId);
-                  const addr = await call(() =>
+                  const addr = await call('btcGetAddress', () =>
                     sdk.btcGetAddress(connectId, deviceId, {
                       path: HARDWARE_CLOUD_SYNC_PATH,
                       coin: 'Bitcoin',
@@ -244,10 +338,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 params: Parameters<IHardwareCloudKeyAdapter['signMessage']>[0],
               ) {
                 onDeviceSign?.();
-                const response = await call(() =>
+                const response = await call('btcSignMessage.key', () =>
                   sdk.btcSignMessage(connectId, deviceId, params),
                 );
                 assertSdkSuccess(response, connectId);
+                stage = 'Verify Cloud key signature';
                 return response.payload;
               },
             };
@@ -265,13 +360,43 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 opened.state.identity.serialNo,
               ),
             };
+            stage = 'Unlock Cloud data';
             const unlocked = await unlock({
               credentialId,
               source,
-              signAuth: async (message) => {
-                assertHardwareCloudSyncAuthTemplate(message);
+              signAuth: async (message, expectedContext) => {
+                const identityTag =
+                  getHardwareCloudSyncIdentityTagFromCredentialId(credentialId);
+                if (expectedContext.identityTag !== identityTag) {
+                  throw unlockError();
+                }
+                const expected = Object.freeze({ ...expectedContext });
+                const assertChallengeCurrent = () => {
+                  try {
+                    assertHardwareCloudSyncAuthContext(
+                      message,
+                      expected,
+                      systemTimeUtils.getEstimatedServerTime() ?? Date.now(),
+                    );
+                  } catch {
+                    throw createHardwareCloudSyncDataError(
+                      'Invalid Cloud sync sign-in challenge: local context or expiry mismatch',
+                    );
+                  }
+                };
+                const assertWalletUnchanged = async () => {
+                  const { walletXfp } = await readStandardWallet();
+                  if (
+                    normalizeHardwareCloudWalletXfp(walletXfp) !== canonicalXfp
+                  ) {
+                    throw unlockError();
+                  }
+                };
+                assertChallengeCurrent();
+                await assertWalletUnchanged();
+                assertChallengeCurrent();
                 onDeviceSign?.();
-                const response = await call(() =>
+                const response = await call('btcSignMessage.auth', () =>
                   sdk.btcSignMessage(connectId, deviceId, {
                     path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
                     messageHex: Buffer.from(message, 'utf8').toString('hex'),
@@ -280,6 +405,9 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                   }),
                 );
                 assertSdkSuccess(response, connectId);
+                await assertWalletUnchanged();
+                assertChallengeCurrent();
+                stage = 'Cloud sign-in';
                 return Buffer.from(response.payload.signature, 'hex').toString(
                   'base64',
                 );
@@ -297,8 +425,72 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
             return { credential: { ...unlocked, source }, source };
           },
         );
+      } catch (error) {
+        if (isOneKeyHardwareError(error)) {
+          hardwareFailure = error;
+          if (
+            DIRECT_SDK_STAGES.has(stage) &&
+            typeof error.code === 'number' &&
+            DEVICE_STAGE_DEDICATED_DIALOG_CODES.some(
+              (code) => code === error.code,
+            )
+          ) {
+            // Direct SDK calls do not run the wrapper's recovery dispatch.
+            // Let the page hand off after its waiting dialog has closed.
+            error.info = {
+              ...error.info,
+              hardwareCloudSyncErrorOrigin:
+                HARDWARE_CLOUD_SYNC_DIRECT_SDK_ORIGIN,
+            };
+            error.autoToast = false;
+          }
+          if (
+            stage === 'openWalletSession' &&
+            error.code === HardwareErrorCode.DeviceCheckUnlockTypeError
+          ) {
+            error.info = {
+              ...error.info,
+              hardwareCloudSyncRefusal:
+                HARDWARE_CLOUD_SYNC_STANDARD_PIN_REQUIRED,
+            };
+            // The Cloud page explains this standard-session refusal in a
+            // persistent dialog after the hardware/waiting UI has left.
+            error.autoToast = false;
+          }
+        }
+        logHardwareCloudSyncFailure(
+          stage,
+          validationFailure ??
+            (typeof error === 'string' ? { name: 'Error' } : error),
+          diagnostics,
+        );
+        throw error;
       } finally {
         onDeviceCancelChange?.(undefined);
+        if (stageOpened) {
+          try {
+            await backgroundApi.serviceHardwareUI.deviceStageLeaveBurst({
+              error:
+                hardwareFailure &&
+                !isHardwareCloudSyncStandardPinRequired(hardwareFailure)
+                  ? toPlainErrorObject(hardwareFailure)
+                  : undefined,
+            });
+            // DeviceStage owns hardware feedback; preserve the original
+            // class, code, translation and recovery payload across RPC.
+            if (hardwareFailure) hardwareFailure.autoToast = false;
+          } catch (stageError) {
+            // Presentation failure must neither replace nor silence the
+            // original hardware error. The service toast is the fallback.
+            if (
+              hardwareFailure &&
+              !isHardwareCloudSyncStandardPinRequired(hardwareFailure) &&
+              !isHardwareCloudSyncDirectSdkDialogError(hardwareFailure)
+            )
+              hardwareFailure.autoToast = true;
+            logHardwareCloudSyncFailure('DeviceStage exit failed', stageError);
+          }
+        }
       }
     },
     { deviceKey: selectedConnectId },

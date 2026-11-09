@@ -109,6 +109,7 @@ import {
 import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
+  shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -1973,7 +1974,14 @@ export function UniversalWithdraw({
             {hasSummarySection && usePendleSummaryLayout ? (
               <PendleSummarySection
                 rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
+                tipText={
+                  shouldShowPendleSummaryTip({
+                    formTip: formTransactionTip,
+                    transactionTip: transactionConfirmation?.tip,
+                  })
+                    ? pendleTipText
+                    : undefined
+                }
                 loading={quoteLoading}
               />
             ) : null}

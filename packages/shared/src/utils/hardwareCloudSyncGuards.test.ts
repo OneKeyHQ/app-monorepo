@@ -13,12 +13,12 @@ const message = buildHardwareCloudSyncMessage('0123456789abcdef', salt);
 const bytes = Buffer.from(message, 'ascii');
 
 describe('hardware Cloud root message contract', () => {
-  test('keeps the warning, identity and the envelope salt in 185 ASCII bytes', () => {
+  test('keeps the warning, identity and the envelope salt in 199 ASCII bytes', () => {
     expect(message).toBe(
-      `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef\nKey: ${salt}`,
+      `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef;salt=${salt}`,
     );
-    expect(bytes.length).toBe(185);
-    expect(/^[\x20-\x7e\n]+$/.test(message)).toBe(true);
+    expect(bytes.length).toBe(199);
+    expect(/^[\x20-\x7e]+$/.test(message)).toBe(true);
   });
 
   test.each(['', '01234567', '0123456789ABCDEF', '../0123456789ab'])(
@@ -119,11 +119,11 @@ describe('exact protocol message comparison', () => {
     `extra bytes ${message}`,
     `${message}\n`,
     message.toUpperCase(),
-    message.replace(/\n/g, '\r\n'),
+    message.replace(' >>> ', '\r\n>>> '),
     message.replace('0123456789abcdef', '0123456789ABCDEF'),
     message.replace(salt, salt.toUpperCase()),
-    message.replace('\nKey: ', '\nkey: '),
-    // The earlier fixed 147-byte message is not a protocol message any more.
+    message.replace(';salt=', ';Salt='),
+    // An incomplete key message is not a protocol message.
     `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef`,
     bytes.toString('hex'),
     bytes.toString('base64'),

@@ -1,6 +1,7 @@
 import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
+  shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
 
 describe('transaction confirmation request guards', () => {
@@ -48,6 +49,41 @@ describe('transaction confirmation request guards', () => {
         requestKey: 'amount:2',
         latestRequestId: 2,
         latestRequestKey: 'amount:2',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('Pendle withdrawal summary tip', () => {
+  const transactionTip = {
+    type: 'info',
+    text: { text: 'Matured' },
+    description: { text: 'Details' },
+  };
+
+  it('hides the summary copy when the form displays the same tip', () => {
+    expect(
+      shouldShowPendleSummaryTip({
+        formTip: transactionTip,
+        transactionTip,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the summary tip when the form displays a different path tip', () => {
+    expect(
+      shouldShowPendleSummaryTip({
+        formTip: { ...transactionTip },
+        transactionTip,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the summary tip when the form tip is not shown', () => {
+    expect(
+      shouldShowPendleSummaryTip({
+        formTip: undefined,
+        transactionTip,
       }),
     ).toBe(true);
   });

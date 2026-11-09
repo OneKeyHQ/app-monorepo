@@ -199,6 +199,7 @@ describe('useUniversalBorrowSetEMode', () => {
         stakingInfo: {
           label: EEarnLabels.Borrow,
           protocol: 'aave',
+          protocolLogoURI: 'https://example.com/aave.png',
           tags: [EEarnLabels.Borrow],
         },
         onSuccess,
@@ -206,6 +207,13 @@ describe('useUniversalBorrowSetEMode', () => {
     });
 
     expect(confirmDialogMock).not.toHaveBeenCalled();
+    expect(signatureConfirmMock.navigationToTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stakingInfo: expect.objectContaining({
+          protocolLogoURI: 'https://example.com/aave.png',
+        }),
+      }),
+    );
     expect(backgroundMock.serviceStaking.addEarnOrder).toHaveBeenCalledTimes(1);
     expect(onSuccess).toHaveBeenCalledWith(successData);
   });

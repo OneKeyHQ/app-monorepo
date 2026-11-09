@@ -1,3 +1,5 @@
+import type { IEarnTransactionTip } from '@onekeyhq/shared/types/staking';
+
 type ILatestTransactionConfirmationRequestParams = {
   requestId: number;
   requestKey: string;
@@ -29,4 +31,15 @@ export function selectCurrentTransactionConfirmation<T>({
     return undefined;
   }
   return snapshot;
+}
+
+export function shouldShowPendleSummaryTip({
+  formTip,
+  transactionTip,
+}: {
+  formTip?: IEarnTransactionTip;
+  transactionTip?: IEarnTransactionTip;
+}) {
+  // A path-specific tip can carry different information even if its text matches.
+  return !formTip?.text || formTip !== transactionTip;
 }

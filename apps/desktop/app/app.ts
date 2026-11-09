@@ -39,7 +39,9 @@ import {
   getOriginDomainKey,
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
-import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import desktopApi, {
+  getDesktopApiAppUpdate,
+} from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -2315,6 +2317,9 @@ app.on('activate', async () => {
   showMainWindow();
 });
 
+let quitInstallStarted = false;
+let quitInstallDone = false;
+
 app.on('before-quit', (event) => {
   appQuitStarted = true;
   unregisterShortcuts();
@@ -2373,6 +2378,23 @@ app.on('before-quit', (event) => {
       setImmediate(() => app.quit());
     });
     return;
+  }
+
+  if (!isMac && !quitInstallDone) {
+    if (quitInstallStarted) {
+      event.preventDefault();
+      return;
+    }
+    const appUpdate = getDesktopApiAppUpdate();
+    if (appUpdate.hasPreparedQuitInstall()) {
+      event.preventDefault();
+      quitInstallStarted = true;
+      void appUpdate.installOnQuit().finally(() => {
+        quitInstallDone = true;
+        setImmediate(() => app.quit());
+      });
+      return;
+    }
   }
 
   if (isMac) {

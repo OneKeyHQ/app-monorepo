@@ -1,4 +1,5 @@
 import {
+  isTransientLandscapePageLayout,
   shouldShowMobileNativeChart,
   shouldShowMobileSimpleChart,
 } from './mobileChartVisibility';
@@ -65,5 +66,60 @@ describe('shouldShowMobileNativeChart', () => {
         isSharePrice: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe('isTransientLandscapePageLayout', () => {
+  const portraitWindow = { windowWidth: 360, windowHeight: 640 };
+  const landscapeWindow = { windowWidth: 640, windowHeight: 360 };
+
+  it('ignores a landscape page laid out under the fullscreen chart', () => {
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: true,
+        layoutWidth: 640,
+        ...landscapeWindow,
+      }),
+    ).toBe(true);
+    // A queued landscape layout can arrive once the window reports portrait.
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: true,
+        layoutWidth: 640,
+        ...portraitWindow,
+      }),
+    ).toBe(true);
+  });
+
+  it('measures portrait layouts', () => {
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: true,
+        layoutWidth: 360,
+        ...portraitWindow,
+      }),
+    ).toBe(false);
+  });
+
+  it('measures a phone window that is landscape on its own', () => {
+    // E.g. split screen: no fullscreen rotation is under way.
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: false,
+        layoutWidth: 640,
+        ...landscapeWindow,
+      }),
+    ).toBe(false);
+  });
+
+  it('measures every layout of a window that rotates freely', () => {
+    expect(
+      isTransientLandscapePageLayout({
+        keepsPortraitLayout: false,
+        layoutWidth: 1280,
+        windowWidth: 1280,
+        windowHeight: 800,
+      }),
+    ).toBe(false);
   });
 });

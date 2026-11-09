@@ -1,0 +1,718 @@
+{
+  "version": 1,
+  "sdks": [
+    {
+      "id": "onramper-react-native-ios-sdk",
+      "description": "Onramper iOS SDK vendored by @onramper/onramper-react-native: the full xcframework binary, the Swift/Objective-C native sources compiled by the podspec, the JavaScript/TypeScript runtime loaded by the app, generated Nitro sources, podspec and Expo plugin. Pinned file-by-file so tampering, a malicious npm publish or an injected build input fails lint.",
+      "root": "node_modules/@onramper/onramper-react-native",
+      "packageVersion": {
+        "file": "package.json",
+        "expect": "1.3.1"
+      },
+      "directories": ["."],
+      "files": [],
+      "hashes": {
+        "CHANGELOG.md": {
+          "sha256": "4051685656651bcf986edf18a82b0e452fe9f0a45efd9b2825b306c8e9e90acc",
+          "size": 18658
+        },
+        "LICENSE": {
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "size": 11358
+        },
+        "NOTICE": {
+          "sha256": "b1c6c581ccaf74fc44673ff8cbb1df9223407e50ef98b336b2b5a28c4f6276c2",
+          "size": 200
+        },
+        "OnramperReactNative.podspec": {
+          "sha256": "c9cec9a89e2dc243259308f429d93cba68b2e0396e1b1c3d23496d05285132fd",
+          "size": 1523
+        },
+        "README.md": {
+          "sha256": "d1c3624d64d55c16532f57822e1a74d1d6180e5a0f365400ab30ae0c6909333b",
+          "size": 8260
+        },
+        "app.plugin.js": {
+          "sha256": "74b90c4bb9c8f3882a35cbc7cadc3e8afd58acad3b9e3c460412068e50a59b0d",
+          "size": 2267
+        },
+        "ios/Frameworks/LICENSE": {
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "size": 11358
+        },
+        "ios/Frameworks/NOTICE": {
+          "sha256": "a6ef7389d497863b112b75083a87638cfb6ca240bdc7cdc536ec2d7620f093d4",
+          "size": 190
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/Info.plist": {
+          "sha256": "14f39b8528565586d221b5e6f3d049e56858e19792b309eed51d8163b92d06df",
+          "size": 1322
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Info.plist": {
+          "sha256": "6b200f9a3807b35fdb8d052055a59f10d097bf3bbcc5ccff24a22733ff72aa5b",
+          "size": 753
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios.swiftdoc": {
+          "sha256": "8098b894c4e8e37922aaa1321b1194af498598adcaa0918daf515e1fc7d7a6a1",
+          "size": 41740
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios.swiftinterface": {
+          "sha256": "35cbe1bdb57dcc47b4d01ffa8800e2cadf1a2f6e26d4383fc48be7a8bd0d5413",
+          "size": 33739
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK": {
+          "sha256": "6a12598c0390731b8951109e69dec5d75377bd960de0d801826274dfd776243f",
+          "size": 3528512
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/Info.plist": {
+          "sha256": "ea5ca6db6aba18b6bf0670a18037ab44b4be2bb1313b0a64c2872144ae4f0ce6",
+          "size": 687
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/OnramperSDK.framework/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Info.plist": {
+          "sha256": "b1314b27e78d1069605869b3277afd60ec928e26bbcbf7688bd83d2f25c53865",
+          "size": 648
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/DWARF/OnramperSDK": {
+          "sha256": "67609b65fc4d0aea3eee052ce4825d732db99ddf11aceda8c136c19e40a0a3f6",
+          "size": 6020440
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/aarch64/OnramperSDK.yml": {
+          "sha256": "5f3b4e8a1bb51dee487cff24cf851235027d7032b34d418dc9d5ad29de0fab38",
+          "size": 784227
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Info.plist": {
+          "sha256": "4e4d63e47421f9b6460eb32a2521669218a34215fb6eeac8a2674c88f3a7a09b",
+          "size": 733
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios-simulator.swiftdoc": {
+          "sha256": "0d077efa5718d7f72a864e3f87712a50716396182201666295ac0d2f53cb10e8",
+          "size": 41752
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/arm64-apple-ios-simulator.swiftinterface": {
+          "sha256": "c6e058ff8717dfb4bf40c4345da27b425db0da048a91f108d831b42c68b43b89",
+          "size": 33749
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/x86_64-apple-ios-simulator.swiftdoc": {
+          "sha256": "0919bacc1d2dd2423474c507f21e099ae18fe13552d24598765228b6ebd15354",
+          "size": 41752
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/Modules/OnramperSDK.swiftmodule/x86_64-apple-ios-simulator.swiftinterface": {
+          "sha256": "079ad72520920bbcbf893c5d4c40f5534f961c7a3e9254ace818a206a6dfd002",
+          "size": 33750
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK": {
+          "sha256": "6982031e40c478d8ecde54a1706294275bd8f2141a5214f8a65bebb21d729a03",
+          "size": 7046840
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/Info.plist": {
+          "sha256": "8ec6213a7c6afe1e638d30581fcae1468ae95b9bafd1db2049824d5b1592a8dc",
+          "size": 667
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/OnramperSDK_OnramperSDK.bundle/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/OnramperSDK.framework/PrivacyInfo.xcprivacy": {
+          "sha256": "8672dc789ae77c09debb0781619ff4dbc595ccd7f137ecfd6620b0ffd7180662",
+          "size": 2341
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Info.plist": {
+          "sha256": "b1314b27e78d1069605869b3277afd60ec928e26bbcbf7688bd83d2f25c53865",
+          "size": 648
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/DWARF/OnramperSDK": {
+          "sha256": "5a8c8c75d80150f4af08b7b8aa8809935e9b60c9c585aafd3594ab410f9817d7",
+          "size": 12234768
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/aarch64/OnramperSDK.yml": {
+          "sha256": "c14dbe4a6981d61e0855435ef0eb14f36bca05ca1106a0eecfc12cca9878a4d8",
+          "size": 784135
+        },
+        "ios/Frameworks/OnramperSDK.xcframework/ios-arm64_x86_64-simulator/dSYMs/OnramperSDK.framework.dSYM/Contents/Resources/Relocations/x86_64/OnramperSDK.yml": {
+          "sha256": "f827bb63bf18fe81981df9f6dd1c3eb66a500ef2490976aa331deb379317b8be",
+          "size": 777110
+        },
+        "ios/HybridOnramperCheckoutButton.swift": {
+          "sha256": "b9e8875570619d1b69d0db3b8a1aca5c8ac0862b2dcfb0c6511a0b272f23f134",
+          "size": 7017
+        },
+        "ios/HybridOnramperNitro.swift": {
+          "sha256": "eda66bf21e9fbf460a60ea92f6651a818fa35c4193f894a55f3da7bd17b0cd74",
+          "size": 10312
+        },
+        "ios/OnramperCheckoutBridge.swift": {
+          "sha256": "780273cb41513a2506549f8fe1ab33ddad04b9bc77838d6e02500ab6d613f08e",
+          "size": 4430
+        },
+        "ios/OnramperSDKBridge.swift": {
+          "sha256": "27daaf741e86ea284828d84f83b66599a8b72b582dcfedff86d569f41dbcc227",
+          "size": 9057
+        },
+        "ios/PreparedIntentRegistry.swift": {
+          "sha256": "0fede19132a3c3b0c6410caa7e3ae7253788e47f5dd4184acb9624777bf534dd",
+          "size": 7010
+        },
+        "ios/SDKLogRelay.swift": {
+          "sha256": "601126a58090965273602a3bf90cf4be9f7a90169e93db03b8169aa3172d7e38",
+          "size": 1420
+        },
+        "lib/commonjs/CheckoutButton.js": {
+          "sha256": "6e67c9bf67a24f2b6ea0493324e6d7a57c627077644493bd60c6661e3916854f",
+          "size": 1392
+        },
+        "lib/commonjs/CheckoutButton.js.map": {
+          "sha256": "fb4ba9d8b96d9d7fdaa63ee23520c7f5ecec6df3114a828dd6663f897e8ffdf5",
+          "size": 1016
+        },
+        "lib/commonjs/OnramperCheckoutButtonView.js": {
+          "sha256": "3b7d0a1e0fc6618f46085fd4bba62735c3477d87bce25f5f8c5198c4de1e2488",
+          "size": 889
+        },
+        "lib/commonjs/OnramperCheckoutButtonView.js.map": {
+          "sha256": "8af3dfc352daf2425258b13cdf6a9bd5f2410e8e3b9f6491bff37a7c027f88f3",
+          "size": 618
+        },
+        "lib/commonjs/OnramperClient.js": {
+          "sha256": "5feb7c01baa70031cac03720a5959d1757a8e65968d1c12ad3c14ea3575d4c50",
+          "size": 9476
+        },
+        "lib/commonjs/OnramperClient.js.map": {
+          "sha256": "e0be92629790e7501c8f8a6ff90d920445ac07a1f1df9b2671ab0c94f7758be0",
+          "size": 8022
+        },
+        "lib/commonjs/OnramperNative.js": {
+          "sha256": "a77f075898decea414d0006e58c2b8924ad2e573d6f2c774dc5916b0493672ea",
+          "size": 981
+        },
+        "lib/commonjs/OnramperNative.js.map": {
+          "sha256": "d4e96bb7e0ca5d8fd7e431128f5c5994bc41618375306a52d06b8abb26aaef5e",
+          "size": 535
+        },
+        "lib/commonjs/errors.js": {
+          "sha256": "e9b909bf12e62851df4bc421d65b69c7b20cf5e5a20aa47ac8b1669abe5195bb",
+          "size": 1838
+        },
+        "lib/commonjs/errors.js.map": {
+          "sha256": "1cbd783f4cc2633f8dfa9002336d0fe61d1d3248c0b787d0f3815dfc64dbdce7",
+          "size": 1742
+        },
+        "lib/commonjs/events.js": {
+          "sha256": "3efc8deab0970890496456c7461b5d4bf61d4c3187239a6ebf6541607dbde3d5",
+          "size": 114
+        },
+        "lib/commonjs/events.js.map": {
+          "sha256": "e6f3fb4fd8e8ead87b669506497e37cbd138c19801b704dc1742f42d0519b0f9",
+          "size": 104
+        },
+        "lib/commonjs/generated/OnramperCheckoutButtonConfig.json": {
+          "sha256": "2d8c46e3844d58ac85ecfcd292011f28b3da1044023c30dd0a3d66428be84a6f",
+          "size": 243
+        },
+        "lib/commonjs/index.js": {
+          "sha256": "dac1077df16af9d42dc145a6e6b9f0884f4aa8d5ef41b9c29fce700fd6ee3cf5",
+          "size": 738
+        },
+        "lib/commonjs/index.js.map": {
+          "sha256": "15b82bba0dd59a323b4de7ca2a797814721e94c6a6ec06805659a932212fe01a",
+          "size": 274
+        },
+        "lib/commonjs/package.json": {
+          "sha256": "dbf8353f77358bc12169b7bb7301e1978d5b503e002ee927229a8993672818fc",
+          "size": 20
+        },
+        "lib/commonjs/specs/OnramperCheckoutButton.nitro.js": {
+          "sha256": "3d799b4691d68b481240eca29b2e9911ccc230bfec7dee4d01d4949f99d142a1",
+          "size": 136
+        },
+        "lib/commonjs/specs/OnramperCheckoutButton.nitro.js.map": {
+          "sha256": "3af9b12aa0bf303cde2f94a9f05021fb40bad1051d9044273713eb2531a0c15f",
+          "size": 135
+        },
+        "lib/commonjs/specs/OnramperNitro.nitro.js": {
+          "sha256": "574e313e84adb6afe9c748ff9cb757fda1a43ecca9ac0474fc18845742eadc07",
+          "size": 127
+        },
+        "lib/commonjs/specs/OnramperNitro.nitro.js.map": {
+          "sha256": "83c4146d5b70c2f6016730b886ef4419b454ab6fa222e374cdb2f1822557dd74",
+          "size": 126
+        },
+        "lib/commonjs/types.js": {
+          "sha256": "2eb167df58f92e6c8f04e3d5b7b3ce016dac744b4a4ffd46567f77b4f1ff7b2d",
+          "size": 113
+        },
+        "lib/commonjs/types.js.map": {
+          "sha256": "eca95c8a03da3c467430346749db23fadb6a54f9cbb81e0aabc6a2607e365529",
+          "size": 103
+        },
+        "lib/module/CheckoutButton.js": {
+          "sha256": "9ecd72d0b8ce422dad360eb64c9792da79de43bbe15043eaa8856e34a22ccfb2",
+          "size": 1127
+        },
+        "lib/module/CheckoutButton.js.map": {
+          "sha256": "a87031003b00dc3678e5ec9139cbcd25404fa1281cf59ad3852ea3f847140e61",
+          "size": 917
+        },
+        "lib/module/OnramperCheckoutButtonView.js": {
+          "sha256": "f21e9fe3d24d51d7bfacf907f2f7852710282b8abfaaa8fa6c03cc2bef2307b3",
+          "size": 589
+        },
+        "lib/module/OnramperCheckoutButtonView.js.map": {
+          "sha256": "f53dfdbee6ec970baacf1ad1edb7a847116fed13a1f49f431aaa534431c63de4",
+          "size": 363
+        },
+        "lib/module/OnramperClient.js": {
+          "sha256": "42222206c5b424811172e5de52a5fa76e27463e4b6c282e9f6aa6a9f0a2427a1",
+          "size": 9231
+        },
+        "lib/module/OnramperClient.js.map": {
+          "sha256": "536ba2074d9e0a23456dd45f340512ccb43424e3451a2aad9493dfee58ab1f56",
+          "size": 7906
+        },
+        "lib/module/OnramperNative.js": {
+          "sha256": "31980a580bb15a1aab90898d4bfc44210eb04d5e8f18538358a9d631696c491f",
+          "size": 805
+        },
+        "lib/module/OnramperNative.js.map": {
+          "sha256": "77c7a37dac15b23b1e0438a68e60c2098011e4bf755f569ec518bda0186a6786",
+          "size": 482
+        },
+        "lib/module/errors.js": {
+          "sha256": "82f4de9ce158853208893c659797b41664320f05083cea57c6d6fed2f5cd30eb",
+          "size": 1709
+        },
+        "lib/module/errors.js.map": {
+          "sha256": "de529e8e38b3645b4babf2c854dba66f01a8d1dfeab158dda755dd2ac67f5a44",
+          "size": 1699
+        },
+        "lib/module/events.js": {
+          "sha256": "462effc3b1b992af323c9cb831ad71541f59e3f2e7056cb15d59eba8befcee1a",
+          "size": 60
+        },
+        "lib/module/events.js.map": {
+          "sha256": "e6f3fb4fd8e8ead87b669506497e37cbd138c19801b704dc1742f42d0519b0f9",
+          "size": 104
+        },
+        "lib/module/generated/OnramperCheckoutButtonConfig.json": {
+          "sha256": "2d8c46e3844d58ac85ecfcd292011f28b3da1044023c30dd0a3d66428be84a6f",
+          "size": 243
+        },
+        "lib/module/index.js": {
+          "sha256": "01d7a5027f588a381eb6ee12274a921a9bcc4d3e9fdaaf34aedc40f0af4050b9",
+          "size": 252
+        },
+        "lib/module/index.js.map": {
+          "sha256": "646775bc446fb659ab9307f7433270666b25159702abd9c7d66942ca71548abd",
+          "size": 257
+        },
+        "lib/module/package.json": {
+          "sha256": "1239d4d885dcad42201a27ed9324f8f0f760b78700d8db9ced39a511cffe7eae",
+          "size": 18
+        },
+        "lib/module/specs/OnramperCheckoutButton.nitro.js": {
+          "sha256": "9fefbef3ec9f8561a242fd6330e8310ec68e3bb6ba4df770e0c9d03e856b8607",
+          "size": 82
+        },
+        "lib/module/specs/OnramperCheckoutButton.nitro.js.map": {
+          "sha256": "3af9b12aa0bf303cde2f94a9f05021fb40bad1051d9044273713eb2531a0c15f",
+          "size": 135
+        },
+        "lib/module/specs/OnramperNitro.nitro.js": {
+          "sha256": "27b42e4841c75b9b98ae7178186bd81429213ef0508942812d5d489a0483e984",
+          "size": 73
+        },
+        "lib/module/specs/OnramperNitro.nitro.js.map": {
+          "sha256": "83c4146d5b70c2f6016730b886ef4419b454ab6fa222e374cdb2f1822557dd74",
+          "size": 126
+        },
+        "lib/module/types.js": {
+          "sha256": "c95a65648718088acee19da2b3a85c8056e8a1d2bffdf1253e4be2f6af697288",
+          "size": 59
+        },
+        "lib/module/types.js.map": {
+          "sha256": "eca95c8a03da3c467430346749db23fadb6a54f9cbb81e0aabc6a2607e365529",
+          "size": 103
+        },
+        "lib/typescript/commonjs/package.json": {
+          "sha256": "dbf8353f77358bc12169b7bb7301e1978d5b503e002ee927229a8993672818fc",
+          "size": 20
+        },
+        "lib/typescript/commonjs/src/CheckoutButton.d.ts": {
+          "sha256": "8e064fa5703e23cefaf314cbf69871a0e4890a25694a3fab06452df060cde694",
+          "size": 1706
+        },
+        "lib/typescript/commonjs/src/CheckoutButton.d.ts.map": {
+          "sha256": "6061bf0936918bf1cd66ceb811461ed7c415fa4cf6292bf03e212c2dfb809d4a",
+          "size": 294
+        },
+        "lib/typescript/commonjs/src/OnramperCheckoutButtonView.d.ts": {
+          "sha256": "b8eede1b6482f5d012012e96e123444be42843f592a44b018de5e3b2e975f21f",
+          "size": 664
+        },
+        "lib/typescript/commonjs/src/OnramperCheckoutButtonView.d.ts.map": {
+          "sha256": "4cd1457023e149c10ca63a71897e2133d1d3e9e823ffb7ed9b77e4b5ab19c12b",
+          "size": 309
+        },
+        "lib/typescript/commonjs/src/OnramperClient.d.ts": {
+          "sha256": "8e9141fb0729ace31da2f04026c11956b04fde0c28563601732a9728b70c46d6",
+          "size": 4020
+        },
+        "lib/typescript/commonjs/src/OnramperClient.d.ts.map": {
+          "sha256": "23d6a7dfe36259c007d1f0f18b99f490bac37ecb735958af25d1f2b7ff7951ca",
+          "size": 1672
+        },
+        "lib/typescript/commonjs/src/OnramperNative.d.ts": {
+          "sha256": "02417621608170a9f3258ce57b0828f718ba30e7f327fec8f5545ec9dd1c9fe6",
+          "size": 436
+        },
+        "lib/typescript/commonjs/src/OnramperNative.d.ts.map": {
+          "sha256": "33d84f950da87b8d6c63cc1a20d2f74a693060b9be5786e9d57719655ce84cd2",
+          "size": 256
+        },
+        "lib/typescript/commonjs/src/errors.d.ts": {
+          "sha256": "ff3c1be72a8bb0419997958e2d3cb8a5d27a80b11fe351edc7ddb48da74a0d3f",
+          "size": 1446
+        },
+        "lib/typescript/commonjs/src/errors.d.ts.map": {
+          "sha256": "6eeb02b0fd83a4e338750527b66a1a0811446ac1026f6fff6c4838ed4e0a5450",
+          "size": 1085
+        },
+        "lib/typescript/commonjs/src/events.d.ts": {
+          "sha256": "a010bc36539cd1c014f1732de963267ca506f5c2dc46fd7cac3ff5a80458e60a",
+          "size": 1382
+        },
+        "lib/typescript/commonjs/src/events.d.ts.map": {
+          "sha256": "211c01ab7082bbb5000bf37e64f216d5f15beec7c74edf99cc17858e309bd37e",
+          "size": 1406
+        },
+        "lib/typescript/commonjs/src/index.d.ts": {
+          "sha256": "765ec42ff32c8c02d2d20d7362d3f36df2ce221b393ec40136c64e65f17956af",
+          "size": 974
+        },
+        "lib/typescript/commonjs/src/index.d.ts.map": {
+          "sha256": "92082474afb8406b277907388b06df5e96380c7786f28110d930a0a33687eae6",
+          "size": 762
+        },
+        "lib/typescript/commonjs/src/specs/OnramperCheckoutButton.nitro.d.ts": {
+          "sha256": "710cb772c29e85cb228ccf2e01176dd6c6f3dc7fc3ccacce64713bfbaf2e2655",
+          "size": 784
+        },
+        "lib/typescript/commonjs/src/specs/OnramperCheckoutButton.nitro.d.ts.map": {
+          "sha256": "29ec8cf8c48e8dd509ae3533335f5d5e50ef921888c06fa832ea547b89a0a6a9",
+          "size": 517
+        },
+        "lib/typescript/commonjs/src/specs/OnramperNitro.nitro.d.ts": {
+          "sha256": "392df44e966f2bc577756fa7cb7d8f3ab49a84804464f4b0cd04e2fa205baee6",
+          "size": 1814
+        },
+        "lib/typescript/commonjs/src/specs/OnramperNitro.nitro.d.ts.map": {
+          "sha256": "13bc231fde7c44fe6c5876e723ed4cb3295f88c70ff779aed691da591b497403",
+          "size": 1462
+        },
+        "lib/typescript/commonjs/src/types.d.ts": {
+          "sha256": "9d099fd5fcc604e587023c99f49aca25a46c394bdf820b59844ae61f142e7980",
+          "size": 5139
+        },
+        "lib/typescript/commonjs/src/types.d.ts.map": {
+          "sha256": "97e474e18d61a7fdd57f0db33d9566191d61cd8d5e57eabc6aaea6029c700364",
+          "size": 4342
+        },
+        "lib/typescript/module/package.json": {
+          "sha256": "1239d4d885dcad42201a27ed9324f8f0f760b78700d8db9ced39a511cffe7eae",
+          "size": 18
+        },
+        "lib/typescript/module/src/CheckoutButton.d.ts": {
+          "sha256": "3c86a994ee25478a607ae5c223afacd12f81341b77976adac5d87df96b3ba41c",
+          "size": 1718
+        },
+        "lib/typescript/module/src/CheckoutButton.d.ts.map": {
+          "sha256": "6061bf0936918bf1cd66ceb811461ed7c415fa4cf6292bf03e212c2dfb809d4a",
+          "size": 294
+        },
+        "lib/typescript/module/src/OnramperCheckoutButtonView.d.ts": {
+          "sha256": "ad0e72ff1fa3efaf5ec1ce0b36d8735df16caa73567d7f1f4587866c683022d3",
+          "size": 667
+        },
+        "lib/typescript/module/src/OnramperCheckoutButtonView.d.ts.map": {
+          "sha256": "2541a69e9228a2ee8d5fe0600f116450f3da80e5d1f62b09be5997d1ed5511d1",
+          "size": 310
+        },
+        "lib/typescript/module/src/OnramperClient.d.ts": {
+          "sha256": "0e4dcb9bd747e5d6fedcccf5bf41b5059cb0d492e4bfb3a5e332ba4826f44f3d",
+          "size": 4029
+        },
+        "lib/typescript/module/src/OnramperClient.d.ts.map": {
+          "sha256": "ffb2b5c7fdc4bdfc1d51363879e45b741ce6bbc3569e293a3d57a3f4e2e0fa22",
+          "size": 1673
+        },
+        "lib/typescript/module/src/OnramperNative.d.ts": {
+          "sha256": "ca95e3cf0c4f66699dc0a425f57547ba6586c1fdbc8fb2e65ceff2a622139eaa",
+          "size": 439
+        },
+        "lib/typescript/module/src/OnramperNative.d.ts.map": {
+          "sha256": "3f4dccc305ba94eb320ec14f08904e0e0ea7799a8a746c954bb91b498875158b",
+          "size": 257
+        },
+        "lib/typescript/module/src/errors.d.ts": {
+          "sha256": "ff3c1be72a8bb0419997958e2d3cb8a5d27a80b11fe351edc7ddb48da74a0d3f",
+          "size": 1446
+        },
+        "lib/typescript/module/src/errors.d.ts.map": {
+          "sha256": "6eeb02b0fd83a4e338750527b66a1a0811446ac1026f6fff6c4838ed4e0a5450",
+          "size": 1085
+        },
+        "lib/typescript/module/src/events.d.ts": {
+          "sha256": "a9ee90a79faee2a647bdd8893c93f29b91f04193c47661eb82b8ed35fa4d466d",
+          "size": 1388
+        },
+        "lib/typescript/module/src/events.d.ts.map": {
+          "sha256": "861495a218d41ed7fbd6db7ea6cc2b6f1b43c8d00bf2d9221b5cce56d78bc747",
+          "size": 1407
+        },
+        "lib/typescript/module/src/index.d.ts": {
+          "sha256": "a674dc12437e8b7b5414a1855e35022334a505001c7119c50fa934d7854e800e",
+          "size": 998
+        },
+        "lib/typescript/module/src/index.d.ts.map": {
+          "sha256": "81d23f2b9bda629675e63736ae6b92f3553ca35b7ab47c535e255b974e08786f",
+          "size": 763
+        },
+        "lib/typescript/module/src/specs/OnramperCheckoutButton.nitro.d.ts": {
+          "sha256": "710cb772c29e85cb228ccf2e01176dd6c6f3dc7fc3ccacce64713bfbaf2e2655",
+          "size": 784
+        },
+        "lib/typescript/module/src/specs/OnramperCheckoutButton.nitro.d.ts.map": {
+          "sha256": "29ec8cf8c48e8dd509ae3533335f5d5e50ef921888c06fa832ea547b89a0a6a9",
+          "size": 517
+        },
+        "lib/typescript/module/src/specs/OnramperNitro.nitro.d.ts": {
+          "sha256": "392df44e966f2bc577756fa7cb7d8f3ab49a84804464f4b0cd04e2fa205baee6",
+          "size": 1814
+        },
+        "lib/typescript/module/src/specs/OnramperNitro.nitro.d.ts.map": {
+          "sha256": "13bc231fde7c44fe6c5876e723ed4cb3295f88c70ff779aed691da591b497403",
+          "size": 1462
+        },
+        "lib/typescript/module/src/types.d.ts": {
+          "sha256": "4a3a235e43632dd01248d41a61e5d9e4d7260f3b1b3eb3c920219bd9a338825b",
+          "size": 5142
+        },
+        "lib/typescript/module/src/types.d.ts.map": {
+          "sha256": "7b8a9b25c382318765549dbe3fa098a4d7e3d559b37fc41d8618938110afe12c",
+          "size": 4343
+        },
+        "nitro.json": {
+          "sha256": "fdce088ad85bafe7a4f24d27dd8121e65a61781ef0ab606a62c2ead70a262507",
+          "size": 534
+        },
+        "nitrogen/generated/.gitattributes": {
+          "sha256": "8401d61d91c8f286601668b1b3c8e90e324d3f09d45a22bc72712c9b5f18e348",
+          "size": 27
+        },
+        "nitrogen/generated/ios/OnramperReactNative+autolinking.rb": {
+          "sha256": "9723cea8c724bb5c1f37ec208da21ea3c541ca19f0aede28638d1a87fac8445d",
+          "size": 2164
+        },
+        "nitrogen/generated/ios/OnramperReactNative-Swift-Cxx-Bridge.cpp": {
+          "sha256": "a68d3c11790691ad7201e49a6522f5fe20df33d048025841fa138946deb96737",
+          "size": 7164
+        },
+        "nitrogen/generated/ios/OnramperReactNative-Swift-Cxx-Bridge.hpp": {
+          "sha256": "6e25a08883abecc613b85d9dfab6f2dac50f535f3ac2a79f6be79bbd36978d59",
+          "size": 21802
+        },
+        "nitrogen/generated/ios/OnramperReactNative-Swift-Cxx-Umbrella.hpp": {
+          "sha256": "104f62375100b0b17b59840bcf66413e6f047b7c750687957db2f19e90de2123",
+          "size": 2782
+        },
+        "nitrogen/generated/ios/OnramperReactNativeAutolinking.mm": {
+          "sha256": "608710fb4b5e87b7968ba3092a6ba4eb1218fb024f5bdd91944e40d892d00bb5",
+          "size": 1280
+        },
+        "nitrogen/generated/ios/OnramperReactNativeAutolinking.swift": {
+          "sha256": "125c6c1cc12e64c50ebffd98384553e4506720b242d57f499e6c6c3f2ee57cad",
+          "size": 1415
+        },
+        "nitrogen/generated/ios/c++/HybridOnramperCheckoutButtonSpecSwift.cpp": {
+          "sha256": "71ec4a293755e0d92f18d2d0992be31f77f0112e2c2500a20069a9a64e3a097f",
+          "size": 330
+        },
+        "nitrogen/generated/ios/c++/HybridOnramperCheckoutButtonSpecSwift.hpp": {
+          "sha256": "763483457b728feec9534e3fd18276ff015e2ee29d3c63b23ced94ee9fba2d68",
+          "size": 3086
+        },
+        "nitrogen/generated/ios/c++/HybridOnramperNitroSpecSwift.cpp": {
+          "sha256": "a696431494ea9158130fec3844f4e8ab2f6bbd852bfd51848ee4f09a131cac5d",
+          "size": 312
+        },
+        "nitrogen/generated/ios/c++/HybridOnramperNitroSpecSwift.hpp": {
+          "sha256": "cd2c00ac4b8c433fe4efc8b509f36bcf444758d2d263307671d6960f1619400f",
+          "size": 6621
+        },
+        "nitrogen/generated/ios/c++/views/HybridOnramperCheckoutButtonComponent.mm": {
+          "sha256": "0293ee609e7415cc141c2efe6fe5235e3e78ac0a5c8d0aa7d1ef26ed4f27feb4",
+          "size": 4256
+        },
+        "nitrogen/generated/ios/swift/Func_std__shared_ptr_Promise_std__shared_ptr_Promise_NitroSessionCredentials____.swift": {
+          "sha256": "4da67ce1cb986987ef25b1577b8cc2e5973c1547ea7b4435d383222c699ebe10",
+          "size": 2925
+        },
+        "nitrogen/generated/ios/swift/Func_void.swift": {
+          "sha256": "8cb00a32a3ae4d1fdcb1b589d0ba2533d312d98a686b9b6b3a5df91fc253452d",
+          "size": 1252
+        },
+        "nitrogen/generated/ios/swift/Func_void_NitroSessionCredentials.swift": {
+          "sha256": "0866a04effc9ae66a97222b56bb3cb60db48a7597840e57adf3831d531b8ea6e",
+          "size": 1527
+        },
+        "nitrogen/generated/ios/swift/Func_void_PreparedIntentResult.swift": {
+          "sha256": "77f52849a8e0612efd185fe31704f9f9320c618820b5dee9bbd70a77ae87ccfe",
+          "size": 1497
+        },
+        "nitrogen/generated/ios/swift/Func_void_double.swift": {
+          "sha256": "ee1b0c790e14e98d81d8e74cd6db13b16ea8f3831365dccdddcd29e3598b2838",
+          "size": 1362
+        },
+        "nitrogen/generated/ios/swift/Func_void_std__exception_ptr.swift": {
+          "sha256": "5e7e393d2caee0a49380373ab274b0789dcb0a8fe7532816bc43a9ce2bd82a12",
+          "size": 1466
+        },
+        "nitrogen/generated/ios/swift/Func_void_std__optional_std__string_.swift": {
+          "sha256": "2805ca4e9bd47499d31903355bb24f8a37b4ed302f17e9ccb5d3586931ac09f6",
+          "size": 1786
+        },
+        "nitrogen/generated/ios/swift/Func_void_std__shared_ptr_Promise_NitroSessionCredentials__.swift": {
+          "sha256": "b03853d872848ea7116bd62b76980dd78bed72f6065de56ef4bc5e8eaa3029d0",
+          "size": 2801
+        },
+        "nitrogen/generated/ios/swift/Func_void_std__string.swift": {
+          "sha256": "9af9c7e24f377ea1c5f0c6d3bd59773b883e20c9451dbe23dd73fa156df8dbca",
+          "size": 1424
+        },
+        "nitrogen/generated/ios/swift/HybridOnramperCheckoutButtonSpec.swift": {
+          "sha256": "78a29496fc64267a72af313f389ba3c8f24a5b5bea70fb842c350775f57161d0",
+          "size": 1922
+        },
+        "nitrogen/generated/ios/swift/HybridOnramperCheckoutButtonSpec_cxx.swift": {
+          "sha256": "992290ea7efd586deec4f986440e7b9e0ff313fdcd66e8ed6714104e67a9c811",
+          "size": 6467
+        },
+        "nitrogen/generated/ios/swift/HybridOnramperNitroSpec.swift": {
+          "sha256": "d84435f75b6a5731f6907bf2a52292a34acc2dd104cbf5c9ea822d0f44069776",
+          "size": 2563
+        },
+        "nitrogen/generated/ios/swift/HybridOnramperNitroSpec_cxx.swift": {
+          "sha256": "5690c97a4f1fe7308f2f5227aa40800ee35297a475c8bce0e3183a9af839371a",
+          "size": 14638
+        },
+        "nitrogen/generated/ios/swift/NitroSessionCredentials.swift": {
+          "sha256": "ffce4bbf46328eb17c9cc8f922c1bdc348a097916661d26c790459225ecf701c",
+          "size": 866
+        },
+        "nitrogen/generated/ios/swift/OnramperNitroConfig.swift": {
+          "sha256": "c9fe789f37423eb92307bf697f4c8eca79a3b51e71f6130c730ea30a0ba90c98",
+          "size": 1521
+        },
+        "nitrogen/generated/ios/swift/PreparedIntentResult.swift": {
+          "sha256": "078cf35de09a1f6424376655c1630cfaeb62564b6cb3f348ea8ddeb66a1248f1",
+          "size": 848
+        },
+        "nitrogen/generated/shared/c++/HybridOnramperCheckoutButtonSpec.cpp": {
+          "sha256": "9455ee0c0a0b927ba887c53831703fc68533fc7eb07b34fd8620e7fceb4984cb",
+          "size": 1023
+        },
+        "nitrogen/generated/shared/c++/HybridOnramperCheckoutButtonSpec.hpp": {
+          "sha256": "bace319724d01cb92bc4f211779323f91c1684613c8e4f9426d60959c38b3cae",
+          "size": 1925
+        },
+        "nitrogen/generated/shared/c++/HybridOnramperNitroSpec.cpp": {
+          "sha256": "8929d237510c708ba4dc1b86b999c95c1745569a9d139e6ea40ddd4a447c822b",
+          "size": 1741
+        },
+        "nitrogen/generated/shared/c++/HybridOnramperNitroSpec.hpp": {
+          "sha256": "c73e2389c990b41178d783478c1cbc6f3c5330c93caf79bf3b2d9539ad1c206f",
+          "size": 3373
+        },
+        "nitrogen/generated/shared/c++/NitroSessionCredentials.hpp": {
+          "sha256": "4bcfbd9879d42455d7d3c1d3f35eef954e9d53c94f9ae3fdd3b924527895a8a6",
+          "size": 3402
+        },
+        "nitrogen/generated/shared/c++/OnramperNitroConfig.hpp": {
+          "sha256": "f896af918135b3219bce347889f9711e47e7bbd48bf756c38c9d5c55715d231c",
+          "size": 5898
+        },
+        "nitrogen/generated/shared/c++/PreparedIntentResult.hpp": {
+          "sha256": "a782c65c0a52d440c8a5f68a06336688840d7b41c5dc504949f807f0ccdc99fc",
+          "size": 3363
+        },
+        "nitrogen/generated/shared/c++/views/HybridOnramperCheckoutButtonComponent.cpp": {
+          "sha256": "5adcfc176fdbdc50251c30d03f3cd5f75b3059f1480401ebb50bee0765cd573e",
+          "size": 5463
+        },
+        "nitrogen/generated/shared/c++/views/HybridOnramperCheckoutButtonComponent.hpp": {
+          "sha256": "a87989b2bd6a2044783114b72607ab4890f7212fad870e650b5e9b2c851d22c4",
+          "size": 4307
+        },
+        "nitrogen/generated/shared/json/OnramperCheckoutButtonConfig.json": {
+          "sha256": "2d8c46e3844d58ac85ecfcd292011f28b3da1044023c30dd0a3d66428be84a6f",
+          "size": 243
+        },
+        "package.json": {
+          "sha256": "fab651063723d8b7ba5cfd9602e28b835a9ff6de60e8dbf763375a09f1ac32c1",
+          "size": 2914
+        },
+        "src/CheckoutButton.ts": {
+          "sha256": "f8c8a97e34f53d84ef915784da29fde5e2beefca8dbc0aecf95fc30c3f31db1c",
+          "size": 1151
+        },
+        "src/OnramperCheckoutButtonView.tsx": {
+          "sha256": "f3feb099377717107ec879012e6fdf90724b147a67d161f9be7d4bdf52b71e01",
+          "size": 789
+        },
+        "src/OnramperClient.ts": {
+          "sha256": "d9a63c586872327316f9c93a92256b52f8d39a88adff61e9916944aa58d7b4e6",
+          "size": 10666
+        },
+        "src/OnramperNative.ts": {
+          "sha256": "5dcba5a73acb16bc6cf13ddab202879e7ab376eb672e0e2e961fb48f2fdb326f",
+          "size": 877
+        },
+        "src/errors.ts": {
+          "sha256": "8bc854b3b5d1581a78bedd84c4bd1abac26413427196910f725fc8492fb7e66b",
+          "size": 3172
+        },
+        "src/events.ts": {
+          "sha256": "f8eb9999f2bbe7c65777b43209a0d9b6057cbc74bd21d6c4c1adb0b2da2549a1",
+          "size": 1316
+        },
+        "src/generated/OnramperCheckoutButtonConfig.json": {
+          "sha256": "2d8c46e3844d58ac85ecfcd292011f28b3da1044023c30dd0a3d66428be84a6f",
+          "size": 243
+        },
+        "src/index.ts": {
+          "sha256": "62476234304529cb9afec826ba811887ad04a2d2ab9ea15e4089b73240e9c29e",
+          "size": 1014
+        },
+        "src/specs/OnramperCheckoutButton.nitro.ts": {
+          "sha256": "cef6a6dbcde1d3dddde2db1b67a30a74e7af139f4ddd2160f4eda3685354ca88",
+          "size": 940
+        },
+        "src/specs/OnramperNitro.nitro.ts": {
+          "sha256": "0b35ce1616fe951d419ccb5fce65b5948e8b5be3ca6dd8731eb81cb437484ea4",
+          "size": 3401
+        },
+        "src/types.ts": {
+          "sha256": "1bcbc33bd427f5f05e76721b7b0c2a88e0513109efb70d881c386600420be886",
+          "size": 7483
+        }
+      }
+    }
+  ]
+}

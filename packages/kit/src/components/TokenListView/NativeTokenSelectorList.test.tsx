@@ -63,6 +63,7 @@ let mockProcessingTokenState: {
 const mockEmptySubFiatMap = {};
 const mockSwap = jest.fn();
 let mockHomeCellStore: IJotaiContextStore | undefined;
+let mockRowLayoutEngine: 'web' | 'native' = 'web';
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -197,6 +198,23 @@ jest.mock('../../states/jotai/contexts/tokenList', () => ({
 }));
 
 jest.mock('../Loading', () => ({ ListLoading: () => null }));
+// Jest resolves the web platform file; read the row container style from the
+// real web or native implementation per test so both contracts are exercised.
+jest.mock('./tokenListRowLayout', () => {
+  const web = jest.requireActual<typeof import('./tokenListRowLayout')>(
+    './tokenListRowLayout',
+  );
+  const native = jest.requireActual<
+    typeof import('./tokenListRowLayout.native')
+  >('./tokenListRowLayout.native');
+  return {
+    ...web,
+    get TOKEN_ROW_CONTAINER_STYLE() {
+      return (mockRowLayoutEngine === 'native' ? native : web)
+        .TOKEN_ROW_CONTAINER_STYLE;
+    },
+  };
+});
 jest.mock('./TokenActionsView', () => ({
   __esModule: true,
   default: function MockTokenActionsView({
@@ -535,6 +553,7 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   expect(first?.type).toBe('dataRow');
   if (first?.type === 'dataRow') {
     expect(first).toMatchObject({ height: 60, heightRounding: 'nearest' });
+    expect(first.style?.container?.cornerRadius).toBe(12);
     // Web wallet rows: name over "amount SYMBOL", value over 24h change.
     expect(first.columns.map((column) => column.key)).toEqual([
       'asset',
@@ -593,6 +612,52 @@ it('publishes Home cell values into separate table columns and routes the Swap a
   expect(mockSnapshotProps.at(-1)).not.toBe(initialSnapshotProp);
   expect(mockSnapshotProps.at(-1)?.structuralTransition?.id).toBe('collapse-2');
   expect(mockApplyPatches).not.toHaveBeenCalled();
+});
+
+it('rounds the Web row box for its hover fill and leaves native rows to the engine', () => {
+  const props = {
+    rows: [ethToken],
+    networkId: 'evm--1',
+    crossNetworkGroupingActive: false,
+    zeroFillMissingFiat: false,
+    showProcessingState: false,
+    isSearching: false,
+    currentNetworkName: 'Ethereum',
+    empty: <div />,
+  };
+  const renderFirstRow = (
+    engine: typeof mockRowLayoutEngine,
+    tableLayout: boolean,
+  ) => {
+    mockRowLayoutEngine = engine;
+    const { unmount } = render(
+      <NativeTokenSelectorList {...props} tableLayout={tableLayout} />,
+    );
+    const row = mockSnapshot?.rows[0];
+    unmount();
+    return {
+      type: row?.type,
+      container:
+        row?.type === 'identity' || row?.type === 'dataRow'
+          ? row.style?.container
+          : undefined,
+    };
+  };
+  try {
+    for (const tableLayout of [false, true]) {
+      const type = tableLayout ? 'dataRow' : 'identity';
+      expect(renderFirstRow('web', tableLayout)).toEqual({
+        type,
+        container: { cornerRadius: 12 },
+      });
+      expect(renderFirstRow('native', tableLayout)).toEqual({
+        type,
+        container: undefined,
+      });
+    }
+  } finally {
+    mockRowLayoutEngine = 'web';
+  }
 });
 
 it('formats and patches only changed selector rows on an immutable fiat update', () => {
@@ -968,11 +1033,15 @@ it('keeps the three-column table rows on native tablets', () => {
     const first = mockSnapshot?.rows[0];
     expect(first?.type).toBe('dataRow');
     if (first?.type === 'dataRow') {
-      expect(first.columns.map((column) => column.key)).toEqual([
-        'asset',
-        'balance',
-        'price',
-      ]);
+      expect(first.style?.container?.cornerRadius).toBe(12);
+      expect(first.columns.map(({ key, weight }) => ({ key, weight }))).toEqual(
+        [
+          { key: 'asset', weight: 2 },
+          { key: 'balance', weight: 3 },
+          { key: 'price', weight: 3 },
+          { key: 'swapSpacer', weight: 2 },
+        ],
+      );
       expect(first.columns[1].text).toBe('414');
       expect(first.columns[2].text).toContain('1.5');
       expect(first.trailing?.[0]).toMatchObject({

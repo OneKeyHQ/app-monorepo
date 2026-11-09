@@ -247,6 +247,8 @@ function MobileBrowser() {
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
   const [visibleOuterPages, setVisibleOuterPages] = useState<number[]>([]);
+  const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
+    useState(false);
   const handleVisiblePagesChange = useCallback((pages: number[]) => {
     setVisibleOuterPages((prev) =>
       prev.length === pages.length && prev.every((v, i) => v === pages[i])
@@ -683,11 +685,18 @@ function MobileBrowser() {
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
+              onTransitioningChange={setIsOuterPageTransitioning}
               earnContent={
                 <EarnHomeWithProvider
                   showHeader={false}
                   showContent={selectedHeaderTab === ETranslations.global_earn}
                   isVisible={isEarnPageVisible}
+                  bannerAutoPlayEnabled={
+                    showDiscoveryPage &&
+                    !isOuterPageTransitioning &&
+                    visibleOuterPages.length === 1 &&
+                    visibleOuterPages[0] === 0
+                  }
                   defaultTab={earnTab}
                   tabsRef={earnTabsRef}
                   useSwipePager={useOuterPager}

@@ -14,10 +14,14 @@ import {
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  getStockReceiveDisplayScope,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  isStockReceivePairSynced,
+  isStockReceiveQuoteCurrent,
   mergeStockChartRealtimePoint,
   shouldDeferStockInitialContent,
+  shouldInvalidateStockReceiveSnapshot,
   shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
@@ -25,6 +29,128 @@ import {
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
+  it('invalidates on a failed current request before fetching starts, but not on ordinary quote expiry', () => {
+    const failed = {
+      hasPositiveAmount: true,
+      matchesAccount: true,
+      completed: true,
+      shouldRefreshQuote: true,
+      currentEventProviderKeys: [],
+    };
+    expect(shouldInvalidateStockReceiveSnapshot(failed)).toBe(true);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({
+        ...failed,
+        currentEventProviderKeys: ['a-one'],
+      }),
+    ).toBe(false);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({
+        ...failed,
+        matchesAccount: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldInvalidateStockReceiveSnapshot({ ...failed, completed: false }),
+    ).toBe(false);
+  });
+  it('only snapshots a quote produced by the current completed request', () => {
+    const quote = {
+      eventId: 'current-event',
+      info: { provider: 'a', providerName: 'one' },
+    };
+    const input = {
+      quote,
+      eventId: 'current-event',
+      currentEventProviderKeys: ['a-one'],
+      matchesAccount: true,
+      matchesTrade: true,
+    };
+    expect(isStockReceiveQuoteCurrent(input)).toBe(true);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, currentEventProviderKeys: [] }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({
+        ...input,
+        currentEventProviderKeys: ['b-two'],
+      }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, eventId: 'another-event' }),
+    ).toBe(false);
+    expect(
+      isStockReceiveQuoteCurrent({ ...input, matchesAccount: false }),
+    ).toBe(false);
+    expect(isStockReceiveQuoteCurrent({ ...input, matchesTrade: false })).toBe(
+      false,
+    );
+  });
+  it('rejects another tab pair while the stock execution pair is restoring', () => {
+    const input = {
+      fromTokenKey: 'pay',
+      toTokenKey: 'stock',
+      stockTokenKey: 'stock',
+      payTokenKey: 'pay',
+      tradeSide: ESwapStockTradeSide.Buy,
+    };
+    expect(isStockReceivePairSynced(input)).toBe(true);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        fromTokenKey: 'swap-a',
+        toTokenKey: 'swap-b',
+      }),
+    ).toBe(false);
+    expect(isStockReceivePairSynced({ ...input, payTokenKey: '' })).toBe(false);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
+    expect(
+      isStockReceivePairSynced({
+        ...input,
+        tradeSide: ESwapStockTradeSide.Sell,
+        fromTokenKey: 'stock',
+        toTokenKey: 'pay',
+      }),
+    ).toBe(true);
+  });
+  it('isolates receive display by account, addresses, tokens, side and amount', () => {
+    const input = {
+      accounts: ['wallet', 'account'],
+      fromAddress: 'sender',
+      toAddress: 'recipient',
+      fromTokenKey: 'chain:pay',
+      toTokenKey: 'chain:stock',
+      tradeSide: ESwapStockTradeSide.Buy,
+      amount: '2',
+      currencyId: 'usd',
+    };
+    const scope = getStockReceiveDisplayScope(input);
+    expect(scope).toBeDefined();
+    for (const changed of [
+      { accounts: ['wallet', 'other-account'] },
+      { fromAddress: 'other-sender' },
+      { toAddress: 'other-recipient' },
+      { fromTokenKey: 'other-chain:pay' },
+      { toTokenKey: 'chain:other-stock' },
+      { tradeSide: ESwapStockTradeSide.Sell },
+      { amount: '3' },
+      // USD and CAD can both render as "$" but require distinct values.
+      { currencyId: 'cad' },
+    ]) {
+      expect(getStockReceiveDisplayScope({ ...input, ...changed })).not.toBe(
+        scope,
+      );
+    }
+    expect(
+      getStockReceiveDisplayScope({ ...input, toAddress: undefined }),
+    ).toBeUndefined();
+  });
+
   it('defaults the stock chart range to one week', () => {
     expect(STOCK_CHART_DEFAULT_RANGE).toBe('1W');
   });

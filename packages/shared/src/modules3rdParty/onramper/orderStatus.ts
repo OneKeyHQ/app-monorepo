@@ -1,5 +1,6 @@
 import {
   EHeadlessBuyOrderStatus,
+  type IHeadlessBuyAbandonReason,
   type IHeadlessBuyOrder,
   type IOnramperTransactionStatus,
 } from '../../../types/fiatCrypto';
@@ -13,15 +14,18 @@ export const HEADLESS_BUY_ORDER_DELAYED_MS = 60 * 60 * 1000;
 // real orders.
 export const HEADLESS_BUY_ORDER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
-// Raw statuses that carry no evidence of a payment.
-const PRE_PAYMENT_RAW_STATUSES = new Set(['init', 'new']);
+// Raw statuses that carry no evidence of a payment. `pending` belongs here:
+// a provider order is `pending` from creation, before its payment page is
+// ready (device-observed 2026-11-06 on Coinbase, where the authorization then
+// failed and the transaction stayed `pending`). Only `paid` and the terminal
+// statuses prove that money moved.
+const PRE_PAYMENT_RAW_STATUSES = new Set(['init', 'new', 'pending']);
 
 export function mapOnramperStatus(raw: string | undefined): {
   status: EHeadlessBuyOrderStatus;
   paymentSeen: boolean;
 } {
   switch (raw?.toLowerCase()) {
-    case 'pending':
     case 'paid':
       return { status: EHeadlessBuyOrderStatus.Processing, paymentSeen: true };
     case 'completed':
@@ -33,13 +37,50 @@ export function mapOnramperStatus(raw: string | undefined): {
     case 'refunded':
       return { status: EHeadlessBuyOrderStatus.Refunded, paymentSeen: true };
     default:
-      // init / new / unknown values: nothing has happened yet as far as the
-      // user is concerned.
+      // init / new / pending / unknown values: nothing has happened yet as
+      // far as the user is concerned.
       return {
         status: EHeadlessBuyOrderStatus.Processing,
         paymentSeen: false,
       };
   }
+}
+
+// Provider payment-page reasons (the SDK's `providerError.reason`) that mean
+// the payment authorization itself failed. Coinbase documents `commit_error`
+// as "payment authorization failed"; `commit_success` is its paid branch.
+const AUTHORIZATION_FAILED_PROVIDER_REASONS = new Set([
+  'onramp_api.commit_error',
+]);
+
+// How a failed checkout settles its order. SDK 1.3.1 reports every Coinbase
+// page error as `providerFailed` ("outcome unknown"), a failed authorization
+// included, so the page reason that preceded the failure decides between the
+// two; every other error code is a plain pre-payment failure.
+export function getHeadlessBuyAbandonReason({
+  errorCode,
+  providerReason,
+}: {
+  errorCode?: string;
+  providerReason?: string;
+}): IHeadlessBuyAbandonReason {
+  if (errorCode !== 'providerFailed') {
+    return 'failed';
+  }
+  return providerReason !== undefined &&
+    AUTHORIZATION_FAILED_PROVIDER_REASONS.has(providerReason)
+    ? 'authorizationFailed'
+    : 'providerFailed';
+}
+
+// Failed by the client (24 h no-progress rule, or the provider's payment page
+// reporting a failed authorization) rather than by the backend. The backend
+// has not confirmed it, so such an order keeps being refreshed and never
+// claims anything about the money.
+export function isClientFailedHeadlessBuyOrder(
+  order: IHeadlessBuyOrder,
+): boolean {
+  return Boolean(order.timedOut || order.authorizationFailed);
 }
 
 function isPrePayment(rawStatus: string | undefined): boolean {
@@ -49,14 +90,15 @@ function isPrePayment(rawStatus: string | undefined): boolean {
   );
 }
 
-// Timed-out failures keep being refreshed: a late completion must flip them.
+// Client-decided failures keep being refreshed: a late completion must flip
+// them.
 export function isTerminalHeadlessBuyOrder(order: IHeadlessBuyOrder): boolean {
   switch (order.status) {
     case EHeadlessBuyOrderStatus.Delivered:
     case EHeadlessBuyOrderStatus.Refunded:
       return true;
     case EHeadlessBuyOrderStatus.Failed:
-      return !order.timedOut;
+      return !isClientFailedHeadlessBuyOrder(order);
     default:
       return false;
   }
@@ -77,13 +119,13 @@ export type IHeadlessBuyFailureKind = 'notCharged' | 'refund' | 'unknown';
 
 // Which failure sentence to show. Only a backend reason lets us promise
 // anything about the money, and "not charged" is only safe when nothing ever
-// showed a payment (no local paymentAuthorized, no backend pending/paid) and
-// the payment surface never failed with the outcome unknown (SDK 1.3
-// `providerFailed`); a timeout knows nothing.
+// showed a payment (no local paymentAuthorized, no backend paid) and the
+// payment surface never failed with the outcome unknown (SDK 1.3
+// `providerFailed`); a client-decided failure knows nothing.
 export function getHeadlessBuyFailureKind(
   order: IHeadlessBuyOrder,
 ): IHeadlessBuyFailureKind {
-  if (order.timedOut || !order.statusReason) {
+  if (isClientFailedHeadlessBuyOrder(order) || !order.statusReason) {
     return 'unknown';
   }
   if (/refund/i.test(order.statusReason)) {
@@ -164,14 +206,18 @@ export function applyOnramperTransactionStatus(
       next.submittedAt = parseStatusDate(tx.statusDate) ?? now;
     }
   }
+  const clientFailed = isClientFailedHeadlessBuyOrder(order);
   if (mapped.status !== EHeadlessBuyOrderStatus.Processing) {
+    // A backend verdict replaces whatever the client had decided.
     next.status = mapped.status;
     next.timedOut = false;
-  } else if (order.timedOut && mapped.paymentSeen) {
-    // The provider finally saw the payment: back to processing.
+    delete next.authorizationFailed;
+  } else if (clientFailed && mapped.paymentSeen) {
+    // The provider saw a payment after all: back to processing.
     next.status = EHeadlessBuyOrderStatus.Processing;
     next.timedOut = false;
-  } else if (!order.timedOut) {
+    delete next.authorizationFailed;
+  } else if (!clientFailed) {
     next.status = EHeadlessBuyOrderStatus.Processing;
   }
   if (next.status !== EHeadlessBuyOrderStatus.Failed) {
@@ -179,6 +225,34 @@ export function applyOnramperTransactionStatus(
     // record: once the order leaves Failed, a later failure must show again.
     delete next.failureViewedAt;
   }
+  return next;
+}
+
+// The SDK ended this order's checkout on a paid outcome (`completed` /
+// `paymentPending`). That is payment evidence in any case. And an order the
+// client had failed on its own — the payment page reported a failed
+// authorization, or the 24 h rule fired — goes back to processing: the
+// provider accepted a payment after all, and the next lookup settles it. A
+// failure the backend reported is left alone. Returns the same reference
+// when nothing changes.
+export function applyHeadlessBuyPaidOutcome(
+  order: IHeadlessBuyOrder,
+): IHeadlessBuyOrder {
+  if (
+    order.status !== EHeadlessBuyOrderStatus.Failed ||
+    !isClientFailedHeadlessBuyOrder(order)
+  ) {
+    return order.paymentSeen ? order : { ...order, paymentSeen: true };
+  }
+  const next: IHeadlessBuyOrder = {
+    ...order,
+    status: EHeadlessBuyOrderStatus.Processing,
+    paymentSeen: true,
+    timedOut: false,
+  };
+  delete next.authorizationFailed;
+  // Same as a status round: the "unseen failure" mark belongs to one failure.
+  delete next.failureViewedAt;
   return next;
 }
 

@@ -1,4 +1,5 @@
 export enum EAtomNames {
+  receivePreferencesPersistAtom = 'receivePreferencesPersistAtom',
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
   demoPriceAtom = 'demoPriceAtom',
   demoPriceInfoAtom = 'demoPriceInfoAtom',
@@ -6,6 +7,7 @@ export enum EAtomNames {
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
   inscriptionProtectionControlPersistAtom = 'inscriptionProtectionControlPersistAtom',
+  termsConsentPersistAtom = 'termsConsentPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
   currencyPersistAtom = 'currencyPersistAtom',

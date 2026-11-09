@@ -16,6 +16,7 @@ const mockRefreshHealthFactor = jest.fn();
 const mockRunCheck = jest.fn();
 const mockResetTarget = jest.fn();
 const mockConfirmSwitch = jest.fn();
+const mockPush = jest.fn();
 const mockPendingState = {
   pendingCount: 0,
   isLoading: false,
@@ -78,12 +79,16 @@ jest.mock('@onekeyhq/components', () => {
       confirmButtonProps?: {
         disabled?: boolean;
         loading?: boolean;
+        onPress?: () => void;
       };
     }) => (
-      <div
+      <button
+        type="button"
+        aria-label="Confirm E-Mode"
         data-loading={confirmButtonProps?.loading}
         data-disabled={confirmButtonProps?.disabled}
         data-testid="e-mode-footer"
+        onClick={confirmButtonProps?.onPress}
       />
     ),
   });
@@ -141,7 +146,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     pop: jest.fn(),
-    push: jest.fn(),
+    push: mockPush,
   }),
 }));
 
@@ -153,6 +158,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
       networkId: 'evm--1',
       provider: 'aave',
       marketAddress: '0xMarket',
+      providerLogoURI: 'https://example.com/aave.png',
     },
   }),
 }));
@@ -319,6 +325,24 @@ describe('BorrowEModeSwitch status rendering', () => {
       isError: false,
       refresh: mockRefresh,
     };
+  });
+
+  it('passes the selected market logo to the required-action flow', () => {
+    const view = render(<BorrowEModeSwitch />);
+    act(() => capturedOnChange.current?.(0, 1));
+    mockCheckState.current = { canSwitch: false };
+    view.rerender(<BorrowEModeSwitch />);
+    fireEvent.click(screen.getByTestId('e-mode-footer'));
+    expect(mockPush).toHaveBeenCalledWith(
+      'BorrowEModeNeedAction',
+      expect.objectContaining({
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        providerLogoURI: 'https://example.com/aave.png',
+        targetEModeId: 0,
+      }),
+    );
   });
 
   // The picker holds one function reference for its whole life. These cover

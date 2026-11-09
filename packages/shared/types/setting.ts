@@ -46,3 +46,27 @@ export type IFetchWalletConfigResp = {
     >;
   };
 };
+
+export type ITermsConsentSource =
+  | 'onboarding'
+  | 'wallet_ready'
+  | 'dialog'
+  | 'web_connect';
+
+// One prompting round per required terms version on this install.
+export type ITermsConsentRound = {
+  version: string;
+  firstPromptAt: number;
+  notNowAt?: number;
+};
+
+export type ITermsConsentState = {
+  acceptedVersion?: string;
+  round?: ITermsConsentRound;
+};
+
+export type ITermsConsentPrompt = {
+  version: string;
+  deadlineAt: number;
+  deadlinePassed: boolean;
+};

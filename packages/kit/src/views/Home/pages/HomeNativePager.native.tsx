@@ -30,6 +30,9 @@ export function HomeNativePager({
   ref,
   tabs,
   initialTabName,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   headerHeightHint,
   topOverlayHeightHint,
   renderHeader,
@@ -177,6 +180,21 @@ export function HomeNativePager({
       <CollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1, backgroundColor: theme.bgApp.val }}
+        nativeTabBar={
+          nativeTabBar
+            ? {
+                ...nativeTabBar,
+                style: {
+                  ...nativeTabBar.style,
+                  backgroundColor: topEdgeActive
+                    ? 'transparent'
+                    : theme.bgApp.val,
+                },
+              }
+            : undefined
+        }
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         initialPage={initialIndex}
         nestedScrollEnabled
         nativeSmoothHeaderScrollEnabled
@@ -202,7 +220,7 @@ export function HomeNativePager({
           }
         }}
         headerHeight={headerLayout.height}
-        stickyHeaderHeight={stickyHeight}
+        stickyHeaderHeight={nativeTabBar?.style?.height ?? stickyHeight}
         // Spot remains the owner of shared asset loading even while offscreen.
         pageRetentionDistance={tabs.length}
         offscreenPageLimit={Math.max(1, tabs.length - 1)}

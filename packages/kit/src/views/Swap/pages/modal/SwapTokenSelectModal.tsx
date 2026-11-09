@@ -119,7 +119,10 @@ import {
 } from '../../utils/swapTokenSelectorCacheUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
-import { buildSwapTokenNativeListSnapshot } from './SwapTokenSelectModal.nativeList';
+import {
+  SWAP_TOKEN_LIST_CONTENT_INSET,
+  buildSwapTokenNativeListSnapshot,
+} from './SwapTokenSelectModal.nativeList';
 import {
   buildSwapStockMetadataKey,
   buildSwapStockSelectableNetworks,
@@ -374,8 +377,12 @@ const SwapTokenSelectPage = ({
     getSwapTokenSelectorCacheEpoch,
     getSwapTokenSelectorCacheEpoch,
   );
-  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM, {
+    networkScope: 'selector',
+  });
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO, {
+    networkScope: 'selector',
+  });
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
@@ -1605,7 +1612,12 @@ const SwapTokenSelectPage = ({
                   onActionAnchorInvalidated={handleNativeAnchorInvalidated}
                   listHeader={
                     shouldShowPopularTokens ? (
-                      <YStack px="$5" pt="$3" gap="$2">
+                      <YStack
+                        mx={-SWAP_TOKEN_LIST_CONTENT_INSET}
+                        px="$5"
+                        pt="$3"
+                        gap="$2"
+                      >
                         <SizableText
                           size="$bodyMd"
                           color="$textSubdued"
@@ -1635,7 +1647,12 @@ const SwapTokenSelectPage = ({
                   estimatedItemSize={60}
                   ListHeaderComponent={
                     shouldShowPopularTokens ? (
-                      <YStack px="$5" pt="$3" gap="$2">
+                      <YStack
+                        mx={-SWAP_TOKEN_LIST_CONTENT_INSET}
+                        px="$5"
+                        pt="$3"
+                        gap="$2"
+                      >
                         <SizableText
                           size="$bodyMd"
                           color="$textSubdued"

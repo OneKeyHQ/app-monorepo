@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -199,6 +200,8 @@ const installPackage: IInstallPackage = async (params) => {
         ...downloadedEvent,
         latestVersion: params.latestVersion,
         buildNumber: String(platformEnv.buildNumber || 1),
+        userInitiated: params.userInitiated,
+        installSource: params.installSource,
       }),
       new Promise<void>((resolve) => {
         setTimeout(resolve, 3500);
@@ -206,6 +209,44 @@ const installPackage: IInstallPackage = async (params) => {
     ]);
     return installStarted;
   });
+};
+
+const prepareMacInstall = async (params: IAppUpdateInfo): Promise<void> => {
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) {
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
+  }
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareMacInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
+};
+
+const prepareQuitInstall: NonNullable<
+  IAppUpdate['prepareQuitInstall']
+> = async (params, expectedTarget) => {
+  if (!params) {
+    await runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.appUpdate.prepareQuitInstall(
+        undefined,
+        expectedTarget,
+      ),
+    );
+    return;
+  }
+  if (!params.downloadedEvent?.downloadUrl || !params.latestVersion) return;
+  await runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.prepareQuitInstall({
+      ...params.downloadedEvent,
+      latestVersion: params.latestVersion,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
 };
 
 export const useDownloadProgress: IUseDownloadProgress = (scope) => {
@@ -285,6 +326,8 @@ export const AppUpdate: IAppUpdate = {
   downloadASC,
   checkPackageAvailability,
   installPackage,
+  prepareMacInstall,
+  prepareQuitInstall,
   manualInstallPackage,
   clearPackage,
   clearApkCache,

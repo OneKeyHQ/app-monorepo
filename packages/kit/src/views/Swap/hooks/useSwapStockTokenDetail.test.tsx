@@ -1,11 +1,30 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react-native';
+import * as React from 'react';
+import { useRef } from 'react';
 
+import { act, render, renderHook } from '@testing-library/react-native';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapStockTokenDetail } from './useSwapStockTokenDetail';
+
+// The installed React runtime exposes Activity before its published types do.
+function isReactActivity(
+  value: unknown,
+): value is React.ExoticComponent<
+  React.PropsWithChildren<{ mode: 'hidden' | 'visible' }>
+> {
+  return value === Symbol.for('react.activity');
+}
+
+const activity: unknown = Reflect.get(React, 'Activity');
+if (!isReactActivity(activity)) {
+  throw new OneKeyLocalError('The React runtime does not provide Activity');
+}
+const Activity = activity;
 
 const mockFetchMarketTokenDetail = jest.fn();
 
@@ -130,6 +149,79 @@ describe('useSwapStockTokenDetail', () => {
 
     await tick(30_000);
     expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(callsAfterDisable);
+    unmount();
+  });
+
+  it('resumes the current stock detail polling after a retained surface reconnects', async () => {
+    let currentResult: ReturnType<typeof useSwapStockTokenDetail> | undefined;
+    const identities = new Set<object>();
+    function StockDetailProbe({ token }: { token: ISwapToken }) {
+      const identity = useRef({});
+      identities.add(identity.current);
+      currentResult = useSwapStockTokenDetail({ token });
+      return null;
+    }
+    const renderActivity = (mode: 'hidden' | 'visible', token: ISwapToken) => (
+      <Activity mode={mode}>
+        <StockDetailProbe token={token} />
+      </Activity>
+    );
+    const { rerender, unmount } = render(renderActivity('visible', stockToken));
+    await tick();
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(false);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(1);
+
+    rerender(renderActivity('hidden', stockToken));
+    await tick(65_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(1);
+    rerender(renderActivity('visible', stockToken));
+    await tick();
+
+    expect(identities.size).toBe(1);
+    const callsAfterReconnect = mockFetchMarketTokenDetail.mock.calls.length;
+    expect(callsAfterReconnect).toBeGreaterThan(1);
+    expect(currentResult?.pending).toBe(false);
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(false);
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(
+      callsAfterReconnect + 1,
+    );
+    await tick(10_000);
+    expect(mockFetchMarketTokenDetail).toHaveBeenCalledTimes(
+      callsAfterReconnect + 2,
+    );
+
+    const nextToken = { ...stockToken, contractAddress: '0xstock-b' };
+    let resolveNext: ((value: unknown) => void) | undefined;
+    mockFetchMarketTokenDetail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNext = resolve;
+        }),
+    );
+    rerender(renderActivity('visible', nextToken));
+    await tick();
+    expect(mockFetchMarketTokenDetail).toHaveBeenLastCalledWith(
+      nextToken.contractAddress,
+      nextToken.networkId,
+      { autoHandleError: false },
+    );
+    expect(currentResult?.pending).toBe(true);
+    expect(currentResult?.tokenDetail).toBeUndefined();
+    await act(async () => {
+      resolveNext?.({
+        code: 0,
+        data: {
+          token: {
+            address: nextToken.contractAddress,
+            stock: { isOpen: true, sourceLogoUri: '', subtitle: 'Apple' },
+          },
+        },
+      });
+    });
+    await tick();
+    expect(currentResult?.pending).toBe(false);
+    expect(currentResult?.tokenDetail?.stock?.isOpen).toBe(true);
     unmount();
   });
 

@@ -24,6 +24,10 @@ const ERROR_COPY: Record<string, string> = {
   // Stale page / intent state.
   notInitialized: 'This page has expired. Try again',
   initializationFailed: 'Initialization failed. Try again',
+  // Our own codes for an init that failed before the SDK named a cause: the
+  // session mint request, and an initialize rejection without a code.
+  sessionMintFailed: 'Initialization failed. Try again',
+  clientInitFailed: 'Initialization failed. Try again',
   invalidState: 'This page has expired. Try again',
   invalidStateTransition: 'This page has expired. Try again',
   intentInvalidated: 'The quote has expired. Try again',

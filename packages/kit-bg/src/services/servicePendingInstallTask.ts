@@ -1468,6 +1468,17 @@ class ServicePendingInstallTask {
       { type: EPendingInstallTaskType.appInstall }
     >,
   ) {
+    if (
+      platformEnv.isDesktop &&
+      task.payload.updateStrategy !== EUpdateStrategy.force &&
+      !(await (
+        this.backgroundApi?.serviceAppUpdate as
+          | { canRestartForUpdate?: () => Promise<boolean> }
+          | undefined
+      )?.canRestartForUpdate?.())
+    ) {
+      return false;
+    }
     const payload = task.payload;
     if (payload.channel !== 'direct') {
       throw createUpdateError({
@@ -1510,23 +1521,61 @@ class ServicePendingInstallTask {
         step: 'install',
       });
     }
+    const recordStartupSource =
+      platformEnv.isDesktop &&
+      payload.updateStrategy !== EUpdateStrategy.force &&
+      getUpdateFileType(appInfo) === EUpdateFileType.appShell;
+    if (recordStartupSource) {
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === payload.latestVersion &&
+        prev.downloadUrl === appInfo.downloadUrl
+          ? { ...prev, installSource: 'startup' }
+          : prev,
+      );
+    }
     await setPendingInstallTask({
       ...task,
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
-    return AppUpdate.installPackage({
-      ...appInfo,
-      latestVersion: payload.latestVersion,
-      updateStrategy: payload.updateStrategy,
-      storeUrl: payload.storeUrl || appInfo.storeUrl,
-      downloadUrl: payload.downloadUrl || appInfo.downloadUrl,
-      fileSize: payload.fileSize ?? appInfo.fileSize,
-      downloadedEvent: {
-        ...appInfo.downloadedEvent,
-        downloadUrl,
-      },
-    });
+    const restoreStartupSource = async () => {
+      if (!recordStartupSource) return;
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === payload.latestVersion &&
+        prev.downloadUrl === appInfo.downloadUrl &&
+        prev.installSource === 'startup'
+          ? { ...prev, installSource: appInfo.installSource ?? 'quit' }
+          : prev,
+      );
+    };
+    try {
+      const started = await AppUpdate.installPackage({
+        ...appInfo,
+        installSource:
+          payload.updateStrategy === EUpdateStrategy.force
+            ? undefined
+            : 'startup',
+        latestVersion: payload.latestVersion,
+        updateStrategy: payload.updateStrategy,
+        storeUrl: payload.storeUrl || appInfo.storeUrl,
+        downloadUrl: payload.downloadUrl || appInfo.downloadUrl,
+        fileSize: payload.fileSize ?? appInfo.fileSize,
+        downloadedEvent: {
+          ...appInfo.downloadedEvent,
+          downloadUrl,
+        },
+      });
+      if (!started) await restoreStartupSource();
+      return started;
+    } catch (error) {
+      await restoreStartupSource();
+      if (
+        getUpdateError(error, 'install').code === EUpdateErrorCode.cancelled
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   private async executePendingInstallTask(

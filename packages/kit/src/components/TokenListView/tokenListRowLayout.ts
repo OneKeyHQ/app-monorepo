@@ -1,6 +1,16 @@
 import { getTokenRowIconSize } from './tokenListRowLayoutShared';
 
-import type { ITokenListHeaderLayout } from './tokenListRowLayoutShared';
+import type {
+  ITokenListHeaderLayout,
+  ITokenRowContainerStyle,
+} from './tokenListRowLayoutShared';
+
+// The web engine paints the hover/pressed fill on the row box and rounds it
+// only by the row's own container radius, so the rows carry the legacy
+// `ListItem` radius themselves (OK-66430).
+export const TOKEN_ROW_CONTAINER_STYLE: ITokenRowContainerStyle = {
+  cornerRadius: 12,
+};
 
 // Web rows (see NativeTokenSelectorList): `horizontalPadding: 12`, 12px flex
 // gap, 32px (gtMd) / 40px icon. Rows carry no outer margin inside the list,

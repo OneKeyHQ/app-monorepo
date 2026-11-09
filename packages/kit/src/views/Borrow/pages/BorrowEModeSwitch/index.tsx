@@ -62,6 +62,7 @@ function BorrowEModeSwitchView() {
     networkId,
     provider,
     marketAddress,
+    providerLogoURI,
   } = route.params;
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -147,6 +148,7 @@ function BorrowEModeSwitchView() {
     accountId,
     provider,
     marketAddress,
+    providerLogoURI,
     onSwitched: () => {
       void refresh();
       navigation.pop();
@@ -392,6 +394,7 @@ function BorrowEModeSwitchView() {
         networkId,
         provider,
         marketAddress,
+        providerLogoURI,
         targetEModeId: eModeId,
         categoryLabel: label,
       });
@@ -403,6 +406,7 @@ function BorrowEModeSwitchView() {
       navigation,
       networkId,
       provider,
+      providerLogoURI,
     ],
   );
 
