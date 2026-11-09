@@ -19,6 +19,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -302,6 +303,11 @@ export default class ServiceNotification extends ServiceBase {
       desktopNotification: webEvent?.target as any,
     });
   };
+
+  @backgroundMethod()
+  async consumePendingLegacyNavigation() {
+    return takePendingLegacyNavigationEvent();
+  }
 
   onNotificationClosed = async ({
     notificationId,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
@@ -22,6 +22,7 @@ import {
   useAppIsLockedAtom,
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -86,6 +87,7 @@ import {
   buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
+  createTrayDataSender,
   formatTrayUsdPrice,
   getTrayCurrencyDisplayInfo,
   getTrayMarketNavigationTarget,
@@ -528,6 +530,7 @@ export function useTrayDataProvider() {
     },
   ] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const {
     activeAccount: { wallet, accountName, account, indexedAccount, dbAccount },
   } = useActiveAccount({ num: 0 });
@@ -540,6 +543,16 @@ export function useTrayDataProvider() {
   currencyInfoRef.current = currencyInfo;
   const currencyMapRef = useRef(currencyMap);
   currencyMapRef.current = currencyMap;
+  const hideValueRef = useRef(hideValue);
+  hideValueRef.current = hideValue;
+  // Every outbound payload goes through this sender so it carries the
+  // hide-value setting the tray renderer cannot read by itself.
+  const [trayDataSender] = useState(() =>
+    createTrayDataSender({
+      send: (data) => globalThis.desktopApi?.sendTrayData(data),
+      getHideValue: () => hideValueRef.current,
+    }),
+  );
   const walletRef = useRef(wallet);
   walletRef.current = wallet;
   const accountRef = useRef(account);
@@ -617,7 +630,7 @@ export function useTrayDataProvider() {
     });
 
     if (appIsLockedRef.current) {
-      globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+      trayDataSender.send(buildLockedPayload());
       return;
     }
 
@@ -1053,29 +1066,29 @@ export function useTrayDataProvider() {
       // User may have locked mid-fetch — without this, gathered data would
       // leak to the tray window after lock, replacing the locked placeholder.
       if (appIsLockedRef.current) {
-        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        trayDataSender.send(buildLockedPayload());
         return;
       }
 
       if (pendingTxReadFailed) {
-        globalThis.desktopApi?.sendTrayData({
+        trayDataSender.send({
           ...trayData,
           isError: true,
         });
         return;
       }
 
-      globalThis.desktopApi?.sendTrayData(trayData);
+      trayDataSender.send(trayData);
     } catch {
       // Prefer locked placeholder over error if user locked during the
       // failing request, so the panel doesn't flash last-known balances.
       if (appIsLockedRef.current) {
-        globalThis.desktopApi?.sendTrayData(buildLockedPayload());
+        trayDataSender.send(buildLockedPayload());
         return;
       }
       // `isError` tells trayIpc to keep the previous good cache instead of
       // forwarding a placeholder to the tray window.
-      globalThis.desktopApi?.sendTrayData({
+      trayDataSender.send({
         isError: true,
         locale,
         accountId: activeAccountId,
@@ -1095,7 +1108,7 @@ export function useTrayDataProvider() {
         pendingTxs: [],
       });
     }
-  }, []);
+  }, [trayDataSender]);
 
   const handleTrayDataRequest = useCallback(async () => {
     if (inFlightRef.current) {
@@ -1417,7 +1430,7 @@ export function useTrayDataProvider() {
         currencyInfo,
         currencyMap,
       });
-      globalThis.desktopApi?.sendTrayData({
+      trayDataSender.send({
         accountId: currentAccountId,
         // Empty name triggers TrayPanel's `noWallet` branch, hiding the optimistic zeros.
         wallet: buildTrayWalletInfo(walletRef.current, 'Wallet'),
@@ -1442,7 +1455,13 @@ export function useTrayDataProvider() {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
-  }, [isTrayActive, activeAccountValue, currencyInfo, currencyMap]);
+  }, [
+    isTrayActive,
+    activeAccountValue,
+    currencyInfo,
+    currencyMap,
+    trayDataSender,
+  ]);
 
   useEffect(() => {
     if (!isTrayActive) return;
@@ -1453,6 +1472,17 @@ export function useTrayDataProvider() {
     if (!isTrayActive) return;
     handleTrayDataRequestRef.current?.();
   }, [isTrayActive, settingsLocale, settingsLastLocale]);
+
+  // Hide-value toggle: re-deliver the last payload right away instead of
+  // running a gather, so the tray never lags behind the main window.
+  useEffect(() => {
+    if (!isTrayActive) {
+      // Main dropped its cache together with the tray.
+      trayDataSender.reset();
+      return;
+    }
+    trayDataSender.syncHideValue();
+  }, [isTrayActive, hideValue, trayDataSender]);
 
   // Main process inits tray by default — if the user previously disabled
   // it, tell main to destroy on startup.
