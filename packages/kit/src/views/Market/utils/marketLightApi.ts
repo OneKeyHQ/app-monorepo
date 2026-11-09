@@ -2,6 +2,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -486,8 +487,10 @@ const fetchMarketTokenListBatchLight = async (
   return { list: cachedResults };
 };
 
+// Keyed by locale: category names are localized and onboarding switches the
+// language without reloading the page.
 const memoizedFetchMarketBasicConfigLight = memoizee(
-  async () => {
+  async (locale: string) => {
     markMarketPerf('market-light-api-basic-config-start');
     const client = await getUtilityClient();
     const response = (
@@ -497,6 +500,7 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
         },
       )
     ).data;
@@ -509,11 +513,22 @@ const memoizedFetchMarketBasicConfigLight = memoizee(
   },
 );
 
+// Use the settings locale, like the request interceptor that overwrites the
+// locale header. A language change requests the config again as soon as
+// settings update, while appLocale still holds the old locale until the new
+// messages finish loading.
+const resolveMarketBasicConfigLocale = async () => {
+  const { locale } = await requestHelper.getSettingsPersistAtom();
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+};
+
 const fetchMarketBasicConfigLight = async () => {
+  const locale = await resolveMarketBasicConfigLocale();
   try {
-    return await memoizedFetchMarketBasicConfigLight();
+    return await memoizedFetchMarketBasicConfigLight(locale);
   } catch (error) {
-    void memoizedFetchMarketBasicConfigLight.clear();
+    // Drop only the failed locale so other cached locales stay usable offline.
+    void memoizedFetchMarketBasicConfigLight.delete(locale);
     throw error;
   }
 };

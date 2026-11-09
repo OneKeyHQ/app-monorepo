@@ -11,6 +11,10 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
+import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -223,6 +227,16 @@ export function TabStackNavigator<RouteName extends string>({
         });
       }
       if (routeName === ETabRoutes.Market) {
+        // Pressing the already focused tab is not an entry; a marker left by it
+        // would be consumed by the next return from a page above the home.
+        if (
+          willTabFocusTransition(
+            routeName,
+            isSplitMainView ? tabletMainViewNavigationRef : rootNavigationRef,
+          )
+        ) {
+          markMarketHomeEntry(EMarketHomeEntrySource.TabBar);
+        }
         appEventBus.emit(EAppEventBusNames.MarketHomePageEnter, {
           from: EEnterWay.HomeTab,
         });
