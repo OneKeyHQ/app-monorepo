@@ -75,9 +75,13 @@ export function logPrimeFreeTrialResult(
 }
 
 export function getPrimeFreeTrialAccessDeniedResult(
-  reason: IPrimeFreeTrialAttemptResult | 'loginCancelled' | 'loginFailed',
+  reason:
+    | IPrimeFreeTrialAttemptResult
+    | 'loginCancelled'
+    | 'loginFailed'
+    | 'banned',
 ): IPrimeFreeTrialAttemptResult {
   if (reason === 'loginCancelled') return 'cancelled';
-  if (reason === 'loginFailed') return 'failed';
+  if (reason === 'loginFailed' || reason === 'banned') return 'failed';
   return reason;
 }

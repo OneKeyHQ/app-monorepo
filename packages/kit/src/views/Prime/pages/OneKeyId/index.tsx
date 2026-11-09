@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
+  Alert,
   Button,
   Divider,
   IconButton,
@@ -23,6 +24,7 @@ import {
   useMedia,
   useUpdateEffect,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
@@ -32,9 +34,14 @@ import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isPrimeUserBannedMockEnabled,
+  primeUserBannedMessage,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -65,6 +72,7 @@ type IOneKeyIdActionItemProps = {
   titleColor?: ColorTokens;
   drillIn?: boolean;
   testID?: string;
+  disabled?: boolean;
 };
 
 type IOneKeyIdAction = IOneKeyIdActionItemProps & {
@@ -79,6 +87,7 @@ function OneKeyIdActionItem({
   titleColor,
   drillIn = true,
   testID,
+  disabled = false,
 }: IOneKeyIdActionItemProps) {
   const media = useMedia();
 
@@ -98,7 +107,9 @@ function OneKeyIdActionItem({
       }}
       title={title}
       subtitle={media.gtMd ? subtitle : undefined}
-      onPress={onPress}
+      disabled={disabled}
+      accessibilityState={{ disabled }}
+      onPress={disabled ? undefined : onPress}
       titleProps={{
         size: media.gtMd ? '$bodyMdMedium' : '$bodyLgMedium',
         color: titleColor,
@@ -155,13 +166,16 @@ function OneKeyIdSection({
 
 function OneKeyIdAccountManagementItem({
   onDeleteAccount,
+  isBanned,
 }: {
   onDeleteAccount: () => void;
+  isBanned: boolean;
 }) {
   const intl = useIntl();
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => (
       <ActionList.Item
+        testID={PrimeTestIDs.oneKeyIdDeleteAccountBtn}
         icon="RemovePeopleOutline"
         label={intl.formatMessage({ id: ETranslations.id_delete_onekey_id })}
         destructive
@@ -172,6 +186,18 @@ function OneKeyIdAccountManagementItem({
     [intl, onDeleteAccount],
   );
 
+  if (isBanned) {
+    return (
+      <OneKeyIdActionItem
+        icon="RemovePeopleOutline"
+        title={intl.formatMessage({ id: ETranslations.id_delete_onekey_id })}
+        titleColor="$textCritical"
+        onPress={onDeleteAccount}
+        testID={PrimeTestIDs.oneKeyIdDeleteAccountBtn}
+      />
+    );
+  }
+
   return (
     <ActionList
       title={ONEKEY_ID_TITLE}
@@ -180,6 +206,7 @@ function OneKeyIdAccountManagementItem({
       renderTrigger={
         <OneKeyIdActionItem
           icon="SettingsOutline"
+          testID={PrimeTestIDs.oneKeyIdAccountManagementBtn}
           title={intl.formatMessage({
             id: ETranslations.global_manage_accounts,
           })}
@@ -193,10 +220,12 @@ function OneKeyIdProfileNameBadge({
   displayName,
   textSize,
   centered,
+  disabled,
 }: {
   displayName: string;
   textSize: '$headingMd' | '$headingLg';
   centered?: boolean;
+  disabled: boolean;
 }) {
   return (
     <XStack
@@ -218,7 +247,7 @@ function OneKeyIdProfileNameBadge({
       >
         {displayName}
       </SizableText>
-      <PrimeUserBadge showFreeStatus={false} />
+      <PrimeUserBadge showFreeStatus={false} disabled={disabled} />
     </XStack>
   );
 }
@@ -227,10 +256,12 @@ function OneKeyIdProfilePanel({
   onEditProfile,
   onLogout,
   onClose,
+  isBanned,
 }: {
   onEditProfile: () => void;
   onLogout: () => void;
   onClose: () => void;
+  isBanned: boolean;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -290,9 +321,12 @@ function OneKeyIdProfilePanel({
           borderRadius="$3"
           borderCurve="continuous"
           $platform-web={{ boxShadow: ONEKEY_ID_PROFILE_CARD_SHADOW }}
-          cursor="pointer"
-          onPress={onEditProfile}
-          pressStyle={{ opacity: 0.7 }}
+          testID={PrimeTestIDs.oneKeyIdProfileCard}
+          disabled={isBanned}
+          accessibilityState={{ disabled: isBanned }}
+          cursor={isBanned ? 'default' : 'pointer'}
+          onPress={isBanned ? undefined : onEditProfile}
+          pressStyle={isBanned ? undefined : { opacity: 0.7 }}
           $gtMd={{ display: 'none' }}
         >
           <YStack flex={1} gap="$4">
@@ -303,12 +337,14 @@ function OneKeyIdProfilePanel({
               <OneKeyIdProfileNameBadge
                 displayName={displayName}
                 textSize={nameTextSize}
+                disabled={isBanned}
               />
               <IconButton
                 icon="EditOutline"
                 size="small"
                 iconSize="$5"
                 variant="tertiary"
+                disabled={isBanned}
                 onPress={(e) => {
                   e.stopPropagation();
                   onEditProfile();
@@ -369,6 +405,7 @@ function OneKeyIdProfilePanel({
               displayName={displayName}
               textSize={nameTextSize}
               centered
+              disabled={isBanned}
             />
             <SizableText
               size={emailTextSize}
@@ -391,6 +428,7 @@ function OneKeyIdProfilePanel({
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$neutral3"
             onPress={onEditProfile}
+            disabled={isBanned}
             testID={PrimeTestIDs.oneKeyIdEditProfileBtn}
             alignSelf="center"
           >
@@ -421,13 +459,18 @@ function OneKeyIdPage() {
   const media = useMedia();
   const { toInviteRewardPage } = useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { isLoggedIn } = useOneKeyAuth();
+  const { isLoggedIn, user } = useOneKeyAuth();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isMock = isPrimeUserBannedMockEnabled(devSettings, platformEnv);
+  const isBanned = Boolean(user?.isOneKeyIdBanned || isMock);
   const isFocused = useRouteIsFocused();
   const isExplicitLogoutRef = useRef(false);
 
   const handleEditProfile = useCallback(() => {
-    navigation.push(EPrimePages.OneKeyIdProfileEdit);
-  }, [navigation]);
+    if (!isBanned) {
+      navigation.push(EPrimePages.OneKeyIdProfileEdit);
+    }
+  }, [isBanned, navigation]);
 
   const handleDeviceManagement = useCallback(() => {
     navigation.push(EPrimePages.PrimeDeviceLimit);
@@ -438,8 +481,14 @@ function OneKeyIdPage() {
   }, [navigation]);
 
   const handleDeleteAccount = useCallback(() => {
+    if (isBanned) {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDeleteAccount,
+      });
+      return;
+    }
     navigation.push(EPrimePages.PrimeDeleteAccount);
-  }, [navigation]);
+  }, [isBanned, navigation]);
 
   const handleClose = useCallback(() => {
     resetPrimeModal();
@@ -500,16 +549,29 @@ function OneKeyIdPage() {
     resetPrimeModal();
   }, []);
 
-  const handleLogout = useConfirmOneKeyIdLogout({
+  const logout = useConfirmOneKeyIdLogout({
     reason: 'OneKeyIdPage Logout Button',
     onBeforeLogout: handleBeforeLogout,
     onSuccess: handleLogoutSuccess,
   });
 
+  const handleLogout = useCallback(async () => {
+    if (isMock) {
+      await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+        'mockPrimeUserBanned',
+        false,
+      );
+      resetPrimeModal();
+      return;
+    }
+    logout();
+  }, [isMock, logout]);
+
   const manageServiceActions: IOneKeyIdAction[] = [];
   if (isPrimeAvailable) {
     manageServiceActions.push({
       key: 'prime',
+      testID: PrimeTestIDs.oneKeyIdPrimeBtn,
       icon: 'PrimeOutline',
       title: ONEKEY_PRIME_TITLE,
       subtitle: intl.formatMessage({
@@ -521,6 +583,7 @@ function OneKeyIdPage() {
   manageServiceActions.push(
     {
       key: 'refer',
+      testID: PrimeTestIDs.oneKeyIdReferralBtn,
       icon: 'GiftOutline',
       title: intl.formatMessage({
         id: ETranslations.id_refer_a_friend,
@@ -532,6 +595,7 @@ function OneKeyIdPage() {
     },
     {
       key: 'devices',
+      testID: PrimeTestIDs.oneKeyIdDevicesBtn,
       icon: 'MultipleDevicesOutline',
       title: intl.formatMessage({
         id: ETranslations.prime_device_management,
@@ -540,6 +604,7 @@ function OneKeyIdPage() {
     },
     {
       key: 'orders',
+      testID: PrimeTestIDs.oneKeyIdOrdersBtn,
       icon: 'CartOutline',
       title: intl.formatMessage({
         id: ETranslations.prime_my_order,
@@ -549,7 +614,7 @@ function OneKeyIdPage() {
   );
 
   return (
-    <Page>
+    <Page testID={PrimeTestIDs.oneKeyIdPage}>
       <Page.Header title={ONEKEY_ID_TITLE} headerShown={!media.gtMd} />
       <Page.Body>
         <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
@@ -566,6 +631,7 @@ function OneKeyIdPage() {
             }}
           >
             <OneKeyIdProfilePanel
+              isBanned={isBanned}
               onEditProfile={handleEditProfile}
               onLogout={handleLogout}
               onClose={handleClose}
@@ -579,6 +645,20 @@ function OneKeyIdPage() {
                 gap: '$5',
               }}
             >
+              {isBanned ? (
+                <YStack gap="$3">
+                  <Alert
+                    testID={PrimeTestIDs.oneKeyIdBannedAlert}
+                    type="critical"
+                    title={intl.formatMessage(primeUserBannedMessage)}
+                  />
+                  {isMock ? (
+                    <SizableText color="$textSubdued" size="$bodySm">
+                      Local mock: no server requests. Log out exits the mock.
+                    </SizableText>
+                  ) : null}
+                </YStack>
+              ) : null}
               <OneKeyIdSection
                 title={intl.formatMessage({
                   id: ETranslations.prime_manage_service,
@@ -588,7 +668,10 @@ function OneKeyIdPage() {
                   const { key, ...actionProps } = action;
                   return (
                     <Fragment key={key}>
-                      <OneKeyIdActionItem {...actionProps} />
+                      <OneKeyIdActionItem
+                        {...actionProps}
+                        disabled={isBanned}
+                      />
                       {index < manageServiceActions.length - 1 ? (
                         <SectionDivider />
                       ) : null}
@@ -603,14 +686,17 @@ function OneKeyIdPage() {
                 })}
               >
                 <OneKeyIdAccountManagementItem
+                  isBanned={isBanned}
                   onDeleteAccount={handleDeleteAccount}
                 />
               </OneKeyIdSection>
 
-              <OneKeyIdLegacyOAuthBindPrompt
-                isLoggedIn={Boolean(isLoggedIn)}
-                isFocused={isFocused}
-              />
+              {!isBanned ? (
+                <OneKeyIdLegacyOAuthBindPrompt
+                  isLoggedIn={Boolean(isLoggedIn)}
+                  isFocused={isFocused}
+                />
+              ) : null}
             </YStack>
           </YStack>
         </ScrollView>
