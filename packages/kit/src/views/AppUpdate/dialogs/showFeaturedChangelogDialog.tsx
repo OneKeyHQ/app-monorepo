@@ -78,6 +78,11 @@ export interface IFeaturedChangelogPreviewData {
 export interface IShowFeaturedChangelogDialogParams {
   isPreInstall?: boolean;
   previewData?: IFeaturedChangelogPreviewData;
+  // Payload already validated against the background-runtime atom by
+  // tryShowFeaturedDialog. Preferred over the local atom copy: on native the
+  // dialog renders from the split UI runtime, whose atom can still carry
+  // fields (e.g. a stale featuredChangelog) that the background already cleared.
+  featuredChangelog?: IFeaturedChangelog;
 }
 
 // Set only while the ops preview renders; readers fall back to the atom when it
@@ -274,18 +279,22 @@ function useFeaturedCta({
   return { ctaText, onCtaPress };
 }
 
-function useFeatures(): IFeaturedItem[] {
+function useFeatures(
+  validatedFeaturedChangelog?: IFeaturedChangelog,
+): IFeaturedItem[] {
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   // Memoize so a fresh `?? []` reference doesn't ripple through downstream
-  // effects on every unrelated atom-field change. Preview payload wins so the
-  // carousel renders the previewed changelog, not the persisted one.
+  // effects on every unrelated atom-field change. Preview payload and the
+  // gate-validated payload win over the persisted atom so the carousel renders
+  // the content that was just validated (not a stale local copy).
   return useMemo(
     () =>
       preview
         ? preview.featuredChangelog.features
-        : (appUpdateInfo.featuredChangelog?.features ?? []),
-    [preview, appUpdateInfo.featuredChangelog?.features],
+        : ((validatedFeaturedChangelog ?? appUpdateInfo.featuredChangelog)
+            ?.features ?? []),
+    [preview, validatedFeaturedChangelog, appUpdateInfo.featuredChangelog],
   );
 }
 
@@ -294,16 +303,18 @@ function FeaturedChangelogContent({
   isLocked,
   onLockChange,
   closeDialog,
+  validatedFeaturedChangelog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
   onLockChange?: (locked: boolean) => void;
   closeDialog: () => Promise<void>;
+  validatedFeaturedChangelog?: IFeaturedChangelog;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isPreview = useContext(FeaturedChangelogPreviewContext) !== undefined;
-  const features = useFeatures();
+  const features = useFeatures(validatedFeaturedChangelog);
   const {
     updateInfo,
     isForceUpdate: isLiveLocked,
@@ -476,17 +487,22 @@ const FeaturedChangelogDialogContainer = forwardRef<
 export function showFeaturedChangelogDialog(
   params: IShowFeaturedChangelogDialogParams = {},
 ): IDialogInstance | undefined {
-  const { isPreInstall = false, previewData } = params;
+  const {
+    isPreInstall = false,
+    previewData,
+    featuredChangelog: validatedFeaturedChangelog,
+  } = params;
 
   // Preview renders from the injected payload and never touches the atom; the
-  // production path reads the persisted atom synchronously (safe because
-  // jotaiDefaultStore is always available on the JS thread after app init).
+  // production path prefers the payload validated by tryShowFeaturedDialog and
+  // only falls back to the persisted atom.
   const atomInfo = previewData
     ? undefined
     : jotaiDefaultStore.get(appUpdatePersistAtom.atom());
   const features = previewData
     ? previewData.featuredChangelog.features
-    : (atomInfo?.featuredChangelog?.features ?? []);
+    : ((validatedFeaturedChangelog ?? atomInfo?.featuredChangelog)?.features ??
+      []);
   if (features.length === 0) return undefined;
 
   // Prevent dismissal when a force-update is pending pre-install. Never lock
@@ -529,6 +545,7 @@ export function showFeaturedChangelogDialog(
             <FeaturedChangelogContent
               isPreInstall={isPreInstall}
               isLocked={isLocked}
+              validatedFeaturedChangelog={validatedFeaturedChangelog}
               onLockChange={(nextLocked) => {
                 isLockedRef.current = nextLocked;
                 dialogStore.set({ isLocked: nextLocked });

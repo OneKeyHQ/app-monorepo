@@ -34,6 +34,24 @@ export function hasFeaturedChangelog(
   );
 }
 
+/**
+ * Featured Changelog is authored for one exact release version. Persisted cards
+ * outlive the update check that delivered them (e.g. a cancelled test release),
+ * so a payload must be matched against the version it is allowed to describe
+ * before it is rendered; otherwise a stale carousel replaces the installed
+ * version's changelog.
+ */
+export function isFeaturedChangelogForVersion(
+  featuredChangelog: IFeaturedChangelog | undefined,
+  version: string | undefined,
+): boolean {
+  const featuredVersion = featuredChangelog?.version?.trim();
+  const targetVersion = version?.trim();
+  return (
+    !!featuredVersion && !!targetVersion && featuredVersion === targetVersion
+  );
+}
+
 const VALID_MODE_VALUES = new Set<number>([
   ENotificationPushMessageMode.page,
   ENotificationPushMessageMode.dialog,

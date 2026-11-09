@@ -4,8 +4,13 @@ import platformEnv from '../platformEnv';
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
+import {
+  hasFeaturedChangelog,
+  isFeaturedChangelogForVersion,
+} from './featuredChangelog';
 import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
+import type { IFeaturedChangelog } from './featuredChangelog';
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 import type { IDownloadProgressScope } from '../modules3rdParty/auto-update/type';
 
@@ -26,6 +31,7 @@ export {
   type IFeaturedChangelog,
   hasFeaturedChangelog,
   isAllowedFeaturedHref,
+  isFeaturedChangelogForVersion,
   normalizeFeaturedChangelog,
 } from './featuredChangelog';
 
@@ -284,6 +290,43 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
     isRollback,
   };
 };
+
+/**
+ * Whether a persisted Featured Changelog may be rendered for the requested
+ * entry point.
+ *
+ * The cards are version-specific and persist across update checks/launches, so
+ * a payload left over from an earlier check (or from a cancelled test release)
+ * must not surface:
+ * - pre-install ("update available" click): the payload has to describe the
+ *   update target that is actually pending;
+ * - post-install ("What's New" on the About tab, post-update popup): the
+ *   payload has to describe the installed version; a rollback target keeps the
+ *   installed-version changelog instead of the rolled-back release's cards.
+ */
+export function isFeaturedChangelogRelevantToAppUpdate(
+  featuredChangelog: IFeaturedChangelog | undefined,
+  appUpdateInfo: IAppUpdateInfo | undefined,
+  isPreInstall: boolean,
+): featuredChangelog is IFeaturedChangelog {
+  if (!hasFeaturedChangelog(featuredChangelog) || !appUpdateInfo) return false;
+  if (isPreInstall) {
+    const { shouldUpdate } = isNeedUpdate({
+      latestVersion: appUpdateInfo.latestVersion,
+      jsBundleVersion: appUpdateInfo.jsBundleVersion,
+      status: appUpdateInfo.status,
+    });
+    return (
+      shouldUpdate &&
+      isFeaturedChangelogForVersion(
+        featuredChangelog,
+        appUpdateInfo.latestVersion,
+      )
+    );
+  }
+  if (appUpdateInfo.isRollbackTarget) return false;
+  return isFeaturedChangelogForVersion(featuredChangelog, APP_VERSION);
+}
 
 export const displayFullVersion = (
   version?: string,

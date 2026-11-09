@@ -2330,6 +2330,36 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(service.cachedUpdateInfo).toBeUndefined();
       expect(service.updateAt).toBe(0);
     });
+
+    test('still clears the atom when a native cleanup fails (OK-54862)', async () => {
+      // Android's native clearCache() can reject (cleanup already running /
+      // download did not stop in time). The persisted atom is what every update
+      // surface, including the featured changelog, reads — so the clear must
+      // not depend on the native package cleanup succeeding.
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      AppUpdate.clearPackage.mockRejectedValueOnce(
+        new Error('native cleanup failed'),
+      );
+      resetAtom({
+        latestVersion: '9906.15.1',
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.notify,
+        featuredChangelog: {
+          version: '9906.15.1',
+          features: [{ mediaUrl: 'https://x/a.png', mediaType: 'image' }],
+        },
+      });
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      await expect(service.clearCache()).rejects.toThrow(
+        'native cleanup failed',
+      );
+
+      expect(atomValue.latestVersion).toBe(platformEnv.version);
+      expect(atomValue.featuredChangelog).toBeUndefined();
+    });
   });
 
   // =========================================================================
@@ -2389,6 +2419,24 @@ describe('ServiceAppUpdate state transitions', () => {
 
       // Should return cached, not update with insecure URL
       expect(result).toBeUndefined();
+    });
+
+    test('drops featuredChangelog when the response omits version (OK-54862)', async () => {
+      // Without a response version normalizeFeaturedChangelog skips its
+      // version guard and would accept cards authored for any release; a
+      // cancelled test release must never reach the persisted atom this way.
+      mockFetchConfigResponse({
+        updateStrategy: EUpdateStrategy.manual,
+        featuredChangelog: {
+          version: '9906.15.1',
+          features: [{ mediaUrl: 'https://x/a.png', mediaType: 'image' }],
+        },
+      });
+
+      const result = await service.fetchConfig();
+
+      expect(result).toBeDefined();
+      expect(result?.featuredChangelog).toBeUndefined();
     });
 
     test('accepts jsBundle with HTTPS downloadUrl', async () => {
