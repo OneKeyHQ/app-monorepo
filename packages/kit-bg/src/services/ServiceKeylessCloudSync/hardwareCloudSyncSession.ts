@@ -331,12 +331,25 @@ export async function requestHardwareCloudSyncChallenge({
   // before the user is asked to sign it.
   const clockOffsetMs = await measureServerClockOffsetMs({ force: true });
   // The server recovers the identity key from the signature.
-  const response = await client.post<
+  let response: AxiosResponse<
     IApiClientResponse<{ challengeId: string; message: string }>
-  >(`${AUTH_BASE}/challenge`, {
-    deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
-    identityTag,
-  });
+  >;
+  try {
+    response = await client.post<
+      IApiClientResponse<{ challengeId: string; message: string }>
+    >(`${AUTH_BASE}/challenge`, {
+      deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
+      identityTag,
+    });
+  } catch (error) {
+    const diagnostic = createHardwareCloudSyncDiagnostic();
+    diagnostic('request_challenge');
+    diagnostic('request_failed', {
+      ...getHardwareCloudSyncErrorDiagnostics(error),
+      unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+    });
+    throw error;
+  }
   const challenge = response.data.data;
   assertHardwareCloudSyncChallengeFor({
     message: challenge?.message,
@@ -585,7 +598,7 @@ function readEnvelope(
     envelope = JSON.parse(data) as Partial<IKeyEnvelope>;
   } catch {
     onInvalid?.('invalidJsonCount');
-    envelope = undefined;
+    return null;
   }
   if (
     !envelope ||

@@ -6,6 +6,7 @@ import {
   buildHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -138,6 +139,36 @@ describe('hardware Cloud sync session', () => {
       });
     }
     expect(logger).not.toHaveBeenCalled();
+  });
+
+  test('challenge request failures log their phase and preserve the original error without retry', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    const error = new OneKeyServerApiError({
+      httpStatusCode: 503,
+      message: 'private-challenge-detail',
+    });
+    c.post.mockRejectedValue(error);
+    await expect(
+      requestHardwareCloudSyncChallenge({
+        client: c.client,
+        jwk: createHardwareCloudSyncDeviceKey(),
+        identityTag,
+        env,
+      }),
+    ).rejects.toBe(error);
+    expect(c.post).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('request_challenge'),
+    );
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('"httpStatus":503'),
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(
+      'private-challenge-detail',
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(identityTag);
   });
 
   describe('server clock', () => {
@@ -1052,6 +1083,7 @@ describe('hardware Cloud sync session', () => {
             envelopeItem,
             other,
             { ...other, data: '{"dekId":"legacy"}' },
+            { ...other, data: '{invalid-json' },
           ],
         }),
       );
@@ -1070,14 +1102,21 @@ describe('hardware Cloud sync session', () => {
             line.includes('history_received_completeness_unknown'),
         );
       expect(diagnostics.at(-1)).toEqual(
-        expect.stringContaining('"returnedCount":3'),
+        expect.stringContaining('"returnedCount":4'),
       );
       expect(diagnostics.at(-1)).toEqual(
-        expect.stringContaining('"invalidEnvelopeCount":1'),
+        expect.stringContaining('"invalidEnvelopeCount":2'),
       );
       expect(diagnostics.at(-1)).toEqual(
         expect.stringContaining('"invalidIdCount":1'),
       );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidJsonCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidShapeCount":0'),
+      );
+
       expect(diagnostics.at(-1)).toEqual(
         expect.stringContaining('"historyCompleteKnown":false'),
       );

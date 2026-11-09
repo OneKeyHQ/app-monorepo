@@ -1,7 +1,12 @@
 import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyError,
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -434,4 +439,40 @@ test('diagnostic-only aggregation failures do not escape', () => {
       throw new OneKeyLocalError('private-error');
     }),
   ).not.toThrow();
+});
+
+test('diagnostics recognize interceptor-normalized network and HTTP failures', () => {
+  const network = new OneKeyError({
+    className: EOneKeyErrorClassNames.AxiosNetworkError,
+    message: 'private-network-detail',
+  });
+  expect(getHardwareCloudSyncErrorDiagnostics(network)).toMatchObject({
+    transportFailure: true,
+  });
+  const server = new OneKeyServerApiError({
+    code: 90_700,
+    httpStatusCode: 403,
+    message: 'private-server-detail',
+  });
+  expect(getHardwareCloudSyncErrorDiagnostics(server)).toMatchObject({
+    businessCode: 90_700,
+    httpStatus: 403,
+    transportFailure: false,
+  });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics(
+      new OneKeyServerApiError({ httpStatusCode: 503 }),
+    ),
+  ).toMatchObject({ httpStatus: 503 });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      httpStatusCode: NaN,
+      response: { status: 502 },
+    }),
+  ).toMatchObject({ httpStatus: 502 });
+  logHardwareCloudSyncDiagnostic(
+    'request_failed',
+    getHardwareCloudSyncErrorDiagnostics(server),
+  );
+  expect(JSON.stringify(mockLog.mock.calls)).not.toContain('private-');
 });

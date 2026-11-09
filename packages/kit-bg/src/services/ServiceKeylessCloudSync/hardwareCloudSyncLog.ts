@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
@@ -497,10 +498,22 @@ export function getHardwareCloudSyncErrorDiagnostics(
 ): Record<string, unknown> {
   try {
     const value = error as
-      | { code?: unknown; response?: { status?: unknown } }
+      | {
+          code?: unknown;
+          className?: unknown;
+          httpStatusCode?: unknown;
+          response?: { status?: unknown };
+        }
       | undefined;
     const code = value?.code;
-    const status = value?.response?.status;
+    const normalizedStatus = value?.httpStatusCode;
+    const status =
+      typeof normalizedStatus === 'number' &&
+      Number.isInteger(normalizedStatus) &&
+      normalizedStatus >= 100 &&
+      normalizedStatus <= 599
+        ? normalizedStatus
+        : value?.response?.status;
     return {
       businessCode:
         typeof code === 'number' && code >= 90_700 && code <= 90_706
@@ -510,7 +523,9 @@ export function getHardwareCloudSyncErrorDiagnostics(
         typeof status === 'number' && status >= 100 && status <= 599
           ? status
           : undefined,
-      transportFailure: code === 'ERR_NETWORK',
+      transportFailure:
+        code === 'ERR_NETWORK' ||
+        value?.className === EOneKeyErrorClassNames.AxiosNetworkError,
       timeout: code === 'ECONNABORTED' || code === 'ETIMEDOUT',
     };
   } catch {
