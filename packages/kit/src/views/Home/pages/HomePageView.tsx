@@ -72,7 +72,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-import { useTabDoublePress } from '../../../hooks/useTabDoublePress';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -1227,11 +1226,6 @@ export function HomePageView({
     prevHomeScrollOwnerKeyRef.current = homeScrollOwnerKey;
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
-
-  // Double-pressing the Home tab scrolls the focused pane back to the top.
-  useTabDoublePress(() => {
-    homeTabsScrollToTopRef.current?.();
-  });
 
   const stickyHeaderCtx = useMemo(
     () => ({

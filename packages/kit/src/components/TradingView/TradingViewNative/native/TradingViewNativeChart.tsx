@@ -398,6 +398,7 @@ export const TradingViewNativeChart = memo(
       points[points.length - 1]?.t,
     );
     const previousPictureInputRef = useRef({
+      candleIntervalSeconds,
       indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
       indicatorSeriesSettingsKey,
       // A remounted canvas reconciles all data while retaining the shared viewport.
@@ -933,12 +934,49 @@ export const TradingViewNativeChart = memo(
         });
       previousLatestTimestampRef.current = dataUpdateMetadata.latestTimestamp;
       previousPictureInputRef.current = {
+        candleIntervalSeconds,
         indicatorSeriesKey,
         indicatorSeriesSettingsKey,
         pointCount: points.length,
         renderDataRevision,
         subIndicatorPanesStructureKey: subIndicatorPanesUpdate.structureKey,
       };
+      if (
+        previousPictureInput.candleIntervalSeconds !== candleIntervalSeconds
+      ) {
+        const freshRuntime = createTradingViewNativeChartRuntime({
+          candleIntervalSeconds,
+          candleTimeMode,
+          chartComponents,
+          chartSettings,
+          chartType,
+          currentPriceLabel,
+          hasVolume,
+          indicatorSeries,
+          initialRightOffset,
+          points,
+          subIndicatorPanes,
+        });
+        scheduleOnUI(() => {
+          'worklet';
+
+          // Fullscreen handoff runs first; its runtime may already own this interval.
+          if (
+            chartRuntime.value.candleIntervalSeconds === candleIntervalSeconds
+          ) {
+            return;
+          }
+          const sizedRuntime = resizeTradingViewNativeChartRuntime(
+            freshRuntime,
+            chartRuntime.value.size,
+            priceAxisWidth.value,
+          );
+          cancelAnimation(decayOffset);
+          decayOffset.value = sizedRuntime.viewport.offset;
+          chartRuntime.value = sizedRuntime;
+        });
+        return;
+      }
       const replacementPoints = shouldReplaceAllPoints ? points : null;
       const replacementIndicatorSeries = shouldReplaceAllIndicatorSeries
         ? indicatorSeries
@@ -1077,14 +1115,18 @@ export const TradingViewNativeChart = memo(
     }, [
       candleIntervalSeconds,
       candleTimeMode,
+      chartComponents,
+      chartSettings,
       chartSize.height,
       chartType,
       canvasSize,
       chartRuntime,
+      currentPriceLabel,
       decayOffset,
       hasVolume,
       indicatorSeries,
       indicatorSeriesSettingsKey,
+      initialRightOffset,
       resizesWithSubIndicatorPanes,
       scheduleSubIndicatorResizeHoldRelease,
       points,

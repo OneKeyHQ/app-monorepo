@@ -22,6 +22,7 @@ import {
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type {
   IMarketAssetListItem,
   IMarketSearchV2Token,
@@ -73,6 +74,7 @@ function MobileTokenSelectorContent() {
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketStockDetailPage = useToMarketStockDetailPage({
     replaceCurrentDetail: true,
+    from: EEnterWay.DetailSwitch,
   });
   const routeParams = route.params as
     | {
