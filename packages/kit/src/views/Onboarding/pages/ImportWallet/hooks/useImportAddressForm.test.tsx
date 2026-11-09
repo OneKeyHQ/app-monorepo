@@ -266,6 +266,7 @@ describe('useImportAddressForm effective import method', () => {
   });
 
   it('keeps valid public-key imports enabled while still blocking account-name errors', async () => {
+    jest.useFakeTimers();
     mockValidatePublicKey.mockResolvedValue({ isValid: true });
     const { result } = renderHook(() => useImportAddressForm({}));
 
@@ -276,7 +277,11 @@ describe('useImportAddressForm effective import method', () => {
         message: 'Invalid address',
       });
     });
-    await waitFor(() => expect(result.current.isEnable).toBe(true));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(600);
+    });
+    expect(mockValidatePublicKey).toHaveBeenCalledTimes(1);
+    expect(result.current.isEnable).toBe(true);
 
     act(() => {
       result.current.form.setError('accountName', {
