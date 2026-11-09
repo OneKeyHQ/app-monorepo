@@ -245,7 +245,7 @@
   "auth.new_passcode_form_label": "New passcode",
   "auth.new_passcode_form_placeholder": "Create a strong passcode",
   "auth.new_passcode_same_as_old": "New passcode must differ from the old one",
-  "auth.passcode_cooldown": "Try again in {cooldowntime} min",
+  "auth.passcode_cooldown": "Try again in {cooldowntime, plural, one {# min} other {# mins}}",
   "auth.passcode_failed_alert": "{count} more failed attempts will reset App",
   "auth.passcode_set": "Passcode set",
   "auth.set_passcode": "Set passcode",
