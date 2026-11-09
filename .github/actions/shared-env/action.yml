@@ -54,7 +54,7 @@ runs:
   steps:
     - name: Download workflow parameters
       if: ${{ github.event.workflow_run }}
-      uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e # v2
+      uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e # v2.28.0
       continue-on-error: true
       with:
         workflow: daily-build-dev

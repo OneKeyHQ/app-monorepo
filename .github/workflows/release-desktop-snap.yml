@@ -48,7 +48,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -113,7 +113,7 @@ jobs:
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
       - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@d33c176a9b784876d966f80fb1b461808edc0641 # v2
+        uses: samuelmeuli/action-snapcraft@d33c176a9b784876d966f80fb1b461808edc0641 # v2.1.1
 
       - name: Install snap dependencies for snapcraft build
         run: |
@@ -136,7 +136,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -163,7 +163,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -228,7 +228,7 @@ jobs:
       - name: Upload Desktop Snap Sourcemap Diagnostic Artifact
         if: always() && steps.upload_desktop_snap_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-snap-sourcemaps-${{ matrix.arch }}-${{ github.sha }}
           path: |
@@ -259,7 +259,7 @@ jobs:
           yarn exec electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Artifacts Release
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |

@@ -168,7 +168,7 @@ jobs:
         # would let Priority 3 recompute a fresh timestamp and re-introduce
         # the cross-platform drift this workflow was changed to fix.
         if: ${{ github.event.workflow_run }}
-        uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e # v2
+        uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e # v2.28.0
         with:
           name: workflow-params
           run_id: ${{ github.event.workflow_run.id }}
@@ -268,7 +268,7 @@ jobs:
           echo "Building platform: ${{ matrix.platform }}"
 
       - name: Checkout Source Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
           ref: ${{ inputs.checkout_ref || '' }}
@@ -401,7 +401,7 @@ jobs:
           echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> .env
 
       - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -428,7 +428,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -461,7 +461,7 @@ jobs:
         # skipped and buildWebEmbed() in build-bundle-base.js falls back to
         # running Rspack locally.
         if: ${{ inputs.web_embed_artifact != '' }}
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ inputs.web_embed_artifact }}
           path: apps/web-embed/web-build
@@ -495,7 +495,7 @@ jobs:
         run: node apps/mobile/scripts/check-split-bundle-integrity.js
 
       - name: upload zips
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         # Hard fail: the downstream `qa-upload` job downloads this artifact.
         # If we let a flaky upload pass silently, the build job succeeds,
         # qa metadata gets stashed, qa-upload then fails at download — and
@@ -508,7 +508,7 @@ jobs:
             !**/.DS_Store
 
       - name: upload bundles
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         continue-on-error: true
         with:
           name: release-native-bundle-${{ matrix.platform }}-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -533,7 +533,7 @@ jobs:
             > ./qa-upload-meta/meta.json
 
       - name: Upload QA metadata artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-native-bundle-${{ matrix.platform }}-qa-upload-meta-${{ github.run_id }}
           path: ./qa-upload-meta
@@ -588,7 +588,7 @@ jobs:
         platform: ${{ inputs.platform != '' && fromJSON(format('["{0}"]', inputs.platform)) || fromJSON('["ios","android"]') }}
     steps:
       - name: Download QA upload metadata
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-native-bundle-${{ matrix.platform }}-qa-upload-meta-${{ github.run_id }}
           path: ./qa-upload-meta
@@ -610,7 +610,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Download bundle zips
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ./bundle-zip

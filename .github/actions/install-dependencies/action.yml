@@ -25,7 +25,7 @@ runs:
 
     - name: Restore dependency image from x
       id: snapshot
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       continue-on-error: true
       with:
         path: ${{ steps.fingerprint.outputs.path }}
@@ -43,7 +43,7 @@ runs:
     - name: Restore legacy dependency image from x
       if: steps.legacy-key.outputs.key != ''
       id: legacy
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       continue-on-error: true
       with:
         path: ${{ steps.fingerprint.outputs.path }}
@@ -77,7 +77,7 @@ runs:
     # immutable install fetches and verifies again.
     - name: Restore Yarn cache from x
       if: steps.yarn-cache.outputs.present != 'true'
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       continue-on-error: true
       with:
         path: ${{ steps.yarn-cache.outputs.path }}
