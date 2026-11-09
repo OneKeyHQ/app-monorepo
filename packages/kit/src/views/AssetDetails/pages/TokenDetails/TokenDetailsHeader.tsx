@@ -296,8 +296,7 @@ function TokenDetailsHeaderContent({
   // Until settings resolve a selected pool counts as private: that hides the
   // generic action row instead of flashing it on a private tab.
   const isPrivatePool = hasSelectedPool && !isPublicPool;
-  // A pool that can no longer receive. Balance, history and the withdraw
-  // action still show; Send does not (see the action row below).
+  // Pools that can no longer receive do not expose transfer actions.
   const isLegacyPoolTab = selectedPool?.receivesFunds === false;
   const localWalletPool = useLocalWalletPool({
     networkId,

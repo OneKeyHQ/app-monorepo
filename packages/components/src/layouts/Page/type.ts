@@ -63,7 +63,18 @@ export type IPageFooterProps = PropsWithChildren<
   }
 >;
 
-export type IPageProps = IBasicPageProps;
+export type IPageDirectFooterProps = IPageFooterProps & {
+  enabled?: boolean;
+};
+
+export type IPageProps = IBasicPageProps & {
+  /**
+   * Opts into rendering with the page; disabled by default. When disabling it
+   * while mounted, retain the object with enabled=false and current content
+   * until the registered Page.Footer takes over.
+   */
+  directFooter?: IPageDirectFooterProps;
+};
 
 export type IPageContentContainerLayout = 'full' | 'regular' | 'compact';
 export type IPageContentContainerProps = Omit<IStackProps, 'layout'> & {

@@ -733,6 +733,8 @@ export interface IAppEventBusPayload {
     // jsBundleRollback) — carried for foreground logging / diagnostics only.
     decision: string;
   };
+  [EAppEventBusNames.OpenAppUpdateDetails]: undefined;
+  [EAppEventBusNames.AppUpdateCompleted]: { version: string };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
   [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
@@ -744,6 +746,8 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    navigationAction?: 'push';
+    isNativeBackgroundNavigation?: true;
     extras?: {
       params?: {
         coin?: string;

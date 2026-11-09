@@ -336,6 +336,39 @@ test('rejects a managed ZIP symlink escaping the download root', async () => {
   expect(fs.existsSync(path.join(mockUserData, 'onekey-bundle'))).toBe(false);
 });
 
+test.each([undefined, 'false'])(
+  'production builds without skip-GPG permission reject unsigned bundles even with persisted settings enabled (flag=%s)',
+  async (buildFlag) => {
+    const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    process.env.NODE_ENV = 'production';
+    if (buildFlag === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = buildFlag;
+    }
+    mockStore.getDevSettingsEnabled.mockReturnValue(true);
+    mockStore.getSkipGPGVerification.mockReturnValue(true);
+    try {
+      expect(await api.isSkipGpgVerificationAllowed()).toBe(false);
+      await expectUpdateError(
+        api.downloadBundleASC({
+          latestVersion: '6.6.0',
+          bundleVersion: '123',
+          sha256: 'a'.repeat(64),
+          skipGPGVerification: true,
+        }),
+        { code: EUpdateErrorCode.invalidArgument, step: 'downloadASC' },
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+      } else {
+        process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+      }
+    }
+  },
+);
+
 test('request skip flag cannot authorize unsigned bundle verification', async () => {
   const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
   process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';

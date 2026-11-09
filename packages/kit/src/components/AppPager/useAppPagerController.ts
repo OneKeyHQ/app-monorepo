@@ -24,6 +24,7 @@ export function useAppPagerController({
   ref,
   restoreScrollPosition,
   commitOnCommand = false,
+  animationEnabled = true,
   onSelectionChange,
   onBeforeCommand,
   removedPageFallback,
@@ -35,6 +36,7 @@ export function useAppPagerController({
   ref?: Ref<IAppPagerRef>;
   restoreScrollPosition?: () => boolean;
   commitOnCommand?: boolean;
+  animationEnabled?: boolean;
   onSelectionChange?: (event: IAppPagerChange) => void;
   onBeforeCommand?: (
     index: number,
@@ -71,11 +73,17 @@ export function useAppPagerController({
     onSelectionChange,
     onBeforeCommand,
     commitOnCommand,
+    animationEnabled,
   });
   // Publish one committed configuration before descendants run layout commands.
   useInsertionEffect(() => {
     pagesRef.current = pages;
-    callbacks.current = { onSelectionChange, onBeforeCommand, commitOnCommand };
+    callbacks.current = {
+      onSelectionChange,
+      onBeforeCommand,
+      commitOnCommand,
+      animationEnabled,
+    };
     selectedIndexRef.current = selectedIndex;
     committedSelectionRevision.current = selectionRevision.current;
     reconciling.current = true;
@@ -84,6 +92,7 @@ export function useAppPagerController({
     onSelectionChange,
     onBeforeCommand,
     commitOnCommand,
+    animationEnabled,
     selectedIndex,
   ]);
   useLayoutEffect(() => {
@@ -123,7 +132,8 @@ export function useAppPagerController({
       }
       pendingCommand.current = undefined;
       const shouldAnimate =
-        animated ?? Math.abs(index - selectedIndexRef.current) <= 1;
+        callbacks.current.animationEnabled &&
+        (animated ?? Math.abs(index - selectedIndexRef.current) <= 1);
       callbacks.current.onBeforeCommand?.(index, shouldAnimate, 'command');
       if (!shouldAnimate) indexDecimal.value = index;
       if (callbacks.current.commitOnCommand) selectIndex(index, false);

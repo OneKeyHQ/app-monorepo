@@ -40,6 +40,7 @@ import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
   getTradingViewNativeNavigationEvent,
   isTradingViewNativeNavigationHotZone,
+  isTradingViewNativeNavigationResetAvailable,
 } from '../utils/chartNavigation';
 import {
   type ITradingViewNativeChartRuntimeState,
@@ -1807,6 +1808,12 @@ export const TradingViewNativeChart = memo(
             <TradingViewNativeNavigationControls
               backgroundColor={background}
               chartWidth={measuredChartWidth}
+              isResetVisible={isTradingViewNativeNavigationResetAvailable({
+                chartWidth: measuredChartWidth,
+                isAutoScale,
+                pointCount,
+                viewport: viewportState,
+              })}
               isVisible={
                 (isMobileLayout || isNavigationHotZoneHovered) && pointCount > 0
               }

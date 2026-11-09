@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   HISTORY_CONSTS,
+  IMPL_TON,
   SEND_TX_SERVER_ERROR_CODES,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -2319,7 +2320,12 @@ class ServiceSend extends ServiceBase {
           const decodedTx = await this.buildDecodedTx({
             networkId,
             accountId,
-            unsignedTx,
+            unsignedTx:
+              networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
+              accountUtils.isHwAccount({ accountId }) &&
+              signedTx.encodedTx
+                ? { ...unsignedTx, encodedTx: signedTx.encodedTx }
+                : unsignedTx,
             feeInfo,
             transferPayload,
             saveToLocalHistory: true,

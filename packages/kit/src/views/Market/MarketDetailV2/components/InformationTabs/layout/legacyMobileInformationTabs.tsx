@@ -119,7 +119,7 @@ export function MobileInformationTabs({
   pendingHeader,
   onScrollEnd,
   portfolioData,
-  isRefreshing,
+  isPortfolioPending,
   isPortfolioFailed,
   tokenLogoUrl,
   scrollEnabled = true,
@@ -131,7 +131,7 @@ export function MobileInformationTabs({
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
-  isRefreshing?: boolean;
+  isPortfolioPending?: boolean;
   isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
@@ -197,7 +197,7 @@ export function MobileInformationTabs({
           <Portfolio
             isStock={isStockToken}
             portfolioData={portfolioData}
-            isRefreshing={!!isRefreshing}
+            isPending={isPortfolioPending}
             isFailed={isPortfolioFailed}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
@@ -247,7 +247,7 @@ export function MobileInformationTabs({
     holdersTabName,
     accountAddress,
     portfolioData,
-    isRefreshing,
+    isPortfolioPending,
     isPortfolioFailed,
     isNative,
     isBTCNetwork,

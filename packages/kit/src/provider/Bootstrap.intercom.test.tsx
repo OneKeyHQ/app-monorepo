@@ -125,6 +125,9 @@ describe('Intercom startup identity synchronization', () => {
     jest.doMock('../hooks/useThemeVariant', () => ({
       useThemeVariant: () => 'light',
     }));
+    jest.doMock('@onekeyhq/kit-bg/src/states/jotai/atoms/settings', () => ({
+      useSettingsPersistAtom: () => [{ theme: 'light' }],
+    }));
     jest.doMock('@onekeyhq/shared/src/appGlobals', () => ({
       __esModule: true,
       default: {
