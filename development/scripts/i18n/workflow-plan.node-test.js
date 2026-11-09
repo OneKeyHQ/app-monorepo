@@ -41,6 +41,67 @@ async function prepared(t, entries) {
   };
 }
 
+test('service error keys retain their identifiers through preview, upload and pull', async (t) => {
+  const key = 'error__service_prime_user_banned_error';
+  const ctx = await prepared(t, (item) => [
+    {
+      key,
+      action: 'upsert',
+      translations: item.translations(
+        'This account has been banned.',
+        '账号已被封禁',
+      ),
+      sources: [],
+    },
+  ]);
+  assert.equal(ctx.writes.length, 0);
+  assert.equal(ctx.plan.entries[0].enumMember, key);
+  assert.match(renderPreview(ctx.plan), new RegExp(key));
+
+  const receipt = await ctx.apply();
+  assert.equal(receipt.status, 'complete');
+  assert.deepEqual(ctx.writes, [{ method: 'POST', key, locales: ctx.locales }]);
+  for (const locale of ctx.locales) {
+    assert.equal(
+      readJson(path.join(ctx.root, LOCALES_PATH, `${locale}.json`))[key],
+      ctx.plan.entries[0].translations[locale],
+    );
+  }
+});
+
+test('service error support still rejects unrelated and malformed new key names', async (t) => {
+  for (const key of [
+    'legacy_account_banned',
+    'error__service_prime_user_banned',
+    'error__service_Prime_error',
+    'error__service_prime__banned_error',
+    'error__service__error',
+  ]) {
+    await t.test(key, async (sub) => {
+      const ctx = fixture(sub);
+      const api = fakeClient(ctx);
+      await assert.rejects(
+        () =>
+          preparePlan({
+            draft: ctx.draft([
+              {
+                key,
+                action: 'upsert',
+                translations: ctx.translations(),
+                sources: [],
+              },
+            ]),
+            client: api.client,
+            projectName: 'Monorepo test',
+            root: ctx.root,
+          }),
+        /a new key must use/,
+      );
+      assert.equal(api.writes.length, 0);
+    });
+  }
+});
+
 test('preview reads only, contains bilingual before/after, and keeps all locale values in the plan', async (t) => {
   const ctx = await prepared(t, (item) => [
     {
