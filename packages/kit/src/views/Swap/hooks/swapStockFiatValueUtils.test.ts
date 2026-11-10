@@ -4,6 +4,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   getStockTokenFiatValue,
   markStockUsdPriceCurrency,
+  resolveStockInputPrice,
   resolveStockTokenPrice,
   resolveStockTradeTokenPrice,
 } from './swapStockFiatValueUtils';
@@ -20,6 +21,24 @@ const currencyMap: Record<string, ICurrencyItem> = {
 };
 
 describe('swapStockFiatValueUtils', () => {
+  it.each([undefined, '0', '-1', 'NaN'])(
+    'does not mislabel a USD amount when the target exchange rate is %p',
+    (rate) => {
+      const target =
+        rate === undefined ? undefined : { ...currencyMap.cny, value: rate };
+      expect(
+        getStockTokenFiatValue({
+          amount: '100',
+          tokenPrice: { price: '0.98', currency: 'usd' },
+          targetCurrency: 'cny',
+          currencyMap: {
+            usd: currencyMap.usd,
+            ...(target ? { cny: target } : {}),
+          },
+        }),
+      ).toBe('--');
+    },
+  );
   const stockToken: ISwapToken = {
     networkId: 'evm--56',
     contractAddress: '0xstock',
@@ -33,6 +52,126 @@ describe('swapStockFiatValueUtils', () => {
     address: stockToken.contractAddress,
     price: '10',
   };
+
+  const payToken: ISwapToken = {
+    networkId: 'evm--56',
+    contractAddress: '0xusdc',
+    symbol: 'USDC',
+    decimals: 6,
+  };
+
+  it('uses a matching quoted pay price before the stablecoin fallback', () => {
+    const price = resolveStockInputPrice({
+      token: payToken,
+      tokenDetail: payToken,
+      quoteToken: { ...payToken, price: '0.98' },
+      quoteCurrency: 'usd',
+    });
+    expect(price).toEqual({ price: '0.98', currency: 'usd' });
+    expect(
+      getStockTokenFiatValue({
+        amount: '100',
+        tokenPrice: price,
+        targetCurrency: 'usd',
+        currencyMap,
+      }),
+    ).toBe('98');
+  });
+
+  it.each([undefined, '', '0', '-1', 'NaN', 'Infinity'])(
+    'uses the real detail price when the quote price %p is unusable',
+    (quotePrice) => {
+      expect(
+        resolveStockInputPrice({
+          token: payToken,
+          tokenDetail: { ...payToken, price: '0.995', currency: 'usd' },
+          quoteToken: { ...payToken, price: quotePrice },
+          quoteCurrency: 'usd',
+        }),
+      ).toEqual({ price: '0.995', currency: 'usd' });
+    },
+  );
+
+  it('falls back to one USD when neither quote nor detail has a price', () => {
+    expect(
+      resolveStockInputPrice({
+        token: payToken,
+        tokenDetail: payToken,
+        quoteToken: payToken,
+        quoteCurrency: 'usd',
+      }),
+    ).toEqual({ price: '1', currency: 'usd' });
+  });
+
+  it.each([
+    { networkId: 'evm--1', contractAddress: payToken.contractAddress },
+    { networkId: payToken.networkId, contractAddress: '0xother' },
+  ])('does not use a quoted price from another token: %p', (identity) => {
+    expect(
+      resolveStockInputPrice({
+        token: payToken,
+        tokenDetail: { ...payToken, price: '0.995', currency: 'usd' },
+        quoteToken: { ...payToken, ...identity, price: '0.2' },
+        quoteCurrency: 'usd',
+      }),
+    ).toEqual({ price: '0.995', currency: 'usd' });
+  });
+
+  it('retains the quoted currency when calculating input fiat value', () => {
+    const price = resolveStockInputPrice({
+      token: payToken,
+      quoteToken: { ...payToken, price: '6.64' },
+      quoteCurrency: 'cny',
+    });
+    expect(price).toEqual({ price: '6.64', currency: 'cny' });
+    expect(
+      getStockTokenFiatValue({
+        amount: '10',
+        tokenPrice: price,
+        targetCurrency: 'cny',
+        currencyMap,
+      }),
+    ).toBe('66.4');
+  });
+
+  it('honors an explicit quote currency rather than the request currency', () => {
+    expect(
+      resolveStockInputPrice({
+        token: payToken,
+        quoteToken: { ...payToken, price: '0.98', currency: 'usd' },
+        quoteCurrency: 'cny',
+      }),
+    ).toEqual({ price: '0.98', currency: 'usd' });
+  });
+
+  it('does not assign the request currency to an untagged quote without a basis', () => {
+    expect(
+      resolveStockInputPrice({
+        token: payToken,
+        tokenDetail: { ...payToken, price: '0.995', currency: 'usd' },
+        quoteToken: { ...payToken, price: '0.98' },
+      }),
+    ).toEqual({ price: '0.995', currency: 'usd' });
+  });
+
+  it('falls back to the matching stock detail for a sell input without a quote', () => {
+    expect(
+      resolveStockInputPrice({
+        token: stockToken,
+        stockTokenDetail,
+      }),
+    ).toEqual({ price: '10', currency: 'usd' });
+  });
+
+  it('does not synthesize a price for a non-stable token without a price source', () => {
+    expect(
+      resolveStockInputPrice({
+        token: { ...payToken, symbol: 'ETH' },
+        quoteToken: { ...payToken, symbol: 'ETH' },
+        quoteCurrency: 'usd',
+      }),
+    ).toBeUndefined();
+  });
 
   it.each([
     { currency: 'usd', expected: '20' },
@@ -71,11 +210,11 @@ describe('swapStockFiatValueUtils', () => {
   });
 
   it('prefers the pay token price over a stablecoin fallback on quote metadata', () => {
-    const payToken = { ...stockToken, symbol: 'USDC', isStock: false };
+    const quotedPayToken = { ...stockToken, symbol: 'USDC', isStock: false };
     expect(
       resolveStockTradeTokenPrice({
-        token: { ...payToken, price: '0.9995', currency: 'usd' },
-        quoteToken: payToken,
+        token: { ...quotedPayToken, price: '0.9995', currency: 'usd' },
+        quoteToken: quotedPayToken,
         quoteCurrency: 'usd',
       }),
     ).toEqual({ price: '0.9995', currency: 'usd' });

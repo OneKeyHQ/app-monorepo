@@ -2,7 +2,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
-  ESwapTabSwitchType,
   IFetchQuoteResult,
   ISwapPreSwapData,
   ISwapStep,
@@ -13,6 +12,7 @@ import {
   ESwapBatchTransferType,
   ESwapStepStatus,
   ESwapStepType,
+  ESwapTabSwitchType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -226,6 +226,7 @@ export type IBuildSwapReviewStateInput = {
   rateDifference?: ISwapPreSwapData['rateDifference'];
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  strictCurrencyConversion?: boolean;
   texts: ISwapReviewStepTexts;
 };
 
@@ -266,6 +267,7 @@ export function buildSwapReviewState({
   rateDifference,
   defaultTokenCurrency,
   currencyMap,
+  strictCurrencyConversion,
   texts,
 }: IBuildSwapReviewStateInput): {
   batchTransferType: ESwapBatchTransferType;
@@ -313,6 +315,8 @@ export function buildSwapReviewState({
       defaultTokenCurrency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion:
+        strictCurrencyConversion || swapType === ESwapTabSwitchType.STOCK,
     });
 
   let steps: ISwapStep[] = [];
@@ -383,6 +387,7 @@ export function buildSwapReviewState({
       : token;
   const preSwapData: ISwapPreSwapData = {
     swapType,
+    ...(strictCurrencyConversion ? { strictCurrencyConversion: true } : {}),
     fromToken: withStockReviewMetadata(pricedFromToken),
     toToken: withStockReviewMetadata(pricedToToken),
     shouldFallback,

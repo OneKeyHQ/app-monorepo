@@ -517,7 +517,6 @@ export function useSwapStockEstimatedReceiveState({
   const receiveTokenPrice = resolveStockTradeTokenPrice({
     token: receiveToken,
     quoteToken: quoteMatchesStockTrade ? quoteResult?.toTokenInfo : undefined,
-    quoteCurrency: settingsPersistAtom.currencyInfo.id,
     stockTokenDetail: stockChannel.activeStockTokenDetail,
   });
   const receiveFiatValue = useMemo(() => {
@@ -537,13 +536,11 @@ export function useSwapStockEstimatedReceiveState({
     if (!quoteMatchesStockTrade) {
       return undefined;
     }
-    const targetCurrency = settingsPersistAtom.currencyInfo.id;
     const fromTokenPrice =
       inputTokenPrice ??
       resolveStockTradeTokenPrice({
         token: sendToken,
         quoteToken: quoteResult?.fromTokenInfo,
-        quoteCurrency: targetCurrency,
         stockTokenDetail: stockChannel.activeStockTokenDetail,
       });
     return buildSwapRateDifference({
@@ -553,6 +550,7 @@ export function useSwapStockEstimatedReceiveState({
       toTokenCurrency: receiveTokenPrice?.currency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion: true,
     });
   }, [
     currencyMap,
@@ -563,7 +561,6 @@ export function useSwapStockEstimatedReceiveState({
     receiveTokenPrice,
     sendToken,
     stockChannel.activeStockTokenDetail,
-    settingsPersistAtom.currencyInfo.id,
   ]);
   const onReceiveTokenPress = useCallback(
     (token: IToken) => {
@@ -605,6 +602,7 @@ export function useSwapStockEstimatedReceiveState({
     receiveAmount,
     receiveFiatValue,
     receiveToken,
+    receiveTokenPrice,
     setIsReceiveTokenPopoverOpen,
   };
 }

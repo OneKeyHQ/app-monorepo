@@ -82,6 +82,7 @@ export function buildMarketStockQuoteDisplay({
       toTokenCurrency: toTokenPrice?.currency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion: true,
     }),
   };
 }
