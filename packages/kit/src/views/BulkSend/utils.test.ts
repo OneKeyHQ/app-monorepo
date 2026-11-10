@@ -409,6 +409,21 @@ describe('generateRandomAmountsFromRange', () => {
     ).toEqual(['1.23456', '1.23456']);
   });
 
+  // 6 token decimals cannot hold 1.12345678, so an amount sitting on that min
+  // takes the first sendable value at or above it instead of the min's digits.
+  it('never generates more decimals than the token has', () => {
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.5);
+
+    expect(
+      generateRandomAmountsFromRange({
+        transfersInfo,
+        rangeMin: '1.12345678',
+        rangeMax: '5',
+        decimals: 6,
+      }),
+    ).toEqual(['1.123457', '3.0617']);
+  });
+
   // 11.9 / 2 = 5.95 each: below the entered min, yet still above the chain
   // minimum, so rounding to the inputs' zero decimals must not cross it.
   it('keeps balance-capped amounts at or above the chain minimum', () => {

@@ -384,23 +384,32 @@ function formatWithSmartDecimals(
 
 // Display rounding goes down, which must not drop an amount below a lower
 // bound it met before rounding: chain minimum 5.46 with an integer max would
-// format 5.68 as "5". Such an amount keeps the bound's own precision instead.
+// format 5.68 as "5". Such an amount keeps the bound's own precision instead,
+// capped at what the token can represent.
 function keepAtOrAboveBound({
   amount,
   formatted,
   bound,
+  tokenDecimals,
 }: {
   amount: BigNumber;
   formatted: string;
   bound: BigNumber;
+  tokenDecimals: number;
 }): string {
   if (amount.isLessThan(bound) || bound.isLessThanOrEqualTo(formatted)) {
     return formatted;
   }
 
-  return amount
-    .decimalPlaces(bound.decimalPlaces() ?? 0, BigNumber.ROUND_DOWN)
-    .toFixed();
+  const decimals = Math.min(bound.decimalPlaces() ?? 0, tokenDecimals);
+  const kept = amount.decimalPlaces(decimals, BigNumber.ROUND_DOWN);
+  if (kept.isGreaterThanOrEqualTo(bound)) {
+    return kept.toFixed();
+  }
+
+  // The bound is finer than the token's precision, so rounding down cannot
+  // reach it. Take the first sendable value at or above it.
+  return amount.decimalPlaces(decimals, BigNumber.ROUND_UP).toFixed();
 }
 
 /**
@@ -571,6 +580,7 @@ export function generateRandomAmountsFromRange({
       // A balance-capped amount can sit below the range min, but it still has
       // to clear the chain minimum.
       bound: amount.isLessThan(min) ? chainMin : min,
+      tokenDecimals: decimals,
     }),
   );
 

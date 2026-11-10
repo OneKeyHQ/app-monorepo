@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useUpdateEffect,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import { AmountInput as BaseAmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -314,6 +315,39 @@ export function RangeAmountInput() {
   const amountInputErrorsRef = useRef(amountInputErrors);
   amountInputErrorsRef.current = amountInputErrors;
 
+  // Validates the range and regenerates the preview amounts from it. Clears
+  // the previewed flag, so transfers filled from an older preview are redone.
+  const refreshRangePreview = (rangeMin: string, rangeMax: string) => {
+    const errors = validateRangeRef.current(rangeMin, rangeMax);
+    setAmountInputErrors({
+      ...amountInputErrorsRef.current,
+      rangeError: errors.rangeError,
+    });
+
+    const hasValidRange = !errors.rangeError && rangeMax;
+    const previewAmounts = hasValidRange
+      ? generatePreviewAmountsRef.current(rangeMin, rangeMax)
+      : [];
+
+    setPreviewState((prev) => ({
+      ...prev,
+      rangePreviewed: false,
+      rangePreviewAmounts: previewAmounts,
+    }));
+  };
+  const refreshRangePreviewRef = useRef(refreshRangePreview);
+  refreshRangePreviewRef.current = refreshRangePreview;
+
+  // The chain minimum arrives with the vault settings, after the page mounts.
+  // A range entered before that was validated and generated against the
+  // smallest token unit, so redo both once the real minimum is known.
+  useUpdateEffect(() => {
+    const { rangeMin, rangeMax } = amountInputValuesRef.current;
+    if (!rangeMax) return;
+
+    refreshRangePreviewRef.current(rangeMin, rangeMax);
+  }, [ctxMinTransferAmount]);
+
   // Debounced handler for validation and preview generation
   const debouncedUpdatePreview = useDebouncedCallback(
     (newValues: { rangeMin: string; rangeMax: string }) => {
@@ -323,28 +357,7 @@ export function RangeAmountInput() {
         rangeMax: newValues.rangeMax,
       });
 
-      const errors = validateRangeRef.current(
-        newValues.rangeMin,
-        newValues.rangeMax,
-      );
-      setAmountInputErrors({
-        ...amountInputErrorsRef.current,
-        rangeError: errors.rangeError,
-      });
-
-      const hasValidRange = !errors.rangeError && newValues.rangeMax;
-      const previewAmounts = hasValidRange
-        ? generatePreviewAmountsRef.current(
-            newValues.rangeMin,
-            newValues.rangeMax,
-          )
-        : [];
-
-      setPreviewState((prev) => ({
-        ...prev,
-        rangePreviewed: false,
-        rangePreviewAmounts: previewAmounts,
-      }));
+      refreshRangePreview(newValues.rangeMin, newValues.rangeMax);
     },
     300,
   );
