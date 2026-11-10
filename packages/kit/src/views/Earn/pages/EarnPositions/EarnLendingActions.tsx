@@ -28,7 +28,7 @@ import { getBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/borrowMarke
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowAlerts } from '@onekeyhq/kit/src/views/Borrow/components/BorrowAlerts';
 import { BorrowBonusTooltip } from '@onekeyhq/kit/src/views/Borrow/components/BorrowBonusTooltip';
-import { withNetApySignColor } from '@onekeyhq/kit/src/views/Borrow/components/borrowOverview.utils';
+import { withNetApyLossColor } from '@onekeyhq/kit/src/views/Borrow/components/borrowOverview.utils';
 import { CollateralBadge } from '@onekeyhq/kit/src/views/Borrow/components/BorrowTableList/CollateralBadge';
 import { CollateralSwitch } from '@onekeyhq/kit/src/views/Borrow/components/CollateralSwitchCell';
 import { useBorrowEModeStatus } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus';
@@ -239,8 +239,9 @@ function LendingEModeTrigger() {
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 /**
- * The position's Net APY, the market page's figure: green where the
- * position earns more than its loans cost, red where it pays
+ * The position's Net APY, the market page's figure: red where its loans
+ * cost more than the position earns, the text's color otherwise, as the
+ * Loans list and the Loans window write it (11-10)
  */
 function LendingNetApy() {
   const intl = useIntl();
@@ -259,7 +260,7 @@ function LendingNetApy() {
         color="$text"
         fontVariant={TABULAR_NUMS}
         numberOfLines={1}
-        text={withNetApySignColor({ text: netApyText })}
+        text={withNetApyLossColor({ text: netApyText })}
       />
     </XStack>
   );

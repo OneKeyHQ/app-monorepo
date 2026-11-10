@@ -674,6 +674,7 @@ export function MyPortfolioPage({
       availableNetworkIds={availableNetworkIds}
       selectedNetworkIds={selectedNetworkIds}
       networkAssetCounts={networkAssetCounts}
+      countLabel={intl.formatMessage({ id: ETranslations.earn_positions })}
       onSelectionChange={setSelectedNetworkIds}
       variant={tableLayout ? 'pill' : 'compact'}
     />

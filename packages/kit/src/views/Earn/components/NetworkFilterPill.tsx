@@ -81,6 +81,7 @@ function NetworkFilterPill({
   networks,
   selectedNetworkIds,
   networkAssetCounts,
+  countLabel,
   isOpen,
   onOpenChange,
   onToggle,
@@ -91,6 +92,8 @@ function NetworkFilterPill({
   networks: IServerNetwork[];
   selectedNetworkIds: string[];
   networkAssetCounts: Record<string, number>;
+  /** What the list's numbers count ("Tokens"), over their column */
+  countLabel?: string;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onToggle: (networkId: string) => void;
@@ -114,6 +117,24 @@ function NetworkFilterPill({
 
   const list = (
     <YStack py="$2">
+      {/* The numbers' column named once, ending where the numbers do: bare,
+          a "29" beside a network said nothing of what it counted (11-10) */}
+      {countLabel ? (
+        <XStack
+          testID={`${testID}-count-label`}
+          h="$6"
+          mx="$2"
+          px="$3"
+          gap="$3"
+          ai="center"
+          jc="flex-end"
+        >
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {countLabel}
+          </SizableText>
+          <Stack w="$5" />
+        </XStack>
+      ) : null}
       <ListItem
         testID={`${testID}-option-all`}
         h={48}

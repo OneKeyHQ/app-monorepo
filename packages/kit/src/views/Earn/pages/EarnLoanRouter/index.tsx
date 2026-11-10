@@ -1763,8 +1763,8 @@ function EarnLoanRouterPage() {
   } else {
     outcome = {
       label: netApyLabel,
-      isEarning: (netApyAfter ?? 0) > 0,
-      // In the cards' red
+      // A gain keeps the text's color, as on the Loans list and the loan
+      // card: green read as borrowing to earn more. A loss in the cards' red
       isCost: isLoanLoss(netApyAfter),
       values:
         netApyAfter === undefined

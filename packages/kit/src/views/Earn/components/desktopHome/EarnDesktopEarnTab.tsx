@@ -151,6 +151,10 @@ const COLUMNS = {
     $md: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', minWidth: 0 },
   } as const,
 };
+// An open token's offers hold a figure where the token's row has its
+// networks: the user's deposit, ending where figures end, as the TVL and the
+// rate beside it do
+const OFFER_DEPOSITED_COLUMN = { ...COLUMNS.network, ai: 'flex-end' as const };
 // The rows' last column: an option's button, and the token's chevron at its
 // end, so every rate lines up over the options' rates. Wide enough for the
 // longest word on a button, "Withdraw" or "Sell Early"
@@ -812,9 +816,9 @@ function TokenOffers({
         </Stack>
         {/* The offers show their network on the logo, so the column holds
             what each one has of the user's */}
-        <WalletColumn column={COLUMNS.network}>
+        <WalletColumn column={OFFER_DEPOSITED_COLUMN}>
           {hasDeposits ? (
-            <HeaderLabel>
+            <HeaderLabel align="right">
               {intl.formatMessage({ id: ETranslations.earn_deposited })}
             </HeaderLabel>
           ) : null}
@@ -868,11 +872,17 @@ function TokenOffers({
                     </SizableText>
                   </YStack>
                 </XStack>
-                <WalletColumn column={COLUMNS.network}>
+                <WalletColumn column={OFFER_DEPOSITED_COLUMN}>
                   {deposited > 0 ? <DepositedValue value={deposited} /> : null}
                 </WalletColumn>
                 <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
-                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                  {/* The market's size, not the user's money or what it
+                      earns: a step quieter than the figures on its sides */}
+                  <SizableText
+                    size="$bodyLg"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
                     {lending.tvlText ?? '-'}
                   </SizableText>
                 </Stack>
@@ -956,12 +966,13 @@ function TokenOffers({
                   ) : null}
                 </YStack>
               </XStack>
-              <WalletColumn column={COLUMNS.network}>
+              <WalletColumn column={OFFER_DEPOSITED_COLUMN}>
                 {deposited > 0 ? <DepositedValue value={deposited} /> : null}
               </WalletColumn>
               <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
                 <EarnText
-                  size="$bodyLgMedium"
+                  size="$bodyLg"
+                  color="$textSubdued"
                   numberOfLines={1}
                   text={item.tvl}
                 />
@@ -1771,6 +1782,7 @@ function BasicEarnDesktopEarnTab({
             availableNetworkIds={availableNetworkIds}
             selectedNetworkIds={selectedNetworkIds}
             networkAssetCounts={networkAssetCounts}
+            countLabel={intl.formatMessage({ id: ETranslations.earn_tokens })}
             onSelectionChange={setSelectedNetworkIds}
             triggerProps={{
               ...NETWORK_TRIGGER_PROPS,

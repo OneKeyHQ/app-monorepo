@@ -386,7 +386,7 @@ function NetworkOfferRow({
           <RowText subdued>{row.asset.name}</RowText>
         ) : undefined
       }
-      right={<OfferRate offer={best} size="$bodyMdMedium" />}
+      right={<OfferRate offer={best} size="$bodyMdMedium" showsUnit />}
     />
   );
 }

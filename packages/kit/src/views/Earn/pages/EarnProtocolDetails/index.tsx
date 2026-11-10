@@ -1114,7 +1114,10 @@ const DetailsPartComponent = ({
                   apyBreakdownItems={popupData?.items}
                 />
                 {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
-                <ProtocolTipsSection protocolTips={detailInfo.protocolTips} />
+                <ProtocolTipsSection
+                  protocolTips={detailInfo.protocolTips}
+                  filled
+                />
               </YStack>
               {/* The holding, where the phone's Portfolio tab is: it eases
                   in when the positions read lands, with its own gap above,

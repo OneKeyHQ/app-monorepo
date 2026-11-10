@@ -204,23 +204,30 @@ function SectionStrip({
           {title}
         </SizableText>
       </Stack>
+      {/* The columns are named once, over the position's first panel: the
+          panels under it hold the same columns, and naming them on every
+          strip outweighed the rows (11-10) */}
       <Stack {...columns.second}>
-        <SizableText
-          size="$bodySmMedium"
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {balanceLabel}
-        </SizableText>
+        {isFirst ? (
+          <SizableText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {balanceLabel}
+          </SizableText>
+        ) : null}
       </Stack>
       <Stack {...columns.value}>
-        <SizableText
-          size="$bodySmMedium"
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {valueLabel}
-        </SizableText>
+        {isFirst ? (
+          <SizableText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {valueLabel}
+          </SizableText>
+        ) : null}
       </Stack>
     </XStack>
   );

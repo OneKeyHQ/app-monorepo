@@ -10,9 +10,11 @@ import {
   Image,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -20,13 +22,78 @@ import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import { LIST_FOLD_MS } from '../../utils/earnListMotion';
 
-import { buildOfferRowProps, getOfferTarget } from './EarnRouterOffer';
+import {
+  buildOfferRowProps,
+  getOfferTarget,
+  hasOfferBadges,
+} from './EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
 export const EARN_OFFER_OPTION_HEIGHT = 74;
 // The card's padding over and under its row
 const CARD_PY = 14;
+
+// A tag's color, by what the server calls it (a bonus is a success) or by
+// what the mark is (a bridge or a swap informs)
+const MARK_TONES = {
+  default: { bg: '$bgStrong', color: '$iconSubdued' },
+  success: { bg: '$bgSuccess', color: '$iconSuccess' },
+  info: { bg: '$bgInfo', color: '$iconInfo' },
+  warning: { bg: '$bgCaution', color: '$iconCaution' },
+  critical: { bg: '$bgCritical', color: '$iconCritical' },
+} as const;
+
+// A tag as a mark after the name, where words crowded the card: the
+// network by its logo, a bonus a star, a bridge a bridge. Its words come
+// on hover, and to a screen reader
+function OfferMark({
+  label,
+  icon,
+  imageUri,
+  tone = 'default',
+  testID,
+}: {
+  label: string;
+  icon?: IKeyOfIcons;
+  imageUri?: string;
+  tone?: string;
+  testID?: string;
+}) {
+  const colors =
+    MARK_TONES[tone as keyof typeof MARK_TONES] ?? MARK_TONES.default;
+  return (
+    <Tooltip
+      placement="top"
+      renderContent={label}
+      renderTrigger={
+        <Stack
+          testID={testID}
+          aria-label={label}
+          w="$5"
+          h="$5"
+          ai="center"
+          jc="center"
+          flexShrink={0}
+          borderRadius="$full"
+          bg={imageUri ? undefined : colors.bg}
+        >
+          {imageUri ? (
+            <Image
+              w="$5"
+              h="$5"
+              borderRadius="$full"
+              source={{ uri: imageUri }}
+            />
+          ) : null}
+          {!imageUri && icon ? (
+            <Icon name={icon} size="$3.5" color={colors.color} />
+          ) : null}
+        </Stack>
+      }
+    />
+  );
+}
 
 // Comparing a kind of token, the token leads: its logo, the protocol's on
 // it where a network's would be
@@ -109,8 +176,12 @@ export function EarnOfferOptionCard({
   );
   const isChoice = Boolean(onSelect);
   const intl = useIntl();
-  const { logoURI, name, nameAccessory, subtitle, aprElement, tvlText } =
-    buildOfferRowProps(offer, { intl, isOnPicked: isSelected });
+  const { logoURI, name, subtitle, aprElement, tvlText } = buildOfferRowProps(
+    offer,
+    { intl, isOnPicked: isSelected },
+  );
+  const serverBadges =
+    offer.kind === 'protocol' ? offer.item.provider.badges : undefined;
   const vaultName =
     vaultFirst && offer.kind === 'protocol' && !offer.isFixedRate
       ? offer.item.provider.vaultName
@@ -121,6 +192,7 @@ export function EarnOfferOptionCard({
     title = token.symbol;
     caption = getOfferTarget(offer);
   }
+  const hasTags = Boolean(networkName || payRoute || hasOfferBadges(offer));
   return (
     <YStack
       testID={testID}
@@ -153,75 +225,89 @@ export function EarnOfferOptionCard({
           <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
         )}
         <YStack flex={1} minWidth={0} gap="$0.5">
-          {/* The name is what tells the offers apart: it keeps its width,
-              a long one taking a second line of its own, and the tags beside
-              it go under it where the column is too narrow for them all
-              (a network and a bridge across networks, 11-05) */}
+          {/* The name that tells the offers apart, its tags as marks after
+              it, and under them what the offer holds. As words the tags
+              crowded the card (11-10): a mark each keeps them on the
+              name's line, and a name too long for that sends them to the
+              next */}
           <XStack
             ai="center"
             columnGap="$1.5"
-            rowGap="$1"
+            rowGap="$0.5"
             minWidth={0}
             flexWrap="wrap"
           >
             <SizableText
               size="$bodyLgMedium"
-              numberOfLines={token ? 1 : 2}
-              flexShrink={0}
-              maxWidth="100%"
+              numberOfLines={1}
+              flexShrink={1}
+              minWidth={0}
             >
               {title}
             </SizableText>
-            {/* The network, as the wallet's token list tells a token's
-                networks apart; then the swap's or the bridge's tag by the
-                token it buys; the product's own tag (Fixed Rate) by the
-                protocol, under it */}
-            {networkName ? (
-              <Badge badgeType="default" badgeSize="sm" flexShrink={0}>
-                <Badge.Text>{networkName}</Badge.Text>
-              </Badge>
-            ) : null}
-            {token ? null : nameAccessory}
-            {payRoute ? (
-              <Badge
-                testID={`earn-offer-pay-route-${payRoute}`}
-                // Apart from the grey network beside it: what happens, not
-                // where
-                badgeType="info"
-                badgeSize="sm"
+            {hasTags ? (
+              <XStack
+                testID={testID ? `${testID}-tags` : undefined}
+                ai="center"
+                gap="$1"
                 flexShrink={0}
               >
-                <Badge.Text>
-                  {intl.formatMessage({
-                    id:
+                {/* The network, where the cards span networks */}
+                {networkName && networkLogoURI ? (
+                  <OfferMark label={networkName} imageUri={networkLogoURI} />
+                ) : null}
+                {networkName && !networkLogoURI ? (
+                  <Badge badgeType="default" badgeSize="sm" flexShrink={0}>
+                    <Badge.Text>{networkName}</Badge.Text>
+                  </Badge>
+                ) : null}
+                {offer.isFixedRate ? (
+                  <OfferMark
+                    label={intl.formatMessage({
+                      id: ETranslations.defi_fixed_rate,
+                    })}
+                    icon="LockOutline"
+                  />
+                ) : null}
+                {/* The protocol's own tags, a bonus above all: a star in
+                    the tag's color */}
+                {serverBadges?.map((badge) => (
+                  <OfferMark
+                    key={badge.tag}
+                    label={badge.tag}
+                    icon="StarSolid"
+                    tone={badge.badgeType}
+                  />
+                ))}
+                {/* What comes before the deposit */}
+                {payRoute ? (
+                  <OfferMark
+                    testID={`earn-offer-pay-route-${payRoute}`}
+                    label={intl.formatMessage({
+                      id:
+                        payRoute === 'bridge'
+                          ? ETranslations.swap_page_bridge
+                          : ETranslations.global_swap,
+                    })}
+                    icon={
                       payRoute === 'bridge'
-                        ? ETranslations.swap_page_bridge
-                        : ETranslations.global_swap,
-                  })}
-                </Badge.Text>
-              </Badge>
+                        ? 'BridgeOutline'
+                        : 'SwitchHorOutline'
+                    }
+                    tone="info"
+                  />
+                ) : null}
+              </XStack>
             ) : null}
           </XStack>
-          {caption || (token && nameAccessory) ? (
-            <XStack
-              ai="center"
-              gap="$1.5"
-              minWidth={0}
-              flexWrap={token ? 'wrap' : undefined}
+          {caption ? (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={token ? 1 : 2}
             >
-              {caption ? (
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={token ? 1 : 2}
-                  flexShrink={token ? 0 : 1}
-                  maxWidth="100%"
-                >
-                  {caption}
-                </SizableText>
-              ) : null}
-              {token ? nameAccessory : null}
-            </XStack>
+              {caption}
+            </SizableText>
           ) : null}
         </YStack>
         <YStack ai="flex-end" gap="$0.5" flexShrink={0}>

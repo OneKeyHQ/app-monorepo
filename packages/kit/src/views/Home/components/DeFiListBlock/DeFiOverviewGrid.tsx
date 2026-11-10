@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { Skeleton, XStack } from '@onekeyhq/components';
 import { useDeFiListSlicedAtom } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -12,6 +13,7 @@ import { buildOverviewGridStyle } from './DeFiOverviewLayout';
 import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
+import type { IOverviewMoreSpan } from './DeFiOverviewPlanner';
 import type { IDeFiOverviewTileSurface } from './DeFiOverviewTile';
 import type { IOverviewCols } from './overviewColsResolver';
 
@@ -46,6 +48,12 @@ export type IDeFiOverviewGridProps = {
   onPressProtocol: (p: IDeFiProtocol) => void;
   /** see IDeFiOverviewTileSurface; the wallet's look without it */
   tileSurface?: IDeFiOverviewTileSurface;
+  /** rows the collapsed grid keeps before "More"; the wallet's three without it */
+  collapsedRows?: number;
+  /** the More cell's width in cells; the wallet's two without it */
+  moreSpan?: IOverviewMoreSpan;
+  /** beside a tile's name, what tells it from another of the same name */
+  renderNameAccessory?: (p: IDeFiProtocol) => ReactNode;
 };
 
 function DeFiOverviewGrid({
@@ -57,6 +65,9 @@ function DeFiOverviewGrid({
   getNetWorth,
   onPressProtocol,
   tileSurface,
+  collapsedRows,
+  moreSpan,
+  renderNameAccessory,
 }: IDeFiOverviewGridProps) {
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const isExpanded = !isSliced;
@@ -70,8 +81,10 @@ function DeFiOverviewGrid({
         protocolMap,
         isExpanded,
         cols,
+        collapsedRows,
+        moreSpan,
       }),
-    [rankedProtocols, protocolMap, isExpanded, cols],
+    [rankedProtocols, protocolMap, isExpanded, cols, collapsedRows, moreSpan],
   );
 
   const pressLockUntilRef = useRef(0);
@@ -145,6 +158,7 @@ function DeFiOverviewGrid({
       onPressLess={handleLess}
       isAllNetworks={isAllNetworks}
       tileSurface={tileSurface}
+      renderNameAccessory={renderNameAccessory}
     />
   );
 }

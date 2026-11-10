@@ -155,10 +155,16 @@ export const getOfferTvl = (offer: IEarnDesktopHoldOffer) =>
 
 // What sets the offer apart, after its name: a fixed rate, and the
 // protocol's own tags such as a bonus
+export const hasOfferBadges = (offer: IEarnDesktopHoldOffer) =>
+  Boolean(
+    offer.isFixedRate ||
+    (offer.kind === 'protocol' && offer.item.provider.badges?.length),
+  );
+
 export function OfferBadges({ offer }: { offer: IEarnDesktopHoldOffer }) {
   const intl = useIntl();
   const badges = offer.kind === 'protocol' ? offer.item.provider.badges : [];
-  if (!offer.isFixedRate && !badges?.length) {
+  if (!hasOfferBadges(offer)) {
     return null;
   }
   return (

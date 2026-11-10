@@ -113,7 +113,7 @@ export function EarnPhoneHome({
       {/* The sections keep the phone home's rhythm, Trending tokens and
           Fixed Income included */}
       <YStack gap={EARN_SECTION_GAP}>
-        <AvailableAssetsFlatList />
+        <AvailableAssetsFlatList namesLiquidity />
         <EarnPhoneLoansPreview
           markets={markets}
           isMarketsLoaded={isMarketsLoaded}

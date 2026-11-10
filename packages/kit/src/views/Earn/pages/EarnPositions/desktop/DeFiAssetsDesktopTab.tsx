@@ -133,6 +133,7 @@ function BasicDeFiAssetsDesktopTab({
         protocols={protocols}
         deFiProtocols={deFiProtocols}
         protocolMap={protocolMap}
+        networkNames={networkNames}
         onPressProtocol={handlePressProtocol}
         onOpenSplitProtocols={handleOpenSplitProtocols}
       />

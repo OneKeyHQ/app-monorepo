@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -54,6 +56,8 @@ export type IDeFiOverviewTileProps = {
   isAllNetworks?: boolean;
   onPress: () => void;
   surface?: IDeFiOverviewTileSurface;
+  /** beside the name, what tells the tile from another of the same name */
+  nameAccessory?: ReactNode;
 };
 
 function DeFiOverviewTile({
@@ -63,6 +67,7 @@ function DeFiOverviewTile({
   isAllNetworks,
   onPress,
   surface,
+  nameAccessory,
 }: IDeFiOverviewTileProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -134,14 +139,30 @@ function DeFiOverviewTile({
         </Stack>
       </Stack>
       <YStack flex={1} minWidth={0} gap="$1">
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {name}
-        </SizableText>
+        {nameAccessory ? (
+          // The name's own line height, whatever the accessory's
+          <XStack ai="center" gap="$1.5" minWidth={0} h="$5">
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              flexShrink={1}
+            >
+              {name}
+            </SizableText>
+            {nameAccessory}
+          </XStack>
+        ) : (
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {name}
+          </SizableText>
+        )}
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {formattedNetWorth}
         </SizableText>

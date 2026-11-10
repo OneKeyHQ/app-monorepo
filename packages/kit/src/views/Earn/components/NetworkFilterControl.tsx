@@ -44,6 +44,8 @@ interface INetworkFilterControlProps {
   variant?: 'default' | 'compact' | 'pill';
   /** The trigger's own style, such as a fill while networks are picked */
   triggerProps?: IXStackProps;
+  /** 'pill' only: what the list's numbers count ("Tokens"), over them */
+  countLabel?: string;
 }
 
 function NetworkFilterControl({
@@ -54,6 +56,7 @@ function NetworkFilterControl({
   testID,
   variant = 'default',
   triggerProps,
+  countLabel,
 }: INetworkFilterControlProps) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -155,6 +158,7 @@ function NetworkFilterControl({
         networks={sortedNetworks ?? []}
         selectedNetworkIds={selectedNetworkIds}
         networkAssetCounts={networkAssetCounts}
+        countLabel={countLabel}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         onToggle={toggleNetwork}

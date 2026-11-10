@@ -106,6 +106,8 @@ function BasicEarnPhoneLoansPreview({
             key={pair.key}
             pair={pair}
             isWide={false}
+            // The home's other sections' rows end in their figure
+            hidesChevron
             onOpenPair={onOpenPair}
           />
         ))}

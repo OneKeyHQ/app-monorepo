@@ -67,6 +67,7 @@ import { StakingAmountResultLine } from '../../../Staking/components/StakingAmou
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
   EARN_BUTTON_LOOK_TRANSITION,
+  EarnFormOffersInlineContext,
   EarnFormRow,
   EarnFormSummary,
   EarnFormSwitchingContext,
@@ -1251,6 +1252,7 @@ export function EarnRouterSwapDepositForm({
   }, [depositAmount, footerActionOverride, onAmountChange]);
   // Picked another protocol a moment ago: this form is the one being left
   const isSwitchingOffer = useContext(EarnFormSwitchingContext);
+  const listsOffersInline = useContext(EarnFormOffersInlineContext);
   const handlePress = footerActionOverride ? handleOverridePress : handleStart;
   const confirmButtonProps = {
     testID: 'earn-router-swap-deposit',
@@ -1644,6 +1646,69 @@ export function EarnRouterSwapDepositForm({
     />
   );
 
+  // What goes into the vault, under what pays for it; more than the
+  // balance says so in its place, in red. Brought in by a pick in Pay with,
+  // it grows in under the box
+  const amountLines = (
+    <HeightTransition
+      duration={DEPOSIT_LINE_MS}
+      skipInitialAnimation={!revealsDepositLine}
+    >
+      <YStack pt="$2">
+        {isInsufficient ? (
+          <SizableText
+            testID="earn-amount-error"
+            px="$3.5"
+            size="$bodyMd"
+            color="$textCritical"
+          >
+            {intl.formatMessage({
+              id: ETranslations.earn_insufficient_balance,
+            })}
+          </SizableText>
+        ) : (
+          <StakingAmountResultLine
+            testID={
+              isPendle
+                ? 'earn-pendle-receive-amount'
+                : 'earn-router-swap-deposit-amount'
+            }
+            label={depositLineLabel}
+            value={depositLine}
+            isPlaceholder={isDepositLinePlaceholder}
+            loading={
+              isQuoting || isEmptySettling || (isPendle && isSummaryUpdating)
+            }
+          />
+        )}
+        {/* A bridge says before the press how long it takes and what
+            the network charges, as the Swap page's route does */}
+        {isBridge ? (
+          <YStack pt="$1">
+            <StakingAmountResultLine
+              testID="earn-router-bridge-duration"
+              label={intl.formatMessage({
+                id: ETranslations.provider_swap_duration,
+              })}
+              value={bridgeDuration ?? '–'}
+              isPlaceholder={!bridgeDuration}
+              loading={isQuoting || isEmptySettling}
+            />
+            <StakingAmountResultLine
+              testID="earn-router-bridge-fee"
+              label={intl.formatMessage({
+                id: ETranslations.provider_network_fee,
+              })}
+              value={bridgeFee ?? '–'}
+              isPlaceholder={!bridgeFee}
+              loading={isQuoting || isEmptySettling}
+            />
+          </YStack>
+        ) : null}
+      </YStack>
+    </HeightTransition>
+  );
+
   return (
     <StakingFormWrapper>
       <YStack>
@@ -1683,72 +1748,15 @@ export function EarnRouterSwapDepositForm({
           boxTestID={amountBoxTestID}
           onRefreshBalance={onRefreshBalance}
         />
-        {/* What goes into the vault, under what pays for it; more than the
-            balance says so in its place, in red. Brought in by a pick in
-            Pay with, it grows in under the box */}
-        <HeightTransition
-          duration={DEPOSIT_LINE_MS}
-          skipInitialAnimation={!revealsDepositLine}
-        >
-          <YStack pt="$2">
-            {isInsufficient ? (
-              <SizableText
-                testID="earn-amount-error"
-                px="$3.5"
-                size="$bodyMd"
-                color="$textCritical"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.earn_insufficient_balance,
-                })}
-              </SizableText>
-            ) : (
-              <StakingAmountResultLine
-                testID={
-                  isPendle
-                    ? 'earn-pendle-receive-amount'
-                    : 'earn-router-swap-deposit-amount'
-                }
-                label={depositLineLabel}
-                value={depositLine}
-                isPlaceholder={isDepositLinePlaceholder}
-                loading={
-                  isQuoting ||
-                  isEmptySettling ||
-                  (isPendle && isSummaryUpdating)
-                }
-              />
-            )}
-            {/* A bridge says before the press how long it takes and what
-                the network charges, as the Swap page's route does */}
-            {isBridge ? (
-              <YStack pt="$1">
-                <StakingAmountResultLine
-                  testID="earn-router-bridge-duration"
-                  label={intl.formatMessage({
-                    id: ETranslations.provider_swap_duration,
-                  })}
-                  value={bridgeDuration ?? '–'}
-                  isPlaceholder={!bridgeDuration}
-                  loading={isQuoting || isEmptySettling}
-                />
-                <StakingAmountResultLine
-                  testID="earn-router-bridge-fee"
-                  label={intl.formatMessage({
-                    id: ETranslations.provider_network_fee,
-                  })}
-                  value={bridgeFee ?? '–'}
-                  isPlaceholder={!bridgeFee}
-                  loading={isQuoting || isEmptySettling}
-                />
-              </YStack>
-            ) : null}
-          </YStack>
-        </HeightTransition>
+        {listsOffersInline ? null : amountLines}
       </YStack>
       {/* The protocol stays under the amount; what typing brings up goes
           below it */}
       {protocolSwitch ?? offerSwitch}
+      {/* Under a list of every offer, with the rest of what the amount
+          brings up: over the list they were a screen away from it (11-10).
+          Their own space over them is the box's; the form's gap stands in */}
+      {listsOffersInline ? <YStack mt="$-2">{amountLines}</YStack> : null}
       {/* Always there, so the alert can open and close: its margin takes
           back the form's gap while it is closed */}
       <YStack mb="$-4">

@@ -19,6 +19,8 @@ export type IDeFiOverviewMoreTileProps = {
   extraCount: number;
   onPress: () => void;
   surface?: IDeFiOverviewTileSurface;
+  /** one cell wide: no chevron, so the count keeps its whole line */
+  compact?: boolean;
 };
 
 function DeFiOverviewMoreTile({
@@ -27,6 +29,7 @@ function DeFiOverviewMoreTile({
   extraCount,
   onPress,
   surface,
+  compact,
 }: IDeFiOverviewMoreTileProps) {
   const intl = useIntl();
   const surfaceProps = useOverviewTileSurfaceProps(surface, onPress);
@@ -104,15 +107,17 @@ function DeFiOverviewMoreTile({
           </SizableText>
         </YStack>
       </XStack>
-      <Stack
-        width={20}
-        height={20}
-        flexShrink={0}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name="ChevronRightSmallSolid" size="$5" color="$iconSubdued" />
-      </Stack>
+      {compact ? null : (
+        <Stack
+          width={20}
+          height={20}
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name="ChevronRightSmallSolid" size="$5" color="$iconSubdued" />
+        </Stack>
+      )}
     </XStack>
   );
 }

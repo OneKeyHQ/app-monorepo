@@ -36,6 +36,7 @@ import {
   getListRowMotion,
 } from '../../utils/earnListMotion';
 import { AprText } from '../AprText';
+import { EarnAprSuffixText } from '../EarnAprSuffixText';
 import { EarnPhoneSectionTitle } from '../EarnPhoneSectionTitle';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
@@ -70,7 +71,11 @@ const READ_AHEAD_DELAY_MS = 800;
 const READ_AHEAD_GAP_MS = 250;
 const ROW_HEIGHT = 68;
 const ROW_GAP = '$3';
-const ACTION_WIDTH = 72;
+// A tile's own padding on each side
+const TILE_PX = '$4';
+// The Earn table's last column, less the tile's padding: the rates end where
+// the table's do
+const ACTION_WIDTH = 80;
 // The table's proportions below, so the two lists read alike
 const column = (
   flex: number,
@@ -84,13 +89,28 @@ const column = (
   ai: align,
 });
 const COLUMNS = {
-  asset: column(3),
+  // Measured from the tile's edge, as the table's is from the page's: the
+  // network, the balance and the rate then stand over the table's columns
+  asset: { ...column(3), ml: '$-4' } as const,
   network: column(1.4),
   balance: column(1.4, 'flex-end'),
   apr: column(1.4, 'flex-end', 136),
 };
 const stopPropagation = (event: { stopPropagation: () => void }) =>
   event.stopPropagation();
+
+// The first column, its content inside the tile's padding. The padding is
+// the content's, not the column's: a column's own padding would add to its
+// share of the row
+function AssetColumn({ children }: { children: ReactNode }) {
+  return (
+    <XStack {...COLUMNS.asset} ai="center">
+      <XStack flex={1} minWidth={0} ai="center" gap="$3" pl={TILE_PX}>
+        {children}
+      </XStack>
+    </XStack>
+  );
+}
 // A hidden amount is asterisks, which sit at the cap height. Lowered by this
 // share of their size, as the hero lowers its own, they center on the line the
 // words beside them fill
@@ -100,21 +120,26 @@ const ASTERISK_DROP = 0.16;
 export function OfferRate({
   offer,
   size = '$bodyLgMedium',
+  showsUnit = false,
 }: {
   offer: IEarnDesktopHoldOffer;
   size?: '$bodyLgMedium' | '$bodyMdMedium';
+  // Where no column label says what the rate is (the offer cards): its
+  // unit after it, as the phone's lists write it
+  showsUnit?: boolean;
 }) {
   if (offer.kind === 'lending') {
-    return (
-      <SizableText size={size}>{`${new BigNumber(offer.offer.apy).toFixed(
-        2,
-      )}%`}</SizableText>
+    const rate = `${new BigNumber(offer.offer.apy).toFixed(2)}%`;
+    return showsUnit ? (
+      <EarnAprSuffixText size={size} text={rate} fallbackUnit="APY" />
+    ) : (
+      <SizableText size={size}>{rate}</SizableText>
     );
   }
   const { item } = offer;
   return (
     <AprText
-      hideSuffix
+      hideSuffix={!showsUnit}
       size={size}
       asset={{
         aprWithoutFee: item.provider.aprWithoutFee ?? '',
@@ -303,7 +328,7 @@ function BasicHoldRow({
         ai={isWide ? 'center' : 'flex-start'}
         gap={ROW_GAP}
         minHeight={ROW_HEIGHT}
-        px="$4"
+        px={TILE_PX}
         py={isWide ? undefined : NARROW_ROW_PY}
         borderRadius="$3"
         borderCurve="continuous"
@@ -320,7 +345,7 @@ function BasicHoldRow({
       >
         {isWide ? (
           <>
-            <XStack {...COLUMNS.asset} ai="center" gap="$3">
+            <AssetColumn>
               {/* No chain on the token: the row is the token on every
                   network, and the next column names them */}
               <SurfaceToken size="md" tokenImageUri={tokenImageUri} />
@@ -331,7 +356,7 @@ function BasicHoldRow({
                 </XStack>
                 {fixedLine}
               </YStack>
-            </XStack>
+            </AssetColumn>
             <XStack {...COLUMNS.network} ai="center">
               <SurfaceNetworkLogos
                 networkIds={row.networkIds}
@@ -430,12 +455,12 @@ function HeaderLabel({
 function HoldLabels() {
   const intl = useIntl();
   return (
-    <XStack h="$8" ai="center" gap={ROW_GAP} px="$4" mt="$3">
-      <Stack {...COLUMNS.asset}>
+    <XStack h="$8" ai="center" gap={ROW_GAP} px={TILE_PX} mt="$3">
+      <AssetColumn>
         <HeaderLabel>
           {intl.formatMessage({ id: ETranslations.global_asset })}
         </HeaderLabel>
-      </Stack>
+      </AssetColumn>
       <Stack {...COLUMNS.network}>
         <HeaderLabel>
           {intl.formatMessage({ id: ETranslations.global_network })}
@@ -691,10 +716,10 @@ export function EarnDesktopHoldCardSkeleton({
     <YStack mt={variant === 'section' ? '$4' : 0} gap={isPhone ? '$3' : 0}>
       {title}
       {isWide ? (
-        <XStack h="$8" ai="center" gap={ROW_GAP} px="$4" mt="$3">
-          <Stack {...COLUMNS.asset}>
+        <XStack h="$8" ai="center" gap={ROW_GAP} px={TILE_PX} mt="$3">
+          <AssetColumn>
             <Skeleton w={40} h={12} borderRadius="$2" />
-          </Stack>
+          </AssetColumn>
           <Stack {...COLUMNS.network}>
             <Skeleton w={52} h={12} borderRadius="$2" />
           </Stack>
@@ -719,17 +744,17 @@ export function EarnDesktopHoldCardSkeleton({
             ai="center"
             gap={ROW_GAP}
             h={ROW_HEIGHT}
-            px="$4"
+            px={TILE_PX}
             borderRadius="$3"
             borderCurve="continuous"
             bg={surfaces.rest}
           >
             {isWide ? (
               <>
-                <XStack {...COLUMNS.asset} ai="center" gap="$3">
+                <AssetColumn>
                   <Skeleton w="$8" h="$8" radius="round" />
                   <Skeleton w={56} h={16} borderRadius="$2" />
-                </XStack>
+                </AssetColumn>
                 {/* Two network logos' outline, inside their rings */}
                 <XStack {...COLUMNS.network} ai="center" pl="$0.5">
                   <Skeleton w={38} h={20} borderRadius="$full" />

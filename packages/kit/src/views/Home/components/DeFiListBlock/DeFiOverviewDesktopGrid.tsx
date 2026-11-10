@@ -22,6 +22,8 @@ export type IDeFiOverviewDesktopGridProps = {
   isAllNetworks?: boolean;
   /** see IDeFiOverviewTileSurface; the wallet's look without it */
   tileSurface?: IDeFiOverviewTileSurface;
+  /** beside a tile's name, what tells it from another of the same name */
+  renderNameAccessory?: (protocol: IDeFiProtocol) => React.ReactNode;
 };
 
 function DeFiOverviewDesktopGrid({
@@ -33,6 +35,7 @@ function DeFiOverviewDesktopGrid({
   onPressLess,
   isAllNetworks,
   tileSurface,
+  renderNameAccessory,
 }: IDeFiOverviewDesktopGridProps) {
   return (
     <XStack width="100%" flexWrap="wrap" gap="$4" rowGap="$5">
@@ -46,6 +49,7 @@ function DeFiOverviewDesktopGrid({
               onPress={() => onPressProtocol(cell.protocol)}
               isAllNetworks={isAllNetworks}
               surface={tileSurface}
+              nameAccessory={renderNameAccessory?.(cell.protocol)}
             />
           ) : null}
           {cell.kind === 'more' ? (
@@ -55,6 +59,7 @@ function DeFiOverviewDesktopGrid({
               extraCount={cell.extraCount}
               onPress={onPressMore}
               surface={tileSurface}
+              compact={cell.span === 1}
             />
           ) : null}
           {cell.kind === 'less' ? (

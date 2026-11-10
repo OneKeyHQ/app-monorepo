@@ -1,13 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { YStack, useMedia } from '@onekeyhq/components';
+import { Badge, YStack, useMedia } from '@onekeyhq/components';
 import { ProviderJotaiContextDeFiList } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { buildValueShares } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import type { IEarnDesktopShareToken } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import { ProtocolSplit } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/EarnDesktopProtocolSplit';
 import { useEarnDesktopSurfaces } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopSurfaces';
 import { DeFiOverviewGrid } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiOverviewGrid';
-import { resolveOverviewCols } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/overviewColsResolver';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
@@ -51,18 +50,29 @@ function describeProtocolHoldings(protocol: IEarnProtocolView) {
   };
 }
 
+// The tiles kept before "More": see the overview's note below
+const TILE_ROWS = 1;
+// A tile holds a protocol's name and its network's side by side ("Morpho",
+// "Ethereum"), which the wallet's six to a row are too narrow for
+const WIDE_COLS = 5;
+const NARROW_COLS = 4;
+
 /**
  * The wide layout's allocation overview over the positions shown, from two
  * protocols up as the wallet does: the home hero's split bar (lightness
  * steps, whole percents, the rest as "N more"), then the wallet DeFi
  * Portfolio's protocol tiles. Each protocol counts what its card's header
  * reads, so the bar, a tile and its card agree. The tiles keep their "More"
- * state in a DeFi list store of their own.
+ * state in a DeFi list store of their own. One row of them, the largest,
+ * the rest behind "More": every protocol's value is in its card's header
+ * right under, and three rows of tiles said it a third time (11-10). A tile
+ * whose protocol's name repeats names its network, as its card does.
  */
 export function EarnPortfolioOverview({
   protocols,
   deFiProtocols,
   protocolMap,
+  networkNames,
   onPressProtocol,
   onOpenSplitProtocols,
 }: {
@@ -71,6 +81,8 @@ export function EarnPortfolioOverview({
   /** the wallet protocols behind them */
   deFiProtocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
+  /** the network's name of each protocol whose name repeats, by card key */
+  networkNames?: Map<string, string>;
   onPressProtocol: (protocol: IDeFiProtocol) => void;
   /** a share of the bar: its protocol's cards across networks */
   onOpenSplitProtocols?: (protocolKeys: string[]) => void;
@@ -82,10 +94,7 @@ export function EarnPortfolioOverview({
     () => ({ rest, hover, press }),
     [rest, hover, press],
   );
-  const cols = useMemo(
-    () => resolveOverviewCols({ gtXl: media.gtXl, gtLg: media.gtLg }),
-    [media.gtXl, media.gtLg],
-  );
+  const cols = media.gtXl ? WIDE_COLS : NARROW_COLS;
   const valueByKey = useMemo(
     () =>
       new Map(
@@ -114,6 +123,23 @@ export function EarnPortfolioOverview({
         }),
       ) ?? 0,
     [valueByKey],
+  );
+  const renderNameAccessory = useCallback(
+    (protocol: IDeFiProtocol) => {
+      const networkName = networkNames?.get(
+        defiUtils.buildProtocolMapKey({
+          protocol: protocol.protocol,
+          networkId: protocol.networkId,
+        }),
+      );
+      // Short of room the badge gives up its width before the name does
+      return networkName ? (
+        <Badge badgeSize="sm" flexShrink={100} minWidth={0}>
+          <Badge.Text numberOfLines={1}>{networkName}</Badge.Text>
+        </Badge>
+      ) : null;
+    },
+    [networkNames],
   );
   // By protocol across networks, as the home splits its total, with what
   // each holds and owes for the bar's hover cards
@@ -150,6 +176,9 @@ export function EarnPortfolioOverview({
           onPressProtocol={onPressProtocol}
           isAllNetworks
           tileSurface={tileSurface}
+          collapsedRows={TILE_ROWS}
+          moreSpan={1}
+          renderNameAccessory={renderNameAccessory}
         />
       </YStack>
     </ProviderJotaiContextDeFiList>

@@ -39,6 +39,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EarnFormActionPlacementContext } from '../../../Staking/components/EarnFormFooter';
 import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
 import {
+  EarnFormOffersInlineContext,
   EarnFormSwitchingContext,
   EarnOutcomeCarryContext,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
@@ -1418,5 +1419,11 @@ export function EarnOffersDeposit({
       </EarnOutcomeCarryContext.Provider>
     </EarnFormSwitchingContext.Provider>
   );
-  return isRoutesBeside ? besideForm(form, routes) : withPick(form);
+  return isRoutesBeside
+    ? besideForm(form, routes)
+    : withPick(
+        <EarnFormOffersInlineContext.Provider value={listsRoutes}>
+          {form}
+        </EarnFormOffersInlineContext.Provider>,
+      );
 }

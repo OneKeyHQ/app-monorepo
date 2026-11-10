@@ -146,6 +146,12 @@ function mergeCarriedRows(carried: ReactElement[], own: ReactElement[]) {
 // being left
 export const EarnFormSwitchingContext = createContext(false);
 
+// The form's protocol slot holds every offer as a list of cards (the Earn
+// window where it is too narrow for the offers beside the form). What an
+// amount brings up then stands in one group under the list, by the button,
+// not split over and under it
+export const EarnFormOffersInlineContext = createContext(false);
+
 // A new amount's figures on their way: the values on screen dim (never the
 // labels), and a row with no value yet holds a placeholder its size. A
 // switch only dims: a dash stays a dash

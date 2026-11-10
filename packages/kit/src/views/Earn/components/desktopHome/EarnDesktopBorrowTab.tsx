@@ -368,10 +368,14 @@ function warmLoanRouter() {
 function BasicPairRow({
   pair,
   isWide,
+  hidesChevron = false,
   onOpenPair,
 }: {
   pair: IEarnDesktopLoanPair;
   isWide: boolean;
+  // A narrow row among lists whose rows end in their figure (the phone
+  // home's sections): no chevron, as theirs have none
+  hidesChevron?: boolean;
   onOpenPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
   const intl = useIntl();
@@ -380,6 +384,14 @@ function BasicPairRow({
   const { collateral, borrow, market } = pair;
   const onPress = () => onOpenPair(pair);
   const moreCount = pair.moreCollateral.length;
+  const narrowChevron = hidesChevron ? null : (
+    <Icon
+      name="ChevronRightSmallOutline"
+      size="$5"
+      color={isHovered ? '$icon' : '$iconSubdued'}
+      flexShrink={0}
+    />
+  );
   return (
     <ListItem
       testID={`earn-desktop-loan-${pair.key}`}
@@ -509,12 +521,7 @@ function BasicPairRow({
           </Button>
         </XStack>
       ) : (
-        <Icon
-          name="ChevronRightSmallOutline"
-          size="$5"
-          color={isHovered ? '$icon' : '$iconSubdued'}
-          flexShrink={0}
-        />
+        narrowChevron
       )}
     </ListItem>
   );
@@ -880,6 +887,7 @@ function BasicEarnDesktopBorrowTab({
               availableNetworkIds={availableNetworkIds}
               selectedNetworkIds={selectedNetworkIds}
               networkAssetCounts={networkPairCounts}
+              countLabel={EARN_DESKTOP_DEMO_COPY.networkPairs}
               onSelectionChange={(networkIds) => {
                 setSelectedNetworkIds(networkIds);
                 resetPage();
