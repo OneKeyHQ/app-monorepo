@@ -1,3 +1,4 @@
+import { defaultLogger } from '../../logger/logger';
 import openUrlUtils from '../../utils/openUrlUtils';
 
 import { EIntercomBridge } from './bridge';
@@ -70,6 +71,10 @@ const openIntercom = async (
   if (!canPresent()) {
     return false;
   }
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: 'extension-webview',
+  });
   openUrlUtils.openUrlInApp(url, 'Support', {
     hideHeaderRight: true,
     disableBridge: true,

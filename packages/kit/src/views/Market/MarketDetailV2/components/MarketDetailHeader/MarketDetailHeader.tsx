@@ -9,6 +9,7 @@ import {
   GlassButtonCapsule,
   HeaderIconButton,
   Icon,
+  IconButton,
   InteractiveIcon,
   NavBackButton,
   Page,
@@ -38,9 +39,11 @@ import {
 import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import {
   MarketStarV2,
@@ -88,9 +91,13 @@ function AddressLineSkeleton() {
 export function MarketDetailHeader({
   showFavoriteButton = true,
   marketTokenCategory,
+  pendingMarketAsset,
+  routeTokenPreview,
 }: {
   showFavoriteButton?: boolean;
   marketTokenCategory?: string;
+  pendingMarketAsset?: IMarketTokenDetailRouteParams['pendingMarketAsset'];
+  routeTokenPreview?: IMarketTokenDetailPreview;
 }) {
   const media = useMedia();
   const intl = useIntl();
@@ -153,10 +160,12 @@ export function MarketDetailHeader({
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
   const useListingStockHeader = Boolean(
-    (platformEnv.isNative || isCompactDetailLayout) && isStockToken,
+    !pendingMarketAsset &&
+    (platformEnv.isNative || isCompactDetailLayout) &&
+    isStockToken,
   );
   const detailKind = resolveMarketMobileDetailKind({
-    isStockToken,
+    isStockToken: !pendingMarketAsset && isStockToken,
     marketTokenCategory,
   });
   let headerSubtitle: string | undefined;
@@ -164,7 +173,11 @@ export function MarketDetailHeader({
     headerSubtitle =
       stockDetail?.name || stockPreview?.name || tokenDetail?.stock?.subtitle;
   } else if (detailKind === 'topCoin') {
-    headerSubtitle = tokenDetail?.name;
+    headerSubtitle =
+      pendingMarketAsset?.name ??
+      pendingMarketAsset?.symbol ??
+      tokenDetail?.name ??
+      routeTokenPreview?.name;
   }
   const firstTradeTime =
     tokenDetail?.firstTradeTime ?? tokenDetailPreview?.firstTradeTime;
@@ -173,9 +186,8 @@ export function MarketDetailHeader({
     (typeof firstTradeTime === 'string' || typeof firstTradeTime === 'number')
       ? getTokenAgeLabel(intl, Number(firstTradeTime))
       : undefined;
-  const headerNetworkLogoUri = useListingStockHeader
-    ? undefined
-    : networkLogoUri;
+  const headerNetworkLogoUri =
+    useListingStockHeader || pendingMarketAsset ? undefined : networkLogoUri;
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
@@ -212,13 +224,28 @@ export function MarketDetailHeader({
     stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
+  const previewLogoUrl =
+    pendingMarketAsset?.logoUrl ?? routeTokenPreview?.tokenImageUri;
+  const previewLogoUrls = useMemo(
+    () => (previewLogoUrl ? [previewLogoUrl] : undefined),
+    [previewLogoUrl],
+  );
   const headerIdentity = resolveMarketDetailHeaderIdentity({
     isStockToken: useListingStockHeader,
     stockSymbol: stockDetail?.symbol || stockPreview?.symbol,
     stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
-    tokenSymbol: tokenDetail?.symbol,
-    tokenLogoUrl: tokenDetail?.logoUrl,
-    tokenLogoUrls: stableLogoUrls,
+    tokenSymbol:
+      pendingMarketAsset?.symbol ??
+      tokenDetail?.symbol ??
+      routeTokenPreview?.symbol,
+    tokenLogoUrl: pendingMarketAsset
+      ? pendingMarketAsset.logoUrl
+      : (tokenDetail?.logoUrl ?? routeTokenPreview?.tokenImageUri),
+    tokenLogoUrls: pendingMarketAsset
+      ? previewLogoUrls
+      : (stableLogoUrls ??
+        routeTokenPreview?.tokenImageUris ??
+        previewLogoUrls),
   });
 
   const customHeaderLeft = useMemo(
@@ -410,7 +437,7 @@ export function MarketDetailHeader({
     chainId: networkId ?? '',
     contractAddress: tokenDetail?.address ?? '',
     from: EWatchlistFrom.Detail,
-    tokenSymbol: tokenDetail?.symbol ?? '',
+    tokenSymbol: headerIdentity.symbol,
     isNative,
   });
 
@@ -419,7 +446,9 @@ export function MarketDetailHeader({
     ? (tokenDetail?.address ?? '')
     : tokenAddress;
   const canShare = Boolean(
-    listingStockId || (networkId && (isStockToken || isNative || shareAddress)),
+    !pendingMarketAsset &&
+    (listingStockId ||
+      (networkId && (isStockToken || isNative || shareAddress))),
   );
 
   const handleShareNative = useCallback(() => {
@@ -670,7 +699,10 @@ export function MarketDetailHeader({
             </XStack>
           )}
 
-          {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
+          {networkId ||
+          listingIdentity.assetId ||
+          listingIdentity.stockId ||
+          pendingMarketAsset ? (
             <XStack gap={isCompactDetailLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
@@ -679,11 +711,11 @@ export function MarketDetailHeader({
                   contractAddress={tokenDetail?.address ?? ''}
                   size="large"
                   from={EWatchlistFrom.Detail}
-                  tokenSymbol={tokenDetail?.symbol ?? ''}
+                  tokenSymbol={headerIdentity.symbol}
                   isNative={isNative}
                 />
               ) : null}
-              {canShare ? (
+              {canShare && (
                 <ShareButton
                   stockId={listingStockId}
                   networkId={networkId}
@@ -691,6 +723,15 @@ export function MarketDetailHeader({
                   isNative={isNative}
                   useIconButton
                   size="large"
+                />
+              )}
+              {pendingMarketAsset ? (
+                <IconButton
+                  testID="market-url-icon-btn"
+                  icon="ShareOutline"
+                  variant="tertiary"
+                  size="large"
+                  disabled
                 />
               ) : null}
             </XStack>
