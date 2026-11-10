@@ -48,7 +48,7 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 import { EarnPositionHealthFactorRow } from './EarnPositionHealthFactorRow';
 import {
   lendingPendingTxsOf,
-  lendingRewardsRowOf,
+  lendingRewardsOf,
 } from './mobile/earnLendingPositions';
 import {
   lendingCollateralOf,
@@ -58,7 +58,8 @@ import {
 import type {
   IEarnLendingMarketRef,
   IEarnLendingReserveRef,
-  IEarnLendingRewardsRow,
+  IEarnLendingRewardRow,
+  IEarnLendingRewards,
 } from './mobile/earnLendingPositions';
 import type {
   IEarnPositionMeta,
@@ -482,15 +483,17 @@ export function LendingPendingBadge({
 }
 
 /**
- * A lending card's Rewards row: what the account can claim in the market
- * as one line, its Claim opening the market's rewards window (each reward
- * with its own Claim, and one for all). Undefined while there is nothing
- * to claim. Every claim out: the row shows Pending instead of its button
+ * A lending card's Rewards: what the account can claim in the market, a
+ * line per reward. Each line's Claim opens the market's rewards window,
+ * which lists them all and sends the claim; a reward whose claim is out
+ * shows Pending instead. Undefined while there is nothing to claim
  */
 export function useLendingCardRewards():
   | {
-      row: IEarnLendingRewardsRow;
-      isPending: boolean;
+      rewards: IEarnLendingRewards;
+      /** the market's network, for the rewards' logos */
+      networkId: string;
+      isPending: (row: IEarnLendingRewardRow) => boolean;
       open: () => void;
     }
   | undefined {
@@ -509,26 +512,27 @@ export function useLendingCardRewards():
     pendingTxs: actions?.pendingTxs ?? NO_PENDING_TXS,
     onClaimed: handleClaimed,
   });
-  const row = useMemo(
-    () => lendingRewardsRowOf(card?.borrowRewards),
+  const rewards = useMemo(
+    () => lendingRewardsOf(card?.borrowRewards),
     [card?.borrowRewards],
   );
+  const networkId = card?.market.market.networkId;
   return useMemo(() => {
-    if (!row) {
+    if (!rewards || !networkId) {
       return undefined;
     }
     const pendingIds = new Set(pendingClaimIds);
     return {
-      row,
-      isPending:
-        row.claimIds.length > 0 &&
-        row.claimIds.every((id) => pendingIds.has(id)),
+      rewards,
+      networkId,
+      isPending: (row: IEarnLendingRewardRow) =>
+        !row.isElsewhere && pendingIds.has(row.claimId),
       open: () => {
         actions?.onOpenWindow();
         openRewardsDialog();
       },
     };
-  }, [actions, openRewardsDialog, pendingClaimIds, row]);
+  }, [actions, networkId, openRewardsDialog, pendingClaimIds, rewards]);
 }
 
 /**

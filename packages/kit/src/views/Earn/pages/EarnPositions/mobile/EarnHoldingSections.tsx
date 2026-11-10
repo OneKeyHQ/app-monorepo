@@ -15,7 +15,6 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { TokenGroup } from '@onekeyhq/kit/src/components/Token/TokenGroup';
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
@@ -33,11 +32,10 @@ import {
   useLendingCardRewards,
 } from '../EarnLendingActions';
 
-import { lendingRewardSymbolsOf } from './earnLendingPositions';
 import { isCheckRow } from './earnPositionModel';
 import { holdingRowActionOf } from './myPortfolio.utils';
 
-import type { IEarnLendingRewardsRow } from './earnLendingPositions';
+import type { IEarnLendingRewardRow } from './earnLendingPositions';
 import type {
   IEarnPositionSectionAsset,
   IEarnPositionSectionView,
@@ -426,47 +424,18 @@ function HoldingSection({
 }
 
 /**
- * A Rewards row's tokens: the one logo as the rows above have theirs, or
- * several overlapped, each ringed in what it sits on
+ * A lending reward's Claim, the rows' small secondary button, opening the
+ * market's rewards window; the rows' Pending badge while its claim is out
  */
-export function LendingRewardTokens({
-  tokens,
-  size,
-  backgroundColor = '$bgApp',
-}: {
-  tokens: IEarnLendingRewardsRow['tokens'];
-  size: 'sm' | 'md';
-  backgroundColor?: string;
-}) {
-  if (tokens.length === 1) {
-    return <Token size={size} tokenImageUri={tokens[0].logoURI} />;
-  }
-  return (
-    // The rings' own width taken back, so the first logo starts where the
-    // rows' logos do
-    <TokenGroup
-      tokens={tokens.map((token) => ({ tokenImageUri: token.logoURI }))}
-      size={size}
-      maxVisible={3}
-      showRemainingBadge={false}
-      backgroundColor={backgroundColor}
-      m="$-0.5"
-      flexShrink={0}
-    />
-  );
-}
-
-/**
- * A lending card's Claim, the rows' small secondary button, opening the
- * market's rewards window; the rows' Pending badge once every claim is out
- */
-export function LendingRewardsAction({
+export function LendingRewardAction({
+  row,
   rewards,
 }: {
+  row: IEarnLendingRewardRow;
   rewards: NonNullable<ReturnType<typeof useLendingCardRewards>>;
 }) {
   const intl = useIntl();
-  if (rewards.isPending) {
+  if (rewards.isPending(row)) {
     return (
       <Badge badgeType="info" badgeSize="sm">
         <Badge.Text>
@@ -476,7 +445,7 @@ export function LendingRewardsAction({
     );
   }
   const label =
-    rewards.row.buttonText ||
+    rewards.rewards.buttonText ||
     intl.formatMessage({ id: ETranslations.earn_claim });
   return (
     <Button
@@ -484,7 +453,7 @@ export function LendingRewardsAction({
       size="small"
       variant="secondary"
       hitSlop={ROW_ACTION_HIT_SLOP}
-      aria-label={`${label} ${lendingRewardSymbolsOf(rewards.row.tokens)}`}
+      aria-label={`${label} ${row.symbol}`}
       onPress={rewards.open}
     >
       {label}
@@ -494,9 +463,8 @@ export function LendingRewardsAction({
 
 /**
  * A lending market's rewards as the phone card's last panel (demo 11-10):
- * one row for all of them, Claim at its end as every row's button sits.
- * One reward alone leads with its amount, as the rows above do; several
- * with their names. Nothing while there is nothing to claim
+ * a line per reward as the panels above have theirs, its amount over what
+ * it is worth and Claim at its end. Nothing while there is nothing to claim
  */
 export function LendingRewardsPanel() {
   const intl = useIntl();
@@ -504,7 +472,6 @@ export function LendingRewardsPanel() {
   if (!rewards) {
     return null;
   }
-  const { row } = rewards;
   return (
     <YStack
       testID="earn-portfolio-lending-rewards"
@@ -515,38 +482,38 @@ export function LendingRewardsPanel() {
       bg="$bgSubdued"
     >
       <SizableText size="$bodySmMedium" color="$textSubdued" py="$1">
-        {row.title || intl.formatMessage({ id: ETranslations.earn_rewards })}
+        {rewards.rewards.title ||
+          intl.formatMessage({ id: ETranslations.earn_rewards })}
       </SizableText>
-      <XStack ai="center" gap="$3" minHeight={36} py="$1">
-        <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-          <LendingRewardTokens
-            tokens={row.tokens}
-            size="md"
-            backgroundColor="$bgSubdued"
-          />
-          <YStack flexShrink={1} minWidth={0}>
-            {row.amount ? (
+      {rewards.rewards.rows.map((row) => (
+        <XStack key={row.key} ai="center" gap="$3" minHeight={36} my="$1">
+          <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+            <Token
+              size="md"
+              tokenImageUri={row.logoURI}
+              showNetworkIcon
+              networkId={rewards.networkId}
+            />
+            <YStack flexShrink={1} minWidth={0}>
               <EarnText
                 size="$bodyMdMedium"
                 color="$text"
                 numberOfLines={1}
                 text={row.amount}
               />
-            ) : (
-              <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                {lendingRewardSymbolsOf(row.tokens)}
-              </SizableText>
-            )}
-            <EarnText
-              size="$bodySm"
-              color="$textSubdued"
-              numberOfLines={1}
-              text={row.value}
-            />
-          </YStack>
+              {row.value ? (
+                <EarnText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  text={row.value}
+                />
+              ) : null}
+            </YStack>
+          </XStack>
+          <LendingRewardAction row={row} rewards={rewards} />
         </XStack>
-        <LendingRewardsAction rewards={rewards} />
-      </XStack>
+      ))}
     </YStack>
   );
 }

@@ -424,72 +424,74 @@ export function lendingPendingTxsOf({
   });
 }
 
-/** What a lending card's Rewards row shows: the market's rewards as one line */
-export type IEarnLendingRewardsRow = {
+/** One reward of a lending market, as the market's rewards window lists it */
+export type IEarnLendingRewardRow = {
+  /** Its own among the card's rows */
+  key: string;
+  /** The server's claim: rewards that go out together share one */
+  claimId: string;
+  symbol: string;
+  logoURI: string;
+  amount: IEarnText;
+  value?: IEarnText;
+  /** Claimed on the protocol's own site, which the window links to */
+  isElsewhere: boolean;
+};
+
+/** A lending card's Rewards section: a line per reward, as its other panels */
+export type IEarnLendingRewards = {
   /** The section's name, the server's ("Rewards") */
   title?: string;
-  /** The rewards' tokens, each once */
-  tokens: { symbol: string; logoURI: string }[];
-  /** One reward alone: its own amount */
-  amount?: IEarnText;
-  /** What all of them are worth */
-  value: IEarnText;
   /** The button's word, the server's ("Claim") */
   buttonText?: string;
-  /** Every reward that can be claimed, for telling whether all are out */
-  claimIds: string[];
+  rows: IEarnLendingRewardRow[];
 };
 
 /**
- * The market's rewards as the card's one Rewards row, which opens the
- * market's rewards window: nothing while the server has the claim off
- * (nothing to claim), as the market page showed no button then
+ * What the account can claim in a lending market, a line per reward as the
+ * market's rewards window lists them. Nothing while the server has the
+ * claim off or lists no reward
  */
-export function lendingRewardsRowOf(
+export function lendingRewardsOf(
   borrowRewards: IBorrowRewards | null | undefined,
-): IEarnLendingRewardsRow | undefined {
+): IEarnLendingRewards | undefined {
   if (!borrowRewards?.button || borrowRewards.button.disabled) {
     return undefined;
   }
   const detail = borrowRewards.button.data?.rewardsDetail;
-  const claimable = (detail?.claimable ?? []).flatMap((group) => group.items);
-  const linked = (detail?.unclaimable ?? []).flatMap((group) => group.items);
-  const seen = new Set<string>();
-  const tokens: IEarnLendingRewardsRow['tokens'] = [];
-  [...claimable, ...linked].forEach(({ token }) => {
-    const key = `${token.symbol}|${token.logoURI}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      tokens.push({ symbol: token.symbol, logoURI: token.logoURI });
-    }
-  });
-  if (!tokens.length) {
+  const rows: IEarnLendingRewardRow[] = [];
+  (detail?.claimable ?? []).forEach((group) =>
+    group.items.forEach((item) => {
+      rows.push({
+        key: `claim:${rows.length}:${item.id}`,
+        claimId: item.id,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+        amount: item.title,
+        value: item.description,
+        isElsewhere: false,
+      });
+    }),
+  );
+  (detail?.unclaimable ?? []).forEach((group) =>
+    group.items.forEach((item) => {
+      rows.push({
+        key: `elsewhere:${rows.length}:${item.id}`,
+        claimId: item.id,
+        symbol: item.token.symbol,
+        logoURI: item.token.logoURI,
+        amount: item.title,
+        value: item.description,
+        isElsewhere: true,
+      });
+    }),
+  );
+  if (!rows.length) {
     return undefined;
   }
   return {
     title: borrowRewards.title?.text || undefined,
-    tokens,
-    amount:
-      claimable.length === 1 && linked.length === 0
-        ? claimable[0].title
-        : undefined,
-    value: borrowRewards.description,
     buttonText: borrowRewards.button.text?.text || undefined,
-    claimIds: claimable.map((item) => item.id),
+    rows,
   };
-}
-
-// The names a Rewards row lists before it counts the rest
-const REWARD_SYMBOLS_SHOWN = 3;
-
-/** The rewards' names on one line: "ARB, USDC", and past three "+2" */
-export function lendingRewardSymbolsOf(
-  tokens: IEarnLendingRewardsRow['tokens'],
-): string {
-  const shown = tokens
-    .slice(0, REWARD_SYMBOLS_SHOWN)
-    .map((token) => token.symbol)
-    .join(', ');
-  const rest = tokens.length - REWARD_SYMBOLS_SHOWN;
-  return rest > 0 ? `${shown} +${rest}` : shown;
 }

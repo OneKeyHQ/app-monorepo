@@ -14,8 +14,7 @@ import type {
 import {
   buildLendingMarketSummary,
   lendingPendingTxsOf,
-  lendingRewardSymbolsOf,
-  lendingRewardsRowOf,
+  lendingRewardsOf,
   lendingSupplyPositionOf,
   withLendingMarketPositions,
 } from './earnLendingPositions';
@@ -374,10 +373,11 @@ describe('lendingPendingTxsOf', () => {
   });
 });
 
-describe('lendingRewardsRowOf', () => {
-  const item = (symbol: string, amount: string) => ({
-    id: `claim-${symbol}`,
+describe('lendingRewardsOf', () => {
+  const item = (symbol: string, amount: string, id = `claim-${symbol}`) => ({
+    id,
     title: { text: amount },
+    description: { text: '< $0.01' },
     token: borrowToken(symbol),
   });
   const rewards = ({
@@ -407,53 +407,67 @@ describe('lendingRewardsRowOf', () => {
       },
     }) as unknown as IBorrowRewards;
 
-  it('has no row while the server has the claim off', () => {
-    expect(lendingRewardsRowOf(null)).toBeUndefined();
+  it('has no section while the server has the claim off or lists nothing', () => {
+    expect(lendingRewardsOf(null)).toBeUndefined();
     expect(
-      lendingRewardsRowOf(rewards({ disabled: true, claimable: [] })),
+      lendingRewardsOf(
+        rewards({ disabled: true, claimable: [item('ARB', '1.2 ARB')] }),
+      ),
     ).toBeUndefined();
-    expect(lendingRewardsRowOf(rewards({ claimable: [] }))).toBeUndefined();
+    expect(lendingRewardsOf(rewards({ claimable: [] }))).toBeUndefined();
   });
 
-  it('shows one reward with its own amount', () => {
+  it('lists a reward with its amount and what it is worth', () => {
     expect(
-      lendingRewardsRowOf(rewards({ claimable: [item('ARB', '1.2 ARB')] })),
+      lendingRewardsOf(rewards({ claimable: [item('ARB', '1.2 ARB')] })),
     ).toEqual({
       title: 'Rewards',
-      tokens: [{ symbol: 'ARB', logoURI: 'https://logo/ARB.png' }],
-      amount: { text: '1.2 ARB' },
-      value: { text: '$1.23' },
       buttonText: 'Claim',
-      claimIds: ['claim-ARB'],
+      rows: [
+        {
+          key: 'claim:0:claim-ARB',
+          claimId: 'claim-ARB',
+          symbol: 'ARB',
+          logoURI: 'https://logo/ARB.png',
+          amount: { text: '1.2 ARB' },
+          value: { text: '< $0.01' },
+          isElsewhere: false,
+        },
+      ],
     });
   });
 
-  it('names several, each token once, without an amount', () => {
-    const row = lendingRewardsRowOf(
+  it("keeps a line per reward where two share a name and a claim (Aave's aTokens)", () => {
+    const section = lendingRewardsOf(
       rewards({
-        claimable: [item('ARB', '1.2 ARB'), item('ARB', '0.3 ARB')],
+        claimable: [
+          item('aEthUSDe', '0.001002 aEthUSDe', 'rewards_aave'),
+          item('aEthUSDe', '0.0009232 aEthUSDe', 'rewards_aave'),
+        ],
+      }),
+    );
+    expect(section?.rows.map((row) => row.amount.text)).toEqual([
+      '0.001002 aEthUSDe',
+      '0.0009232 aEthUSDe',
+    ]);
+    expect(section?.rows.map((row) => row.claimId)).toEqual([
+      'rewards_aave',
+      'rewards_aave',
+    ]);
+    expect(new Set(section?.rows.map((row) => row.key)).size).toBe(2);
+  });
+
+  it("lists the rewards claimed on the protocol's own site after the others", () => {
+    const section = lendingRewardsOf(
+      rewards({
+        claimable: [item('ARB', '1.2 ARB')],
         unclaimable: [item('KMNO', '5 KMNO')],
       }),
     );
-    expect(row?.tokens.map((reward) => reward.symbol)).toEqual(['ARB', 'KMNO']);
-    expect(row?.amount).toBeUndefined();
-    // What the row's Pending waits on: the claims that can go out from here
-    expect(row?.claimIds).toEqual(['claim-ARB', 'claim-ARB']);
-  });
-});
-
-describe('lendingRewardSymbolsOf', () => {
-  const tokens = (symbols: string[]) =>
-    symbols.map((symbol) => ({ symbol, logoURI: '' }));
-
-  it('lists up to three names, then counts the rest', () => {
-    expect(lendingRewardSymbolsOf(tokens(['ARB']))).toBe('ARB');
-    expect(lendingRewardSymbolsOf(tokens(['ARB', 'USDC', 'KMNO']))).toBe(
-      'ARB, USDC, KMNO',
-    );
-    expect(
-      lendingRewardSymbolsOf(tokens(['ARB', 'USDC', 'KMNO', 'JTO', 'PYUSD'])),
-    ).toBe('ARB, USDC, KMNO +2');
+    expect(section?.rows.map((row) => [row.symbol, row.isElsewhere])).toEqual([
+      ['ARB', false],
+      ['KMNO', true],
+    ]);
   });
 });
 

@@ -36,14 +36,12 @@ import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 import {
   DaysLeftText,
   EffectiveDepositText,
-  LendingRewardTokens,
-  LendingRewardsAction,
+  LendingRewardAction,
   PendingBadge,
   RowAction,
   daysLeftOf,
   rowButtonOf,
 } from '../mobile/EarnHoldingSections';
-import { lendingRewardSymbolsOf } from '../mobile/earnLendingPositions';
 import { PositionPnlLine, useHoldingRedeem } from '../mobile/EarnPositionCard';
 import { isCheckRow } from '../mobile/earnPositionModel';
 import {
@@ -175,13 +173,10 @@ function SectionStrip({
   title,
   columns,
   isFirst,
-  hasAmount = true,
 }: {
   title: string;
   columns: IPositionTableColumns;
   isFirst: boolean;
-  /** Off where the rows under it have no one amount: several rewards */
-  hasAmount?: boolean;
 }) {
   const intl = useIntl();
   // The first column names what the tokens are (Deposited, Supplied); this
@@ -210,15 +205,13 @@ function SectionStrip({
         </SizableText>
       </Stack>
       <Stack {...columns.second}>
-        {hasAmount ? (
-          <SizableText
-            size="$bodySmMedium"
-            color="$textSubdued"
-            numberOfLines={1}
-          >
-            {balanceLabel}
-          </SizableText>
-        ) : null}
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {balanceLabel}
+        </SizableText>
       </Stack>
       <Stack {...columns.value}>
         <SizableText
@@ -234,11 +227,10 @@ function SectionStrip({
 }
 
 /**
- * A lending market's rewards as the table's last panel (demo 11-10): one
- * row for all of them, the tokens and their names, Claim beside them as
- * every row's button sits, and what they are worth. One reward alone shows
- * its amount as the rows above do; several have no one amount, so the strip
- * names none. Nothing while there is nothing to claim
+ * A lending market's rewards as the table's last panel (demo 11-10): a line
+ * per reward as the panels above have theirs, Claim beside its name as
+ * every row's button sits, its amount and what it is worth. Nothing while
+ * there is nothing to claim
  */
 function LendingRewardsTableSection({
   columns,
@@ -250,61 +242,64 @@ function LendingRewardsTableSection({
   if (!rewards) {
     return null;
   }
-  const { row } = rewards;
   return (
     <>
       <SectionStrip
         title={
-          row.title || intl.formatMessage({ id: ETranslations.earn_rewards })
+          rewards.rewards.title ||
+          intl.formatMessage({ id: ETranslations.earn_rewards })
         }
         columns={columns}
         isFirst={false}
-        hasAmount={Boolean(row.amount)}
       />
-      <XStack
-        testID="earn-portfolio-lending-rewards"
-        {...columns.inset}
-        py="$2"
-        ai="center"
-        minHeight={52}
-        gap={PROTOCOL_TABLE_COLUMN_GAP}
-      >
-        <XStack {...columns.first} ai="center" gap="$2">
-          <LendingRewardTokens tokens={row.tokens} size="sm" />
-          <SizableText
-            size="$bodyMdMedium"
-            numberOfLines={1}
-            flex={1}
-            minWidth={0}
+      <YStack testID="earn-portfolio-lending-rewards">
+        {rewards.rewards.rows.map((row) => (
+          <XStack
+            key={row.key}
+            {...columns.inset}
+            py="$2"
+            ai="center"
+            minHeight={52}
+            gap={PROTOCOL_TABLE_COLUMN_GAP}
           >
-            {lendingRewardSymbolsOf(row.tokens)}
-          </SizableText>
-          <XStack flexShrink={0} ml="$1">
-            <LendingRewardsAction rewards={rewards} />
+            <XStack {...columns.first} ai="center" gap="$2">
+              <Token size="sm" tokenImageUri={row.logoURI} />
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                flex={1}
+                minWidth={0}
+              >
+                {row.symbol}
+              </SizableText>
+              <XStack flexShrink={0} ml="$1">
+                <LendingRewardAction row={row} rewards={rewards} />
+              </XStack>
+            </XStack>
+            <YStack {...columns.second}>
+              <EarnText
+                size="$bodyMd"
+                color="$text"
+                numberOfLines={1}
+                fontVariant={TABULAR_NUMS}
+                text={row.amount}
+              />
+            </YStack>
+            <Stack {...columns.value}>
+              {row.value ? (
+                <EarnText
+                  size="$bodyMdMedium"
+                  color="$text"
+                  textAlign="right"
+                  numberOfLines={1}
+                  fontVariant={TABULAR_NUMS}
+                  text={row.value}
+                />
+              ) : null}
+            </Stack>
           </XStack>
-        </XStack>
-        <YStack {...columns.second}>
-          {row.amount ? (
-            <EarnText
-              size="$bodyMd"
-              color="$text"
-              numberOfLines={1}
-              fontVariant={TABULAR_NUMS}
-              text={row.amount}
-            />
-          ) : null}
-        </YStack>
-        <Stack {...columns.value}>
-          <EarnText
-            size="$bodyMdMedium"
-            color="$text"
-            textAlign="right"
-            numberOfLines={1}
-            fontVariant={TABULAR_NUMS}
-            text={row.value}
-          />
-        </Stack>
-      </XStack>
+        ))}
+      </YStack>
     </>
   );
 }
