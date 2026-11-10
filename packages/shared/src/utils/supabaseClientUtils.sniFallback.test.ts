@@ -49,6 +49,45 @@ jest.mock('./ipTableUtils', () => ({
   isSupportIpTablePlatform: () => true,
 }));
 
+// The production builtin table lists a single provider. Candidate ordering is
+// provider-aware, so these tests pin a table with several.
+jest.mock('../request/constants/ipTableDefaults', () => {
+  const actual = jest.requireActual<
+    typeof import('../request/constants/ipTableDefaults')
+  >('../request/constants/ipTableDefaults');
+  const endpoint = (ip: string, provider: string) => ({
+    ip,
+    provider,
+    region: 'ALL' as const,
+    weight: 100,
+  });
+  return {
+    ...actual,
+    DEFAULT_IP_TABLE_CONFIG: {
+      ...actual.DEFAULT_IP_TABLE_CONFIG,
+      domains: {
+        'onekeycn.com': {
+          endpoints: [
+            endpoint('104.18.20.233', 'cloudflare'),
+            endpoint('104.18.21.233', 'cloudflare'),
+            endpoint('216.19.4.106', 'volcengine'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+          ],
+        },
+        'onekeytest.com': {
+          endpoints: [
+            endpoint('104.18.31.39', 'cloudflare'),
+            endpoint('104.18.30.39', 'cloudflare'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+          ],
+        },
+      },
+    },
+  };
+});
+
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
     ipTable: {
@@ -63,7 +102,7 @@ const REFRESH_URL =
   'https://auth.onekey.so/auth/v1/token?grant_type=refresh_token';
 const USER_URL = 'https://auth.onekey.so/auth/v1/user';
 const ID_TOKEN_URL = 'https://auth.onekey.so/auth/v1/token?grant_type=id_token';
-// The production table without its Cloudflare endpoints, spread by provider.
+// The pinned table without its Cloudflare endpoints, spread by provider.
 const FIRST_IP = '216.19.4.106';
 const SECOND_IP = '43.168.19.96';
 const THIRD_IP = '43.168.24.171';
