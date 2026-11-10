@@ -15,6 +15,7 @@ const {
   resolveSource,
   resolveSourceOrFallback,
   sha256,
+  syncIosFonts,
   verifyAgainstLock,
 } = require('./fonts-sync');
 
@@ -354,4 +355,24 @@ test('a staged EAS directory that does not match the lock is rejected', () =>
       }),
       /does not match brand\.lock\.json/,
     );
+  }));
+
+test('syncIosFonts updates an existing iOS Fonts directory and skips when absent', () =>
+  withTempDir(async (tempRoot) => {
+    const missingIosDir = path.join(tempRoot, 'missing-ios-fonts');
+    syncIosFonts(fallbackFiles, missingIosDir);
+    assert.equal(fs.existsSync(missingIosDir), false);
+
+    const iosDir = path.join(tempRoot, 'ios-fonts');
+    fs.mkdirSync(iosDir, { recursive: true });
+    fs.writeFileSync(path.join(iosDir, 'BrandSans-Regular.ttf'), 'stale');
+    syncIosFonts(fallbackFiles, iosDir);
+    for (const slot of SLOTS) {
+      assert.equal(
+        fs
+          .readFileSync(path.join(iosDir, slot.fileName))
+          .equals(fs.readFileSync(fallbackFiles[slot.key])),
+        true,
+      );
+    }
   }));
