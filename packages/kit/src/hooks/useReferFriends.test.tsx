@@ -459,6 +459,70 @@ describe('referral entry feedback and cancellation', () => {
     expect(mockPushModal).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { name: 'normal close', reopen: false, closeAgain: false, fallback: false },
+    {
+      name: 'reopen before exit',
+      reopen: true,
+      closeAgain: false,
+      fallback: false,
+    },
+    {
+      name: 'reopen before fallback',
+      reopen: true,
+      closeAgain: false,
+      fallback: true,
+    },
+    {
+      name: 'reopen then close again',
+      reopen: true,
+      closeAgain: true,
+      fallback: true,
+    },
+  ])(
+    'handles the desktop/web menu close cycle: $name',
+    async ({ reopen, closeAgain, fallback }) => {
+      mockPlatform.isNative = false;
+      mockIsLoggedIn.mockResolvedValue(false);
+      const close = deferred<void>();
+      const beforeNavigate = jest.fn(() => close.promise);
+      const hook = loadHook();
+      const { result, rerender } = renderHook(
+        ({ open }) => hook({ isEntryActive: open, beforeNavigate }),
+        { initialProps: { open: true } },
+      );
+      act(() => {
+        void result.current.toReferFriendsPage();
+      });
+      await flush();
+      expect(beforeNavigate).toHaveBeenCalledTimes(1);
+      rerender({ open: false });
+      if (reopen) rerender({ open: true });
+      if (closeAgain) rerender({ open: false });
+      expect(mockNavigate).not.toHaveBeenCalled();
+      if (fallback) {
+        setTimeout(() => close.resolve(), 1000);
+        await act(async () => {
+          jest.advanceTimersByTime(1000);
+        });
+      } else {
+        await act(async () => close.resolve());
+      }
+      expect(result.current.isReferralEntryPending).toBe(false);
+      expect(mockError).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledTimes(reopen ? 0 : 1);
+      if (reopen) {
+        rerender({ open: true });
+        act(() => {
+          void result.current.toReferFriendsPage();
+        });
+        await flush();
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockIsLoggedIn).toHaveBeenCalledTimes(2);
+      }
+    },
+  );
+
   it('ignores a response after navigating away', async () => {
     const check = deferred<boolean>();
     mockIsLoggedIn.mockReturnValue(check.promise);

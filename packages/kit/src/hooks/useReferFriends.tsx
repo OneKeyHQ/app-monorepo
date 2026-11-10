@@ -186,11 +186,20 @@ export const useReferFriends = ({
   const attemptRef = useRef<{
     cancel: () => void;
     committing: boolean;
+    entryClosed: boolean;
   } | null>(null);
 
   useEffect(() => {
-    if (!isEntryActive && !attemptRef.current?.committing) {
-      attemptRef.current?.cancel();
+    const attempt = attemptRef.current;
+    if (!isEntryActive) {
+      if (attempt?.committing) {
+        attempt.entryClosed = true;
+      } else {
+        attempt?.cancel();
+      }
+    } else if (attempt?.entryClosed) {
+      // Reopening starts a new menu cycle; the old close must not navigate.
+      attempt.cancel();
     }
   }, [isEntryActive]);
 
@@ -211,6 +220,7 @@ export const useReferFriends = ({
       let navigating = false;
       const attempt = {
         committing: false,
+        entryClosed: false,
         cancel: () => {
           cancelled = true;
           cancelWait();
