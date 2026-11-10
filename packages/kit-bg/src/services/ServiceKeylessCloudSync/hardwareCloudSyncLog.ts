@@ -2,11 +2,13 @@ import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
   assertHardwareCloudSyncAuthMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
@@ -20,6 +22,7 @@ import { normalizeThirdPartyHardwareRecoveryHint } from '@onekeyhq/shared/src/er
 import { HardwareCloudSyncDataError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { scrubSensitiveErrorMessageText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IDeviceResponseResult } from '@onekeyhq/shared/types/device';
 
 const MAX_REASON_LENGTH = 200;
@@ -291,4 +294,295 @@ export function assertHardwareCloudSyncAuthTemplate(message: string): void {
       'Invalid Cloud sync sign-in challenge: template mismatch',
     );
   }
+}
+
+// Only aggregate state may cross this logging boundary. Never add an ID, hash,
+// message, request, response, or cryptographic value to this allowlist.
+const DIAGNOSTIC_BOOLEAN_FIELDS = [
+  'transportFailure',
+  'timeout',
+  'hasServerDataArray',
+  'existingSigningPublicKeyEmpty',
+  'currentSigningPublicKeyEmpty',
+  'force',
+  'unauthorized',
+  'clockRetry',
+  'hasLock',
+  'historyCompleteKnown',
+  'previousCurrentEnvelopeIncluded',
+  'existingHashKnown',
+  'signingPublicKeyMatches',
+  'rebuildsLocalItemsNow',
+  'localHashesKnown',
+  'hasCredential',
+  'sessionMatches',
+  'hasRefreshToken',
+  'expired',
+  'refreshNeeded',
+  'isCurrent',
+  'rebuildsLocalItems',
+  'hasExistingCredential',
+  'localItemsMismatch',
+  'existingPwdHashMismatch',
+  'existingSigningPublicKeyMismatch',
+  'forceRequested',
+  'sessionEnding',
+  'refreshInFlight',
+  'hasSession',
+  'refreshedSession',
+  'deletionAllowed',
+  'currentSession',
+  'retryAllowed',
+  'hasPushedPwdHash',
+  'pwdHashMatches',
+  'hasPushedSessionId',
+] as const;
+const DIAGNOSTIC_COUNT_FIELDS = [
+  'generation',
+  'minGeneration',
+  'previousGeneration',
+  'nextGeneration',
+  'returnedCount',
+  'requestedLimit',
+  'start',
+  'page',
+  'totalCount',
+  'envelopeCount',
+  'validEnvelopeCount',
+  'invalidEnvelopeCount',
+  'missingEnvelopeCount',
+  'currentEnvelopeCount',
+  'previousEnvelopeCount',
+  'uniquePreviousCount',
+  'inputEnvelopeCount',
+  'outputEnvelopeCount',
+  'localItemCount',
+  'unknownLocalHashCount',
+  'knownHashCount',
+  'ignoredLegacyLockCount',
+  'attempt',
+  'httpStatus',
+  'businessCode',
+  'mismatchedItemCount',
+  'mismatchedDeletedCount',
+  'mismatchedLiveCount',
+  'mismatchedLockCount',
+  'mismatchedDeletedLockCount',
+  'mismatchedEnvelopeCount',
+  'mismatchedDeletedEnvelopeCount',
+  'mismatchedWalletCount',
+  'mismatchedDeletedWalletCount',
+  'mismatchedAccountCount',
+  'mismatchedDeletedAccountCount',
+  'mismatchedOtherCount',
+  'mismatchedDeletedOtherCount',
+  'invalidJsonCount',
+  'invalidShapeCount',
+  'invalidVersionCount',
+  'invalidIdCount',
+  'invalidSaltCount',
+  'invalidGenerationCount',
+  'missingWrappedKeyCount',
+] as const;
+
+const DIAGNOSTIC_STAGES = new Set([
+  'bootstrap_derive_kek_started',
+  'bootstrap_existing_lock',
+  'bootstrap_unwrap_started',
+  'bootstrap_unwrap_succeeded',
+  'business_unauthorized_response_refresh_requested',
+  'business_unauthorized_response_retry_decision',
+  'credential_refresh_failed',
+  'credential_refresh_joined_shared_promise',
+  'credential_refresh_precheck',
+  'credential_refresh_result',
+  'credential_refresh_reused_stored_session',
+  'credential_storage_decrypt_failed',
+  'credential_storage_parse_failed',
+  'credential_storage_read_failed',
+  'delete_credential_after_disabling_sync',
+  'delete_credential_after_incomplete_key_commit',
+  'flush_push_precheck',
+  'history_download_received',
+  'history_received_completeness_unknown',
+  'lock_parsed',
+  'lock_received',
+  'request_challenge',
+  'request_check',
+  'request_clock_retry',
+  'request_clock_retry_failed',
+  'request_clock_retry_skipped',
+  'request_clock_retry_success',
+  'request_download',
+  'request_failed',
+  'request_flush',
+  'request_lock',
+  'request_other',
+  'request_refresh',
+  'request_revoke',
+  'request_upload',
+  'request_verify',
+  'reset_download_received',
+  'restore_key_compatibility_guard',
+  'revoke_session_completed',
+  'revoke_session_failed',
+  'revoke_session_precheck',
+  'rotation_flush_accepted',
+  'rotation_prepared',
+  'session_revoked_push_precheck',
+  'sign_in_credential_deleted',
+  'sign_in_credential_deletion_guard',
+  'sign_in_required_after_server_data_key_changed',
+  'sign_in_required_after_unauthorized_refresh',
+]);
+
+type IDiagnosticFields =
+  | Record<string, unknown>
+  | (() => Record<string, unknown>);
+
+function writeHardwareCloudSyncDiagnostic(
+  stage: string,
+  input: IDiagnosticFields,
+  operationId?: string,
+) {
+  try {
+    // Stages are code-owned literals, never external error descriptions.
+    if (!DIAGNOSTIC_STAGES.has(stage)) return;
+    const fields = typeof input === 'function' ? input() : input;
+    const safe: Record<string, boolean | number | string> = {};
+    for (const key of DIAGNOSTIC_BOOLEAN_FIELDS) {
+      if (typeof fields[key] === 'boolean') safe[key] = fields[key];
+    }
+    for (const key of DIAGNOSTIC_COUNT_FIELDS) {
+      const value = fields[key];
+      if (
+        typeof value === 'number' &&
+        Number.isSafeInteger(value) &&
+        value >= 0
+      ) {
+        safe[key] = value;
+      }
+    }
+    // Generated per operation, never derived from a wallet/device/session.
+    if (operationId) safe.operationId = operationId;
+    defaultLogger.app.error.log(
+      `[HardwareCloudSyncDiagnostic] ${stage} ${JSON.stringify(safe)}`,
+    );
+  } catch {
+    // Logging must not change authentication, storage, or recovery behavior.
+  }
+}
+
+export function logHardwareCloudSyncDiagnostic(
+  stage: string,
+  fields: IDiagnosticFields = {},
+) {
+  writeHardwareCloudSyncDiagnostic(stage, fields);
+}
+
+export function createHardwareCloudSyncDiagnostic() {
+  let operationId: string | undefined;
+  try {
+    operationId = stringUtils.randomString(12);
+  } catch {
+    // Randomness unavailable must never block the real operation.
+  }
+  return (stage: string, fields: IDiagnosticFields = {}) =>
+    writeHardwareCloudSyncDiagnostic(stage, fields, operationId);
+}
+
+// Server messages and Axios config may contain secrets. Classify only known
+// codes and HTTP status; a 90700 never proves which server auth check failed.
+export function getHardwareCloudSyncErrorDiagnostics(
+  error: unknown,
+): Record<string, unknown> {
+  try {
+    const value = error as
+      | {
+          code?: unknown;
+          className?: unknown;
+          httpStatusCode?: unknown;
+          response?: { status?: unknown };
+        }
+      | undefined;
+    const code = value?.code;
+    const normalizedStatus = value?.httpStatusCode;
+    const status =
+      typeof normalizedStatus === 'number' &&
+      Number.isInteger(normalizedStatus) &&
+      normalizedStatus >= 100 &&
+      normalizedStatus <= 599
+        ? normalizedStatus
+        : value?.response?.status;
+    return {
+      businessCode:
+        typeof code === 'number' && code >= 90_700 && code <= 90_706
+          ? code
+          : undefined,
+      httpStatus:
+        typeof status === 'number' && status >= 100 && status <= 599
+          ? status
+          : undefined,
+      transportFailure:
+        code === 'ERR_NETWORK' ||
+        value?.className === EOneKeyErrorClassNames.AxiosNetworkError,
+      timeout: code === 'ECONNABORTED' || code === 'ETIMEDOUT',
+    };
+  } catch {
+    return {};
+  }
+}
+
+function getRestoreDiagnosticCategory(dataType?: string) {
+  switch (dataType) {
+    case 'Lock':
+      return 'Lock';
+    case HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE:
+      return 'Envelope';
+    case 'Wallet':
+      return 'Wallet';
+    case 'IndexedAccount':
+    case 'Account':
+      return 'Account';
+    default:
+      return 'Other';
+  }
+}
+
+// The allowlisted categories describe schema types, not user-provided data.
+// Unknown types collapse to Other and never become log keys or text.
+export function summarizeHardwareCloudSyncRestoreItems(
+  items: ReadonlyArray<{
+    pwdHash?: string;
+    dataType?: string;
+    isDeleted?: boolean;
+  }>,
+  knownPwdHashes: ReadonlySet<string>,
+): Record<string, number> {
+  const counts = {
+    mismatchedItemCount: 0,
+    mismatchedDeletedCount: 0,
+    mismatchedLiveCount: 0,
+    mismatchedLockCount: 0,
+    mismatchedDeletedLockCount: 0,
+    mismatchedEnvelopeCount: 0,
+    mismatchedDeletedEnvelopeCount: 0,
+    mismatchedWalletCount: 0,
+    mismatchedDeletedWalletCount: 0,
+    mismatchedAccountCount: 0,
+    mismatchedDeletedAccountCount: 0,
+    mismatchedOtherCount: 0,
+    mismatchedDeletedOtherCount: 0,
+  };
+  for (const item of items) {
+    if (item.pwdHash && !knownPwdHashes.has(item.pwdHash)) {
+      counts.mismatchedItemCount += 1;
+      if (item.isDeleted) counts.mismatchedDeletedCount += 1;
+      else counts.mismatchedLiveCount += 1;
+      const category = getRestoreDiagnosticCategory(item.dataType);
+      counts[`mismatched${category}Count`] += 1;
+      if (item.isDeleted) counts[`mismatchedDeleted${category}Count`] += 1;
+    }
+  }
+  return counts;
 }
