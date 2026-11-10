@@ -124,6 +124,29 @@ PODS:
     - Yoga
   - boost (1.84.0):
     - ReactNativeDependencies
+  - BreezSdkSparkReactNative (0.26.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-Core
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - uniffi-bindgen-react-native (= 0.29.3-1)
+    - Yoga
   - ChartWebview (6.8.0-33):
     - hermes-engine
     - NitroModules
@@ -4087,6 +4110,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - uniffi-bindgen-react-native (0.29.3-1):
+    - React-Core
   - Yoga (0.0.0)
   - YttriumWrapper (0.10.54)
   - zxing-cpp (2.2.0):
@@ -4102,6 +4127,7 @@ DEPENDENCIES:
   - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `build/rndeps-facades/boost`)
+  - "BreezSdkSparkReactNative (from `../../../node_modules/@breeztech/breez-sdk-spark-react-native`)"
   - "ChartWebview (from `../../../node_modules/@onekeyfe/react-native-chart-webview`)"
   - CloudFs (from `../../../node_modules/react-native-cloud-fs`)
   - "CloudKitModule (from `../../../node_modules/@onekeyfe/react-native-cloud-kit-module`)"
@@ -4324,6 +4350,7 @@ SPEC REPOS:
     - SDWebImageWebPCoder
     - Sentry
     - SSZipArchive
+    - uniffi-bindgen-react-native
     - YttriumWrapper
     - zxing-cpp
 
@@ -4340,6 +4367,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
   boost:
     :path: build/rndeps-facades/boost
+  BreezSdkSparkReactNative:
+    :path: "../../../node_modules/@breeztech/breez-sdk-spark-react-native"
   ChartWebview:
     :path: "../../../node_modules/@onekeyfe/react-native-chart-webview"
   CloudFs:
@@ -4733,6 +4762,7 @@ SPEC CHECKSUMS:
   BackgroundThread: 1ff861a0c5c011ebf04899f54c85fc94186547de
   BleUtils: 42d45afffcf4fcbb6b235aa094816117b556aced
   boost: 8502bfdc46e2804408af2e163049ece181009af4
+  BreezSdkSparkReactNative: 43e4b3ee3a79fa9b126e57447947337bc8d78491
   ChartWebview: fae7bbcdeaad617c41bcfdfc04ee98576fa91409
   CloudFs: 5197a4352f60cf3a12f22c767e29a7536559fc65
   CloudKitModule: c85c3a689c1ed49342154245cc559892e726f5a7
@@ -4942,6 +4972,7 @@ SPEC CHECKSUMS:
   SplitBundleLoader: 0b8bb5451704ccd8bd24b589dd89cf50ba1156d2
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: 4ec50e2c05df021a8fc425852679c826ec75e8b0
+  uniffi-bindgen-react-native: 125eae9e3a0cf34bf8f3d4b0ceed517df7cc0733
   Yoga: 036ab99e2b9e7ee71b3ada998ed11ded63bda2e0
   YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
   zxing-cpp: 7486c8459df40d8f6a5453cc1ec35e67b10cd25a
