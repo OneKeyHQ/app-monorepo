@@ -1445,3 +1445,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
 **Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
 **Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.
+
+## Case: Banner drag release opened links (OK-51640)
+**Date**: 2026-11-10 | **Platforms**: Desktop, Web and extension UI; native bundle module registration.
+**Symptom**: Releasing the left mouse button after dragging a banner could open its link. Review also found that clicking the current pagination dot just before an autoplay timeout could stop autoplay permanently.
+**Root Cause**: The web list filtered out the click-capture handler, leaving a parent bubble handler too late to prevent card navigation. A same-index pagination request also enabled the animation guard without rescheduling the autoplay timer. The new native adapter was missing from the strict module ID registry.
+**Fix**: Use a DOM banner track with capture-phase click suppression and persistent drag detection; honor non-looping autoplay and ignore same-index pagination requests. Keep the existing native Swiper and register its adapter through the module ID update workflow.
+**Catchable by**: Sections 3, 4 and 5: Verify real pointer release and capture ordering, strict native module registration, and fake-timer coverage for current-dot clicks immediately before autoplay, non-looping autoplay, and ordinary clicks after drags.

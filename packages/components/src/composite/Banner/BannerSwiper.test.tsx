@@ -28,13 +28,19 @@ function pointer(target: EventTarget, type: string, x: number) {
   });
 }
 
-function setup({ count = 2, autoplay = false } = {}) {
+function setup({
+  count = 2,
+  autoplay = false,
+  autoplayLoop = false,
+  autoplayDelayMs = 1000,
+} = {}) {
   const onOpen = jest.fn();
   const { container } = render(
     <BannerSwiper
       data={Array.from({ length: count }, (_, index) => index)}
       autoplay={autoplay}
-      autoplayDelayMs={1000}
+      autoplayLoop={autoplayLoop}
+      autoplayDelayMs={autoplayDelayMs}
       renderItem={({ item }) => (
         <button
           type="button"
@@ -46,8 +52,13 @@ function setup({ count = 2, autoplay = false } = {}) {
           {item}
         </button>
       )}
-      renderPagination={({ currentIndex }) => (
-        <output data-testid="index">{currentIndex}</output>
+      renderPagination={({ currentIndex, goToIndex }) => (
+        <>
+          <output data-testid="index">{currentIndex}</output>
+          <button type="button" onClick={() => goToIndex(currentIndex)}>
+            Current banner
+          </button>
+        </>
       )}
     />,
   );
@@ -140,5 +151,31 @@ describe('Banner Web pointer interaction', () => {
     pointer(globalThis, 'pointerup', 180);
     act(() => jest.advanceTimersByTime(1000));
     expect(screen.getByTestId('index').textContent).toBe('1');
+  });
+
+  it('stops autoplay at the last banner when autoplayLoop is false', () => {
+    setup({ autoplay: true, autoplayLoop: false });
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+  });
+
+  it('wraps autoplay when autoplayLoop is true', () => {
+    setup({ autoplay: true, autoplayLoop: true });
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+  });
+
+  it('keeps autoplay running when the current dot is clicked just before its timeout', () => {
+    setup({ autoplay: true, autoplayLoop: true, autoplayDelayMs: 3000 });
+    act(() => jest.advanceTimersByTime(2800));
+    fireEvent.click(screen.getByRole('button', { name: 'Current banner' }));
+    act(() => jest.advanceTimersByTime(200));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+    act(() => jest.advanceTimersByTime(3000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
   });
 });

@@ -48,7 +48,7 @@ export function BannerSwiper<T>({
   keyExtractor,
   autoplay = false,
   autoplayDelayMs = 3000,
-  autoplayLoop,
+  autoplayLoop = false,
   autoplayLoopKeepAnimation,
   ...props
 }: IBannerSwiperProps<T>) {
@@ -104,7 +104,9 @@ export function BannerSwiper<T>({
 
   const goToIndex = useCallback(
     (index: number) => {
-      if (index >= 0 && index < count) goToPage(index + 1);
+      if (index >= 0 && index < count && index !== indexRef.current) {
+        goToPage(index + 1);
+      }
     },
     [count, goToPage],
   );
@@ -213,10 +215,26 @@ export function BannerSwiper<T>({
   }, [goToPage, loop, paint, settle]);
 
   useEffect(() => {
-    if (!autoplay || !loop || paused) return undefined;
+    if (
+      !autoplay ||
+      !loop ||
+      paused ||
+      (!autoplayLoop && currentIndex === count - 1)
+    ) {
+      return undefined;
+    }
     const timer = setTimeout(goToNextIndex, autoplayDelayMs);
     return () => clearTimeout(timer);
-  }, [autoplay, autoplayDelayMs, currentIndex, goToNextIndex, loop, paused]);
+  }, [
+    autoplay,
+    autoplayDelayMs,
+    autoplayLoop,
+    count,
+    currentIndex,
+    goToNextIndex,
+    loop,
+    paused,
+  ]);
 
   const pages = loop ? [count - 1, ...data.map((_, index) => index), 0] : [0];
   const handleTransitionEnd = useCallback(
