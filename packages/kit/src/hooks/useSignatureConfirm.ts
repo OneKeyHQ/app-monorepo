@@ -397,10 +397,11 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
     [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
-  // Self-custody Lightning pays LNURL and Lightning addresses the way
+  // Self-custody Lightning handles LNURL and Lightning addresses the way
   // custodial Lightning does: the OneKey server resolves the LNURL and the
-  // pay page fetches the invoice from its callback. The Breez SDK only ever
-  // receives that invoice. Withdraw and login are not supported yet.
+  // custodial pages call its callback. The Breez SDK only pays the invoice a
+  // pay callback returns, or creates the invoice a withdraw callback is given
+  // to pay. Login is not supported yet.
   const lightningSparkSignatureConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const { transfersInfo, onSuccess, onFail, onConfirmationFail, onCancel } =
@@ -413,6 +414,18 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             toVal,
             networkId,
           });
+        if (lnurlDetails?.tag === 'withdrawRequest') {
+          navigation.push(EModalSignatureConfirmRoutes.LnurlWithdraw, {
+            networkId,
+            accountId,
+            lnurlDetails,
+            onSuccess,
+            onFail: onConfirmationFail ?? onFail,
+            onCancel,
+            isSendFlow: true,
+          });
+          return;
+        }
         if (lnurlDetails?.tag !== 'payRequest') {
           Toast.message({
             title: intl.formatMessage({
