@@ -21,7 +21,6 @@ import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
   takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
-import { traceSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationTrace';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -345,16 +344,9 @@ export default class ServiceNotification extends ServiceBase {
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
     this.pendingSupportConversation = { conversationId };
-    traceSupportNotification('bg-queued', {
-      hasConversationId: !!conversationId,
+    defaultLogger.notification.support.supportReplyQueued({
       conversationId,
       hasSourceNodeId: !!sourceNodeId,
-      hasTargetNodeId: !!targetNodeId,
-      wasAppLocked: !!(
-        platformEnv.isExtensionBackground &&
-        sourceNodeId &&
-        !targetNodeId
-      ),
       opensExpandTab: !!(platformEnv.isExtensionBackground && !targetNodeId),
     });
     if (platformEnv.isExtensionBackground && !targetNodeId) {

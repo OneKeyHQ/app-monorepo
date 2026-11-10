@@ -20,13 +20,6 @@ export class CommonScene extends BaseScene {
     return [a, b, devOnlyData('this is a sensitive message')];
   }
 
-  // OK-66809: temporary diagnostic trace for the support-reply notification
-  // click path. Remove together with packages/shared/src/utils/supportNotificationTrace.ts.
-  @LogToLocal({ level: 'info' })
-  supportNotificationTrace(phase: string, detail: Record<string, unknown>) {
-    return { phase, ...detail };
-  }
-
   @LogToLocal()
   notificationInitOk() {
     return true;

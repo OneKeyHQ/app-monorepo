@@ -2,10 +2,10 @@ import { AppState, NativeEventEmitter, NativeModules } from 'react-native';
 
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
-import { traceSupportNotification } from '../../utils/supportNotificationTrace';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
@@ -443,26 +443,19 @@ async function openIntercom(
       ? await getIntercomSupportUrlOverride()
       : undefined;
   const webFallback = !nativeSdkReady || !!supportUrlOverride;
-  traceSupportNotification('intercom-open', {
-    hasConversationId: !!params?.conversationId,
-    conversationId: params?.conversationId,
-    hasRequestId: !!params?.requestId,
-    nativeSdkReady,
-    hasSupportUrlOverride: !!supportUrlOverride,
-    selectedBranch: webFallback ? 'webview' : 'native-sdk',
-  });
   if (webFallback) {
-    const webOpened = await showWebIntercom(
+    return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
     );
-    traceSupportNotification('intercom-open-result', {
-      selectedBranch: 'webview',
-      opened: webOpened,
-      hasConversationId: !!params?.conversationId,
-    });
-    return webOpened;
   }
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId
+      ? 'native-conversation'
+      : 'native-home',
+    nativeSdkReady,
+  });
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
@@ -504,22 +497,15 @@ async function openIntercom(
     return false;
   }
   if (params?.conversationId) {
-    const opened = await sdk.default.presentContent(
-      sdk.IntercomContent.conversationWithConversationId(params.conversationId),
+    return (
+      (await sdk.default.presentContent(
+        sdk.IntercomContent.conversationWithConversationId(
+          params.conversationId,
+        ),
+      )) !== false
     );
-    traceSupportNotification('intercom-open-result', {
-      selectedBranch: 'native-conversation',
-      opened: opened !== false,
-      conversationId: params.conversationId,
-    });
-    return opened !== false;
   }
-  const opened = await sdk.default.present();
-  traceSupportNotification('intercom-open-result', {
-    selectedBranch: 'native-home',
-    opened: opened !== false,
-  });
-  return opened !== false;
+  return (await sdk.default.present()) !== false;
 }
 
 export async function showIntercom(params?: IShowIntercomParams) {

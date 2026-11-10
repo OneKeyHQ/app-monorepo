@@ -1,5 +1,5 @@
+import { defaultLogger } from '../../logger/logger';
 import openUrlUtils from '../../utils/openUrlUtils';
-import { traceSupportNotification } from '../../utils/supportNotificationTrace';
 
 import { EIntercomBridge } from './bridge';
 import {
@@ -69,18 +69,10 @@ const openIntercom = async (
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
   if (!canPresent()) {
-    traceSupportNotification('intercom-open-result', {
-      selectedBranch: 'extension-webview',
-      opened: false,
-      reason: 'cannot-present',
-      hasConversationId: !!params?.conversationId,
-    });
     return false;
   }
-  traceSupportNotification('intercom-open', {
-    hasConversationId: !!params?.conversationId,
+  defaultLogger.notification.support.supportReplyBranch({
     conversationId: params?.conversationId,
-    hasRequestId: !!params?.requestId,
     selectedBranch: 'extension-webview',
   });
   openUrlUtils.openUrlInApp(url, 'Support', {

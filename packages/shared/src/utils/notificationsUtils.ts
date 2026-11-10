@@ -35,12 +35,6 @@ import extUtils from './extUtils';
 import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
-import {
-  describeSupportPayload,
-  normalizeSupportConversationId,
-  pickSupportParams,
-  traceSupportNotification,
-} from './supportNotificationTrace';
 import timerUtils from './timerUtils';
 import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
@@ -607,6 +601,16 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+function toSupportConversationId(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value.trim() || undefined;
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+  return undefined;
+}
+
 export function parseNotificationPayload(
   mode: ENotificationPushMessageMode | string | number,
   payload: string | undefined,
@@ -803,8 +807,7 @@ export function parseNotificationPayload(
             paramsConversationId !== undefined
               ? paramsConversationId
               : (dataConversationId ?? payloadTopLevelConversationId);
-          const conversationId =
-            normalizeSupportConversationId(rawConversationId);
+          const conversationId = toSupportConversationId(rawConversationId);
           // A blank string means "no id" (open the support entry); only a
           // present but unusable value (object/boolean) keeps the old fallback.
           const isBlankConversationId =
@@ -829,19 +832,18 @@ export function parseNotificationPayload(
           } else if (payloadTopLevelConversationId !== undefined) {
             conversationIdSource = 'payload';
           }
-          traceSupportNotification('payload-received', {
-            modeRaw: mode,
-            modeNormalized: normalizedMode,
+          defaultLogger.notification.support.supportReplyReceived({
+            mode:
+              typeof mode === 'string' || typeof mode === 'number'
+                ? mode
+                : undefined,
             action,
-            ...describeSupportPayload(payload),
-            ...pickSupportParams(extras?.params),
-            rawConversationIdType:
-              rawConversationId === undefined
-                ? 'absent'
-                : typeof rawConversationId,
-            conversationIdSource,
             conversationId,
-            hasConversationId: conversationId !== undefined,
+            conversationIdSource,
+            msgId:
+              typeof extras?.params?.msgId === 'string'
+                ? extras.params.msgId
+                : undefined,
           });
           if (hasUnusableConversationId) {
             fallbackHandler();
