@@ -3914,6 +3914,109 @@ describe('ServicePrime invalid-token handling', () => {
   });
 
   describe('D4: handlePrimeLoginInvalidToken coordinator handoff', () => {
+    test.each([
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+      EPrimeAuthSessionSource.KeylessOAuth,
+    ])(
+      'stages a banned %s session logout without refreshing its token',
+      async (source) => {
+        const { service, backgroundApi, simpleDbPrime } = createService();
+        simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(source);
+        simpleDbPrime.getActiveAuthToken.mockRejectedValue(
+          Object.assign(new Error('fetch failed'), {
+            name: 'AuthRetryableFetchError',
+            $$retryable: true,
+          }),
+        );
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+          status: 'ok',
+          accessToken: REQUEST_TOKEN,
+        });
+
+        await service.handlePrimeLoginInvalidToken({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        });
+
+        expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+        expect(
+          mockReadPersistedAccessTokenBySessionSourceStrict,
+        ).toHaveBeenCalledWith(source);
+        expect(
+          backgroundApi.serviceIdentityExit
+            .stageRemoteOneKeyIdLogoutReconciliation,
+        ).toHaveBeenCalledWith({ expectedAccessToken: REQUEST_TOKEN });
+        await flushAsync();
+        expect(
+          backgroundApi.serviceIdentityExit.executeIdentityExit,
+        ).toHaveBeenCalledWith({ planId: 'system:invalid-token-operation' });
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.PrimeLoginInvalidToken,
+          {
+            authSessionSource: source,
+            clearedByBackground: true,
+            authStateGeneration: 0,
+          },
+        );
+      },
+    );
+
+    test.each([
+      { status: 'ok', accessToken: 'another-token' },
+      { status: 'empty' },
+      { status: 'corrupt' },
+    ])(
+      'skips a banned response without a matching persisted token: %j',
+      async (slot) => {
+        const { service, backgroundApi, simpleDbPrime } = createService();
+        simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+        mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue(
+          slot,
+        );
+
+        await service.handlePrimeLoginInvalidToken({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        });
+
+        expect(simpleDbPrime.getActiveAuthToken).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.serviceIdentityExit
+            .stageRemoteOneKeyIdLogoutReconciliation,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test.each([90_002, 90_003])(
+      'preserves the retryable refresh guard for %s',
+      async (errorCode) => {
+        const { service, backgroundApi, simpleDbPrime } = createService();
+        simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
+          EPrimeAuthSessionSource.KeylessOAuth,
+        );
+        simpleDbPrime.getActiveAuthToken.mockRejectedValue(
+          Object.assign(new Error('fetch failed'), { $$retryable: true }),
+        );
+
+        await service.handlePrimeLoginInvalidToken({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode,
+        });
+
+        expect(simpleDbPrime.getActiveAuthToken).toHaveBeenCalledTimes(1);
+        expect(
+          mockReadPersistedAccessTokenBySessionSourceStrict,
+        ).not.toHaveBeenCalled();
+        expect(
+          backgroundApi.serviceIdentityExit
+            .stageRemoteOneKeyIdLogoutReconciliation,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
     it('returns promptly and lets the coordinator perform the authoritative cleanup', async () => {
       const { service, backgroundApi, simpleDbPrime } = createService();
       simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(

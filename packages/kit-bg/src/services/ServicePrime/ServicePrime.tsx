@@ -46,7 +46,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
-import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import {
+  PRIME_USER_BANNED_CODE,
+  isPrimeUserBannedError,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -1404,8 +1407,19 @@ class ServicePrime extends ServiceBase {
         'OneKey ID authSessionSource is unavailable during invalid-token reconciliation.',
       );
     }
-    const tokenRead = await readAuthTokenAllowingRetryableAuthError(() =>
-      this.backgroundApi.simpleDb.prime.getActiveAuthToken(),
+    const tokenRead = await readAuthTokenAllowingRetryableAuthError(
+      async () => {
+        if (errorCode === PRIME_USER_BANNED_CODE) {
+          // A ban must not depend on a successful token refresh. The coordinator
+          // rechecks the persisted session before clearing it.
+          const slot =
+            await readPersistedAccessTokenBySessionSourceStrict(
+              authSessionSource,
+            );
+          return slot.status === 'ok' ? slot.accessToken : '';
+        }
+        return this.backgroundApi.simpleDb.prime.getActiveAuthToken();
+      },
     );
     if (tokenRead.retryableError) {
       defaultLogger.prime.subscription.onekeyIdInvalidToken({
