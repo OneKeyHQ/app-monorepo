@@ -647,31 +647,6 @@ class ServiceLightningSpark extends ServiceBase {
     return toSparkSerializable(response);
   }
 
-  /**
-   * Development only: prepares and sends in one call without any password
-   * check, so it must be removed before Spark ships. Production payments go
-   * through the app's send flow (confirm page and password).
-   */
-  @backgroundMethodForDev()
-  async devSendPayment(
-    params: IBackgroundMethodWithDevOnlyPassword & {
-      input: string;
-      amountSats?: string;
-    },
-  ) {
-    const { sdk } = this.getConnectedSdk();
-    const prepareResponse = await sdk.prepareSendPayment({
-      paymentRequest: { type: 'input', input: params.input },
-      amount:
-        params.amountSats === undefined ? undefined : BigInt(params.amountSats),
-    });
-    const { payment } = await sdk.sendPayment({ prepareResponse });
-    return {
-      paymentMethod: toSparkSerializable(prepareResponse.paymentMethod),
-      payment: toSparkSerializable(payment),
-    };
-  }
-
   @backgroundMethodForDev()
   async devListPayments(
     params: IBackgroundMethodWithDevOnlyPassword &
