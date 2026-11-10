@@ -1459,3 +1459,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The mobile layout rendered positions directly without mounting the stock history list or providing a way to switch to it.
 **Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
 **Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
+
+## Case: Native Buy kept a Processing order after the payment page failed to load (OK-66774)
+**Date**: 2026-11-10 | **Platforms**: iOS native Buy (main runtime classifies the checkout failure, background runtime stores the order). Android, desktop, web and extension have no in-app checkout and are unaffected.
+**Symptom**: A Paybis checkout whose payment web view failed on an SSL error left an order shown as Processing, and the page sent the user to that order instead of offering a retry.
+**Root Cause**: Onramper SDK 1.3.1 reports every failure of the provider's payment surface as `providerFailed` (payment outcome unknown), including a web view that never loaded. The client kept every such order for tracking.
+**Fix**: Read a `providerFailed` as a page load failure only when the failure carries a load error (support code `NSURLErrorDomain/<code>` other than cancelled, or the page's own `load_error`) and the web view had not reported ready. That hidden order is dropped and the page offers an in-place retry; a failure without a load error stays tracked as outcome unknown. The first version of the fix inferred the load failure from a missing `providerReady` alone, which review rejected: a provider page is not bound to report readiness.
+**Catchable by**: Section 4: Edge cases â€” error states of a third-party surface. Decide an outcome that drops a payment record on positive evidence from the failure, never on an event that did not arrive.
