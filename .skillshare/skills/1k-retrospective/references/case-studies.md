@@ -1526,3 +1526,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Making metadata persistence best effort prevented storage errors from failing the reset, but placing it only after successful synchronization still skipped it on the failure path.
 **Fix**: Remember the freshly signed source only after the data-key commit succeeds, then attempt its metadata update in finalization regardless of later synchronization failure. Keep metadata errors non-fatal and preserve the original synchronization error.
 **Catchable by**: Sections 4, 5 and 6: Fail the network step after key commit and assert the new key remains stored, the source name and physical binding refresh, and the original network error is still reported.
+
+## Case: Cloud device name helper missing from the native module registry
+**Date**: 2026-11-10 | **Platforms**: iOS, Android
+**Symptom**: Native startup graph CI failed while allocating the new hardware Cloud device name helper.
+**Root Cause**: The helper entered the background bundle graph without a stable module ID registration.
+**Fix**: Register the helper with the existing module ID update command and validate the strict registry lookup.
+**Catchable by**: Section 4: register new files consumed by native bundles before pushing.
