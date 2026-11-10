@@ -471,12 +471,14 @@ export function DustSweepSummary({
   desktop,
   onDetails,
   onLeave,
+  onDone,
 }: {
   desktop: boolean;
   onDetails: () => void;
   // The mobile live sheet covers the page's back control; it offers Leave
   // while a submission is unknown (the sweep can neither finish nor stop).
   onLeave?: () => void;
+  onDone?: () => void | Promise<void>;
 }) {
   const model = useDustSweep();
   const {
@@ -551,7 +553,7 @@ export function DustSweepSummary({
   if (completed) {
     label = intl.formatMessage({ id: ETranslations.global_done });
     // Both layouts go back to token selection for another sweep.
-    onPress = model.sweepAgain;
+    onPress = onDone ?? model.sweepAgain;
   } else if (unknown) {
     label = intl.formatMessage({ id: ETranslations.global_details });
     onPress = onDetails;
