@@ -18,7 +18,12 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/onramper', () => ({
   ...jest.requireActual<
     typeof import('@onekeyhq/shared/src/modules3rdParty/onramper/utils')
   >('@onekeyhq/shared/src/modules3rdParty/onramper/utils'),
-  ONRAMPER_EVENT_NAMES: ['providerError', 'failed'],
+  ONRAMPER_EVENT_NAMES: [
+    'renderingStarted',
+    'providerReady',
+    'providerError',
+    'failed',
+  ],
   getOnramperConfig: () => ({}),
   createOnramperClient: () => ({
     // Skips the session mint; the checkout event stream is what is under test.
@@ -258,5 +263,69 @@ describe('useOnramperCheckout checkout failures', () => {
 
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.unknownOutcomeTransactionId).toBe('tx2');
+  });
+
+  // OK-66774, device-observed on Paybis: the web view failed on an SSL error
+  // before the page came up, and the SDK filed it under "outcome unknown".
+  it('reports a payment page that never loaded as a plain failure the user can retry', async () => {
+    const { result, onCheckoutAbandoned } = await renderCheckout();
+
+    emit('renderingStarted', { transactionId: 'tx4', renderType: 'webview' });
+    emit('failed', {
+      transactionId: 'tx4',
+      errorCode: 'providerFailed',
+      supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+    });
+
+    // The service drops the record: no order is left as Processing.
+    expect(onCheckoutAbandoned).toHaveBeenCalledTimes(1);
+    expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx4', 'pageLoadFailed');
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorCode).toBe('webviewLoadFailed');
+    expect(result.current.errorMessage).toContain(
+      'buy_error_payment_page__msg',
+    );
+    expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
+    // The log keeps what the SDK said, plus what the verdict was based on.
+    expect(mockCheckoutFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorCode: 'providerFailed',
+        abandonReason: 'pageLoadFailed',
+        renderType: 'webview',
+        paymentSurfaceReached: false,
+        transactionId: 'tx4',
+      }),
+    );
+  });
+
+  it('keeps the outcome unknown when the payment page had come up before the failure', async () => {
+    const { result, onCheckoutAbandoned } = await renderCheckout();
+
+    emit('renderingStarted', { transactionId: 'tx5', renderType: 'webview' });
+    emit('providerReady', { transactionId: 'tx5' });
+    emit('failed', { transactionId: 'tx5', errorCode: 'providerFailed' });
+
+    expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx5', 'providerFailed');
+    expect(result.current.errorCode).toBe('providerFailed');
+    expect(result.current.unknownOutcomeTransactionId).toBe('tx5');
+    expect(mockCheckoutFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abandonReason: 'providerFailed',
+        paymentSurfaceReached: true,
+      }),
+    );
+  });
+
+  it('does not carry the progress of one transaction over to the next', async () => {
+    const { result, onCheckoutAbandoned } = await renderCheckout();
+
+    // tx6 came up; tx7 only started rendering.
+    emit('renderingStarted', { transactionId: 'tx6', renderType: 'webview' });
+    emit('providerReady', { transactionId: 'tx6' });
+    emit('renderingStarted', { transactionId: 'tx7', renderType: 'webview' });
+    emit('failed', { transactionId: 'tx7', errorCode: 'providerFailed' });
+
+    expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx7', 'pageLoadFailed');
+    expect(result.current.unknownOutcomeTransactionId).toBeUndefined();
   });
 });

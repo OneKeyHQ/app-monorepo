@@ -95,11 +95,26 @@ export enum EHeadlessBuyOrderStatus {
 export type IHeadlessBuyAbandonReason =
   | 'cancelled'
   | 'failed'
+  // The provider's payment page never came up (a `providerFailed` before any
+  // sign of the page): nothing could be paid, so the record is dropped like
+  // a plain failure.
+  | 'pageLoadFailed'
   | 'providerFailed'
   // The provider's payment page reported that the payment authorization
   // failed (Coinbase `onramp_api.commit_error`): the order is shown as failed
   // at once instead of waiting on a backend status that may never change.
   | 'authorizationFailed';
+
+// How far one checkout got on the provider's payment surface, as told by the
+// SDK events that carry its transaction id.
+export type IHeadlessBuyCheckoutProgress = {
+  // How the SDK presents the payment surface (`checkoutFinalized` /
+  // `renderingStarted`): 'webview' or 'deeplink'.
+  renderType?: string;
+  // The payment surface came up: `providerReady`, or an event that can only
+  // follow it.
+  paymentSurfaceReached: boolean;
+};
 
 export type IAddHeadlessBuyOrderParams = {
   // Onramper durable transaction id (SDK 1.2.1+); the storage key and the
