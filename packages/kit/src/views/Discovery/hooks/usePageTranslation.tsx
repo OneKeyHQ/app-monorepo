@@ -390,7 +390,13 @@ export function TranslatePopoverContent({
   }
 
   return (
-    <YStack gap="$5" p="$5">
+    <YStack
+      testID="discovery-translate-content"
+      gap="$5"
+      px="$5"
+      pb="$5"
+      pt={isNative ? '$2' : '$5'}
+    >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size={titleSize}>
           {intl.formatMessage({
@@ -415,7 +421,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            // The Prime badge sits inline after the label.
+            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -425,7 +431,7 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {showPrimeBadge ? (
+            {!isNative && showPrimeBadge ? (
               <Badge
                 testID="discovery-translate-prime-badge"
                 badgeSize="sm"
