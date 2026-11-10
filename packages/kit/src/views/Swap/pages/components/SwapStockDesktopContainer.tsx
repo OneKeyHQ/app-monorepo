@@ -150,6 +150,7 @@ import {
   useSwapStockSelection,
 } from './SwapStockMarketProvider';
 import {
+  SwapStockMobilePositions,
   SwapStockPositions,
   SwapStockPositionsProvider,
 } from './SwapStockPositions';
@@ -1808,15 +1809,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           }
         />
         {embedded || isDesktopModalPage ? null : (
-          <>
-            <SwapPendingHistoryListComponent
-              storeName={storeName}
-              protocol={EProtocolOfExchange.STOCK}
-            />
-            <YStack mt="$2">
-              <SwapStockPositions mobile networks={supportNetworksList} />
-            </YStack>
-          </>
+          <SwapStockMobilePositions
+            networks={supportNetworksList}
+            storeName={storeName}
+          />
         )}
       </YStack>
     </Keyboard.AwareScrollView>

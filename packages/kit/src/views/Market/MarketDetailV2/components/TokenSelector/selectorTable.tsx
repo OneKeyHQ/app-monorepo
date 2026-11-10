@@ -105,19 +105,20 @@ function BasicSelectorTableHeader({
   nameTitle,
   cells,
   nameColumnWidth = TOKEN_SELECTOR_NAME_COLUMN_WIDTH,
+  bg = '$bg',
 }: {
   nameTitle: string;
   cells: ISelectorHeaderCell[];
   nameColumnWidth?: number;
+  bg?: '$bg' | '$bgApp';
 }) {
   return (
     <XStack
       width="100%"
       height={TOKEN_SELECTOR_HEADER_HEIGHT}
       alignItems="center"
-      // Sticky headers scroll over the rows, so the header needs the popover
-      // panel background to stay opaque.
-      bg="$bg"
+      // Keep sticky headers opaque and match the surface they scroll over.
+      bg={bg}
       cursor="default"
       userSelect="none"
     >

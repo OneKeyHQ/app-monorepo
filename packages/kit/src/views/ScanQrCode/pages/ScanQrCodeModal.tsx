@@ -17,8 +17,10 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import { glassBarItem } from '@onekeyhq/components/src/primitives/Button/GlassHeaderContext';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,6 +39,7 @@ import { ScanQrCode } from '../components';
 import { ScanQrCodeTestIDs } from '../testIDs';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
+import type { IScanCameraRef } from '../components/ScanCamera';
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -45,7 +48,13 @@ appGlobals.$$scanNavigation = undefined;
 // Width kept for the hints beside the camera in the landscape layout.
 const LANDSCAPE_HINTS_MIN_WIDTH = 260;
 
-function DebugInput({ onText }: { onText: (text: string) => void }) {
+function DebugInput({
+  onText,
+  onClose,
+}: {
+  onText: (text: string) => void;
+  onClose?: () => void;
+}) {
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
   appGlobals.$$scanNavigation = navigation;
@@ -62,7 +71,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
       <YStack pb={bottom}>
         <XStack>
           <IconButton
-            onPress={() => navigation.popStack()}
+            onPress={onClose ?? (() => navigation.popStack())}
             icon="CrossedLargeOutline"
             variant="destructive"
             testID={ScanQrCodeTestIDs.debugCloseBtn}
@@ -205,6 +214,12 @@ function ScanQrCodeModalFooter({
 
 export default function ScanQrCodeModal() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const scannerRef = useRef<IScanCameraRef>(null);
+  const closeScanner = useCallback(() => {
+    scannerRef.current?.dispose();
+    navigation.popStack();
+  }, [navigation]);
   const route =
     useRoute<
       RouteProp<
@@ -310,10 +325,23 @@ export default function ScanQrCodeModal() {
     [intl, pickImage, qrWalletScene],
   );
 
+  const headerLeftCall = useCallback(
+    () => <NavCloseButton onPress={closeScanner} />,
+    [closeScanner],
+  );
+  const glassHeaderLeftItems = useCallback(
+    () => [glassBarItem(<NavCloseButton onPress={closeScanner} />)],
+    [closeScanner],
+  );
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+        headerLeft={platformEnv.isNative ? headerLeftCall : undefined}
+        unstable_headerLeftItems={
+          platformEnv.isNativeIOS26Plus ? glassHeaderLeftItems : undefined
+        }
         headerRight={headerRightCall}
       />
       <Page.Body
@@ -347,6 +375,7 @@ export default function ScanQrCodeModal() {
                 }}
               >
                 <ScanQrCode
+                  ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
                   qrWalletScene={qrWalletScene}
                 />
@@ -362,7 +391,10 @@ export default function ScanQrCodeModal() {
         </Stack>
       </Page.Body>
       <Page.Footer safeAreaBottomMode="content">
-        <DebugInput onText={(value) => callback(value)} />
+        <DebugInput
+          onText={(value) => callback(value)}
+          onClose={platformEnv.isNative ? closeScanner : undefined}
+        />
       </Page.Footer>
     </Page>
   );
