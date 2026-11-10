@@ -144,7 +144,7 @@ export function TronClaimView({
           <YStack
             alignSelf="flex-end"
             flexShrink={0}
-            minWidth={160}
+            minWidth={104}
             maxWidth="100%"
           >
             {action}

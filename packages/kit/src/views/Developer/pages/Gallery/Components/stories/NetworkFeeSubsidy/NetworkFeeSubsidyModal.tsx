@@ -154,12 +154,7 @@ function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
   const stepSpacing = compact ? '$3' : '$5';
   return (
     <YStack gap={compact ? '$5' : '$4'}>
-      <SizableText
-        size={compact ? '$headingSm' : '$headingMd'}
-        color={compact ? '$textSubdued' : '$text'}
-      >
-        操作说明
-      </SizableText>
+      <SizableText size="$headingMd">操作说明</SizableText>
       <YStack>
         {usageSteps.map((step, index) => (
           <YStack key={step.title}>
@@ -556,7 +551,7 @@ function NetworkFeeSubsidy() {
   );
   const desktopGuest = wide && !signedIn;
   const { pageBackgroundColor, headerStyle, headerBackgroundColor } =
-    useSettingsPageStyle(wide);
+    useSettingsPageStyle(wide && signedIn);
   const [activePanel, setPanel] = useState<ISubsidyPanel>('tron');
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const openTron = useCallback(() => {
@@ -759,7 +754,7 @@ function NetworkFeeSubsidy() {
             <YStack
               width={desktopSubsidySidebarWidth}
               borderRadius="$5"
-              bg="$bg"
+              bg="$bgSubdued"
               p="$5"
               gap="$4"
               alignItems="center"
@@ -770,6 +765,7 @@ function NetworkFeeSubsidy() {
                 width="100%"
                 maxWidth={248}
                 aspectRatio={1}
+                y={-20}
                 mt="$-11"
                 mb="$-8"
                 pointerEvents="none"
@@ -790,19 +786,13 @@ function NetworkFeeSubsidy() {
                 登录 OneKey ID
               </Button>
             </YStack>
-            <YStack
-              flex={1}
-              minWidth={0}
-              gap="$8"
-              py="$3"
-              justifyContent="center"
-            >
+            <YStack flex={1} minWidth={0} gap="$6">
               <YStack gap="$3">
-                <SizableText size="$headingSm" color="$textSubdued">
-                  可享补贴
-                </SizableText>
-                {tronCard}
-                {multichainCard}
+                <SizableText size="$headingMd">可享补贴</SizableText>
+                <YStack gap="$3">
+                  {tronCard}
+                  {multichainCard}
+                </YStack>
               </YStack>
               <GuestUsageGuide compact />
             </YStack>

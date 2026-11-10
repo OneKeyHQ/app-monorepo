@@ -63,6 +63,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
 import { RewardCenterTestIDs } from '../testIDs';
 import { getTronClaimLabel } from '../tronClaimLabel';
+import { tronRewardActionSize } from '../tronRewardActionSize';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -797,18 +798,17 @@ function RewardCenterDetails({
     claimLimitNotice = ETranslations.tron_energy_claim_limit_reached_notice;
   }
 
+  const actionSize = renderInline ? tronRewardActionSize : undefined;
   const renderClaimButton = useCallback(() => {
     if (!isClaimResourceAvailable) {
       return null;
     }
 
-    const mobileSize = renderInline ? ({ size: 'large' } as const) : undefined;
     if (!account && !isLoadingResourceState) {
       return (
         <Button
           testID={RewardCenterTestIDs.addAccountBtn}
-          size="medium"
-          $md={mobileSize}
+          {...actionSize}
           variant="primary"
           loading={isCreatingTronAccount}
           disabled={isCreatingTronAccount}
@@ -824,8 +824,7 @@ function RewardCenterDetails({
     return (
       <Button
         testID={RewardCenterTestIDs.claimBtn}
-        size="medium"
-        $md={mobileSize}
+        {...actionSize}
         variant="primary"
         loading={isClaiming}
         // Inactive account cannot claim energy; keep the label and disable the
@@ -857,6 +856,7 @@ function RewardCenterDetails({
     isClaiming,
     isClaimed,
     handleClaimResource,
+    actionSize,
     claimLimitNotice,
     exhausted,
     renderInline,
@@ -887,7 +887,7 @@ function RewardCenterDetails({
   const redeemButton = (
     <Button
       testID={RewardCenterTestIDs.redeemBtn}
-      size={renderInline ? 'large' : 'medium'}
+      {...actionSize}
       variant="primary"
       mx="$0"
       my="$0"
@@ -1053,7 +1053,7 @@ function RewardCenterDetails({
         <Button
           testID={RewardCenterTestIDs.unsupportedAccountBtn}
           variant="primary"
-          size="large"
+          {...actionSize}
           disabled
         >
           {intl.formatMessage({
@@ -1070,7 +1070,7 @@ function RewardCenterDetails({
         <Button
           testID={RewardCenterTestIDs.topUpBtn}
           variant="primary"
-          size="large"
+          {...actionSize}
           loading={isNativeTokenLoading && !nativeToken}
           onPress={handleTopUp}
         >
@@ -1093,7 +1093,7 @@ function RewardCenterDetails({
         <Button
           testID={RewardCenterTestIDs.retryInventoryBtn}
           variant="primary"
-          size="large"
+          {...actionSize}
           onPress={() => refreshInventory()}
         >
           {intl.formatMessage({ id: ETranslations.global_retry })}

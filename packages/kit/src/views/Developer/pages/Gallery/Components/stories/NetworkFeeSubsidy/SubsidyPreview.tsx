@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
 import { getTronClaimLabel } from '@onekeyhq/kit/src/views/RewardCenter/tronClaimLabel';
+import { tronRewardActionSize } from '@onekeyhq/kit/src/views/RewardCenter/tronRewardActionSize';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const previewOptions = [
@@ -81,7 +82,7 @@ export function TronRewardPreview({
     mode === 'inactive' ? (
       <Button
         testID="subsidy-preview-account"
-        size="large"
+        {...tronRewardActionSize}
         variant="primary"
         onPress={() => onModeChange('available')}
       >
@@ -112,7 +113,7 @@ export function TronRewardPreview({
         <Button
           testID="subsidy-preview-claim"
           variant="primary"
-          size="large"
+          {...tronRewardActionSize}
           disabled={claimed || exhausted || monthlyLimitReached}
           onPress={() => onModeChange('claimed')}
         >
@@ -141,7 +142,7 @@ export function TronRewardPreview({
         <Button
           testID="subsidy-preview-redeem"
           variant="primary"
-          size="large"
+          {...tronRewardActionSize}
           disabled={!code.trim()}
           onPress={() => {
             setCode('');

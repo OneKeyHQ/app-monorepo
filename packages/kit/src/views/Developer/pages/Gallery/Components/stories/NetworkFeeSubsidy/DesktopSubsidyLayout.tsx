@@ -89,15 +89,14 @@ export function DesktopSubsidyLayout({
       flex={1}
       minHeight={0}
       px="$6"
-      pt="$5"
-      pb="$8"
+      pt="$2"
+      pb="$6"
       gap="$6"
       testID="subsidy-desktop-layout"
     >
       <YStack
         width={desktopSubsidySidebarWidth}
         flexShrink={0}
-        mt="$-3"
         bg="$bg"
         borderRadius="$5"
         overflow="hidden"
@@ -115,8 +114,7 @@ export function DesktopSubsidyLayout({
               </YStack>
               <Icon name="CoinsIllus" width={80} height={80} flexShrink={0} />
             </XStack>
-            <Divider mt="$3" mb="$5" />
-            <YStack gap="$2">
+            <YStack mt="$8" gap="$2">
               <SizableText size="$headingSm" color="$textSubdued">
                 我的补贴
               </SizableText>
@@ -145,7 +143,7 @@ export function DesktopSubsidyLayout({
         flex={1}
         minHeight={0}
         minWidth={0}
-        gap="$5"
+        gap="$3"
         testID="subsidy-desktop-detail"
       >
         {detailTitle ? (
