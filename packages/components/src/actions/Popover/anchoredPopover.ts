@@ -15,7 +15,12 @@ import {
   getAnchoredTransformOrigin,
 } from '@onekeyfe/react-native-native-overlay';
 
-import type { FlipOptions, OffsetOptions, Placement } from '@floating-ui/dom';
+import type {
+  FlipOptions,
+  OffsetOptions,
+  Placement,
+  VirtualElement,
+} from '@floating-ui/dom';
 import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 
 // Keep the panel this far from the viewport edges.
@@ -49,9 +54,33 @@ export function getHoverDelays(hoverable: IPopoverHoverable | undefined) {
  * The panel animates inside an unscaled offset parent, so positioning uses
  * the same coordinates throughout the enter animation and on completion.
  */
+export type IAnchorRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function virtualAnchor(rect: IAnchorRect): VirtualElement {
+  return {
+    getBoundingClientRect: () => ({
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      top: rect.y,
+      left: rect.x,
+      right: rect.x + rect.width,
+      bottom: rect.y + rect.height,
+    }),
+  };
+}
+
 export function useAnchoredPosition({
   open,
   triggerRef,
+  anchorElement,
+  anchorRect,
   panel,
   placement,
   offset,
@@ -59,6 +88,9 @@ export function useAnchoredPosition({
 }: {
   open: boolean;
   triggerRef: RefObject<unknown>;
+  anchorElement?: HTMLElement;
+  /** Used when there is no trigger element to measure. */
+  anchorRect?: IAnchorRect;
   /** The panel element: it mounts a render after `open` flips. */
   panel: HTMLDivElement | null;
   placement: Placement;
@@ -75,8 +107,17 @@ export function useAnchoredPosition({
   allowFlipRef.current = allowFlip;
   const allowFlipKey =
     typeof allowFlip === 'object' ? JSON.stringify(allowFlip) : allowFlip;
+  const anchorRectKey = anchorRect
+    ? `${anchorRect.x},${anchorRect.y},${anchorRect.width},${anchorRect.height}`
+    : '';
+  const anchorRectRef = useRef(anchorRect);
+  anchorRectRef.current = anchorRect;
   useLayoutEffect(() => {
-    const reference = triggerRef.current as HTMLElement | null;
+    const triggerElement = triggerRef.current as HTMLElement | null;
+    const reference: HTMLElement | VirtualElement | null =
+      triggerElement ??
+      anchorElement ??
+      (anchorRectRef.current ? virtualAnchor(anchorRectRef.current) : null);
     const floating = panel;
     if (!open || !reference || !floating) {
       return;
@@ -121,12 +162,24 @@ export function useAnchoredPosition({
       });
     };
     updateRef.current = update;
-    const cleanup = autoUpdate(reference, floating, update);
+    const cleanup = autoUpdate(reference, floating, update, {
+      // Pager headers can move with a sibling scroller's CSS timeline.
+      animationFrame: Boolean(anchorElement),
+    });
     return () => {
       updateRef.current = undefined;
       cleanup();
     };
-  }, [allowFlipKey, offsetKey, open, panel, placement, triggerRef]);
+  }, [
+    allowFlipKey,
+    anchorElement,
+    anchorRectKey,
+    offsetKey,
+    open,
+    panel,
+    placement,
+    triggerRef,
+  ]);
   return useCallback(() => updateRef.current?.(), []);
 }
 
