@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -75,6 +76,7 @@ import type {
   IEarnRegisterSignMessageResponse,
   IEarnRewardsPortfolioResponse,
   IEarnRewardsPortfolioStage,
+  IEarnServerClaimRequestResult,
   IEarnServerOrderDetail,
   IEarnServerOrderWaitResult,
   IEarnStakeType,
@@ -169,6 +171,10 @@ interface IEarnBatchInvestmentDetailResponse {
 
 const loadBorrowActionServiceUtils = () =>
   import('./utils/borrowActionServiceUtils');
+
+// Earn server error code for "this account has nothing to claim for the
+// requested identity" (EEarnError.NoClaimableAmount).
+const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -2223,6 +2229,63 @@ class ServiceStaking extends ServiceBase {
       }
       if (Date.now() >= deadline) {
         return { status: 'timeout', order };
+      }
+      await timerUtils.wait(intervalMs);
+    }
+  }
+
+  /**
+   * Asks the server to run a claim step itself (OK-61790, Unitas: converting
+   * the claimed USDu back to USDT) and returns the order to poll. It is called
+   * right after the claim transaction is broadcast, and until that transaction
+   * is mined the server has nothing to convert and answers "no claimable
+   * amount": retry on that answer until the deadline. Running out of time is
+   * not a failure, the server converts on its own once the claim confirms.
+   * Any other error (allowance, redeem limit, vault paused, network) comes
+   * back as a rejection with the server's wording when it has one: the caller
+   * shows it in its own dialog, and an error thrown across the background
+   * bridge would also raise the global error toast.
+   */
+  @backgroundMethod()
+  async requestServerExecutedClaim({
+    intervalMs = 3000,
+    timeoutMs = 90 * 1000,
+    ...params
+  }: IStakeClaimBaseParams & {
+    identity: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<IEarnServerClaimRequestResult> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        const resp = await this.buildClaimTransaction(params);
+        if (!resp.tx && resp.orderId) {
+          return { status: 'accepted', orderId: resp.orderId };
+        }
+        throw new OneKeyLocalError(
+          'Server-executed claim returned a transaction to sign',
+        );
+      } catch (error) {
+        const { code, message, className } =
+          (error as
+            | { code?: unknown; message?: unknown; className?: unknown }
+            | undefined) ?? {};
+        if (Number(code) !== EARN_ERROR_NO_CLAIMABLE_AMOUNT) {
+          // Only the server's own message is fit to show; anything else
+          // (network failure, local error) leaves the wording to the caller.
+          const isServerError =
+            className === EOneKeyErrorClassNames.OneKeyServerApiError;
+          return {
+            status: 'rejected',
+            ...(isServerError && typeof message === 'string' && message
+              ? { message }
+              : {}),
+          };
+        }
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout' };
       }
       await timerUtils.wait(intervalMs);
     }

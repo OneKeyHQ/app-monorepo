@@ -394,6 +394,11 @@ export type IEarnServerOrderDetail = {
   extStatus?: string;
   extRequestId?: string;
   extClaimableAt?: number;
+  /** The order's input asset: what the result prompt names (OK-61790). */
+  amount?: string;
+  symbol?: string;
+  /** Failed orders: the reason to show the user, worded by the server. */
+  errorMessage?: string;
   createdAt?: number;
   updatedAt?: number;
 };
@@ -402,6 +407,19 @@ export type IEarnServerOrderWaitResult = {
   status: 'success' | 'failed' | 'timeout';
   order?: IEarnServerOrderDetail;
 };
+
+/**
+ * Outcome of asking the server to run a claim step itself (OK-61790). A
+ * timeout means the claim transaction was not mined in time; it is not a
+ * failure, because the server runs the step on its own once it is. A
+ * rejection carries the server's own wording when it sent one (redeem limit,
+ * vault paused): the caller shows it in its own dialog, so the request never
+ * throws and the global error toast stays out of the way.
+ */
+export type IEarnServerClaimRequestResult =
+  | { status: 'accepted'; orderId: string }
+  | { status: 'timeout' }
+  | { status: 'rejected'; message?: string };
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -2036,6 +2054,18 @@ export type IClaimApproveInfo = {
   decimals: number;
 };
 
+/**
+ * Server-executed step that follows a claim (OK-61790, Unitas USDu). Once the
+ * claim transaction is mined the client asks for the claim again with this
+ * identity; the server converts the claimed USDu back to USDT itself and
+ * answers with an order to poll instead of a transaction to sign. The list
+ * item whose id equals this identity is that step on its own, offered when an
+ * earlier conversion did not go through.
+ */
+export type IClaimFollowUpInfo = {
+  identity: string;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -2048,6 +2078,7 @@ export type IClaimableListResponse = {
     text: string;
   };
   claimApprove?: IClaimApproveInfo;
+  claimFollowUp?: IClaimFollowUpInfo;
 };
 
 export interface IEarnAccountToken {

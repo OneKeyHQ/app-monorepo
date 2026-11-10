@@ -22,6 +22,7 @@ import {
   EInternalDappEnum,
   EInternalStakingAction,
   type IClaimApproveInfo,
+  type IClaimFollowUpInfo,
   type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
   type IEarnServerOrderWaitResult,
@@ -35,6 +36,7 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { runClaimConversion } from '../components/ClaimConversionDialog';
 import {
   showEarnRiskWarningDialog,
   useEarnRiskWarningGate,
@@ -1083,6 +1085,7 @@ export function useUniversalClaim({
       symbol,
       stakingInfo,
       claimApprove,
+      claimFollowUp,
       onSuccess,
       onFail,
     }: {
@@ -1097,6 +1100,8 @@ export function useUniversalClaim({
       vault: string;
       /** Allowance the claim needs first (Unitas USDu), from the claimable list. */
       claimApprove?: IClaimApproveInfo;
+      /** Server-executed step that follows the claim, from the claimable list. */
+      claimFollowUp?: IClaimFollowUpInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       portfolioSymbol?: string;
@@ -1197,18 +1202,62 @@ export function useUniversalClaim({
       }
 
       const continueClaim = async () => {
+        const claimRequest = {
+          networkId,
+          accountId,
+          symbol,
+          provider,
+          amount: normalizedAmount,
+          claimTokenAddress,
+          claimType,
+          vault,
+        };
+        // This claim is the conversion itself (OK-61790, Unitas: USDu already
+        // in the wallet, left there by a conversion that did not finish). The
+        // server runs it, so there is nothing to sign: ask for it and wait
+        // under the conversion dialog, which also offers another try.
+        if (claimFollowUp && claimFollowUp.identity === identity) {
+          const outcome = await runClaimConversion({
+            intl,
+            request: { ...claimRequest, identity: claimFollowUp.identity },
+            symbol,
+            amount: normalizedAmount,
+            withClaimStep: false,
+          });
+          // A failure the user gave up on leaves the amount claimable, so the
+          // page stays as it is; anything else moved the position.
+          if (outcome !== 'failed') {
+            onSuccess?.([]);
+          }
+          return;
+        }
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildClaimTransaction({
+            ...claimRequest,
+            identity,
+          });
+        // Any other claim the server runs itself: wait for the order under a
+        // dialog, the same as a server-executed stake.
+        if (!stakeTx.tx) {
+          if (!stakeTx.orderId) {
+            throw new OneKeyLocalError('Claim returned neither tx nor order');
+          }
+          await handleServerExecutedOrder({
+            orderId: stakeTx.orderId,
             networkId,
             accountId,
-            symbol,
-            provider,
-            amount: normalizedAmount,
-            identity,
-            claimTokenAddress,
-            claimType,
-            vault,
+            intl,
+            onSuccess,
+            onFail,
           });
+          return;
+        }
+        // The claim is followed by a server-executed step (Unitas: the USDu it
+        // pays out is converted back to USDT) unless this claim is that step.
+        const followUpIdentity =
+          claimFollowUp && claimFollowUp.identity !== identity
+            ? claimFollowUp.identity
+            : undefined;
         const encodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
             networkId,
@@ -1236,12 +1285,29 @@ export function useUniversalClaim({
           encodedTx,
           stakingInfo: stakeInfoWithOrderId,
           onSuccess: async (data) => {
+            // Report the claim transaction first: the server only runs the
+            // follow-up for a claim it knows about. The caller's onSuccess is
+            // held back until the follow-up settles, so the page refreshes
+            // once, onto the final state.
             await handleStakeSuccess({
               data,
               stakeInfo: stakeInfoWithOrderId,
               networkId,
-              onSuccess,
+              onSuccess: followUpIdentity ? undefined : onSuccess,
             });
+            if (!followUpIdentity) {
+              return;
+            }
+            // Whatever the conversion does, the claim itself went through:
+            // the page refreshes once the dialog is done with.
+            await runClaimConversion({
+              intl,
+              request: { ...claimRequest, identity: followUpIdentity },
+              symbol,
+              amount: normalizedAmount,
+              withClaimStep: true,
+            });
+            onSuccess?.(data);
           },
           onFail,
           useFeeInTx,
