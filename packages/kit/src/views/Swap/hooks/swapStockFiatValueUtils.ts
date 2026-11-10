@@ -1,8 +1,13 @@
 import BigNumber from 'bignumber.js';
 
-import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  canConvertFiat,
+  convertFiat,
+} from '@onekeyhq/kit/src/utils/fiatConvert';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type {
   ISwapToken,
   ISwapTokenBase,
@@ -89,6 +94,92 @@ export function resolveStockTokenPrice({
   return undefined;
 }
 
+export function resolveStockTradeTokenPrice({
+  token,
+  quoteToken,
+  quoteCurrency,
+  stockTokenDetail,
+}: {
+  token?: ISwapToken;
+  quoteToken?: ISwapToken;
+  quoteCurrency?: string;
+  stockTokenDetail?: Pick<
+    IMarketTokenDetail,
+    'networkId' | 'address' | 'price'
+  >;
+}): IStockResolvedTokenPrice | undefined {
+  const quotePrice = equalTokenNoCaseSensitive({
+    token1: token,
+    token2: quoteToken,
+  })
+    ? resolveStockTokenPrice({
+        token: { price: quoteToken?.price, currency: quoteToken?.currency },
+        fallbackCurrency: quoteCurrency,
+      })
+    : undefined;
+  if (quotePrice) return quotePrice;
+
+  if (
+    token?.isStock &&
+    stockTokenDetail &&
+    equalTokenNoCaseSensitive({
+      token1: token,
+      token2: {
+        networkId: stockTokenDetail.networkId ?? token.networkId,
+        contractAddress: stockTokenDetail.address,
+      },
+    })
+  ) {
+    // Market token detail prices are USD; share prices and priceConverted
+    // belong to different units and must not price a token amount.
+    const detailPrice = resolveStockTokenPrice({
+      token: { price: stockTokenDetail.price },
+      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+    });
+    if (detailPrice) return detailPrice;
+  }
+
+  return resolveStockTokenPrice({
+    token,
+    fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+  });
+}
+
+export function resolveStockInputPrice({
+  token,
+  tokenDetail,
+  quoteToken,
+  quoteCurrency,
+  stockTokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+  quoteToken?: ISwapToken;
+  quoteCurrency?: string;
+  stockTokenDetail?: Pick<
+    IMarketTokenDetail,
+    'networkId' | 'address' | 'price'
+  >;
+}): IStockResolvedTokenPrice | undefined {
+  const quotedPrice = equalTokenNoCaseSensitive({
+    token1: token,
+    token2: quoteToken,
+  })
+    ? resolveStockTokenPrice({
+        token: { price: quoteToken?.price, currency: quoteToken?.currency },
+        fallbackCurrency: quoteCurrency,
+      })
+    : undefined;
+  return (
+    quotedPrice ??
+    resolveStockTokenPrice({
+      token: tokenDetail,
+      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+    }) ??
+    resolveStockTradeTokenPrice({ token, stockTokenDetail })
+  );
+}
+
 export function getStockTokenFiatValue({
   amount,
   currencyMap,
@@ -109,6 +200,16 @@ export function getStockTokenFiatValue({
   const fiatBN = amountBN.multipliedBy(priceBN);
   if (!fiatBN.isFinite() || fiatBN.isZero()) {
     return '';
+  }
+
+  if (
+    !canConvertFiat({
+      sourceCurrency: tokenPrice.currency,
+      targetCurrency,
+      currencyMap,
+    })
+  ) {
+    return '--';
   }
 
   return convertFiat({

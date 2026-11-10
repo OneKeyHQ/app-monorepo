@@ -1842,16 +1842,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 const shouldNormalizeQuoteInputAmount = isStockProtocol(
                   event.params.protocol,
                 );
-                const quoteResults = quoteResultData.data.map((quote) =>
-                  shouldNormalizeQuoteInputAmount &&
-                  !quote.fromAmount &&
-                  event.params.fromTokenAmount
-                    ? {
-                        ...quote,
-                        fromAmount: event.params.fromTokenAmount,
-                      }
-                    : quote,
-                );
+                const quoteResults = quoteResultData.data.map((quote) => {
+                  if (!shouldNormalizeQuoteInputAmount) return quote;
+                  const withRequestCurrency = (token: ISwapTokenBase) =>
+                    token.price && !token.currency && event.quoteCurrency
+                      ? { ...token, currency: event.quoteCurrency }
+                      : token;
+                  return {
+                    ...quote,
+                    ...(!quote.fromAmount && event.params.fromTokenAmount
+                      ? { fromAmount: event.params.fromTokenAmount }
+                      : {}),
+                    fromTokenInfo: withRequestCurrency(quote.fromTokenInfo),
+                    toTokenInfo: withRequestCurrency(quote.toTokenInfo),
+                  };
+                });
                 const quoteResultsUpdateSlippage = quoteResults.map((quote) => {
                   if (
                     `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
@@ -3063,6 +3068,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           defaultTokenCurrency: currencyInfo.id,
           currencyMap,
           instantRate,
+          strictCurrencyConversion:
+            swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+            quoteResult?.protocol === EProtocolOfExchange.STOCK,
         });
       }
 
