@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 
 import { checkIsOneKeyDomain } from '../endpoints';
@@ -7,6 +8,16 @@ import {
   settingsValuePersistAtom,
 } from '../states/jotai/atoms/settings';
 
+function isDesktopIsolatedRenderer(): boolean {
+  if (!platformEnv.isDesktop || typeof globalThis.location === 'undefined') {
+    return false;
+  }
+  const renderMode = new URLSearchParams(globalThis.location.search ?? '').get(
+    'render',
+  );
+  return renderMode === 'tray' || renderMode === 'prime-purchase';
+}
+
 /**
  * Request interceptor setup — safe to import from any runtime.
  * Does NOT reference simpleDb. On native main thread (split-thread mode),
@@ -15,6 +26,11 @@ import {
  * separately via updateInterceptorRequestHelperWithIpTable (separate file).
  */
 export function updateInterceptorRequestHelper() {
+  if (isDesktopIsolatedRenderer()) {
+    // Isolated desktop renderers (?render=tray, ?render=prime-purchase) do not
+    // mount KitProvider or run jotaiInit(), so PersistAtom.get() would hang.
+    return;
+  }
   const getIpTableConfig = requestHelper.getIpTableConfig;
 
   requestHelper.overrideMethods({

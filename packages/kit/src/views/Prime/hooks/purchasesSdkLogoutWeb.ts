@@ -1,9 +1,18 @@
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
-import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
+import {
+  isPurchasesSdkWebLoaded,
+  loadPurchasesSdkWeb,
+} from '../purchasesSdk/purchasesSdkWebLoader';
 
 let logoutPurchasesSdkPromise: Promise<boolean> | undefined;
 
 async function logoutPurchasesSdkInternal(): Promise<boolean> {
+  // Never initialize RevenueCat (and therefore Stripe.js) just to log out. On
+  // cold start or for users who never opened Prime checkout, the SDK was never
+  // loaded, so there is nothing to reset.
+  if (!isPurchasesSdkWebLoaded()) {
+    return true;
+  }
   try {
     const { Purchases } = await loadPurchasesSdkWeb();
     if (!Purchases.isConfigured()) {

@@ -89,14 +89,33 @@ export const createIntercomSessionMessage = (
 export const createIntercomSessionScript = (
   token?: string,
   supportOrigin: string = INTERCOM_SUPPORT_ORIGIN,
+  conversationId?: string,
 ): string => {
   const origin = JSON.stringify(supportOrigin);
   const message = JSON.stringify(createIntercomSessionMessage(token));
+  const openConversation = conversationId
+    ? `
+  if (!window.__onekeyIntercomConversationShown) {
+    window.__onekeyIntercomConversationShown = true;
+    var attempts = 0;
+    var openTargetConversation = function () {
+      if (typeof window.Intercom === 'function') {
+        window.Intercom('showConversation', ${JSON.stringify(conversationId)});
+        return;
+      }
+      if (attempts < 40) {
+        attempts += 1;
+        setTimeout(openTargetConversation, 50);
+      }
+    };
+    setTimeout(openTargetConversation, 0);
+  }`
+    : '';
   return `(function () {
   if (window.top !== window.self || window.location.origin !== ${origin}) {
     return;
   }
-  window.postMessage(${message}, ${origin});
+  window.postMessage(${message}, ${origin});${openConversation}
 })();
 true;`;
 };

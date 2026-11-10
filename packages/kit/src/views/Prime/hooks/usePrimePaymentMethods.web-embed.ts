@@ -1,11 +1,8 @@
-/* oxlint-disable import-js/order */
-// IMPORTANT: keep Stripe as an eager top-level import before RevenueCat.
-// RevenueCat checks for a preloaded Stripe.js runtime; if this is moved to a
-// lazy import for startup performance, RevenueCat may inject
-// https://js.stripe.com/v3 itself and Prime checkout can break.
-// eslint-disable-next-line import-js/order
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
-
+// Stripe.js is loaded by loadPurchasesSdkWeb() before @revenuecat/purchases-js
+// is imported: the official https://js.stripe.com/v3 entry is loaded first and
+// the bundled copy is only a network fallback. Do not import a bundled
+// Stripe.js eagerly here — that would pin Stripe.js and stop the official
+// (server-updated) script from loading in the isolated checkout container.
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { BigNumber } from 'bignumber.js';
@@ -19,6 +16,7 @@ import {
   loadPurchasesSdkWeb,
   loadPurchasesSdkWebForEmbeddedPurchase,
 } from '../purchasesSdk/purchasesSdkWebLoader';
+import { purchaseWithStripeLoadingGuard } from '../purchasesSdk/purchaseWithStripeLoadingGuard';
 
 import primePaymentUtils from './primePaymentUtils';
 
@@ -281,8 +279,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         };
         // TODO check package user is Matched to id
         // TODO check if user has already purchased
-        const purchase =
-          await Purchases.getSharedInstance().purchase(purchaseParams);
+        const purchase = await purchaseWithStripeLoadingGuard(() =>
+          Purchases.getSharedInstance().purchase(purchaseParams),
+        );
 
         primePaymentUtils.trackPrimeSubscriptionSuccess({
           ...primePaymentUtils.extractWebPaywallPrice(paywallPackage),

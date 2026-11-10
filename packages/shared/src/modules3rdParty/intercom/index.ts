@@ -1,14 +1,22 @@
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 
-import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
+import { EIntercomBridge } from './bridge';
+import {
+  assertIntercomUserUnchanged,
+  getCurrentIntercomUserId,
+  getIntercomCredentials,
+} from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IIntercomLockPolicy,
   type IShowIntercomParams,
+  buildIntercomUrl,
   createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
+  getIntercomSupportUrl,
 } from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
@@ -218,6 +226,10 @@ async function bootSession(userId: string | null, generation: number) {
 }
 
 export const initIntercom = async () => {
+  // Desktop opens Intercom in an in-app webview instead of injecting the SDK.
+  if (platformEnv.isDesktop) {
+    return;
+  }
   const userId = await getCurrentIntercomUserId();
   intercomOpenGuard.setIdentity(userId);
   if (intercomInitPromise && requestedUserId === userId) {
@@ -302,6 +314,46 @@ const openIntercom = async (
 };
 
 export const showIntercom = async (params?: IShowIntercomParams) => {
+  if (platformEnv.isDesktop) {
+    try {
+      const userId = await getCurrentIntercomUserId();
+      await intercomOpenGuard.run(userId, params, async (canPresent) => {
+        const [instanceId, languageOverride, supportUrl] = await Promise.all([
+          getInstanceId(),
+          getIntercomLanguageOverride(),
+          getIntercomSupportUrl(),
+        ]);
+        const url = buildIntercomUrl(supportUrl, {
+          bridge: EIntercomBridge.Injected,
+          instanceId,
+          requestId: params?.requestId,
+          conversationId: params?.conversationId,
+          languageOverride,
+        });
+        await assertIntercomUserUnchanged(userId);
+        if (!canPresent()) {
+          return false;
+        }
+        // Lazy import: the web index must stay importable without pulling the
+        // expo-linking based URL opener into non-desktop runtimes/tests.
+        const { default: openUrlUtils } =
+          await import('../../utils/openUrlUtils');
+        openUrlUtils.openUrlInApp(url, 'Support', {
+          hideHeaderRight: true,
+          redirectExternalNavigation: true,
+          disableBridge: true,
+          intercomUserId: userId,
+          ...(params?.conversationId
+            ? { intercomConversationId: params.conversationId }
+            : {}),
+        });
+        return true;
+      });
+    } catch (error) {
+      notifyIntercomOpenFailed(error);
+    }
+    return;
+  }
   try {
     const userId = await getCurrentIntercomUserId();
     await intercomOpenGuard.run(userId, params, (canPresent) =>
@@ -314,6 +366,11 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
 
 // Export update for dynamic launcher visibility control
 export const update = async (...args: Parameters<IIntercomSdk['update']>) => {
+  // Desktop never loads the Intercom SDK: launcher visibility is controlled by
+  // the in-app webview page instead.
+  if (platformEnv.isDesktop) {
+    return;
+  }
   await initIntercom();
   const sdk = await loadIntercomSdk();
   return sdk.update({ ...args[0], theme_mode: currentTheme });

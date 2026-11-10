@@ -128,12 +128,22 @@ const AgentationDev =
     ? lazy(() => import('agentation').then((m) => ({ default: m.Agentation })))
     : () => null;
 
-// Runs at module load so splash is gone before React mounts.
-if (
+// Loaded only for the isolated Prime checkout <webview>. Keeping it lazy avoids
+// adding the checkout view to the main-window startup bundle budget.
+const PrimePurchaseWebEmbedApp = lazy(() =>
+  import('./PrimePurchaseWebEmbedApp').then((m) => ({
+    default: m.PrimePurchaseWebEmbedApp,
+  })),
+);
+
+const renderMode =
   typeof globalThis !== 'undefined' &&
-  typeof globalThis.location !== 'undefined' &&
-  new URLSearchParams(globalThis.location.search).get('render') === 'tray'
-) {
+  typeof globalThis.location !== 'undefined'
+    ? new URLSearchParams(globalThis.location.search).get('render')
+    : null;
+
+// Runs at module load so splash is gone before React mounts.
+if (renderMode === 'tray' || renderMode === 'prime-purchase') {
   const splash = document.querySelector('.onekey-index-html-preload-image');
   if (splash) splash.remove();
 }
@@ -183,10 +193,18 @@ function TrayPanelApp() {
 }
 
 export default function App(props: ComponentProps<typeof IKitProvider>) {
-  const isTrayPanel =
-    typeof globalThis !== 'undefined' &&
-    typeof globalThis.location !== 'undefined' &&
-    new URLSearchParams(globalThis.location.search).get('render') === 'tray';
+  if (renderMode === 'prime-purchase') {
+    // Isolated checkout container: intentionally no KitProvider / navigation /
+    // desktop privileged preload. Only the RevenueCat + Stripe checkout runs
+    // here and reports back through the webembed private bridge.
+    return (
+      <Suspense fallback={null}>
+        <PrimePurchaseWebEmbedApp />
+      </Suspense>
+    );
+  }
+
+  const isTrayPanel = renderMode === 'tray';
 
   if (isTrayPanel) {
     return <TrayPanelApp />;

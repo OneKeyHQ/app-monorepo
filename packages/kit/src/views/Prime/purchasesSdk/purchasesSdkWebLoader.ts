@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  isDesktopPrimePurchaseRender,
   loadStripeJsForPrimeCheckout,
   shouldLoadStripeForPrimeCheckout,
 } from './shouldLoadStripeForPrimeCheckout';
@@ -17,8 +18,20 @@ let purchasesSdkPromise: Promise<typeof PurchasesSdk> | undefined;
 let isStripeV3LoadedBeforeSdk = false;
 let verboseLogLevelApplied = false;
 
+// Cold-start logout must not initialize RevenueCat (and therefore Stripe.js)
+// just to reset an SDK that was never loaded.
+export function isPurchasesSdkWebLoaded(): boolean {
+  return Boolean(purchasesSdkPromise);
+}
+
 async function shouldLoadStripeV3() {
   if (platformEnv.isNative) {
+    return false;
+  }
+  if (platformEnv.isDesktop && !isDesktopPrimePurchaseRender()) {
+    // Desktop main window: never load Stripe.js here. RevenueCat's
+    // getOfferings/getCustomerInfo/changeUser only issue fetch requests, and
+    // the checkout form itself lives in the isolated <webview>.
     return false;
   }
   return shouldLoadStripeForPrimeCheckout();

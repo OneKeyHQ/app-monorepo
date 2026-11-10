@@ -5,6 +5,12 @@
 export const WEB_EMBED_ANDROID_LOCAL_ORIGIN =
   'https://appassets.androidplatform.net';
 
+// Prefix used by the isolated desktop Prime checkout <webview> to deliver its
+// route-pinned UI events to DesktopIsolatedWebView without injecting the
+// wallet preload or JsBridge.
+export const PRIME_PURCHASE_CONSOLE_MESSAGE_PREFIX =
+  '__ONEKEY_PRIME_PURCHASE_PRIVATE_REQUEST__:';
+
 export enum EWebEmbedRoutePath {
   index = '/',
   primePurchase = '/prime/purchase',

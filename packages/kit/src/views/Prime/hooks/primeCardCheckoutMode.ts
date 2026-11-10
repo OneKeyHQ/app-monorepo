@@ -1,5 +1,3 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
 // 'embedded': purchases-js purchase() with the bundled Stripe Elements form.
 // 'hostedLink': RevenueCat Web Purchase Link opened outside the app.
 export type IPrimeCardCheckoutMode = 'embedded' | 'hostedLink';
@@ -11,6 +9,46 @@ type IPrimeCardCheckoutSettings = {
 
 let settingsPromise: Promise<IPrimeCardCheckoutSettings> | undefined;
 
+function getCheckoutOverrideFromWindow():
+  | IPrimeCardCheckoutSettings
+  | undefined {
+  const search = globalThis.location?.search ?? '';
+  const searchParams = new URLSearchParams(search);
+  if (searchParams.get('render') === 'prime-purchase') {
+    return {
+      mode: 'embedded',
+      useFaultyStripeJs: searchParams.get('useFaultyPrimeStripeJs') === '1',
+    };
+  }
+  const appSettings = (
+    globalThis as typeof globalThis & {
+      WEB_EMBED_ONEKEY_APP_SETTINGS?: {
+        $devSettings?: {
+          enabled?: boolean;
+          settings?: {
+            usePrimeHostedCardCheckout?: boolean;
+            useFaultyPrimeStripeJs?: boolean;
+          };
+        };
+      };
+    }
+  ).WEB_EMBED_ONEKEY_APP_SETTINGS;
+  if (appSettings?.$devSettings) {
+    if (!appSettings.$devSettings.enabled) {
+      return { mode: 'embedded', useFaultyStripeJs: false };
+    }
+    return {
+      mode: appSettings.$devSettings.settings?.usePrimeHostedCardCheckout
+        ? 'hostedLink'
+        : 'embedded',
+      useFaultyStripeJs: Boolean(
+        appSettings.$devSettings.settings?.useFaultyPrimeStripeJs,
+      ),
+    };
+  }
+  return undefined;
+}
+
 // Every channel starts with the embedded form and only falls back to the
 // hosted Purchase Link when it fails; the dev override skips Stripe so the
 // hosted flow can be tested directly.
@@ -19,7 +57,13 @@ let settingsPromise: Promise<IPrimeCardCheckoutSettings> | undefined;
 function getPrimeCardCheckoutSettings(): Promise<IPrimeCardCheckoutSettings> {
   if (!settingsPromise) {
     settingsPromise = (async (): Promise<IPrimeCardCheckoutSettings> => {
+      const windowOverride = getCheckoutOverrideFromWindow();
+      if (windowOverride) {
+        return windowOverride;
+      }
       try {
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         const devSettings =
           await backgroundApiProxy.serviceDevSetting.getDevSetting();
         if (devSettings?.enabled) {

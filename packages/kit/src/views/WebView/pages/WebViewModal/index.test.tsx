@@ -41,6 +41,7 @@ type IHeaderProps = {
 };
 type IWebViewProps = {
   disableBridge?: boolean;
+  onDomReady?: () => void;
   onMessage?: (event: { nativeEvent: { data: string; url: string } }) => void;
   onNavigationStateChange: (event: { title: string; url: string }) => void;
   onDidStartNavigation: (event: { url: string; isMainFrame: boolean }) => void;
@@ -55,6 +56,7 @@ let mockDevSettings: {
 } = { enabled: false };
 const mockPop = jest.fn();
 const mockInjectJavaScript = jest.fn<void, [string]>();
+const mockExecuteJavaScript = jest.fn<void, [string]>();
 const mockGetIntercomSessionToken = jest.fn<
   Promise<string | undefined>,
   [string | null]
@@ -62,9 +64,15 @@ const mockGetIntercomSessionToken = jest.fn<
 
 const mockHeader = jest.fn<null, [IHeaderProps]>(() => null);
 const mockWebViewRef = {
-  current: { innerRef: { injectJavaScript: mockInjectJavaScript } },
+  current: {
+    innerRef: {
+      injectJavaScript: mockInjectJavaScript,
+      executeJavaScript: mockExecuteJavaScript,
+    },
+  },
 };
 let mockWebViewProps: IWebViewProps;
+let mockIsolatedWebViewProps: IWebViewProps | undefined;
 let mockWebEmbedProps: {
   customReceiveHandler: (payload: IJsBridgeMessagePayload) => void;
 };
@@ -178,6 +186,15 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/components/WebView', () => ({
   __esModule: true,
   default: (props: IWebViewProps) => {
+    mockWebViewProps = props;
+    return <div data-testid="support-webview" />;
+  },
+}));
+
+jest.mock('@onekeyhq/kit/src/components/WebView/IsolatedWebView', () => ({
+  __esModule: true,
+  default: (props: IWebViewProps) => {
+    mockIsolatedWebViewProps = props;
     mockWebViewProps = props;
     return <div data-testid="support-webview" />;
   },
@@ -487,6 +504,38 @@ describe('WebViewModal menu', () => {
         jest.useRealTimers();
       }
     });
+
+    test('ignores non-private scopes and non-primePurchase routes in webembedCustomReceiveHandler', () => {
+      render(<WebViewModal />);
+      act(() => {
+        mockWebEmbedProps.customReceiveHandler({
+          scope: 'ethereum',
+          data: {
+            id: 1,
+            jsonrpc: '2.0',
+            method: EWebEmbedPrivateRequestMethod.closeWebViewModal,
+          },
+        } as IJsBridgeMessagePayload);
+      });
+      expect(mockPop).not.toHaveBeenCalled();
+
+      mockParams = {
+        ...mockParams,
+        hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
+      };
+      render(<WebViewModal />);
+      act(() => {
+        mockWebEmbedProps.customReceiveHandler({
+          scope: '$private',
+          data: {
+            id: 2,
+            jsonrpc: '2.0',
+            method: EWebEmbedPrivateRequestMethod.closeWebViewModal,
+          },
+        } as IJsBridgeMessagePayload);
+      });
+      expect(mockPop).not.toHaveBeenCalled();
+    });
   });
 
   test.each([
@@ -502,7 +551,12 @@ describe('WebViewModal menu', () => {
       hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
     },
     { name: 'explicitly hidden', isNativeAndroid: true, hideHeaderRight: true },
-    { name: 'desktop', isNative: false, isDesktop: true },
+    {
+      name: 'other desktop web-embed',
+      isNative: false,
+      isDesktop: true,
+      hashRoutePath: EWebEmbedRoutePath.webEmbedApi,
+    },
   ])(
     'keeps the menu hidden for $name',
     ({
@@ -523,6 +577,35 @@ describe('WebViewModal menu', () => {
       expect(lastHeader()?.headerRight).toBeUndefined();
     },
   );
+
+  test('shows the Prime checkout menu on desktop and opens hosted checkout', async () => {
+    jest.useFakeTimers();
+    try {
+      Object.assign(platformEnv, { isNative: false, isDesktop: true });
+      mockParams = {
+        title: 'Prime',
+        url: '',
+        isWebEmbed: true,
+        hashRoutePath: EWebEmbedRoutePath.primePurchase,
+        hashRouteQueryParams: {
+          primeUserId: 'test-user',
+          primeUserEmail: 'user@example.com',
+          subscriptionPeriod: 'P1Y',
+          currency: 'USD',
+        },
+      };
+      const view = render(<WebViewModal />);
+      fireEvent.click(view.getByTestId(WebViewTestIDs.optionsMenuBtn));
+      fireEvent.click(view.getByTestId(WebViewTestIDs.openInBrowserBtn));
+      expect(mockPop).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(350);
+      expect(
+        handlePrimeHostedCardCheckoutFallbackRequest,
+      ).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   test('keeps the generic Android remote-page actions', () => {
     Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
@@ -548,6 +631,7 @@ describe('WebViewModal menu', () => {
       };
       const screen = render(<WebViewModal />);
       expect(lastHeader()?.headerRight).toBeUndefined();
+      expect(mockIsolatedWebViewProps).toBeDefined();
       expect(mockWebViewProps.disableBridge).toBe(true);
       expect(screen.queryByTestId('support-webview')).not.toBeNull();
       if (reason === 'lock') mockLocked = true;
@@ -757,6 +841,23 @@ describe('WebViewModal menu', () => {
       const screen = render(<WebViewModal />);
       expect(screen.queryByTestId('support-frame')).toBeNull();
       expect(screen.queryByTestId('support-webview')).not.toBeNull();
+    });
+
+    test('delivers the desktop support session and target conversation on dom-ready', async () => {
+      Object.assign(platformEnv, { isNative: false, isDesktop: true });
+      mockParams = {
+        ...supportParams,
+        intercomConversationId: 'conv-456',
+      };
+      render(<WebViewModal />);
+      await act(async () => {
+        mockWebViewProps.onDomReady?.();
+        await flushEvents();
+      });
+      expect(mockGetIntercomSessionToken).toHaveBeenCalledWith('A');
+      expect(mockExecuteJavaScript).toHaveBeenCalledWith(
+        createIntercomSessionScript('intercom-token', undefined, 'conv-456'),
+      );
     });
   });
 

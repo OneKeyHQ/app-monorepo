@@ -118,4 +118,26 @@ describe('getPrimeCardCheckoutMode', () => {
       false,
     );
   });
+
+  it('inherits the faulty Stripe.js switch from the isolated checkout query without calling background settings', async () => {
+    const oldLocation = Object.getOwnPropertyDescriptor(globalThis, 'location');
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: {
+        search: '?render=prime-purchase&useFaultyPrimeStripeJs=1',
+      },
+    });
+    try {
+      const mod = loadModule();
+      await expect(mod?.getPrimeCardCheckoutMode()).resolves.toBe('embedded');
+      await expect(mod?.shouldUseFaultyPrimeStripeJs()).resolves.toBe(true);
+      expect(mockGetDevSetting).not.toHaveBeenCalled();
+    } finally {
+      if (oldLocation) {
+        Object.defineProperty(globalThis, 'location', oldLocation);
+      } else {
+        Reflect.deleteProperty(globalThis, 'location');
+      }
+    }
+  });
 });

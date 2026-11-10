@@ -552,6 +552,7 @@ const DesktopWebView = forwardRef(
                 }
                 if (
                   originInUrl &&
+                  originInUrl !== 'null' &&
                   originInRequest &&
                   originInUrl === originInRequest
                 ) {

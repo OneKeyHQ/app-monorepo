@@ -230,6 +230,7 @@ export const buildIntercomUrl = (
     parentOrigin?: string;
     instanceId?: string;
     requestId?: string;
+    conversationId?: string;
     languageOverride?: string;
   },
 ): string => {
@@ -245,6 +246,13 @@ export const buildIntercomUrl = (
   if (params.requestId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}requestId=${encodeURIComponent(params.requestId)}`;
+  }
+
+  if (params.conversationId) {
+    const separator = url.includes('?') ? '&' : '?';
+    url += `${separator}conversationId=${encodeURIComponent(
+      params.conversationId,
+    )}`;
   }
 
   if (params.languageOverride) {

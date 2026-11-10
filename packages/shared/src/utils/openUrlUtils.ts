@@ -96,6 +96,7 @@ const openUrlByWebview = (
         hideHeaderRight: options?.hideHeaderRight,
         disableBridge: options?.disableBridge,
         intercomUserId: options?.intercomUserId,
+        intercomConversationId: options?.intercomConversationId,
       },
     },
   });
@@ -176,6 +177,8 @@ export interface IOpenUrlInAppOptions {
   disableBridge?: boolean;
   /** Bind an authenticated support page to its opening wallet identity. */
   intercomUserId?: string | null;
+  /** Target Intercom conversation ID to open after the support session starts. */
+  intercomConversationId?: string;
   /**
    * The page is expected to talk to the wallet (connect, sign). Adds the
    * account/network change notifications a dApp session needs; see

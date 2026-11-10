@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroun
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { analytics } from '@onekeyhq/shared/src/analytics';
+import { PRIME_PURCHASE_WEBVIEW_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import {
   REVENUECAT_API_KEY_WEB,
   REVENUECAT_API_KEY_WEB_SANDBOX,
@@ -29,6 +30,7 @@ import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { GlobalJotaiReady } from '../GlobalJotaiReady/GlobalJotaiReady';
 import WebView from '../WebView';
+import IsolatedWebView from '../WebView/IsolatedWebView';
 
 // @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
 import injectedWebEmbedCode from './injectedWebEmbed.text-js';
@@ -217,6 +219,48 @@ export function WebViewWebEmbed({
   const [devSettingsPersistAtom] = useDevSettingsPersistAtom();
 
   const [revenuecatApiKey, setRevenuecatApiKey] = useState<string>('');
+
+  const fullHash = useMemo(
+    () =>
+      uriUtils.buildUrl({
+        path: hashRoutePath,
+        query: hashRouteQueryParams,
+      }),
+    [hashRoutePath, hashRouteQueryParams],
+  );
+
+  const useFaultyPrimeStripeJs = Boolean(
+    devSettingsPersistAtom.enabled &&
+    devSettingsPersistAtom.settings?.useFaultyPrimeStripeJs,
+  );
+  // Desktop has no prebuilt web-embed bundle: the isolated checkout renders the
+  // same app shell with `?render=prime-purchase`, which App.tsx lazily maps to
+  // PrimePurchaseWebEmbedApp. The hash carries the checkout params, exactly
+  // like the native web-embed page URL.
+  const desktopWebviewSrc = useMemo(() => {
+    if (!platformEnv.isDesktop) {
+      return undefined;
+    }
+    if (hashRoutePath !== EWebEmbedRoutePath.primePurchase) {
+      return undefined;
+    }
+    if (typeof globalThis.location === 'undefined') {
+      return undefined;
+    }
+    try {
+      const url = new URL(globalThis.location.href);
+      url.searchParams.set('render', 'prime-purchase');
+      if (useFaultyPrimeStripeJs) {
+        url.searchParams.set('useFaultyPrimeStripeJs', '1');
+      } else {
+        url.searchParams.delete('useFaultyPrimeStripeJs');
+      }
+      url.hash = fullHash;
+      return url.href;
+    } catch {
+      return undefined;
+    }
+  }, [fullHash, hashRoutePath, useFaultyPrimeStripeJs]);
 
   useEffect(() => {
     async function getApiKey() {
@@ -412,10 +456,6 @@ export function WebViewWebEmbed({
     if (!webEmbedAppSettings) {
       return null;
     }
-    const fullHash = uriUtils.buildUrl({
-      path: hashRoutePath,
-      query: hashRouteQueryParams,
-    });
     console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
 
     if (
@@ -431,8 +471,14 @@ export function WebViewWebEmbed({
 
     defaultLogger.app.webembed.renderWebview();
 
+    // Desktop Prime checkout runs inside a bridge-free IsolatedWebView so it
+    // never injects the dApp preload or competes with Discovery dApp webviews
+    // for backgroundApiProxy.bridge.
+    const EmbeddedWebViewComponent =
+      !isSingleton && Boolean(desktopWebviewSrc) ? IsolatedWebView : WebView;
+
     return (
-      <WebView
+      <EmbeddedWebViewComponent
         allowFileAccess={allowFileAccessByUrl}
         allowFileAccessFromFileURLs={allowFileAccessByUrl}
         allowingReadAccessToURL={iosAllowingReadAccessToURL}
@@ -444,8 +490,14 @@ export function WebViewWebEmbed({
             ? () => onContentProcessTerminate(mountId)
             : true
         }
+        // Desktop: dedicated persistent partition. The main process registers
+        // the app-shell file:// resolver on it, and its storage (Stripe cookies
+        // etc.) stays isolated from the wallet and from DApp webviews.
+        partition={
+          desktopWebviewSrc ? PRIME_PURCHASE_WEBVIEW_PARTITION : undefined
+        }
         // *** use remote url
-        src={remoteUrl || ''}
+        src={desktopWebviewSrc || remoteUrl || ''}
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
@@ -453,6 +505,7 @@ export function WebViewWebEmbed({
           isSingleton ? handleSingletonReceive : customReceiveHandler
         }
         isWebEmbedChannel={!!isSingleton}
+        skipBackgroundBridge={!isSingleton}
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
@@ -481,11 +534,12 @@ export function WebViewWebEmbed({
   }, [
     webEmbedAppSettings,
     hashRoutePath,
-    hashRouteQueryParams,
+    fullHash,
     devSettingsPersistAtom.enabled,
     devSettingsPersistAtom.settings?.disableWebEmbedApi,
     allowFileAccessByUrl,
     iosAllowingReadAccessToURL,
+    desktopWebviewSrc,
     remoteUrl,
     nativeWebviewSource,
     onWebViewRef,

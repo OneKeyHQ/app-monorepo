@@ -66,6 +66,26 @@ describe('WebView web-embed channel', () => {
     expect(mockBridgeReceiveHandler.mock.calls[0][0]).toBe(primeClose);
   });
 
+  it('stops at customReceiveHandler when skipBackgroundBridge is enabled and never forwards wallet RPCs to background', async () => {
+    const customReceiveHandler = jest.fn().mockResolvedValue('custom-result');
+    render(
+      <WebView
+        customReceiveHandler={customReceiveHandler}
+        skipBackgroundBridge
+      />,
+    );
+    await expect(deliver(primeClose)).resolves.toBe('custom-result');
+    expect(customReceiveHandler).toHaveBeenCalledWith(primeClose, {});
+
+    const walletRequest = {
+      origin: 'null',
+      scope: 'ethereum',
+      data: { method: 'eth_requestAccounts' },
+    } as unknown as IJsBridgeMessagePayload;
+    await deliver(walletRequest);
+    expect(mockBridgeReceiveHandler).not.toHaveBeenCalled();
+  });
+
   it('marks messages from the singleton web-embed page', async () => {
     render(<WebView isWebEmbedChannel />);
     await deliver(primeClose);

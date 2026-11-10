@@ -8,8 +8,10 @@ const mockGetSharedInstance = jest.fn(() => ({
   changeUser: mockChangeUser,
   getAppUserId: mockGetAppUserId,
 }));
+const mockIsPurchasesSdkWebLoaded = jest.fn(() => true);
 
 jest.mock('../purchasesSdk/purchasesSdkWebLoader', () => ({
+  isPurchasesSdkWebLoaded: () => mockIsPurchasesSdkWebLoaded(),
   loadPurchasesSdkWeb: jest.fn(async () => ({
     Purchases: {
       getSharedInstance: mockGetSharedInstance,
@@ -33,6 +35,14 @@ describe('logoutPurchasesSdk web', () => {
     jest.clearAllMocks();
     mockGetAppUserId.mockReturnValue('onekey-user');
     mockIsConfigured.mockReturnValue(true);
+    mockIsPurchasesSdkWebLoaded.mockReturnValue(true);
+  });
+
+  it('skips RevenueCat initialization when the web SDK was never loaded', async () => {
+    mockIsPurchasesSdkWebLoaded.mockReturnValueOnce(false);
+
+    await expect(logoutPurchasesSdk()).resolves.toBe(true);
+    expect(mockGetSharedInstance).not.toHaveBeenCalled();
   });
 
   it('shares one in-flight anonymous-user reset across concurrent callers', async () => {

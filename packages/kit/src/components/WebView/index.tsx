@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { FC } from 'react';
 import { useCallback, useRef } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
@@ -8,101 +8,12 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
+import IsolatedWebView from './IsolatedWebView';
 
-import type {
-  IElectronWebViewEvents,
-  IWebViewOnScroll,
-  IWebViewRef,
-} from './types';
-import type { ESiteMode } from '../../views/Discovery/types';
+import type { IWebViewProps, IWebViewRef } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebViewProps as RNWebViewProps } from 'react-native-webview';
-import type {
-  ShouldStartLoadRequest,
-  WebViewErrorEvent,
-  WebViewNavigation,
-  WebViewNavigationEvent,
-  WebViewOpenWindowEvent,
-  WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
 
-export interface IWebViewProps
-  extends IElectronWebViewEvents, Partial<RNWebViewProps> {
-  id?: string;
-  src?: string;
-  onSrcChange?: (src: string) => void;
-  openUrlInExt?: boolean;
-  onWebViewRef?: (ref: IWebViewRef | null) => void;
-  onNavigationStateChange?: (event: WebViewNavigation) => void;
-  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean;
-  allowpopups?: boolean;
-  allowsBackForwardNavigationGestures?: boolean;
-  containerProps?: ComponentProps<typeof Stack>;
-  customReceiveHandler?: IJsBridgeReceiveHandler;
-  nativeWebviewSource?: WebViewSource | undefined;
-  nativeInjectedJavaScriptBeforeContentLoaded?: string;
-  isSpinnerLoading?: boolean;
-  pullToRefreshEnabled?: boolean;
-  onContentLoaded?: () => void; // currently works in NativeWebView only
-  onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
-  androidLayerType?: 'none' | 'software' | 'hardware';
-  onLoadStart?: (event: WebViewNavigationEvent) => void;
-  onLoad?: (event: WebViewNavigationEvent) => void;
-  onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
-  onScroll?: IWebViewOnScroll;
-  displayProgressBar?: boolean;
-  onProgress?: (progress: number) => void;
-  webviewDebuggingEnabled?: boolean;
-  /** @platform native
-   * @description Recreate a terminated WebView, or let its owner replace it.
-   */
-  recreateOnContentProcessTerminate?: boolean | (() => void);
-  /** @platform native
-   * @description Open website in desktop mode or mobile mode
-   */
-  siteMode?: ESiteMode;
-  /** @platform native
-   * @description List of origin strings to allow being navigated to.
-   * The strings allow wildcards and follow the same rules as the navigator.
-   * For example, ['https://*.onekey.so', 'https://*.onekey.com'] will allow any URL from these domains.
-   */
-  originWhitelist?: string[];
-  /** @platform native
-   * @description A function that is invoked when the webview calls `window.ReactNativeWebView.postMessage`. Setting this property will inject this global into your webview.
-   */
-  onMessage?: RNWebViewProps['onMessage'];
-  /** @platform android
-   * @description Use GeckoView instead of the default WebView on Android. GeckoView is Mozilla's alternative to Android's WebView with better privacy and security features.
-   */
-  useGeckoView?: boolean;
-  /** @platform native
-   * @description Whether to use the injected native code from cross-inpage-provider-injected/dist/injected/injectedNative.js
-   * @default true
-   */
-  useInjectedNativeCode?: boolean;
-  /** @platform native
-   * @description Whitelisted origins that may request camera or microphone access.
-   */
-  mediaPermissionWhitelist?: string[];
-  /** Disable OneKey inpage provider injection and bridge connection.
-   * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification).
-   * @see IInpageProviderWebViewProps.disableBridge
-   */
-  disableBridge?: boolean;
-  /** Keep customReceiveHandler active, but do not forward messages to background bridge. */
-  skipBackgroundBridge?: boolean;
-  /** @platform native
-   * @description Marks messages as coming from the app's singleton web-embed
-   * page, which may use the web-embed-only `$private` methods. Never set it on
-   * a WebView that loads anything else.
-   */
-  isWebEmbedChannel?: boolean;
-  /** @platform desktop
-   * @description Electron <webview> partition string.
-   * @see IInpageProviderWebViewProps.partition
-   */
-  partition?: string;
-}
+export type { IWebViewProps };
 
 const WebView: FC<IWebViewProps> = ({
   src = '',
@@ -158,6 +69,21 @@ const WebView: FC<IWebViewProps> = ({
           Open
         </Button>
       </Stack>
+    );
+  }
+  if (rest.disableBridge) {
+    return (
+      <IsolatedWebView
+        src={src}
+        openUrlInExt={openUrlInExt}
+        allowpopups={allowpopups}
+        onWebViewRef={onWebViewRef}
+        customReceiveHandler={customReceiveHandler}
+        containerProps={containerProps}
+        webviewDebuggingEnabled={webviewDebuggingEnabled}
+        pullToRefreshEnabled={pullToRefreshEnabled}
+        {...rest}
+      />
     );
   }
   return (

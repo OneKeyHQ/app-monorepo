@@ -91,6 +91,36 @@ describe('Intercom bridge', () => {
     expect(runSessionScript(script)).not.toHaveBeenCalled();
   });
 
+  it('opens a target conversation once after posting the session when conversationId is provided', () => {
+    jest.useFakeTimers();
+    try {
+      const postMessage = jest.fn();
+      const intercom = jest.fn();
+      const self = {};
+      const page: Record<string, unknown> = {
+        location: { origin: INTERCOM_SUPPORT_ORIGIN },
+        postMessage,
+        self,
+        top: self,
+        Intercom: intercom,
+      };
+      const script = createIntercomSessionScript(
+        'token',
+        INTERCOM_SUPPORT_ORIGIN,
+        'conv-789',
+      );
+      runInNewContext(script, { window: page, setTimeout });
+      runInNewContext(script, { window: page, setTimeout });
+      expect(postMessage).toHaveBeenCalledTimes(2);
+      expect(intercom).not.toHaveBeenCalled();
+      jest.runOnlyPendingTimers();
+      expect(intercom).toHaveBeenCalledTimes(1);
+      expect(intercom).toHaveBeenCalledWith('showConversation', 'conv-789');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   describe('support URL override', () => {
     it('accepts HTTPS URLs and drops the fragment', () => {
       expect(
