@@ -40,8 +40,8 @@
       },
       {
         "pattern": "locale/enum/translations.ts",
-        "_comment": "Lokalise additions for hardware Cloud sync and path diagnostics bring this input to 591412 emitted bytes; keep the 580 KiB catalog cap.",
-        "bytes": 593920
+        "_comment": "The verified Lokalise pull adds 71 catalog keys and brings this input to 598429 emitted bytes; allow 590 KiB for catalog growth while retaining every total-bundle budget.",
+        "bytes": 604160
       },
       {
         "pattern": "locale/json/",

@@ -6,7 +6,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Alert,
   DebugRenderTracker,
   Divider,
@@ -297,8 +296,7 @@ function TokenDetailsHeaderContent({
   // Until settings resolve a selected pool counts as private: that hides the
   // generic action row instead of flashing it on a private tab.
   const isPrivatePool = hasSelectedPool && !isPublicPool;
-  // A pool that can no longer receive. Balance, history and the withdraw
-  // action still show; Send does not (see the action row below).
+  // Pools that can no longer receive do not expose transfer actions.
   const isLegacyPoolTab = selectedPool?.receivesFunds === false;
   const localWalletPool = useLocalWalletPool({
     networkId,
@@ -834,66 +832,26 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {/* Every pool page, public or private, folds Swap and Buy into More. */}
-                {hasSelectedPool ? (
-                  <RawActions.More
-                    testID="token-details-more-btn"
-                    renderItems={({ handleActionListClose }) => (
-                      <>
-                        <ActionList.Item
-                          testID="token-details-more-swap"
-                          icon="SwitchHorOutline"
-                          label={intl.formatMessage({
-                            id: ETranslations.global_swap,
-                          })}
-                          disabled={disableSwapAction}
-                          onClose={handleActionListClose}
-                          onPress={handleOnSwap}
-                          trackID="wallet-token-details-swap"
-                        />
-                        <ReviewControl>
-                          <ActionBuy
-                            inList
-                            onClose={handleActionListClose}
-                            disabled={showLoadingState}
-                            isTabView={isTabView}
-                            walletId={wallet?.id ?? ''}
-                            networkId={networkId}
-                            accountId={accountId}
-                            walletType={wallet?.type}
-                            tokenAddress={tokenInfo.address}
-                            tokenSymbol={tokenInfo.symbol}
-                            source="tokenDetails"
-                            trackID="wallet-token-details-buy"
-                          />
-                        </ReviewControl>
-                      </>
-                    )}
+                <RawActions.Swap
+                  testID={AssetDetailsTestIDs.swapBtn}
+                  onPress={handleOnSwap}
+                  disabled={disableSwapAction}
+                  trackID="wallet-token-details-swap"
+                />
+                <ReviewControl>
+                  <ActionBuy
+                    disabled={showLoadingState}
+                    isTabView={isTabView}
+                    walletId={wallet?.id ?? ''}
+                    networkId={networkId}
+                    accountId={accountId}
+                    walletType={wallet?.type}
+                    tokenAddress={tokenInfo.address}
+                    tokenSymbol={tokenInfo.symbol}
+                    source="tokenDetails"
+                    trackID="wallet-token-details-buy"
                   />
-                ) : (
-                  <>
-                    <RawActions.Swap
-                      testID={AssetDetailsTestIDs.swapBtn}
-                      onPress={handleOnSwap}
-                      disabled={disableSwapAction}
-                      trackID="wallet-token-details-swap"
-                    />
-                    <ReviewControl>
-                      <ActionBuy
-                        disabled={showLoadingState}
-                        isTabView={isTabView}
-                        walletId={wallet?.id ?? ''}
-                        networkId={networkId}
-                        accountId={accountId}
-                        walletType={wallet?.type}
-                        tokenAddress={tokenInfo.address}
-                        tokenSymbol={tokenInfo.symbol}
-                        source="tokenDetails"
-                        trackID="wallet-token-details-buy"
-                      />
-                    </ReviewControl>
-                  </>
-                )}
+                </ReviewControl>
               </RawActions>
             )}
             <LocalWalletPoolStatus

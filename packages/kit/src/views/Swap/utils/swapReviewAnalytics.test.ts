@@ -5,7 +5,10 @@ import type {
   ISwapReviewOpen,
   ISwapReviewReady,
 } from '@onekeyhq/shared/types/swap/reviewAnalytics';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  type ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 const mockEstimateFee = jest.fn();
 const mockSendTx = jest.fn();
@@ -173,6 +176,51 @@ describe('swap review analytics lifecycle', () => {
       sinceReadyMs: 250,
     });
     expect(logger.swapReviewClose).not.toHaveBeenCalled();
+  });
+
+  it('attaches the trade entry to every review event and the handed-off context', () => {
+    const logger = {
+      swapReviewOpen: jest.fn<void, [ISwapReviewOpen]>(),
+      swapReviewReady: jest.fn<void, [ISwapReviewReady]>(),
+      swapReviewConfirm: jest.fn<void, [ISwapReviewConfirm]>(),
+      swapReviewClose: jest.fn<void, [ISwapReviewClose]>(),
+    };
+    const session = createSwapReviewAnalytics({
+      clock: () => 0,
+      logger,
+      reviewSessionId: 'review-1',
+      swapSource: ESwapSource.MARKET,
+    });
+    expect(session.context('quote-0')).toEqual({
+      reviewSessionId: 'review-1',
+      quoteId: 'quote-0',
+      swapSource: ESwapSource.MARKET,
+    });
+    session.open(openParams);
+    session.observe(readyState);
+    expect(session.context()).toEqual({
+      reviewSessionId: 'review-1',
+      quoteId: 'quote-1',
+      swapSource: ESwapSource.MARKET,
+    });
+    session.confirm('quote-1', 'order-1');
+    for (const event of [
+      logger.swapReviewOpen,
+      logger.swapReviewReady,
+      logger.swapReviewConfirm,
+    ]) {
+      expect(event).toHaveBeenCalledWith(
+        expect.objectContaining({ swapSource: ESwapSource.MARKET }),
+      );
+    }
+  });
+
+  it('omits the trade entry when the review has no source', () => {
+    const { session } = createHarness();
+    expect(session.context('quote-0')).toStrictEqual({
+      reviewSessionId: 'review-1',
+      quoteId: 'quote-0',
+    });
   });
 
   it('keeps an initial failure but measures confirmation from retry readiness', () => {
@@ -450,6 +498,27 @@ describe('swap review API correlation', () => {
         status: 'success',
         reviewSessionId: 'review-1',
         orderId: 'service-order',
+      }),
+    );
+  });
+
+  it('forwards the trade entry from the analytics context to the send event', async () => {
+    await trackSwapReviewApi(
+      'sendTx',
+      {
+        ...swapInfo,
+        reviewAnalyticsContext: {
+          ...swapInfo.reviewAnalyticsContext,
+          reviewSessionId: 'review-1',
+          swapSource: ESwapSource.MARKET,
+        },
+      },
+      async () => ({ txId: 'tx-1' }),
+    );
+    expect(mockSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'success',
+        swapSource: ESwapSource.MARKET,
       }),
     );
   });

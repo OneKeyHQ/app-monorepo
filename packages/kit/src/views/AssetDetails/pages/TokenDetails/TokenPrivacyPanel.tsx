@@ -41,7 +41,7 @@ export type ITokenPrivacyPanelProps = {
 };
 
 const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
-  disabled: ETranslations.privacy_enable__title,
+  disabled: ETranslations.privacy_enable_account__title,
   preparing: ETranslations.global_preparing,
   syncing: ETranslations.global_syncing,
   synced: ETranslations.global_synced,
@@ -115,7 +115,7 @@ export function TokenPrivacyPanel({
   if (supportingText === undefined) {
     if (isDisabled) {
       supportingText = intl.formatMessage({
-        id: ETranslations.privacy_enable__desc,
+        id: ETranslations.privacy_enable_account__desc,
       });
     }
   }
@@ -128,7 +128,7 @@ export function TokenPrivacyPanel({
         mt={isDisabled ? '$3' : undefined}
         flexShrink={0}
         size="small"
-        variant={isDisabled ? 'primary' : 'tertiary'}
+        variant={isDisabled ? 'primary' : 'secondary'}
         loading={busy}
         disabled={busy}
         onPress={onAction}
@@ -177,7 +177,10 @@ export function TokenPrivacyPanel({
               color="$text"
               flexShrink={1}
             >
-              {title ?? intl.formatMessage({ id: STATUS_LABELS[state] })}
+              {title ??
+                intl.formatMessage({
+                  id: STATUS_LABELS[state],
+                })}
             </SizableText>
           </XStack>
           {supportingText ? (

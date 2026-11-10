@@ -114,12 +114,13 @@ function TokenDetailsBalanceHero({
             ) : null}
           </XStack>
           <XStack
-            alignItems="center"
+            alignItems="baseline"
             columnGap="$3"
             rowGap="$1"
             flexWrap="wrap"
           >
             <NumberSizeableTextWrapper
+              testID="token-details-balance-quantity"
               hideValue
               formatter="balance"
               color="$textSubdued"
@@ -146,7 +147,7 @@ function TokenDetailsBalanceHero({
                 renderTrigger={
                   <SizableText
                     testID="token-privacy-last-synced"
-                    size="$bodySm"
+                    size="$bodyLg"
                     color="$textSubdued"
                     tabIndex={0}
                     accessibilityLabel={lastSyncedFullLabel}

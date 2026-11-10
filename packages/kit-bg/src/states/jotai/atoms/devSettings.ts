@@ -63,6 +63,8 @@ export interface IDevSettings {
   enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
+  // Desktop development only; never changes the persisted account restriction.
+  mockPrimeUserBanned?: boolean;
   usePrimeSandboxPayment?: boolean;
   // Skip the embedded Stripe card form and open the RevenueCat Purchase Link
   // directly (web / desktop / extension). Needs a restart.
@@ -146,6 +148,9 @@ export interface IDevSettings {
   // Dev builds only: turning on hardware Cloud sync signs with a fixed test
   // key instead of a device, so end-to-end runs need no hardware.
   hardwareCloudSyncSoftwareKey?: boolean;
+  // Optional public fixture profile, persisted so isolated E2E runs can restart
+  // without sharing the default software key's old Cloud data.
+  hardwareCloudSyncSoftwareKeyProfile?: string;
   // Override the hosted support (Intercom) page URL on extension, iOS and
   // Android. Only honored while dev mode is enabled; the session bridge then
   // trusts this URL's origin instead of the production one.

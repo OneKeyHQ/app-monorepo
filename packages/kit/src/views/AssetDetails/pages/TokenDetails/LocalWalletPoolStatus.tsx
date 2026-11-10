@@ -27,12 +27,13 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { LocalWalletPasswordAlert } from './LocalWalletPasswordAlert';
 import {
-  BirthdayDialogForm,
-  PrivacyEnableDisclosure,
-  createEnableBirthdayForm,
   getBirthdayInputError,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
+import {
+  PrivacyEnableContent,
+  createPrivacyEnableForm,
+} from './PrivacyEnableContent';
 import { TokenPrivacyPanel } from './TokenPrivacyPanel';
 import { getLocalWalletSyncAction } from './useLocalWalletPool';
 
@@ -121,27 +122,22 @@ export function LocalWalletPoolStatus({
     }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
     const earliestBirthday = lw.settings?.accountSetup.earliestBirthday;
-    const formRef = createEnableBirthdayForm(hintTimestamp, earliestBirthday);
-    Dialog.confirm({
+    const formRef = createPrivacyEnableForm({ earliestBirthday });
+    Dialog.show({
       title: intl.formatMessage({
-        id: ETranslations.privacy_enable__title,
+        id: ETranslations.privacy_enable_account__title,
       }),
+      showConfirmButton: true,
+      showCancelButton: true,
       renderContent: (
-        <YStack gap="$4">
-          <PrivacyEnableDisclosure
-            accountId={accountId}
-            deviceExportsViewKey={
-              lw.settings?.accountSetup.deviceExportsViewKey
-            }
-            hasRecommendedMonth={typeof hintTimestamp === 'number'}
-          />
-          <BirthdayDialogForm
-            networkId={networkId}
-            formRef={formRef}
-            allowSavedBirthday={false}
-            earliestBirthday={earliestBirthday}
-          />
-        </YStack>
+        <PrivacyEnableContent
+          networkId={networkId}
+          accountId={accountId}
+          deviceExportsViewKey={lw.settings?.accountSetup.deviceExportsViewKey}
+          formRef={formRef}
+          earliestBirthday={earliestBirthday}
+          birthdayHintTimestamp={hintTimestamp}
+        />
       ),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
       onConfirm: async ({ preventClose }) => {

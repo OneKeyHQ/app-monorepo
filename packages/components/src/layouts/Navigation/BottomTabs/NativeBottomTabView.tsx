@@ -5,17 +5,18 @@ import type { ReactNode } from 'react';
 import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
+  NavigationMetaContext,
   type ParamListBase,
   type Route,
+  StackActions,
   type TabNavigationState,
 } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { Spinner, Stack } from '../../../primitives';
+import { BottomTabBarVerticalContext } from '../../Page/BottomTabBarVisibilityContext';
 
 import { TabSceneContext } from './TabSceneContext';
 
@@ -24,12 +25,18 @@ import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
+import type { TabBarPlacement } from '@onekeyfe/react-native-bottom-tabs';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;
   navigation: NativeBottomTabNavigationHelpers;
   descriptors: NativeBottomTabDescriptorMap;
 };
+
+// Native stacks pop to their root on every press of the focused tab unless they
+// sit in native tabs. Here a single press does nothing and a double press is
+// resolved in `onTabDoublePress`.
+const NATIVE_TABS_NAVIGATION_META = { type: 'native-tabs' };
 
 const styles = StyleSheet.create({
   scene: {
@@ -38,9 +45,6 @@ const styles = StyleSheet.create({
   hiddenTabBarScene: {
     width: '100%',
     height: '100%',
-  },
-  sceneContent: {
-    flex: 1,
   },
   activationSignal: {
     position: 'absolute',
@@ -67,22 +71,6 @@ function SceneLoadingView() {
       <Spinner size="large" />
     </Stack>
   );
-}
-
-// iPhone Duo places the status bar, camera and vertical tab bar in a side
-// strip and reports it as a horizontal safe area inset. Tab pages only handle
-// top/bottom insets, so keep their content out of that strip here. Regular
-// iPhones are portrait-locked, where these insets are always 0.
-const shouldApplyHorizontalSafeArea =
-  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
-
-function HorizontalSafeAreaSceneContent({ children }: { children: ReactNode }) {
-  const { left, right } = useSafeAreaInsets();
-  const style = useMemo(
-    () => [styles.sceneContent, { paddingLeft: left, paddingRight: right }],
-    [left, right],
-  );
-  return <View style={style}>{children}</View>;
 }
 
 function SceneWithActivationPlaceholder({
@@ -118,13 +106,7 @@ function SceneWithActivationPlaceholder({
   return (
     <View style={styles.scene}>
       <TabSceneContext.Provider value={sceneInfo}>
-        {shouldApplyHorizontalSafeArea ? (
-          <HorizontalSafeAreaSceneContent>
-            {children}
-          </HorizontalSafeAreaSceneContent>
-        ) : (
-          children
-        )}
+        {children}
       </TabSceneContext.Provider>
       {/* A preloaded scene is laid out while still blurred, so let every
           scene that has not been activated yet raise the signal. Gating this
@@ -150,8 +132,17 @@ export function NativeBottomTabView({
   tabBar,
   tabBarHidden,
   sideAccessoryIcon,
+  onTabBarPlacementChange,
   ...rest
 }: Props) {
+  const [isVerticalTabBar, setIsVerticalTabBar] = useState(false);
+  const handleTabBarPlacementChange = useCallback(
+    (placement: TabBarPlacement) => {
+      setIsVerticalTabBar(placement !== 'bottom');
+      onTabBarPlacementChange?.(placement);
+    },
+    [onTabBarPlacementChange],
+  );
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
     const focusedRouteKey = state.routes[state.index]?.key;
     return focusedRouteKey ? [focusedRouteKey] : [];
@@ -173,7 +164,9 @@ export function NativeBottomTabView({
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
-        {descriptors[route.key]?.render()}
+        <NavigationMetaContext.Provider value={NATIVE_TABS_NAVIGATION_META}>
+          {descriptors[route.key]?.render()}
+        </NavigationMetaContext.Provider>
       </SceneWithActivationPlaceholder>
     ),
     [
@@ -282,7 +275,7 @@ export function NativeBottomTabView({
     [descriptors, tabBarHidden],
   );
   const onTabDoublePress = useCallback(
-    (index: number) => {
+    (index: number, didScrollToTop?: boolean) => {
       const route = state.routes[index];
       if (!route) {
         return;
@@ -292,6 +285,21 @@ export function NativeBottomTabView({
         type: 'tabDoublePress',
         target: route.key,
       });
+
+      // The native side already scrolled the visible page when it was not at
+      // the top, so only a page sitting at the top leaves for the tab root.
+      // Native builds without the flag report nothing and must not pop.
+      const stackState = route.state;
+      if (
+        didScrollToTop === false &&
+        stackState?.key &&
+        (stackState.index ?? 0) > 0
+      ) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: stackState.key,
+        });
+      }
     },
     [state.routes, navigation],
   );
@@ -336,29 +344,32 @@ export function NativeBottomTabView({
   );
 
   return (
-    <BottomTabs
-      {...rest}
-      sideAccessoryIcon={sideAccessoryIcon}
-      tabBarHidden={tabBarHidden}
-      navigationState={state}
-      renderScene={renderScene}
-      renderLazyPlaceholder={renderLazyPlaceholder}
-      getActiveTintColor={getActiveTintColor}
-      getLabelText={getLabelText}
-      getBadge={getBadge}
-      getBadgeBackgroundColor={getBadgeBackgroundColor}
-      getBadgeTextColor={getBadgeTextColor}
-      getHidden={getHidden}
-      getTestID={getTestID}
-      getRole={getRole}
-      tabBar={tabBar ? tabBarCallback : undefined}
-      getIcon={getIcon}
-      getLazy={getLazy}
-      getFreezeOnBlur={getFreezeOnBlur}
-      getSceneStyle={getSceneStyle}
-      onTabDoublePress={onTabDoublePress}
-      getPreventsDefault={getPreventsDefault}
-      onIndexChange={onIndexChange}
-    />
+    <BottomTabBarVerticalContext.Provider value={isVerticalTabBar}>
+      <BottomTabs
+        {...rest}
+        sideAccessoryIcon={sideAccessoryIcon}
+        tabBarHidden={tabBarHidden}
+        navigationState={state}
+        renderScene={renderScene}
+        renderLazyPlaceholder={renderLazyPlaceholder}
+        getActiveTintColor={getActiveTintColor}
+        getLabelText={getLabelText}
+        getBadge={getBadge}
+        getBadgeBackgroundColor={getBadgeBackgroundColor}
+        getBadgeTextColor={getBadgeTextColor}
+        getHidden={getHidden}
+        getTestID={getTestID}
+        getRole={getRole}
+        tabBar={tabBar ? tabBarCallback : undefined}
+        getIcon={getIcon}
+        getLazy={getLazy}
+        getFreezeOnBlur={getFreezeOnBlur}
+        getSceneStyle={getSceneStyle}
+        onTabDoublePress={onTabDoublePress}
+        getPreventsDefault={getPreventsDefault}
+        onIndexChange={onIndexChange}
+        onTabBarPlacementChange={handleTabBarPlacementChange}
+      />
+    </BottomTabBarVerticalContext.Provider>
   );
 }

@@ -113,3 +113,14 @@ export function resolveSettingsSectionSurface(
     borderCurve: undefined,
   };
 }
+
+export function resolveSettingsRowHoverMaskColor(
+  background: unknown,
+): string | undefined {
+  if (typeof background !== 'string') {
+    return undefined;
+  }
+  return background.startsWith('$')
+    ? `var(--${background.slice(1)})`
+    : background;
+}

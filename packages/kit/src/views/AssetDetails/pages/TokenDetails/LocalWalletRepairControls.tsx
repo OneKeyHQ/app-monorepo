@@ -156,7 +156,9 @@ export function PrivacyEnableDisclosure({
   return (
     <YStack gap="$3">
       <SizableText size="$bodyMd">
-        {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
+        {intl.formatMessage({
+          id: ETranslations.privacy_enable_account__desc,
+        })}
       </SizableText>
       {deviceExportsViewKey && accountUtils.isHwAccount({ accountId }) ? (
         <SizableText size="$bodyMd">
@@ -378,6 +380,8 @@ export function BirthdayDialogForm({
             label={intl.formatMessage({
               id: ETranslations.privacy_sync_start_from_beginning__desc,
             })}
+            containerProps={{ py: '$0', mt: '$1' }}
+            labelProps={{ variant: '$bodyMd', color: '$textSubdued' }}
             labelContainerProps={{ flex: 1 }}
           />
         </YStack>

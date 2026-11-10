@@ -24,6 +24,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import {
+  HEADER_SEARCH_BAR_HEIGHT,
+  getFoldableIPhoneHeaderTop,
+} from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { LegacyUniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/LegacyUniversalSearchInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -36,6 +40,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,7 +73,6 @@ import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowser
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
-// import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBrowserChromeAnimation from '../../hooks/useMobileBrowserChromeAnimation';
 import {
   useActiveTabId,
@@ -243,6 +250,8 @@ function MobileBrowser() {
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
   const [visibleOuterPages, setVisibleOuterPages] = useState<number[]>([]);
+  const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
+    useState(false);
   const handleVisiblePagesChange = useCallback((pages: number[]) => {
     setVisibleOuterPages((prev) =>
       prev.length === pages.length && prev.every((v, i) => v === pages[i])
@@ -359,6 +368,7 @@ function MobileBrowser() {
       });
       previousDefaultTab.current = defaultTab;
       if (defaultTab === ETranslations.global_market) {
+        markMarketHomeEntry(EMarketHomeEntrySource.Discovery);
         navigation.switchTab(ETabRoutes.Market);
       } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
@@ -424,6 +434,7 @@ function MobileBrowser() {
         showWebPage: event.showWebPage,
       });
       if (event.tab === ETranslations.global_market) {
+        markMarketHomeEntry(EMarketHomeEntrySource.Discovery);
         navigation.switchTab(ETabRoutes.Market);
         return;
       }
@@ -476,9 +487,13 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // phone layouts keep Market, Earn, and Browser in the outer pager.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
+  // Keep each Android foldable pane's pager mounted across posture changes.
+  const useFoldablePager =
+    platformEnv.isNativeAndroid &&
+    isDualScreen &&
+    (isTabletMainView || isTabletDetailView);
+  const useOuterPager =
+    useFoldablePager || (!isTabletMainView && !isTabletDetailView);
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -536,6 +551,10 @@ function MobileBrowser() {
   } else if (searchGlassActive) {
     discoverSearchTop = top + 6;
   }
+  if (!top) {
+    discoverSearchTop =
+      getFoldableIPhoneHeaderTop(HEADER_SEARCH_BAR_HEIGHT) || discoverSearchTop;
+  }
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const handleGoBackHome = useCallback(async () => {
@@ -574,7 +593,21 @@ function MobileBrowser() {
 
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
-  }, []);
+    if (
+      useFoldablePager &&
+      isTabletMainView &&
+      !displayHomePage &&
+      selectedHeaderTab === ETranslations.global_browser
+    ) {
+      setDisplayHomePage(true);
+    }
+  }, [
+    useFoldablePager,
+    isTabletMainView,
+    displayHomePage,
+    selectedHeaderTab,
+    setDisplayHomePage,
+  ]);
 
   const isShowContent = useMemo(() => {
     if (
@@ -650,7 +683,6 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            // Tablet has no outer pager updates, so omit its shared position.
             pageScrollPosition={
               useOuterPager ? outerPageScrollPosition : undefined
             }
@@ -675,22 +707,33 @@ function MobileBrowser() {
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
+              onTransitioningChange={setIsOuterPageTransitioning}
               earnContent={
-                <EarnHomeWithProvider
-                  showHeader={false}
-                  showContent={selectedHeaderTab === ETranslations.global_earn}
-                  isVisible={isEarnPageVisible}
-                  defaultTab={earnTab}
-                  tabsRef={earnTabsRef}
-                  useSwipePager={useOuterPager}
-                  earnBorrowPagerRef={earnBorrowPagerRef}
-                />
+                !useFoldablePager || isShowContent ? (
+                  <EarnHomeWithProvider
+                    showHeader={false}
+                    showContent={
+                      selectedHeaderTab === ETranslations.global_earn
+                    }
+                    isVisible={isEarnPageVisible}
+                    bannerAutoPlayEnabled={
+                      showDiscoveryPage &&
+                      !isOuterPageTransitioning &&
+                      visibleOuterPages.length === 1 &&
+                      visibleOuterPages[0] === 0
+                    }
+                    defaultTab={earnTab}
+                    tabsRef={earnTabsRef}
+                    useSwipePager={useOuterPager}
+                    earnBorrowPagerRef={earnBorrowPagerRef}
+                  />
+                ) : null
               }
               browserContent={
                 <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
                     {browserDashboardContent}
-                    {platformEnv.isNativeAndroid ? (
+                    {platformEnv.isNativeAndroid && !useFoldablePager ? (
                       <Animated.View
                         collapsable={false}
                         pointerEvents={
@@ -717,9 +760,10 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* iOS WebView layer: ends above the bottom bar (see
-                useMobileBrowserChromeAnimation). */}
-            {platformEnv.isNativeIOS ? (
+            {/* Split-view web pages belong to the detail pane and stay outside
+                its pager so folding cannot move or recreate the WebView. */}
+            {platformEnv.isNativeIOS ||
+            (useFoldablePager && !isTabletMainView) ? (
               <Animated.View
                 collapsable={false}
                 pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}

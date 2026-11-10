@@ -13,6 +13,8 @@ export type IPrimeSubscriptionInfo = {
   willRenew?: boolean;
 };
 export type IPrimeUserInfo = {
+  // Client-observed restriction for this OneKey ID, independent of wallet access.
+  isOneKeyIdBanned?: boolean;
   isLoggedIn: boolean; // local supabase sdk login status
   isLoggedInOnServer: boolean; // server api login status
   isEnablePrime: boolean | undefined;
@@ -186,6 +188,8 @@ export type IPrimeInfiniPendingPaymentLookup = {
   authContext: IPrimeInfiniCheckoutAuthContext;
   // Unavailable discovery requires a risk warning, not a claim of no old order.
   status?: 'unavailable';
+  // Multiple known orders require a warning without selecting a recovery candidate.
+  hasPendingPayments?: boolean;
   pendingPayment?: {
     paymentId?: string;
     payment?: IPrimeInfiniPayment;

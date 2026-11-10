@@ -29,6 +29,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -1137,6 +1141,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
       if (platformEnv.isNative) {
         navigateToMarketTab({
+          entrySource: EMarketHomeEntrySource.WalletHome,
           tabToSelect:
             resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
               ? EMarketHomeTab.Watchlist
@@ -1145,6 +1150,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
         return;
       }
+      markMarketHomeEntry(EMarketHomeEntrySource.WalletHome);
       navigation.switchTab(marketTab);
 
       setTimeout(navigateToTokenDetail, 300);
@@ -1278,6 +1284,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
+        entrySource: EMarketHomeEntrySource.WalletHome,
         tabToSelect: EMarketHomeTab.Perps,
         perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
       });
@@ -1285,11 +1292,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     if (selectedMarketCategoryId) {
-      navigateToMarketTab({ spotCategoryToSelect: selectedMarketCategoryId });
+      navigateToMarketTab({
+        spotCategoryToSelect: selectedMarketCategoryId,
+        entrySource: EMarketHomeEntrySource.WalletHome,
+      });
       return;
     }
 
-    navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
+    navigateToMarketTab({
+      tabToSelect: EMarketHomeTab.Watchlist,
+      entrySource: EMarketHomeEntrySource.WalletHome,
+    });
   }, [navigateToMarketTab, selectedMarketCategoryId]);
 
   // Render table/list layout for user favorites
@@ -1390,6 +1403,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const renderContent = useCallback(() => {
+    let contentMinHeight: number | undefined;
+    if (shouldUseTableLayout) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        32 +
+        50;
+    } else if (hasUserFavorites && !showRecommendCards) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        50;
+    }
+
     const listContent = (() => {
       if (selectedMarketCategoryId) {
         return (
@@ -1460,15 +1485,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            <YStack
-              minHeight={
-                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              }
-            >
-              {renderEmptyStateCards()}
-            </YStack>
+            {renderEmptyStateCards()}
             <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
@@ -1498,13 +1515,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         <YStack
           testID="home-market-content"
           // Reserve three rows, the desktop header, and the bottom action band
-          // across categories, loading, empty states, and recommendation cards.
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0) +
-            50
-          }
+          // for table-based content. Mobile recommendation cards size to their
+          // two-row grid so the add button stays close to the cards.
+          minHeight={contentMinHeight}
         >
           {listContent}
         </YStack>

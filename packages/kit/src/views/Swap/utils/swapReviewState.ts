@@ -97,6 +97,27 @@ export function resolveSwapReviewResultStep(steps: ISwapStep[]): {
     return { resultStep: resultUnknownStep, showResultContent: true };
   }
   const lastStep = steps[steps.length - 1];
+  const failedApprovalIndex =
+    lastStep?.status === ESwapStepStatus.READY
+      ? steps.findIndex(
+          (step) =>
+            step.type === ESwapStepType.APPROVE_TX &&
+            step.status === ESwapStepStatus.FAILED &&
+            step.canRetry &&
+            step.errorMessage,
+        )
+      : -1;
+  if (
+    failedApprovalIndex >= 0 &&
+    steps
+      .slice(failedApprovalIndex + 1)
+      .every((step) => step.status === ESwapStepStatus.READY)
+  ) {
+    return {
+      resultStep: steps[failedApprovalIndex],
+      showResultContent: true,
+    };
+  }
   return {
     resultStep: lastStep,
     showResultContent:

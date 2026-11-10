@@ -32,6 +32,7 @@ export enum EModalSettingRoutes {
   SettingDevSniRequestQa = 'SettingDevSniRequestQa',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
+  SettingDevHardwarePathTestModal = 'SettingDevHardwarePathTestModal',
   SettingDevCloudBackupGalleryModal = 'SettingDevCloudBackupGalleryModal',
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
@@ -128,6 +129,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevSniRequestQa]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevHardwarePathTestModal]: undefined;
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevStorageGalleryModal]: undefined;
@@ -142,7 +144,12 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
   [EModalSettingRoutes.SettingPrivacy]: undefined;
   [EModalSettingRoutes.SettingPrivacyNetwork]:
-    | { networkId?: string; walletId?: string }
+    | {
+        networkId?: string;
+        walletId?: string;
+        accountId?: string;
+        enableSync?: boolean;
+      }
     | undefined;
   [EModalSettingRoutes.SettingDevZcashRuntimeModal]: undefined;
   // Dev JS Bundle Manager

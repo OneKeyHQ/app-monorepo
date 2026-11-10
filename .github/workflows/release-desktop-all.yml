@@ -663,6 +663,13 @@ jobs:
         run: |
           cd apps/desktop
           yarn build:main
+
+      - name: Install app dependencies
+        id: app_dependencies
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
           yarn install-app-deps
 
       # Assume the signing role right before packaging, without exporting the
@@ -793,7 +800,7 @@ jobs:
 
       - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
         id: phase2_main
-        if: always()
+        if: always() && steps.app_dependencies.outcome == 'success'
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           DESK_CHANNEL: ms-store
@@ -1115,6 +1122,14 @@ jobs:
         run: |
           cd apps/desktop
           yarn build:main
+
+      - name: Install app dependencies
+        id: app_dependencies
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          DESK_CHANNEL: appImage
+        run: |
+          cd apps/desktop
           yarn install-app-deps
 
       - name: 'Package AppImage'
@@ -1142,7 +1157,8 @@ jobs:
         run: rm -rf apps/desktop/build-electron
 
       - name: 'Rebuild Main Process (Snap, SNAP=true)'
-        if: always()
+        id: phase2_main
+        if: always() && steps.app_dependencies.outcome == 'success'
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           SNAP: true
@@ -1152,7 +1168,7 @@ jobs:
 
       - name: 'Package Snap'
         id: phase2_snap
-        if: always()
+        if: always() && steps.phase2_main.outcome == 'success'
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

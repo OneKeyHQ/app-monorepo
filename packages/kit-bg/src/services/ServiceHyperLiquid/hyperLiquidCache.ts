@@ -28,6 +28,10 @@ class HyperLiquidCache {
   public referrerCodeSetDone: {
     [addressAndAgentName: string]: boolean;
   } = {};
+
+  public referrerCodeSetInFlight: {
+    [addressAndAgentName: string]: Promise<void>;
+  } = {};
 }
 
 export default new HyperLiquidCache();

@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 
 const {
+  DEFAULT_FIXTURE_PATH,
   createFixtureStore,
   createRecorder,
   isolatedChromiumArgs,
@@ -24,6 +25,41 @@ function tempFixturePath() {
 }
 
 describe('web cold network fixtures', () => {
+  test.each([
+    ['stock Banner', '/utility/v1/stocks/batch', { stockIds: ['NVDA'] }],
+    [
+      'Solana watchlist',
+      '/utility/v2/market/token/list/batch',
+      {
+        currency: 'usd',
+        tokenAddressList: [
+          { chainId: 'sol--101', contractAddress: '', isNative: true },
+        ],
+      },
+    ],
+    [
+      'Solana and Ethereum watchlist',
+      '/utility/v2/market/token/list/batch',
+      {
+        currency: 'usd',
+        tokenAddressList: [
+          { chainId: 'sol--101', contractAddress: '', isNative: true },
+          { chainId: 'evm--1', contractAddress: '', isNative: true },
+        ],
+      },
+    ],
+  ])('replays and records the %s batch quote', (_label, endpoint, body) => {
+    const store = createFixtureStore(readFixtureFile(DEFAULT_FIXTURE_PATH));
+    const request = {
+      method: 'POST',
+      url: `https://utility.onekeycn.com${endpoint}`,
+      postData: JSON.stringify(body),
+    };
+
+    expect(store.lookup(request).entry?.json.code).toBe(0);
+    expect(recordRefusal(request)).toBeNull();
+  });
+
   test('keys GET requests by host, path and sorted query without volatile params', () => {
     expect(
       requestKey({

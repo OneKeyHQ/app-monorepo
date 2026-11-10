@@ -54,14 +54,14 @@ import type {
   ILiquidityFilter,
   IMarketCategoryItem,
   IMarketFilterBarProps,
-  IMarketHomeTabValue,
+  IMarketHomeTabChangeHandler,
 } from '../types';
 
 interface IMobileLayoutProps {
   filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
-  onTabChange: (tabId: IMarketHomeTabValue) => void;
+  onTabChange: IMarketHomeTabChangeHandler;
   tabsRef?: RefObject<IAppPagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;

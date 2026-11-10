@@ -1,6 +1,15 @@
 import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+  HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  OneKeyError,
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -10,8 +19,12 @@ import {
   callHardwareCloudSyncDevice,
   convertHardwareCloudSyncDeviceError,
   createHardwareCloudSyncDataError,
+  createHardwareCloudSyncDiagnostic,
+  getHardwareCloudSyncErrorDiagnostics,
+  logHardwareCloudSyncDiagnostic,
   logHardwareCloudSyncFailure,
   sanitizeHardwareCloudSyncDeviceError,
+  summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
 
 const mockLog = jest.fn<void, [string]>();
@@ -34,6 +47,67 @@ test('SDK failure logs exclude messages, request data and signatures', () => {
   expect(mockLog).toHaveBeenCalledWith(
     '[HardwareCloudSync] Device step failed: HardwareTransportError | 101',
   );
+});
+
+test('device diagnostics retain compatibility fields without copying SDK data', () => {
+  const context = {
+    deviceType: 'touch',
+    firmwareVersion: '4.9.0',
+    protocol: 'V1',
+    unlocked: true,
+    passphraseProtection: false,
+    unlockedAttachPin: null,
+    deviceIdMatches: true,
+    serialNo: 'synthetic-private-serial',
+    address: 'synthetic-private-address',
+    signature: 'synthetic-private-signature',
+  };
+  logHardwareCloudSyncFailure(
+    'Standard wallet check',
+    'Invalid state',
+    context,
+  );
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] Standard wallet check: Invalid state | {"deviceType":"touch","firmwareVersion":"4.9.0","protocol":"V1","unlocked":true,"passphraseProtection":false,"unlockedAttachPin":null,"deviceIdMatches":true}',
+  );
+});
+
+test('device diagnostics reject arbitrary model and firmware strings', () => {
+  logHardwareCloudSyncFailure('Device step', 'Invalid state', {
+    deviceType: 'synthetic-private-model',
+    firmwareVersion: 'synthetic-private-firmware',
+    protocol: 'synthetic-private-protocol',
+  });
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] Device step: Invalid state',
+  );
+});
+
+test('device failure diagnostics retain SDK codes and known path refusals', () => {
+  const signature = 'ab'.repeat(65);
+  logHardwareCloudSyncFailure('btcSignMessage.auth', {
+    className: 'OneKeyHardwareError',
+    code: 803,
+    payload: {
+      code: 800,
+      error: 'Failure_DataError,Forbidden key path',
+      signature,
+    },
+    message: signature,
+    request: { messageHex: signature },
+  });
+  expect(mockLog).toHaveBeenCalledWith(
+    '[HardwareCloudSync] btcSignMessage.auth: OneKeyHardwareError | 803 | sdkCode=800 | Forbidden key path',
+  );
+});
+
+test('a diagnostic sink failure cannot replace the hardware error', () => {
+  mockLog.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('Synthetic log sink failure');
+  });
+  expect(() =>
+    logHardwareCloudSyncFailure('Device step', { code: 105 }),
+  ).not.toThrow();
 });
 
 test('data errors show a translated message and log only the internal check', () => {
@@ -209,4 +283,228 @@ test('thrown SDK errors retain the common silent-mode behavior', async () => {
   } finally {
     emit.mockRestore();
   }
+});
+
+test.each([
+  HardwareErrorCode.DeviceCheckUnlockTypeError,
+  HardwareErrorCode.DeviceCheckPassphraseStateError,
+  HardwareErrorCode.PinInvalid,
+  HardwareErrorCode.DeviceNotFound,
+])(
+  'raw numeric SDK code %s retains the shared error type and translation',
+  (code) => {
+    const common = convertDeviceError(
+      { code, error: 'Synthetic device refusal' },
+      { silentMode: true },
+    );
+    const safe = sanitizeHardwareCloudSyncDeviceError(
+      { code, message: 'Synthetic device refusal' },
+      'selected-id',
+      { silentMode: true },
+    );
+    expect(Object.getPrototypeOf(safe)).toBe(Object.getPrototypeOf(common));
+    expect(safe).toMatchObject({
+      code: common.code,
+      key: common.key,
+      $isHardwareError: true,
+    });
+  },
+);
+
+test('sync diagnostics allow only fixed stages and safe aggregate values', () => {
+  logHardwareCloudSyncDiagnostic('history_received_completeness_unknown', {
+    returnedCount: 260,
+    invalidEnvelopeCount: 1,
+    historyCompleteKnown: false,
+    token: 'private-token',
+    dekId: 'private-dek-id',
+    pwdHash: 'private-pwd-hash',
+    wrappedDek: 'private-wrapped-key',
+    error: { message: 'private-error' },
+    generation: 'private-generation',
+    page: NaN,
+    start: -1,
+  });
+  expect(mockLog).toHaveBeenLastCalledWith(
+    '[HardwareCloudSyncDiagnostic] history_received_completeness_unknown {"historyCompleteKnown":false,"returnedCount":260,"invalidEnvelopeCount":1}',
+  );
+  logHardwareCloudSyncDiagnostic('private_secret_value', { returnedCount: 1 });
+  expect(mockLog).toHaveBeenCalledTimes(1);
+});
+
+test('diagnostics failure never replaces the operation or propagates an error', () => {
+  mockLog.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('logger failed');
+  });
+  expect(() =>
+    logHardwareCloudSyncDiagnostic('request_failed', { unauthorized: true }),
+  ).not.toThrow();
+});
+
+test('diagnostic correlation lasts only for a new operation', () => {
+  const first = createHardwareCloudSyncDiagnostic();
+  const second = createHardwareCloudSyncDiagnostic();
+  first('request_download');
+  first('request_failed');
+  second('request_download');
+  const ids = mockLog.mock.calls.map(
+    ([line]) =>
+      (JSON.parse(line.slice(line.indexOf('{'))) as { operationId?: string })
+        .operationId,
+  );
+  expect(ids[0]).toMatch(/^[a-zA-Z0-9]{12}$/);
+  expect(ids[1]).toBe(ids[0]);
+  expect(ids[2]).not.toBe(ids[0]);
+});
+
+test('error diagnostics classify codes without exposing server explanations or Axios config', () => {
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      code: 90_700,
+      message: 'private-message',
+      response: { status: 401, data: 'private-body' },
+      config: { headers: { Authorization: 'private-token' } },
+    }),
+  ).toEqual({
+    businessCode: 90_700,
+    httpStatus: 401,
+    transportFailure: false,
+    timeout: false,
+  });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({ code: 'ETIMEDOUT' }),
+  ).toMatchObject({ timeout: true });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({ code: 'ERR_NETWORK' }),
+  ).toMatchObject({ transportFailure: true });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      code: 'private-token',
+      response: { status: 'private-data' },
+    }),
+  ).toEqual({
+    businessCode: undefined,
+    httpStatus: undefined,
+    transportFailure: false,
+    timeout: false,
+  });
+});
+
+test('restore diagnostics classify mismatched tombstones and locks without exposing their values', () => {
+  const items = [
+    { pwdHash: 'private-old', dataType: 'Lock', isDeleted: false },
+    { pwdHash: 'private-old', dataType: 'Wallet', isDeleted: true },
+    {
+      pwdHash: 'private-old',
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      isDeleted: true,
+    },
+    { pwdHash: 'private-old', dataType: 'IndexedAccount', isDeleted: false },
+    {
+      pwdHash: 'private-old',
+      dataType: 'private-unknown-type',
+      isDeleted: true,
+    },
+    { pwdHash: 'private-known', dataType: 'Wallet', isDeleted: true },
+    { pwdHash: '', dataType: 'Lock', isDeleted: true },
+  ];
+  const summary = summarizeHardwareCloudSyncRestoreItems(
+    items,
+    new Set(['private-known']),
+  );
+  expect(summary).toMatchObject({
+    mismatchedItemCount: 5,
+    mismatchedDeletedCount: 3,
+    mismatchedLiveCount: 2,
+    mismatchedLockCount: 1,
+    mismatchedDeletedLockCount: 0,
+    mismatchedWalletCount: 1,
+    mismatchedDeletedWalletCount: 1,
+    mismatchedEnvelopeCount: 1,
+    mismatchedDeletedEnvelopeCount: 1,
+    mismatchedAccountCount: 1,
+    mismatchedOtherCount: 1,
+    mismatchedDeletedOtherCount: 1,
+  });
+  logHardwareCloudSyncDiagnostic('restore_key_compatibility_guard', {
+    ...summary,
+    existingSigningPublicKeyEmpty: true,
+    currentSigningPublicKeyEmpty: false,
+  });
+  const logs = JSON.stringify(mockLog.mock.calls);
+  expect(mockLog.mock.calls[0][0]).toContain('mismatchedDeletedOtherCount');
+  expect(logs).not.toContain('private-');
+});
+
+test('diagnostic-only aggregation failures do not escape', () => {
+  expect(() =>
+    logHardwareCloudSyncDiagnostic('restore_key_compatibility_guard', () => {
+      throw new OneKeyLocalError('private-error');
+    }),
+  ).not.toThrow();
+});
+
+test('diagnostics recognize interceptor-normalized network and HTTP failures', () => {
+  const network = new OneKeyError({
+    className: EOneKeyErrorClassNames.AxiosNetworkError,
+    message: 'private-network-detail',
+  });
+  expect(getHardwareCloudSyncErrorDiagnostics(network)).toMatchObject({
+    transportFailure: true,
+  });
+  const server = new OneKeyServerApiError({
+    code: 90_700,
+    httpStatusCode: 403,
+    message: 'private-server-detail',
+  });
+  expect(getHardwareCloudSyncErrorDiagnostics(server)).toMatchObject({
+    businessCode: 90_700,
+    httpStatus: 403,
+    transportFailure: false,
+  });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics(
+      new OneKeyServerApiError({ httpStatusCode: 503 }),
+    ),
+  ).toMatchObject({ httpStatus: 503 });
+  expect(
+    getHardwareCloudSyncErrorDiagnostics({
+      httpStatusCode: NaN,
+      response: { status: 502 },
+    }),
+  ).toMatchObject({ httpStatus: 502 });
+  logHardwareCloudSyncDiagnostic(
+    'request_failed',
+    getHardwareCloudSyncErrorDiagnostics(server),
+  );
+  expect(JSON.stringify(mockLog.mock.calls)).not.toContain('private-');
+});
+
+test('restore envelope category uses the protocol data type for live and deleted records', () => {
+  const counts = summarizeHardwareCloudSyncRestoreItems(
+    [
+      {
+        dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+        pwdHash: 'unknown',
+        isDeleted: false,
+      },
+      {
+        dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+        pwdHash: 'unknown',
+        isDeleted: true,
+      },
+      {
+        dataType: 'HardwareCloudSyncKeyEnvelope',
+        pwdHash: 'unknown',
+        isDeleted: true,
+      },
+    ],
+    new Set(),
+  );
+  expect(counts).toMatchObject({
+    mismatchedEnvelopeCount: 2,
+    mismatchedDeletedEnvelopeCount: 1,
+    mismatchedOtherCount: 1,
+    mismatchedDeletedOtherCount: 1,
+  });
 });

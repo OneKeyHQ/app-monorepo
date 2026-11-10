@@ -64,7 +64,6 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   localWallet: {
     activation: 'account-opt-in',
-    feeSetByProtocol: true,
     balanceShape: 'pooled',
     // t1/t3, or a ZIP-320 TEX address (tex1 + 38 bech32m chars).
     publicAddressPattern:
@@ -80,14 +79,14 @@ const settings: IVaultSettings = {
         key: 'transparent',
         kind: 'public',
         source: 'backend',
-        label: 'Transparent',
+        label: 'Public',
       },
       {
         id: ZCASH_POOL_IDS.ironwood,
         key: 'ironwood',
         kind: 'private',
         source: 'localScan',
-        label: 'Ironwood',
+        label: 'Private',
         isDefaultPrivate: ZCASH_CURRENT_SHIELDED_POOL === 'ironwood',
       },
     ],

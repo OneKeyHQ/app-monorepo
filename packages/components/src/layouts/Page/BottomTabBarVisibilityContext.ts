@@ -4,6 +4,24 @@ export const BottomTabBarVisibilityContext = createContext<boolean | undefined>(
   undefined,
 );
 
+export const BottomTabBarVerticalContext = createContext(false);
+
+// A vertical tab bar reports its full column height but sits in a side strip,
+// so only the bottom safe area is left for content to reserve.
+export function getNativeTabBarHeight({
+  bottom,
+  isVerticalTabBar,
+  measuredHeight,
+}: {
+  bottom: number;
+  isVerticalTabBar: boolean;
+  measuredHeight: number | undefined;
+}) {
+  return isVerticalTabBar && measuredHeight !== undefined
+    ? bottom
+    : measuredHeight;
+}
+
 export function getPageFooterBottomMetrics({
   bottom,
   isNative,

@@ -32,6 +32,7 @@ export const {
 });
 
 export const primePersistAtomInitialValue: IPrimePersistAtomData = {
+  isOneKeyIdBanned: false,
   // export const initialPrimePersistAtomData: IPrimePersistAtomData = {
   isLoggedIn: false,
   isLoggedInOnServer: false,

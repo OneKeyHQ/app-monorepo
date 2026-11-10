@@ -18,7 +18,9 @@ import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
 import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
 import {
+  BottomTabBarVerticalContext,
   BottomTabBarVisibilityContext,
+  getNativeTabBarHeight,
   getPageFooterBottomMetrics,
 } from './BottomTabBarVisibilityContext';
 import { PageContext } from './PageContext';
@@ -130,8 +132,15 @@ export const useSafeAreaBottom = () => {
 
 // Returns native-measured tab bar height (includes safe area on iOS).
 // Returns undefined when outside a tab navigator.
-const useNativeTabBarHeight = () =>
-  useContext(BottomTabBarHeightContext) ?? undefined;
+const useNativeTabBarHeight = () => {
+  const measuredHeight = useContext(BottomTabBarHeightContext) ?? undefined;
+  const isVerticalTabBar = useContext(BottomTabBarVerticalContext);
+  const { bottom } = useSafeAreaInsets();
+  return getNativeTabBarHeight({ bottom, isVerticalTabBar, measuredHeight });
+};
+
+export const useIsVerticalTabBar = () =>
+  useContext(BottomTabBarVerticalContext);
 
 const usePageFooterBottomMetrics = () => {
   const nativeTabBarHeight = useNativeTabBarHeight();

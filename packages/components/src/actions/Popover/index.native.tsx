@@ -29,6 +29,7 @@ import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
+import { GlassHeaderProvider } from '../../primitives/Button/GlassHeaderContext';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
@@ -123,7 +124,8 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
   return (
     <ModalNavigatorContext.Provider value={modalNavigatorContext}>
       <PageContext.Provider value={pageContextValue}>
-        {children}
+        {/* Overlay content is outside the trigger's glass capsule. */}
+        <GlassHeaderProvider value={false}>{children}</GlassHeaderProvider>
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>
   );
@@ -267,6 +269,14 @@ function RawPopover({
     0,
     nativeSheetBottomSpacing - nativeSheetSystemBottomInset,
   );
+  // A fitted sheet's height already ends at the bottom inset
+  // (`nativeSheetDetentBottomSpacing` is part of it), so its content must not
+  // reserve that inset again: inside the fixed-height frame the margin is
+  // taken out of the ScrollView and clips headerless fitted popovers. Percent
+  // sheets stretch their content to the sheet's bottom edge and keep it.
+  const sheetScrollViewBottomMargin = isFitSheet
+    ? nativeSheetDetentBottomSpacing
+    : nativeSheetBottomSpacing;
   const resolvedSheetHeaderHeight = showHeader ? sheetHeaderHeight : 0;
   const sheetScrollViewMaxHeight =
     resolvedSheetHeaderHeight !== undefined
@@ -517,7 +527,7 @@ function RawPopover({
           backgroundColor="$bg"
           showsVerticalScrollIndicator={false}
           mx="$5"
-          mb={bottom || '$5'}
+          mb={sheetScrollViewBottomMargin}
           maxHeight={sheetScrollViewMaxHeight}
           onContentSizeChange={handleSheetContentSizeChange}
           innerViewRef={sheetInnerViewRef}

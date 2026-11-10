@@ -29,9 +29,12 @@ import {
 import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
   createPrimeFreeTrialAttempt,
@@ -387,7 +390,13 @@ export function TranslatePopoverContent({
   }
 
   return (
-    <YStack gap="$5" p="$5">
+    <YStack
+      testID="discovery-translate-content"
+      gap="$5"
+      px="$5"
+      pb="$5"
+      pt={isNative ? '$2' : '$5'}
+    >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size={titleSize}>
           {intl.formatMessage({
@@ -412,7 +421,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            // The Prime badge sits inline after the label.
+            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -422,7 +431,7 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {showPrimeBadge ? (
+            {!isNative && showPrimeBadge ? (
               <Badge
                 testID="discovery-translate-prime-badge"
                 badgeSize="sm"
@@ -566,7 +575,16 @@ export function usePageTranslation(tabId: string) {
     }
   }, []);
 
-  const { isPrimeSubscriptionActive } = useOneKeyAuth();
+  const { isPrimeSubscriptionActive, user } = useOneKeyAuth();
+  const userRef = useRef(user);
+  userRef.current = user;
+  const showAccountBanned = useCallback(() => {
+    errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
+  }, []);
+  const handleAccountBanned = useCallback(() => {
+    setIsTranslated(false);
+    showAccountBanned();
+  }, [showAccountBanned]);
   const { showFreeTrialNoticeToast } = usePrimeFeatureAccess();
   // A running session hit the free-trial limit (or the trial was closed):
   // the session was already stopped with the billed translations kept. No
@@ -612,6 +630,7 @@ export function usePageTranslation(tabId: string) {
       currentTargetLang: resolvedTargetLang,
       entitlementSource: isPrimeSubscriptionActive ? 'prime' : 'freeTrial',
       onFreeTrialUnavailable: handleFreeTrialUnavailable,
+      onAccountBanned: handleAccountBanned,
       onAITranslateUnavailable: ({ targetLang }) => {
         setIsTranslated(false);
 
@@ -643,6 +662,10 @@ export function usePageTranslation(tabId: string) {
                 if (!isOriginalPageStillActive) {
                   return;
                 }
+                if (userRef.current?.isOneKeyIdBanned) {
+                  showAccountBanned();
+                  return;
+                }
 
                 setSettings((prev) => ({
                   ...prev,
@@ -671,6 +694,31 @@ export function usePageTranslation(tabId: string) {
       },
     });
 
+  const previousUserIdRef = useRef(user?.onekeyUserId);
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+    const identityChanged = previousUserId !== user?.onekeyUserId;
+    previousUserIdRef.current = user?.onekeyUserId;
+    if (identityChanged) {
+      // A login opened by this press may create the first identity. Only an
+      // existing identity/session is invalidated by switching accounts.
+      if (previousUserId || translatingRef.current || isTranslatedRef.current) {
+        pageContextVersionRef.current += 1;
+        restoreOriginal();
+        setIsTranslated(false);
+      }
+    } else if (user?.isOneKeyIdBanned && translatingRef.current) {
+      restoreOriginal();
+      handleAccountBanned();
+    }
+  }, [
+    user?.onekeyUserId,
+    user?.isOneKeyIdBanned,
+    restoreOriginal,
+    translatingRef,
+    handleAccountBanned,
+  ]);
+
   const logToggle = useCallback(
     (action: 'enable' | 'disable') => {
       defaultLogger.discovery.translation.dappTranslateToggle({
@@ -694,6 +742,10 @@ export function usePageTranslation(tabId: string) {
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
   const ensureTranslateAccess = useCallback(async () => {
+    if (userRef.current?.isOneKeyIdBanned) {
+      showAccountBanned();
+      return false;
+    }
     if (isPrimeSubscriptionActive) {
       return true;
     }
@@ -706,9 +758,18 @@ export function usePageTranslation(tabId: string) {
       stage: 'access',
     });
     try {
+      const userIdAtPress = userRef.current?.onekeyUserId;
       const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (isUnmountedRef.current) {
+      if (
+        isUnmountedRef.current ||
+        userIdAtPress !== userRef.current?.onekeyUserId
+      ) {
         attempt.finish('contextChanged');
+        return false;
+      }
+      if (userRef.current?.isOneKeyIdBanned) {
+        attempt.finish('failed');
+        showAccountBanned();
         return false;
       }
       if (loggedIn) {
@@ -758,9 +819,13 @@ export function usePageTranslation(tabId: string) {
         reason: (error as Error | undefined)?.message,
       });
       if (!(error as { autoToast?: boolean } | undefined)?.autoToast) {
-        Toast.error({
-          title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
-        });
+        if (isPrimeUserBannedError(error)) {
+          showAccountBanned();
+        } else {
+          Toast.error({
+            title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
+          });
+        }
       }
       return false;
     }
@@ -771,6 +836,7 @@ export function usePageTranslation(tabId: string) {
     isPrimeSubscriptionActive,
     openPrimeDashboard,
     showActiveRejectedFeedback,
+    showAccountBanned,
     tabId,
   ]);
 

@@ -4,8 +4,16 @@ import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { TranslatePopoverTrigger } from './usePageTranslation';
 
+let mockPrimeSubscriptionActive = false;
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'zh-CN',
@@ -13,7 +21,10 @@ jest.mock('react-intl', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
-  useOneKeyAuth: () => ({ isLoggedIn: true, isPrimeSubscriptionActive: false }),
+  useOneKeyAuth: () => ({
+    isLoggedIn: true,
+    isPrimeSubscriptionActive: mockPrimeSubscriptionActive,
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -44,23 +55,52 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 jest.mock('./useWebTabs', () => ({}));
 jest.mock('@onekeyhq/components', () => {
   const closePopover = jest.fn();
-  const Stack = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
+  const Stack = ({
+    children,
+    testID,
+    pt,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    pt?: string;
+  }) => (
+    <div data-testid={testID} data-padding-top={pt}>
+      {children}
+    </div>
   );
+  const Badge = ({
+    children,
+    testID,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+  }) => <div data-testid={testID}>{children}</div>;
   return {
     usePopoverContext: () => ({ closePopover }),
     YStack: Stack,
     XStack: Stack,
     Stack,
     SizableText: Stack,
-    Badge: Object.assign(Stack, { Text: Stack }),
+    Badge: Object.assign(Badge, { Text: Stack }),
     Button: ({
       children,
       onPress,
+      iconAfter,
+      testID,
     }: {
       children?: ReactNode;
       onPress: () => void;
-    }) => <button onClick={onPress}>{children}</button>,
+      iconAfter?: string;
+      testID?: string;
+    }) => (
+      <button
+        data-testid={testID}
+        data-icon-after={iconAfter}
+        onClick={onPress}
+      >
+        {children}
+      </button>
+    ),
     IconButton: ({
       onPress,
       testID,
@@ -110,6 +150,69 @@ jest.mock('@onekeyhq/components', () => {
     },
   };
 });
+
+beforeEach(() => {
+  mockPrimeSubscriptionActive = false;
+  Object.assign(platformEnv, { isNative: false });
+});
+
+it.each([
+  { isNative: true, paddingTop: '$2' },
+  { isNative: false, paddingTop: '$5' },
+])(
+  'uses compact content top padding only on native: %j',
+  ({ isNative, paddingTop }) => {
+    Object.assign(platformEnv, { isNative });
+    const props = { isTranslated: false, onTranslate: jest.fn(), open: true };
+    render(<TranslatePopoverTrigger {...props} />);
+    expect(
+      screen.getByTestId('discovery-translate-content').dataset.paddingTop,
+    ).toBe(paddingTop);
+  },
+);
+
+it.each([
+  {
+    isNative: true,
+    isPrime: false,
+    isTranslated: false,
+    icon: 'PrimeOutline',
+    badge: false,
+  },
+  {
+    isNative: true,
+    isPrime: true,
+    isTranslated: false,
+    icon: undefined,
+    badge: false,
+  },
+  {
+    isNative: true,
+    isPrime: false,
+    isTranslated: true,
+    icon: undefined,
+    badge: false,
+  },
+  {
+    isNative: false,
+    isPrime: false,
+    isTranslated: false,
+    icon: undefined,
+    badge: true,
+  },
+])(
+  'keeps the Prime indicator conditional and native-only: %j',
+  ({ isNative, isPrime, isTranslated, icon, badge }) => {
+    Object.assign(platformEnv, { isNative });
+    mockPrimeSubscriptionActive = isPrime;
+    const props = { isTranslated, onTranslate: jest.fn(), open: true };
+    render(<TranslatePopoverTrigger {...props} />);
+    expect(screen.getByTestId('discovery-btn').dataset.iconAfter).toBe(icon);
+    expect(
+      Boolean(screen.queryByTestId('discovery-translate-prime-badge')),
+    ).toBe(badge);
+  },
+);
 
 it('keeps the custom-language list open when a free-user quota refresh changes the translate callback', () => {
   const props = { isTranslated: false, onTranslate: jest.fn(), open: true };

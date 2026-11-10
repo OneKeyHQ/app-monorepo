@@ -1,6 +1,7 @@
 import {
   getTradingViewNativeFullscreenButtonBottom,
   getTradingViewNativeFullscreenLayout,
+  isTradingViewNativePhoneWindow,
   shouldHideTradingViewNativeStatusBar,
 } from './fullscreenLayout';
 
@@ -134,4 +135,17 @@ describe('TradingView native fullscreen layout', () => {
   ])('returns $expected for $name', ({ expected, ...options }) => {
     expect(shouldHideTradingViewNativeStatusBar(options)).toBe(expected);
   });
+
+  it.each([
+    { width: 360, height: 640, expected: true },
+    { width: 640, height: 360, expected: true },
+    { width: 800, height: 1280, expected: false },
+    { width: 1280, height: 800, expected: false },
+    { width: 0, height: 640, expected: false },
+  ])(
+    'classifies a $width × $height window as a phone: $expected',
+    ({ width, height, expected }) => {
+      expect(isTradingViewNativePhoneWindow({ width, height })).toBe(expected);
+    },
+  );
 });

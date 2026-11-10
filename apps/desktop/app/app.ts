@@ -39,7 +39,9 @@ import {
   getOriginDomainKey,
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
-import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
+import desktopApi, {
+  getDesktopApiAppUpdate,
+} from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -53,14 +55,11 @@ import {
 } from '@onekeyhq/shared/src/consts/appMenuConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { makeIpcSafeError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
-import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
-import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
-import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
-import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -72,31 +71,72 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import { createBeforeQuitHandler } from './libs/appQuitHandlers';
+import {
+  applyBootFailThresholds,
+  resetBootFailCountOnGracefulQuit,
+} from './libs/bootFailRecovery';
+import {
+  CPU_WATCHDOG_COOLDOWN_MS,
+  CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+  CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
+  CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
+  CPU_WATCHDOG_STARTUP_GRACE_MS,
+  CpuWatchdogController,
+  isCpuWatchdogReason,
+} from './libs/cpuWatchdog';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import {
-  DESKTOP_DEEP_LINK_PROTOCOLS,
   findAllowedDeepLinkArg,
-  getDesktopProtocolClientArgs,
-  isAllowedDeepLinkUrl,
   resolveDesktopRuntimeFlags,
 } from './libs/deepLink';
 import {
+  createDeepLinkHandler,
+  createSecondInstanceHandler,
+} from './libs/deepLinkHandler';
+import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
-  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
+import { createFetchStreamRelay } from './libs/fetchStreamRelay';
+import {
+  createMainWindowClosedHandler,
+  createSafelyBrowserWindowGetter,
+  getMainWindow,
+  getSafelyMainWindow,
+  setMainWindow,
+  showMainWindow,
+} from './libs/mainWindowAccess';
+import { createMainWindowFactory } from './libs/mainWindowFactory';
+import {
+  createMainWindowSenderTrustPredicate,
+  createShellDocumentTrustState,
+  installMainWindowShellNavigationHandlers,
+} from './libs/mainWindowShellTrust';
+import { installMainWindowShortcutHandlers } from './libs/mainWindowShortcutHandlers';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
 import { openExternalUrl } from './libs/openExternalUrl';
 import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
+import { PROTOCOL } from './libs/protocol';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
+import { registerDesktopProtocolClients } from './libs/registerDesktopProtocolClients';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
-import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
+import {
+  createDidFailLoadHandler,
+  createMainRendererRecoveryState,
+  createRenderProcessGoneHandler,
+} from './libs/rendererRecoveryHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
+import { createSoftRestartRenderer } from './libs/softRestart';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
 import {
@@ -123,32 +163,10 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
+import type { ICpuWatchdogReason } from './libs/cpuWatchdog';
 import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
-// cspell:ignore pkexec
-// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
-// errors/results so Electron's structured clone never throws "An object could
-// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
-// `.message` is preserved verbatim so the renderer-side counterpart,
-// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
-// can still recover any `{ message, code, data }` payload encoded in it.
-function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
-  if (error instanceof Error) {
-    const message = error.message || fallbackMessage;
-    const safeError = new Error(message);
-    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
-      safeError.name = error.name || 'Error';
-    }
-    safeError.stack = error.stack;
-    return safeError;
-  }
-
-  if (typeof error === 'string' && error) {
-    return new Error(error);
-  }
-
-  return new Error(fallbackMessage);
-}
+export type { IDesktopOpenUrlEventData } from './libs/deepLinkHandler';
 
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
@@ -254,13 +272,7 @@ globalThis.$desktopMainAppFunctions = {
 const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
-let mainWindow: BrowserWindow | null;
 let isAppReady = false;
-// Custom scheme used to serve the renderer bundle via interceptFileProtocol.
-// Module-scoped so softRestartRenderer and createMainWindow reference the SAME
-// value — a divergence would make the pre-recreate uninterceptProtocol call
-// silently no-op and reintroduce the stale-interceptor bug it exists to prevent.
-const PROTOCOL = 'file';
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
@@ -311,117 +323,6 @@ const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
-
-export type IDesktopOpenUrlEventData = {
-  url?: string;
-  argv?: string[];
-  isColdStartup?: boolean;
-  platform?: string;
-};
-
-const getSafelyMainWindow = () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    return mainWindow;
-  }
-  return undefined;
-};
-
-function showMainWindow() {
-  const safelyMainWindow = getSafelyMainWindow();
-  safelyMainWindow?.show();
-  safelyMainWindow?.focus();
-}
-
-// MAS / Mac App Store builds cannot call `app.relaunch()` (sandbox forbids it),
-// so a JS bundle update there cannot hard-restart. Instead we "soft restart":
-// destroy the renderer and recreate it in-process. createMainWindow() re-runs
-// processPreLaunchPendingTask() + getUpdateBundleData() + getBundleIndexHtmlPath()
-// and (after the P0-1 uninterceptProtocol fix) rebinds the file:// interceptor to
-// the new bundle, so the recreated window loads the freshly-installed bundle.
-// The active bundle pointer was already written to the main-process store
-// (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
-let softRestarting = false;
-async function softRestartRenderer() {
-  if (softRestarting) {
-    logger.warn('[softRestart] already in progress, ignoring re-entrant call');
-    return;
-  }
-  softRestarting = true;
-  const startedAt = Date.now();
-  const targetBundle = store.getUpdateBundleData();
-  logger.info('[softRestart] begin', {
-    mas: process.mas,
-    targetAppVersion: targetBundle?.appVersion,
-    targetBundleVersion: targetBundle?.bundleVersion,
-    nativeVersion: app.getVersion(),
-    hadTrayWindow: !!getTrayWindow(),
-  });
-  try {
-    // Give the newly installed bundle a fresh boot-fail budget (the bundle-level
-    // analog of createMainWindow's app-version-change reset). createMainWindow
-    // then increments to 1 — the soft restart still COUNTS, so a new bundle that
-    // crashes on boot accumulates toward the recovery page just like a cold boot,
-    // while repeated SUCCESSFUL soft restarts can't trip recovery (each resets
-    // here, then markBootSuccess clears it). This keeps the crash self-heal /
-    // auto-rollback path alive on MAS where app.relaunch() is unavailable.
-    store.resetConsecutiveBootFailCount();
-    // destroy() force-terminates the old renderer process (same as today's hard
-    // restart), giving the recreated window a clean customElements registry and
-    // killing any in-flight JS in the old renderer so it cannot re-trigger.
-    getSafelyMainWindow()?.destroy();
-    mainWindow = null;
-    isAppReady = false;
-    logger.info('[softRestart] old renderer destroyed');
-    // The macOS tray panel is a separate BrowserWindow running its own copy of
-    // the bundle; it is NOT recreated by createMainWindow, so after a soft
-    // restart it would keep running the OLD bundle. Destroy it (keeping the tray
-    // icon + polling alive) so the next tray open lazily rebuilds it from the new
-    // bundle (loadTrayUrl reads the current bundle path fresh on each create).
-    destroyTrayWindow();
-    logger.info('[softRestart] tray window destroyed (will rebuild on demand)');
-    // Remove the previous window's file:// interceptor NOW, before the recreated
-    // window's loadURL runs. The interceptor lives on the persistent
-    // defaultSession (it outlives the window) and still captures the OLD bundle's
-    // path + metadata. createMainWindow only re-registers it later, after an
-    // `await getMetadata`, so without this the new bundle's very first
-    // `file://{newBundle}/index.html` request would be served by the stale
-    // interceptor → hash mismatch / tamper dialog / old bundle. Clearing it here
-    // lets Chromium's default file handler serve the real new index.html (same
-    // as a cold boot), and createMainWindow then installs a fresh interceptor.
-    try {
-      const wasIntercepted =
-        session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL);
-      if (wasIntercepted) {
-        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
-      }
-      logger.info('[softRestart] stale file interceptor cleared', {
-        wasIntercepted,
-      });
-    } catch (e) {
-      logger.warn(
-        '[softRestart] uninterceptProtocol before recreate failed',
-        e,
-      );
-    }
-    mainWindow = await createMainWindow({ isSoftRestart: true });
-    showMainWindow();
-    logger.info('[softRestart] done: renderer recreated with new bundle', {
-      durationMs: Date.now() - startedAt,
-      indexHtml:
-        globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.(),
-    });
-  } catch (e) {
-    // If recreation fails there is no safe in-process recovery on MAS; exit so
-    // the user can relaunch manually (equivalent to today's MAS behavior).
-    logger.error('[softRestart] failed, exiting', {
-      durationMs: Date.now() - startedAt,
-      error: e,
-    });
-    app.exit(0);
-  } finally {
-    softRestarting = false;
-  }
-}
 
 // The built-in `toggleDevTools` role targets the focused webContents, which
 // can be an embedded <webview> (even one in a hidden tab), so the main window
@@ -689,60 +590,17 @@ function quitOrMinimizeApp() {
 }
 
 const emitter = new EventEmitter();
-function handleDeepLinkUrl(
-  event: Event | null,
-  url: string,
-  argv?: string[],
-  isColdStartup?: boolean,
-) {
-  // Validate deep link scheme and syntax before forwarding to renderer.
-  // Never log raw deep link URLs as they may contain pairing keys or tokens.
-  if (!url || !isAllowedDeepLinkUrl(url)) {
-    logger.warn('[DeepLink] Rejected URL with unknown or unsafe scheme');
-    return;
-  }
-
-  // Only forward the validated deep link URL; never pass raw process.argv
-  // (which contains executable paths, Electron switches, or untrusted args).
-  const eventData: IDesktopOpenUrlEventData = {
-    url,
-    argv: argv ? [url] : undefined,
-    isColdStartup,
-    platform: process.platform,
-  };
-
-  const sendEventData = () => {
-    const safelyMainWindow = getSafelyMainWindow();
-    if (safelyMainWindow) {
-      showMainWindow();
-
-      // Cold startup: cache the deep link for later processing
-      if (!isAppReady) {
-        safelyMainWindow.webContents.send(
-          ipcMessageKeys.OPEN_DEEP_LINK_URL,
-          eventData,
-        );
-      }
-
-      // Hot startup: send directly to registered listener
-      safelyMainWindow.webContents.send(
-        ipcMessageKeys.EVENT_OPEN_URL,
-        eventData,
-      );
-    }
-
-    isAppReady = true;
-  };
-  if (isAppReady && mainWindow) {
-    sendEventData();
-  } else {
-    emitter.once('ready', () => sendEventData());
-  }
-
-  if (event) {
-    event?.preventDefault();
-  }
-}
+const handleDeepLinkUrl = createDeepLinkHandler({
+  logger,
+  getSafelyMainWindow,
+  showMainWindow,
+  getIsAppReady: () => isAppReady,
+  setAppReady: (ready) => {
+    isAppReady = ready;
+  },
+  hasMainWindow: () => Boolean(getMainWindow()),
+  emitter,
+});
 
 function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
   if (systemIdleInterval) {
@@ -779,21 +637,31 @@ const minHeight = 800;
 let bleQuitStarted = false;
 let bleQuitReady = false;
 let appQuitStarted = false;
-let mainRendererBootFailed = false;
+const mainRendererRecoveryState = createMainRendererRecoveryState();
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
 const trezorBleSupports = new Set<
   ReturnType<typeof initThirdPartyBleSupport>
 >();
-// When the main renderer dies, the window keeps its last frame but ignores all
-// input. Reload it, capped so a renderer that crashes while booting cannot
-// reload forever.
-const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
-const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
-let mainRendererReloadTimestamps: number[] = [];
+const createMainWindow = createMainWindowFactory(createMainWindowImpl);
+const { softRestartRenderer, isSoftRestarting } = createSoftRestartRenderer({
+  logger,
+  app,
+  store,
+  getTrayWindow,
+  destroyTrayWindow,
+  setAppReady: (ready) => {
+    isAppReady = ready;
+  },
+  session,
+  createMainWindow,
+  getBundleIndexHtmlPath: () =>
+    globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.(),
+  getProcessMas: () => process.mas,
+});
 
-async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
   if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
@@ -823,33 +691,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.setBootFailAppVersion(currentAppVersion);
   let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
-  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
-  if (bootFailCount >= 3 && activeOtaBundleVersion) {
-    logger.warn(
-      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
-      {
-        bootFailCount,
-        bundleVersion: activeOtaBundleVersion,
-        appVersion: currentAppVersion,
-      },
-    );
-    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
-    store.revokePendingSwitchForFailedBundle(
-      currentAppVersion,
-      activeOtaBundleVersion,
-    );
-    store.clearUpdateBundleData();
-    store.resetConsecutiveBootFailCount();
-    bootFailCount = store.incrementConsecutiveBootFailCount();
-  }
-  if (bootFailCount >= 3) {
-    logger.error('Recovery page triggered', {
-      crashCount: bootFailCount,
-      appVersion: currentAppVersion,
-    });
-    const recoveryWin = createRecoveryWindow();
+  const bootFailRecovery = applyBootFailThresholds<BrowserWindow>({
+    store,
+    logger,
+    appVersion: currentAppVersion,
+    bootFailCount,
+    createRecoveryWindow,
+  });
+  bootFailCount = bootFailRecovery.bootFailCount;
+  const recoveryWin = bootFailRecovery.recoveryWindow;
+  if (recoveryWin) {
+    setMainWindow(recoveryWin);
     recoveryWin.on('closed', () => {
-      mainWindow = null;
+      if (getMainWindow() === recoveryWin) {
+        setMainWindow(null);
+      }
     });
     return recoveryWin;
   }
@@ -917,13 +773,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  setMainWindow(browserWindow);
 
-  const getSafelyBrowserWindow = () => {
-    if (browserWindow && !browserWindow.isDestroyed()) {
-      return browserWindow;
-    }
-    return undefined;
-  };
+  const getSafelyBrowserWindow = createSafelyBrowserWindowGetter(
+    () => browserWindow,
+  );
 
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
@@ -1032,82 +886,23 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
-  let selectedShellDocumentCommitted = false;
-  let trustedSameDocumentRouteUrl: string | undefined;
-  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
-    senderId,
-    senderFrame,
-    mainFrame,
-  ) => {
-    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
-    return Boolean(
-      currentMainWindow?.webContents.id === senderId &&
-      senderFrame &&
-      senderFrame === mainFrame &&
-      selectedShellDocumentCommitted &&
-      isTrustedMainWindowUrl(
-        src,
-        senderFrame.url,
-        trustedSameDocumentRouteUrl,
-        isDevServer,
-      ),
-    );
-  };
-
-  browserWindow.webContents.on('did-navigate', (_event, url) => {
-    selectedShellDocumentCommitted = isTrustedMainWindowUrl(
-      src,
-      url,
-      isDevServer ? trustedSameDocumentRouteUrl : undefined,
+  const shellTrustState = createShellDocumentTrustState();
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender =
+    createMainWindowSenderTrustPredicate({
+      state: shellTrustState,
+      getSafelyMainWindow,
+      getSafelyBrowserWindow,
+      getAppShellUrl: () => src,
       isDevServer,
-    );
-    trustedSameDocumentRouteUrl =
-      isDevServer && selectedShellDocumentCommitted ? url : undefined;
-    if (!selectedShellDocumentCommitted) {
-      try {
-        if (
-          new URL(src).protocol === 'file:' &&
-          new URL(url).protocol === 'file:'
-        ) {
-          void getSafelyBrowserWindow()
-            ?.loadURL(src)
-            .catch((error) =>
-              logger.error('Failed to reload app shell:', error),
-            );
-        }
-      } catch {
-        // Invalid URLs cannot be recovered as local app-shell routes.
-      }
-    }
-  });
-  browserWindow.webContents.on(
-    'did-navigate-in-page',
-    (_event, url, isMainFrame) => {
-      if (isMainFrame && selectedShellDocumentCommitted) {
-        trustedSameDocumentRouteUrl = url;
-      }
-    },
-  );
+    });
 
-  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
-    if (
-      !isTrustedMainWindowUrl(
-        src,
-        url,
-        isDevServer ? trustedSameDocumentRouteUrl : undefined,
-        isDevServer,
-      )
-    ) {
-      event.preventDefault();
-      logger.warn(
-        '[MainWindow] rejected navigation outside selected app shell',
-      );
-    }
-  };
-  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
-  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
-  browserWindow.webContents.on('will-frame-navigate', (event) => {
-    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  installMainWindowShellNavigationHandlers({
+    browserWindow,
+    state: shellTrustState,
+    getAppShellUrl: () => src,
+    isDevServer,
+    getSafelyBrowserWindow,
+    logger,
   });
 
   if (isDevServer && !isDesktopE2EMode) {
@@ -1134,58 +929,49 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   browserWindow.webContents.on('unresponsive', () => {
     logger.warn('[CPU Watchdog] renderer webContents unresponsive');
-    triggerCpuWatchdog({ reason: 'unresponsive' });
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    triggerCpuWatchdog({ reason: 'unresponsive', pid });
   });
   browserWindow.webContents.on('responsive', () => {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
+    let pid: number | undefined;
+    try {
+      if (
+        !browserWindow.isDestroyed() &&
+        !browserWindow.webContents.isDestroyed()
+      ) {
+        pid = browserWindow.webContents.getOSProcessId();
+      }
+    } catch {
+      pid = undefined;
+    }
+    markCpuWatchdogResponsive(pid);
   });
 
-  browserWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (
-      details.reason === 'clean-exit' ||
-      appQuitStarted ||
-      bleQuitStarted ||
-      softRestarting
-    ) {
-      return;
-    }
-    mainRendererBootFailed = true;
-    const now = Date.now();
-    mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
-      (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
-    );
-    const logData = {
-      reason: details.reason,
-      exitCode: details.exitCode,
-      recentReloads: mainRendererReloadTimestamps.length,
-    };
-    if (
-      mainRendererReloadTimestamps.length >= MAIN_RENDERER_MAX_RELOADS_IN_WINDOW
-    ) {
-      logger.error(
-        '[RendererRecovery] main renderer keeps crashing, not reloading',
-        logData,
-      );
-      return;
-    }
-    mainRendererReloadTimestamps.push(now);
-    logger.warn('[RendererRecovery] main renderer gone, reloading', logData);
-    // Start the reload after Electron finishes dispatching this event.
-    setImmediate(() => {
-      const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (
-        !safelyBrowserWindow ||
-        appQuitStarted ||
-        bleQuitStarted ||
-        softRestarting
-      ) {
-        return;
-      }
-      // Deep links received while the page reboots wait for dom-ready.
-      isAppReady = false;
-      void safelyBrowserWindow.loadURL(src);
-    });
-  });
+  browserWindow.webContents.on(
+    'render-process-gone',
+    createRenderProcessGoneHandler({
+      state: mainRendererRecoveryState,
+      getSafelyBrowserWindow,
+      getAppShellUrl: () => src,
+      isAppQuitStarted: () => appQuitStarted,
+      isBleQuitStarted: () => bleQuitStarted,
+      isSoftRestarting,
+      setAppReady: (ready) => {
+        isAppReady = ready;
+      },
+    }),
+  );
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
@@ -1211,12 +997,18 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       store.setWinBounds(safelyWindow.getBounds());
     }
   });
-  browserWindow.on('closed', () => {
-    unregisterShortcuts();
-    mainWindow = null;
-    isAppReady = false;
-    logger.info('set isAppReady on browserWindow closed', isAppReady);
-  });
+  browserWindow.on(
+    'closed',
+    createMainWindowClosedHandler({
+      browserWindow,
+      unregisterShortcuts,
+      getAppReady: () => isAppReady,
+      setAppReady: (ready) => {
+        isAppReady = ready;
+      },
+      logger,
+    }),
+  );
 
   browserWindow.webContents.on('devtools-opened', () => {
     const safelyWindow = getSafelyBrowserWindow();
@@ -1303,22 +1095,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
-  // The renderer's fetch obeys CORS and mixed content; the main process does not.
-  // `net.fetch` follows the system proxy; Node's fetch would bypass it and expose the user's IP.
-  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
-    net.fetch(String(input), init),
-  );
+  const { handleFetchStreamRequest } = createFetchStreamRelay({
+    net,
+    getIsTrustedMainWindowSender: () =>
+      globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender,
+  });
   ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
-  ipcMain.handle(
-    ipcMessageKeys.FETCH_STREAM,
-    async (event, request: IFetchStreamRequest) => {
-      const mainId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== mainId)
-        return { ok: false, error: 'not allowed' };
-      return fetchStreamRequest(request);
-    },
-  );
+  ipcMain.handle(ipcMessageKeys.FETCH_STREAM, handleFetchStreamRequest);
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
@@ -1378,7 +1161,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
-    mainRendererBootFailed = false;
+    mainRendererRecoveryState.bootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1407,16 +1190,26 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      if (
-        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
-          event.sender.id,
-          event.senderFrame,
-          event.sender.mainFrame,
-        )
-      ) {
+      let isTrustedSender = false;
+      let senderId = -1;
+      try {
+        if (!event.sender.isDestroyed()) {
+          senderId = event.sender.id;
+          isTrustedSender = Boolean(
+            globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+              senderId,
+              event.senderFrame,
+              event.sender.mainFrame,
+            ),
+          );
+        }
+      } catch {
+        isTrustedSender = false;
+      }
+      if (!isTrustedSender) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
-          event.sender.id,
+          senderId,
         );
         throw new OneKeyLocalError(
           'DESKTOP_API_CALL is only allowed from the main window',
@@ -1452,58 +1245,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
   );
 
-  // reset appState to undefined  to avoid screen lock.
-  browserWindow.on('enter-full-screen', () => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
-    if (
-      bleQuitStarted ||
-      !safelyBrowserWindow?.isFocused() ||
-      !safelyBrowserWindow.isVisible()
-    ) {
-      return;
-    }
-    registerShortcuts((event) => {
-      const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
-    });
-  });
-
-  // reset appState to undefined  to avoid screen lock.
-  browserWindow.on('leave-full-screen', () => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
-  });
-
-  browserWindow.on('focus', () => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    const state: IDesktopAppState = 'active';
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-    if (
-      bleQuitStarted ||
-      !safelyBrowserWindow?.isFocused() ||
-      !safelyBrowserWindow.isVisible()
-    ) {
-      return;
-    }
-    registerShortcuts((event) => {
-      const w = getSafelyBrowserWindow();
-      w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
-    });
-  });
-
-  browserWindow.on('blur', () => {
-    unregisterShortcuts();
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    const state: IDesktopAppState = 'blur';
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-  });
-
-  browserWindow.on('hide', () => {
-    unregisterShortcuts();
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    const state: IDesktopAppState = 'background';
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
+  installMainWindowShortcutHandlers({
+    browserWindow,
+    getSafelyBrowserWindow,
+    getBleQuitStarted: () => bleQuitStarted,
+    ipcMessageKeys,
+    registerShortcuts,
+    unregisterShortcuts,
   });
 
   // The overlay route uses a dedicated <webview> partition; matching the
@@ -1825,8 +1573,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
                 slashes: true,
               });
         /* eslint-enable no-nested-ternary */
-        selectedShellDocumentCommitted = false;
-        trustedSameDocumentRouteUrl = undefined;
+        shellTrustState.selectedShellDocumentCommitted = false;
+        shellTrustState.trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();
@@ -1938,31 +1686,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, errorCode, __, validatedURL, isMainFrame) => {
-        if (
-          !appQuitStarted &&
-          isMainFrame &&
-          errorCode !== -3 &&
-          isTrustedMainWindowUrl(src, validatedURL)
-        ) {
-          mainRendererBootFailed = true;
-        }
-        if (
-          !shouldReloadAppShellAfterFailedLoad({
-            validatedURL,
-            isMainFrame,
-            errorCode,
-            appShellUrl: src,
-          })
-        ) {
-          return;
-        }
-        logger.info('browserWindow >>>> reload app shell after failed load', {
-          errorCode,
-        });
-        const w = getSafelyBrowserWindow();
-        void w?.loadURL(src);
-      },
+      createDidFailLoadHandler({
+        state: mainRendererRecoveryState,
+        getSafelyBrowserWindow,
+        getAppShellUrl: () => src,
+        isAppQuitStarted: () => appQuitStarted,
+      }),
     );
   }
 
@@ -2024,11 +1753,23 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
-        if (event.sender.id !== browserWindow.webContents.id) {
+        let isMainRenderer = false;
+        let senderId = -1;
+        try {
+          if (!event.sender.isDestroyed()) {
+            senderId = event.sender.id;
+            const currentMainWindow =
+              getSafelyMainWindow() ?? getSafelyBrowserWindow();
+            isMainRenderer = currentMainWindow?.webContents.id === senderId;
+          }
+        } catch {
+          isMainRenderer = false;
+        }
+        if (!isMainRenderer) {
           logger.warn(
             '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
-            event.sender.id,
+            senderId,
           );
           throw new OneKeyLocalError(
             'Third-party BLE IPC is only allowed from the main window',
@@ -2087,32 +1828,16 @@ if (!singleInstance && !process.mas) {
   logger.info('Second instance detected, quitting immediately');
   app.quit();
 } else {
-  app.on('second-instance', (e, argv) => {
-    const deeplinkingUrl = findAllowedDeepLinkArg(argv);
-    // Omit raw `argv` and `deeplinkingUrl` from logs so sensitive deep-link
-    // parameters (e.g. WalletConnect `symKey` or voucher codes) are not persisted.
-    logger.info('Second instance launched, focusing existing window', {
-      platform: process.platform,
-      hasDeepLink: Boolean(deeplinkingUrl),
-    });
-
-    const safelyMainWindow = getSafelyMainWindow();
-    if (safelyMainWindow) {
-      // Restore window if minimized
-      if (safelyMainWindow.isMinimized()) {
-        safelyMainWindow.restore();
-      }
-
-      // Handle deep link arguments for all platforms
-      if (deeplinkingUrl) {
-        // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
-        handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
-      } else {
-        // No deep link, just show and focus the window
-        showMainWindow();
-      }
-    }
-  });
+  app.on(
+    'second-instance',
+    createSecondInstanceHandler({
+      logger,
+      getPlatform: () => process.platform,
+      getSafelyMainWindow,
+      showMainWindow,
+      handleDeepLinkUrl,
+    }),
+  );
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
@@ -2122,8 +1847,8 @@ if (!singleInstance && !process.mas) {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
 
-    if (!mainWindow) {
-      mainWindow = await createMainWindow();
+    if (!getMainWindow()) {
+      setMainWindow(await createMainWindow());
     }
 
     // Menu is needed in both normal and recovery mode
@@ -2196,91 +1921,52 @@ app.on('activate', async () => {
   // otherwise a dock-icon click would spawn a SECOND main window (without
   // isSoftRestart, so it would also bump the boot-fail counter). softRestart's
   // own showMainWindow() will surface the recreated window.
-  if (!mainWindow && !softRestarting) {
-    mainWindow = await createMainWindow();
+  if (!getMainWindow() && !isSoftRestarting()) {
+    setMainWindow(await createMainWindow());
   }
   showMainWindow();
 });
 
-app.on('before-quit', (event) => {
-  appQuitStarted = true;
-  unregisterShortcuts();
-  if (isMac && !bleQuitReady) {
-    event.preventDefault();
-    if (bleQuitStarted) return;
-    bleQuitStarted = true;
-    logger.info('[BLE] Process dispose started');
-    const instances = new Set<{ stop?(): void }>();
-    const stopped = new Set<{ stop?(): void }>();
-    let draining = false;
-    const stopNative = (instance: { stop?(): void }) => {
-      if (stopped.has(instance)) return;
-      stopped.add(instance);
-      try {
-        instance.stop?.();
-        logger.info('[BLE] Noble native manager stopped before app quit');
-      } catch (error) {
-        logger.error('[BLE] Noble native stop failed', error);
+app.on(
+  'before-quit',
+  createBeforeQuitHandler({
+    app,
+    isMac,
+    logger,
+    getDesktopApiAppUpdate,
+    markAppQuitStarted: () => {
+      appQuitStarted = true;
+    },
+    unregisterShortcuts,
+    getBleQuitStarted: () => bleQuitStarted,
+    setBleQuitStarted: (started) => {
+      bleQuitStarted = started;
+    },
+    getBleQuitReady: () => bleQuitReady,
+    setBleQuitReady: (ready) => {
+      bleQuitReady = ready;
+    },
+    getNobleBleInitialization: () => nobleBleInitialization,
+    getTrezorBleSupports: () => trezorBleSupports,
+    disposeNobleBleSupport,
+    getSafelyMainWindow,
+    destroyTrayManager,
+    resetBootFailCountOnGracefulQuit: () => {
+      resetBootFailCountOnGracefulQuit({
+        store,
+        mainRendererBootFailed: mainRendererRecoveryState.bootFailed,
+      });
+    },
+    clearSystemIdleInterval: () => {
+      if (systemIdleInterval) {
+        clearInterval(systemIdleInterval);
       }
-    };
-    const releaseNoble = (instance: { stop?(): void }) => {
-      instances.add(instance);
-      if (draining) stopNative(instance);
-    };
-    let timeout: ReturnType<typeof setTimeout>;
-    void Promise.race([
-      Promise.allSettled([
-        nobleBleInitialization,
-        disposeNobleBleSupport(releaseNoble),
-        ...Array.from(trezorBleSupports, (support) =>
-          support.disposeForAppQuit(releaseNoble),
-        ),
-      ]).then((results) => {
-        for (const result of results) {
-          if (result.status === 'rejected') {
-            logger.error('[BLE] Process dispose failed', result.reason);
-          }
-        }
-      }),
-      new Promise<void>((resolve) => {
-        timeout = setTimeout(() => {
-          logger.warn('[BLE] Process dispose timed out');
-          resolve();
-        }, 5000);
-      }),
-    ]).finally(() => {
-      clearTimeout(timeout);
-      draining = true;
-      instances.forEach(stopNative);
-      trezorBleSupports.clear();
-      logger.info('[BLE] Process dispose completed; resuming app quit');
-      bleQuitReady = true;
-      // Let the native before-quit callback return before retrying. An immediately
-      // resolved cleanup can otherwise re-enter app.quit() and lose its quit state.
-      setImmediate(() => app.quit());
-    });
-    return;
-  }
-
-  if (isMac) {
-    destroyTrayManager();
-  }
-
-  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
-    store.resetConsecutiveBootFailCount();
-  }
-
-  if (systemIdleInterval) {
-    clearInterval(systemIdleInterval);
-  }
-  const safelyMainWindow = getSafelyMainWindow();
-  if (safelyMainWindow) {
-    safelyMainWindow.removeAllListeners();
-    safelyMainWindow.removeAllListeners('close');
-    safelyMainWindow.close();
-  }
-  disposeContextMenu?.();
-});
+    },
+    disposeContextMenu: () => {
+      disposeContextMenu?.();
+    },
+  }),
+);
 
 // Quit when all windows are closed.
 app.on('window-all-closed', () => {
@@ -2703,154 +2389,57 @@ app.on('before-quit', () => {
 // input" symptom. Both converge here so the dialog and cooldown are
 // shared.
 
-// Sample at the faster cadence; both tiers read from the same history.
-const CPU_WATCHDOG_SAMPLE_INTERVAL_MS = 10_000;
-
-// Severe tier — catches extreme pegging fast.
-// 3 × 10 s = 30 s sustained above 95% → essentially fully pegged for half
-// a minute, well past any legitimate hot path (signing, V8 turbofan
-// re-optimization, bundle decode, mass import).
-const CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT = 95;
-const CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES = 3;
-
-// Mild tier — catches slower drift (the original 22h-uptime symptom).
-// 30 × 10 s = 5 minutes sustained above 80%.
-const CPU_WATCHDOG_MILD_THRESHOLD_PERCENT = 80;
-const CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES = 30;
-
-const CPU_WATCHDOG_HISTORY_SIZE = CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES;
-const CPU_WATCHDOG_COOLDOWN_MS = 30 * 60_000;
-
-const cpuHistoryByPid = new Map<number, number[]>();
-// Cumulative CPU seconds per pid at the previous tick. Delta of these
-// divided by wall-clock delta gives the true "fraction of one core" used,
-// independent of how many cores the machine has — matching the DevTools
-// Performance Monitor reading.
-const prevCumCpuByPid = new Map<number, number>();
-let lastSampleAt: number | null = null;
-let lastWatchdogFiredAt = 0;
+const cpuWatchdog = new CpuWatchdogController();
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
 
-type ICpuWatchdogReason =
-  | 'sustained-high-cpu-severe'
-  | 'sustained-high-cpu-mild'
-  | 'unresponsive';
-
-const CPU_WATCHDOG_REASONS = new Set<ICpuWatchdogReason>([
-  'sustained-high-cpu-severe',
-  'sustained-high-cpu-mild',
-  'unresponsive',
-]);
-
-function isCpuWatchdogReason(value: unknown): value is ICpuWatchdogReason {
-  return (
-    typeof value === 'string' &&
-    CPU_WATCHDOG_REASONS.has(value as ICpuWatchdogReason)
-  );
+function collectGuestWebviewPids(): Set<number> {
+  const ignoredPids = new Set<number>();
+  try {
+    for (const contents of electronWebContents.getAllWebContents()) {
+      if (!contents.isDestroyed() && contents.getType() === 'webview') {
+        const pid = contents.getOSProcessId();
+        if (typeof pid === 'number' && pid > 0) {
+          ignoredPids.add(pid);
+        }
+      }
+    }
+  } catch {
+    // Best-effort guest webview PID enumeration
+  }
+  return ignoredPids;
 }
 
 function startCpuWatchdog() {
   if (cpuWatchdogInterval) {
     clearInterval(cpuWatchdogInterval);
   }
+  cpuWatchdog.start();
   cpuWatchdogInterval = setInterval(() => {
     try {
-      const metrics = app.getAppMetrics();
-      const now = Date.now();
-      const wallDeltaSec =
-        lastSampleAt === null
-          ? CPU_WATCHDOG_SAMPLE_INTERVAL_MS / 1000
-          : (now - lastSampleAt) / 1000;
-      lastSampleAt = now;
-
-      // Step 1: compute effective % (= fraction of one core, 100 = one core
-      // fully busy) for every process using the cumulativeCPUUsage delta.
-      // This matches what Chrome DevTools Performance Monitor shows and is
-      // independent of total core count — Electron's percentCPUUsage divides
-      // by cores and is therefore unusable for "main thread saturated".
-      const annotated = metrics.map((m) => {
-        const cum =
-          (m.cpu as { cumulativeCPUUsage?: number }).cumulativeCPUUsage ?? 0;
-        const prev = prevCumCpuByPid.get(m.pid);
-        let effectivePercent = 0;
-        if (prev !== undefined && wallDeltaSec > 0) {
-          effectivePercent = ((cum - prev) / wallDeltaSec) * 100;
-          if (effectivePercent < 0) effectivePercent = 0;
-        }
-        prevCumCpuByPid.set(m.pid, cum);
-        return {
-          pid: m.pid,
-          type: m.type,
-          name: m.name,
-          electronPct: Number(m.cpu.percentCPUUsage.toFixed(2)),
-          effectivePct: Number(effectivePercent.toFixed(1)),
-          cum: Number(cum.toFixed(2)),
-        };
+      const metrics = app.getAppMetrics().map((m) => ({
+        pid: m.pid,
+        type: m.type,
+        name: m.name,
+        percentCPUUsage: m.cpu.percentCPUUsage,
+        cumulativeCPUUsage: (m.cpu as { cumulativeCPUUsage?: number })
+          .cumulativeCPUUsage,
+      }));
+      const sample = cpuWatchdog.sampleMetrics({
+        metrics,
+        ignoredTabPids: collectGuestWebviewPids(),
       });
-
-      // Step 2: log every process sorted by effective CPU descending so
-      // when "who's burning" is the question, the top line answers it.
-      const sortedForLog = [...annotated].toSorted(
-        (a, b) => b.effectivePct - a.effectivePct,
-      );
-      logger.info(
-        `[CPU Watchdog] tick cores=${os.cpus().length} wallΔ=${wallDeltaSec.toFixed(
-          1,
-        )}s processes=${JSON.stringify(sortedForLog)}`,
-      );
-
-      // Step 3: only Tab processes feed the sliding window for severe/mild
-      // detection. effectivePct is the right metric: 100 = one core fully
-      // busy = JS main thread saturated.
-      const seenPids = new Set<number>();
-      for (const a of annotated) {
-        if (a.type === 'Tab') {
-          seenPids.add(a.pid);
-          // Skip the very first sample for a new pid — no delta available
-          // (prev was undefined → effectivePct defaulted to 0).
-          if (prevCumCpuByPid.has(a.pid) && a.effectivePct === 0) {
-            // proceed with 0 — actually idle
-          }
-          const history = cpuHistoryByPid.get(a.pid) ?? [];
-          history.push(a.effectivePct);
-          if (history.length > CPU_WATCHDOG_HISTORY_SIZE) history.shift();
-          cpuHistoryByPid.set(a.pid, history);
-
-          const severeWindow = history.slice(
-            -CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
-          );
-          const severe =
-            severeWindow.length === CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES &&
-            severeWindow.every(
-              (v) => v > CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
-            );
-          if (severe) {
-            triggerCpuWatchdog({
-              reason: 'sustained-high-cpu-severe',
-              pid: a.pid,
-              cpuTrend: severeWindow,
-            });
-          } else {
-            const mild =
-              history.length === CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES &&
-              history.every((v) => v > CPU_WATCHDOG_MILD_THRESHOLD_PERCENT);
-            if (mild) {
-              triggerCpuWatchdog({
-                reason: 'sustained-high-cpu-mild',
-                pid: a.pid,
-                cpuTrend: [...history],
-              });
-            }
-          }
-        }
+      if (sample.shouldLogTick) {
+        logger.info(
+          `[CPU Watchdog] tick cores=${
+            os.cpus().length
+          } wallΔ=${sample.wallDeltaSec.toFixed(1)}s processes=${JSON.stringify(
+            sample.sortedForLog,
+          )}`,
+        );
       }
-      // Forget pids that no longer exist (renderer restarted / process gone).
-      for (const pid of cpuHistoryByPid.keys()) {
-        if (!seenPids.has(pid)) cpuHistoryByPid.delete(pid);
-      }
-      // Also prune prev cum cache for vanished pids to avoid unbounded growth.
-      for (const pid of prevCumCpuByPid.keys()) {
-        if (!annotated.some((a) => a.pid === pid)) prevCumCpuByPid.delete(pid);
+      for (const event of sample.eventsToFire) {
+        logger.warn('[CPU Watchdog] fired (UI suppressed)', event);
+        reportWatchdogToSentry(event);
       }
     } catch (error) {
       logger.warn('[CPU Watchdog] sample failed', error);
@@ -2858,6 +2447,7 @@ function startCpuWatchdog() {
   }, CPU_WATCHDOG_SAMPLE_INTERVAL_MS);
   logger.info('[CPU Watchdog] started', {
     sampleIntervalMs: CPU_WATCHDOG_SAMPLE_INTERVAL_MS,
+    startupGraceMs: CPU_WATCHDOG_STARTUP_GRACE_MS,
     severe: {
       thresholdPercent: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES,
@@ -2865,6 +2455,10 @@ function startCpuWatchdog() {
     mild: {
       thresholdPercent: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
       sustainedSamples: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+    },
+    recovery: {
+      thresholdPercent: CPU_WATCHDOG_RECOVERY_THRESHOLD_PERCENT,
+      sustainedSamples: CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
     },
     cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
   });
@@ -2874,16 +2468,21 @@ function reportWatchdogToSentry(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
+  episodeEscalated?: boolean;
 }) {
   try {
     const { captureMessage, setContext } = require('@sentry/electron/main') as {
       captureMessage: (msg: string, level?: string) => void;
       setContext: (name: string, data: Record<string, unknown> | null) => void;
     };
+    const safelyMainWindow = getSafelyMainWindow();
     setContext('cpuWatchdog', {
       reason: params.reason,
       pid: params.pid,
       cpuTrend: params.cpuTrend,
+      episodeEscalated: params.episodeEscalated ?? false,
+      windowVisible: safelyMainWindow?.isVisible() ?? false,
+      windowMinimized: safelyMainWindow?.isMinimized() ?? false,
       uptimeMs: Math.round(process.uptime() * 1000),
     });
     captureMessage(`desktop:cpu-watchdog:${params.reason}`, 'warning');
@@ -2892,41 +2491,41 @@ function reportWatchdogToSentry(params: {
   }
 }
 
+function markCpuWatchdogResponsive(pid?: number) {
+  cpuWatchdog.markResponsive(pid);
+}
+
 function triggerCpuWatchdog(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
   cpuTrend?: number[];
   bypassCooldown?: boolean;
 }) {
-  const now = Date.now();
-  if (
-    !params.bypassCooldown &&
-    now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
-  ) {
-    logger.warn('[CPU Watchdog] trigger ignored — cooldown active', {
-      reason: params.reason,
-      msSinceLastFire: now - lastWatchdogFiredAt,
-      cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
-    });
+  const decision = cpuWatchdog.evaluateTrigger(params);
+  if (!decision) {
+    logger.warn(
+      '[CPU Watchdog] trigger ignored — episode active or cooldown active',
+      {
+        reason: params.reason,
+        pid: params.pid,
+        cooldownMs: CPU_WATCHDOG_COOLDOWN_MS,
+      },
+    );
     return;
   }
-  lastWatchdogFiredAt = now;
 
   // UI suppressed: only collect local logs + Sentry telemetry while we
   // investigate the underlying CPU regression. Re-enable surface (status
   // indicator / non-blocking card) once root cause is identified.
-  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
-  reportWatchdogToSentry(params);
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', decision);
+  reportWatchdogToSentry(decision);
 }
 
 function resetCpuWatchdogStateForTesting() {
+  const previousLastFiredAt = cpuWatchdog.reset();
   logger.warn('[CPU Watchdog] cooldown reset via IPC', {
-    previousLastFiredAt: lastWatchdogFiredAt,
+    previousLastFiredAt,
   });
-  lastWatchdogFiredAt = 0;
-  cpuHistoryByPid.clear();
-  prevCumCpuByPid.clear();
-  lastSampleAt = null;
 }
 
 app.on('before-quit', () => {
@@ -2951,31 +2550,11 @@ if (isDevServer && !app.isPackaged) {
 
 // register deeplink for desktop
 //  https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app
-// Always include `'--'` before `"%1"` on Windows so Chromium option parsing
-// terminates before the external URL argument (prevents switch injection).
-// Passing `process.execPath` and `protocolClientArgs` to `isDefaultProtocolClient`
-// also ensures legacy bare `"%1"` registry entries are upgraded automatically.
-if (!process.defaultApp || process.argv.length >= 2) {
-  const protocolClientArgs = getDesktopProtocolClientArgs(
-    process.defaultApp,
-    process.argv,
-  );
-  for (const protocol of DESKTOP_DEEP_LINK_PROTOCOLS) {
-    if (
-      !app.isDefaultProtocolClient(
-        protocol,
-        process.execPath,
-        protocolClientArgs,
-      )
-    ) {
-      app.setAsDefaultProtocolClient(
-        protocol,
-        process.execPath,
-        protocolClientArgs,
-      );
-    }
-  }
-}
+registerDesktopProtocolClients({
+  defaultApp: process.defaultApp,
+  argv: process.argv,
+  execPath: process.execPath,
+});
 
 if (isWin) {
   app.setAppUserModelId(APP_NAME);
@@ -2986,6 +2565,5 @@ app.on('will-finish-launching', () => {
   // app.off('open-url', handleDeepLinkUrl);
   // ** Protocol handler for osx
   // deeplink: Handle the protocol. In this case, we choose to show an Error Box.
-  // @ts-expect-error
   app.on('open-url', handleDeepLinkUrl);
 });

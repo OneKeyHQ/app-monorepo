@@ -10,11 +10,26 @@ import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigati
 
 const mockStack = jest.fn<void, [Record<string, unknown>]>();
 const mockXStack = jest.fn<void, [Record<string, unknown>]>();
+const mockAnimatedView = jest.fn<void, [Record<string, unknown>]>();
+const mockWithTiming = jest.fn((value: number) => value);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
+}));
+
+jest.mock('react-native-reanimated', () => ({
+  __esModule: true,
+  default: {
+    View: ({ children, ...props }: { children?: ReactNode }) => {
+      mockAnimatedView(props);
+      return <div>{children}</div>;
+    },
+  },
+  useAnimatedStyle: (factory: () => unknown) => factory(),
+  useSharedValue: <T,>(value: T) => ({ value }),
+  withTiming: (value: number) => mockWithTiming(value),
 }));
 
 jest.mock('react-native-svg', () => ({
@@ -62,6 +77,8 @@ describe('Native TradingViewNativeNavigationControls', () => {
       <TradingViewNativeNavigationControls
         backgroundColor="#ffffff"
         chartWidth={320}
+        isResetVisible
+        isVisible
         onAction={onAction}
         timeAxisHeight={24}
         testID="chart"
@@ -87,11 +104,13 @@ describe('Native TradingViewNativeNavigationControls', () => {
     expect(onAction).toHaveBeenCalledTimes(5);
   });
 
-  it('limits touch handling to 36px buttons and leaves gaps available for chart gestures', () => {
+  it('limits touch handling to 28px buttons and leaves gaps available for chart gestures', () => {
     render(
       <TradingViewNativeNavigationControls
         backgroundColor="#ffffff"
         chartWidth={320}
+        isResetVisible
+        isVisible
         onAction={jest.fn()}
         timeAxisHeight={24}
       />,
@@ -100,7 +119,8 @@ describe('Native TradingViewNativeNavigationControls', () => {
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({
         bottom: 36,
-        gap: 8,
+        gap: 6,
+        paddingRight: 0,
         pointerEvents: 'box-none',
         width: 320,
       }),
@@ -109,11 +129,125 @@ describe('Native TradingViewNativeNavigationControls', () => {
       expect(props).toEqual(
         expect.objectContaining({
           accessibilityRole: 'button',
-          width: 36,
-          height: 36,
+          width: 28,
+          height: 28,
         }),
       );
       expect(props).not.toHaveProperty('hitSlop');
     }
+  });
+
+  it('hides reset while the chart is at its default view', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible={false}
+        isVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+        testID="chart"
+      />,
+    );
+
+    expect(screen.queryByTestId('chart-navigation-reset')).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+  });
+
+  it('keeps the primary buttons in flow and pins reset beside them', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible
+        isVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+        testID="chart"
+      />,
+    );
+
+    const propsByTestID = new Map(
+      mockStack.mock.calls.map(([props]) => [props.testID, props]),
+    );
+    // Four 28px buttons with 6px gaps span 130px, centered in 320px.
+    expect(propsByTestID.get('chart-navigation-reset')).toEqual(
+      expect.objectContaining({ position: 'absolute', top: 0, left: 231 }),
+    );
+    for (const action of ['zoomOut', 'zoomIn', 'scrollLeft', 'scrollRight']) {
+      expect(propsByTestID.get(`chart-navigation-${action}`)?.position).toBe(
+        undefined,
+      );
+    }
+  });
+
+  it('keeps reset inside a narrow chart', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={180}
+        isResetVisible
+        isVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+        testID="chart"
+      />,
+    );
+
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ paddingRight: 18, width: 180 }),
+    );
+    const resetProps = mockStack.mock.calls.find(
+      ([props]) => props.testID === 'chart-navigation-reset',
+    )?.[0];
+    // 152 + 28 ends exactly at the 180px chart edge.
+    expect(resetProps).toEqual(expect.objectContaining({ left: 152 }));
+  });
+
+  it('fades out hidden buttons and lets touches reach the chart', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible
+        isVisible={false}
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+      />,
+    );
+
+    expect(mockWithTiming).toHaveBeenLastCalledWith(0);
+    expect(mockAnimatedView.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({ pointerEvents: 'box-none' }),
+    );
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants',
+        pointerEvents: 'none',
+      }),
+    );
+  });
+
+  it('fades in visible buttons and makes them pressable', () => {
+    render(
+      <TradingViewNativeNavigationControls
+        backgroundColor="#ffffff"
+        chartWidth={320}
+        isResetVisible
+        isVisible
+        onAction={jest.fn()}
+        timeAxisHeight={24}
+      />,
+    );
+
+    expect(mockWithTiming).toHaveBeenLastCalledWith(1);
+    expect(mockXStack.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        accessibilityElementsHidden: false,
+        importantForAccessibility: 'auto',
+        pointerEvents: 'box-none',
+      }),
+    );
   });
 });

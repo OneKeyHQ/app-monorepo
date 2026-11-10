@@ -2,12 +2,26 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import vm from 'vm';
 
-import ts from 'typescript';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type {
+  IFetchStreamRequest,
+  IFetchStreamResult,
+} from '@onekeyhq/shared/types/fetchStream';
 
-import { isTrustedMainWindowUrl } from './desktopApiModuleAllowlist';
-import { shouldReloadAppShellAfterFailedLoad } from './rendererLoadRecovery';
+import {
+  applyBootFailThresholds,
+  resetBootFailCountOnGracefulQuit,
+} from './bootFailRecovery';
+import { createFetchStreamIpcHandler } from './fetchStreamRelay';
+import { createMainWindowSenderTrustPredicate } from './mainWindowShellTrust';
+import {
+  createDidFailLoadHandler,
+  createMainRendererRecoveryState,
+  createRenderProcessGoneHandler,
+} from './rendererRecoveryHandlers';
+
+import type { BrowserWindow } from 'electron';
 
 let mockProfileDir = '';
 let mockAppVersion = '6.7.0';
@@ -59,84 +73,77 @@ function loadStartup() {
   return { store, getBundleIndexHtmlPath };
 }
 
-const appSource = ts.createSourceFile(
-  'app.ts',
-  fs.readFileSync(path.resolve(__dirname, '../app.ts'), 'utf8'),
-  ts.ScriptTarget.Latest,
-  true,
-);
+type IRelayFrame = { url: string };
+type IRelayEvent = {
+  sender: { id: number; isDestroyed: () => boolean; mainFrame: IRelayFrame };
+  senderFrame: IRelayFrame | null;
+};
 
-function getProductionBootHandlerSource(
-  kind:
-    | 'quit-reset'
-    | 'render-gone'
-    | 'load-failed'
-    | 'ota-rollback'
-    | 'recovery-window',
-) {
-  let selected: ts.Node | undefined;
-  const visit = (node: ts.Node) => {
-    if (
-      kind === 'quit-reset' &&
-      ts.isIfStatement(node) &&
-      node.expression.getText(appSource).includes('mainRendererBootFailed') &&
-      node.expression.getText(appSource).includes('getConsecutiveBootFailCount')
-    ) {
-      selected = node;
-    }
-    if (
-      ts.isIfStatement(node) &&
-      ((kind === 'ota-rollback' &&
-        node.expression.getText(appSource).includes('activeOtaBundleVersion') &&
-        node.expression.getText(appSource).includes('bootFailCount')) ||
-        (kind === 'recovery-window' &&
-          node.expression.getText(appSource) === 'bootFailCount >= 3'))
-    ) {
-      selected = node;
-    }
-    if (
-      (kind === 'render-gone' || kind === 'load-failed') &&
-      ts.isCallExpression(node) &&
-      node.expression.getText(appSource).includes('webContents.on') &&
-      node.arguments[0] &&
-      ts.isStringLiteral(node.arguments[0]) &&
-      node.arguments[0].text ===
-        (kind === 'render-gone' ? 'render-process-gone' : 'did-fail-load') &&
-      node.arguments[1] &&
-      ts.isArrowFunction(node.arguments[1])
-    ) {
-      selected = node.arguments[1];
-    }
-    ts.forEachChild(node, visit);
+function createProductionFetchStreamFixture() {
+  let currentMainId = 1;
+  const frame = { url: 'file:///opt/onekey/index.html#/home' };
+  const event: IRelayEvent = {
+    sender: { id: 1, isDestroyed: () => false, mainFrame: frame },
+    senderFrame: frame,
   };
-  visit(appSource);
-  expect(selected).toBeDefined();
-  return ts
-    .transpileModule(selected?.getText(appSource) ?? '', {
-      compilerOptions: { target: ts.ScriptTarget.ES2022 },
-    })
-    .outputText.trim();
+  const context = {
+    selectedShellDocumentCommitted: true,
+    trustedSameDocumentRouteUrl: undefined as string | undefined,
+    src: 'file:///opt/onekey/index.html',
+  };
+  const mainAppFunctions: {
+    isTrustedMainWindowSender?: ReturnType<
+      typeof createMainWindowSenderTrustPredicate
+    >;
+  } = {};
+  mainAppFunctions.isTrustedMainWindowSender =
+    createMainWindowSenderTrustPredicate({
+      state: context,
+      getSafelyMainWindow: () =>
+        ({ webContents: { id: currentMainId } }) as unknown as BrowserWindow,
+      getSafelyBrowserWindow: () => undefined,
+      getAppShellUrl: () => context.src,
+      isDevServer: false,
+    });
+  const response: IFetchStreamResult = { ok: true, cancelled: true };
+  const fetchStreamRequest = jest.fn(
+    async (_request: IFetchStreamRequest): Promise<IFetchStreamResult> =>
+      response,
+  );
+  const handler = createFetchStreamIpcHandler({
+    fetchStreamRequest,
+    getIsTrustedMainWindowSender: () =>
+      mainAppFunctions.isTrustedMainWindowSender,
+  });
+  return {
+    context,
+    event,
+    frame,
+    handler,
+    mainAppFunctions,
+    fetchStreamRequest,
+    setMainId: (id: number) => {
+      currentMainId = id;
+    },
+  };
 }
 
 function runProductionBootThresholds(store: IStoreModule) {
-  const recoveryWindow = { on: jest.fn() };
-  const context = {
+  const recoveryWindowMock = { on: jest.fn() };
+  const createRecoveryWindow = jest.fn(() => recoveryWindowMock);
+  const result = applyBootFailThresholds({
     store,
+    logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+    appVersion: mockAppVersion,
     bootFailCount: store.incrementConsecutiveBootFailCount(),
-    activeOtaBundleVersion: store.getUpdateBundleData()?.bundleVersion,
-    currentAppVersion: mockAppVersion,
-    logger: { warn: jest.fn(), error: jest.fn() },
-    createRecoveryWindow: jest.fn(() => recoveryWindow),
+    createRecoveryWindow,
+  });
+  return {
+    bootFailCount: result.bootFailCount,
+    recoveryWindow: result.recoveryWindow,
+    recoveryWindowMock,
+    createRecoveryWindow,
   };
-  const source = [
-    getProductionBootHandlerSource('ota-rollback'),
-    getProductionBootHandlerSource('recovery-window'),
-  ].join('\n');
-  const result = vm.runInNewContext(
-    `(() => { ${source}\nreturn null; })()`,
-    context,
-  ) as typeof recoveryWindow | null;
-  return { context, result, recoveryWindow };
 }
 
 function seedUpdateState(nativeVersion = '6.7.0', buildNumber = '100') {
@@ -241,7 +248,7 @@ describe('desktop startup with persisted state', () => {
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(1);
 
-    vm.runInNewContext(getProductionBootHandlerSource('quit-reset'), {
+    resetBootFailCountOnGracefulQuit({
       store,
       mainRendererBootFailed: false,
     });
@@ -253,19 +260,17 @@ describe('desktop startup with persisted state', () => {
 
   it('preserves real boot failures and an open recovery window on quit', () => {
     const { store } = loadStartup();
-    const quitReset = getProductionBootHandlerSource('quit-reset');
+    const quitReset = (mainRendererBootFailed: boolean) =>
+      resetBootFailCountOnGracefulQuit({
+        store,
+        mainRendererBootFailed,
+      });
     store.setConsecutiveBootFailCount(1);
-    vm.runInNewContext(quitReset, {
-      store,
-      mainRendererBootFailed: true,
-    });
+    quitReset(true);
     expect(store.incrementConsecutiveBootFailCount()).toBe(2);
 
     store.setConsecutiveBootFailCount(3);
-    vm.runInNewContext(quitReset, {
-      store,
-      mainRendererBootFailed: false,
-    });
+    quitReset(false);
     expect(store.getConsecutiveBootFailCount()).toBe(3);
   });
 
@@ -274,13 +279,14 @@ describe('desktop startup with persisted state', () => {
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(1);
 
-    const { context, result } = runProductionBootThresholds(store);
+    const { bootFailCount, recoveryWindow, createRecoveryWindow } =
+      runProductionBootThresholds(store);
 
-    expect(context.bootFailCount).toBe(2);
+    expect(bootFailCount).toBe(2);
     expect(store.getConsecutiveBootFailCount()).toBe(2);
     expect(store.getUpdateBundleData()).toEqual(activeBundle);
-    expect(result).toBeNull();
-    expect(context.createRecoveryWindow).not.toHaveBeenCalled();
+    expect(recoveryWindow).toBeUndefined();
+    expect(createRecoveryWindow).not.toHaveBeenCalled();
   });
 
   it('rolls back an OTA on its third unsuccessful boot and revokes only its pending switch', () => {
@@ -307,13 +313,14 @@ describe('desktop startup with persisted state', () => {
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(2);
 
-    const { context, result } = runProductionBootThresholds(store);
+    const { bootFailCount, recoveryWindow, createRecoveryWindow } =
+      runProductionBootThresholds(store);
 
-    expect(context.bootFailCount).toBe(1);
+    expect(bootFailCount).toBe(1);
     expect(store.getConsecutiveBootFailCount()).toBe(1);
     expect(store.getUpdateBundleData()).toEqual({});
-    expect(result).toBeNull();
-    expect(context.createRecoveryWindow).not.toHaveBeenCalled();
+    expect(recoveryWindow).toBeUndefined();
+    expect(createRecoveryWindow).not.toHaveBeenCalled();
     const after = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as Record<
       string,
       unknown
@@ -352,11 +359,12 @@ describe('desktop startup with persisted state', () => {
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(2);
 
-    const { context, result } = runProductionBootThresholds(store);
+    const { bootFailCount, recoveryWindow } =
+      runProductionBootThresholds(store);
 
-    expect(context.bootFailCount).toBe(1);
+    expect(bootFailCount).toBe(1);
     expect(store.getUpdateBundleData()).toEqual({});
-    expect(result).toBeNull();
+    expect(recoveryWindow).toBeUndefined();
     const after = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as Record<
       string,
       unknown
@@ -374,38 +382,33 @@ describe('desktop startup with persisted state', () => {
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(2);
 
-    const { context, result, recoveryWindow } =
-      runProductionBootThresholds(store);
+    const {
+      bootFailCount,
+      recoveryWindow,
+      recoveryWindowMock,
+      createRecoveryWindow,
+    } = runProductionBootThresholds(store);
 
-    expect(context.bootFailCount).toBe(3);
+    expect(bootFailCount).toBe(3);
     expect(store.getConsecutiveBootFailCount()).toBe(3);
-    expect(result).toBe(recoveryWindow);
-    expect(context.createRecoveryWindow).toHaveBeenCalledTimes(1);
+    expect(recoveryWindow).toBe(recoveryWindowMock);
+    expect(createRecoveryWindow).toHaveBeenCalledTimes(1);
   });
 
   it('counts a main renderer crash but ignores a clean exit and app shutdown', () => {
-    const callbackSource = getProductionBootHandlerSource('render-gone');
     const run = (reason: string, appQuitStarted = false) => {
-      const context = {
-        appQuitStarted,
-        bleQuitStarted: false,
-        softRestarting: false,
-        mainRendererBootFailed: false,
-        mainRendererReloadTimestamps: [] as number[],
-        MAIN_RENDERER_RELOAD_WINDOW_MS: 5 * 60_000,
-        MAIN_RENDERER_MAX_RELOADS_IN_WINDOW: 3,
-        logger: { warn: jest.fn(), error: jest.fn() },
-        setImmediate: jest.fn(),
-      };
-      const callback = vm.runInNewContext(
-        `const callback = ${callbackSource}\ncallback`,
-        context,
-      ) as (
-        _event: unknown,
-        details: { reason: string; exitCode: number },
-      ) => void;
+      const state = createMainRendererRecoveryState();
+      const callback = createRenderProcessGoneHandler({
+        state,
+        getSafelyBrowserWindow: () => undefined,
+        getAppShellUrl: () => 'file:///index.html',
+        isAppQuitStarted: () => appQuitStarted,
+        isBleQuitStarted: () => false,
+        isSoftRestarting: () => false,
+        setAppReady: jest.fn(),
+      });
       callback(undefined, { reason, exitCode: 0 });
-      return context.mainRendererBootFailed;
+      return state.bootFailed;
     };
 
     expect(run('crashed')).toBe(true);
@@ -414,30 +417,22 @@ describe('desktop startup with persisted state', () => {
   });
 
   it('counts a failed selected shell load but not a cancelled or routed reload', () => {
-    const callbackSource = getProductionBootHandlerSource('load-failed');
     const shellUrl = 'file:///index.html';
+    const createLoadFailedCallback = () => {
+      const state = createMainRendererRecoveryState();
+      const callback = createDidFailLoadHandler({
+        state,
+        getSafelyBrowserWindow: () =>
+          ({ loadURL: jest.fn() }) as unknown as BrowserWindow,
+        getAppShellUrl: () => shellUrl,
+        isAppQuitStarted: () => false,
+      });
+      return { callback, state };
+    };
     const run = (url: string, errorCode: number, isMainFrame = true) => {
-      const context = {
-        appQuitStarted: false,
-        mainRendererBootFailed: false,
-        src: shellUrl,
-        isTrustedMainWindowUrl,
-        shouldReloadAppShellAfterFailedLoad,
-        logger: { info: jest.fn() },
-        getSafelyBrowserWindow: () => ({ loadURL: jest.fn() }),
-      };
-      const callback = vm.runInNewContext(
-        `const callback = ${callbackSource}\ncallback`,
-        context,
-      ) as (
-        event: unknown,
-        errorCode: number,
-        description: string,
-        validatedURL: string,
-        isMainFrame: boolean,
-      ) => void;
+      const { callback, state } = createLoadFailedCallback();
       callback(undefined, errorCode, '', url, isMainFrame);
-      return context.mainRendererBootFailed;
+      return state.bootFailed;
     };
 
     expect(run(shellUrl, -6)).toBe(true);
@@ -615,5 +610,126 @@ describe('desktop startup with persisted state', () => {
       require('./store');
     }).toThrow(SyntaxError);
     expect(fs.readFileSync(file, 'utf8')).toBe('{invalid-wallet-preferences');
+  });
+});
+
+describe('desktop FETCH_STREAM sender trust boundary', () => {
+  it.each(['open', 'read', 'cancel'] as const)(
+    'forwards a committed main-frame %s request and preserves its result',
+    async (action) => {
+      const fixture = createProductionFetchStreamFixture();
+      if (action === 'read') {
+        fixture.context.src = 'file:///opt/onekey/ota/index.html';
+        fixture.frame.url = `${fixture.context.src}#/home`;
+      }
+      const request: IFetchStreamRequest =
+        action === 'open'
+          ? { action, url: 'https://fixture.example/stream', headers: [] }
+          : { action, id: 'fixture-stream' };
+      let response: IFetchStreamResult = { ok: true, cancelled: true };
+      if (action === 'open') {
+        response = {
+          ok: true,
+          response: {
+            id: 'fixture-stream',
+            status: 200,
+            statusText: 'OK',
+            headers: [],
+          },
+        };
+      } else if (action === 'read') {
+        response = { ok: true, chunk: { done: true, b64: '' } };
+      }
+      fixture.fetchStreamRequest.mockResolvedValue(response);
+
+      await expect(fixture.handler(fixture.event, request)).resolves.toBe(
+        response,
+      );
+      expect(fixture.fetchStreamRequest).toHaveBeenCalledTimes(1);
+      expect(fixture.fetchStreamRequest).toHaveBeenCalledWith(request);
+    },
+  );
+
+  it.each([
+    'same-ID child frame',
+    'guest or foreign sender',
+    'wrong document URL',
+    'uncommitted shell',
+    'destroyed sender',
+    'senderFrame getter throws',
+    'mainFrame getter throws',
+    'missing trust predicate',
+  ])('rejects %s without forwarding a request', async (scenario) => {
+    const fixture = createProductionFetchStreamFixture();
+    switch (scenario) {
+      case 'same-ID child frame':
+        fixture.event.senderFrame = { url: fixture.frame.url };
+        break;
+      case 'guest or foreign sender':
+        fixture.event.sender.id = 2;
+        break;
+      case 'wrong document URL':
+        fixture.frame.url = 'file:///opt/other/index.html';
+        break;
+      case 'uncommitted shell':
+        fixture.context.selectedShellDocumentCommitted = false;
+        break;
+      case 'destroyed sender':
+        fixture.event.sender.isDestroyed = () => true;
+        break;
+      case 'senderFrame getter throws':
+        Object.defineProperty(fixture.event, 'senderFrame', {
+          get() {
+            throw new OneKeyLocalError('frame destroyed');
+          },
+        });
+        break;
+      case 'mainFrame getter throws':
+        Object.defineProperty(fixture.event.sender, 'mainFrame', {
+          get() {
+            throw new OneKeyLocalError('contents destroyed');
+          },
+        });
+        break;
+      case 'missing trust predicate':
+        delete fixture.mainAppFunctions.isTrustedMainWindowSender;
+        break;
+      default:
+        throw new OneKeyLocalError(`Unexpected scenario: ${scenario}`);
+    }
+
+    await expect(
+      fixture.handler(fixture.event, {
+        action: 'cancel',
+        id: 'fixture-stream',
+      }),
+    ).resolves.toEqual({ ok: false, error: 'not allowed' });
+    expect(fixture.fetchStreamRequest).not.toHaveBeenCalled();
+  });
+
+  it('uses the live main window after its ID changes', async () => {
+    const fixture = createProductionFetchStreamFixture();
+    const request: IFetchStreamRequest = {
+      action: 'read',
+      id: 'fixture-stream',
+    };
+    fixture.setMainId(2);
+    await expect(fixture.handler(fixture.event, request)).resolves.toEqual({
+      ok: false,
+      error: 'not allowed',
+    });
+    expect(fixture.fetchStreamRequest).not.toHaveBeenCalled();
+
+    const frame = { url: fixture.frame.url };
+    const event: IRelayEvent = {
+      sender: { id: 2, isDestroyed: () => false, mainFrame: frame },
+      senderFrame: frame,
+    };
+    await expect(fixture.handler(event, request)).resolves.toEqual({
+      ok: true,
+      cancelled: true,
+    });
+    expect(fixture.fetchStreamRequest).toHaveBeenCalledTimes(1);
+    expect(fixture.fetchStreamRequest).toHaveBeenCalledWith(request);
   });
 });
