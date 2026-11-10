@@ -316,12 +316,7 @@ describe('buildPortfolioPayload', () => {
       'Taiwan Semiconductor Manufacturing (Ondo Tokenized)',
       'Taiwan Semiconductor Manufacturing (Ondo Tok...',
     ],
-    [`${'币'.repeat(15)}AB`, `${'币'.repeat(15)}AB`],
-    ['币'.repeat(16), `${'币'.repeat(14)}...`],
-    [`${'币'.repeat(14)}AB币C`, `${'币'.repeat(14)}AB...`],
-    [`${'😀'.repeat(11)}ABC`, `${'😀'.repeat(11)}ABC`],
-    ['😀'.repeat(12), `${'😀'.repeat(11)}...`],
-    [`${'A'.repeat(43)}😀Z`, `${'A'.repeat(43)}...`],
+    ['Bitcoin (BTC)', 'Bitcoin (BTC)'],
   ])('bounds token name %s to the firmware 47-byte limit', (name, expected) => {
     const token = buildToken({ $key: 'token', name, symbol: 'TSMon' });
     const payload = buildPortfolioPayload({
@@ -344,6 +339,37 @@ describe('buildPortfolioPayload', () => {
     ).toBeLessThanOrEqual(47);
     expect(token.name).toBe(name);
   });
+
+  test.each([
+    ['币'.repeat(15)],
+    ['币'.repeat(16)],
+    [`${'A'.repeat(43)}币`],
+    ['😀'.repeat(11)],
+    ['Token 😀'],
+    ['Ｅｔｈｅｒ (full-width)'],
+    [''],
+  ])(
+    'sends unknown for token name %s outside the wallet-label character set',
+    (name) => {
+      const token = buildToken({ $key: 'token', name, symbol: 'TSMon' });
+      const payload = buildPortfolioPayload({
+        account: { label: 'Account #1', addressMasked: '0x12...ab' },
+        aggregateTokenMap: {},
+        currencyMap,
+        displayCurrency: { id: 'usd', symbol: '$' },
+        totalFiat: '1',
+        totalTokenCount: 1,
+        timestamp: 1_780_900_000,
+        tokenMap: {
+          token: buildFiat({ fiatValue: '1' }),
+        },
+        tokens: [token],
+      });
+
+      expect(payload.tokens[0].name).toBe('unknown');
+      expect(token.name).toBe(name);
+    },
+  );
 
   test.each([
     ['123456789012345', '123456789012345'],

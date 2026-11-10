@@ -446,12 +446,14 @@ function DeviceManagementV2ListWeb() {
       void refreshHwQrWalletList();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    appEventBus.on(EAppEventBusNames.WalletRemove, refreshWallets);
     appEventBus.on(
       EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
       refreshFirmwareStatus,
     );
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+      appEventBus.off(EAppEventBusNames.WalletRemove, refreshWallets);
       appEventBus.off(
         EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
         refreshFirmwareStatus,
