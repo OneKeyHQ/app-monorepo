@@ -79,6 +79,7 @@ function virtualAnchor(rect: IAnchorRect): VirtualElement {
 export function useAnchoredPosition({
   open,
   triggerRef,
+  anchorElement,
   anchorRect,
   panel,
   placement,
@@ -87,6 +88,7 @@ export function useAnchoredPosition({
 }: {
   open: boolean;
   triggerRef: RefObject<unknown>;
+  anchorElement?: HTMLElement;
   /** Used when there is no trigger element to measure. */
   anchorRect?: IAnchorRect;
   /** The panel element: it mounts a render after `open` flips. */
@@ -114,6 +116,7 @@ export function useAnchoredPosition({
     const triggerElement = triggerRef.current as HTMLElement | null;
     const reference: HTMLElement | VirtualElement | null =
       triggerElement ??
+      anchorElement ??
       (anchorRectRef.current ? virtualAnchor(anchorRectRef.current) : null);
     const floating = panel;
     if (!open || !reference || !floating) {
@@ -159,13 +162,17 @@ export function useAnchoredPosition({
       });
     };
     updateRef.current = update;
-    const cleanup = autoUpdate(reference, floating, update);
+    const cleanup = autoUpdate(reference, floating, update, {
+      // Pager headers can move with a sibling scroller's CSS timeline.
+      animationFrame: Boolean(anchorElement),
+    });
     return () => {
       updateRef.current = undefined;
       cleanup();
     };
   }, [
     allowFlipKey,
+    anchorElement,
     anchorRectKey,
     offsetKey,
     open,
