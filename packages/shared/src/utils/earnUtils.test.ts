@@ -288,6 +288,15 @@ describe('earnUtils Unitas provider behavior (OK-61790)', () => {
     );
     expect(earnUtils.isProtocolExecutedStake({ providerName: '' })).toBe(false);
   });
+
+  it('marks the Unitas redeem request as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'unitas' }),
+    ).toBe(true);
+    expect(
+      earnUtils.isProtocolExecutedWithdraw({ providerName: 'bitway' }),
+    ).toBe(false);
+  });
 });
 
 describe('earnUtils normalizeEarnUtmParams', () => {
