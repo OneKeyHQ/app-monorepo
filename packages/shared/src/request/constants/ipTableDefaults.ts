@@ -111,24 +111,6 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
     'onekeycn.com': {
       'endpoints': [
         {
-          'ip': '104.18.20.233',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '104.18.21.233',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '216.19.4.106',
-          'provider': 'volcengine',
-          'region': 'CN',
-          'weight': 100,
-        },
-        {
           'ip': '43.168.19.96',
           'provider': 'EdgeOne',
           'region': 'CN',
@@ -145,18 +127,6 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
     'onekeytest.com': {
       'endpoints': [
         {
-          'ip': '104.18.31.39',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
-          'ip': '104.18.30.39',
-          'provider': 'cloudflare',
-          'region': 'GLOBAL',
-          'weight': 100,
-        },
-        {
           'ip': '43.168.24.171',
           'provider': 'EdgeOne',
           'region': 'CN',
@@ -171,9 +141,9 @@ export const DEFAULT_IP_TABLE_CONFIG: IIpTableRemoteConfig = {
       ],
     },
   },
-  'generated_at': '2026-10-19T03:27:23.641Z',
+  'generated_at': '2026-11-10T09:54:17.103Z',
   'signature':
-    '0x771ed708633015541efac160f010eff3ba118f2a2646fc42fef485568510d4b40c2fefae855d5844a0c7d68cadc07fdd76418bf1b3d353fa52bf0d1b14ade8671c',
+    '0x524d44617e3581c0d52e3b9276ffadf192e6611c0651b172bca05b20b3790f257d29ecd0d5e5172b282bb99403447ff1926e60d964b19ce01e9d46a4cfc11f931b',
   'ttl_sec': 86_400,
   'version': 1,
 };

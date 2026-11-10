@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
@@ -127,7 +133,7 @@ describe('Privacy account management preview localization', () => {
     mockIntlError.mockClear();
   });
 
-  it('updates copy and long names on locale changes without resetting account state', () => {
+  it('updates copy and long names on locale changes without resetting account state', async () => {
     const { rerender } = render(preview('en-US'));
     expect(screen.getByRole('button', { name: 'Default' })).toBeTruthy();
     expect(
@@ -139,6 +145,13 @@ describe('Privacy account management preview localization', () => {
 
     fireEvent.click(
       within(accountRow('enabled')).getByRole('button', { name: 'Pause' }),
+    );
+    await waitFor(
+      () =>
+        expect(
+          within(accountRow('enabled')).getByRole('button', { name: 'Resume' }),
+        ).toBeTruthy(),
+      { timeout: 2000 },
     );
     fireEvent.click(screen.getByRole('button', { name: 'Long names' }));
     expect(
@@ -159,8 +172,14 @@ describe('Privacy account management preview localization', () => {
         '账户 #1 · 个人储蓄和长期隐私资金',
       ),
     ).toBeTruthy();
-    expect(within(accountRow('enabled')).getByText('Zcash')).toBeTruthy();
-    expect(within(accountRow('disabled')).getByText('Monero')).toBeTruthy();
+    expect(within(accountRow('enabled')).queryByText('Zcash')).toBeNull();
+    expect(within(accountRow('disabled')).queryByText('Monero')).toBeNull();
+    expect(
+      within(accountRow('enabled')).getByRole('img', { name: 'Zcash' }),
+    ).toBeTruthy();
+    expect(
+      within(accountRow('disabled')).getByRole('img', { name: 'Monero' }),
+    ).toBeTruthy();
     expect(within(accountRow('enabled')).getByText(/钱包 · /)).toBeTruthy();
     expect(
       within(accountRow('enabled')).getByRole('button', {
@@ -171,12 +190,21 @@ describe('Privacy account management preview localization', () => {
     expect(mockIntlError).not.toHaveBeenCalled();
   });
 
-  it('resets scenarios and sample actions while preserving the selected language', () => {
+  it('resets scenarios and sample actions while preserving the selected language', async () => {
     render(preview('zh-CN'));
     fireEvent.click(
       within(accountRow('enabled')).getByRole('button', {
         name: zhMessages['global.pause'],
       }),
+    );
+    await waitFor(
+      () =>
+        expect(
+          within(accountRow('enabled')).getByRole('button', {
+            name: zhMessages['global.resume'],
+          }),
+        ).toBeTruthy(),
+      { timeout: 2000 },
     );
     fireEvent.click(screen.getByRole('button', { name: '长名称' }));
     fireEvent.click(screen.getByRole('button', { name: '不可用' }));
