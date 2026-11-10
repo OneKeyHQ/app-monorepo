@@ -2,10 +2,8 @@ import { AxiosError } from 'axios';
 
 import {
   OneKeyErrorPrimeUserBanned,
-  OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
@@ -17,14 +15,7 @@ import type {
 } from 'axios';
 
 const REQUEST_TOKEN = 'test-request-token';
-const mockHandleBanned = jest.fn(async () => undefined);
-const mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
-const mockReadPrimeUser = jest.fn(async () => mockUser);
-const mockReadAuthGeneration = jest.fn(async () => 7);
-const mockDevSettings = {
-  enabled: false,
-  settings: { mockPrimeUserBanned: false },
-};
+const mockHandleInvalidToken = jest.fn(async () => ({ cleared: false }));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -38,12 +29,7 @@ jest.mock('../endpoints', () => ({
   getEndpointInfo: async () => ({ endpoint: 'https://test.onekey.so' }),
 }));
 jest.mock('../states/jotai/atoms/devSettings', () => ({
-  devSettingsPersistAtom: {
-    get: async () => mockDevSettings,
-  },
-}));
-jest.mock('../states/jotai/atoms/prime', () => ({
-  primePersistAtom: { get: () => mockReadPrimeUser() },
+  devSettingsPersistAtom: { get: async () => ({ enabled: false }) },
 }));
 jest.mock('./ServicePrime/primeAuthSessionAccess', () => ({
   readAuthTokenOrNull: (read: () => Promise<string>) => read(),
@@ -73,6 +59,7 @@ jest.mock('@onekeyhq/shared/src/request/availabilityMetrics', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: { network: { start: jest.fn(), end: jest.fn(), error: jest.fn() } },
+    prime: { subscription: { onekeyIdInvalidToken: jest.fn() } },
   },
 }));
 jest.mock(
@@ -124,22 +111,16 @@ describe('OneKey ID client through global and service interceptors', () => {
         simpleDb: {
           prime: {
             getActiveAuthToken: async () => REQUEST_TOKEN,
-            getAuthStateGeneration: () => mockReadAuthGeneration(),
           },
         },
-        servicePrime: { handlePrimeUserBanned: mockHandleBanned },
+        servicePrime: { handlePrimeLoginInvalidToken: mockHandleInvalidToken },
       },
     });
     client = await service.getOneKeyIdClient(EServiceEndpointEnum.Prime);
   });
 
   beforeEach(() => {
-    mockHandleBanned.mockClear();
-    mockUser.isOneKeyIdBanned = false;
-    mockReadPrimeUser.mockReset().mockResolvedValue(mockUser);
-    mockReadAuthGeneration.mockReset().mockResolvedValue(7);
-    mockDevSettings.enabled = false;
-    mockDevSettings.settings.mockPrimeUserBanned = false;
+    mockHandleInvalidToken.mockClear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -168,60 +149,13 @@ describe('OneKey ID client through global and service interceptors', () => {
     return adapter;
   }
 
-  describe('offline desktop mock', () => {
-    beforeEach(() => {
-      jest.replaceProperty(platformEnv, 'isDev', true);
-      jest.replaceProperty(platformEnv, 'isDesktop', true);
-      mockDevSettings.enabled = true;
-      mockDevSettings.settings.mockPrimeUserBanned = true;
-    });
-
-    test.each([
-      '/prime/v1/user/devices',
-      '/prime/v1/user/delete',
-      '/prime/v1/user/logout',
-      '/prime/v1/general/emailOTP',
-      '/prime/v1/account/oauth/login',
-      '/rebate/v1/user/info',
-      '/wallet/v1/account/transaction/export-task/create',
-    ])(
-      'rejects %s without a request or a real restriction update',
-      async (url) => {
-        const adapter = respondWith(200, 0);
-        await expect(client.post(url)).rejects.toMatchObject({
-          code: 90_012,
-          data: { primeUserBannedMock: true },
-        });
-        expect(adapter).not.toHaveBeenCalled();
-        expect(mockHandleBanned).not.toHaveBeenCalled();
-        expect(mockUser.isOneKeyIdBanned).toBe(false);
-      },
-    );
-
-    it('preserves independent wallet requests and restores requests when disabled', async () => {
-      const adapter = respondWith(200, 0);
-      await client.get('/wallet/v1/account/transaction/history');
-      mockDevSettings.settings.mockPrimeUserBanned = false;
-      await client.get('/prime/v1/user/info');
-      expect(adapter).toHaveBeenCalledTimes(2);
-      expect(mockUser.isOneKeyIdBanned).toBe(false);
-    });
-
-    it('ignores a persisted mock setting in production', async () => {
-      jest.replaceProperty(platformEnv, 'isDev', false);
-      const adapter = respondWith(200, 0);
-      await client.get('/prime/v1/user/info');
-      expect(adapter).toHaveBeenCalledTimes(1);
-    });
-  });
-
   test.each([
     [200, true],
     [200, false],
     [403, true],
     [403, false],
   ])(
-    'preserves a ban and private identity context for HTTP %s, autoHandleError=%s',
+    'signs out the banned session and keeps the token private for HTTP %s, autoHandleError=%s',
     async (status, autoHandleError) => {
       respondWith(status, 90_012);
       const error = await client
@@ -231,33 +165,36 @@ describe('OneKey ID client through global and service interceptors', () => {
         .catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(mockHandleBanned).toHaveBeenCalledTimes(1);
-      expect(mockHandleBanned).toHaveBeenCalledWith({
-        requestAuthToken: REQUEST_TOKEN,
-        requestContext: {
-          onekeyUserId: 'user-a',
-          authStateGeneration: 7,
+      expect(mockHandleInvalidToken).toHaveBeenCalledTimes(1);
+      expect(mockHandleInvalidToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
           requestUrl: '/prime/v1/user/info',
-        },
-        requestUrl: '/prime/v1/user/info',
-      });
+        }),
+      );
       expect(JSON.stringify(error)).not.toContain(REQUEST_TOKEN);
     },
   );
 
-  it('retains the incoming OAuth bind path across a 403 conversion', async () => {
-    respondWith(403, 90_012);
-    const path = '/prime/v1/account/identities/oauth/bind';
+  test.each([200, 403])(
+    'keeps the signed-in account when an incoming OAuth bind identity is banned (HTTP %s)',
+    async (status) => {
+      respondWith(status, 90_012);
+      await expect(
+        client.post('/prime/v1/account/identities/oauth/bind', {
+          token: 'incoming-oauth-token',
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(mockHandleInvalidToken).not.toHaveBeenCalled();
+    },
+  );
 
-    await expect(
-      client.post(path, { token: 'incoming-oauth-token' }),
-    ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-
-    expect(mockHandleBanned).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requestUrl: path,
-        requestContext: expect.objectContaining({ requestUrl: path }),
-      }),
+  it('keeps the banned error when signing out fails', async () => {
+    respondWith(200, 90_012);
+    mockHandleInvalidToken.mockRejectedValueOnce(new Error('storage'));
+    await expect(client.get('/prime/v1/user/info')).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
     );
   });
 
@@ -269,78 +206,19 @@ describe('OneKey ID client through global and service interceptors', () => {
 
     expect(error).toBeInstanceOf(OneKeyServerApiError);
     expect(error).toMatchObject({ code: 403, httpStatusCode: 403 });
-    expect(mockHandleBanned).not.toHaveBeenCalled();
+    expect(mockHandleInvalidToken).not.toHaveBeenCalled();
   });
-
-  it('keeps successful responses unchanged', async () => {
-    respondWith(200, 0);
-    await expect(client.get('/prime/v1/user/info')).resolves.toMatchObject({
-      data: { code: 0 },
-    });
-    expect(mockHandleBanned).not.toHaveBeenCalled();
-  });
-
-  describe.each(['user projection', 'auth generation'] as const)(
-    'when Prime %s storage is unavailable',
-    (source) => {
-      let storageError: OneKeyLocalError;
-
-      beforeEach(() => {
-        storageError = new OneKeyLocalError(
-          'Prime storage temporarily unavailable',
-        );
-        if (source === 'user projection') {
-          mockReadPrimeUser.mockRejectedValue(storageError);
-        } else {
-          mockReadAuthGeneration.mockRejectedValue(storageError);
-        }
-      });
-
-      test.each([
-        '/wallet/v1/account/transaction/history',
-        '/wallet/v1/token/list',
-      ])(
-        'sends independent request %s without reading Prime restriction state',
-        async (url) => {
-          const adapter = respondWith(200, 0);
-
-          await expect(client.get(url)).resolves.toMatchObject({
-            data: { code: 0 },
-          });
-
-          expect(adapter).toHaveBeenCalledTimes(1);
-          expect(mockReadPrimeUser).not.toHaveBeenCalled();
-          expect(mockReadAuthGeneration).not.toHaveBeenCalled();
-        },
-      );
-
-      test.each([
-        '/prime/v1/user/devices',
-        '/rebate/v1/user/info',
-        '/wallet/v1/account/transaction/export-task/create',
-      ])('blocks restricted request %s before the network', async (url) => {
-        const adapter = respondWith(200, 0);
-
-        await expect(client.get(url)).rejects.toBe(storageError);
-
-        expect(mockReadPrimeUser).toHaveBeenCalledTimes(1);
-        expect(adapter).not.toHaveBeenCalled();
-      });
-    },
-  );
 
   test.each([
-    '/prime/v1/user/devices',
-    '/rebate/v1/user/info',
-    '/wallet/v1/account/transaction/export-task/create',
-  ])('still blocks known-banned feature request %s', async (url) => {
+    '/prime/v1/user/info',
+    '/prime/v1/user/delete',
+    '/wallet/v1/account/transaction/history',
+  ])('sends %s without a local ban gate', async (url) => {
     const adapter = respondWith(200, 0);
-    mockUser.isOneKeyIdBanned = true;
-
-    await expect(client.get(url)).rejects.toBeInstanceOf(
-      OneKeyErrorPrimeUserBanned,
-    );
-
-    expect(adapter).not.toHaveBeenCalled();
+    await expect(client.get(url)).resolves.toMatchObject({
+      data: { code: 0 },
+    });
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(mockHandleInvalidToken).not.toHaveBeenCalled();
   });
 });
