@@ -6,7 +6,6 @@ import {
   SizableText,
   Skeleton,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -14,6 +13,7 @@ import {
   DetailEmptyValue,
   DetailRow,
   INFO_TRIGGER_HIT_SLOP,
+  InfoPopoverContent,
   formatPrice,
 } from './DetailRow';
 import { getProviderDisplayName } from './ProviderLogo';
@@ -68,14 +68,14 @@ export function RateRow({
           </XStack>
         }
         renderContent={
-          <YStack p="$5">
+          <InfoPopoverContent>
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage(
                 { id: ETranslations.buy_rate_source__desc },
                 { provider: providerLabel },
               )}
             </SizableText>
-          </YStack>
+          </InfoPopoverContent>
         }
       />
     </DetailRow>

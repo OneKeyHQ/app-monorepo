@@ -73,7 +73,7 @@ const mockDisable = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
 >();
-const mockRepair = jest.fn(async (_params: unknown) => undefined);
+const mockRepair = jest.fn<Promise<void>, [unknown]>();
 const mockResumeChain = jest.fn<Promise<void>, [unknown]>();
 const mockPauseChain = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockLogError = jest.fn<void, [string]>();
@@ -417,7 +417,7 @@ describe('Privacy network settings for a temp wallet', () => {
     mockShowSlotsFull.mockClear();
     mockDisable.mockReset().mockResolvedValue(undefined);
     mockDelete.mockReset().mockResolvedValue(undefined);
-    mockRepair.mockClear();
+    mockRepair.mockReset().mockResolvedValue(undefined);
     mockResumeChain.mockReset().mockResolvedValue(undefined);
     mockPauseChain.mockReset().mockResolvedValue(undefined);
     mockLogError.mockClear();
@@ -1036,7 +1036,13 @@ describe('Privacy network settings for a temp wallet', () => {
     );
     mockAccountStates['hd-1--0'] = { enabled: true, paused: false };
     render(<PrivacyNetworkSettings networkId="zec--0" />);
-    fireEvent.click(await screen.findByTestId('privacy-network-pause-hd-1--0'));
+    const pauseButton = await screen.findByTestId(
+      'privacy-network-pause-hd-1--0',
+    );
+    await act(async () => {
+      fireEvent.click(pauseButton);
+    });
+    expect(mockDisable).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('privacy-network-resume-hd-1--0')).toBeNull();
     expect(
       (
@@ -1376,12 +1382,8 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(firstAccount.textContent).toContain('Wallet 1');
     expect(secondAccount.textContent).toContain('Account #1');
     expect(secondAccount.textContent).toContain('Wallet 2');
-    expect(
-      screen.getByTestId('privacy-network-chain-hd-1--0').textContent,
-    ).toBe('Zcash');
-    expect(
-      screen.getByTestId('privacy-network-chain-hd-2--0').textContent,
-    ).toBe('Monero');
+    expect(firstAccount.textContent).not.toContain('Zcash');
+    expect(secondAccount.textContent).not.toContain('Monero');
     expect(
       within(firstAccount)
         .getByRole('img', { name: 'Zcash' })
@@ -1427,6 +1429,277 @@ describe('Privacy network settings for a temp wallet', () => {
       ).disabled,
     ).toBe(false);
     expect(screen.queryByText('global.processing')).toBeNull();
+  });
+
+  it.each(['pause', 'resume'] as const)(
+    'isolates pending %s feedback and blocks duplicate requests only for that account',
+    async (action) => {
+      mockAccounts = [listItem({}), listItem({ accountId: 'hd-1--1' })];
+      mockAccountStates = {
+        'hd-1--0': { enabled: action === 'pause', paused: action === 'resume' },
+        'hd-1--1': { enabled: action === 'pause', paused: action === 'resume' },
+      };
+      const control = action === 'pause' ? mockDisable : mockEnable;
+      const finish = new Map<string, () => void>();
+      control.mockImplementation(
+        ({ accountId }) =>
+          new Promise<void>((resolve) => {
+            finish.set(accountId, resolve);
+          }),
+      );
+      render(<PrivacyNetworkSettings networkId="zec--0" />);
+      const first = (await screen.findByTestId(
+        `privacy-network-${action}-hd-1--0`,
+      )) as HTMLButtonElement;
+      const second = screen.getByTestId(
+        `privacy-network-${action}-hd-1--1`,
+      ) as HTMLButtonElement;
+      await act(async () => {
+        fireEvent.click(first);
+        fireEvent.click(first);
+      });
+      expect(control).toHaveBeenCalledTimes(1);
+      expect(first.disabled).toBe(true);
+      expect(first.getAttribute('aria-busy')).toBe('true');
+      expect(second.disabled).toBe(false);
+      expect(second.getAttribute('aria-busy')).toBe('false');
+      expect(
+        (
+          screen.getByTestId(
+            'privacy-network-delete-hd-1--1',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+      await act(async () => {
+        fireEvent.click(second);
+      });
+      expect(control).toHaveBeenCalledTimes(2);
+      await act(async () => finish.get('hd-1--0')?.());
+      expect(first.disabled).toBe(false);
+      expect(first.getAttribute('aria-busy')).toBe('false');
+      expect(second.disabled).toBe(true);
+      expect(second.getAttribute('aria-busy')).toBe('true');
+      await act(async () => finish.get('hd-1--1')?.());
+      expect(second.disabled).toBe(false);
+    },
+  );
+
+  it('keeps the list stable during deletion without showing pause feedback', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { confirm: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockAccounts = [listItem({}), listItem({ accountId: 'hd-1--1' })];
+    mockAccountStates = {
+      'hd-1--0': { enabled: true, paused: false },
+      'hd-1--1': { enabled: true, paused: false },
+    };
+    let finishDelete: () => void = () => {};
+    mockDelete.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDelete = resolve;
+        }),
+    );
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    const first = (await screen.findByTestId(
+      'privacy-network-pause-hd-1--0',
+    )) as HTMLButtonElement;
+    const second = screen.getByTestId(
+      'privacy-network-pause-hd-1--1',
+    ) as HTMLButtonElement;
+    fireEvent.click(screen.getByTestId('privacy-network-delete-hd-1--0'));
+    const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
+      onConfirm: () => Promise<void>;
+    };
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = args.onConfirm();
+      void args.onConfirm();
+    });
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    expect(first.disabled).toBe(true);
+    expect(first.getAttribute('aria-busy')).toBe('false');
+    expect(second.disabled).toBe(false);
+    expect(second.getAttribute('aria-busy')).toBe('false');
+    expect(screen.getByTestId('privacy-network-pause-hd-1--0')).toBe(first);
+    await act(async () => {
+      mockAccountStates['hd-1--0'] = { enabled: false, paused: false };
+      finishDelete();
+      await pending;
+    });
+    expect(
+      screen
+        .getByTestId('privacy-network-enable-hd-1--0')
+        .getAttribute('aria-busy'),
+    ).toBe('false');
+    expect(screen.getByTestId('privacy-network-pause-hd-1--1')).toBe(second);
+  });
+
+  it('keeps enable admission and confirmation local to the selected account', async () => {
+    const { Dialog } = jest.requireMock<{ Dialog: { show: jest.Mock } }>(
+      '@onekeyhq/components',
+    );
+    mockAccounts = [listItem({}), listItem({ accountId: 'hd-1--1' })];
+    let finishAdmission: () => void = () => {};
+    mockAdmission.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishAdmission = resolve;
+        }),
+    );
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    const first = (await screen.findByTestId(
+      'privacy-network-enable-hd-1--0',
+    )) as HTMLButtonElement;
+    const second = screen.getByTestId(
+      'privacy-network-enable-hd-1--1',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(first);
+      fireEvent.click(first);
+    });
+    expect(mockAdmission).toHaveBeenCalledTimes(1);
+    expect(first.disabled).toBe(true);
+    expect(second.disabled).toBe(false);
+    await act(async () => finishAdmission());
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    expect(first.disabled).toBe(false);
+    let finishEnable: () => void = () => {};
+    mockEnable.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishEnable = resolve;
+        }),
+    );
+    const args = Dialog.show.mock.calls.at(-1)?.[0] as {
+      onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+    };
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = args.onConfirm({ preventClose: jest.fn() });
+      void args.onConfirm({ preventClose: jest.fn() });
+    });
+    expect(mockEnable).toHaveBeenCalledTimes(1);
+    expect(first.getAttribute('aria-busy')).toBe('true');
+    expect(second.disabled).toBe(false);
+    await act(async () => {
+      finishEnable();
+      await pending;
+    });
+    expect(first.disabled).toBe(false);
+  });
+
+  it.each([
+    ['enable', 'success'],
+    ['enable', 'failure'],
+    ['delete', 'success'],
+    ['delete', 'failure'],
+    ['repair', 'success'],
+    ['repair', 'failure'],
+  ] as const)(
+    'keeps duplicate %s confirmations pending until the shared request finishes with %s',
+    async (action, outcome) => {
+      const { Dialog } = jest.requireMock<{
+        Dialog: { show: jest.Mock; confirm: jest.Mock };
+      }>('@onekeyhq/components');
+      mockAccounts = [listItem({})];
+      mockAccountStates['hd-1--0'] = {
+        enabled: action !== 'enable',
+        paused: false,
+        birthdayHeight: 3_500_000,
+      };
+      const control = {
+        enable: mockEnable,
+        delete: mockDelete,
+        repair: mockRepair,
+      }[action];
+      let finish: () => void = () => {};
+      let fail: (error: Error) => void = () => {};
+      const request = new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      });
+      control.mockImplementationOnce(() => request);
+      render(<PrivacyNetworkSettings networkId="zec--0" />);
+      const button = await screen.findByTestId(
+        `privacy-network-${action === 'repair' ? 'birthday' : action}-hd-1--0`,
+      );
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      const dialog = action === 'enable' ? Dialog.show : Dialog.confirm;
+      const args = dialog.mock.calls.at(-1)?.[0] as {
+        onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+      };
+      const resolved = jest.fn();
+      const rejected = jest.fn();
+      let confirmations: Promise<PromiseSettledResult<void>[]> | undefined;
+      await act(async () => {
+        const first = args.onConfirm({ preventClose: jest.fn() });
+        const second = args.onConfirm({ preventClose: jest.fn() });
+        void first.then(resolved, rejected);
+        void second.then(resolved, rejected);
+        confirmations = Promise.allSettled([first, second]);
+      });
+      expect(control).toHaveBeenCalledTimes(1);
+      // The dialog footer closes on fulfillment, so neither callback may finish early.
+      expect(resolved).not.toHaveBeenCalled();
+      expect(rejected).not.toHaveBeenCalled();
+      const error = new Error('operation failed');
+      await act(async () => {
+        if (outcome === 'success') {
+          finish();
+        } else {
+          fail(error);
+        }
+        expect(await confirmations).toEqual(
+          outcome === 'success'
+            ? [
+                { status: 'fulfilled', value: undefined },
+                { status: 'fulfilled', value: undefined },
+              ]
+            : [
+                { status: 'rejected', reason: error },
+                { status: 'rejected', reason: error },
+              ],
+        );
+      });
+      expect(control).toHaveBeenCalledTimes(1);
+      if (outcome === 'success') {
+        expect(resolved).toHaveBeenCalledTimes(2);
+        expect(rejected).not.toHaveBeenCalled();
+      } else {
+        expect(resolved).not.toHaveBeenCalled();
+        expect(rejected).toHaveBeenCalledTimes(2);
+        await act(async () => {
+          await args.onConfirm({ preventClose: jest.fn() });
+        });
+        expect(control).toHaveBeenCalledTimes(2);
+      }
+    },
+  );
+
+  it('does not share a busy state between equal account IDs on different networks', async () => {
+    mockAccounts = [listItem({}), listItem({ networkId: 'xmr--0' })];
+    mockAccountStates['hd-1--0'] = { enabled: true, paused: false };
+    let finishPause: () => void = () => {};
+    mockDisable.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPause = resolve;
+        }),
+    );
+    render(<PrivacyNetworkSettings />);
+    const [first, second] = (await screen.findAllByTestId(
+      'privacy-network-pause-hd-1--0',
+    )) as HTMLButtonElement[];
+    await act(async () => {
+      fireEvent.click(first);
+    });
+    expect(first.disabled).toBe(true);
+    expect(second.disabled).toBe(false);
+    expect(second.getAttribute('aria-busy')).toBe('false');
+    await act(async () => finishPause());
   });
   it('shows a required storage upgrade even when the background has no active scan or ordinary error', async () => {
     mockAccountStates['hd-1--0'] = { enabled: true, paused: false };

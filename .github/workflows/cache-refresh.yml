@@ -83,7 +83,7 @@ jobs:
     steps:
       # Step 1: Checkout code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true  # Enable Git LFS support
 
@@ -94,7 +94,7 @@ jobs:
       # - Restore cache if it exists
       # - Prepare to create new cache if not exists or expired
       - name: Setup Node.js ${{ matrix.node-version }} with Yarn cache
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'  # Enable Yarn caching
@@ -170,7 +170,7 @@ jobs:
       - name: Check dependency image before building
         id: existing-snapshot
         if: runner.os == 'Linux' && steps.dependencies.outputs.snapshot-kind != 'exact'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.dependencies.outputs.cache-path }}
           key: ${{ steps.dependencies.outputs.cache-key }}
@@ -183,7 +183,7 @@ jobs:
 
       - name: Publish dependency image from x
         if: steps.snapshot.outputs.built == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         continue-on-error: true
         with:
           path: ${{ steps.dependencies.outputs.cache-path }}
