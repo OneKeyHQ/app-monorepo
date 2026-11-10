@@ -1026,7 +1026,7 @@ const SwapMainLoad = ({
   );
 
   const parseQuoteResultToSteps = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewFromToken?: ISwapToken) => {
       if (!currentQuoteRes) {
         return;
       }
@@ -1061,6 +1061,7 @@ const SwapMainLoad = ({
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         stockReviewToken,
+        reviewFromToken,
         fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
         toTokenAmount: reviewTokenAmounts.toTokenAmount,
         quoteResult: currentQuoteRes,
@@ -1251,7 +1252,7 @@ const SwapMainLoad = ({
   }, [navigation]);
 
   const onPreSwap = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewFromToken?: ISwapToken) => {
       if (reviewDialogTimerRef.current !== undefined) {
         return;
       }
@@ -1290,7 +1291,7 @@ const SwapMainLoad = ({
         onPreSwapClose(reviewGeneration);
       };
       beginGasAccountReviewSession();
-      parseQuoteResultToSteps(stockReviewToken);
+      parseQuoteResultToSteps(stockReviewToken, reviewFromToken);
       setSwapBuildTxFetching(true);
       reviewDialogTimerRef.current = setTimeout(() => {
         if (reviewGeneration !== reviewGenerationRef.current) {

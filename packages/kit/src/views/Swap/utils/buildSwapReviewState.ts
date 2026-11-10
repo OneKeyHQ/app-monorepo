@@ -213,6 +213,7 @@ export type IBuildSwapReviewStateInput = {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   stockReviewToken?: ISwapToken;
+  reviewFromToken?: ISwapToken;
   fromTokenAmount?: string;
   toTokenAmount?: string;
   quoteResult?: IFetchQuoteResult;
@@ -252,6 +253,7 @@ export function buildSwapReviewState({
   fromToken,
   toToken,
   stockReviewToken,
+  reviewFromToken,
   fromTokenAmount,
   toTokenAmount,
   quoteResult,
@@ -285,12 +287,23 @@ export function buildSwapReviewState({
   const isBatchApproveAndSwap =
     batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
   const needFetchGas = needApprove && !isBatchApproveAndSwap;
+  const pricedFromToken =
+    fromToken &&
+    reviewFromToken &&
+    equalTokenNoCaseSensitive({ token1: fromToken, token2: reviewFromToken })
+      ? {
+          ...fromToken,
+          price: reviewFromToken.price,
+          currency: reviewFromToken.currency,
+        }
+      : fromToken;
+  const hasReviewInputPrice = pricedFromToken !== fromToken;
   const reviewRateDifference =
-    rateDifference ??
+    (!hasReviewInputPrice && rateDifference) ||
     buildSwapRateDifference({
-      fromTokenPrice: fromToken?.price,
+      fromTokenPrice: pricedFromToken?.price,
       toTokenPrice: toToken?.price,
-      fromTokenCurrency: fromToken?.currency,
+      fromTokenCurrency: pricedFromToken?.currency,
       toTokenCurrency: toToken?.currency,
       defaultTokenCurrency,
       currencyMap,
@@ -365,7 +378,7 @@ export function buildSwapReviewState({
       : token;
   const preSwapData: ISwapPreSwapData = {
     swapType,
-    fromToken: withStockReviewMetadata(fromToken),
+    fromToken: withStockReviewMetadata(pricedFromToken),
     toToken: withStockReviewMetadata(toToken),
     shouldFallback,
     fromTokenAmount,

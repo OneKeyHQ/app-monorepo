@@ -175,7 +175,10 @@ interface ISwapStockDesktopContainerProps {
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
-  onPreSwap: (stockReviewToken?: ISwapToken) => void;
+  onPreSwap: (
+    stockReviewToken?: ISwapToken,
+    reviewFromToken?: ISwapToken,
+  ) => void;
   onToAnotherAddressModal: () => void;
   onOpenProviderList: () => void;
   refreshAction: () => void;
@@ -1240,13 +1243,13 @@ function StockTradeTicket({
       stockDetail?.symbol,
     ],
   );
-  const onStockPreSwap = useCallback(
-    () => onPreSwap(stockReviewToken),
-    [onPreSwap, stockReviewToken],
-  );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
+  const onStockPreSwap = useCallback(
+    () => onPreSwap(stockReviewToken, amountInputState.reviewFromToken),
+    [onPreSwap, stockReviewToken, amountInputState.reviewFromToken],
+  );
   const [settings] = useSettingsPersistAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const fromTokenKey = getTokenIdentityKey(stockChannel.fromToken);

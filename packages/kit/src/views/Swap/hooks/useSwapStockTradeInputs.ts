@@ -880,6 +880,10 @@ export function useSwapStockAmountInputState({
 
   return {
     amountFiatValue,
+    reviewFromToken:
+      amountInputToken && inputTokenPrice
+        ? { ...amountInputToken, ...inputTokenPrice }
+        : undefined,
     balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
     balanceRefreshing,
