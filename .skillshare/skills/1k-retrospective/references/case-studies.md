@@ -1494,3 +1494,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
 **Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
 **Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
+
+## Case: Lite card backup listed Bot Wallets (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: Lite card wallet selection and shared Prime Transfer filtering on supported clients.
+**Symptom**: Bot Wallets appeared in the Lite card backup wallet picker.
+**Root Cause**: The picker accepted HD wallet IDs and excluded only Keyless IDs. Bot IDs also start with `hd-`, so they passed that predicate. Prime Transfer already excluded Bot Wallets by default, but its helper was local to that service.
+**Fix**: Extract the backup filter into `shared` and reuse it in Lite card selection and Prime Transfer. Exclude Keyless wallets by metadata or ID, exclude Bot Wallets by default, and preserve explicit Bot selection for CLI export. Keep the Lite picker restricted to HD wallets and add regression coverage for mixed wallet lists.
+**Catchable by**: Sections 4 and 6: Trace all consumers of shared wallet eligibility rules and test ordinary, Keyless, Bot, hardware, QR, imported and watching wallets together.
+
+## Case: Shared backup filter was missing from the native module registry (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: iOS CI main/background three-bundle build; the stable registry is also used by Android. Build-time only, with no native-resource or runtime-lifecycle changes.
+**Symptom**: Native CI failed during union bundle allocation even though the filtering tests, lint and type checks passed.
+**Root Cause**: The new shared source module was not added to the stable module ID registry. The production allocator rejects unregistered paths.
+**Fix**: Register `walletBackupUtils.ts` with the repository updater, preserving every existing ID. Verify the original strict allocator failure now passes, check the registry map, run the existing registry suites, and confirm Native CI succeeds.
+**Catchable by**: Section 3: Check native bundle integration when adding a shared module, including strict module-ID registration in addition to lint and type checks.
