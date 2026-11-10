@@ -80,9 +80,17 @@ export function useLiquidGlassHeaderTopInset(): number {
   );
 }
 
-export function GlassHeaderProvider({ children }: { children: ReactNode }) {
+export function GlassHeaderProvider({
+  children,
+  value = true,
+}: {
+  children: ReactNode;
+  value?: boolean;
+}) {
   return (
-    <GlassHeaderContext.Provider value>{children}</GlassHeaderContext.Provider>
+    <GlassHeaderContext.Provider value={value}>
+      {children}
+    </GlassHeaderContext.Provider>
   );
 }
 

@@ -24,6 +24,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsDeferredGuideBlocked } from '../../hooks/useDeferredGuideBlocker';
+import {
+  GlassHeaderProvider,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 import { ShowCustom } from '../Toast/ShowCustom';
 
 import { Popover as NativePopover } from './index.native';
@@ -54,6 +58,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNativeIOS: true, isNative: true },
 }));
+jest.mock('@react-navigation/elements', () => ({
+  HeaderHeightContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0 }),
+}));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({ isFoldableIPhone: () => false }),
+);
 jest.mock('../../hooks', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -259,6 +275,40 @@ function resolveNativeMeasure(
 ) {
   act(() => callback(0, 0, 300, height));
 }
+
+it.each([true, false])(
+  'isolates native sheet content from glass header styles (iOS: %s)',
+  (isNativeIOS) => {
+    mockPlatformEnv.isNativeIOS = isNativeIOS;
+    const onPress = jest.fn();
+    function TriggerContent() {
+      return <span>Glass trigger: {String(useInGlassHeader())}</span>;
+    }
+    function Content() {
+      return (
+        <button type="button" onClick={onPress}>
+          Glass content: {String(useInGlassHeader())}
+        </button>
+      );
+    }
+    render(
+      <GlassHeaderProvider>
+        <NativePopover
+          title="Translate"
+          open
+          renderTrigger={<TriggerContent />}
+          renderContent={<Content />}
+        />
+      </GlassHeaderProvider>,
+    );
+    expect(screen.getByText('Glass trigger: true')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Glass content: false' }),
+    );
+    expect(onPress).toHaveBeenCalledTimes(1);
+  },
+);
+
 it('uses the requested percentage for a narrow web sheet', () => {
   mockNarrow = true;
   render(
