@@ -81,3 +81,14 @@ export function getTermsConsentRecheckDelay(
   );
   return Math.max(0, recheckAt - now);
 }
+
+// Once the dialog has asked about a version, only its own buttons answer it.
+// The notices on Get Started and the ready page speak for people it never
+// asked, so a wallet created after Not now or "Back up wallets" isn't an
+// agreement.
+export function hasTermsConsentDialogAsked(
+  { round }: ITermsConsentState,
+  version: string,
+) {
+  return round?.version === version;
+}

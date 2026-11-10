@@ -4,6 +4,7 @@ import {
   TERMS_CONSENT_DECISION_MS,
   TERMS_CONSENT_SNOOZE_MS,
   getTermsConsentRecheckDelay,
+  hasTermsConsentDialogAsked,
   resolveTermsConsentPrompt,
 } from './termsConsent';
 
@@ -185,5 +186,46 @@ describe('getTermsConsentRecheckDelay', () => {
         START,
       ),
     ).toBeUndefined();
+  });
+});
+
+describe('hasTermsConsentDialogAsked', () => {
+  it('leaves new users to the notices until the dialog prompts', () => {
+    expect(hasTermsConsentDialogAsked({}, '2026.10')).toBe(false);
+    const { round } = resolveTermsConsentPrompt({
+      requiredVersion: '2026.10',
+      state: {},
+      now: START,
+    });
+    expect(hasTermsConsentDialogAsked({ round }, '2026.10')).toBe(true);
+  });
+
+  it('keeps the answer with the dialog after Not now and past the deadline', () => {
+    const round = {
+      version: '2026.10',
+      firstPromptAt: START,
+      notNowAt: START + DAY_MS,
+    };
+    const expired = resolveTermsConsentPrompt({
+      requiredVersion: '2026.10',
+      state: { round },
+      now: endOfLocalDay(START + TERMS_CONSENT_DECISION_MS),
+    });
+    expect(expired.prompt?.deadlinePassed).toBe(true);
+    expect(
+      hasTermsConsentDialogAsked({ round: expired.round }, '2026.10'),
+    ).toBe(true);
+  });
+
+  it('lets the notices record a newer version the dialog has not asked about', () => {
+    expect(
+      hasTermsConsentDialogAsked(
+        {
+          acceptedVersion: '2026.10',
+          round: { version: '2026.10', firstPromptAt: START },
+        },
+        '2027.01',
+      ),
+    ).toBe(false);
   });
 });

@@ -101,6 +101,7 @@ import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim
 import {
   TERMS_CONSENT_ACCEPT_PATH,
   TERMS_CONSENT_SETTING_KEY,
+  hasTermsConsentDialogAsked,
   resolveTermsConsentPrompt,
 } from './ServiceSetting/termsConsent';
 
@@ -651,12 +652,20 @@ class ServiceSetting extends ServiceBase {
   private termsConsentAccepting: Promise<void> = Promise.resolve();
 
   // The version this install still has to accept, for the ready page's notice.
+  // None once the dialog has asked about it: the dialog takes that answer.
   @backgroundMethod()
   public async getTermsConsentPendingVersion() {
     await this.termsConsentAccepting;
     const requiredVersion = await this.getTermsConsentRequiredVersion();
-    const { acceptedVersion } = await termsConsentPersistAtom.get();
-    return requiredVersion !== acceptedVersion ? requiredVersion : undefined;
+    const state = await termsConsentPersistAtom.get();
+    if (
+      !requiredVersion ||
+      requiredVersion === state.acceptedVersion ||
+      hasTermsConsentDialogAsked(state, requiredVersion)
+    ) {
+      return undefined;
+    }
+    return requiredVersion;
   }
 
   @backgroundMethod()
@@ -731,8 +740,11 @@ class ServiceSetting extends ServiceBase {
     if (!version) {
       return;
     }
-    const { acceptedVersion } = await termsConsentPersistAtom.get();
-    if (acceptedVersion === version) {
+    const state = await termsConsentPersistAtom.get();
+    if (
+      state.acceptedVersion === version ||
+      (source !== 'dialog' && hasTermsConsentDialogAsked(state, version))
+    ) {
       return;
     }
     try {
