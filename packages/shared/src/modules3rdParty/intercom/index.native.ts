@@ -444,6 +444,11 @@ async function openIntercom(
       : undefined;
   const webFallback = !nativeSdkReady || !!supportUrlOverride;
   if (webFallback) {
+    defaultLogger.notification.support.supportReplyBranch({
+      conversationId: params?.conversationId,
+      selectedBranch: 'native-webview-fallback',
+      nativeSdkReady,
+    });
     return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),

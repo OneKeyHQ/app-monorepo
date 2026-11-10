@@ -906,8 +906,14 @@ async function navigateToNotificationDetail({
   // handling. This funnel sees both system-push and message-center clicks, so
   // an old-version payload (mode != command) or a missing payload is still
   // diagnosable even when no support command log follows.
+  // JPush extras deliver mode as a STRING (e.g. "6"); the in-app message
+  // center delivers it as a NUMBER. Keep both values verbatim for diagnosis.
+  const rawClickedMode = mode as unknown;
   defaultLogger.notification.support.supportReplyClicked({
-    mode: typeof mode === 'number' ? mode : undefined,
+    mode:
+      typeof rawClickedMode === 'string' || typeof rawClickedMode === 'number'
+        ? rawClickedMode
+        : undefined,
     hasPayload: !!payload,
     isFromNotificationClick: !!isFromNotificationClick,
   });

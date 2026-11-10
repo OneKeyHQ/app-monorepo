@@ -415,6 +415,21 @@ describe('legacy notification clicks from native background', () => {
       hasPayload: true,
       isFromNotificationClick: true,
     });
+
+    // JPush extras deliver mode as a string.
+    mockSupportReplyClicked.mockClear();
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-system-push-string-mode',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: '4' as never,
+      payload: 'https://onekey.so/',
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: '4',
+      hasPayload: true,
+      isFromNotificationClick: true,
+    });
   });
 
   it('keeps foreground legacy clicks on the explicit pushModal path', async () => {
