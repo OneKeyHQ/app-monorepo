@@ -17,14 +17,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   PRIME_USER_BANNED_CODE,
-  isOneKeyIdFeatureRequest,
-  isPrimeBannedAccountRecoveryRequest,
   isPrimeUserBannedError,
-  isPrimeUserBannedMockEnabled,
-  isPrimeUserBannedMockError,
 } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import {
   stashOneKeyIdRequestContext,
@@ -73,20 +68,6 @@ export default class ServiceBase {
   getRawDataClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));
 
-  protected async isPrimeUserBannedMockActive() {
-    if (!platformEnv.isDev || !platformEnv.isDesktop) return false;
-    return isPrimeUserBannedMockEnabled(
-      await devSettingsPersistAtom.get(),
-      platformEnv,
-    );
-  }
-
-  protected createPrimeUserBannedMockError() {
-    const error = new OneKeyErrorPrimeUserBanned();
-    error.data = { primeUserBannedMock: true };
-    return error;
-  }
-
   getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
     if (!_oneKeyIdAuthClientsMap[name]) {
       // Use a dedicated client instance so the auth/prime interceptors below
@@ -95,30 +76,9 @@ export default class ServiceBase {
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
-        if (isOneKeyIdFeatureRequest(config.url)) {
-          // Restriction state is mandatory for OneKey ID features. Independent
-          // wallet requests must not depend on Prime storage being available.
-          const { primePersistAtom } =
-            await import('../states/jotai/atoms/prime');
-          const user = await primePersistAtom.get();
-          const authStateGeneration =
-            await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-          stashOneKeyIdRequestContext(config, {
-            onekeyUserId: user.onekeyUserId,
-            authStateGeneration,
-            requestUrl: config.url,
-          });
-          // Mock mode never sends identity, OTP or account-deletion requests.
-          if (await this.isPrimeUserBannedMockActive()) {
-            throw this.createPrimeUserBannedMockError();
-          }
-          if (
-            user.isOneKeyIdBanned &&
-            !isPrimeBannedAccountRecoveryRequest(config)
-          ) {
-            throw new OneKeyErrorPrimeUserBanned();
-          }
-        }
+        // Error conversions may keep only the service origin; the original
+        // path tells an incoming OAuth bind ban from a signed-in account ban.
+        stashOneKeyIdRequestContext(config, { requestUrl: config.url });
         const headers = config.headers as {
           get?: (headerName: string) => unknown;
           set?: (headerName: string, value: string) => void;
@@ -168,7 +128,6 @@ export default class ServiceBase {
                     headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE] ||
                     '',
                 ),
-                requestContext: takeOneKeyIdRequestContext(response.config),
                 requestUrl: response.config.url,
               });
             } catch {
@@ -192,7 +151,6 @@ export default class ServiceBase {
           // check invalid token and logout
           const errorCode: number | undefined = errorData?.data?.code;
           if (isPrimeUserBannedError(error)) {
-            if (isPrimeUserBannedMockError(error, platformEnv)) throw error;
             const failedConfig = (
               error as { config?: InternalAxiosRequestConfig }
             ).config;
@@ -213,7 +171,6 @@ export default class ServiceBase {
             try {
               await this.backgroundApi.servicePrime.handlePrimeUserBanned({
                 requestAuthToken,
-                requestContext,
                 // SNI errors may record only the service origin as requestUrl.
                 // Preserve the original path to distinguish an incoming OAuth
                 // identity ban from a ban of the signed-in legacy account.

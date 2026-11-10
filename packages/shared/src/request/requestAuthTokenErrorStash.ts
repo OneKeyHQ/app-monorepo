@@ -18,8 +18,6 @@
  */
 const requestAuthTokenByError = new WeakMap<object, string>();
 export type IOneKeyIdRequestContext = {
-  onekeyUserId?: string;
-  authStateGeneration: number;
   requestUrl?: string;
 };
 const oneKeyIdContext = new WeakMap<object, IOneKeyIdRequestContext>();

@@ -4,10 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast, globalNetInfo } from '@onekeyhq/components';
 import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
-import {
-  primePersistAtom,
-  usePrimePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -17,7 +13,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   PRIME_USER_BANNED_CODE,
-  getLoggedInOneKeyIdUserId,
   primeUserBannedMessage,
 } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
@@ -79,9 +74,7 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 
 export function ErrorToastContainer() {
   const intl = useIntl();
-  const [primeUser] = usePrimePersistAtom();
-  const oneKeyIdUserId = getLoggedInOneKeyIdUserId(primeUser);
-  const bannedLoginDialogVisible = useRef(false);
+  const bannedDialogVisible = useRef(false);
 
   useEffect(() => {
     if (!platformEnv.isNative) return;
@@ -140,17 +133,14 @@ export function ErrorToastContainer() {
         return;
       }
 
-      if (isPrimeUserBanned && !oneKeyIdUserId) {
-        if (bannedLoginDialogVisible.current) return;
-        bannedLoginDialogVisible.current = true;
+      // A banned OneKey ID is signed out, so the notice is always a blocking
+      // dialog rather than a toast with account actions.
+      if (isPrimeUserBanned) {
+        if (bannedDialogVisible.current) return;
+        bannedDialogVisible.current = true;
         void (async () => {
           try {
             await closeOneKeyIdLoginDialogs();
-            const currentUser = await primePersistAtom.get();
-            if (getLoggedInOneKeyIdUserId(currentUser)) {
-              bannedLoginDialogVisible.current = false;
-              return;
-            }
             Dialog.show({
               title: 'OneKeyID',
               description: intl.formatMessage(primeUserBannedMessage),
@@ -166,11 +156,11 @@ export function ErrorToastContainer() {
               dismissOnOverlayPress: false,
               disableDrag: true,
               onClose: () => {
-                bannedLoginDialogVisible.current = false;
+                bannedDialogVisible.current = false;
               },
             });
           } catch {
-            bannedLoginDialogVisible.current = false;
+            bannedDialogVisible.current = false;
             Toast.error({
               title: 'OneKeyID',
               message: intl.formatMessage(primeUserBannedMessage),
@@ -184,14 +174,13 @@ export function ErrorToastContainer() {
       const deduplication = getDeduplicationId(statusCodeForDeduplicate);
       // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
       // Otherwise, respect custom toastId from caller
-      let toastId = deduplication.forceDeduplicate
+      const toastId = deduplication.forceDeduplicate
         ? deduplication.id
         : p.toastId ||
           deduplication.id ||
           (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
           p.title ||
           p.requestId;
-      if (isPrimeUserBanned) toastId = String(PRIME_USER_BANNED_CODE);
 
       const actions = getErrorAction({
         errorCode: p.errorCode,
@@ -199,7 +188,6 @@ export function ErrorToastContainer() {
         requestId: p.requestId,
         diagnosticText: p.diagnosticText,
         i18nKey: p.i18nKey,
-        oneKeyIdUserId,
       });
 
       const canLocalizeError =
@@ -213,19 +201,16 @@ export function ErrorToastContainer() {
           MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS.has(p.i18nKey) ||
           (p.i18nKey === ETranslations.wallet_action_failed &&
             typeof p.i18nInfo?.message === 'string'));
-      let title = canLocalizeError
+      const title = canLocalizeError
         ? intl.formatMessage(
             { id: p.i18nKey, defaultMessage: p.title },
             p.i18nInfo,
           )
-        : p.title || '';
-      if (isPrimeUserBanned) title = 'OneKeyID';
+        : p.title;
 
       Toast[p.method]({
         title,
-        message: isPrimeUserBanned
-          ? intl.formatMessage(primeUserBannedMessage)
-          : p.message,
+        message: p.message,
         // icon is string in event bus (shared can't import IKeyOfIcons from components)
         icon: p.icon as any,
         toastId,
@@ -239,7 +224,7 @@ export function ErrorToastContainer() {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowToast, fn);
     };
-  }, [intl, oneKeyIdUserId]);
+  }, [intl]);
 
   return null;
 }
