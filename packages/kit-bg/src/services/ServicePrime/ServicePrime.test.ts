@@ -350,7 +350,7 @@ const {
 } = require('@onekeyhq/shared/src/locale/enum/translations');
 const {
   stashRequestAuthTokenOfError,
-  takeRequestAuthTokenOfError,
+  takeRequestAuthContextOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   getPrimeGiftVerifyFailureLogPayload,
@@ -3725,18 +3725,16 @@ describe('ServicePrime invalid-token handling', () => {
     // closure and its backgroundApi) in a module-global map, so a single
     // shared service must be used and the handler swapped per test.
     const handlerImpl = jest.fn();
-    const bannedHandlerImpl = jest.fn();
 
     beforeAll(async () => {
       const { service, backgroundApi } = createService();
       backgroundApi.servicePrime = {
         handlePrimeLoginInvalidToken: handlerImpl,
-        handlePrimeUserBanned: bannedHandlerImpl,
       };
       await service.getPrimeClient();
     });
 
-    it('normalizes 90012 without logging out or exposing the token', async () => {
+    it('signs out a 90012 session through the invalid-token handler without exposing the token', async () => {
       const rawError = {
         data: { code: 90_012, requestUrl: '/prime/v1/user/info' },
       };
@@ -3750,36 +3748,28 @@ describe('ServicePrime invalid-token handling', () => {
         code: 90_012,
         className: 'OneKeyErrorPrimeUserBanned',
       });
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
-        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        }),
       );
-      expect(handlerImpl).not.toHaveBeenCalled();
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
-    it('keeps the bind path when an SNI error records only the service origin', async () => {
-      const config = {
-        url: '/prime/v1/account/identities/oauth/bind',
-        method: 'post',
-        headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
-      };
-      await mockCapturedInterceptors.requestOnFulfilled?.(config);
+    it('keeps the signed-in account for a bind ban whose error records only the service origin', async () => {
       const error = {
         data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
       };
       stashRequestAuthTokenOfError({
         error,
         requestAuthToken: REQUEST_TOKEN,
-        requestConfig: config,
+        requestUrl: '/prime/v1/account/identities/oauth/bind',
       });
       await expect(
         mockCapturedInterceptors.responseOnRejected?.(error),
       ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestUrl: '/prime/v1/account/identities/oauth/bind',
-        }),
-      );
+      expect(handlerImpl).not.toHaveBeenCalled();
     });
 
     it('rejects a banned body even when automatic error handling was disabled', async () => {
@@ -3794,7 +3784,7 @@ describe('ServicePrime invalid-token handling', () => {
       await expect(
         mockCapturedInterceptors.responseOnFulfilled?.(response),
       ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(bannedHandlerImpl).toHaveBeenCalled();
+      expect(handlerImpl).toHaveBeenCalled();
     });
 
     it('normalizes a ban returned as HTTP 403 without exposing its request config', async () => {
@@ -3810,7 +3800,7 @@ describe('ServicePrime invalid-token handling', () => {
         .catch((reason: unknown) => reason);
       expect(thrown).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
+      expect(handlerImpl).toHaveBeenCalledWith(
         expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
       );
     });
@@ -3822,8 +3812,8 @@ describe('ServicePrime invalid-token handling', () => {
       ).resolves.toBe(response);
     });
 
-    it('keeps the banned error when persisting the restriction fails', async () => {
-      bannedHandlerImpl.mockRejectedValueOnce(
+    it('keeps the banned error when signing out fails', async () => {
+      handlerImpl.mockRejectedValueOnce(
         new OneKeyLocalError('storage unavailable'),
       );
       await expect(
@@ -3831,31 +3821,6 @@ describe('ServicePrime invalid-token handling', () => {
           data: { code: 90_012 },
         }),
       ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-    });
-
-    it('blocks restricted API requests but permits deletion OTP and independent wallet calls', async () => {
-      mockPrimePersistAtom.get.mockResolvedValue({ isOneKeyIdBanned: true });
-      const invoke = mockCapturedInterceptors.requestOnFulfilled;
-      await expect(
-        invoke?.({
-          url: '/prime/v1/account/identities/oauth/bind',
-          method: 'post',
-          headers: {},
-        }),
-      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      for (const config of [
-        { url: '/prime/v1/user/delete', method: 'post' },
-        {
-          url: '/prime/v1/general/emailOTP',
-          method: 'post',
-          data: { scene: EPrimeEmailOTPScene.DeleteOneKeyId },
-        },
-        { url: '/wallet/v1/token/list', method: 'get' },
-      ]) {
-        await expect(
-          invoke?.({ ...config, headers: {} }),
-        ).resolves.toMatchObject(config);
-      }
     });
 
     async function invokeInterceptorWith90002() {
@@ -3899,7 +3864,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
       // Read-and-delete: a second take returns nothing.
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
@@ -9162,99 +9127,6 @@ describe('ServicePrime banned OneKey ID', () => {
     return result;
   }
 
-  const requestContext = { onekeyUserId: 'user-a', authStateGeneration: 7 };
-
-  it('does not persist a local mock restriction when both profile requests reject', async () => {
-    jest.replaceProperty(platformEnv, 'isDev', true);
-    jest.replaceProperty(platformEnv, 'isDesktop', true);
-    const { service } = setup();
-    const error = new OneKeyErrorPrimeUserBanned();
-    error.data = { primeUserBannedMock: true };
-    service.getPrimeClient = jest.fn(async () => ({
-      get: jest.fn(async () => {
-        throw error;
-      }),
-    }));
-    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBe(error);
-    expect(user.isOneKeyIdBanned).toBeUndefined();
-  });
-
-  it('preserves a real server ban alongside a concurrent mock restriction', async () => {
-    jest.replaceProperty(platformEnv, 'isDev', true);
-    jest.replaceProperty(platformEnv, 'isDesktop', true);
-    const { service } = setup();
-    const mockError = new OneKeyErrorPrimeUserBanned();
-    mockError.data = { primeUserBannedMock: true };
-    const serverError = new OneKeyErrorPrimeUserBanned();
-    service.getPrimeClient = jest.fn(async () => ({
-      get: jest.fn(async (url: string) => {
-        throw url === '/prime/v1/account/profile' ? mockError : serverError;
-      }),
-    }));
-    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBe(serverError);
-    expect(user.isOneKeyIdBanned).toBe(true);
-  });
-
-  it('persists the restriction while retaining login, subscription data and wallet ownership', async () => {
-    const { service, simpleDbPrime, backgroundApi } = setup();
-    await service.handlePrimeUserBanned({
-      requestAuthToken: REQUEST_TOKEN,
-      requestContext,
-    });
-    expect(user).toMatchObject({
-      isOneKeyIdBanned: true,
-      isLoggedIn: true,
-      onekeyUserId: 'user-a',
-    });
-    await expect(service.isLoggedIn()).resolves.toBe(true);
-    await expect(service.isPrimeSubscriptionActive()).resolves.toBe(false);
-    await expect(service.assertOneKeyIdNotBanned()).rejects.toBeInstanceOf(
-      OneKeyErrorPrimeUserBanned,
-    );
-    expect(simpleDbPrime.clearAuthTokens).not.toHaveBeenCalled();
-    expect(
-      backgroundApi.serviceAccount.getKeylessWallet,
-    ).not.toHaveBeenCalled();
-    expect(
-      backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens,
-    ).not.toHaveBeenCalled();
-  });
-
-  test.each([
-    { requestAuthToken: 'previous-token', requestContext },
-    { requestAuthToken: '', requestContext },
-    {
-      requestAuthToken: REQUEST_TOKEN,
-      requestContext: { ...requestContext, onekeyUserId: 'previous-user' },
-    },
-    {
-      requestAuthToken: REQUEST_TOKEN,
-      requestContext: { ...requestContext, authStateGeneration: 6 },
-    },
-    {
-      requestAuthToken: REQUEST_TOKEN,
-      requestContext,
-      requestUrl: '/prime/v1/account/identities/oauth/bind',
-    },
-  ])(
-    'ignores a different session or incoming bind identity: %j',
-    async (request) => {
-      const { service } = setup();
-      await service.handlePrimeUserBanned(request);
-      expect(user.isOneKeyIdBanned).toBeUndefined();
-    },
-  );
-
-  it('ignores a logged-out projection with a retained Keyless session', async () => {
-    const { service } = setup();
-    user.isLoggedIn = false;
-    await service.handlePrimeUserBanned({
-      requestAuthToken: REQUEST_TOKEN,
-      requestContext,
-    });
-    expect(user.isOneKeyIdBanned).toBeUndefined();
-  });
-
   it('does not reinterpret 90012 carrying conflict metadata as an account merge', () => {
     const { service } = setup();
     expect(
@@ -9278,46 +9150,5 @@ describe('ServicePrime banned OneKey ID', () => {
     await expect(service.callApiFetchPrimeUserInfo()).rejects.toBeInstanceOf(
       OneKeyErrorPrimeUserBanned,
     );
-    expect(user.isOneKeyIdBanned).toBe(true);
-  });
-
-  it('does not offer the legacy binding prompt for a banned account', async () => {
-    const { service } = setup();
-    user.isOneKeyIdBanned = true;
-    await expect(service.isLegacyOneKeyIdOAuthBindRequired()).resolves.toBe(
-      false,
-    );
-  });
-
-  it('clears the old restriction when a different account logs in successfully', async () => {
-    const { service } = setup();
-    user.isOneKeyIdBanned = true;
-    await service.updatePrimeAtomByOAuthLoginResponse({
-      loginResponse: {
-        onekeyAccount: {
-          onekeyUserId: 'user-b',
-          status: EOneKeyIdAccountStatus.Active,
-          identities: [],
-        },
-      },
-    });
-    expect(user).toMatchObject({
-      onekeyUserId: 'user-b',
-      isOneKeyIdBanned: false,
-    });
-  });
-
-  it('keeps a same-account ban through profile reads and clears it after an accepted login', async () => {
-    const { service } = setup();
-    user.isOneKeyIdBanned = true;
-    await service.updatePrimeAtomByServerUserInfo({
-      serverUserInfo: { userId: 'user-a', isPrime: true },
-    });
-    expect(user.isOneKeyIdBanned).toBe(true);
-    await service.updatePrimeAtomByServerUserInfo({
-      serverUserInfo: { userId: 'user-a', isPrime: true },
-      isLogin: true,
-    });
-    expect(user.isOneKeyIdBanned).toBe(false);
   });
 });
