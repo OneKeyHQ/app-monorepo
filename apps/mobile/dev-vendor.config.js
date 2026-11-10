@@ -136,7 +136,6 @@ const nativeContractDependencies = {
     'expo-crypto',
     'expo-device',
     'expo-file-system',
-    'expo-font',
     'expo-haptics',
     'expo-image-manipulator',
     'expo-keep-awake',
