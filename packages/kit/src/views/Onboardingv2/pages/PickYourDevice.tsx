@@ -64,6 +64,7 @@ export default function PickYourDevice() {
         name: intl.formatMessage({
           id: ETranslations.onekey_pro_series__title,
         }),
+        tags: [{ label: 'Pro' }, { label: 'Pro 2' }],
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
         image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
       },
@@ -256,7 +257,13 @@ export default function PickYourDevice() {
                   resizeMode="contain"
                 />
               </YStack>
-              <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
+              {/* Wide cards center their content, so the text block keeps the
+                  height of one title line and one tag row: a wrapped title or
+                  tag row grows downward without shifting the image and title. */}
+              <YStack
+                gap="$3"
+                $gtMd={{ gap: '$5', alignItems: 'center', height: 78 }}
+              >
                 <SizableText
                   size="$headingXl"
                   $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
