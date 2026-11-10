@@ -8,6 +8,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -74,6 +75,10 @@ import {
   migrateHardwareCloudSyncRecords,
   recoverHardwareCloudSyncMigration,
 } from './hardwareCloudSyncMigration';
+import {
+  commitHardwareCloudSyncLocalRecovery,
+  prepareHardwareCloudSyncLocalRecovery,
+} from './hardwareCloudSyncRecovery';
 import {
   assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
@@ -565,6 +570,39 @@ class ServiceKeylessCloudSync extends ServiceBase {
             credential.pwdHash,
             ...dataKey.previousPwdHashes,
           ]);
+          const restoresRotatedHardwareKey =
+            !rebuildsLocalItemsNow &&
+            current.hardwareCloudSyncKeySource?.credentialId ===
+              source.credentialId &&
+            credential.pwdHash.startsWith(
+              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+            );
+          const recoveredItems = restoresRotatedHardwareKey
+            ? await prepareHardwareCloudSyncLocalRecovery({
+                items,
+                syncCredential: this.buildSyncCredentialWithKeylessCredential({
+                  ...credential,
+                  source,
+                }),
+              })
+            : [];
+          const recoveredIds = new Set(
+            recoveredItems.map((item) => item.original.id),
+          );
+          const localItemKeyMismatch = (item: IDBCloudSyncItem) =>
+            !!item.pwdHash &&
+            !(
+              item.dataType === EPrimeCloudSyncDataType.Lock &&
+              keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+            ) &&
+            !knownPwdHashes.has(item.pwdHash) &&
+            !recoveredIds.has(item.id);
+          const existingHashRecoverable =
+            restoresRotatedHardwareKey &&
+            existing?.pwdHash.startsWith(
+              HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+            ) &&
+            !existing.signingPublicKey;
           logHardwareCloudSyncDiagnostic(
             'restore_key_compatibility_guard',
             () => ({
@@ -572,6 +610,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
               localItemCount: items.length,
               ...summarizeHardwareCloudSyncRestoreItems(items, knownPwdHashes),
               knownHashCount: knownPwdHashes.size,
+              recoveredLocalItemCount: recoveredItems.length,
               ignoredLegacyLockCount: items.filter(
                 (item) =>
                   item.dataType === EPrimeCloudSyncDataType.Lock &&
@@ -583,39 +622,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
               currentSigningPublicKeyEmpty: !credential.signingPublicKey,
               hasExistingCredential: !!existing,
               localItemsMismatch:
-                !rebuildsLocalItemsNow &&
-                items.some(
-                  (item) =>
-                    item.pwdHash &&
-                    !(
-                      item.dataType === EPrimeCloudSyncDataType.Lock &&
-                      keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
-                    ) &&
-                    !knownPwdHashes.has(item.pwdHash),
-                ),
+                !rebuildsLocalItemsNow && items.some(localItemKeyMismatch),
               existingPwdHashMismatch:
-                !!existing && !knownPwdHashes.has(existing.pwdHash),
+                !!existing &&
+                !knownPwdHashes.has(existing.pwdHash) &&
+                !existingHashRecoverable,
               existingSigningPublicKeyMismatch:
                 !!existing &&
                 existing.signingPublicKey !== credential.signingPublicKey,
             }),
           );
-          // Legacy keyless Lock rows never participate in business sync and
-          // cannot establish ownership. Keep all business rows, including
-          // tombstones, and the saved credential subject to the key checks.
+          // Same-source recovery can rebuild readable hardware business rows
+          // without complete server key history. Opaque and foreign records
+          // still require their original key checks.
           if (
-            (!rebuildsLocalItemsNow &&
-              items.some(
-                (item) =>
-                  item.pwdHash &&
-                  !(
-                    item.dataType === EPrimeCloudSyncDataType.Lock &&
-                    keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
-                  ) &&
-                  !knownPwdHashes.has(item.pwdHash),
-              )) ||
+            (!rebuildsLocalItemsNow && items.some(localItemKeyMismatch)) ||
             (existing &&
-              (!knownPwdHashes.has(existing.pwdHash) ||
+              ((!knownPwdHashes.has(existing.pwdHash) &&
+                !existingHashRecoverable) ||
                 existing.signingPublicKey !== credential.signingPublicKey))
           ) {
             throw new HardwareCloudSyncError(
@@ -639,14 +663,20 @@ class ServiceKeylessCloudSync extends ServiceBase {
             lastSyncTimeKeyless: undefined,
           }));
           this.setKeylessCloudSyncCredentialCache({ ...credential, source });
-          await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
-            syncCredential: this.buildSyncCredentialWithKeylessCredential({
-              ...credential,
-              source,
-            }),
-            password,
-            askPasswordOnlyIfHdXfpMissing: true,
-          });
+          if (restoresRotatedHardwareKey) {
+            await commitHardwareCloudSyncLocalRecovery(recoveredItems);
+          } else {
+            await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB(
+              {
+                syncCredential: this.buildSyncCredentialWithKeylessCredential({
+                  ...credential,
+                  source,
+                }),
+                password,
+                askPasswordOnlyIfHdXfpMissing: true,
+              },
+            );
+          }
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
             isCloudSyncEnabledKeyless: true,
