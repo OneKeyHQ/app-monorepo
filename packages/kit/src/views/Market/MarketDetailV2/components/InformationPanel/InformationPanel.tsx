@@ -44,6 +44,10 @@ import type { IMarketMobileDetailKind } from '../../utils/marketMobileDetailKind
 // 4pt top padding plus the 16pt stock badges.
 const STOCK_TAG_ROW_MIN_HEIGHT = 20;
 
+function formatPreviewQuote(value?: number) {
+  return Number.isFinite(value) ? String(value) : '--';
+}
+
 function getPriceSizeByValue(price: string) {
   if (price.startsWith('0.0000')) {
     return '$headingLg';
@@ -198,10 +202,10 @@ export function InformationPanel({
   const {
     name = pendingMarketAsset?.name ?? '',
     symbol = pendingMarketAsset?.symbol ?? '',
-    price: currentPrice = pendingMarketAsset?.price?.toString() ?? '--',
-    priceChange24hPercent:
-      tokenPriceChange24hPercent = pendingMarketAsset?.change24h?.toString() ??
-        '--',
+    price: currentPrice = formatPreviewQuote(pendingMarketAsset?.price),
+    priceChange24hPercent: tokenPriceChange24hPercent = formatPreviewQuote(
+      pendingMarketAsset?.change24h,
+    ),
     marketCap,
     liquidity,
     priceConverted,

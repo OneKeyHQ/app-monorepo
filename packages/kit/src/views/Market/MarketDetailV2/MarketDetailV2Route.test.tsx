@@ -75,13 +75,16 @@ function MockDirectRoute(props: {
   );
 }
 
-function buildRouteProps(tokenAddress: string): IRouteProps {
+function buildRouteProps(
+  tokenAddress: string,
+  params?: Partial<IRouteProps['route']['params']>,
+): IRouteProps {
   return {
     navigation: {} as IRouteProps['navigation'],
     route: {
       key: 'market-detail',
       name: ETabMarketRoutes.MarketDetailV2,
-      params: { network: 'eth', tokenAddress },
+      params: { network: 'eth', tokenAddress, ...params },
     },
   };
 }
@@ -161,7 +164,7 @@ describe('createMarketDetailV2Route', () => {
     expect(mockDirectMounts).toEqual({ mounted: 0, unmounted: 0 });
   });
 
-  it('preserves the existing component selection behavior on native routes', () => {
+  it('keeps the preloaded native detail mounted when switching to a pending asset', () => {
     mockedPlatformEnv.isDesktop = false;
     mockedPlatformEnv.isNative = true;
     const MarketDetailRoute = createMarketDetailV2Route();
@@ -174,5 +177,25 @@ describe('createMarketDetailV2Route', () => {
     expect(view.queryByTestId('page-backdrop')).toBeNull();
     expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 1 });
     expect(mockDirectMounts).toEqual({ mounted: 1, unmounted: 0 });
+
+    const detail = view.getByTestId('direct-route');
+    view.rerender(
+      <MarketDetailRoute
+        {...buildRouteProps('', {
+          network: '',
+          marketTokenId: 'shib',
+          pendingMarketAsset: { symbol: 'SHIB' },
+        })}
+      />,
+    );
+    expect(view.getByTestId('direct-route')).toBe(detail);
+
+    view.rerender(
+      <MarketDetailRoute
+        {...buildRouteProps('0xshib', { marketTokenId: 'shib' })}
+      />,
+    );
+    expect(view.getByTestId('direct-route')).toBe(detail);
+    expect(detail.textContent).toBe('0xshib');
   });
 });
