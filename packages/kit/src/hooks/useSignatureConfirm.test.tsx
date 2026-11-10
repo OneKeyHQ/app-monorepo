@@ -200,26 +200,60 @@ describe('useSignatureConfirm', () => {
       expect(mockPrepareSendConfirmUnsignedTx).not.toHaveBeenCalled();
     });
 
-    it.each(['withdrawRequest', 'login'])(
-      'shows coming soon for an LNURL %s and opens nothing',
-      async (tag) => {
-        mockFindAndValidateLnurl.mockResolvedValueOnce({ tag });
-        const { result } = renderSpark();
+    it('opens the custodial LNURL withdraw page for a withdraw request', async () => {
+      const lnurlDetails = {
+        tag: 'withdrawRequest',
+        callback: 'https://example.com/lnurlw/callback',
+        k1: 'k1-example',
+        defaultDescription: 'Voucher',
+        minWithdrawable: 1000,
+        maxWithdrawable: 21_000,
+        url: 'https://example.com/lnurlw',
+      };
+      mockFindAndValidateLnurl.mockResolvedValueOnce(lnurlDetails);
+      const { result } = renderSpark();
 
-        await act(async () => {
-          await result.current.navigationToTxConfirm({
-            transfersInfo: transfersInfo('lnurl1dp68gurn8ghj7example'),
-            sameModal: true,
-          });
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('lnurl1dp68gurn8ghj7example'),
+          sameModal: true,
         });
+      });
 
-        expect(mockToastMessage).toHaveBeenCalledWith({
-          title: 'wallet.feature_coming_soon',
+      expect(mockFindAndValidateLnurl).toHaveBeenCalledWith({
+        toVal: 'lnurl1dp68gurn8ghj7example',
+        networkId: sparkNetworkId,
+      });
+      expect(mockPush).toHaveBeenCalledWith(
+        EModalSignatureConfirmRoutes.LnurlWithdraw,
+        {
+          networkId: sparkNetworkId,
+          accountId: 'account-id',
+          lnurlDetails,
+          isSendFlow: true,
+        },
+      );
+      expect(mockToastMessage).not.toHaveBeenCalled();
+      expect(mockPrepareSendConfirmUnsignedTx).not.toHaveBeenCalled();
+    });
+
+    it('shows coming soon for an LNURL login and opens nothing', async () => {
+      mockFindAndValidateLnurl.mockResolvedValueOnce({ tag: 'login' });
+      const { result } = renderSpark();
+
+      await act(async () => {
+        await result.current.navigationToTxConfirm({
+          transfersInfo: transfersInfo('lnurl1dp68gurn8ghj7example'),
+          sameModal: true,
         });
-        expect(mockPush).not.toHaveBeenCalled();
-        expect(mockPrepareSendConfirmUnsignedTx).not.toHaveBeenCalled();
-      },
-    );
+      });
+
+      expect(mockToastMessage).toHaveBeenCalledWith({
+        title: 'wallet.feature_coming_soon',
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockPrepareSendConfirmUnsignedTx).not.toHaveBeenCalled();
+    });
 
     it('sends an invoice to the confirm page without resolving LNURL', async () => {
       mockPrepareSendConfirmUnsignedTx.mockResolvedValueOnce(unsignedTx);
