@@ -188,7 +188,7 @@ export function TradingViewIndicatorSettings({
     nextValue: ITradingViewIndicatorSettingsValue,
   ) => {
     await onConfirm?.(nextValue);
-    commitSettingsValue(nextValue);
+    return commitSettingsValue(nextValue);
   };
 
   const handleReset = async () => {
@@ -231,8 +231,9 @@ export function TradingViewIndicatorSettings({
 
     isResettingRef.current = true;
     try {
-      await persistValue(nextValue);
-      await onConfirmSuccess?.();
+      if (await persistValue(nextValue)) {
+        await onConfirmSuccess?.();
+      }
     } catch (error) {
       onConfirmError?.(error);
     } finally {

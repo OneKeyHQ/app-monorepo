@@ -508,11 +508,10 @@ export function TradingViewChartSettings({
   const persistValue = async (nextValue: ITradingViewChartSettingsValue) => {
     try {
       await onConfirm?.(nextValue);
-      commitSettingsValue(nextValue);
-      return true;
+      return { isCurrentDraft: commitSettingsValue(nextValue) };
     } catch (error) {
       onConfirmError?.(error);
-      return false;
+      return null;
     }
   };
 
@@ -534,7 +533,8 @@ export function TradingViewChartSettings({
     updateSettingsValue(() => resetValue);
     // Keep controls enabled during the short save to avoid flashing the dialog.
     try {
-      if ((await persistValue(resetValue)) && !usePageFooter) {
+      const result = await persistValue(resetValue);
+      if (result?.isCurrentDraft && !usePageFooter) {
         await onConfirmSuccess?.();
       }
     } catch (error) {
