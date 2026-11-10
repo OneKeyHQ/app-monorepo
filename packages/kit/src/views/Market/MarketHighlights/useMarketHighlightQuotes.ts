@@ -16,6 +16,7 @@ import { getNativeTokenInfo } from '../MarketHomeV2/components/MarketTokenList/u
 export type IMarketHighlightQuote = {
   logoUrl?: string;
   isUSStock?: boolean;
+  maxLeverage?: number;
   price?: string;
   priceChange24hPercent?: string | number;
 };
@@ -118,6 +119,7 @@ async function fetchHighlightQuotes(
               if (quote) {
                 quotes.set(getMarketWatchlistKey(asset.favorite), {
                   logoUrl: quote.tokenImageUrl,
+                  maxLeverage: quote.maxLeverage,
                   price: quote.markPrice,
                   priceChange24hPercent: quote.change24hPercent,
                 });

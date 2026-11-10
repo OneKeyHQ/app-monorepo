@@ -4,6 +4,7 @@ import {
   Icon,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -14,6 +15,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
+import { LeverageBadge } from '../components/PerpsBadges';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
 import { EModalMarketRoutes } from '../router/types';
@@ -28,15 +30,18 @@ export function MarketHighlightStrip({
   highlights,
   compact,
 }: {
-  highlight: IMarketHighlight;
+  highlight: IMarketHighlight | undefined;
   highlights: IMarketHighlight[] | undefined;
   compact: boolean;
 }) {
   const navigation = useAppNavigation();
   const locale = useLocaleVariant();
+  const headerHeight = compact
+    ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT
+    : MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT;
   const assets = useMemo(
-    () => highlight.assets.slice(0, compact ? 1 : 2),
-    [highlight.assets, compact],
+    () => highlight?.assets.slice(0, compact ? 1 : 2),
+    [highlight?.assets, compact],
   );
   const quoteAssets = useMemo(
     () => highlights?.slice(0, 3).flatMap((item) => item.assets.slice(0, 3)),
@@ -49,16 +54,16 @@ export function MarketHighlightStrip({
     });
   }, [quotes]);
 
+  if (!highlight) {
+    return (
+      <YStack px="$5" pt={compact ? '$2' : '$3'} h={headerHeight}>
+        <Skeleton h={40} w="100%" maxWidth={800} borderRadius="$3" />
+      </YStack>
+    );
+  }
+
   return (
-    <YStack
-      px="$5"
-      pt={compact ? '$2' : '$3'}
-      h={
-        compact
-          ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT
-          : MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT
-      }
-    >
+    <YStack px="$5" pt={compact ? '$2' : '$3'} h={headerHeight}>
       <XStack
         testID="market-highlights-strip"
         role="button"
@@ -96,15 +101,20 @@ export function MarketHighlightStrip({
         >
           {highlight.title}
         </SizableText>
-        {assets.map((asset, index) => {
+        {assets?.map((asset, index) => {
           const identity = getMarketWatchlistKey(asset.favorite);
           const quote = quotes?.get(identity);
+          const maxLeverage =
+            asset.type === 'perp' ? quote?.maxLeverage : undefined;
           return (
             <XStack key={`${identity}:${index}`} alignItems="center" gap="$1.5">
               <Token size="xxs" tokenImageUri={quote?.logoUrl} />
               <SizableText size="$headingSm" numberOfLines={1} maxWidth={84}>
                 {asset.symbol}
               </SizableText>
+              {maxLeverage && maxLeverage > 0 ? (
+                <LeverageBadge leverage={maxLeverage} compact />
+              ) : null}
               {compact ? null : (
                 <NumberSizeableText
                   size="$bodyMd"

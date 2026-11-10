@@ -1308,6 +1308,8 @@ export const swrKeys = {
     [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
   marketHomeConfig: (locale: string) =>
     [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeHighlights: (locale: string) =>
+    [NS.marketHomeHighlights, 'v1', locale].join(':'),
   marketHomeStocks: (queryKey: string) =>
     [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketStockDetail: ({

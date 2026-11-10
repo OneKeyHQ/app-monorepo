@@ -21,6 +21,7 @@ const NS = {
   historyTxDetail: 'historyTxDetail',
   marketHomeBanners: 'marketHomeBanners',
   marketHomeConfig: 'marketHomeConfig',
+  marketHomeHighlights: 'marketHomeHighlights',
   marketHomeStocks: 'marketHomeStocks',
   marketHomeTokenList: 'marketHomeTokenList',
   marketStockDetail: 'marketStockDetail',

@@ -95,7 +95,8 @@ let mockUseRealTabsLogic = false;
 let mockPerpDisabled = false;
 const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
-let mockHighlights: IMarketHighlight[] = [];
+let mockHighlights: IMarketHighlight[] | undefined = [];
+let mockHighlightsLoading: boolean | undefined;
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
 let mockPreferences: IMarketHomePreferences;
@@ -260,13 +261,19 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
   },
 }));
 jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
-  useMarketHighlights: () => ({ items: mockHighlights }),
+  useMarketHighlights: () => ({
+    items: mockHighlights,
+    isLoading: mockHighlightsLoading,
+  }),
 }));
 jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
   MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 62,
-  MarketHighlightStrip: ({ highlight }: { highlight: IMarketHighlight }) => (
-    <div>{highlight.title}</div>
-  ),
+  MarketHighlightStrip: ({ highlight }: { highlight?: IMarketHighlight }) =>
+    highlight ? (
+      <div>{highlight.title}</div>
+    ) : (
+      <div>Loading market hotspot</div>
+    ),
 }));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
@@ -405,6 +412,7 @@ beforeEach(() => {
   mockInsetCommits.length = 0;
   mockPagerProps = undefined;
   mockHighlights = [];
+  mockHighlightsLoading = false;
   mockStickyHeaderLayout = undefined;
   mockListContainerProps = undefined;
   mockCategorySelectorProps = undefined;
@@ -642,11 +650,14 @@ describe('native market home selection restoration', () => {
   });
 });
 
-it('reserves room for a hotspot that arrives without banners', () => {
+it('keeps the header height stable while the first hotspot loads', () => {
+  mockHighlights = undefined;
+  mockHighlightsLoading = undefined;
   const { queryByText, getByText, rerender } = renderLayout();
   const title = 'Market hotspot';
   expect(queryByText(title)).toBeNull();
-  expect(mockPagerProps?.headerHeight).toBe(1);
+  expect(getByText('Loading market hotspot')).toBeTruthy();
+  expect(mockPagerProps?.headerHeight).toBe(62);
 
   mockHighlights = [
     {
@@ -665,6 +676,7 @@ it('reserves room for a hotspot that arrives without banners', () => {
       links: [],
     },
   ];
+  mockHighlightsLoading = false;
   rerender(
     <MobileLayout
       filterBarProps={filterBarProps}
@@ -674,7 +686,20 @@ it('reserves room for a hotspot that arrives without banners', () => {
   );
 
   expect(getByText(title)).toBeTruthy();
+  expect(queryByText('Loading market hotspot')).toBeNull();
   expect(mockPagerProps?.headerHeight).toBe(62);
+
+  mockHighlights = [];
+  rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  expect(queryByText(title)).toBeNull();
+  expect(queryByText('Loading market hotspot')).toBeNull();
+  expect(mockPagerProps?.headerHeight).toBe(1);
 });
 
 describe('external header inset ownership', () => {

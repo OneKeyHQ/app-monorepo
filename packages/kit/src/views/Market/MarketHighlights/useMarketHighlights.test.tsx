@@ -1,10 +1,19 @@
 /** @jest-environment jsdom */
 
-import { act, cleanup, renderHook } from '@testing-library/react-native/pure';
+import {
+  act,
+  cleanupAsync,
+  renderHook,
+} from '@testing-library/react-native/pure';
 
 import { buildDeferredPromise } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IMarketHighlightAsset } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketTokenListBatchForPlatform } from '../MarketHomeV2/components/MarketTokenList/hooks/marketTokenBatchPlatformApi';
@@ -46,6 +55,15 @@ jest.mock('@onekeyhq/components', () => ({
   useNetInfo: () => ({ isRawInternetReachable: true }),
 }));
 
+globalThis.requestIdleCallback ??= (callback) =>
+  Number(
+    setTimeout(
+      () => callback({ didTimeout: false, timeRemaining: () => 0 }),
+      0,
+    ),
+  );
+globalThis.cancelIdleCallback ??= (handle) => clearTimeout(handle);
+
 const service = jest.mocked(backgroundApiProxy.serviceMarketV2);
 const fetchTokens = jest.mocked(fetchMarketTokenListBatchForPlatform);
 
@@ -54,9 +72,10 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await cleanupAsync();
   jest.useRealTimers();
-  cleanup();
+  jest.restoreAllMocks();
 });
 
 it('loads immediately and replaces the headline while the page remains open', async () => {
@@ -92,6 +111,45 @@ it('loads immediately and replaces the headline while the page remains open', as
     await jest.advanceTimersByTimeAsync(30_000);
   });
   expect(result.current.items?.[0].title).toBe('New headline');
+});
+
+it('shows the previous native headline before a fresh response arrives', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const key = swrKeys.marketHomeHighlights('en-US');
+  swrCacheUtils.remove(key);
+  const headline = {
+    highlightId: 'cached',
+    title: 'Cached headline',
+    description: '',
+    publishedAt: '2026-11-04T00:00:00Z',
+    assets: [],
+    links: [],
+  };
+  try {
+    service.fetchMarketHighlights.mockResolvedValue([headline]);
+    renderHook(() => useMarketHighlights());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    await cleanupAsync();
+
+    const refresh =
+      buildDeferredPromise<
+        Awaited<ReturnType<typeof service.fetchMarketHighlights>>
+      >();
+    service.fetchMarketHighlights.mockReturnValue(refresh.promise);
+    const { result } = renderHook(() => useMarketHighlights());
+    expect(result.current.items?.[0].title).toBe('Cached headline');
+
+    await act(async () => {
+      refresh.resolve([{ ...headline, title: 'Fresh headline' }]);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.items?.[0].title).toBe('Fresh headline');
+  } finally {
+    service.fetchMarketHighlights.mockReset();
+    swrCacheUtils.remove(key);
+  }
 });
 
 it.each(['response', 'preview'])(
@@ -263,6 +321,11 @@ it('refreshes stock, spot, perpetual, and token prices with unchanged assets', a
     '100',
     '100',
   ]);
+  expect(
+    [...result.current!.values()]
+      .map((quote) => quote.maxLeverage)
+      .filter((value) => value !== undefined),
+  ).toEqual([40]);
 
   price = '101';
   await act(async () => {

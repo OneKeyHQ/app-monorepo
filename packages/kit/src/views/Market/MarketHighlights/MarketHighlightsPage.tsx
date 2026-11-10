@@ -33,7 +33,10 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketPerpsStarV2, MarketStarV2 } from '../components/MarketStarV2';
-import { USStockMarketStatusIcon } from '../components/PerpsBadges';
+import {
+  LeverageBadge,
+  USStockMarketStatusIcon,
+} from '../components/PerpsBadges';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
 import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
@@ -62,9 +65,12 @@ function HighlightInfo({
 }) {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.global_info });
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
       title={title}
       showHeader={!wide}
       placement="bottom-end"
@@ -77,9 +83,13 @@ function HighlightInfo({
           role="button"
           alignItems="center"
           gap="$1"
+          px="$2"
+          py="$1"
           borderRadius="$full"
-          hoverStyle={{ bg: '$bgHover' }}
+          bg={isOpen ? '$bgActive' : undefined}
+          hoverStyle={{ bg: isOpen ? '$bgActive' : '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
+          accessibilityState={{ expanded: isOpen }}
         >
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {title}
@@ -225,6 +235,7 @@ function HighlightAssetRow({
   wide: boolean;
 }) {
   const { favorite } = asset;
+  const maxLeverage = asset.type === 'perp' ? quote?.maxLeverage : undefined;
   return (
     <XStack
       alignItems="center"
@@ -258,24 +269,57 @@ function HighlightAssetRow({
           alignItems={wide ? 'flex-start' : 'center'}
           gap={wide ? undefined : '$2'}
         >
-          <XStack minWidth={0} flexShrink={1} alignItems="center" gap="$1.5">
+          <XStack
+            flex={wide ? undefined : 1}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            flexShrink={1}
+            alignItems="center"
+            gap="$1.5"
+          >
             <SizableText flexShrink={1} size="$bodyLgMedium" numberOfLines={1}>
               {asset.symbol}
             </SizableText>
             {quote?.isUSStock ? <USStockMarketStatusIcon /> : null}
+            {maxLeverage && maxLeverage > 0 ? (
+              <LeverageBadge leverage={maxLeverage} compact={!wide} />
+            ) : null}
           </XStack>
-          <XStack ml={wide ? undefined : 'auto'} alignItems="center" gap="$1.5">
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-              numberOfLines={1}
+          <XStack
+            flex={wide ? undefined : 2}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            maxWidth={wide ? undefined : 160}
+            alignItems="center"
+            gap="$1.5"
+          >
+            <XStack
+              flex={wide ? undefined : 3}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
             >
-              {quote?.price ?? '-'}
-            </NumberSizeableText>
-            <PriceChangePercentage numberOfLines={1}>
-              {quote?.priceChange24hPercent}
-            </PriceChangePercentage>
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+                flexShrink={1}
+                adjustsFontSizeToFit={!wide}
+              >
+                {quote?.price ?? '-'}
+              </NumberSizeableText>
+            </XStack>
+            <XStack
+              flex={wide ? undefined : 2}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
+            >
+              <PriceChangePercentage numberOfLines={1} flexShrink={1}>
+                {quote?.priceChange24hPercent}
+              </PriceChangePercentage>
+            </XStack>
           </XStack>
         </YStack>
       </XStack>

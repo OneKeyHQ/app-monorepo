@@ -371,8 +371,11 @@ function MobileLayoutComponent({
   const handleTabChangeRef = useRef(handleTabChange);
   handleTabChangeRef.current = handleTabChange;
 
-  const { items: highlights } = useMarketHighlights();
+  const { items: highlights, isLoading: isHighlightsLoading } =
+    useMarketHighlights();
   const highlight = highlights?.[0];
+  const hasHighlightSlot =
+    Boolean(highlight) || (!highlights && isHighlightsLoading !== false);
   const containerProps = useMemo(
     () => ({
       // NOTE: renderHeader must never return a 0-height tree after it had
@@ -383,7 +386,7 @@ function MobileLayoutComponent({
       // library re-measures correctly when the banner disappears.
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
-          {highlight ? (
+          {hasHighlightSlot ? (
             <MarketHighlightStrip
               highlight={highlight}
               highlights={highlights}
@@ -394,7 +397,7 @@ function MobileLayoutComponent({
         </YStack>
       ),
     }),
-    [highlight, highlights],
+    [hasHighlightSlot, highlight, highlights],
   );
 
   const listContainerProps = useMemo(() => {
