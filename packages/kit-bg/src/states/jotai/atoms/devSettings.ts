@@ -63,6 +63,8 @@ export interface IDevSettings {
   enableBotWalletFeature?: boolean;
 
   showPrimeTest?: boolean;
+  // Desktop development only; never changes the persisted account restriction.
+  mockPrimeUserBanned?: boolean;
   usePrimeSandboxPayment?: boolean;
   // Skip the embedded Stripe card form and open the RevenueCat Purchase Link
   // directly (web / desktop / extension). Needs a restart.

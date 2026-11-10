@@ -26,6 +26,7 @@ export async function fetchBytesWithIdleTimeout(
   ok: boolean;
   status: number;
   statusText: string;
+  headers?: Headers;
   bytes: Uint8Array;
 }> {
   const controller = new AbortController();
@@ -53,6 +54,7 @@ export async function fetchBytesWithIdleTimeout(
       ok: response.ok,
       status: response.status,
       statusText: response.statusText,
+      headers: response.headers,
     };
     if (!response.ok) return { ...meta, bytes: new Uint8Array() };
     if (Number(response.headers?.get('content-length')) > maxBytes) {
