@@ -282,8 +282,6 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (58.0.9):
     - ExpoModulesCore
-  - ExpoFont (58.0.8):
-    - ExpoModulesCore
   - ExpoGlassEffect (58.0.4):
     - ExpoModulesCore
   - ExpoHaptics (58.0.7):
@@ -4175,7 +4173,6 @@ DEPENDENCIES:
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
   - "ExpoDomWebView (from `../../../node_modules/@expo/dom-webview/ios`)"
   - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
-  - ExpoFont (from `../../../node_modules/expo-font/ios`)
   - ExpoGlassEffect (from `../../../node_modules/expo-glass-effect/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
   - ExpoImageManipulator (from `../../../node_modules/expo-image-manipulator/ios`)
@@ -4437,8 +4434,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@expo/dom-webview/ios"
   ExpoFileSystem:
     :path: "../../../node_modules/expo-file-system/ios"
-  ExpoFont:
-    :path: "../../../node_modules/expo-font/ios"
   ExpoGlassEffect:
     :path: "../../../node_modules/expo-glass-effect/ios"
   ExpoHaptics:
@@ -4825,7 +4820,6 @@ SPEC CHECKSUMS:
   ExpoDevice: 77a9816436a09a0bfc00f5ace649c6ccb219b96d
   ExpoDomWebView: b2a6d681b9d34c23b1f584321386ca8da1d36afb
   ExpoFileSystem: 1c31c9a87bbdf5877865be753f2b9aa1df9bd015
-  ExpoFont: 8c11c15724418e0fc2f4cd410afa49686d55a6c4
   ExpoGlassEffect: 008d906ff11ffeb03a8e702af9d6a471c16c10eb
   ExpoHaptics: c95d1e2162895e710b68dd912eec619900ebdf33
   ExpoImageManipulator: d3a5f1755634d963c526f66cc2ef878dbe4e4306
