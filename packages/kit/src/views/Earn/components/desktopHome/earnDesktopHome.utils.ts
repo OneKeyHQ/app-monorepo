@@ -1677,10 +1677,18 @@ type IHeldToken = {
   tokenValueUsd: BigNumber;
 };
 
+/**
+ * What a token must be worth on one network, in USD, to come into Earns on
+ * your holding (user, 11-10). Smaller balances on several networks don't add
+ * up to an entry: a deposit starts from one network
+ */
+export const EARN_HOLD_MIN_NETWORK_VALUE_USD = 10;
+
 // Each token the wallet holds, one row over every network it sits on (since
 // 11-05), with what Earn offers for it on any network the wallet can take it
 // to: Earn bridges it there. The most valuable first. A token Earn offers
-// nowhere is left out
+// nowhere is left out, and so is one worth less than the minimum on every
+// network it sits on; one that comes in still counts its balance everywhere
 export function buildHoldRows({
   groups,
   assets,
@@ -1762,6 +1770,12 @@ export function buildHoldRows({
   const usable = accountNetworkIds ? new Set(accountNetworkIds) : undefined;
   const rows: IEarnDesktopHoldRow[] = [];
   held.forEach((item, symbolKey) => {
+    const hasEnoughOnOneNetwork = Array.from(item.byNetwork.values()).some(
+      (value) => value.gte(EARN_HOLD_MIN_NETWORK_VALUE_USD),
+    );
+    if (!hasEnoughOnOneNetwork) {
+      return;
+    }
     const asset = assetBySymbol.get(symbolKey);
     const offers = collectTokenOffers({
       protocols: protocolsBySymbol.get(symbolKey) ?? [],

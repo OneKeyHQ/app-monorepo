@@ -1508,6 +1508,54 @@ describe('buildHoldRows', () => {
       ['protocol', 4.58],
     ]);
   });
+
+  describe('the $10 entry', () => {
+    const usdcOn = (
+      networkId: string,
+      value: string,
+      extra: Partial<ITokenFiat> = {},
+    ): IEarnDesktopWalletNetworkGroup => ({
+      accountId: 'a',
+      networkId,
+      tokens: [walletToken('USDC', `${networkId}_usdc`)],
+      map: { [`${networkId}_usdc`]: walletFiat(value, value, extra) },
+    });
+    const build = (groups: IEarnDesktopWalletNetworkGroup[]) =>
+      buildHoldRows({
+        groups,
+        assets: [earnAsset('USDC')],
+        protocolsBySymbol: new Map([
+          ['usdc', [protocol('spark', 'evm--1', '4')]],
+        ]),
+        lendingOffers: new Map(),
+      });
+
+    it('takes a token worth $10 on one network, not one worth less', () => {
+      expect(build([usdcOn('evm--1', '10')])).toHaveLength(1);
+      expect(build([usdcOn('evm--1', '9.99')])).toEqual([]);
+    });
+
+    it("doesn't add smaller balances on several networks up to an entry", () => {
+      expect(
+        build([
+          usdcOn('evm--1', '6'),
+          usdcOn('evm--42161', '6'),
+          usdcOn('evm--8453', '6'),
+        ]),
+      ).toEqual([]);
+    });
+
+    it('counts a token that comes in on every network it sits on', () => {
+      const [usdc] = build([usdcOn('evm--1', '3'), usdcOn('evm--42161', '12')]);
+      expect(usdc.amount).toBe('15');
+      expect(usdc.fiatValueUsd).toBe('15');
+      expect(usdc.networkIds).toEqual(['evm--42161', 'evm--1']);
+    });
+
+    it('leaves out a token whose value in USD is not known', () => {
+      expect(build([usdcOn('evm--1', '50', { currency: 'eur' })])).toEqual([]);
+    });
+  });
 });
 
 describe('ready to earn', () => {
