@@ -11,10 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  PRIME_USER_BANNED_CODE,
-  primeUserBannedMessage,
-} from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { PRIME_USER_BANNED_CODE } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 import {
   getNativeAppStorageEmergencyStatus,
@@ -142,8 +139,12 @@ export function ErrorToastContainer() {
           try {
             await closeOneKeyIdLoginDialogs();
             Dialog.show({
-              title: 'OneKeyID',
-              description: intl.formatMessage(primeUserBannedMessage),
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__desc,
+              }),
               icon: 'ErrorOutline',
               tone: 'warning',
               showCancelButton: false,
@@ -162,8 +163,9 @@ export function ErrorToastContainer() {
           } catch {
             bannedDialogVisible.current = false;
             Toast.error({
-              title: 'OneKeyID',
-              message: intl.formatMessage(primeUserBannedMessage),
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
               toastId: String(PRIME_USER_BANNED_CODE),
             });
           }

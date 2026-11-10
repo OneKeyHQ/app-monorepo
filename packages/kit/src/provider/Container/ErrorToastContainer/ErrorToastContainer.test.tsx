@@ -151,8 +151,8 @@ describe('ErrorToastContainer', () => {
     });
     expect(Dialog.show).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'OneKeyID',
-        description: '账号已被封禁',
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
         showCancelButton: false,
         onConfirmText: '我明白了',
         dismissOnOverlayPress: false,
@@ -200,8 +200,8 @@ describe('ErrorToastContainer', () => {
     expect(Dialog.show).toHaveBeenCalledTimes(2);
     expect(Dialog.show).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        title: 'OneKeyID',
-        description: '账号已被封禁',
+        title: 'OneKey ID 已被封禁',
+        description: '如有疑问，可以联系客服',
       }),
     );
     await act(async () => {
@@ -230,8 +230,8 @@ describe('ErrorToastContainer', () => {
       });
       expect(Dialog.show).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'OneKeyID',
-          description: '账号已被封禁',
+          title: 'OneKey ID 已被封禁',
+          description: '如有疑问，可以联系客服',
         }),
       );
       expect(mockedToast.error).not.toHaveBeenCalled();
