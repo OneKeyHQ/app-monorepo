@@ -23,6 +23,9 @@ export type IHeaderRightViewProps = {
   onHistory: () => void;
   onOpenSlippage: () => void;
   onRefreshQuote: () => void;
+  // History by its icon alone, its word on hover, as the Swap page's
+  // header keeps its controls (the Earn window)
+  historyIconOnly?: boolean;
 };
 
 const HEADER_CONTROLS_ENTER = { opacity: 0 } as const;
@@ -38,6 +41,7 @@ export function HeaderRightView({
   onHistory,
   onOpenSlippage,
   onRefreshQuote,
+  historyIconOnly,
 }: IHeaderRightViewProps) {
   // Figma order: Slippage → History → Refresh. They come with the form's
   // data, after the frame that holds its place: they fade in, as the
@@ -62,7 +66,17 @@ export function HeaderRightView({
       {pendingCount ? (
         <PendingIndicator num={pendingCount} onPress={onHistory} />
       ) : null}
-      {!pendingCount && showHistory ? (
+      {!pendingCount && showHistory && historyIconOnly ? (
+        <IconButton
+          testID="staking-has-content-btn"
+          icon="ClockTimeHistoryOutline"
+          variant="tertiary"
+          size="small"
+          title={historyText}
+          onPress={onHistory}
+        />
+      ) : null}
+      {!pendingCount && showHistory && !historyIconOnly ? (
         <Button
           testID="staking-has-content-btn"
           h="$8"

@@ -349,12 +349,12 @@ function EarnOfferRoutes({
 }) {
   const intl = useIntl();
   return (
-    <YStack gap="$2">
+    <YStack gap="$3">
       <YStack
         testID="earn-offer-routes"
         role="radiogroup"
         aria-label={intl.formatMessage({ id: ETranslations.global_protocol })}
-        gap="$2"
+        gap="$3"
       >
         {offers.map((offer) => (
           <EarnOfferOptionCard
@@ -1228,25 +1228,36 @@ export function EarnOffersDeposit({
     ],
   );
   const renderFacts = useCallback(
-    (offer: IEarnDesktopHoldOffer, isSelected: boolean) => (
-      <EarnOfferFacts
-        offer={offer}
-        symbol={tokenSymbol}
-        isShown={isSelected}
-        depositedFiatValue={
-          offer.kind === 'lending'
-            ? offer.offer.depositedFiatValue
-            : findPositionDeposit(portfolioDeposits, {
-                provider: offer.item.provider.name,
-                networkId: offer.item.network.networkId,
-                symbol: getOfferSymbol(offer, tokenSymbol),
-                vault: offer.item.provider.vault,
-              })
-        }
-        onDetails={handleOpenDetails}
-      />
-    ),
-    [handleOpenDetails, portfolioDeposits, tokenSymbol],
+    (
+      offer: IEarnDesktopHoldOffer,
+      isSelected: boolean,
+      isUnderForm = false,
+    ) => {
+      const face = isUnderForm
+        ? buildOfferRowProps(offer, { intl })
+        : undefined;
+      return (
+        <EarnOfferFacts
+          offer={offer}
+          symbol={tokenSymbol}
+          isShown={isSelected}
+          logoURI={face?.logoURI}
+          name={face ? face.subtitle || face.name : undefined}
+          depositedFiatValue={
+            offer.kind === 'lending'
+              ? offer.offer.depositedFiatValue
+              : findPositionDeposit(portfolioDeposits, {
+                  provider: offer.item.provider.name,
+                  networkId: offer.item.network.networkId,
+                  symbol: getOfferSymbol(offer, tokenSymbol),
+                  vault: offer.item.provider.vault,
+                })
+          }
+          onDetails={handleOpenDetails}
+        />
+      );
+    },
+    [handleOpenDetails, intl, portfolioDeposits, tokenSymbol],
   );
 
   const { gtLg } = useMedia();
@@ -1283,7 +1294,9 @@ export function EarnOffersDeposit({
           />
         ) : null
       }
-      renderFacts={renderFacts}
+      // Beside the form, the picked offer's facts stand under the form's
+      // button: every card keeps one height, and a pick moves no card
+      renderFacts={isRoutesBeside ? undefined : renderFacts}
       onSelect={handleRoutePick}
       onHoverIn={warmOffer}
     />
@@ -1309,16 +1322,18 @@ export function EarnOffersDeposit({
   }
 
   const hasNoOffers = isLoaded && !offers.length;
-  // The pick heads the form, over the amount it is paid with
+  // The pick heads the form, over the amount it is paid with. The wide
+  // window keeps it in its header instead and hands none here
   const pickRow = pickPill ? (
     <XStack px="$5" pt="$2.5" pb="$1">
       {pickPill}
     </XStack>
   ) : null;
   // The form's place and the offers' column, as they will land, filling the
-  // window's fixed size. The pick heads both, so the offers start level with
-  // the amount box. Each column scrolls by itself: the offers move under the
-  // pointer while the form and its button, under it as on Swap, stay
+  // window's fixed size. Both start right under the header, the offers
+  // level with the amount box. Each column scrolls by itself: the offers
+  // move under the pointer while the form and its button, under it as on
+  // Swap, stay
   const besideForm = (form: ReactNode, column: ReactNode) => (
     <YStack flex={1}>
       {pickRow}
@@ -1332,10 +1347,16 @@ export function EarnOffersDeposit({
           <EarnFormActionPlacementContext.Provider value="inline">
             {form}
           </EarnFormActionPlacementContext.Provider>
+          {selected ? (
+            <YStack px="$5" pb="$5">
+              {renderFacts(selected, true, true)}
+            </YStack>
+          ) : null}
         </ScrollView>
         <ScrollView
           testID="earn-offer-routes-column"
           w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+          flexGrow={0}
           flexShrink={0}
         >
           {/* The form's own top space, so the first offer meets the box */}

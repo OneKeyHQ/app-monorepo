@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
+import {
+  EarnFormCompactContext,
+  EarnFormSummaryPart,
+} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { getTypedAmountValue } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -23,6 +27,7 @@ import type {
 } from './types';
 
 export function ManagePosition(props: IManagePositionProps) {
+  const isCompact = useContext(EarnFormCompactContext);
   const {
     accountId,
     networkId,
@@ -272,6 +277,8 @@ export function ManagePosition(props: IManagePositionProps) {
     [state, actions, actionResult, approval],
   );
 
+  const splitsSummary = isCompact && Boolean(state.isEarnForm);
+
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
@@ -281,11 +288,24 @@ export function ManagePosition(props: IManagePositionProps) {
           title={props.inputTitle}
           afterInput={props.offerSwitch}
         />
-        <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+        {/* In a compact window the result stands over the button and the
+            rows fold under it, so the button keeps its place */}
+        {splitsSummary ? (
+          <EarnFormSummaryPart part="result">
+            <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+          </EarnFormSummaryPart>
+        ) : (
+          <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+        )}
         <ActionFooter
           autoSubmitKey={props.autoSubmitKey}
           onAutoSubmit={props.onAutoSubmit}
         />
+        {splitsSummary ? (
+          <EarnFormSummaryPart part="details">
+            <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
+          </EarnFormSummaryPart>
+        ) : null}
       </StakingFormWrapper>
     </ManagePositionContext.Provider>
   );

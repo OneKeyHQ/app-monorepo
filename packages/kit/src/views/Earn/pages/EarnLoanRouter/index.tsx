@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
   Button,
   HeightTransition,
   Icon,
+  IconButton,
   Page,
   ScrollView,
   SizableText,
@@ -67,13 +68,13 @@ import {
   EarnFormFooter,
 } from '../../../Staking/components/EarnFormFooter';
 import { useEarnRiskWarningGate } from '../../../Staking/components/EarnRiskWarningDialog';
+import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import {
   EarnFormCompactContext,
   EarnFormRow,
-  EarnFormSummary,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import {
   EARN_DESKTOP_LOAN_LTV,
@@ -130,6 +131,7 @@ import {
 } from './loanRouter.utils';
 import { EARN_LOAN_MODAL_SIZE } from './loanRouterModal';
 import {
+  LoanMarketLinks,
   LoanPairTitle,
   LoanPickBar,
   LoanRouteList,
@@ -302,20 +304,31 @@ function HealthFactorValue({
   before,
   after,
   current,
+  isHero,
 }: {
   before?: number;
   after?: number;
   current?: IHealthFactorDetail;
+  // The window's result: the figure it leaves large, what it was small
+  isHero?: boolean;
 }) {
   const intl = useIntl();
+  const mainSize = isHero ? '$heading3xl' : '$bodyMdMedium';
+  const beforeSize = isHero ? '$bodyMd' : '$bodySm';
   if (after === undefined) {
-    return <RowValue>–</RowValue>;
+    return isHero ? (
+      <SizableText size={mainSize} color="$textPlaceholder">
+        –
+      </SizableText>
+    ) : (
+      <RowValue>–</RowValue>
+    );
   }
   if (before === undefined && current) {
     return (
       <XStack ai="center" gap="$1.5">
         <SizableText
-          size="$bodyMdMedium"
+          size={mainSize}
           color={resolveHealthFactorValueColor(current)}
           fontVariant={['tabular-nums']}
         >
@@ -333,7 +346,7 @@ function HealthFactorValue({
       {before !== undefined ? (
         <>
           <SizableText
-            size="$bodySm"
+            size={beforeSize}
             color={
               current
                 ? resolveHealthFactorValueColor(current)
@@ -346,7 +359,7 @@ function HealthFactorValue({
         </>
       ) : null}
       <SizableText
-        size="$bodyMdMedium"
+        size={mainSize}
         textAlign="right"
         color={healthColorOf(after)}
       >
@@ -435,15 +448,6 @@ function PositionValue({
 
 // A block's line, its label on the left and its value on the right, as a
 // placeholder of the line's height
-function SkeletonFormRow({ height }: { height: number }) {
-  return (
-    <XStack h={height} jc="space-between" ai="flex-start">
-      <Skeleton.BodyMd w={88} />
-      <Skeleton.BodyMd w={56} />
-    </XStack>
-  );
-}
-
 // The way from the loan's market here to its card in My portfolio, where
 // the whole position is managed: repaying, withdrawing, collateral, E-Mode
 function PositionManageLink({ onPress }: { onPress: () => void }) {
@@ -484,17 +488,45 @@ function PositionManageLink({ onPress }: { onPress: () => void }) {
 // there, line for line as it opens folded (the health factor, then the
 // position's title and its link), so the modal opens at the size it settles
 // at where the account has a position, and shrinks once if it has none
-function PositionSkeleton() {
+// One of the window's two results, as the home's Net Worth stands: its
+// label over a large figure on the background. The line keeps its height
+// whatever it holds, so the button under it stays put
+const RESULT_FIGURE_HEIGHT = 36;
+function LoanResultCell({
+  testID,
+  label,
+  tooltip,
+  isTrailing,
+  children,
+}: {
+  testID: string;
+  label: string;
+  tooltip?: string;
+  // The right cell: its text ends at the boxes' right edge
+  isTrailing?: boolean;
+  children: ReactNode;
+}) {
   return (
     <YStack
-      testID="earn-loan-position-loading"
-      px="$3.5"
-      mt="$-2"
-      gap="$3"
-      aria-hidden
+      testID={testID}
+      gap="$0.5"
+      ai={isTrailing ? 'flex-end' : 'flex-start'}
+      minWidth={0}
     >
-      <SkeletonFormRow height={20} />
-      <SkeletonFormRow height={20} />
+      <XStack ai="center" gap="$1" minHeight="$5">
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {label}
+        </SizableText>
+        {tooltip ? (
+          <EarnTooltip
+            title={label}
+            tooltip={{ type: 'text', data: { description: { text: tooltip } } }}
+          />
+        ) : null}
+      </XStack>
+      <XStack h={RESULT_FIGURE_HEIGHT} ai="center" gap="$1.5">
+        {children}
+      </XStack>
     </YStack>
   );
 }
@@ -521,7 +553,7 @@ function EarnLoanRouterPage() {
     ltv: startLtv,
     payKey: startPayKey,
   } = route.params as IRouteParams;
-  const { gtLg } = useMedia();
+  const { gtLg, gtMd } = useMedia();
   const reduceMotion = useReducedMotion();
   const loanAccount = useLoanRouterAccount();
   const hasNoWallet = !loanAccount.accountId && !loanAccount.indexedAccountId;
@@ -1670,36 +1702,6 @@ function EarnLoanRouterPage() {
   } else if (planPreview) {
     healthAfter = planPreview.health;
   }
-  const healthRow = (
-    <EarnFormRow
-      key="health"
-      testID="earn-loan-health"
-      label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
-      value={
-        <HealthFactorValue
-          before={
-            isChanging && ownHealthBefore !== undefined
-              ? ownHealthBefore * healthScale
-              : undefined
-          }
-          after={healthAfter}
-          current={serverHealth}
-        />
-      }
-      // The same for every loan: behind the label's (i), not a line of
-      // its own
-      tooltip={{
-        type: 'text',
-        data: {
-          description: {
-            text: intl.formatMessage({
-              id: ETranslations.defi_liquidation_at_less_than_1_00,
-            }),
-          },
-        },
-      }}
-    />
-  );
   // One asset's liquidation price holds only while nothing else is in the
   // position: with other assets it would take their prices as fixed
   const isSinglePair = Boolean(
@@ -1804,9 +1806,80 @@ function EarnLoanRouterPage() {
             ],
     };
   }
+  const netApyValue = outcome.values[0];
+  // What the loan leaves, side by side over the button: how safe the
+  // position is, and what it earns or costs a year
   const summary =
     selectedRoute || isFiguresLoading ? (
-      <EarnFormSummary outcome={outcome} isOutcomeLoading={isFiguresLoading} />
+      <XStack
+        testID="earn-loan-result"
+        px="$3.5"
+        jc="space-between"
+        columnGap="$4"
+        rowGap="$3"
+        // A phone's width holds one of them a line: the second goes under
+        // the first, from the same edge
+        flexWrap="wrap"
+      >
+        <LoanResultCell
+          testID="earn-loan-health"
+          label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
+          // The same for every loan: behind the label's (i)
+          tooltip={intl.formatMessage({
+            id: ETranslations.defi_liquidation_at_less_than_1_00,
+          })}
+        >
+          {isFiguresLoading ? (
+            <Skeleton.Heading2Xl w={96} />
+          ) : (
+            <HealthFactorValue
+              isHero
+              before={
+                isChanging && ownHealthBefore !== undefined
+                  ? ownHealthBefore * healthScale
+                  : undefined
+              }
+              after={healthAfter}
+              current={serverHealth}
+            />
+          )}
+        </LoanResultCell>
+        <LoanResultCell
+          testID="earn-loan-net-apy"
+          label={netApyLabel}
+          isTrailing={gtMd}
+        >
+          {isFiguresLoading ? <Skeleton.Heading2Xl w={96} /> : null}
+          {!isFiguresLoading && netApyValue?.before ? (
+            <>
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                fontVariant={['tabular-nums']}
+              >
+                {netApyValue.before}
+              </SizableText>
+              <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
+            </>
+          ) : null}
+          {isFiguresLoading ? null : (
+            <SizableText
+              size="$heading3xl"
+              color={
+                // eslint-disable-next-line no-nested-ternary
+                !netApyValue
+                  ? '$textPlaceholder'
+                  : outcome.isCost
+                    ? '$textCritical'
+                    : '$text'
+              }
+              fontVariant={['tabular-nums']}
+            >
+              {netApyValue?.main ?? '–'}
+            </SizableText>
+          )}
+        </LoanResultCell>
+      </XStack>
     ) : null;
 
   // The window closes for one of the market's pages. Back from that page
@@ -1939,16 +2012,10 @@ function EarnLoanRouterPage() {
   const positionBlock =
     hasPosition && selectedRoute && selectedFacts ? (
       // As close under the Net APY as its rows sit to each other
-      <YStack
-        testID="earn-loan-position"
-        px="$3.5"
-        mt="$-2"
-        gap="$3"
-        {...fadeInProps}
-      >
-        {/* What the loan does to the position's safety stays in view; what
-            backs it and what it owes open under "Your position" */}
-        {healthRow}
+      <YStack testID="earn-loan-position" px="$3.5" gap="$3" {...fadeInProps}>
+        {/* What the loan does to the position's safety is the result over
+            the button; what backs it and what it owes open under "Your
+            position" */}
         {liquidationRow}
         <YStack>
           <XStack ai="center" gap="$2">
@@ -2036,15 +2103,13 @@ function EarnLoanRouterPage() {
   // in one place, so the form changes height once as the figures land
   let details: ReactElement | null = null;
   if (isFiguresLoading) {
-    details = <PositionSkeleton />;
+    details = null;
   } else if (positionBlock) {
     details = positionBlock;
   } else if (selectedRoute) {
-    const riskRows = [healthRow, liquidationRow].filter(isElement);
-    details = riskRows.length ? (
-      // As close under the Net APY as the summary's own rows sit
-      <YStack px="$3.5" mt="$-2" gap="$3" {...fadeInProps}>
-        {riskRows}
+    details = liquidationRow ? (
+      <YStack px="$3.5" gap="$3" {...fadeInProps}>
+        {liquidationRow}
       </YStack>
     ) : null;
   }
@@ -2326,20 +2391,32 @@ function EarnLoanRouterPage() {
   );
   // The Earn window's History button, in the same place
   const renderHistory = useCallback(
-    () => (
-      <Button
-        testID="earn-loan-history"
-        h="$8"
-        mr="unset"
-        variant="tertiary"
-        icon="ClockTimeHistoryOutline"
-        size="small"
-        onPress={handleOpenHistory}
-      >
-        {historyLabel}
-      </Button>
-    ),
-    [handleOpenHistory, historyLabel],
+    () =>
+      // Beside the markets the header holds the picks: History by its icon,
+      // its word on hover, as the Swap page's header keeps its controls
+      isBeside ? (
+        <IconButton
+          testID="earn-loan-history"
+          icon="ClockTimeHistoryOutline"
+          variant="tertiary"
+          size="small"
+          title={historyLabel}
+          onPress={handleOpenHistory}
+        />
+      ) : (
+        <Button
+          testID="earn-loan-history"
+          h="$8"
+          mr="unset"
+          variant="tertiary"
+          icon="ClockTimeHistoryOutline"
+          size="small"
+          onPress={handleOpenHistory}
+        >
+          {historyLabel}
+        </Button>
+      ),
+    [handleOpenHistory, historyLabel, isBeside],
   );
   // The done view names what went in (a supply alone, its token only); the
   // form is the Loans window, its picks heading the form
@@ -2377,6 +2454,7 @@ function EarnLoanRouterPage() {
   // the network both picks are on
   const pickRow = (
     <LoanPickBar
+      inHeader={isBeside}
       supply={{
         testID: 'earn-loan-collateral-pick',
         caption: supplyWord,
@@ -2397,6 +2475,19 @@ function EarnLoanRouterPage() {
       }}
       network={scopeNetwork}
     />
+  );
+  const windowTitle = intl.formatMessage({
+    id: ETranslations.earn_loans__action,
+  });
+  // Beside the markets the picks stand in the header, after the window's
+  // name: one line, and both columns start right under it
+  const renderPickTitle = () => (
+    <XStack ai="center" gap="$3" minWidth={0}>
+      <SizableText size="$headingLg" flexShrink={0}>
+        {windowTitle}
+      </SizableText>
+      {pickRow}
+    </XStack>
   );
 
   // A kind of token on a side: each card names its own pair. A card Pay
@@ -2467,7 +2558,11 @@ function EarnLoanRouterPage() {
           : netApyLabel
       }
       onSelect={isLocked ? noop : handlePickRoute}
-      onOpenReserve={isLocked ? noop : handleOpenReserve}
+      // Beside the form the picked market's pages stand under the button
+      onOpenReserve={
+        // eslint-disable-next-line no-nested-ternary
+        isBeside ? undefined : isLocked ? noop : handleOpenReserve
+      }
     />
   );
   // The button, as Swap's: under the form in a wide window, else the modal's
@@ -2499,8 +2594,8 @@ function EarnLoanRouterPage() {
   );
   const form = doneView ?? (
     <YStack gap="$5">
-      {/* The picks top the boxes' stack; beside the markets they head both
-          columns instead */}
+      {/* The picks top the boxes' stack; beside the markets they stand in
+          the window's header instead */}
       <YStack gap="$2">
         {isBeside ? null : pickRow}
         {collateralBox}
@@ -2534,9 +2629,19 @@ function EarnLoanRouterPage() {
           the button comes after the result and the account's position, so
           the Health Factor it leaves is read before the press (demo 10-29) */}
       {summary}
-      {details}
+      {isBeside ? null : details}
       {isBeside ? notes : null}
       {isBeside ? action : null}
+      {/* Beside the markets, what is read after the press is decided
+          stands under the button, which keeps its place: the position's
+          own rows, then the picked market's pages */}
+      {isBeside ? details : null}
+      {isBeside && selectedRoute && !isLocked ? (
+        <LoanMarketLinks
+          route={selectedRoute}
+          onOpenReserve={handleOpenReserve}
+        />
+      ) : null}
       {isBeside ? null : routeList}
       {isBeside ? null : notes}
     </YStack>
@@ -2573,12 +2678,11 @@ function EarnLoanRouterPage() {
       scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
     >
       <Page.Header
-        title={
-          done
-            ? undefined
-            : intl.formatMessage({ id: ETranslations.earn_loans__action })
+        title={done ? undefined : windowTitle}
+        headerTitle={
+          // eslint-disable-next-line no-nested-ternary
+          done ? renderDoneTitle : isBeside ? renderPickTitle : undefined
         }
-        headerTitle={done ? renderDoneTitle : undefined}
         headerRight={hasHistory && !done ? renderHistory : undefined}
       />
       <Page.Body>
@@ -2586,17 +2690,11 @@ function EarnLoanRouterPage() {
             the form's fixed one */}
         <YStack ref={fitModalRef} flex={isBeside ? 1 : undefined}>
           {isBeside && !done ? (
-            // The picks head both columns, so the markets start level with
-            // the Supply box, over the form's own width as the top of its
-            // stack. Each column scrolls by itself: the markets move under
-            // the pointer while the form and its button stay
+            // The picks stand in the header, so both columns start right
+            // under it, the markets level with the Supply box. Each column
+            // scrolls by itself: the markets move under the pointer while
+            // the form and its button stay
             <YStack flex={1}>
-              <XStack px="$5" pt="$2.5">
-                <YStack flex={1} minWidth={0}>
-                  {pickRow}
-                </YStack>
-                <Stack w={EARN_OFFER_ROUTES_COLUMN_WIDTH} flexShrink={0} />
-              </XStack>
               <XStack testID="earn-loan-router" flex={1} ai="stretch">
                 <ScrollView
                   flex={1}
@@ -2613,6 +2711,9 @@ function EarnLoanRouterPage() {
                 <ScrollView
                   testID="earn-loan-routes-column"
                   w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+                  // Its own width whatever the form's content asks for, as
+                  // the Earn window's column: a scroll view grows otherwise
+                  flexGrow={0}
                   flexShrink={0}
                 >
                   <YStack pt="$2" pb="$5" pr="$5">

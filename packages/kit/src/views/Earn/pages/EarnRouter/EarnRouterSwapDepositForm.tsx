@@ -71,6 +71,7 @@ import {
   EarnFormOffersInlineContext,
   EarnFormRow,
   EarnFormSummary,
+  EarnFormSummaryPart,
   EarnFormSwitchingContext,
   buildOutcomeValueFromText,
   buildRewardNoteRows,
@@ -1660,8 +1661,6 @@ export function EarnRouterSwapDepositForm({
   const amountLines = (
     <HeightTransition
       duration={DEPOSIT_LINE_MS}
-      // Compact, nothing stands under an empty box
-      hide={isCompact && !hasAmount}
       skipInitialAnimation={!revealsDepositLine}
     >
       <YStack pt="$2">
@@ -1784,7 +1783,13 @@ export function EarnRouterSwapDepositForm({
           </YStack>
         </HeightTransition>
       </YStack>
-      {summary}
+      {/* Compact, the result stands over the button and the rows fold
+          under it, so the button keeps its place */}
+      {isCompact && summary ? (
+        <EarnFormSummaryPart part="result">{summary}</EarnFormSummaryPart>
+      ) : (
+        summary
+      )}
       <EarnFormFooter
         isInModalContext={Boolean(isInModalContext)}
         // Compact, the button names the steps; the tracker comes with the
@@ -1805,6 +1810,9 @@ export function EarnRouterSwapDepositForm({
           />
         }
       />
+      {isCompact && summary ? (
+        <EarnFormSummaryPart part="details">{summary}</EarnFormSummaryPart>
+      ) : null}
     </StakingFormWrapper>
   );
 }

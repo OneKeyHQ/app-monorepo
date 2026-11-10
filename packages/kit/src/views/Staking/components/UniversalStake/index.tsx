@@ -132,6 +132,7 @@ import {
   EarnFormCompactContext,
   EarnFormRow,
   EarnFormSummary,
+  EarnFormSummaryPart,
   EarnFormSwitchingContext,
   SHOWN_ROWS_WHEN_FOLDED,
   buildOutcomeValueFromText,
@@ -2969,6 +2970,16 @@ export function UniversalStake({
       </YStack>
     ) : undefined;
 
+  const summary = (
+    <EarnFormSummary
+      outcome={outcome}
+      isLoading={isQuoteUpdating}
+      isDimmed={isHoldingSettled}
+      rows={summaryRows}
+      footnote={summaryFootnote}
+      detailsPlaceholder={isPendleRowsReserved}
+    />
+  );
   return (
     <StakingFormWrapper>
       {/* The lines under the box bring their own space, so a line that is
@@ -3128,15 +3139,13 @@ export function UniversalStake({
           </YStack>
         </HeightTransition>
       </YStack>
-      {/* What it gets you, then the transaction's own rows */}
-      <EarnFormSummary
-        outcome={outcome}
-        isLoading={isQuoteUpdating}
-        isDimmed={isHoldingSettled}
-        rows={summaryRows}
-        footnote={summaryFootnote}
-        detailsPlaceholder={isPendleRowsReserved}
-      />
+      {/* What it gets you, then the transaction's own rows; compact, the
+          rows fold under the button */}
+      {isCompact ? (
+        <EarnFormSummaryPart part="result">{summary}</EarnFormSummaryPart>
+      ) : (
+        summary
+      )}
       {showBtcFeeRateInput && estimateFeeUTXO ? (
         <BtcFeeRateInput
           estimateFeeUTXO={estimateFeeUTXO}
@@ -3163,6 +3172,9 @@ export function UniversalStake({
           />
         }
       />
+      {isCompact ? (
+        <EarnFormSummaryPart part="details">{summary}</EarnFormSummaryPart>
+      ) : null}
     </StakingFormWrapper>
   );
 }

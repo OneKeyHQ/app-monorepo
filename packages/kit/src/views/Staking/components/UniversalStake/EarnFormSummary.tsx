@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,6 +27,7 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -152,10 +154,33 @@ export const EarnFormSwitchingContext = createContext(false);
 // not split over and under it
 export const EarnFormOffersInlineContext = createContext(false);
 
-// The Earn and Loans windows: a form that says as little as it can. Nothing
-// under the boxes until an amount brings figures; then the result alone,
-// the form's other rows under "Details"
+// The Earn and Loans windows: a form that says as little as it can. The
+// result alone over the button, large, a grey zero before an amount so the
+// button never moves; the form's other rows under "Details", under the
+// button
 export const EarnFormCompactContext = createContext(false);
+
+// A compact form draws its summary in two places: the result over the
+// button, the rows ("Details") under it, as the Swap page keeps its rate
+// line under its button. The button then stays where it is whatever the
+// rows do
+const EarnFormSummaryPartContext = createContext<'all' | 'result' | 'details'>(
+  'all',
+);
+
+export function EarnFormSummaryPart({
+  part,
+  children,
+}: {
+  part: 'result' | 'details';
+  children: ReactNode;
+}) {
+  return (
+    <EarnFormSummaryPartContext.Provider value={part}>
+      {children}
+    </EarnFormSummaryPartContext.Provider>
+  );
+}
 
 // A new amount's figures on their way: the values on screen dim (never the
 // labels), and a row with no value yet holds a placeholder its size. A
@@ -740,6 +765,110 @@ export function EarnOutcomeRow({
   );
 }
 
+// "$0.94" and "$0.35" as "$1.29": the figures' money values as one sum, in
+// their own notation. None where a figure has no money value
+function sumOutcomeFiat(values: IEarnOutcomeValue[]): string | undefined {
+  let sign: string | undefined;
+  let decimals = 2;
+  let total = new BigNumber(0);
+  for (const value of values) {
+    const match = value.suffix
+      ?.trim()
+      .match(/^([^\d.,\s-]+)(\d[\d,]*(?:\.\d+)?)$/);
+    if (!match || (sign !== undefined && sign !== match[1])) {
+      return undefined;
+    }
+    sign = match[1];
+    const digits = match[2].replace(/,/g, '');
+    decimals = Math.max(decimals, digits.split('.')[1]?.length ?? 0);
+    total = total.plus(digits);
+  }
+  return sign ? `${sign}${total.toFormat(decimals)}` : undefined;
+}
+
+// Every line of the windows' result keeps its room, so the button under it
+// stays put as the figures come and go
+const HERO_FIGURE_HEIGHT = 36;
+const HERO_PARTS_HEIGHT = 20;
+
+/**
+ * The windows' result, as the home's Net Worth stands: its label over one
+ * large figure on the background, the tokens that make it up in a line
+ * under it. Before an amount the figure is a grey zero, as the amount box's
+ */
+function EarnOutcomeHero({
+  outcome,
+  isDimmed,
+  fadesIn,
+  testID,
+}: {
+  outcome: IEarnOutcome;
+  isDimmed?: boolean;
+  fadesIn?: boolean;
+  testID?: string;
+}) {
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const { values } = outcome;
+  const hasValues = values.length > 0;
+  const total = hasValues ? sumOutcomeFiat(values) : undefined;
+  let figure = outcome.isEarning ? `${currencyInfo.symbol}0.00` : '0';
+  let parts = '';
+  if (total) {
+    figure = total;
+    parts = values.map((value) => value.main).join(' + ');
+  } else if (hasValues) {
+    figure = values[0].main;
+    parts = [
+      ...values.slice(1).map((value) => value.main),
+      values[0].suffix,
+      values[0].note,
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+  let color: IColorTokens = '$text';
+  if (!hasValues) {
+    color = '$textPlaceholder';
+  } else if (outcome.isEarning) {
+    color = '$textSuccess';
+  } else if (outcome.isCost) {
+    color = '$textCritical';
+  }
+  return (
+    <YStack testID={testID} gap="$0.5" py="$1">
+      <RowLabel label={outcome.label} tooltip={outcome.tooltip} keepsOneLine />
+      <YStack
+        key={hasValues ? 'figures' : 'empty'}
+        opacity={isDimmed && hasValues ? STALE_OPACITY : 1}
+        transition="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY}
+        enterStyle={fadesIn && hasValues ? FADE_IN : undefined}
+      >
+        <XStack h={HERO_FIGURE_HEIGHT} ai="center">
+          <SizableText
+            size="$heading3xl"
+            color={color}
+            fontVariant={TABULAR_NUMS}
+            numberOfLines={1}
+          >
+            {figure}
+          </SizableText>
+        </XStack>
+        <XStack h={HERO_PARTS_HEIGHT} ai="center">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            fontVariant={TABULAR_NUMS}
+            numberOfLines={1}
+          >
+            {parts}
+          </SizableText>
+        </XStack>
+      </YStack>
+    </YStack>
+  );
+}
+
 /**
  * A row under the result: a label on the left and its value, or a dash
  * while there is no amount yet
@@ -1029,6 +1158,7 @@ export function EarnFormSummary({
   const carry = useContext(EarnOutcomeCarryContext);
   const isSwitching = useContext(EarnFormSwitchingContext);
   const isCompact = useContext(EarnFormCompactContext);
+  const part = useContext(EarnFormSummaryPartContext);
   // Figures there as the form mounts are on screen already (the last
   // protocol's, carried over a switch): only figures that come later fade in
   const isFirstRenderRef = useRef(true);
@@ -1114,14 +1244,40 @@ export function EarnFormSummary({
   if (!shownOutcome && !shownRows.length && !footnote) {
     return null;
   }
+  const hasNothingToSay =
+    !hasOwnValues && !carried && !isOutcomeLoading && !isLoading;
+  if (isCompact && part === 'result') {
+    return shownOutcome ? (
+      <YStack px="$3.5">
+        <EarnOutcomeHero
+          testID="earn-form-outcome"
+          outcome={shownOutcome}
+          isDimmed={Boolean(isOutcomeLoading) || isDimmed || isSwitching}
+          fadesIn={!isFirstRenderRef.current}
+        />
+      </YStack>
+    ) : null;
+  }
+  if (isCompact && part === 'details') {
+    const folded = shownRows.length && !hasNothingToSay;
+    if (!folded && !footnote) {
+      return null;
+    }
+    return (
+      <YStack px="$3.5">
+        {folded ? (
+          <EarnFormQuotingContext.Provider value={rowsQuoting}>
+            <EarnFormDetails rows={shownRows} />
+          </EarnFormQuotingContext.Provider>
+        ) : null}
+        {footnote ? (
+          <YStack pt={folded ? '$3' : undefined}>{footnote}</YStack>
+        ) : null}
+      </YStack>
+    );
+  }
   // Compact, with no figure in and none on its way: dashes say nothing
-  if (
-    isCompact &&
-    !hasOwnValues &&
-    !carried &&
-    !isOutcomeLoading &&
-    !isLoading
-  ) {
+  if (isCompact && hasNothingToSay) {
     return footnote ? <YStack px="$3.5">{footnote}</YStack> : null;
   }
   // Each part brings its own space above it, so a part that is not there

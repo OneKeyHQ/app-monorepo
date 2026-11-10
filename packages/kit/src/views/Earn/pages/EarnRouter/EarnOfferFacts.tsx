@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
+  Image,
   SizableText,
   Stack,
   Tooltip,
@@ -241,9 +242,16 @@ export function EarnOfferFacts({
   isShown,
   depositedFiatValue,
   onDetails,
+  logoURI,
+  name,
 }: {
   offer: IEarnDesktopHoldOffer;
   symbol: string;
+  // Away from its card (under the form, beside the cards), the strip opens
+  // with the offer's logo: whose facts they are, without a word. With no
+  // fact to show, its name stands for them
+  logoURI?: string;
+  name?: string;
   // The card is the one picked: its facts are read and show
   isShown: boolean;
   // What the portfolio holds in this offer, in the display currency
@@ -370,11 +378,16 @@ export function EarnOfferFacts({
   }
   let lead: ReactNode = cells;
   if (!cells.length) {
-    lead = noteText ? (
-      <NoteLine text={noteText} tip={noteTip} />
+    const fallback = name ? (
+      // Under the form's own "Details" fold: the offer's name, not the
+      // same word again
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        {name}
+      </SizableText>
     ) : (
       <SizableText size="$bodyMdMedium">{detailsLabel}</SizableText>
     );
+    lead = noteText ? <NoteLine text={noteText} tip={noteTip} /> : fallback;
   }
 
   // One strip under the card's row, and the way to the offer's page: its
@@ -406,6 +419,16 @@ export function EarnOfferFacts({
       }}
       {...buildKeyboardPressProps(handleDetails, 2)}
     >
+      {logoURI ? (
+        <Image
+          w="$6"
+          h="$6"
+          mr="$1"
+          borderRadius="$1.5"
+          flexShrink={0}
+          source={{ uri: logoURI }}
+        />
+      ) : null}
       <XStack
         flex={1}
         minWidth={0}

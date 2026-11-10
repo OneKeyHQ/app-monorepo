@@ -845,6 +845,68 @@ function ReserveLink({
   );
 }
 
+/**
+ * Beside the form, the picked market's reserve pages stand under the form's
+ * button, so every market card keeps one height and a pick moves no card:
+ * the market by its logo and name, then its two tokens' pages
+ */
+export function LoanMarketLinks({
+  route,
+  onOpenReserve,
+}: {
+  route: ILoanRoute;
+  onOpenReserve: (route: ILoanRoute, side: ILoanReserveSide) => void;
+}) {
+  return (
+    <XStack
+      testID="earn-loan-market-links"
+      ai="center"
+      gap="$3"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      pl="$3"
+      pr="$4"
+      py="$3"
+    >
+      {route.market.logoURI ? (
+        <Image
+          w="$6"
+          h="$6"
+          borderRadius="$1.5"
+          flexShrink={0}
+          source={{ uri: route.market.logoURI }}
+        />
+      ) : null}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        flex={1}
+        minWidth={0}
+      >
+        {route.marketLabel}
+      </SizableText>
+      <XStack ai="center" gap="$4" flexShrink={0}>
+        <ReserveLink
+          testID={`earn-loan-route-reserve-supply-${route.key}`}
+          token={route.collateral}
+          marketLabel={route.marketLabel}
+          isShown
+          onPress={() => onOpenReserve(route, 'supply')}
+        />
+        <ReserveLink
+          testID={`earn-loan-route-reserve-borrow-${route.key}`}
+          token={route.borrow}
+          marketLabel={route.marketLabel}
+          isShown
+          onPress={() => onOpenReserve(route, 'borrow')}
+        />
+      </XStack>
+    </XStack>
+  );
+}
+
 function RouteRow({
   item,
   isSelected,
@@ -1297,6 +1359,84 @@ function LoanPickHalf({
   );
 }
 
+// A pick in the window's header: its role in light text, then its token,
+// as the Earn window's pill
+function LoanPickPill({ side }: { side: ILoanPickSide }) {
+  const intl = useIntl();
+  const { testID, caption, pick, tokens, purpose, fallbackLogoURI, onPress } =
+    side;
+  const kindLogos = useMemo(
+    () =>
+      pick.kind === 'class'
+        ? sortAssetSelectTokens(
+            tokens.filter((token) => token.type === pick.assetClass),
+            purpose,
+          ).map((token) => token.logoURI)
+        : [],
+    [pick, purpose, tokens],
+  );
+  const token =
+    pick.kind === 'token'
+      ? tokens.find(
+          (item) => item.symbol.toUpperCase() === pick.symbol.toUpperCase(),
+        )
+      : undefined;
+  const label =
+    pick.kind === 'class'
+      ? getEarnAssetClassLabel(intl, pick.assetClass)
+      : (token?.symbol ?? pick.symbol);
+  // The logos' rings take the pill's color as it changes. Not a group: a
+  // group's size holds no content, and the header sizes it by its content
+  const [isHovered, setIsHovered] = useState(false);
+  return (
+    <XStack
+      testID={testID}
+      role="button"
+      ai="center"
+      gap="$2"
+      h="$10"
+      pl="$3"
+      pr="$3"
+      borderRadius="$full"
+      borderCurve="continuous"
+      bg="$bgStrong"
+      hoverStyle={{ bg: '$bgStrongHover' }}
+      pressStyle={{ bg: '$bgStrongActive' }}
+      userSelect="none"
+      cursor="pointer"
+      minWidth={0}
+      flexShrink={1}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
+    >
+      <SizableText size="$bodyLg" color="$textSubdued" flexShrink={0}>
+        {caption}
+      </SizableText>
+      {pick.kind === 'class' ? (
+        <EarnAssetLogos
+          logos={kindLogos}
+          size="xs"
+          ringColor={isHovered ? '$bgStrongHover' : '$bgStrong'}
+        />
+      ) : (
+        <Token size="sm" tokenImageUri={token?.logoURI || fallbackLogoURI} />
+      )}
+      <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+        {label}
+      </SizableText>
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+        ml="$-1"
+      />
+    </XStack>
+  );
+}
+
 /**
  * The two picks heading the Loans form, as a flight search's from and to: what
  * is supplied on the left, what is borrowed on the right, an arrow on the
@@ -1309,15 +1449,48 @@ export function LoanPickBar({
   supply,
   borrow,
   network,
+  inHeader,
 }: {
   supply: ILoanPickSide;
   borrow: ILoanPickSide;
   // The network both picks are on; none, every network
   network?: IEarnAssetSelectNetwork;
+  // In the window's header, after its name: one line, each pick a pill
+  // with its role, the network they share said once after them ("Supply
+  // ETH, Borrow USDC on All networks"), as the Earn window's pick reads
+  inHeader?: boolean;
 }) {
+  const intl = useIntl();
   const { gtMd } = useMedia();
   // The selectors the halves open group their networks by Swap's list
   useEffect(warmSwapNetworkParents, []);
+  if (inHeader) {
+    return (
+      <XStack testID="earn-loan-pick-bar" ai="center" gap="$2" minWidth={0}>
+        <LoanPickPill side={supply} />
+        <Icon
+          name="ArrowRightOutline"
+          size="$4"
+          color="$iconSubdued"
+          flexShrink={0}
+        />
+        <LoanPickPill side={borrow} />
+        <SizableText
+          testID="earn-loan-pick-network"
+          size="$bodyLg"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+          ml="$1"
+        >
+          {EARN_DESKTOP_DEMO_COPY.onNetwork(
+            network?.name ??
+              intl.formatMessage({ id: ETranslations.global_all_networks }),
+          )}
+        </SizableText>
+      </XStack>
+    );
+  }
   return (
     <XStack testID="earn-loan-pick-bar" gap={PICK_SEAM} position="relative">
       <LoanPickHalf

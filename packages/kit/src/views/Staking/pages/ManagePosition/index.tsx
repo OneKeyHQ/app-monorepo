@@ -5,7 +5,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { Page, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -660,6 +666,27 @@ const ManagePositionPage = () => {
     selectedProtocol,
   ]);
 
+  const pickPill =
+    isRouter && offersEntry ? (
+      <EarnAssetPickTrigger
+        variant="pill"
+        pick={assetPick}
+        tokens={networkAssets.tokens}
+        networks={networkAssets.networks}
+        purpose="earn"
+        fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
+        // The pick's network before the list names it; the pill
+        // says "on All networks" itself when the pick has none
+        networkLogoURI={pickNetwork?.logoURI}
+        networkName={pickNetwork?.name}
+        onPress={handleOpenAssetSelect}
+      />
+    ) : undefined;
+  // Beside its offers the form's pick stands in the header, after the
+  // window's name: the two read as one line ("Earn USDC on All networks")
+  // and both columns start right under it
+  const isPickInHeader = Boolean(pickPill) && isColumns && !depositDone;
+
   let body: ReactNode;
   if (depositDone) {
     body = (
@@ -686,23 +713,7 @@ const ManagePositionPage = () => {
         assetPick={isRouter ? assetPick : undefined}
         networkAssets={isRouter ? networkAssets : undefined}
         onAssetPickChange={isRouter ? handlePickAsset : undefined}
-        pickPill={
-          isRouter ? (
-            <EarnAssetPickTrigger
-              variant="pill"
-              pick={assetPick}
-              tokens={networkAssets.tokens}
-              networks={networkAssets.networks}
-              purpose="earn"
-              fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
-              // The pick's network before the list names it; the pill
-              // says "on All networks" itself when the pick has none
-              networkLogoURI={pickNetwork?.logoURI}
-              networkName={pickNetwork?.name}
-              onPress={handleOpenAssetSelect}
-            />
-          ) : undefined
-        }
+        pickPill={isPickInHeader ? undefined : pickPill}
       />
     );
   } else if (withdrawn) {
@@ -774,6 +785,18 @@ const ManagePositionPage = () => {
       >
         <Page.Header
           title={title}
+          headerTitle={
+            isPickInHeader
+              ? () => (
+                  <XStack ai="center" gap="$3" minWidth={0}>
+                    <SizableText size="$headingLg" flexShrink={0}>
+                      {title}
+                    </SizableText>
+                    {pickPill}
+                  </XStack>
+                )
+              : undefined
+          }
           headerRight={
             headerControls
               ? () => (
@@ -782,7 +805,10 @@ const ManagePositionPage = () => {
                     transition="quick"
                     animateOnly={ANIMATE_ONLY_OPACITY}
                   >
-                    <HeaderRightView {...headerControls} />
+                    <HeaderRightView
+                      {...headerControls}
+                      historyIconOnly={isColumns}
+                    />
                   </YStack>
                 )
               : undefined
