@@ -15,6 +15,7 @@ import {
   useNavigationState,
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -25,8 +26,10 @@ import {
   Stack,
   rootNavigationRef,
   useIsModalPage,
+  useIsOverlayPage,
   useMedia,
   usePreventRemove,
+  useSafeAreaInsets,
   useSplitSubView,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -38,6 +41,7 @@ import {
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -180,6 +184,8 @@ function MarketDetail({
   const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
   const isRouteFocused = useIsFocused();
   const media = useMedia();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { top: safeAreaTop } = useSafeAreaInsets();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
   const rootRoutersLength = getRootRoutersLength();
   const ownsEmbeddedSwapRef = useRef(isRouteFocused);
@@ -388,8 +394,25 @@ function MarketDetail({
   // content out below the bar; adding headerHeight there would push the
   // body down twice and leave a blank band at the top.
   const isModalPage = useIsModalPage();
+  const isOverlayPage = useIsOverlayPage();
   const headerHeight = useHeaderHeight();
   const usesTranslucentHeader = platformEnv.isNativeIOS26Plus && !isModalPage;
+  const inPageHeaderEligible =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const inPageHeaderRef = useRef(false);
+  if (
+    inPageHeaderEligible &&
+    isRouteFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    inPageHeaderRef.current = true;
+  }
+  const usesInPageHeader = inPageHeaderEligible && inPageHeaderRef.current;
   // useHeaderHeight() starts from react-navigation's pre-iOS 26 estimate and
   // reports the Liquid Glass bar ~15pt taller a beat later, which dropped the
   // whole body mid-push. Reuse the height this device already settled on.
@@ -407,11 +430,12 @@ function MarketDetail({
   // flag clears before UIKit has finished restoring the portrait geometry.
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
     useSettledHeaderHeight(inlineHeaderHeightRef.current, {
-      enabled: usesTranslucentHeader,
+      enabled: usesTranslucentHeader && !usesInPageHeader,
       estimatedHeaderHeight,
       cacheKey: headerHeightCacheKey,
     });
-  const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
+  const bodyPaddingTop =
+    usesTranslucentHeader && !usesInPageHeader ? settledHeaderHeight : 0;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -445,7 +469,7 @@ function MarketDetail({
         <Page.Body
           pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           // Hidden only while the session's first header measurement settles.
-          opacity={isHeaderHeightSettled ? 1 : 0}
+          opacity={usesInPageHeader || isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
           {isResolvingSwapAsset && lookupError === lookupScope ? (
