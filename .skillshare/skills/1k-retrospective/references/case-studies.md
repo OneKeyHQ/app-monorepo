@@ -1509,6 +1509,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Register `walletBackupUtils.ts` with the repository updater, preserving every existing ID. Verify the original strict allocator failure now passes, check the registry map, run the existing registry suites, and confirm Native CI succeeds.
 **Catchable by**: Section 3: Check native bundle integration when adding a shared module, including strict module-ID registration in addition to lint and type checks.
 
+## Case: Chart settings needed an extra step after Reset (OK-66883)
+**Date**: 2026-11-10 | **Platforms**: Desktop and Web wide-layout chart settings dialogs (single JS runtime).
+**Symptom**: In the full Indicators dialog, Reset changed the draft and required Confirm. Chart Settings saved defaults but left its dialog open.
+**Root Cause**: The two Reset handlers followed different save paths. Closing unconditionally after an async save would also discard edits entered while the reset was saving.
+**Fix**: Save defaults and close the dialog only when the latest draft still matches the saved reset. Keep any newer edits available for Confirm and leave the dialog open on save failure.
+**Catchable by**: Test Reset in both dialogs with a delayed save. Check that an untouched draft closes after success, an edit made during the save remains available, and a failed save can be retried.
+
 ## Case: Perps Add Position amount field did not focus on iOS (OK-66886)
 **Date**: 2026-11-10 | **Platforms**: iOS main UI runtime (React Native Fabric and UIKit keyboard accessory).
 **Symptom**: Tapping the amount field in Perps Add Position could leave it unfocused with the keyboard closed. The issue also covered position TP/SL fields.

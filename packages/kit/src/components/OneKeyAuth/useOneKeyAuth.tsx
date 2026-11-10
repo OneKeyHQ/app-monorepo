@@ -11,7 +11,6 @@ import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -26,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrimeUserBannedMockEnabled } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -73,15 +71,7 @@ const PrimeLoginOAuthDialog = LazyLoadPage(
 );
 
 export function useOneKeyAuthMethods() {
-  const [storedUser] = usePrimePersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
-  const user = useMemo(
-    () =>
-      isPrimeUserBannedMockEnabled(devSettings, platformEnv)
-        ? { ...storedUser, isOneKeyIdBanned: true }
-        : storedUser,
-    [devSettings, storedUser],
-  );
+  const [user] = usePrimePersistAtom();
 
   const {
     signInWithSocialLogin,
@@ -99,7 +89,6 @@ export function useOneKeyAuthMethods() {
     return {
       isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive:
-        !user?.isOneKeyIdBanned &&
         user?.isLoggedIn &&
         user?.isLoggedInOnServer &&
         user?.primeSubscription?.isActive,
