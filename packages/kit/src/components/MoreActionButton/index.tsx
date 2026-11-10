@@ -1679,8 +1679,10 @@ function MoreActionDevice() {
       void refreshHwQrWalletList({ alwaysSetState: true });
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    appEventBus.on(EAppEventBusNames.WalletRemove, refreshWallets);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+      appEventBus.off(EAppEventBusNames.WalletRemove, refreshWallets);
     };
   }, [refreshHwQrWalletList]);
 
