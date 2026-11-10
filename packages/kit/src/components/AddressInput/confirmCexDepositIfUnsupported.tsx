@@ -28,6 +28,7 @@ import type { IntlShape } from 'react-intl';
 
 const FACT_VALUE_TEXT_PROPS = {
   color: '$text',
+  flexShrink: 1,
 } as const;
 
 function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
@@ -75,31 +76,43 @@ function CexDepositWarningContent({
         >
           <DescriptionList gap="$2.5">
             {exchangeName ? (
-              <DescriptionList.Item>
-                <DescriptionList.Item.Key>
+              <DescriptionList.Item gap="$3">
+                <DescriptionList.Item.Key flexShrink={0}>
                   {exchangeLabel}
                 </DescriptionList.Item.Key>
-                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                <DescriptionList.Item.Value
+                  flexShrink={1}
+                  minWidth={0}
+                  textProps={FACT_VALUE_TEXT_PROPS}
+                >
                   {exchangeName}
                 </DescriptionList.Item.Value>
               </DescriptionList.Item>
             ) : null}
             {tokenSymbol ? (
-              <DescriptionList.Item>
-                <DescriptionList.Item.Key>
+              <DescriptionList.Item gap="$3">
+                <DescriptionList.Item.Key flexShrink={0}>
                   {assetLabel}
                 </DescriptionList.Item.Key>
-                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                <DescriptionList.Item.Value
+                  flexShrink={1}
+                  minWidth={0}
+                  textProps={FACT_VALUE_TEXT_PROPS}
+                >
                   {tokenSymbol}
                 </DescriptionList.Item.Value>
               </DescriptionList.Item>
             ) : null}
             {networkName ? (
-              <DescriptionList.Item>
-                <DescriptionList.Item.Key>
+              <DescriptionList.Item gap="$3">
+                <DescriptionList.Item.Key flexShrink={0}>
                   {networkLabel}
                 </DescriptionList.Item.Key>
-                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                <DescriptionList.Item.Value
+                  flexShrink={1}
+                  minWidth={0}
+                  textProps={FACT_VALUE_TEXT_PROPS}
+                >
                   {networkName}
                 </DescriptionList.Item.Value>
               </DescriptionList.Item>
