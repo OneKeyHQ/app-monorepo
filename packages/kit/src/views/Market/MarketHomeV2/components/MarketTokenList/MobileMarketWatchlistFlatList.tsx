@@ -33,6 +33,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
@@ -76,7 +77,10 @@ function MobileMarketWatchlistFlatListImpl({
   shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage({ resolveMarketAsset: true });
+  const toMarketDetailPage = useToDetailPage({
+    resolveMarketAsset: true,
+    from: EEnterWay.MarketList,
+  });
   const { navigateToPerps } = usePerpsNavigation();
 
   // Watchlist data

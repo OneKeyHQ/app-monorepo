@@ -19,6 +19,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -303,6 +304,11 @@ export default class ServiceNotification extends ServiceBase {
     });
   };
 
+  @backgroundMethod()
+  async consumePendingLegacyNavigation() {
+    return takePendingLegacyNavigationEvent();
+  }
+
   onNotificationClosed = async ({
     notificationId,
     params,
@@ -338,6 +344,11 @@ export default class ServiceNotification extends ServiceBase {
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
     this.pendingSupportConversation = { conversationId };
+    defaultLogger.notification.support.supportReplyQueued({
+      conversationId,
+      hasSourceNodeId: !!sourceNodeId,
+      opensExpandTab: !!(platformEnv.isExtensionBackground && !targetNodeId),
+    });
     if (platformEnv.isExtensionBackground && !targetNodeId) {
       await extUtils.openExpandTab({});
     }

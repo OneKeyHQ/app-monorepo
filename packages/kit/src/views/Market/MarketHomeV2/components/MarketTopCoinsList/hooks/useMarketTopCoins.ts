@@ -9,6 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -114,6 +115,7 @@ export function useMarketTopCoinNavigation({
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
     replaceCurrentDetail,
+    from: replaceCurrentDetail ? EEnterWay.DetailSwitch : EEnterWay.MarketList,
   });
   const isNavigatingRef = useRef(false);
 

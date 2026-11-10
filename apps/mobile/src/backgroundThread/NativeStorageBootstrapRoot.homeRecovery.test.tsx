@@ -288,6 +288,13 @@ jest.mock(
   () => ({ LogLevel: { Info: 'info' }, NativeLogger: { write: jest.fn() } }),
 );
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({ travelModeManager: {} }));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => {
+  const user = { isLoggedIn: false, isLoggedInOnServer: false };
+  return {
+    usePrimePersistAtom: () => [user],
+    primePersistAtom: { get: async () => user },
+  };
+});
 jest.mock(
   '@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement',
   () => ({ completeTravelModeRuntimeLaunchAcknowledgement: async () => true }),

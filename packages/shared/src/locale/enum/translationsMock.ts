@@ -6,16 +6,6 @@ export enum ETranslationsMock {
   v4_migration_input_v4_password_desc = 'Your v5 password has been changed, please enter your v4 password to continue',
   // ----------------------------------------------
   unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
-  privacy_enable_account__title = 'Enable private account',
-  privacy_enable_account__desc = 'Sync to view your private balance and transactions. Keep the app open while syncing.',
-  privacy_sync_start_new__title = 'First time using this account',
-  privacy_sync_start_new__desc = 'Start from today',
-  privacy_sync_start_used__title = 'Used this account before',
-  privacy_sync_start_used__desc = 'Choose a date before your first private deposit',
-  privacy_sync_start_unknown__title = 'Not sure when',
-  privacy_sync_start_unknown__desc = 'Sync from the beginning. This may take longer.',
-  privacy_sync_start_height_invalid__msg = 'Enter a valid block height',
-  privacy_sync_start_existing_unknown__desc = 'This account received private funds before, but I’m not sure when. Sync from the beginning (this may take longer).',
   testnet = 'Testnet',
   prime_gift_title = 'Claim Prime',
   prime_gift_offer = '{count} months of Prime included',
@@ -45,7 +35,5 @@ export enum ETranslationsMock {
   prime_gift_verified = 'Verified',
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
-  market_highlights__title = 'Market highlights',
-  market_highlights_disclaimer__desc = 'Disclaimer: Curated by OneKey from public sources. May contain errors or third-party content. Not endorsed. Not financial advice.',
   // ----------------------------------------------
 }

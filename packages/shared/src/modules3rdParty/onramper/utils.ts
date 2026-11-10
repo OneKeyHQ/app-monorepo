@@ -80,6 +80,32 @@ export function isStructuralOnramperError(
   return Boolean(error?.code && STRUCTURAL_ERROR_CODES.has(error.code));
 }
 
+// The user closed the OnramperID sign-in (email / phone verification). A
+// choice, not a failure: the page prepares a fresh checkout without an error.
+const USER_CANCELLED_ERROR_CODES = new Set(['oidcFlowCancelled']);
+
+export function isUserCancelledOnramperError(
+  error: IOnramperError | undefined,
+): boolean {
+  return Boolean(error?.code && USER_CANCELLED_ERROR_CODES.has(error.code));
+}
+
+// An expired or already-used quote, or a call the SDK refused in its current
+// state: a fresh checkout (reset() + a new quote) fixes these on its own, and
+// the user has nothing to decide, so the page re-prepares without an error.
+const SELF_HEALING_ERROR_CODES = new Set([
+  'intentInvalidated',
+  'intentAlreadyConsumed',
+  'invalidState',
+  'invalidStateTransition',
+]);
+
+export function isSelfHealingOnramperError(
+  error: IOnramperError | undefined,
+): boolean {
+  return Boolean(error?.code && SELF_HEALING_ERROR_CODES.has(error.code));
+}
+
 // Caps for free-form strings that ride on analytics events. Backend messages
 // are short; the SDK's `info` payload is unbounded and only needed as a hint.
 const LOG_MESSAGE_MAX_LENGTH = 300;

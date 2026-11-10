@@ -17,6 +17,13 @@ export enum ETabMarketRoutes {
 
 export type IMarketTokenDetailRouteParams = {
   swapTokenSymbol?: string;
+  pendingMarketAsset?: {
+    symbol: string;
+    name?: string;
+    logoUrl?: string;
+    price?: number;
+    change24h?: number;
+  };
   marketVariantId?: string;
   marketTokenSymbol?: string;
   resolveMarketAsset?: boolean;

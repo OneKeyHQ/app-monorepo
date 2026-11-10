@@ -1,6 +1,7 @@
 import { rootNavigationRef } from '@onekeyhq/components';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -167,6 +168,7 @@ export async function navigateToMarketTokenDetail(
           network: shortCode || token.networkId,
           isNative: token.isNative,
         }),
+    from: EEnterWay.DetailSwitch,
     ...(shouldResolveMarketAsset
       ? {
           resolveMarketAsset: true,

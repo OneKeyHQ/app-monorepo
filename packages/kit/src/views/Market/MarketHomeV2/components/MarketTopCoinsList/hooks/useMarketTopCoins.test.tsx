@@ -210,6 +210,7 @@ describe('useMarketTopCoins', () => {
     expect(mockUseToDetailPage).toHaveBeenCalledWith({
       marketTokenCategory: 'top_coins',
       replaceCurrentDetail: true,
+      from: 'DetailSwitch',
     });
   });
 

@@ -710,7 +710,7 @@ export function DesktopLayout({
           swapInputDraftKey={swapInputDraftKey}
           portfolioData={portfolioData}
           accountAddress={accountAddress}
-          isRefreshing={isRefreshing}
+          isPortfolioPending={isPortfolioPending}
           isPortfolioFailed={isPortfolioFailed}
           tokenLogoUrl={displayTokenDetail?.logoUrl}
           marketTokenId={marketTokenId}

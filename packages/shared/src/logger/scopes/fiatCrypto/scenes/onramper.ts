@@ -339,12 +339,24 @@ export class OnramperScene extends BaseScene {
         // Coinbase `onramp_api.commit_error`); the SDK's own error fields do
         // not carry it.
         providerReason?: string;
+        // How the failure settles the order (getHeadlessBuyAbandonReason),
+        // and the payment-surface progress it was decided on: how the SDK
+        // rendered the surface, and whether it ever came up. Absent when no
+        // event of this transaction preceded the failure.
+        abandonReason?: string;
+        renderType?: string;
+        paymentSurfaceReached?: boolean;
         // True when the failure was logged but not surfaced to the user: a
         // newer quote request had already superseded the checkout it belongs
         // to, it was published before the client was ready (a failed
         // initialize), or an unknown payment outcome of the same checkout was
         // already on screen.
         stale?: boolean;
+        // True when the page answered the failure by quietly preparing a new
+        // checkout instead of showing it (a closed OnramperID sign-in, or the
+        // first expired / refused checkout of the visit). Not shown either,
+        // although not stale.
+        recoveredQuietly?: boolean;
       },
   ) {
     return params;
@@ -506,7 +518,12 @@ export class OnramperScene extends BaseScene {
   @LogToLocal()
   public orderDiscarded(params: {
     transactionId: string;
-    reason: 'cancelled' | 'failed' | 'timeout' | 'backendFailed';
+    reason:
+      | 'cancelled'
+      | 'failed'
+      | 'pageLoadFailed'
+      | 'timeout'
+      | 'backendFailed';
   }) {
     return params;
   }

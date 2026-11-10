@@ -49,6 +49,9 @@ function mockNavigation() {
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('react-native', () => ({
+  useWindowDimensions: () => ({ width: 1280, height: 800 }),
+}));
 jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 0 }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => useContext(mockRouteContext) === mockFocusedKey,
@@ -88,8 +91,10 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Provider,
     rootNavigationRef: { current: undefined },
     useIsModalPage: () => false,
+    useIsOverlayPage: () => false,
     useMedia: () => ({ gtLg: !platformEnv.isNative, md: false }),
     usePreventRemove: jest.fn(),
+    useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
     useSplitSubView: () => false,
   };
 });

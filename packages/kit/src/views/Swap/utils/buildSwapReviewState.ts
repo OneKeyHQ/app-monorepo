@@ -2,7 +2,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
-  ESwapTabSwitchType,
   IFetchQuoteResult,
   ISwapPreSwapData,
   ISwapStep,
@@ -13,6 +12,7 @@ import {
   ESwapBatchTransferType,
   ESwapStepStatus,
   ESwapStepType,
+  ESwapTabSwitchType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -30,6 +30,8 @@ export type ISwapReviewStepTexts = {
   confirmSwap: string;
   swap: string;
 };
+
+export type ISwapReviewTokens = Pick<ISwapPreSwapData, 'fromToken' | 'toToken'>;
 
 export type IBuildSwapBatchTransferTypeParams = {
   networkId?: string;
@@ -213,6 +215,7 @@ export type IBuildSwapReviewStateInput = {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   stockReviewToken?: ISwapToken;
+  reviewTokens?: ISwapReviewTokens;
   fromTokenAmount?: string;
   toTokenAmount?: string;
   quoteResult?: IFetchQuoteResult;
@@ -223,6 +226,7 @@ export type IBuildSwapReviewStateInput = {
   rateDifference?: ISwapPreSwapData['rateDifference'];
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  strictCurrencyConversion?: boolean;
   texts: ISwapReviewStepTexts;
 };
 
@@ -252,6 +256,7 @@ export function buildSwapReviewState({
   fromToken,
   toToken,
   stockReviewToken,
+  reviewTokens,
   fromTokenAmount,
   toTokenAmount,
   quoteResult,
@@ -262,6 +267,7 @@ export function buildSwapReviewState({
   rateDifference,
   defaultTokenCurrency,
   currencyMap,
+  strictCurrencyConversion,
   texts,
 }: IBuildSwapReviewStateInput): {
   batchTransferType: ESwapBatchTransferType;
@@ -285,16 +291,32 @@ export function buildSwapReviewState({
   const isBatchApproveAndSwap =
     batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
   const needFetchGas = needApprove && !isBatchApproveAndSwap;
+  const withReviewPrice = (token?: ISwapToken, reviewToken?: ISwapToken) =>
+    token &&
+    reviewToken &&
+    equalTokenNoCaseSensitive({ token1: token, token2: reviewToken })
+      ? {
+          ...token,
+          price: reviewToken.price,
+          currency: reviewToken.currency,
+        }
+      : token;
+  const pricedFromToken = withReviewPrice(fromToken, reviewTokens?.fromToken);
+  const pricedToToken = withReviewPrice(toToken, reviewTokens?.toToken);
+  const hasReviewPrice =
+    pricedFromToken !== fromToken || pricedToToken !== toToken;
   const reviewRateDifference =
-    rateDifference ??
+    (!hasReviewPrice && rateDifference) ||
     buildSwapRateDifference({
-      fromTokenPrice: fromToken?.price,
-      toTokenPrice: toToken?.price,
-      fromTokenCurrency: fromToken?.currency,
-      toTokenCurrency: toToken?.currency,
+      fromTokenPrice: pricedFromToken?.price,
+      toTokenPrice: pricedToToken?.price,
+      fromTokenCurrency: pricedFromToken?.currency,
+      toTokenCurrency: pricedToToken?.currency,
       defaultTokenCurrency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion:
+        strictCurrencyConversion || swapType === ESwapTabSwitchType.STOCK,
     });
 
   let steps: ISwapStep[] = [];
@@ -365,8 +387,9 @@ export function buildSwapReviewState({
       : token;
   const preSwapData: ISwapPreSwapData = {
     swapType,
-    fromToken: withStockReviewMetadata(fromToken),
-    toToken: withStockReviewMetadata(toToken),
+    ...(strictCurrencyConversion ? { strictCurrencyConversion: true } : {}),
+    fromToken: withStockReviewMetadata(pricedFromToken),
+    toToken: withStockReviewMetadata(pricedToToken),
     shouldFallback,
     fromTokenAmount,
     toTokenAmount,

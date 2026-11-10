@@ -12,7 +12,9 @@ import {
   getOnramperErrorFieldsForLog,
   getOnramperSignedInFromState,
   getUrlHostForLog,
+  isSelfHealingOnramperError,
   isStructuralOnramperError,
+  isUserCancelledOnramperError,
   sanitizeOnramperLogRecord,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
@@ -23,7 +25,10 @@ import type {
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
-import { getHeadlessBuyAbandonReason } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import {
+  applyHeadlessBuyCheckoutEvent,
+  getHeadlessBuyAbandonReason,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import {
   ONRAMPER_SLOW_HINT_MS,
   getOnramperInitRetryDelayMs,
@@ -32,7 +37,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
-import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  IHeadlessBuyAbandonReason,
+  IHeadlessBuyCheckoutProgress,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
 import { EBuyActionState } from './types';
@@ -44,7 +52,19 @@ const DEBOUNCE_MS = 400;
 // this is what the page goes by until then. Undefined when nothing was ever
 // reported: a fresh install, or a login made on a build that did not record
 // it — the Keychain may hold one either way.
+// Stored as '1' / '0', not a boolean: on iOS/Android the main runtime reads
+// settings from a snapshot the background runtime builds at cold start with
+// getString first, and MMKV answers that with "" for a stored `false` — a
+// remembered sign-out came back as "unknown" after every relaunch (same trap
+// as the pay-zone height, BuyActionZone.tsx).
 function readRememberedSignedIn(): boolean | undefined {
+  const stored = appStorage.syncStorage.getString(
+    EAppSyncStorageKeys.onekey_onramper_id_signed_in,
+  );
+  if (stored === '1' || stored === '0') {
+    return stored === '1';
+  }
+  // Written as a boolean by earlier builds: only `true` survives the snapshot.
   return appStorage.syncStorage.getBoolean(
     EAppSyncStorageKeys.onekey_onramper_id_signed_in,
   );
@@ -54,7 +74,7 @@ async function rememberSignedIn(signedIn: boolean) {
   try {
     await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_onramper_id_signed_in,
-      signedIn,
+      signedIn ? '1' : '0',
     );
   } catch {
     // Not remembered: the next prepared checkout reports the login again.
@@ -75,6 +95,9 @@ type IParams = {
   // Pin routing to these provider slugs; omit for Onramper's best choice.
   // Must be reference-stable (useMemo) — it is a debounce-effect dependency.
   onlyOnramps?: string[];
+  // Read when a quote is requested, never a reason to request one: a theme
+  // flip (system appearance can switch on a schedule) must not re-quote under
+  // a checkout that is already paying. The next quote picks the new style up.
   buttonStyle: IOnramperButtonStyle;
   // Surface that launched the buy page — rides on every funnel event.
   entryFrom?: string;
@@ -89,11 +112,12 @@ type IParams = {
   onTransactionCreated?: (transactionId: string) => void;
   // paymentAuthorized: the user approved the Apple Pay sheet.
   onPaymentAuthorized?: (transactionId: string) => void;
-  // cancelled / failed without a completed: the (hidden) order is dead —
-  // except `providerFailed` (SDK 1.3+), where the payment outcome is unknown
-  // and the service keeps the record for tracking, and `authorizationFailed`
-  // (the provider's payment page said the authorization failed), where the
-  // service shows the record as failed.
+  // cancelled / failed without a completed: the (hidden) order is dead, and
+  // so is one whose payment page failed to load (`pageLoadFailed`) — except
+  // `providerFailed` (SDK 1.3+), where the payment outcome is unknown and the
+  // service keeps the record for tracking, and `authorizationFailed` (the
+  // provider's payment page said the authorization failed), where the service
+  // shows the record as failed.
   onCheckoutAbandoned?: (
     transactionId: string,
     reason: IHeadlessBuyAbandonReason,
@@ -108,8 +132,9 @@ type IResult = {
   errorMessage: string | undefined;
   // Error code behind errorMessage — lets the page route amount-level
   // failures back to the input screen instead of a generic retry. The SDK's
-  // code, except for a failed payment authorization, which the SDK reports
-  // as `providerFailed` and this hook reports as `paymentFailed`.
+  // code, except for two failures the SDK reports as `providerFailed`: a
+  // failed payment authorization, reported here as `paymentFailed`, and a
+  // payment page that never loaded, reported here as `webviewLoadFailed`.
   errorCode: string | undefined;
   // Set while the failure on screen left the payment outcome unknown (SDK
   // `providerFailed` with no page reason settling it): the order to send the
@@ -139,8 +164,8 @@ type IResult = {
   canSignOut: boolean;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Also re-quotes, because the SDK
-  // discards the checkout it had prepared. Exposed for the header sign-out
-  // button.
+  // discards the checkout it had prepared. Exposed for the failure states'
+  // "verify with a different email" action.
   signOut: () => Promise<void>;
   // Logging context (network / token / entry / elapsed) for page-level events
   // so they line up with the hook's own timeline.
@@ -240,6 +265,8 @@ export function useOnramperCheckout({
   amountRef.current = amount;
   const errorCodeRef = useRef<string | undefined>(undefined);
   errorCodeRef.current = errorCode;
+  const buttonStyleRef = useRef(buttonStyle);
+  buttonStyleRef.current = buttonStyle;
 
   const createClient = useCallback(
     () =>
@@ -323,6 +350,27 @@ export function useOnramperCheckout({
   const providerErrorRef = useRef<
     { transactionId: string; reason: string } | undefined
   >(undefined);
+  // How far the payment surface of the latest transaction got. A
+  // `providerFailed` says the surface broke, not when: a load error counts as
+  // a page that never loaded only while the page had not come up, after it
+  // the outcome is unknown.
+  const checkoutProgressRef = useRef<
+    ({ transactionId: string } & IHeadlessBuyCheckoutProgress) | undefined
+  >(undefined);
+  const noteCheckoutProgress = useCallback((event: IOnramperEvent) => {
+    const { transactionId } = event;
+    if (!transactionId) {
+      return;
+    }
+    const current = checkoutProgressRef.current;
+    checkoutProgressRef.current = {
+      transactionId,
+      ...applyHeadlessBuyCheckoutEvent(
+        current?.transactionId === transactionId ? current : undefined,
+        event,
+      ),
+    };
+  }, []);
   // Set from the moment an unknown-outcome failure is put on screen until the
   // user moves on (a retry, a review exit, a new quote request). Until then,
   // later failures of that checkout are logged but not shown: none of them
@@ -348,18 +396,56 @@ export function useOnramperCheckout({
     [getLogContext],
   );
 
+  // refreshQuote is declared further down; the failure policy below reaches it
+  // through this ref.
+  const refreshQuoteRef = useRef<() => void>(() => undefined);
+  // Set once a self-healing failure has been answered quietly. One per visit:
+  // a failure that comes back — before the fresh quote lands or on the next
+  // checkout — shows its error and Retry instead of re-preparing on every tap.
+  const selfHealedRef = useRef(false);
+
+  // Failures the page answers by quietly preparing a fresh checkout (the
+  // tapped one is spent either way): a closed OnramperID sign-in, and the
+  // first expired / refused checkout of the visit — but neither once the
+  // checkout reached a transaction. Then a payment may be under way, and the
+  // failure stays on screen.
+  const isQuietRecovery = useCallback((event: IOnramperEvent) => {
+    if (event.transactionId) {
+      return false;
+    }
+    const error = { code: event.errorCode, message: event.message };
+    if (isUserCancelledOnramperError(error)) {
+      return true;
+    }
+    return isSelfHealingOnramperError(error) && !selfHealedRef.current;
+  }, []);
+
   // Shared failure policy for the SDK's `failed` event and the quote loop's
-  // thrown rejection: structural → web fallback, everything else retryable.
-  // Logging is the caller's job — the two paths emit different events.
+  // thrown rejection: a quiet recovery re-prepares the checkout, structural
+  // → web fallback, everything else retryable. Logging is the caller's job —
+  // the two paths emit different events.
   const applyFailure = useCallback(
     (event: IOnramperEvent) => {
-      if (
-        isStructuralOnramperError({
-          code: event.errorCode,
-          message: event.message,
-        })
-      ) {
-        goWebFallback({ code: event.errorCode, message: event.message });
+      const error = { code: event.errorCode, message: event.message };
+      if (isQuietRecovery(event)) {
+        if (isSelfHealingOnramperError(error)) {
+          selfHealedRef.current = true;
+        }
+        refreshQuoteRef.current();
+        return;
+      }
+      if (isStructuralOnramperError(error)) {
+        // The web fallback says why the in-app purchase is off.
+        setErrorMessage(
+          getOnramperErrorMessage({
+            code: event.errorCode,
+            message: event.message,
+            userMessage: event.userMessage,
+            supportCode: event.supportCode,
+          }),
+        );
+        setErrorCode(event.errorCode);
+        goWebFallback(error);
       } else {
         setErrorMessage(
           getOnramperErrorMessage({
@@ -375,7 +461,7 @@ export function useOnramperCheckout({
         setActionState(EBuyActionState.RetryableError);
       }
     },
-    [goWebFallback],
+    [goWebFallback, isQuietRecovery],
   );
 
   const handleCheckoutFailed = useCallback(
@@ -389,9 +475,17 @@ export function useOnramperCheckout({
         providerError && providerError.transactionId === event.transactionId
           ? providerError.reason
           : undefined;
+      const checkoutProgress = checkoutProgressRef.current;
+      const progress =
+        checkoutProgress &&
+        checkoutProgress.transactionId === event.transactionId
+          ? checkoutProgress
+          : undefined;
       const abandonReason = getHeadlessBuyAbandonReason({
         errorCode: event.errorCode,
         providerReason,
+        supportCode: event.supportCode,
+        progress,
       });
       if (event.transactionId) {
         // Regardless of `stale` below: a failed checkout's hidden order is
@@ -399,6 +493,7 @@ export function useOnramperCheckout({
         // unless the payment surface failed with the outcome unknown, which
         // the service treats as "possibly paid" and keeps, or the payment
         // authorization failed, which the service shows as a failed order.
+        // A payment page that never loaded is dead like any other failure.
         onCheckoutAbandonedRef.current?.(event.transactionId, abandonReason);
       }
       // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
@@ -415,6 +510,7 @@ export function useOnramperCheckout({
         !readyRef.current ||
         quoteSeqRef.current !== reqSeqRef.current ||
         unknownOutcomeShownRef.current;
+      const recoveredQuietly = !stale && isQuietRecovery(event);
       defaultLogger.fiatCrypto.onramper.checkoutFailed({
         ...getLogContext(),
         ...getOnramperErrorFieldsForLog({
@@ -428,7 +524,11 @@ export function useOnramperCheckout({
         checkoutId: event.checkoutId,
         transactionId: event.transactionId,
         providerReason,
+        abandonReason,
+        renderType: progress?.renderType,
+        paymentSurfaceReached: progress?.paymentSurfaceReached,
         stale,
+        recoveredQuietly,
       });
       if (stale) {
         return;
@@ -437,16 +537,23 @@ export function useOnramperCheckout({
       // the same tick is already held back.
       unknownOutcomeShownRef.current =
         abandonReason === 'providerFailed' && Boolean(event.transactionId);
-      // A failed authorization is a definite payment failure, whatever code
-      // the SDK filed it under: show the payment-failed copy and keep the
-      // in-place retry instead of the "status unknown" handling.
+      // A failed authorization and a payment page that never loaded are
+      // definite failures, whatever code the SDK filed them under: show their
+      // own copy and keep the in-place retry instead of the "status unknown"
+      // handling.
+      let shownErrorCode = event.errorCode;
+      if (abandonReason === 'authorizationFailed') {
+        shownErrorCode = 'paymentFailed';
+      } else if (abandonReason === 'pageLoadFailed') {
+        shownErrorCode = 'webviewLoadFailed';
+      }
       applyFailure(
-        abandonReason === 'authorizationFailed'
-          ? { ...event, errorCode: 'paymentFailed' }
-          : event,
+        shownErrorCode === event.errorCode
+          ? event
+          : { ...event, errorCode: shownErrorCode },
       );
     },
-    [applyFailure, getLogContext, noteTransactionId],
+    [applyFailure, getLogContext, isQuietRecovery, noteTransactionId],
   );
   const handleCheckoutFailedRef = useRef(handleCheckoutFailed);
   handleCheckoutFailedRef.current = handleCheckoutFailed;
@@ -456,6 +563,7 @@ export function useOnramperCheckout({
   const handleCheckoutCompleted = useCallback(
     (event: IOnramperEvent) => {
       noteTransactionId(event.transactionId);
+      noteCheckoutProgress(event);
       defaultLogger.fiatCrypto.onramper.checkoutCompleted({
         ...getLogContext(),
         outcome:
@@ -467,7 +575,7 @@ export function useOnramperCheckout({
       });
       onCompletedRef.current(event);
     },
-    [getLogContext, noteTransactionId],
+    [getLogContext, noteCheckoutProgress, noteTransactionId],
   );
   const handleCheckoutCompletedRef = useRef(handleCheckoutCompleted);
   handleCheckoutCompletedRef.current = handleCheckoutCompleted;
@@ -479,6 +587,7 @@ export function useOnramperCheckout({
         return;
       }
       noteTransactionId(event.transactionId);
+      noteCheckoutProgress(event);
       if (event.transactionId) {
         if (event.type === 'paymentAuthorized') {
           onPaymentAuthorizedRef.current?.(event.transactionId);
@@ -506,7 +615,7 @@ export function useOnramperCheckout({
         reason: event.reason,
       });
     },
-    [getLogContext, noteTransactionId],
+    [getLogContext, noteCheckoutProgress, noteTransactionId],
   );
   const handleSdkEventRef = useRef(handleSdkEvent);
   handleSdkEventRef.current = handleSdkEvent;
@@ -766,7 +875,7 @@ export function useOnramperCheckout({
               ...(onlyOnramps?.length ? { onlyOnramps } : {}),
               wallet: { network, address: address ?? '' },
             },
-            buttonStyle,
+            buttonStyleRef.current,
           );
           const durationMs = Date.now() - startedAt;
           if (cancelled || seq !== reqSeqRef.current) {
@@ -893,7 +1002,6 @@ export function useOnramperCheckout({
     address,
     country,
     onlyOnramps,
-    buttonStyle,
     retryNonce,
     applyFailure,
     getLogContext,
@@ -963,6 +1071,11 @@ export function useOnramperCheckout({
     setQuote(undefined);
     setNativeButton(null);
     hasButtonRef.current = false;
+    // Retire the spent checkout now, not when the deferred re-quote runs:
+    // its later `failed` events are stale from here, so none can flash an
+    // error over the fresh checkout or put a failure on screen that the
+    // re-quote then wipes. A quote still in flight is dropped the same way.
+    reqSeqRef.current += 1;
     // The user moved on from whatever failure was on screen.
     unknownOutcomeShownRef.current = false;
     // Enter Preparing in the SAME commit: the async reset()→re-quote path
@@ -1001,6 +1114,7 @@ export function useOnramperCheckout({
       })();
     }, 64);
   }, [getLogContext]);
+  refreshQuoteRef.current = refreshQuote;
 
   const retry = useCallback(() => {
     defaultLogger.fiatCrypto.onramper.retryPressed({

@@ -23,16 +23,14 @@ import {
   ScrollView,
   Spinner,
   Stack,
-  XStack,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
   useTheme,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
-import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { fs, s } from '@onekeyhq/components/src/utils/scale';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -72,7 +70,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
-import { useTabDoublePress } from '../../../hooks/useTabDoublePress';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -96,7 +93,10 @@ import { HomeTestIDs } from '../testIDs';
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { HomeNativePager } from './HomeNativePager';
-import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
+import {
+  HOME_PAGE_CONTENT_MAX_WIDTH,
+  homePageContentMaxWidthSx,
+} from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
@@ -125,7 +125,6 @@ import type {
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
-const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 const PerpsContainer = lazy(async () => {
   debugPerpsChain('import.start');
   const module = await import('./PerpsContainer');
@@ -340,23 +339,6 @@ export function HomePageView({
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<IAppPagerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
-  // Keep the measured native tab bar height outside the tab container
-  // so remounts do not briefly reserve the library's default 48pt height.
-  const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
-  const nativeTabBarContainerStyle = useMemo(
-    () => ({
-      ...NATIVE_TAB_BAR_CONTAINER_STYLE,
-      onLayout: platformEnv.isNative
-        ? (event: LayoutChangeEvent) => {
-            const height = Math.round(event.nativeEvent.layout.height);
-            if (height > 0) {
-              nativeTabBarHeightRef.current = height;
-            }
-          }
-        : undefined,
-    }),
-    [],
-  );
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
   const wasBlurredRef = useRef(false);
@@ -791,11 +773,6 @@ export function HomePageView({
     [perpTabShowWeb, tabConfigs],
   );
 
-  const tabBarTabNames = useMemo(
-    () => tabConfigs.map((tab) => tab.name),
-    [tabConfigs],
-  );
-
   const tabTestIDMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const tab of tabConfigs) {
@@ -811,32 +788,19 @@ export function HomePageView({
     navigation.switchTab(ETabRoutes.WebviewPerpTrade);
   }, [navigation]);
 
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const testID = tabTestIDMap[props.name];
-      const nextTab = tabConfigs.find((tab) => tab.name === props.name);
-      const handlePress = (name: string) => {
-        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
-          switchToPerpsWebTab();
-          return;
-        }
-        props.onPress(name);
-      };
-      return <TabBarItem {...props} testID={testID} onPress={handlePress} />;
-    },
-    [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, tabTestIDMap],
-  );
-
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
     setPortalTarget((prev) => (prev === el ? prev : el));
   }, []);
 
   const [stickyHost, setStickyHost] = useState<HTMLElement | null>(null);
+  // The ref lands on a zero-height node after the pager's DOM tab bar; its
+  // parent is the pager's sticky content (tab bar + this node), whose box is
+  // what sticky consumers measure.
   const stickyHostRefCallback = useCallback((el: unknown) => {
     const next =
       typeof HTMLElement !== 'undefined' && el instanceof HTMLElement
-        ? el
+        ? el.parentElement
         : null;
     setStickyHost((prev) => (prev === next ? prev : next));
   }, []);
@@ -992,10 +956,18 @@ export function HomePageView({
     nativeToolbarPress,
     homeScrollOwnerKey,
   ]);
-  const nativeTextTabBar = useMemo<
-    CollapsiblePagerNativeTabBarConfig | undefined
-  >(() => {
-    if (!platformEnv.isNative || !isSmallScreen) return undefined;
+  // Every platform and width draws Home tabs through the pager's native tab
+  // bar (a DOM tab bar on web): text tabs on small screens, pills elsewhere.
+  const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig>(() => {
+    // Native resolves bundled faces by name. The web DOM tab bar needs the
+    // @font-face family stack instead; a bare native face name has no web
+    // match and falls back to the browser's default serif font.
+    const tabFontFamily = platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : webFontFamily;
+    const activeTabFontFamily = platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.semibold
+      : webFontFamily;
     const toolbar: Record<string, CollapsiblePagerToolbarItem> = {};
     for (const [key, item] of Object.entries(nativeToolbarItems)) {
       toolbar[key] = {
@@ -1019,18 +991,40 @@ export function HomePageView({
         title: tab.name,
         testID: tabTestIDMap[tab.name],
       })),
-      style: {
-        variant: 'text',
-        height: fs(24) + 2 * s(6) + 2 * s(8),
-        contentPaddingHorizontal: s(10),
-        itemSpacing: 0,
-        fontSize: fs(18),
-        fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
-        activeFontFamily: BRAND_FONT_NATIVE_FAMILY.semibold,
-        backgroundColor: nativeTabsTheme.bgApp.val,
-        activeTextColor: nativeTabsTheme.text.val,
-        inactiveTextColor: nativeTabsTheme.textSubdued.val,
-      },
+      style: isSmallScreen
+        ? {
+            variant: 'text',
+            height: fs(24) + 2 * s(6) + 2 * s(8),
+            contentPaddingHorizontal: s(10),
+            itemSpacing: 0,
+            fontSize: fs(18),
+            fontFamily: tabFontFamily,
+            activeFontFamily: activeTabFontFamily,
+            backgroundColor: nativeTabsTheme.bgApp.val,
+            activeTextColor: nativeTabsTheme.text.val,
+            inactiveTextColor: nativeTabsTheme.textSubdued.val,
+          }
+        : {
+            // Matches the former JS pill TabBar: $bodyLgMedium labels with
+            // px $3.5 / py $1.5 items, $2 gaps and py $2 around the row.
+            variant: 'pill',
+            height: fs(24) + 2 * s(6) + 2 * s(8),
+            contentPaddingHorizontal: s(20),
+            contentPaddingVertical: s(8),
+            itemSpacing: s(8),
+            itemPaddingHorizontal: s(14),
+            fontSize: fs(16),
+            fontFamily: tabFontFamily,
+            backgroundColor: nativeTabsTheme.bgApp.val,
+            activeTextColor: nativeTabsTheme.textInverse.val,
+            inactiveTextColor: nativeTabsTheme.text.val,
+            indicatorColor: nativeTabsTheme.bgPrimary.val,
+            itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
+            itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
+            contentMaxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
+            // Pill tabs switch instantly, as the 6.6.4 JS pill tab bar did.
+            indicatorAnimationEnabled: false,
+          },
     };
   }, [
     isSmallScreen,
@@ -1071,127 +1065,61 @@ export function HomePageView({
     [activeTabId, homeScrollOwnerKey],
   );
 
-  const renderToolbar = useCallback(
-    ({ focusedTab }: { focusedTab: string }) => (
-      <XStack alignItems="center" gap="$3" flexShrink={0}>
-        <TabHeaderSettings focusedTab={focusedTab} />
-      </XStack>
-    ),
-    [],
-  );
-
-  const renderTabBar = useCallback(
-    (tabBarProps: Parameters<IHomeNativePagerProps['renderTabBar']>[0]) => {
-      // Design: plain-text tabs on small screens only; pill elsewhere.
-      const tabBarVariant = isSmallScreen ? 'text' : 'pill';
-      if (platformEnv.isNative && isSmallScreen) {
-        return (
-          <>
-            {/* The native tab bar draws the visible tabs and filter buttons, so
-                reserve the same height here. The React sticky content then
-                matches the pager's sticky geometry instead of reporting a
-                zero-height bar to the scroll containers. */}
-            <Stack
-              pointerEvents="none"
-              height={nativeTextTabBar?.style?.height ?? 0}
-            />
-            <TabHeaderSettings
-              key={homeScrollOwnerKey}
-              focusedTab={
-                tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
-              }
-              nativeToolbar={nativeToolbar}
-            />
-          </>
-        );
-      }
-      const handleTabPress = (name: string) => {
-        debugPerpsChain('home.tabPress', { name });
-        const nextTab = tabConfigs.find((tab) => tab.name === name);
-        if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
-          switchToPerpsWebTab();
-          return;
+  const renderTabBar = useCallback(() => {
+    const settings = (
+      <TabHeaderSettings
+        key={homeScrollOwnerKey}
+        focusedTab={
+          tabConfigs.find((tab) => tab.id === activeTabId)?.name ?? ''
         }
-        setActiveTabName(nextTab?.name ?? name);
-        setActiveTabId(nextTab?.id);
-        lastDisplayableTabNameRef.current = nextTab?.name ?? name;
-        tabBarProps.onTabPress(name);
-      };
-
-      if (platformEnv.isNative) {
-        return (
-          <TabBar
-            {...tabBarProps}
-            containerStyle={{
-              ...nativeTabBarContainerStyle,
-              bg: tabBarProps.topEdgeActive ? 'transparent' : undefined,
-            }}
-            tabNames={tabBarTabNames}
-            indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
-            onTabPress={handleTabPress}
-            variant={tabBarVariant}
-            renderItem={handleRenderItem}
-            renderToolbar={renderToolbar}
-          />
-        );
-      }
-
-      // Outer YStack stays full-width so the sticky bg covers the entire
-      // viewport when the user scrolls the tab bar to the top. The inner Stack
-      // applies the centered max-width so the actual TabBar pills line up with
-      // the rest of the page content blocks.
+        nativeToolbar={nativeToolbar}
+      />
+    );
+    if (platformEnv.isNative) {
       return (
-        <YStack
-          ref={stickyHostRefCallback as any}
-          bg="$bgApp"
-          position={'sticky' as any}
-          top={0}
-          zIndex={10}
-        >
-          <Stack {...homePageContentMaxWidthSx}>
-            <TabBar
-              {...tabBarProps}
-              tabNames={tabBarTabNames}
-              indexDecimal={
-                perpTabShowWeb ? undefined : tabBarProps.indexDecimal
-              }
-              onTabPress={handleTabPress}
-              variant={tabBarVariant}
-              renderItem={handleRenderItem}
-              renderToolbar={renderToolbar}
-              containerStyle={{ position: 'relative' as any }}
-            />
-            <div
-              ref={portalRefCallback}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                zIndex: 1,
-              }}
-            />
-          </Stack>
-        </YStack>
+        <>
+          {/* The native tab bar draws the visible tabs and filter buttons, so
+              reserve the same height here. The React sticky content then
+              matches the pager's sticky geometry instead of reporting a
+              zero-height bar to the scroll containers. */}
+          <Stack
+            pointerEvents="none"
+            height={nativeTabBar.style?.height ?? 0}
+          />
+          {settings}
+        </>
       );
-    },
-    [
-      nativeToolbar,
-      nativeTextTabBar,
-      activeTabId,
-      homeScrollOwnerKey,
-      portalRefCallback,
-      stickyHostRefCallback,
-      handleRenderItem,
-      renderToolbar,
-      switchToPerpsWebTab,
-      perpTabShowWeb,
-      isSmallScreen,
-      nativeTabBarContainerStyle,
-      tabConfigs,
-      tabBarTabNames,
-    ],
-  );
+    }
+    // Web: the pager renders its DOM tab bar right above this node inside the
+    // sticky slot, so this node adds no height. Its parent is that sticky
+    // content and serves as the sticky host; the portal sits just below the
+    // tab bar, inside the same centered max-width as the page content.
+    return (
+      <YStack ref={stickyHostRefCallback as any}>
+        <Stack position="relative" {...homePageContentMaxWidthSx}>
+          <div
+            ref={portalRefCallback}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 1,
+            }}
+          />
+        </Stack>
+        {settings}
+      </YStack>
+    );
+  }, [
+    nativeToolbar,
+    nativeTabBar,
+    activeTabId,
+    homeScrollOwnerKey,
+    portalRefCallback,
+    stickyHostRefCallback,
+    tabConfigs,
+  ]);
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
@@ -1227,11 +1155,6 @@ export function HomePageView({
     prevHomeScrollOwnerKeyRef.current = homeScrollOwnerKey;
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
-
-  // Double-pressing the Home tab scrolls the focused pane back to the top.
-  useTabDoublePress(() => {
-    homeTabsScrollToTopRef.current?.();
-  });
 
   const stickyHeaderCtx = useMemo(
     () => ({
@@ -1473,7 +1396,7 @@ export function HomePageView({
               </Stack>
             ) : undefined
           }
-          nativeTabBar={nativeTextTabBar}
+          nativeTabBar={nativeTabBar}
           onNativeTabPress={handleNativeTextTabPress}
           onNativeToolbarPress={handleNativeToolbarPress}
           renderTabBar={renderTabBar}
@@ -1487,7 +1410,7 @@ export function HomePageView({
         ref={tabsRef}
         initialTabName={seedTabName}
         renderHeader={renderHeader}
-        nativeTabBar={nativeTextTabBar}
+        nativeTabBar={nativeTabBar}
         onNativeTabPress={handleNativeTextTabPress}
         onNativeToolbarPress={handleNativeToolbarPress}
         renderTabBar={renderTabBar}
@@ -1528,7 +1451,7 @@ export function HomePageView({
       />
     );
   }, [
-    nativeTextTabBar,
+    nativeTabBar,
     handleNativeTextTabPress,
     handleNativeToolbarPress,
     tabBarHeight,

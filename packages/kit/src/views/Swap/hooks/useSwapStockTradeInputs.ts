@@ -57,10 +57,12 @@ import {
   shouldRenderStockTradeInputSkeleton,
 } from './swapStockChannelUtils';
 import {
+  type IStockResolvedTokenPrice,
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
   markStockUsdPriceCurrency,
   resolveStockTokenPrice,
+  resolveStockTradeTokenPrice,
 } from './swapStockFiatValueUtils';
 import {
   buildStockTokenDetailsRequestScope,
@@ -449,12 +451,14 @@ function useStockInputTokenBalance({
 
 export function useSwapStockEstimatedReceiveState({
   forceHideQuote,
+  inputTokenPrice,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
   stockChannel,
 }: {
   forceHideQuote?: boolean;
+  inputTokenPrice?: IStockResolvedTokenPrice;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
@@ -510,72 +514,53 @@ export function useSwapStockEstimatedReceiveState({
     currencyMap[settingsPersistAtom.currencyInfo.id]?.unit ??
     currencyMap[STOCK_PRICE_SOURCE_CURRENCY]?.unit ??
     settingsPersistAtom.currencyInfo.symbol;
+  const receiveTokenPrice = resolveStockTradeTokenPrice({
+    token: receiveToken,
+    quoteToken: quoteMatchesStockTrade ? quoteResult?.toTokenInfo : undefined,
+    stockTokenDetail: stockChannel.activeStockTokenDetail,
+  });
   const receiveFiatValue = useMemo(() => {
-    const targetCurrency = settingsPersistAtom.currencyInfo.id;
-    const quoteTokenPrice = quoteMatchesStockTrade
-      ? resolveStockTokenPrice({
-          token: quoteResult?.toTokenInfo,
-          fallbackCurrency: targetCurrency,
-        })
-      : undefined;
-    const receiveTokenPrice = resolveStockTokenPrice({
-      token: receiveToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
-    });
     return getStockTokenFiatValue({
       amount: receiveAmount,
-      tokenPrice: quoteTokenPrice ?? receiveTokenPrice,
-      targetCurrency,
+      tokenPrice: receiveTokenPrice,
+      targetCurrency: settingsPersistAtom.currencyInfo.id,
       currencyMap,
     });
   }, [
     currencyMap,
     receiveAmount,
-    quoteMatchesStockTrade,
-    quoteResult?.toTokenInfo,
-    receiveToken,
+    receiveTokenPrice,
     settingsPersistAtom.currencyInfo.id,
   ]);
   const rateDifference = useMemo(() => {
     if (!quoteMatchesStockTrade) {
       return undefined;
     }
-    const targetCurrency = settingsPersistAtom.currencyInfo.id;
     const fromTokenPrice =
-      resolveStockTokenPrice({
-        token: quoteResult?.fromTokenInfo,
-        fallbackCurrency: targetCurrency,
-      }) ??
-      resolveStockTokenPrice({
+      inputTokenPrice ??
+      resolveStockTradeTokenPrice({
         token: sendToken,
-        fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
-      });
-    const toTokenPrice =
-      resolveStockTokenPrice({
-        token: quoteResult?.toTokenInfo,
-        fallbackCurrency: targetCurrency,
-      }) ??
-      resolveStockTokenPrice({
-        token: receiveToken,
-        fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+        quoteToken: quoteResult?.fromTokenInfo,
+        stockTokenDetail: stockChannel.activeStockTokenDetail,
       });
     return buildSwapRateDifference({
       fromTokenPrice: fromTokenPrice?.price,
-      toTokenPrice: toTokenPrice?.price,
+      toTokenPrice: receiveTokenPrice?.price,
       fromTokenCurrency: fromTokenPrice?.currency,
-      toTokenCurrency: toTokenPrice?.currency,
+      toTokenCurrency: receiveTokenPrice?.currency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
+      strictCurrencyConversion: true,
     });
   }, [
     currencyMap,
+    inputTokenPrice,
     quoteMatchesStockTrade,
     quoteResult?.fromTokenInfo,
     quoteResult?.instantRate,
-    quoteResult?.toTokenInfo,
-    receiveToken,
+    receiveTokenPrice,
     sendToken,
-    settingsPersistAtom.currencyInfo.id,
+    stockChannel.activeStockTokenDetail,
   ]);
   const onReceiveTokenPress = useCallback(
     (token: IToken) => {
@@ -617,6 +602,7 @@ export function useSwapStockEstimatedReceiveState({
     receiveAmount,
     receiveFiatValue,
     receiveToken,
+    receiveTokenPrice,
     setIsReceiveTokenPopoverOpen,
   };
 }
@@ -711,9 +697,9 @@ export function useSwapStockAmountInputState({
       token: stockInputTokenBalance.tokenDetail,
       fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
     }) ??
-    resolveStockTokenPrice({
+    resolveStockTradeTokenPrice({
       token: inputToken,
-      fallbackCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+      stockTokenDetail: stockChannel.activeStockTokenDetail,
     });
   const amountFiatValue = useMemo(() => {
     return getStockTokenFiatValue({
@@ -880,6 +866,11 @@ export function useSwapStockAmountInputState({
 
   return {
     amountFiatValue,
+    inputTokenPrice,
+    reviewFromToken:
+      amountInputToken && inputTokenPrice
+        ? { ...amountInputToken, ...inputTokenPrice }
+        : undefined,
     balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
     balanceRefreshing,
