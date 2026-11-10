@@ -588,7 +588,7 @@ function BaseHomePageView({
     typeof availableWidth === 'number'
       ? Math.min(availableWidth, HOME_PAGE_CONTENT_MAX_WIDTH)
       : 0;
-  const geometryKey = JSON.stringify([
+  const geometryKey = [
     platformEnv.isNativeIOS ? 'ios' : 'android',
     platformEnv.isNativeIOS26Plus,
     availableWidth,
@@ -600,16 +600,16 @@ function BaseHomePageView({
     I18nManager.isRTL,
     isSmallScreen,
     sceneName,
-  ]);
-  const sharedHeaderKey = JSON.stringify([
+  ].join(':');
+  const sharedHeaderKey = [
     'shared',
     geometryKey,
     homeHeaderLayout.variant,
     wallet?.type === WALLET_TYPE_WATCHING,
     !isInternetReachable,
-  ]);
+  ].join(':');
   const isHeaderSyncLoading = useIsAccountSelectorSyncLoading(0);
-  const fixedHeaderKey = JSON.stringify([
+  const fixedHeaderKey = [
     'fixed',
     geometryKey,
     safeAreaInsets.top,
@@ -617,7 +617,7 @@ function BaseHomePageView({
     safeAreaInsets.right,
     accountUtils.hasNoUsableWallet({ wallet, account }),
     isHeaderSyncLoading,
-  ]);
+  ].join(':');
   const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
     account?.indexedAccountId ?? account?.id ?? ''
   }`;
@@ -652,12 +652,14 @@ function BaseHomePageView({
     identity: string;
     generation: number;
     fullLayoutReceived: boolean;
+    fixedLayoutReceived: boolean;
   } | null>(null);
   useLayoutEffect(() => {
     const measurement = {
       identity: measurementIdentity,
       generation: measurementGeneration,
       fullLayoutReceived: false,
+      fixedLayoutReceived: false,
     };
     activeMeasurementRef.current = measurement;
     return () => {
@@ -667,6 +669,7 @@ function BaseHomePageView({
     };
   }, [measurementIdentity, measurementGeneration]);
   const nativeHeaderRef = useRef<ViewInstance>(null);
+  const nativeFixedHeaderRef = useRef<ViewInstance | null>(null);
   const updateHeaderHeight = useCallback(
     (region: 'shared' | 'fixed', rawHeight: number) => {
       const current = activeMeasurementRef.current;
@@ -714,6 +717,7 @@ function BaseHomePageView({
         current.generation !== measurementGeneration ||
         !Number.isFinite(event.nativeEvent.layout.height) ||
         event.nativeEvent.layout.height <= 0 ||
+        !Number.isFinite(event.nativeEvent.layout.width) ||
         Math.abs(event.nativeEvent.layout.width - contentWidth) > 1
       )
         return;
@@ -1262,11 +1266,29 @@ function BaseHomePageView({
   const tabPageHeight = headerGeometry.fixedHeight;
   const handleTabPageLayout = useCallback(
     (event: LayoutChangeEvent) => {
+      const current = activeMeasurementRef.current;
+      const { width, height } = event.nativeEvent.layout;
+      if (
+        current?.identity !== measurementIdentity ||
+        current.generation !== measurementGeneration ||
+        !Number.isFinite(width) ||
+        Math.abs(width - contentWidth) > 1 ||
+        !Number.isFinite(height) ||
+        height <= 20
+      )
+        return;
+      current.fixedLayoutReceived = true;
       updateHeaderHeight('fixed', event.nativeEvent.layout.height - 20);
     },
-    [updateHeaderHeight],
+    [
+      measurementIdentity,
+      measurementGeneration,
+      contentWidth,
+      updateHeaderHeight,
+    ],
   );
   const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    nativeFixedHeaderRef.current = node;
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'outer',
@@ -1274,6 +1296,7 @@ function BaseHomePageView({
     });
   }, []);
   const handlePagerHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    nativeFixedHeaderRef.current = node;
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'pager',
@@ -1461,11 +1484,7 @@ function BaseHomePageView({
             topEdgeActive ? (
               <Stack h={tabPageHeight}>
                 <YStack
-                  ref={
-                    __DEV__ && platformEnv.isNativeIOS
-                      ? handlePagerHeaderHostRef
-                      : undefined
-                  }
+                  ref={handlePagerHeaderHostRef}
                   position="absolute"
                   top={-20}
                   left={0}
@@ -1751,6 +1770,29 @@ function BaseHomePageView({
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 
   useLayoutEffect(() => {
+    const node = nativeFixedHeaderRef.current;
+    node?.measure((_x, _y, width, height) => {
+      const current = activeMeasurementRef.current;
+      if (
+        nativeFixedHeaderRef.current === node &&
+        current?.identity === measurementIdentity &&
+        current.generation === measurementGeneration &&
+        !current.fixedLayoutReceived &&
+        Math.abs(width - contentWidth) <= 1
+      ) {
+        updateHeaderHeight('fixed', height - 20);
+      }
+    });
+  }, [
+    measurementIdentity,
+    measurementGeneration,
+    contentWidth,
+    ready,
+    showIos26PagerOverlay,
+    updateHeaderHeight,
+  ]);
+
+  useLayoutEffect(() => {
     let mode = 'web';
     if (!ready && !isTravelModeRuntime) {
       mode = 'early';
@@ -1812,11 +1854,7 @@ function BaseHomePageView({
             {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
-                ref={
-                  __DEV__ && platformEnv.isNativeIOS
-                    ? handleOuterHeaderHostRef
-                    : undefined
-                }
+                ref={handleOuterHeaderHostRef}
                 position="absolute"
                 top={-20}
                 left={0}

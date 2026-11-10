@@ -6,6 +6,7 @@ import * as jsxRuntime from 'react/jsx-runtime';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
+import { isValidSnapshotCacheKey } from '@onekeyhq/shared/src/storage/SnapshotCache/createSnapshotCacheSync';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -688,6 +689,7 @@ describe('HomePageView complete header authority', () => {
     width: number,
     height: number,
   ) => void)[] = [];
+  const fixedMeasurements: (typeof measurements)[number][] = [];
   let onFullLayout: ((event: LayoutChangeEvent) => void) | undefined;
   let onFixedLayout: ((event: LayoutChangeEvent) => void) | undefined;
   const cache = new Map<string, number>();
@@ -829,8 +831,12 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/src/storage/uiSnapshotCaches': {
           homeHeaderLayoutCache: {
             get: (key: string) =>
-              cache.has(key) ? { data: cache.get(key) } : undefined,
-            set: (key: string, value: number) => cache.set(key, value),
+              isValidSnapshotCacheKey(key) && cache.has(key)
+                ? { data: cache.get(key) }
+                : undefined,
+            set: (key: string, value: number) => {
+              if (isValidSnapshotCacheKey(key)) cache.set(key, value);
+            },
           },
         },
         '@onekeyhq/shared/src/travelMode': {
@@ -1034,6 +1040,7 @@ describe('HomePageView complete header authority', () => {
     validationRequired = false;
     softwareAccountDisabled = false;
     measurements.length = 0;
+    fixedMeasurements.length = 0;
     onFullLayout = undefined;
     onFixedLayout = undefined;
     cache.clear();
@@ -1060,10 +1067,17 @@ describe('HomePageView complete header authority', () => {
         sceneName: EAccountSelectorSceneName.home,
       }),
       {
-        createNodeMock: () => ({
-          measure: (callback: (typeof measurements)[number]) =>
-            measurements.push(callback),
-        }),
+        createNodeMock: (element) => {
+          const callbacks =
+            (element.props as { onLayout?: (event: LayoutChangeEvent) => void })
+              .onLayout === onFixedLayout
+              ? fixedMeasurements
+              : measurements;
+          return {
+            measure: (callback: (typeof measurements)[number]) =>
+              callbacks.push(callback),
+          };
+        },
       },
     );
 
@@ -1691,6 +1705,23 @@ describe('HomePageView complete header authority', () => {
     expect(mockNativeEvents.headerHeight).toBe(183);
     act(() => measurements[0](0, 0, 400, 292.2));
     expect(mockNativeEvents.headerHeight).toBe(183);
+  });
+
+  it('remeasures unchanged fixed geometry for a new display key and rejects late measurements', () => {
+    const screen = renderParent();
+    act(() => fixedMeasurements[0](0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    locale = 'de-DE';
+    rerenderParent(screen);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    const currentMeasure = fixedMeasurements.at(-1)!;
+    act(() => fixedMeasurements[0](0, 0, 400, 999));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    act(() => currentMeasure(0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    act(() => onFixedLayout?.(headerLayoutEvent(180.2)));
+    act(() => currentMeasure(0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(161);
   });
 
   it('retains separate ordinary and watch-only heights through both switch directions', () => {
