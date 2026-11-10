@@ -212,6 +212,10 @@ export class KeyringQr extends KeyringQrBase {
     );
   }
 
+  /**
+   * 将 unsignedTx 编码为二维码签名请求并返回已签名交易，type 1/2 均使用 typedTransaction 以包含 accessList。
+   * 缺失必要交易字段、二维码交互取消或签名失败时沿用原错误向调用方传播。
+   */
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -220,7 +224,10 @@ export class KeyringQr extends KeyringQrBase {
       encodedTx,
     });
     let dataType = EAirGapDataTypeEvm.transaction;
-    if (tx.type === TransactionTypes.eip1559) {
+    if (
+      tx.type === TransactionTypes.eip1559 ||
+      tx.type === TransactionTypes.eip2930
+    ) {
       dataType = EAirGapDataTypeEvm.typedTransaction;
     }
 

@@ -38,6 +38,10 @@ export async function getPublicKeyFromPrivateKey({
   return Promise.resolve({ publicKey });
 }
 
+/**
+ * 将 encodedTx 打包为待签名交易，保留两种费用模型中的 accessList 承诺。
+ * 无列表的普通交易沿用 legacy 格式；nonce、chainId 或所需费用字段缺失时抛错。
+ */
 export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
   const baseTx: UnsignedTransaction = {
     // undefined is for deploy contract calls.
@@ -57,6 +61,7 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
 
     // update chainId at: buildUnsignedTxFromEncodedTx
     chainId: new BigNumber(checkIsDefined(encodedTx.chainId)).toNumber(),
+    ...(encodedTx.accessList ? { accessList: encodedTx.accessList } : {}),
   };
 
   if (!baseTx.to) {
@@ -78,6 +83,7 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
     });
   } else {
     Object.assign(baseTx, {
+      ...(encodedTx.accessList ? { type: TransactionTypes.eip2930 } : {}),
       gasPrice: toBigIntHex(new BigNumber(checkIsDefined(encodedTx.gasPrice))),
     });
   }

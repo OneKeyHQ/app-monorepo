@@ -1,6 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IEarnOrderTrackingInfo } from '@onekeyhq/shared/types/staking';
-import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -12,6 +12,8 @@ export interface IEarnOrderItem {
   status: EDecodedTxStatus;
   updatedAt: number;
   createdAt: number;
+  // 链上状态与服务端是否接受此哈希独立，避免把关联成功当作交易确认。
+  serverSyncStatus?: 'pending' | 'acknowledged' | 'rejected';
   stakingLabel?: IEarnOrderTrackingInfo['stakingLabel'];
   stakingProtocol?: IEarnOrderTrackingInfo['stakingProtocol'];
   stakingTags?: IEarnOrderTrackingInfo['stakingTags'];
@@ -24,7 +26,7 @@ export interface IEarnOrderDBStructure {
 
 export type IAddEarnOrderParams = Omit<
   IEarnOrderItem,
-  'updatedAt' | 'createdAt' | 'previousTxIds'
+  'updatedAt' | 'createdAt' | 'previousTxIds' | 'serverSyncStatus'
 > &
   IEarnOrderTrackingInfo;
 
@@ -33,9 +35,10 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
 
   override enableCache = false;
 
+  /** 保存订单及待同步状态；写入被禁用时返回 undefined，存储失败向上抛出。 */
   @backgroundMethod()
   async addOrder(order: IAddEarnOrderParams) {
-    await this.setRawData((rawData) => {
+    const saved = await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
         data: { ...rawData?.data },
         txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
@@ -46,12 +49,15 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
         previousTxIds: [],
         updatedAt: now,
         createdAt: now,
+        serverSyncStatus: 'pending',
       };
       data.txIdToOrderIdMap[order.txId] = order.orderId;
       return data;
     });
+    return saved?.data[order.orderId];
   }
 
+  /** 按当前哈希保存状态或替换哈希并返回写入快照；订单缺失返回失败，存储错误向上抛出。 */
   @backgroundMethod()
   async updateOrderStatusByTxId(params: {
     currentTxId: string;
@@ -63,7 +69,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   }> {
     const { currentTxId, newTxId, status } = params;
 
-    await this.setRawData((rawData) => {
+    let updatedOrder: IEarnOrderItem | undefined;
+    const saved = await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
         data: { ...rawData?.data },
         txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
@@ -78,6 +85,10 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       if (!order) {
         return data;
       }
+
+      // 取消交易确认或再次加速都不能恢复为正常 Earn 操作。
+      const nextStatus =
+        order.status === EDecodedTxStatus.Removed ? order.status : status;
 
       // Update txId related info if new txId exists
       if (newTxId && newTxId !== currentTxId) {
@@ -94,26 +105,31 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
           ...order,
           txId: newTxId,
           previousTxIds,
-          status,
+          status: nextStatus,
+          serverSyncStatus:
+            nextStatus === EDecodedTxStatus.Removed ? 'rejected' : 'pending',
           updatedAt: Date.now(),
         };
       } else {
         // Update status only
         data.data[orderId] = {
           ...order,
-          status,
+          status: nextStatus,
+          serverSyncStatus:
+            order.status === nextStatus || order.serverSyncStatus === 'rejected'
+              ? order.serverSyncStatus
+              : 'pending',
           updatedAt: Date.now(),
         };
       }
 
+      updatedOrder = data.data[orderId];
       return data;
     });
 
-    // Get updated order info
-    const updatedOrder = await this.getOrderByTxId(newTxId || currentTxId);
     return {
-      success: updatedOrder?.status === status,
-      order: updatedOrder,
+      success: Boolean(saved && updatedOrder),
+      order: saved ? updatedOrder : undefined,
     };
   }
 
@@ -122,5 +138,41 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
     const rawData = await this.getRawData();
     const orderId = rawData?.txIdToOrderIdMap?.[txId];
     return orderId ? rawData?.data?.[orderId] : undefined;
+  }
+
+  /** 返回待同步及缺少同步标记的旧订单；无记录返回空数组，读取失败向上抛出。 */
+  @backgroundMethod()
+  async getOrdersPendingSync(): Promise<IEarnOrderItem[]> {
+    const rawData = await this.getRawData();
+    return Object.values(rawData?.data ?? {}).filter(
+      (order) =>
+        !order.serverSyncStatus || order.serverSyncStatus === 'pending',
+    );
+  }
+
+  /** 按请求时的订单快照保存服务端结果；哈希或链上状态已变化时忽略，存储失败向上抛出。 */
+  @backgroundMethod()
+  async setServerSyncResult({
+    order,
+    serverSyncStatus,
+  }: {
+    order: IEarnOrderItem;
+    serverSyncStatus: 'acknowledged' | 'rejected';
+  }): Promise<void> {
+    await this.setRawData((rawData) => {
+      const data: IEarnOrderDBStructure = {
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
+      };
+      const current = data.data[order.orderId];
+      if (
+        current?.txId === order.txId &&
+        current.status === order.status &&
+        (!current.serverSyncStatus || current.serverSyncStatus === 'pending')
+      ) {
+        data.data[order.orderId] = { ...current, serverSyncStatus };
+      }
+      return data;
+    });
   }
 }
