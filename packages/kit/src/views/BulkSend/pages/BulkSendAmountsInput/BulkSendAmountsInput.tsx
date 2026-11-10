@@ -167,6 +167,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     balance: isOneToMany
       ? (displayBalance ?? tokenDetails?.balanceParsed)
       : undefined,
+    minTransferAmount,
   });
 
   // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range
@@ -1390,6 +1391,7 @@ function BulkSendAmountsInputContent({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
       balance,
+      transferCount: isOneToMany ? transfersInfo.length : undefined,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
@@ -1401,6 +1403,7 @@ function BulkSendAmountsInputContent({
     amountInputValues.rangeMax,
     amountInputValues.rangeMin,
     isOneToMany,
+    transfersInfo.length,
     minTransferAmount,
     senderBalances,
     displayBalance,

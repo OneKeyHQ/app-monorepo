@@ -54,7 +54,38 @@ export function PrivacyAccountManagementPreview() {
   const [scenario, setScenario] =
     useState<(typeof SCENARIOS)[number]['value']>('default');
   const [previewWidth, setPreviewWidth] = useState<320 | 600>(600);
+  const [pendingActions, setPendingActions] = useState<
+    Record<string, 'toggle' | 'delete'>
+  >({});
   const unavailable = scenario === 'unavailable';
+
+  const simulateAction = async (
+    account: IPreviewAccount,
+    action: 'toggle' | 'delete',
+  ) => {
+    if (pendingActions[account.id]) return;
+    setPendingActions((current) => ({ ...current, [account.id]: action }));
+    try {
+      // Keep the pending state visible without calling wallet services.
+      await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+      setAccounts((current) =>
+        current.map((entry) => {
+          if (entry.id !== account.id) return entry;
+          let state: IPreviewAccount['state'] = 'disabled';
+          if (action !== 'delete') {
+            state = entry.state === 'enabled' ? 'paused' : 'enabled';
+          }
+          return { ...entry, state };
+        }),
+      );
+    } finally {
+      setPendingActions((current) => {
+        const next = { ...current };
+        delete next[account.id];
+        return next;
+      });
+    }
+  };
 
   return (
     <YStack gap="$5" testID="privacy-account-management-preview">
@@ -83,6 +114,7 @@ export function PrivacyAccountManagementPreview() {
         <Button
           testID="privacy-management-preview-reset"
           size="small"
+          disabled={Object.keys(pendingActions).length > 0}
           onPress={() => {
             setAccounts(INITIAL_ACCOUNTS);
             setScenario('default');
@@ -138,22 +170,9 @@ export function PrivacyAccountManagementPreview() {
                   variant={
                     account.state === 'disabled' ? 'primary' : 'secondary'
                   }
-                  disabled={unavailable}
-                  onPress={() =>
-                    setAccounts((current) =>
-                      current.map((entry) =>
-                        entry.id === account.id
-                          ? {
-                              ...entry,
-                              state:
-                                entry.state === 'enabled'
-                                  ? 'paused'
-                                  : 'enabled',
-                            }
-                          : entry,
-                      ),
-                    )
-                  }
+                  loading={pendingActions[account.id] === 'toggle'}
+                  disabled={unavailable || !!pendingActions[account.id]}
+                  onPress={() => simulateAction(account, 'toggle')}
                 >
                   {intl.formatMessage({ id: actionId })}
                 </Button>
@@ -164,7 +183,10 @@ export function PrivacyAccountManagementPreview() {
                 month: '2-digit',
                 day: '2-digit',
               })}
-              birthdayDisabled={account.state === 'paused'}
+              birthdayDisabled={
+                account.state === 'paused' || !!pendingActions[account.id]
+              }
+              deleteDisabled={!!pendingActions[account.id]}
               onEditBirthday={() =>
                 Toast.success({
                   title: ETranslations.privacy_sync_start__title,
@@ -182,10 +204,7 @@ export function PrivacyAccountManagementPreview() {
                   onConfirmText: intl.formatMessage({
                     id: ETranslations.global_delete,
                   }),
-                  onConfirm: () =>
-                    setAccounts((current) =>
-                      current.filter((entry) => entry.id !== account.id),
-                    ),
+                  onConfirm: () => simulateAction(account, 'delete'),
                 });
               }}
             />
