@@ -303,7 +303,11 @@ describe('useOnramperCheckout checkout failures', () => {
 
     emit('renderingStarted', { transactionId: 'tx5', renderType: 'webview' });
     emit('providerReady', { transactionId: 'tx5' });
-    emit('failed', { transactionId: 'tx5', errorCode: 'providerFailed' });
+    emit('failed', {
+      transactionId: 'tx5',
+      errorCode: 'providerFailed',
+      supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+    });
 
     expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx5', 'providerFailed');
     expect(result.current.errorCode).toBe('providerFailed');
@@ -316,6 +320,35 @@ describe('useOnramperCheckout checkout failures', () => {
     );
   });
 
+  // No `providerReady` proves nothing by itself: without a load error from
+  // the SDK the payment may have gone through, so the order stays tracked
+  // and no one-tap retry is offered.
+  it('keeps the outcome unknown when a page that never reported ready fails without a load error', async () => {
+    const { result, onCheckoutAbandoned } = await renderCheckout();
+
+    emit('renderingStarted', { transactionId: 'tx8', renderType: 'webview' });
+    emit('failed', {
+      transactionId: 'tx8',
+      errorCode: 'providerFailed',
+      supportCode: 'providerFailed',
+    });
+
+    expect(onCheckoutAbandoned).toHaveBeenCalledTimes(1);
+    expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx8', 'providerFailed');
+    expect(result.current.errorCode).toBe('providerFailed');
+    expect(result.current.errorMessage).toContain(
+      'buy_error_payment_unknown__msg',
+    );
+    expect(result.current.unknownOutcomeTransactionId).toBe('tx8');
+    expect(mockCheckoutFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abandonReason: 'providerFailed',
+        renderType: 'webview',
+        paymentSurfaceReached: false,
+      }),
+    );
+  });
+
   it('does not carry the progress of one transaction over to the next', async () => {
     const { result, onCheckoutAbandoned } = await renderCheckout();
 
@@ -323,7 +356,11 @@ describe('useOnramperCheckout checkout failures', () => {
     emit('renderingStarted', { transactionId: 'tx6', renderType: 'webview' });
     emit('providerReady', { transactionId: 'tx6' });
     emit('renderingStarted', { transactionId: 'tx7', renderType: 'webview' });
-    emit('failed', { transactionId: 'tx7', errorCode: 'providerFailed' });
+    emit('failed', {
+      transactionId: 'tx7',
+      errorCode: 'providerFailed',
+      supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+    });
 
     expect(onCheckoutAbandoned).toHaveBeenCalledWith('tx7', 'pageLoadFailed');
     expect(result.current.unknownOutcomeTransactionId).toBeUndefined();

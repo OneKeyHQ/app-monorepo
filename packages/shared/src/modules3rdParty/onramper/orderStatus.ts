@@ -57,6 +57,33 @@ const AUTHORIZATION_FAILED_PROVIDER_REASONS = new Set([
 // Provider payment-page reasons that mean the page itself failed to load.
 const PAGE_LOAD_FAILED_PROVIDER_REASONS = new Set(['onramp_api.load_error']);
 
+// The SDK's support code for a web view navigation that failed in the URL
+// loading system (DNS, TLS, timeout, offline), with the NSURLError code:
+// `providerFailed:NSURLErrorDomain/-1200` for an SSL failure
+// (device-observed 2026-11-09 on Paybis).
+const URL_LOAD_ERROR_SUPPORT_CODE_PATTERN = /NSURLErrorDomain\/(-?\d+)/;
+// NSURLErrorCancelled: a navigation that was replaced or closed, which says
+// nothing about the page.
+const URL_LOAD_CANCELLED_CODE = '-999';
+
+// Whether the failure itself says the payment page failed to load. A page
+// reason, when there is one, is the page's own account and decides alone.
+function hasPageLoadFailureSignal({
+  providerReason,
+  supportCode,
+}: {
+  providerReason?: string;
+  supportCode?: string;
+}): boolean {
+  if (providerReason !== undefined) {
+    return PAGE_LOAD_FAILED_PROVIDER_REASONS.has(providerReason);
+  }
+  const urlErrorCode = supportCode
+    ? URL_LOAD_ERROR_SUPPORT_CODE_PATTERN.exec(supportCode)?.[1]
+    : undefined;
+  return urlErrorCode !== undefined && urlErrorCode !== URL_LOAD_CANCELLED_CODE;
+}
+
 // SDK events that prove the provider's payment surface came up: the page
 // reported ready, or the payment moved past it.
 const PAYMENT_SURFACE_EVENT_TYPES = new Set([
@@ -96,18 +123,23 @@ export function applyHeadlessBuyCheckoutEvent(
 // the provider's payment surface as `providerFailed` ("outcome unknown"): a
 // failed authorization, and a page that never loaded (device-observed
 // 2026-11-09 on Paybis: an SSL failure of the web view, no `providerReady`).
-// What preceded the failure decides: the page reason settles a failed
-// authorization, and a web view that never came up cannot have taken a
-// payment. Anything else stays "outcome unknown" — including a failure with
-// no progress on record, where nothing proves the page did not load. Every
-// other error code is a plain pre-payment failure.
+// The page reason settles a failed authorization. A page load failure takes
+// both a load error reported with the failure (hasPageLoadFailureSignal) and
+// a web view that had not come up before it: a missing `providerReady` alone
+// proves nothing, since a provider page is not bound to report readiness,
+// and a load error after the page was up may follow a payment. Anything else
+// stays "outcome unknown" — including a failure with no progress on record.
+// Every other error code is a plain pre-payment failure.
 export function getHeadlessBuyAbandonReason({
   errorCode,
   providerReason,
+  supportCode,
   progress,
 }: {
   errorCode?: string;
   providerReason?: string;
+  // The `failed` event's support code (SDK 1.3+).
+  supportCode?: string;
   progress?: IHeadlessBuyCheckoutProgress;
 }): IHeadlessBuyAbandonReason {
   if (errorCode !== 'providerFailed') {
@@ -122,8 +154,7 @@ export function getHeadlessBuyAbandonReason({
   if (
     progress?.renderType === 'webview' &&
     !progress.paymentSurfaceReached &&
-    (providerReason === undefined ||
-      PAGE_LOAD_FAILED_PROVIDER_REASONS.has(providerReason))
+    hasPageLoadFailureSignal({ providerReason, supportCode })
   ) {
     return 'pageLoadFailed';
   }

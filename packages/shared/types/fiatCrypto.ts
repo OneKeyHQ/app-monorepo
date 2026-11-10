@@ -95,9 +95,9 @@ export enum EHeadlessBuyOrderStatus {
 export type IHeadlessBuyAbandonReason =
   | 'cancelled'
   | 'failed'
-  // The provider's payment page never came up (a `providerFailed` before any
-  // sign of the page): nothing could be paid, so the record is dropped like
-  // a plain failure.
+  // The provider's payment page failed to load (a `providerFailed` that
+  // carries a load error, before any sign of the page): nothing could be
+  // paid, so the record is dropped like a plain failure.
   | 'pageLoadFailed'
   | 'providerFailed'
   // The provider's payment page reported that the payment authorization

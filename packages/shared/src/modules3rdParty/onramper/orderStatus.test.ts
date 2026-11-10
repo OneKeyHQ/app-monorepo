@@ -580,14 +580,15 @@ describe('getHeadlessBuyAbandonReason', () => {
   // Device-observed 2026-11-09 on Paybis: the web view failed on an SSL
   // error (supportCode `providerFailed:NSURLErrorDomain/-1200`) with no
   // `providerReady` before it.
-  it('reads a web view that never came up as a page load failure', () => {
+  it('reads a web view whose load failed before it came up as a page load failure', () => {
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
         progress: { renderType: 'webview', paymentSurfaceReached: false },
       }),
     ).toBe('pageLoadFailed');
-    // The provider's page saying so itself changes nothing.
+    // The provider's page reporting its own load error counts as well.
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
@@ -597,10 +598,37 @@ describe('getHeadlessBuyAbandonReason', () => {
     ).toBe('pageLoadFailed');
   });
 
+  // A missing `providerReady` proves nothing by itself: a provider page is
+  // not bound to report readiness, so the order stays tracked.
+  it('keeps the outcome unknown without a load failure signal', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    // A cancelled navigation (NSURLErrorCancelled) is not a failed load.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-999',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+  });
+
   it('keeps the outcome unknown once the payment surface came up', () => {
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
         progress: { renderType: 'webview', paymentSurfaceReached: true },
       }),
     ).toBe('providerFailed');
@@ -614,23 +642,31 @@ describe('getHeadlessBuyAbandonReason', () => {
   });
 
   it('keeps the outcome unknown when nothing proves the page did not load', () => {
-    // No render event on record, or a surface that is not a web view.
+    const supportCode = 'providerFailed:NSURLErrorDomain/-1200';
+    // No progress on record, no render event, or a surface that is not a web
+    // view.
+    expect(
+      getHeadlessBuyAbandonReason({ errorCode: 'providerFailed', supportCode }),
+    ).toBe('providerFailed');
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
+        supportCode,
         progress: { paymentSurfaceReached: false },
       }),
     ).toBe('providerFailed');
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
+        supportCode,
         progress: { renderType: 'deeplink', paymentSurfaceReached: false },
       }),
     ).toBe('providerFailed');
-    // A page reason we do not know.
+    // The page spoke, and not of a load error: it was up.
     expect(
       getHeadlessBuyAbandonReason({
         errorCode: 'providerFailed',
+        supportCode,
         providerReason: 'onramp_api.polling_error',
         progress: { renderType: 'webview', paymentSurfaceReached: false },
       }),

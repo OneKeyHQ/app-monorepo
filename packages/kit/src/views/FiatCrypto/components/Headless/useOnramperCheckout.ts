@@ -113,7 +113,7 @@ type IParams = {
   // paymentAuthorized: the user approved the Apple Pay sheet.
   onPaymentAuthorized?: (transactionId: string) => void;
   // cancelled / failed without a completed: the (hidden) order is dead, and
-  // so is one whose payment page never came up (`pageLoadFailed`) — except
+  // so is one whose payment page failed to load (`pageLoadFailed`) — except
   // `providerFailed` (SDK 1.3+), where the payment outcome is unknown and the
   // service keeps the record for tracking, and `authorizationFailed` (the
   // provider's payment page said the authorization failed), where the service
@@ -351,8 +351,9 @@ export function useOnramperCheckout({
     { transactionId: string; reason: string } | undefined
   >(undefined);
   // How far the payment surface of the latest transaction got. A
-  // `providerFailed` says the surface broke, not when: before the page came
-  // up nothing can have been paid, after it the outcome is unknown.
+  // `providerFailed` says the surface broke, not when: a load error counts as
+  // a page that never loaded only while the page had not come up, after it
+  // the outcome is unknown.
   const checkoutProgressRef = useRef<
     ({ transactionId: string } & IHeadlessBuyCheckoutProgress) | undefined
   >(undefined);
@@ -483,6 +484,7 @@ export function useOnramperCheckout({
       const abandonReason = getHeadlessBuyAbandonReason({
         errorCode: event.errorCode,
         providerReason,
+        supportCode: event.supportCode,
         progress,
       });
       if (event.transactionId) {
