@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -82,6 +82,10 @@ import {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import {
+  EARN_HEADER_PICK_STYLE,
+  EarnHeaderOffersSide,
+} from '../../components/desktopHome/EarnHeaderPick';
 import { EarnLoanAssetLogos } from '../../components/desktopHome/EarnLoanAssetLogos';
 import {
   useEarnDesktopMarkets,
@@ -134,6 +138,7 @@ import {
   LoanMarketLinks,
   LoanPairTitle,
   LoanPickBar,
+  LoanPickNetwork,
   LoanRouteList,
   formatLoanFiat,
   formatLoanLtv,
@@ -2479,16 +2484,30 @@ function EarnLoanRouterPage() {
   const windowTitle = intl.formatMessage({
     id: ETranslations.earn_loans__action,
   });
-  // Beside the markets the picks stand in the header, after the window's
-  // name: one line, and both columns start right under it
-  const renderPickTitle = () => (
-    <XStack ai="center" gap="$3" minWidth={0}>
-      <SizableText size="$headingLg" flexShrink={0}>
-        {windowTitle}
-      </SizableText>
-      {pickRow}
-    </XStack>
-  );
+  // Beside the markets the picks are the window's header: their roles
+  // ("Supply", "Borrow") say what the window does, and both columns start
+  // right under it. The network they share stands over the markets' column,
+  // History at its right
+  const renderPickTitle = () => pickRow;
+  const showsHistory = hasHistory && !done;
+  let renderHeaderRight: ComponentProps<typeof Page.Header>['headerRight'];
+  if (isBeside && !done) {
+    renderHeaderRight = () => (
+      <EarnHeaderOffersSide
+        width={EARN_OFFER_ROUTES_COLUMN_WIDTH - 20}
+        network={
+          <LoanPickNetwork
+            network={scopeNetwork}
+            onPress={openCollateralSelect}
+          />
+        }
+      >
+        {showsHistory ? renderHistory() : null}
+      </EarnHeaderOffersSide>
+    );
+  } else if (showsHistory) {
+    renderHeaderRight = renderHistory;
+  }
 
   // A kind of token on a side: each card names its own pair. A card Pay
   // with's token (the one picked, else the wallet's largest holding of the
@@ -2683,7 +2702,8 @@ function EarnLoanRouterPage() {
           // eslint-disable-next-line no-nested-ternary
           done ? renderDoneTitle : isBeside ? renderPickTitle : undefined
         }
-        headerRight={hasHistory && !done ? renderHistory : undefined}
+        headerRight={renderHeaderRight}
+        headerStyle={isBeside && !done ? EARN_HEADER_PICK_STYLE : undefined}
       />
       <Page.Body>
         {/* What the done view's modal fits its height to; the columns fill

@@ -5,13 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import {
-  Page,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, YStack, useMedia } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -39,6 +33,10 @@ import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProv
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
+import {
+  EARN_HEADER_PICK_STYLE,
+  EarnHeaderOffersSide,
+} from '../../../Earn/components/desktopHome/EarnHeaderPick';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 import { leaveEarnWindowFor } from '../../../Earn/earnWindowReturn';
@@ -50,6 +48,7 @@ import {
   EarnOffersDeposit,
 } from '../../../Earn/pages/EarnRouter/EarnOffersDeposit';
 import {
+  EARN_OFFER_ROUTES_COLUMN_WIDTH,
   EARN_ROUTER_MODAL_HEIGHT,
   findOffer,
   pickBetterOffer,
@@ -666,10 +665,14 @@ const ManagePositionPage = () => {
     selectedProtocol,
   ]);
 
-  const pickPill =
+  const renderPick = (
+    variant: 'pill' | 'header' | 'headerNetwork',
+    lead?: string,
+  ) =>
     isRouter && offersEntry ? (
       <EarnAssetPickTrigger
-        variant="pill"
+        variant={variant}
+        lead={lead}
         pick={assetPick}
         tokens={networkAssets.tokens}
         networks={networkAssets.networks}
@@ -682,9 +685,10 @@ const ManagePositionPage = () => {
         onPress={handleOpenAssetSelect}
       />
     ) : undefined;
-  // Beside its offers the form's pick stands in the header, after the
-  // window's name: the two read as one line ("Earn USDC on All networks")
-  // and both columns start right under it
+  const pickPill = renderPick('pill');
+  // Beside its offers the form's pick is the window's header: what is
+  // earned on and where, each under its role, and both columns start right
+  // under it
   const isPickInHeader = Boolean(pickPill) && isColumns && !depositDone;
 
   let body: ReactNode;
@@ -786,31 +790,37 @@ const ManagePositionPage = () => {
         <Page.Header
           title={title}
           headerTitle={
-            isPickInHeader
-              ? () => (
-                  <XStack ai="center" gap="$3" minWidth={0}>
-                    <SizableText size="$headingLg" flexShrink={0}>
-                      {title}
-                    </SizableText>
-                    {pickPill}
-                  </XStack>
-                )
-              : undefined
+            isPickInHeader ? () => renderPick('header', title) : undefined
           }
+          headerStyle={isPickInHeader ? EARN_HEADER_PICK_STYLE : undefined}
           headerRight={
-            headerControls
-              ? () => (
-                  <YStack
-                    opacity={isFormLeaving ? 0 : 1}
-                    transition="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY}
-                  >
-                    <HeaderRightView
-                      {...headerControls}
-                      historyIconOnly={isColumns}
-                    />
-                  </YStack>
-                )
+            isPickInHeader || headerControls
+              ? () => {
+                  const controls = headerControls ? (
+                    <YStack
+                      opacity={isFormLeaving ? 0 : 1}
+                      transition="quick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                    >
+                      <HeaderRightView
+                        {...headerControls}
+                        historyIconOnly={isColumns}
+                      />
+                    </YStack>
+                  ) : null;
+                  // Beside the form the offers' network stands over their
+                  // column, the window's controls at its right
+                  return isPickInHeader ? (
+                    <EarnHeaderOffersSide
+                      width={EARN_OFFER_ROUTES_COLUMN_WIDTH - 20}
+                      network={renderPick('headerNetwork')}
+                    >
+                      {controls}
+                    </EarnHeaderOffersSide>
+                  ) : (
+                    controls
+                  );
+                }
               : undefined
           }
         />

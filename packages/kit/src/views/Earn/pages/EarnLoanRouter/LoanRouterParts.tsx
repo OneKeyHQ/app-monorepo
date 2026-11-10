@@ -36,6 +36,11 @@ import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared
 import { ANIMATE_ONLY_BG_COLOR } from '../../components/desktopHome/earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import {
+  EarnHeaderPickArrow,
+  EarnHeaderPickCell,
+  EarnHeaderPickRow,
+} from '../../components/desktopHome/EarnHeaderPick';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
@@ -1359,9 +1364,9 @@ function LoanPickHalf({
   );
 }
 
-// A pick in the window's header: its role in light text, then its token,
-// as the Earn window's pill
-function LoanPickPill({ side }: { side: ILoanPickSide }) {
+// A pick in the window's header: its role, then its token, as a field
+// without its box
+function LoanPickCell({ side }: { side: ILoanPickSide }) {
   const intl = useIntl();
   const { testID, caption, pick, tokens, purpose, fallbackLogoURI, onPress } =
     side;
@@ -1381,59 +1386,55 @@ function LoanPickPill({ side }: { side: ILoanPickSide }) {
           (item) => item.symbol.toUpperCase() === pick.symbol.toUpperCase(),
         )
       : undefined;
-  const label =
-    pick.kind === 'class'
-      ? getEarnAssetClassLabel(intl, pick.assetClass)
-      : (token?.symbol ?? pick.symbol);
-  // The logos' rings take the pill's color as it changes. Not a group: a
-  // group's size holds no content, and the header sizes it by its content
-  const [isHovered, setIsHovered] = useState(false);
   return (
-    <XStack
+    <EarnHeaderPickCell
       testID={testID}
-      role="button"
-      ai="center"
-      gap="$2"
-      h="$10"
-      pl="$3"
-      pr="$3"
-      borderRadius="$full"
-      borderCurve="continuous"
-      bg="$bgStrong"
-      hoverStyle={{ bg: '$bgStrongHover' }}
-      pressStyle={{ bg: '$bgStrongActive' }}
-      userSelect="none"
-      cursor="pointer"
-      minWidth={0}
-      flexShrink={1}
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
+      label={caption}
+      logo={
+        pick.kind === 'class' ? (
+          <EarnAssetLogos logos={kindLogos} size="xs" />
+        ) : (
+          <Token size="xs" tokenImageUri={token?.logoURI || fallbackLogoURI} />
+        )
+      }
+      value={
+        pick.kind === 'class'
+          ? getEarnAssetClassLabel(intl, pick.assetClass)
+          : (token?.symbol ?? pick.symbol)
+      }
       onPress={onPress}
-      {...buildKeyboardPressProps(onPress, 2)}
-    >
-      <SizableText size="$bodyLg" color="$textSubdued" flexShrink={0}>
-        {caption}
-      </SizableText>
-      {pick.kind === 'class' ? (
-        <EarnAssetLogos
-          logos={kindLogos}
-          size="xs"
-          ringColor={isHovered ? '$bgStrongHover' : '$bgStrong'}
+    />
+  );
+}
+
+// The network both picks are on, in the wide window's header over the
+// markets' column. Picked in either pick's list: it opens the supply side's
+export function LoanPickNetwork({
+  network,
+  onPress,
+}: {
+  // None, every network
+  network?: IEarnAssetSelectNetwork;
+  onPress: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <EarnHeaderPickCell
+      testID="earn-loan-pick-network"
+      label={intl.formatMessage({ id: ETranslations.global_network })}
+      logo={
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isAllNetworks={!network}
+          size="$5"
         />
-      ) : (
-        <Token size="sm" tokenImageUri={token?.logoURI || fallbackLogoURI} />
-      )}
-      <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
-        {label}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        size="$5"
-        color="$iconSubdued"
-        flexShrink={0}
-        ml="$-1"
-      />
-    </XStack>
+      }
+      value={
+        network?.name ??
+        intl.formatMessage({ id: ETranslations.global_all_networks })
+      }
+      onPress={onPress}
+    />
   );
 }
 
@@ -1455,40 +1456,21 @@ export function LoanPickBar({
   borrow: ILoanPickSide;
   // The network both picks are on; none, every network
   network?: IEarnAssetSelectNetwork;
-  // In the window's header, after its name: one line, each pick a pill
-  // with its role, the network they share said once after them ("Supply
-  // ETH, Borrow USDC on All networks"), as the Earn window's pick reads
+  // As the wide window's header: each pick under its role, as the Earn
+  // window's header reads. The network they share stands over the markets
+  // (LoanPickNetwork)
   inHeader?: boolean;
 }) {
-  const intl = useIntl();
   const { gtMd } = useMedia();
   // The selectors the halves open group their networks by Swap's list
   useEffect(warmSwapNetworkParents, []);
   if (inHeader) {
     return (
-      <XStack testID="earn-loan-pick-bar" ai="center" gap="$2" minWidth={0}>
-        <LoanPickPill side={supply} />
-        <Icon
-          name="ArrowRightOutline"
-          size="$4"
-          color="$iconSubdued"
-          flexShrink={0}
-        />
-        <LoanPickPill side={borrow} />
-        <SizableText
-          testID="earn-loan-pick-network"
-          size="$bodyLg"
-          color="$textSubdued"
-          numberOfLines={1}
-          flexShrink={1}
-          ml="$1"
-        >
-          {EARN_DESKTOP_DEMO_COPY.onNetwork(
-            network?.name ??
-              intl.formatMessage({ id: ETranslations.global_all_networks }),
-          )}
-        </SizableText>
-      </XStack>
+      <EarnHeaderPickRow testID="earn-loan-pick-bar">
+        <LoanPickCell side={supply} />
+        <EarnHeaderPickArrow />
+        <LoanPickCell side={borrow} />
+      </EarnHeaderPickRow>
     );
   }
   return (

@@ -3,11 +3,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import {
+  EarnHeaderPickCell,
+  EarnHeaderPickRow,
+} from '../../components/desktopHome/EarnHeaderPick';
 
 import { getEarnAssetClassLabel } from './earnAssetClassLabel';
 import { EarnAssetLogos } from './EarnAssetLogos';
@@ -44,7 +49,10 @@ export function EarnAssetPickTrigger({
   testID = 'earn-asset-pick-trigger',
   onPress,
 }: {
-  variant?: 'title' | 'pill';
+  // The wide Earn window's header, fields without boxes: 'header' is the
+  // pick under its role (`lead`, the window's name), 'headerNetwork' the
+  // network it is on, which stands over the offers
+  variant?: 'title' | 'pill' | 'header' | 'headerNetwork';
   pick: IEarnAssetPick;
   tokens: IEarnAssetSelectToken[];
   // Where the pick's network is named; else found on the tokens' networks
@@ -111,6 +119,47 @@ export function EarnAssetPickTrigger({
       : (token?.symbol ?? pick.symbol);
   // The logos' rings take the pill's color as it changes
   const [isHovered, setIsHovered] = useState(false);
+  if (variant === 'header') {
+    return (
+      <EarnHeaderPickRow>
+        <EarnHeaderPickCell
+          testID={testID}
+          label={lead ?? ''}
+          logo={
+            pick.kind === 'class' ? (
+              <EarnAssetLogos logos={kindLogos} size="xs" />
+            ) : (
+              <Token
+                size="xs"
+                tokenImageUri={token?.logoURI || fallbackLogoURI}
+              />
+            )
+          }
+          value={label}
+          onPress={onPress}
+        />
+      </EarnHeaderPickRow>
+    );
+  }
+  if (variant === 'headerNetwork') {
+    // Where the pick is, picked in the same list: every network, or the
+    // one it is kept to
+    return (
+      <EarnHeaderPickCell
+        testID={`${testID}-network`}
+        label={intl.formatMessage({ id: ETranslations.global_network })}
+        logo={
+          <NetworkAvatarBase
+            logoURI={badgeLogoURI ?? ''}
+            isAllNetworks={!pickNetworkId}
+            size="$5"
+          />
+        }
+        value={networkWords ?? ''}
+        onPress={onPress}
+      />
+    );
+  }
   if (variant === 'pill') {
     return (
       <XStack
