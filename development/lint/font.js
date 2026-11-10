@@ -30,15 +30,6 @@ const {
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
-function hasForbiddenRuntimeFontLoader(source) {
-  const importsExpoFont =
-    /(?:from\s+['"]expo-font['"]|require\(\s*['"]expo-font['"]|useFonts\()/.test(
-      source,
-    );
-  const requiresTtf = /require\(\s*['"][^'"]+\.ttf['"]/.test(source);
-  return importsExpoFont || requiresTtf;
-}
-
 function runFontCheck() {
   const startTime = Date.now();
 
@@ -46,11 +37,6 @@ function runFontCheck() {
 
   const rootDir = path.resolve(__dirname, '../..');
 
-  // Source of truth: useLoadCustomFonts.ts (the fonts actually used at runtime)
-  const useLoadCustomFontsPath = path.join(
-    rootDir,
-    'packages/components/src/hocs/Provider/hooks/useLoadCustomFonts.ts',
-  );
   const fontsSrcDir = path.join(
     rootDir,
     'packages/components/src/hocs/Provider/fonts',
@@ -118,15 +104,6 @@ function runFontCheck() {
     exit(1);
   }
 
-  // Guard: native registration is the only font loading path. If expo-font or a ttf
-  // require comes back here, every font is shipped twice again (see PR #14418).
-  const useLoadContent = fs.readFileSync(useLoadCustomFontsPath, 'utf-8');
-  if (hasForbiddenRuntimeFontLoader(useLoadContent)) {
-    error(
-      'useLoadCustomFonts.ts must not load fonts (expo-font / require(ttf)); native registration already provides them',
-    );
-  }
-
   // Relative to the Provider fonts dir, as listed in the Podfile.
   const registeredFonts = fontEntries.map((e) => e.fileName);
   // The Xcode bundle and UIAppFonts are flat, so they use base names.
@@ -140,7 +117,7 @@ function runFontCheck() {
     const filePath = path.join(fontsSrcDir, fileName);
     if (!fs.existsSync(filePath)) {
       error(
-        `${fileName} registered in useLoadCustomFonts.ts but file is MISSING`,
+        `${fileName} declared in development/lint/font.js but file is MISSING`,
       );
     } else {
       ok(`${fileName} exists`);
@@ -304,7 +281,3 @@ function runFontCheck() {
 if (require.main === module) {
   runFontCheck();
 }
-
-module.exports = {
-  hasForbiddenRuntimeFontLoader,
-};

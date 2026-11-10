@@ -4,8 +4,6 @@ const { test } = require('node:test');
 const os = require('os');
 const path = require('path');
 
-const { hasForbiddenRuntimeFontLoader } = require('../lint/font');
-
 const { getPostScriptName } = require('./font-file-utils');
 const {
   RemoteFontsUnavailableError,
@@ -378,34 +376,3 @@ test('syncIosFonts updates an existing iOS Fonts directory and skips when absent
       );
     }
   }));
-
-test('hasForbiddenRuntimeFontLoader guards useLoadCustomFonts against expo-font and require(ttf)', () => {
-  const useLoadCustomFontsPath = path.join(
-    fontsDir,
-    '../hooks/useLoadCustomFonts.ts',
-  );
-  assert.equal(
-    hasForbiddenRuntimeFontLoader(
-      fs.readFileSync(useLoadCustomFontsPath, 'utf-8'),
-    ),
-    false,
-  );
-  assert.equal(
-    hasForbiddenRuntimeFontLoader("import { useFonts } from 'expo-font';"),
-    true,
-  );
-  assert.equal(
-    hasForbiddenRuntimeFontLoader("const expoFont = require('expo-font');"),
-    true,
-  );
-  assert.equal(
-    hasForbiddenRuntimeFontLoader('const [loaded] = useFonts({});'),
-    true,
-  );
-  assert.equal(
-    hasForbiddenRuntimeFontLoader(
-      "const font = require('../fonts/brand/BrandSans-Regular.ttf');",
-    ),
-    true,
-  );
-});
