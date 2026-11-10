@@ -278,6 +278,21 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 targetCredentialId: credentialId,
               });
             }
+            // V2 runtime reads do not refresh the label. Read settings only
+            // when there is no Bluetooth name to display.
+            const displayState = opened.state.identity.bleName
+              ? opened.state
+              : await call('getDeviceState.settings', () =>
+                  hardware.getDeviceState({
+                    connectId,
+                    params: { scope: 'settings' },
+                    silentMode: true,
+                  }),
+                );
+            const deviceName = deviceUtils.getDeviceDisplayName({
+              state: displayState,
+              preferBleName: true,
+            });
 
             let standard:
               | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
@@ -350,9 +365,10 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               type: 'hardware',
               credentialId,
               derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
-              deviceName: deviceUtils.getDeviceDisplayName({
-                state: opened.state,
-              }),
+              deviceName,
+              ...(displayState.identity.bleName
+                ? { deviceBleName: deviceName }
+                : {}),
               deviceType: opened.state.identity.deviceType,
               // The image only; the serial number is not kept.
               deviceAvatar: getDeviceAvatarImage(

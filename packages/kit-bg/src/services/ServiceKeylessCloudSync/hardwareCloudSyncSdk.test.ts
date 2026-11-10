@@ -51,17 +51,6 @@ jest.mock('@onekeyhq/shared/src/appCrypto', () => {
   };
 });
 
-jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
-  __esModule: true,
-  default: {
-    getDeviceDisplayName: ({
-      state,
-    }: {
-      state: { identity: { label: string } };
-    }) => state.identity.label,
-  },
-}));
-
 jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
   __esModule: true,
   default: { getEstimatedServerTime: jest.fn() },
@@ -109,6 +98,11 @@ function buildBackgroundApi(
     unlockedAttachPin?: boolean | null;
     passphraseProtection?: boolean;
   } = { unlocked: true, unlockedAttachPin: false },
+  identity: {
+    label?: string;
+    bleName?: string | null;
+    deviceType?: string;
+  } = {},
 ) {
   const sdk = {
     openWalletSession: jest.fn(
@@ -151,14 +145,17 @@ function buildBackgroundApi(
   const hardware = {
     getCompatibleConnectId: jest.fn(async () => 'test-connect'),
     getSDKInstance: jest.fn(async () => sdk),
-    getDeviceState: jest.fn(async () => ({
-      identity: {
-        deviceId: 'test-device',
-        label: 'My OneKey',
-        deviceType: 'pro',
-      },
-      status,
-    })),
+    getDeviceState: jest.fn(
+      async (_options?: { params: { scope: string } }) => ({
+        identity: {
+          deviceId: 'test-device',
+          label: 'My OneKey',
+          deviceType: 'pro',
+          ...identity,
+        },
+        status,
+      }),
+    ),
     buildHwWalletXfp: jest.fn(async () => walletXfp),
     runWithSensitiveCloudKeyOperation: jest.fn(
       async <T>(operation: () => Promise<T>) => operation(),
@@ -279,6 +276,62 @@ describe('hardware Cloud SDK adapter', () => {
       );
     },
   );
+
+  test.each([
+    { bleName: 'Neo 1797', deviceType: 'neo', expectedName: 'Neo 1797' },
+    { bleName: 'Pro2 6136', deviceType: 'pro2', expectedName: 'Pro 2 6136' },
+    { bleName: '', deviceType: 'neo', expectedName: 'fido88' },
+    { bleName: null, deviceType: 'neo', expectedName: 'fido88' },
+    { bleName: undefined, deviceType: 'neo', expectedName: 'fido88' },
+  ])(
+    'names the Cloud device $expectedName with label fido88 and BLE name $bleName',
+    async ({ bleName, deviceType, expectedName }) => {
+      const { backgroundApi, hardware } = buildBackgroundApi(undefined, {
+        label: 'fido88',
+        bleName,
+        deviceType,
+      });
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceName).toBe(expectedName);
+      expect(result.credential.source?.deviceName).toBe(expectedName);
+      expect(result.source.deviceBleName).toBe(
+        bleName ? expectedName : undefined,
+      );
+      expect(
+        hardware.getDeviceState.mock.calls.filter(
+          ([options]) => options?.params.scope === 'settings',
+        ),
+      ).toHaveLength(bleName ? 0 : 1);
+    },
+  );
+
+  test('refreshes a stale label only when no Bluetooth name is available', async () => {
+    const { backgroundApi, hardware } = buildBackgroundApi(undefined, {
+      label: 'Old label',
+      bleName: null,
+    });
+    const staleState = await hardware.getDeviceState();
+    hardware.getDeviceState.mockClear();
+    hardware.getDeviceState
+      .mockResolvedValueOnce(staleState)
+      .mockResolvedValueOnce({
+        ...staleState,
+        identity: { ...staleState.identity, label: 'Latest label' },
+      });
+    const result = await generateHardwareCloudSyncCredentialWithSdk({
+      unlock,
+      backgroundApi,
+      connectId: 'test-connect',
+      isCurrent: () => true,
+    });
+    expect(result.source.deviceName).toBe('Latest label');
+    expect(result.source.deviceBleName).toBeUndefined();
+  });
 
   test.each([
     HardwareErrorCode.ActionCancelled,

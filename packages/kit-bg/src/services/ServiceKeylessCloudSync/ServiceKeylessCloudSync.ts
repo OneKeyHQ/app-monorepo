@@ -8,6 +8,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
@@ -27,7 +28,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
@@ -135,6 +138,92 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   // Keep the explicit "Switch Now" intent in memory until the keyless wallet is created.
   private pendingAutoEnableCloudSyncKeyless = false;
+
+  private async updateHardwareCloudSyncDeviceName(
+    source: Pick<
+      IHardwareCloudSyncKeySource,
+      'credentialId' | 'deviceName' | 'deviceBleName'
+    >,
+    { onlyIfLabelFallback = false }: { onlyIfLabelFallback?: boolean } = {},
+  ) {
+    await primeCloudSyncPersistAtom.set((config) => {
+      const current = config.hardwareCloudSyncKeySource;
+      if (
+        current?.credentialId !== source.credentialId ||
+        (onlyIfLabelFallback && current.deviceBleName) ||
+        (current.deviceName === source.deviceName &&
+          current.deviceBleName === source.deviceBleName)
+      ) {
+        return config;
+      }
+      return {
+        ...config,
+        hardwareCloudSyncKeySource: {
+          ...current,
+          deviceName: source.deviceName,
+          deviceBleName: source.deviceBleName,
+        },
+      };
+    });
+  }
+
+  async syncHardwareCloudSyncDeviceLabel({
+    walletId,
+    label,
+  }: {
+    walletId: string;
+    label: string;
+  }) {
+    const source = (await primeCloudSyncPersistAtom.get())
+      .hardwareCloudSyncKeySource;
+    if (
+      !source ||
+      source.deviceBleName ||
+      !accountUtils.isHwWallet({ walletId })
+    )
+      return;
+    const wallet = await localDb.getWalletSafe({
+      walletId,
+      withoutRefill: true,
+    });
+    if (!wallet?.xfp || wallet.passphraseState || !wallet.associatedDevice)
+      return;
+    // Cloud has no wallet record of its own; match the standard wallet identity
+    // before reusing another flow's device metadata.
+    let credentialId: string;
+    try {
+      const [{ default: appCrypto }, { normalizeHardwareCloudWalletXfp }] =
+        await Promise.all([
+          import('@onekeyhq/shared/src/appCrypto'),
+          import('./hardwareCloudSyncCredential'),
+        ]);
+      credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
+        appCrypto.hash.sha256Sync(
+          Buffer.from(normalizeHardwareCloudWalletXfp(wallet.xfp), 'utf8'),
+        ),
+      ).toString('hex')}`;
+    } catch {
+      return;
+    }
+    if (credentialId !== source.credentialId) return;
+    const device = await localDb.getDeviceSafe(wallet.associatedDevice);
+    if (!device) return;
+    const bleName = device.deviceStateInfo?.identity.bleName
+      ? deviceUtils.getDeviceDisplayName({
+          state: device.deviceStateInfo,
+          preferBleName: true,
+        })
+      : deviceUtils.buildDeviceBleName({ features: device.featuresInfo });
+    const deviceName =
+      bleName ||
+      label ||
+      deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
+      device.name;
+    await this.updateHardwareCloudSyncDeviceName(
+      { credentialId, deviceName, deviceBleName: bleName },
+      { onlyIfLabelFallback: true },
+    );
+  }
 
   private repairCredentialMutex = new Semaphore(1);
 
@@ -1696,6 +1785,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         credential,
         rotated.next,
       );
+      await this.updateHardwareCloudSyncDeviceName(derived.source);
       await this.recordHardwareKeyGeneration(
         source.credentialId,
         rotated.generation,
