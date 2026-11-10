@@ -128,7 +128,12 @@ jest.mock(
   }),
 );
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({}),
+  useStockDetail: () => ({
+    isStockRoute: Boolean(mockStockId),
+    stockPreview: mockStockId
+      ? { symbol: mockStockId, name: 'Stock' }
+      : undefined,
+  }),
 }));
 jest.mock('../../hooks/useMarketDetailBackNavigation', () => ({
   useMarketDetailBackNavigation: () => ({ handleBackPress: jest.fn() }),
@@ -210,6 +215,14 @@ describe('Market detail global navigation', () => {
       }
     },
   );
+
+  it('keeps stock identity visible in a compact desktop detail', () => {
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isWebDappMode', false);
+    mockStockId = 'AAPL';
+    render(<MarketDetailHeader />);
+    expect(screen.getByTestId('compact-header').textContent).toContain('AAPL');
+  });
 
   it('keeps the compact detail header on phones', () => {
     mockWidth = 767;
