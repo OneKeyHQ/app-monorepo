@@ -1,4 +1,5 @@
 import openUrlUtils from '../../utils/openUrlUtils';
+import { traceSupportNotification } from '../../utils/supportNotificationTrace';
 
 import { EIntercomBridge } from './bridge';
 import {
@@ -34,8 +35,20 @@ export const showIntercom = async (
   // The metadata awaits above can outlive the identity check.
   await assertIntercomUserUnchanged(userId);
   if (!canPresent(userId)) {
+    traceSupportNotification('intercom-open-result', {
+      selectedBranch: 'native-webview-fallback',
+      opened: false,
+      reason: 'cannot-present',
+      hasConversationId: !!params?.conversationId,
+    });
     return false;
   }
+  traceSupportNotification('intercom-open', {
+    hasConversationId: !!params?.conversationId,
+    conversationId: params?.conversationId,
+    hasRequestId: !!params?.requestId,
+    selectedBranch: 'native-webview-fallback',
+  });
   openUrlUtils.openUrlInApp(url, 'Support', {
     hideHeaderRight: true,
     redirectExternalNavigation: true,

@@ -5,6 +5,7 @@ import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
+import { traceSupportNotification } from '../../utils/supportNotificationTrace';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
@@ -434,14 +435,33 @@ async function openIntercom(
   // A developer support URL override only applies to the hosted page, so it
   // routes around the native Messenger. The hosted page cannot open a specific
   // conversation, so notification opens keep using the SDK when it exists.
-  if (
-    !canUseNativeSdk() ||
-    (!params?.conversationId && (await getIntercomSupportUrlOverride()))
-  ) {
-    return showWebIntercom(
+  const nativeSdkReady = canUseNativeSdk();
+  // The override only matters for the hosted page, which cannot be reached
+  // with a conversation id and is irrelevant when the SDK is unavailable.
+  const supportUrlOverride =
+    nativeSdkReady && !params?.conversationId
+      ? await getIntercomSupportUrlOverride()
+      : undefined;
+  const webFallback = !nativeSdkReady || !!supportUrlOverride;
+  traceSupportNotification('intercom-open', {
+    hasConversationId: !!params?.conversationId,
+    conversationId: params?.conversationId,
+    hasRequestId: !!params?.requestId,
+    nativeSdkReady,
+    hasSupportUrlOverride: !!supportUrlOverride,
+    selectedBranch: webFallback ? 'webview' : 'native-sdk',
+  });
+  if (webFallback) {
+    const webOpened = await showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
     );
+    traceSupportNotification('intercom-open-result', {
+      selectedBranch: 'webview',
+      opened: webOpened,
+      hasConversationId: !!params?.conversationId,
+    });
+    return webOpened;
   }
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
@@ -484,15 +504,22 @@ async function openIntercom(
     return false;
   }
   if (params?.conversationId) {
-    return (
-      (await sdk.default.presentContent(
-        sdk.IntercomContent.conversationWithConversationId(
-          params.conversationId,
-        ),
-      )) !== false
+    const opened = await sdk.default.presentContent(
+      sdk.IntercomContent.conversationWithConversationId(params.conversationId),
     );
+    traceSupportNotification('intercom-open-result', {
+      selectedBranch: 'native-conversation',
+      opened: opened !== false,
+      conversationId: params.conversationId,
+    });
+    return opened !== false;
   }
-  return (await sdk.default.present()) !== false;
+  const opened = await sdk.default.present();
+  traceSupportNotification('intercom-open-result', {
+    selectedBranch: 'native-home',
+    opened: opened !== false,
+  });
+  return opened !== false;
 }
 
 export async function showIntercom(params?: IShowIntercomParams) {

@@ -1,5 +1,6 @@
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { traceSupportNotification } from '../../utils/supportNotificationTrace';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
@@ -291,8 +292,20 @@ const openIntercom = async (
 
   // A lock during the awaits above already hid the Messenger; do not reopen.
   if (messengerLocked || !canPresent()) {
+    traceSupportNotification('intercom-open-result', {
+      selectedBranch: 'web-sdk',
+      opened: false,
+      reason: messengerLocked ? 'messenger-locked' : 'cannot-present',
+      hasConversationId: !!params?.conversationId,
+    });
     return false;
   }
+  traceSupportNotification('intercom-open', {
+    hasConversationId: !!params?.conversationId,
+    conversationId: params?.conversationId,
+    hasRequestId: !!params?.requestId,
+    selectedBranch: params?.conversationId ? 'web-conversation' : 'web-home',
+  });
   if (params?.conversationId) {
     showConversation(params.conversationId);
   } else {

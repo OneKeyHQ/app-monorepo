@@ -2,6 +2,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
+import { traceSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationTrace';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,6 +37,13 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
     await whenAppUnlocked();
     const pending =
       await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
+    traceSupportNotification('ui-claim', {
+      hasPending: !!pending,
+      hasConversationId: !!pending?.conversationId,
+      conversationId: pending?.conversationId,
+      isExtension: platformEnv.isExtension,
+      isExtensionUiExpandTab: platformEnv.isExtensionUiExpandTab,
+    });
     if (!pending) {
       return;
     }
