@@ -22,6 +22,7 @@ import {
   Image,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   XStack,
@@ -80,6 +81,12 @@ const BANNER_PADDING_H = 20;
 // The leading Tron resource card is intentionally narrower than a standard
 // banner item; WalletBanner needs its width for the scroll-bound math too.
 const TRON_CARD_WIDTH = 220;
+
+// A placeholder (not loadingStrategy="skeleton") shows only once a load runs
+// past ImageV2's short delay. The skeleton strategy paints a gray square on
+// the first frame, which flashes behind transparent banner art each time the
+// desktop strip remounts its image on a switch, even when it is cached.
+const BANNER_IMAGE_PLACEHOLDER = <Skeleton w="100%" h="100%" radius={8} />;
 
 const closedBanners: Record<string, boolean> = {};
 
@@ -140,7 +147,11 @@ function BannerItem({
             h={WALLET_BANNER_IMAGE_SIZE}
             flexShrink={0}
           >
-            <Image size={WALLET_BANNER_IMAGE_SIZE} source={{ uri: item.src }} />
+            <Image
+              size={WALLET_BANNER_IMAGE_SIZE}
+              source={{ uri: item.src }}
+              placeholder={BANNER_IMAGE_PLACEHOLDER}
+            />
           </YStack>
         ) : null}
         {/* The decorative icon is bottom-anchored (right/bottom "$4", 24pt), so
@@ -654,6 +665,7 @@ function StripMedia({ item }: { item: IWalletBanner }) {
         <Image
           size={WALLET_BANNER_STRIP_IMAGE_SIZE}
           source={{ uri: item.src }}
+          placeholder={BANNER_IMAGE_PLACEHOLDER}
         />
       </Stack>
     );
