@@ -754,7 +754,11 @@ class ServiceSetting extends ServiceBase {
     const state = await termsConsentPersistAtom.get();
     if (
       state.acceptedVersion === version ||
-      (source !== 'dialog' && hasTermsConsentDialogAsked(state, version))
+      // Only the notices that share the app with the dialog defer to it. The
+      // web dApp mode has no dialog, even after a wallet-mode visit left one
+      // shown on the same site.
+      ((source === 'onboarding' || source === 'wallet_ready') &&
+        hasTermsConsentDialogAsked(state, version))
     ) {
       return;
     }
