@@ -529,9 +529,7 @@ export default function PrivacyNetworkSettings({
   const isFocused = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [{ storageUnsupportedNetworkIds }] = usePrivacyChainAtom();
-  const busyAccountOperationsRef = useRef(
-    new Map<string, IPrivacyAccountOperation>(),
-  );
+  const pendingAccountOperationsRef = useRef(new Map<string, Promise<void>>());
   const [busyAccountOperations, setBusyAccountOperations] = useState(
     new Map<string, IPrivacyAccountOperation>(),
   );
@@ -548,23 +546,32 @@ export default function PrivacyNetworkSettings({
   }, []);
 
   const runAccountOperation = useCallback(
-    async (
+    (
       entry: IPrivacyAccountEntry,
       operation: IPrivacyAccountOperation,
       run: () => Promise<void>,
     ) => {
       const key = getPrivacyAccountKey(entry);
-      if (busyAccountOperationsRef.current.has(key)) return;
-      busyAccountOperationsRef.current.set(key, operation);
-      setBusyAccountOperations(new Map(busyAccountOperationsRef.current));
-      try {
-        await run();
-      } finally {
-        busyAccountOperationsRef.current.delete(key);
-        if (mountedRef.current) {
-          setBusyAccountOperations(new Map(busyAccountOperationsRef.current));
-        }
-      }
+      const existing = pendingAccountOperationsRef.current.get(key);
+      if (existing) return existing;
+      // Register before running so repeated confirmations await the same outcome.
+      const pending = Promise.resolve()
+        .then(run)
+        .finally(() => {
+          pendingAccountOperationsRef.current.delete(key);
+          if (mountedRef.current) {
+            setBusyAccountOperations((current) => {
+              const next = new Map(current);
+              next.delete(key);
+              return next;
+            });
+          }
+        });
+      pendingAccountOperationsRef.current.set(key, pending);
+      setBusyAccountOperations((current) =>
+        new Map(current).set(key, operation),
+      );
+      return pending;
     },
     [],
   );

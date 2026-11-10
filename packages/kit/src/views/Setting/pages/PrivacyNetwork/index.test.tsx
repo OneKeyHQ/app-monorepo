@@ -73,7 +73,7 @@ const mockDisable = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
 >();
-const mockRepair = jest.fn(async (_params: unknown) => undefined);
+const mockRepair = jest.fn<Promise<void>, [unknown]>();
 const mockResumeChain = jest.fn<Promise<void>, [unknown]>();
 const mockPauseChain = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockLogError = jest.fn<void, [string]>();
@@ -417,7 +417,7 @@ describe('Privacy network settings for a temp wallet', () => {
     mockShowSlotsFull.mockClear();
     mockDisable.mockReset().mockResolvedValue(undefined);
     mockDelete.mockReset().mockResolvedValue(undefined);
-    mockRepair.mockClear();
+    mockRepair.mockReset().mockResolvedValue(undefined);
     mockResumeChain.mockReset().mockResolvedValue(undefined);
     mockPauseChain.mockReset().mockResolvedValue(undefined);
     mockLogError.mockClear();
@@ -1036,7 +1036,13 @@ describe('Privacy network settings for a temp wallet', () => {
     );
     mockAccountStates['hd-1--0'] = { enabled: true, paused: false };
     render(<PrivacyNetworkSettings networkId="zec--0" />);
-    fireEvent.click(await screen.findByTestId('privacy-network-pause-hd-1--0'));
+    const pauseButton = await screen.findByTestId(
+      'privacy-network-pause-hd-1--0',
+    );
+    await act(async () => {
+      fireEvent.click(pauseButton);
+    });
+    expect(mockDisable).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('privacy-network-resume-hd-1--0')).toBeNull();
     expect(
       (
@@ -1448,7 +1454,7 @@ describe('Privacy network settings for a temp wallet', () => {
       const second = screen.getByTestId(
         `privacy-network-${action}-hd-1--1`,
       ) as HTMLButtonElement;
-      act(() => {
+      await act(async () => {
         fireEvent.click(first);
         fireEvent.click(first);
       });
@@ -1464,7 +1470,9 @@ describe('Privacy network settings for a temp wallet', () => {
           ) as HTMLButtonElement
         ).disabled,
       ).toBe(false);
-      fireEvent.click(second);
+      await act(async () => {
+        fireEvent.click(second);
+      });
       expect(control).toHaveBeenCalledTimes(2);
       await act(async () => finish.get('hd-1--0')?.());
       expect(first.disabled).toBe(false);
@@ -1504,7 +1512,7 @@ describe('Privacy network settings for a temp wallet', () => {
       onConfirm: () => Promise<void>;
     };
     let pending: Promise<void> | undefined;
-    act(() => {
+    await act(async () => {
       pending = args.onConfirm();
       void args.onConfirm();
     });
@@ -1546,7 +1554,7 @@ describe('Privacy network settings for a temp wallet', () => {
     const second = screen.getByTestId(
       'privacy-network-enable-hd-1--1',
     ) as HTMLButtonElement;
-    act(() => {
+    await act(async () => {
       fireEvent.click(first);
       fireEvent.click(first);
     });
@@ -1567,7 +1575,7 @@ describe('Privacy network settings for a temp wallet', () => {
       onConfirm: (params: { preventClose: () => void }) => Promise<void>;
     };
     let pending: Promise<void> | undefined;
-    act(() => {
+    await act(async () => {
       pending = args.onConfirm({ preventClose: jest.fn() });
       void args.onConfirm({ preventClose: jest.fn() });
     });
@@ -1580,6 +1588,96 @@ describe('Privacy network settings for a temp wallet', () => {
     });
     expect(first.disabled).toBe(false);
   });
+
+  it.each([
+    ['enable', 'success'],
+    ['enable', 'failure'],
+    ['delete', 'success'],
+    ['delete', 'failure'],
+    ['repair', 'success'],
+    ['repair', 'failure'],
+  ] as const)(
+    'keeps duplicate %s confirmations pending until the shared request finishes with %s',
+    async (action, outcome) => {
+      const { Dialog } = jest.requireMock<{
+        Dialog: { show: jest.Mock; confirm: jest.Mock };
+      }>('@onekeyhq/components');
+      mockAccounts = [listItem({})];
+      mockAccountStates['hd-1--0'] = {
+        enabled: action !== 'enable',
+        paused: false,
+        birthdayHeight: 3_500_000,
+      };
+      const control = {
+        enable: mockEnable,
+        delete: mockDelete,
+        repair: mockRepair,
+      }[action];
+      let finish: () => void = () => {};
+      let fail: (error: Error) => void = () => {};
+      const request = new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        fail = reject;
+      });
+      control.mockImplementationOnce(() => request);
+      render(<PrivacyNetworkSettings networkId="zec--0" />);
+      const button = await screen.findByTestId(
+        `privacy-network-${action === 'repair' ? 'birthday' : action}-hd-1--0`,
+      );
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      const dialog = action === 'enable' ? Dialog.show : Dialog.confirm;
+      const args = dialog.mock.calls.at(-1)?.[0] as {
+        onConfirm: (params: { preventClose: () => void }) => Promise<void>;
+      };
+      const resolved = jest.fn();
+      const rejected = jest.fn();
+      let confirmations: Promise<PromiseSettledResult<void>[]> | undefined;
+      await act(async () => {
+        const first = args.onConfirm({ preventClose: jest.fn() });
+        const second = args.onConfirm({ preventClose: jest.fn() });
+        void first.then(resolved, rejected);
+        void second.then(resolved, rejected);
+        confirmations = Promise.allSettled([first, second]);
+      });
+      expect(control).toHaveBeenCalledTimes(1);
+      // The dialog footer closes on fulfillment, so neither callback may finish early.
+      expect(resolved).not.toHaveBeenCalled();
+      expect(rejected).not.toHaveBeenCalled();
+      const error = new Error('operation failed');
+      await act(async () => {
+        if (outcome === 'success') {
+          finish();
+        } else {
+          fail(error);
+        }
+        expect(await confirmations).toEqual(
+          outcome === 'success'
+            ? [
+                { status: 'fulfilled', value: undefined },
+                { status: 'fulfilled', value: undefined },
+              ]
+            : [
+                { status: 'rejected', reason: error },
+                { status: 'rejected', reason: error },
+              ],
+        );
+      });
+      expect(control).toHaveBeenCalledTimes(1);
+      if (outcome === 'success') {
+        expect(resolved).toHaveBeenCalledTimes(2);
+        expect(rejected).not.toHaveBeenCalled();
+      } else {
+        expect(resolved).not.toHaveBeenCalled();
+        expect(rejected).toHaveBeenCalledTimes(2);
+        await act(async () => {
+          await args.onConfirm({ preventClose: jest.fn() });
+        });
+        expect(control).toHaveBeenCalledTimes(2);
+      }
+    },
+  );
 
   it('does not share a busy state between equal account IDs on different networks', async () => {
     mockAccounts = [listItem({}), listItem({ networkId: 'xmr--0' })];
@@ -1595,7 +1693,9 @@ describe('Privacy network settings for a temp wallet', () => {
     const [first, second] = (await screen.findAllByTestId(
       'privacy-network-pause-hd-1--0',
     )) as HTMLButtonElement[];
-    fireEvent.click(first);
+    await act(async () => {
+      fireEvent.click(first);
+    });
     expect(first.disabled).toBe(true);
     expect(second.disabled).toBe(false);
     expect(second.getAttribute('aria-busy')).toBe('false');
