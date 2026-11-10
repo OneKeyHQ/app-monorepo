@@ -165,8 +165,8 @@
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
-    "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
-    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
+    "check:release-age": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts diff",
+    "check:release-age:full": "node --experimental-strip-types development/scripts/minimum-release-age/run.ts full"
   },
   "minimumReleaseAge": {
     "days": 7,
@@ -282,7 +282,7 @@
     "react-native": "0.88.0",
     "react-native-confirmation-code-field": "9.0.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-35",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-39",
     "react-native-reanimated": "4.7.1",
     "react-native-screens": "~4.30.0",
     "react-native-web": "0.21.2",
@@ -335,6 +335,7 @@
     "@rspack/dev-server": "2.2.1",
     "@rspack/plugin-react-refresh": "2.0.2",
     "@sentry/babel-plugin-component-annotate": "4.9.1",
+    "@sentry/cli": "2.38.2",
     "@sentry/webpack-plugin": "^2.22.6",
     "@swc/core": "^1.5.25",
     "@swc/helpers": "0.5.23",
@@ -574,7 +575,7 @@
     "react-native-reanimated": "4.7.1",
     "react-native-worklets": "0.13.0",
     "react-native-screens": "4.30.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-35",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-39",
     "@onekeyfe/react-native-ble-utils": "0.1.9",
     "@isaacs/brace-expansion": "5.0.1",
     "minimatch@^10.2.2": "10.2.6",
