@@ -1466,3 +1466,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Onramper SDK 1.3.1 reports every failure of the provider's payment surface as `providerFailed` (payment outcome unknown), including a web view that never loaded. The client kept every such order for tracking.
 **Fix**: Read a `providerFailed` as a page load failure only when the failure carries a load error (support code `NSURLErrorDomain/<code>` other than cancelled, or the page's own `load_error`) and the web view had not reported ready. That hidden order is dropped and the page offers an in-place retry; a failure without a load error stays tracked as outcome unknown. The first version of the fix inferred the load failure from a missing `providerReady` alone, which review rejected: a provider page is not bound to report readiness.
 **Catchable by**: Section 4: Edge cases — error states of a third-party surface. Decide an outcome that drops a payment record on positive evidence from the failure, never on an event that did not arrive.
+
+## Case: Bulk Send random amounts did nothing with only the max entered (OK-66698)
+**Date**: 2026-11-10 | **Platforms**: Bulk Send amounts page on desktop/web (single JS runtime), extension and mobile (main UI runtime). No background or native-resource changes.
+**Symptom**: In ManyToOne / ManyToMany range mode, entering only the max generated no amounts, showed no error and kept Review disabled.
+**Root Cause**: Range validity and generation both required a non-empty min, while these modes start with both inputs empty and the "0" placeholder reads as an already-filled min.
+**Fix**: Treat an empty min as the chain minimum transfer amount, or the smallest token unit when the chain defines none, in validation, validity and generation. Review follow-up: an amount that display rounding would drop below a lower bound it met keeps that bound's precision (chain minimum 5.46 with an integer max formatted 5.68 as "5"), and a shared OneToMany balance must cover the chain minimum for every transfer instead of only one. Second review round: that kept precision is capped at the token's decimals (a min of 1.12345678 on a 6-decimal token produced an 8-decimal amount), and a range entered before the vault settings load is revalidated and regenerated once the chain minimum arrives, in both the mobile preview and the desktop table.
+**Catchable by**: Sections 4 and 6: When an input becomes optional, test the fallback value through every later step (rounding, balance caps) against chain limits, including a decimal chain minimum with an integer input, a balance below minimum × transfer count, an input finer than the token's decimals, and a fallback read before its async source resolves.
+
+## Case: Native Buy rate and fee popovers doubled the gap under the title (OK-66874)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime), where the popover presents as a sheet. The anchored panel on expanded windows is unchanged.
+**Symptom**: The rate and fee explainer sheets left too much space between the title and the body.
+**Root Cause**: The body's uniform `$5` padding added a full top inset below the sheet header's own bottom padding.
+**Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
