@@ -129,6 +129,7 @@ import { formatStakingDistanceToNowStrict } from '../utils';
 import { keepConfirmWordId } from './earnConfirmWord';
 import {
   EARN_BUTTON_LOOK_TRANSITION,
+  EarnFormCompactContext,
   EarnFormRow,
   EarnFormSummary,
   EarnFormSwitchingContext,
@@ -755,6 +756,7 @@ export function UniversalStake({
   transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const isCompact = useContext(EarnFormCompactContext);
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
   >(ongoingValidator?.select?.defaultValue);
@@ -2610,12 +2612,19 @@ export function UniversalStake({
     Boolean(estimateFeeUTXO) &&
     isPositiveAmount;
   // The steps show as soon as the button names them ("Approve and
-  // Deposit"), before the press as well as while it runs
+  // Deposit"), before the press as well as while it runs. A window that
+  // keeps its form short leaves them to the button until the press
+  const hasStartedSteps =
+    approving ||
+    submitting ||
+    Boolean(showStakeProgressRef.current[amountValue]) ||
+    (isWrapStake && stakeProgressStep !== EStakeProgressStep.approve);
   const isShowStakeProgress =
     isPositiveAmount &&
     (isWrapStake ||
       (useApprove &&
-        (shouldApprove || showStakeProgressRef.current[amountValue])));
+        (shouldApprove || showStakeProgressRef.current[amountValue]))) &&
+    (!isCompact || hasStartedSteps);
 
   const stakeProgressCurrentStep = useMemo(() => {
     if (isWrapStake) {

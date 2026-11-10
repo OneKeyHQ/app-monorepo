@@ -435,20 +435,11 @@ function PositionValue({
 
 // A block's line, its label on the left and its value on the right, as a
 // placeholder of the line's height
-function SkeletonFormRow({
-  height,
-  hasNote,
-}: {
-  height: number;
-  hasNote?: boolean;
-}) {
+function SkeletonFormRow({ height }: { height: number }) {
   return (
     <XStack h={height} jc="space-between" ai="flex-start">
       <Skeleton.BodyMd w={88} />
-      <YStack ai="flex-end">
-        <Skeleton.BodyMd w={56} />
-        {hasNote ? <Skeleton.BodySm w={96} /> : null}
-      </YStack>
+      <Skeleton.BodyMd w={56} />
     </XStack>
   );
 }
@@ -490,19 +481,20 @@ function PositionManageLink({ onPress }: { onPress: () => void }) {
 }
 
 // While the market's figures load, the place of the account's position
-// there, line for line (its title, Collateral, Borrowed and the health
-// factor with its note), so the modal opens at the size it settles at
-// where the account has a position, and shrinks once if it has none
+// there, line for line as it opens folded (the health factor, then the
+// position's title and its link), so the modal opens at the size it settles
+// at where the account has a position, and shrinks once if it has none
 function PositionSkeleton() {
   return (
-    <YStack testID="earn-loan-position-loading" px="$3.5" gap="$3" aria-hidden>
-      <XStack h={20} ai="center" gap="$2">
-        <Skeleton w="$5" h="$5" radius="round" />
-        <Skeleton.BodyMd w={160} />
-      </XStack>
-      <SkeletonFormRow height={24} />
-      <SkeletonFormRow height={24} />
-      <SkeletonFormRow height={36} hasNote />
+    <YStack
+      testID="earn-loan-position-loading"
+      px="$3.5"
+      mt="$-2"
+      gap="$3"
+      aria-hidden
+    >
+      <SkeletonFormRow height={20} />
+      <SkeletonFormRow height={20} />
     </YStack>
   );
 }
@@ -1946,7 +1938,14 @@ function EarnLoanRouterPage() {
   // after
   const positionBlock =
     hasPosition && selectedRoute && selectedFacts ? (
-      <YStack testID="earn-loan-position" px="$3.5" gap="$3" {...fadeInProps}>
+      // As close under the Net APY as its rows sit to each other
+      <YStack
+        testID="earn-loan-position"
+        px="$3.5"
+        mt="$-2"
+        gap="$3"
+        {...fadeInProps}
+      >
         {/* What the loan does to the position's safety stays in view; what
             backs it and what it owes open under "Your position" */}
         {healthRow}

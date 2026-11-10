@@ -18,7 +18,10 @@ import {
   EStakeProgressStep,
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
-import { EarnFormSwitchingContext } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import {
+  EarnFormCompactContext,
+  EarnFormSwitchingContext,
+} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -41,6 +44,7 @@ export function ActionFooter({
   onAutoSubmit,
 }: IActionFooterProps) {
   const intl = useIntl();
+  const isCompact = useContext(EarnFormCompactContext);
   const { state, actions, actionResult, approval } = useManagePositionContext();
   const {
     action,
@@ -235,9 +239,17 @@ export function ActionFooter({
     : businessActionLabel;
 
   // The steps show as soon as the button names them ("Approve and
-  // Supply"), before the press as well as while it runs
+  // Supply"), before the press as well as while it runs. A window that
+  // keeps its form short leaves them to the button until the press
+  const hasStartedSteps =
+    approving ||
+    submitting ||
+    isFormInteractionLocked ||
+    approvalProgressStarted;
   const isShowStakeProgress =
-    !!amountValue && (shouldApprove || approvalProgressStarted);
+    !!amountValue &&
+    (shouldApprove || approvalProgressStarted) &&
+    (!isCompact || hasStartedSteps);
 
   const progressContent = isShowStakeProgress ? (
     <StakeProgress
