@@ -803,39 +803,31 @@ export function parseNotificationPayload(
           const payloadTopLevelConversationId = (
             parsedPayload as { conversationId?: unknown }
           ).conversationId;
-          const paramsConversationId = extras?.params?.conversationId;
-          const dataConversationId = data?.conversationId;
-          // `extras.params` wins over the payload when both carry an id, so an
-          // explicit undefined in params must not hide a payload id.
-          const rawConversationId =
-            paramsConversationId !== undefined
-              ? paramsConversationId
-              : (dataConversationId ?? payloadTopLevelConversationId);
+          // Prefer extras.params, then data, then the top-level payload field.
+          // null/blank candidates count as absent: an explicit
+          // `conversationId: null` (or "") in params must not hide a usable
+          // payload id, otherwise the click degrades to the Messenger home.
+          const conversationIdCandidates: {
+            source: 'extras.params' | 'data' | 'payload';
+            value: unknown;
+          }[] = [
+            { source: 'extras.params', value: extras?.params?.conversationId },
+            { source: 'data', value: data?.conversationId },
+            { source: 'payload', value: payloadTopLevelConversationId },
+          ];
+          const selectedConversationIdCandidate = conversationIdCandidates.find(
+            ({ value }) =>
+              value !== undefined &&
+              value !== null &&
+              !(typeof value === 'string' && value.trim() === ''),
+          );
+          const rawConversationId = selectedConversationIdCandidate?.value;
           const conversationId = toSupportConversationId(rawConversationId);
-          // A blank string means "no id" (open the support entry); only a
-          // present but unusable value (object/boolean) keeps the old fallback.
-          const isBlankConversationId =
-            typeof rawConversationId === 'string' &&
-            rawConversationId.trim() === '';
+          // A present but unusable value (object/boolean) keeps the old fallback.
           const hasUnusableConversationId =
-            rawConversationId !== undefined &&
-            rawConversationId !== null &&
-            conversationId === undefined &&
-            !isBlankConversationId;
-          // `extras.params` wins over the payload when both carry an id, so
-          // report which field actually supplied the opened conversation.
-          let conversationIdSource:
-            | 'extras.params'
-            | 'data'
-            | 'payload'
-            | undefined;
-          if (paramsConversationId !== undefined) {
-            conversationIdSource = 'extras.params';
-          } else if (dataConversationId !== undefined) {
-            conversationIdSource = 'data';
-          } else if (payloadTopLevelConversationId !== undefined) {
-            conversationIdSource = 'payload';
-          }
+            rawConversationId !== undefined && conversationId === undefined;
+          // The field that actually supplied the opened conversation.
+          const conversationIdSource = selectedConversationIdCandidate?.source;
           defaultLogger.notification.support.supportReplyReceived({
             mode:
               typeof mode === 'string' || typeof mode === 'number'

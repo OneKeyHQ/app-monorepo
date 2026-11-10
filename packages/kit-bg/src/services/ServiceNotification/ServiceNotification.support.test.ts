@@ -223,6 +223,28 @@ describe('support notification delivery across startup', () => {
     });
   });
 
+  it.each([null, ''])(
+    'falls back to the payload id when extras.params.conversationId is %p',
+    async (paramsConversationId) => {
+      const fallback = jest.fn();
+      expect(
+        parseNotificationPayload(
+          ENotificationPushMessageMode.command,
+          JSON.stringify({
+            action: 'openSupportConversation',
+            data: { conversationId: 'payload-id' },
+          }),
+          fallback,
+          { params: { conversationId: paramsConversationId } },
+        ),
+      ).toBe(true);
+      expect(fallback).not.toHaveBeenCalled();
+      await expect(service.takePendingSupportConversation()).resolves.toEqual({
+        conversationId: 'payload-id',
+      });
+    },
+  );
+
   it('rejects an unusable conversation id before queuing', () => {
     const fallback = jest.fn();
     expect(
