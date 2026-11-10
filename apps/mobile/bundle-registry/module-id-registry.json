@@ -28085,6 +28085,7 @@
     "packages/shared/src/utils/txActionUtils.ts": 15774,
     "packages/shared/src/utils/unifoldDepositUtils.ts": 18014,
     "packages/shared/src/utils/uriUtils.ts": 15234,
+    "packages/shared/src/utils/walletBackupUtils.ts": 19083,
     "packages/shared/src/utils/webEmbedChannelUtils.ts": 15481,
     "packages/shared/src/utils/webViewUrlSafety.ts": 9775,
     "packages/shared/src/utils/zcashMemo.ts": 10731,
