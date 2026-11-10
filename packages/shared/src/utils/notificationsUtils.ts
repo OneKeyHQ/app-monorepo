@@ -35,6 +35,12 @@ import extUtils from './extUtils';
 import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
+import {
+  describeSupportPayload,
+  normalizeSupportConversationId,
+  summarizeSupportParams,
+  traceSupportNotification,
+} from './supportNotificationTrace';
 import timerUtils from './timerUtils';
 import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
@@ -767,10 +773,12 @@ export function parseNotificationPayload(
       return true;
     case ENotificationPushMessageMode.command:
       try {
-        const { action, data } = JSON.parse(payload || '{}') as {
+        const parsedPayload = JSON.parse(payload || '{}') as {
           action?: string;
           data?: Record<string, unknown>;
+          conversationId?: unknown;
         };
+        const { action, data } = parsedPayload;
         if (!action) {
           fallbackHandler();
           return false;
@@ -778,12 +786,42 @@ export function parseNotificationPayload(
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
         if (action === ENotificationCommand.openSupportConversation) {
-          const { conversationId } = mergedData;
-          if (
-            conversationId !== undefined &&
-            conversationId !== null &&
-            typeof conversationId !== 'string'
-          ) {
+          // The backend contract is
+          // {"action":"openSupportConversation","data":{"conversationId":"499"}}.
+          // An id placed next to `action`, or delivered as a JSON number, must
+          // not be dropped: without it the click silently opens the Messenger
+          // home (a brand-new conversation window) instead of the target
+          // conversation (OK-66809).
+          const rawConversationId =
+            mergedData.conversationId ??
+            (parsedPayload as { conversationId?: unknown }).conversationId;
+          const conversationId =
+            normalizeSupportConversationId(rawConversationId);
+          // A blank string means "no id" (open the support entry); only a
+          // present but unusable value (object/boolean) keeps the old fallback.
+          const isBlankConversationId =
+            typeof rawConversationId === 'string' &&
+            rawConversationId.trim() === '';
+          const hasUnusableConversationId =
+            rawConversationId !== undefined &&
+            rawConversationId !== null &&
+            conversationId === undefined &&
+            !isBlankConversationId;
+          traceSupportNotification('payload-received', {
+            modeRaw: mode,
+            modeNormalized: normalizedMode,
+            action,
+            msgId: extras?.params?.msgId,
+            ...describeSupportPayload(payload),
+            params: summarizeSupportParams(extras?.params),
+            rawConversationIdType:
+              rawConversationId === undefined
+                ? 'absent'
+                : typeof rawConversationId,
+            conversationId,
+            hasConversationId: conversationId !== undefined,
+          });
+          if (hasUnusableConversationId) {
             fallbackHandler();
             return false;
           }
@@ -792,10 +830,7 @@ export function parseNotificationPayload(
               sourceNodeId: platformEnv.isExtensionUi
                 ? appEventBus.nodeId
                 : undefined,
-              conversationId:
-                typeof conversationId === 'string'
-                  ? conversationId.trim() || undefined
-                  : undefined,
+              conversationId,
             })
             .catch(fallbackHandler);
           return true;
