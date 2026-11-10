@@ -2294,9 +2294,17 @@ class ServicePrimeCloudSync extends ServiceBase {
       walletId,
       metadata,
     }));
-    if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
+    // Activation temporarily disables sync. Scope records by the credential
+    // being initialized even while the persisted mode is None.
+    const credentialKeylessWalletId =
+      syncCredential.keylessCredential?.keylessWalletId;
+    if (
+      credentialKeylessWalletId ||
+      (await this.getActiveSyncMode()) === ECloudSyncMode.Keyless
+    ) {
       const currentKeylessWalletId =
-        await this.getCurrentCloudSyncKeylessWalletId();
+        credentialKeylessWalletId ??
+        (await this.getCurrentCloudSyncKeylessWalletId());
       botWalletRecords = filterBotWalletRecordsByCurrentKeylessSyncScope({
         records: botWalletRecords,
         currentKeylessWalletId,
