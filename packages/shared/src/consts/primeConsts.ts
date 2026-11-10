@@ -89,3 +89,6 @@ export const TRANSFER_PAIRING_CODE_LENGTH = 59;
 export const TRANSFER_ROOM_ID_LENGTH = 11;
 export const TRANSFER_VERIFY_STRING = 'OneKeyPrimeTransfer';
 export const TRANSFER_DEEPLINK_URL = `${ONEKEY_APP_DEEP_LINK}${EOneKeyDeepLinkPath.cross_device_transfer}/?`;
+
+export const ONEKEY_ID_OAUTH_BIND_PATH =
+  '/prime/v1/account/identities/oauth/bind';

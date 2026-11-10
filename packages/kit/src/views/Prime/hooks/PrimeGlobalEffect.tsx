@@ -313,7 +313,7 @@ function PrimeGlobalEffectAfterAuthReady() {
     : undefined;
   useEffect(() => {
     void backgroundApiProxy.servicePrimeFreeTrial.onPrimeUserStateChanged();
-  }, [freeTrialUserId, isActive, user?.isOneKeyIdBanned]);
+  }, [freeTrialUserId, isActive]);
   const { isInternetReachable } = useNetInfo();
   useUpdateEffect(() => {
     if (isInternetReachable) {
