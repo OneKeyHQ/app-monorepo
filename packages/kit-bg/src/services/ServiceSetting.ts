@@ -707,6 +707,17 @@ class ServiceSetting extends ServiceBase {
     );
   }
 
+  // Called by the dialog once it is on screen, which is what hands the answer
+  // to the dialog alone (see hasTermsConsentDialogAsked).
+  @backgroundMethod()
+  public async markTermsConsentShown({ version }: { version: string }) {
+    await termsConsentPersistAtom.set((prev) =>
+      prev.round?.version === version && prev.round.shownAt === undefined
+        ? { ...prev, round: { ...prev.round, shownAt: Date.now() } }
+        : prev,
+    );
+  }
+
   @backgroundMethod()
   public async acceptTermsConsent(params: {
     source: ITermsConsentSource;

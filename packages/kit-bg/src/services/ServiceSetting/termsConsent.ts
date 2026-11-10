@@ -82,13 +82,14 @@ export function getTermsConsentRecheckDelay(
   return Math.max(0, recheckAt - now);
 }
 
-// Once the dialog has asked about a version, only its own buttons answer it.
+// Once the dialog has appeared for a version, only its own buttons answer it.
 // The notices on Get Started and the ready page speak for people it never
 // asked, so a wallet created after Not now or "Back up wallets" isn't an
-// agreement.
+// agreement. A stored round alone doesn't count: the dialog may never have
+// shown.
 export function hasTermsConsentDialogAsked(
   { round }: ITermsConsentState,
   version: string,
 ) {
-  return round?.version === version;
+  return round?.version === version && round.shownAt !== undefined;
 }

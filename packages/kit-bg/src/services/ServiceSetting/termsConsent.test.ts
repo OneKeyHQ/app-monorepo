@@ -190,20 +190,25 @@ describe('getTermsConsentRecheckDelay', () => {
 });
 
 describe('hasTermsConsentDialogAsked', () => {
-  it('leaves new users to the notices until the dialog prompts', () => {
+  it('leaves the notices in charge until the dialog has appeared', () => {
     expect(hasTermsConsentDialogAsked({}, '2026.10')).toBe(false);
-    const { round } = resolveTermsConsentPrompt({
-      requiredVersion: '2026.10',
-      state: {},
-      now: START,
-    });
-    expect(hasTermsConsentDialogAsked({ round }, '2026.10')).toBe(true);
+    // A check stored the round, but a lock or a backup detour dropped it
+    // before the dialog showed.
+    const round = { version: '2026.10', firstPromptAt: START };
+    expect(hasTermsConsentDialogAsked({ round }, '2026.10')).toBe(false);
+    expect(
+      hasTermsConsentDialogAsked(
+        { round: { ...round, shownAt: START } },
+        '2026.10',
+      ),
+    ).toBe(true);
   });
 
   it('keeps the answer with the dialog after Not now and past the deadline', () => {
     const round = {
       version: '2026.10',
       firstPromptAt: START,
+      shownAt: START,
       notNowAt: START + DAY_MS,
     };
     const expired = resolveTermsConsentPrompt({
@@ -222,7 +227,7 @@ describe('hasTermsConsentDialogAsked', () => {
       hasTermsConsentDialogAsked(
         {
           acceptedVersion: '2026.10',
-          round: { version: '2026.10', firstPromptAt: START },
+          round: { version: '2026.10', firstPromptAt: START, shownAt: START },
         },
         '2027.01',
       ),
