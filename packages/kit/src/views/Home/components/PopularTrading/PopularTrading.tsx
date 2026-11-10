@@ -1068,9 +1068,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const shortCode = record.chainId
         ? networkUtils.getNetworkShortCode({ networkId: record.chainId })
         : '';
-      const marketTokenCategory = record.assetId
-        ? MARKET_TOP_COINS_CATEGORY_ID
-        : selectedMarketCategoryId;
+      const marketTokenCategory =
+        record.assetId || record.marketAsset
+          ? MARKET_TOP_COINS_CATEGORY_ID
+          : selectedMarketCategoryId;
 
       if (
         platformEnv.isExtensionUiPopup ||
@@ -1110,15 +1111,30 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         const routeName = record.stockId
           ? ETabMarketRoutes.MarketStockDetail
           : ETabMarketRoutes.MarketDetailV2;
+        const pendingMarketAssetId =
+          platformEnv.isNative && !record.stockId
+            ? (record.assetId ?? record.marketAsset?.assetId)
+            : undefined;
         const params = {
           stockId: record.stockId,
           stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
           stockPreviewName: record.stockId ? record.name : undefined,
           stockPreviewSymbol: record.stockId ? record.symbol : undefined,
           tokenAddress: record.contractAddress,
-          network: shortCode || record.chainId,
+          network: pendingMarketAssetId
+            ? record.chainId
+            : shortCode || record.chainId,
           isNative: record.isNative,
-          marketTokenId: record.marketTokenId,
+          marketTokenId: pendingMarketAssetId ?? record.marketTokenId,
+          pendingMarketAsset: pendingMarketAssetId
+            ? {
+                symbol: record.symbol || pendingMarketAssetId,
+                name: record.name,
+                logoUrl: record.logoUrl,
+                price: record.price,
+                change24h: record.priceChange24h,
+              }
+            : undefined,
           marketVariantId: record.marketVariantId,
           marketTokenCategory,
         };
@@ -1170,6 +1186,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     (record: IFavoriteTokenDisplay) => {
       navigationRequestIdRef.current += 1;
       const requestId = navigationRequestIdRef.current;
+      if (platformEnv.isNative && (record.assetId || record.marketAsset)) {
+        navigateToMarketTokenDetail(record, requestId);
+        return;
+      }
       if (record.assetId) {
         void backgroundApiProxy.serviceMarket
           .fetchMarketAssetDetail({

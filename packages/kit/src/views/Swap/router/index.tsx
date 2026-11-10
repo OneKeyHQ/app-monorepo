@@ -6,6 +6,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { createMarketDetailV2Route } from '../../Market/MarketDetailV2/MarketDetailV2Route';
 
 const LimitOrderDetailModal = LazyLoadPage(
   () => import('../pages/modal/LimitOrderDetailModal'),
@@ -45,9 +46,9 @@ const SwapProTokenSelectModal = LazyLoad(
   () => import('../pages/modal/SwapProSelectTokenModal'),
 );
 
-const SwapProMarketDetailModal = LazyLoadPage(
-  () => import('../../Market/MarketDetailV2'),
-);
+const SwapProMarketDetailModal = platformEnv.isNative
+  ? createMarketDetailV2Route()
+  : LazyLoadPage(() => import('../../Market/MarketDetailV2'));
 
 const DustSweepPage = LazyLoadPage(
   () => import('../../DustSweep/DustSweepPage'),

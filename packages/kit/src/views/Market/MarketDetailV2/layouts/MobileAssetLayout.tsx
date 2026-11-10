@@ -16,6 +16,7 @@ import { Keyboard, View, useWindowDimensions } from 'react-native';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
+  Button,
   DelayedFreeze,
   Divider,
   EInPageDialogType,
@@ -123,6 +124,7 @@ import {
   MobileSimpleChart,
 } from './MobileSimpleChart';
 
+import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiveLayout.types';
 import type { SwapPanel } from '../components/SwapPanel/SwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
@@ -350,6 +352,8 @@ function MobileMarketTradingView({
 export interface IMobileLayoutProps {
   active?: boolean;
   isLayoutPending?: boolean;
+  pendingMarketAsset?: IMarketDetailResponsiveLayoutProps['pendingMarketAsset'];
+  retryMarketAsset?: () => void;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
   disableTrade?: boolean;
@@ -369,6 +373,8 @@ export interface IMobileLayoutProps {
 export function MobileLayout({
   active,
   isLayoutPending,
+  pendingMarketAsset,
+  retryMarketAsset,
   isInitialContentPending,
   disablePerpsBanner = false,
   disableTrade,
@@ -401,9 +407,11 @@ export function MobileLayout({
     stockPreview,
     stockId,
   } = useStockDetail();
-  const { priceMode, isPriceSourceReady } = useStockPriceSource();
+  const { priceMode, isPriceSourceReady: isStockPriceSourceReady } =
+    useStockPriceSource();
+  const isPriceSourceReady = !pendingMarketAsset && isStockPriceSourceReady;
   const detailKind = resolveMarketMobileDetailKind({
-    isStockToken: Boolean(isStockToken || isStockRoute),
+    isStockToken: !pendingMarketAsset && Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
   });
   const { perpDisabled } = usePerpTabConfig();
@@ -433,11 +441,13 @@ export function MobileLayout({
     mode: chartDisplayMode,
     isChartFullscreen,
   });
-  const networkId =
-    selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
-  const tokenAddress =
-    selectedTokenVariant?.contractAddress ||
-    (storeNetworkId ? storeTokenAddress : routeTokenAddress);
+  const networkId = pendingMarketAsset
+    ? ''
+    : selectedTokenVariant?.networkId || storeNetworkId || routeNetworkId;
+  const tokenAddress = pendingMarketAsset
+    ? ''
+    : selectedTokenVariant?.contractAddress ||
+      (storeNetworkId ? storeTokenAddress : routeTokenAddress);
   const isNative =
     networkId === routeNetworkId && tokenAddress === routeTokenAddress
       ? routeIsNative
@@ -924,7 +934,10 @@ export function MobileLayout({
             <DelayedFreeze
               freeze={isChartFullscreen && !platformEnv.isNativeIOS}
             >
-              <InformationPanel mobileDetailKind={detailKind} />
+              <InformationPanel
+                mobileDetailKind={detailKind}
+                pendingMarketAsset={pendingMarketAsset}
+              />
             </DelayedFreeze>
           </YStack>
         </MarketDetailHeaderGesture>
@@ -943,7 +956,30 @@ export function MobileLayout({
             >
               <ChartControlsSkeleton />
               <Stack flex={1} position="relative">
-                <TradingViewChartLoadingMask />
+                {retryMarketAsset ? (
+                  <Stack
+                    flex={1}
+                    alignItems="center"
+                    justifyContent="center"
+                    gap="$2"
+                  >
+                    <SizableText color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.global_unknown_error_retry_message,
+                      })}
+                    </SizableText>
+                    <Button
+                      testID="market-asset-detail-retry"
+                      size="small"
+                      variant="tertiary"
+                      onPress={retryMarketAsset}
+                    >
+                      {intl.formatMessage({ id: ETranslations.global_retry })}
+                    </Button>
+                  </Stack>
+                ) : (
+                  <TradingViewChartLoadingMask />
+                )}
               </Stack>
             </YStack>
           ) : null}
@@ -1165,6 +1201,8 @@ export function MobileLayout({
     isTradingViewNative,
     layoutPageWidth,
     marketTokenId,
+    pendingMarketAsset,
+    retryMarketAsset,
     marketTradingViewKey,
     marketTradingViewParams,
     marketTradingViewStorageNamespace,
@@ -1267,32 +1305,34 @@ export function MobileLayout({
   // remains independent, and unknown support never creates a phantom entry.
   let swapPanelFooter: ReactNode = null;
   if (!disableTrade) {
-    swapPanelFooter = footerMode ? (
-      <LazySwapPanel
-        swapToken={toSwapPanelToken}
-        portfolioData={portfolioData}
-        onShowSwapDialog={showSwapDialog}
-        isPortfolioPending={isPortfolioPending}
-        isPortfolioIncomplete={
-          isStockPortfolio && stockPortfolio.isPortfolioIncomplete
-        }
-        onRefreshPortfolio={stockPortfolio.fetchPortfolio}
-        executionReady={isSwapTokenReady && isSwapExecutionReady}
-        footerMode={footerMode}
-        mobileLayout
-        detailKind={detailKind}
-        onPerps={handleOpenPerps}
-        perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}
-      />
-    ) : (
-      <SwapPanelFooterSkeleton />
-    );
+    swapPanelFooter =
+      footerMode && !pendingMarketAsset ? (
+        <LazySwapPanel
+          swapToken={toSwapPanelToken}
+          portfolioData={portfolioData}
+          onShowSwapDialog={showSwapDialog}
+          isPortfolioPending={isPortfolioPending}
+          isPortfolioIncomplete={
+            isStockPortfolio && stockPortfolio.isPortfolioIncomplete
+          }
+          onRefreshPortfolio={stockPortfolio.fetchPortfolio}
+          executionReady={isSwapTokenReady && isSwapExecutionReady}
+          footerMode={footerMode}
+          mobileLayout
+          detailKind={detailKind}
+          onPerps={handleOpenPerps}
+          perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}
+        />
+      ) : (
+        <SwapPanelFooterSkeleton />
+      );
   }
 
   // Stock headers have a stable skeleton and do not depend on token-variant metadata.
   if (
     platformEnv.isNative &&
     detailKind !== 'stock' &&
+    !pendingMarketAsset &&
     (isLayoutPending || isInitialContentPending)
   ) {
     return (
@@ -1363,7 +1403,9 @@ export function MobileLayout({
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}
-              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+              isMarketAssetDetailLoading={
+                Boolean(pendingMarketAsset) || isMarketAssetDetailLoading
+              }
             />
           </YStack>
         </YStack>
