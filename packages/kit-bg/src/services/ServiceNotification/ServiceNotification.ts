@@ -344,6 +344,11 @@ export default class ServiceNotification extends ServiceBase {
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
     this.pendingSupportConversation = { conversationId };
+    defaultLogger.notification.support.supportReplyQueued({
+      conversationId,
+      hasSourceNodeId: !!sourceNodeId,
+      opensExpandTab: !!(platformEnv.isExtensionBackground && !targetNodeId),
+    });
     if (platformEnv.isExtensionBackground && !targetNodeId) {
       await extUtils.openExpandTab({});
     }
