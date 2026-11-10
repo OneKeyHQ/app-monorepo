@@ -510,7 +510,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   } = {}): Promise<ICloudSyncDownloadResult> {
     const postData: ICloudSyncDownloadPostData = {
       includeDeleted,
-      start,
+      skip: start,
       limit,
     };
 
@@ -2454,6 +2454,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { items } = await this.getAllLocalSyncItems();
     const itemsToUpdate: IDBCloudSyncItem[] = [];
     for (const item of items) {
+      // Legacy keyless Lock metadata is never uploaded or applied to scenes.
+      // Preserve it without rebuilding it under the currently selected key.
+      if (
+        item.dataType === EPrimeCloudSyncDataType.Lock &&
+        keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+      ) {
+        continue;
+      }
       try {
         const shouldRebuildItem =
           !!item.rawData &&

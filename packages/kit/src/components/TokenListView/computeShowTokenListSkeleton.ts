@@ -44,7 +44,7 @@ export function computeShowTokenListSkeleton(
 ): boolean {
   // Loaded rows belong to a previous owner. Owner switches must show the
   // skeleton even when stale cached rows are still present.
-  if (p.ownerMismatch) {
+  if (p.ownerMismatch && !p.isTokenSelector) {
     return true;
   }
 
