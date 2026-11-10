@@ -83,6 +83,10 @@ import {
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import {
+  type IStockResolvedTokenPrice,
+  resolveStockTradeTokenPrice,
+} from '../../hooks/swapStockFiatValueUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { getSwapAccountNetworkWarningAccountId } from '../../hooks/useSwapAccount.utils';
@@ -161,6 +165,7 @@ import {
 import SwapTipsContainer from './SwapTipsContainer';
 import { useStockReceiveDisplaySnapshot } from './useStockReceiveDisplaySnapshot';
 
+import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -177,7 +182,7 @@ interface ISwapStockDesktopContainerProps {
   onBalanceMaxPress: () => void;
   onPreSwap: (
     stockReviewToken?: ISwapToken,
-    reviewFromToken?: ISwapToken,
+    reviewTokens?: ISwapReviewTokens,
   ) => void;
   onToAnotherAddressModal: () => void;
   onOpenProviderList: () => void;
@@ -244,6 +249,7 @@ function StockTradeSideSwitch({
 
 function StockEstimatedReceive({
   forceLoading,
+  inputTokenPrice,
   receiveDisplayScope,
   quoteMatchesAccount,
   quoteResult,
@@ -254,6 +260,7 @@ function StockEstimatedReceive({
   stockReviewToken,
 }: {
   forceLoading?: boolean;
+  inputTokenPrice?: IStockResolvedTokenPrice;
   receiveDisplayScope?: string;
   quoteMatchesAccount: boolean;
   quoteResult?: IFetchQuoteResult;
@@ -339,6 +346,7 @@ function StockEstimatedReceive({
     receiveToken,
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
+    inputTokenPrice,
     forceHideQuote:
       shouldHideQuoteResult ||
       forceLoading ||
@@ -1246,11 +1254,39 @@ function StockTradeTicket({
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
-  const onStockPreSwap = useCallback(
-    () => onPreSwap(stockReviewToken, amountInputState.reviewFromToken),
-    [onPreSwap, stockReviewToken, amountInputState.reviewFromToken],
-  );
   const [settings] = useSettingsPersistAtom();
+  const onStockPreSwap = useCallback(() => {
+    const receiveToken = stockChannel.toToken;
+    const matchesTrade = isQuoteResultForStockTrade({
+      quoteResult,
+      sendToken: stockChannel.fromToken,
+      receiveToken,
+      sendAmount: amountInputState.inputValue,
+    });
+    const receivePrice = resolveStockTradeTokenPrice({
+      token: receiveToken,
+      quoteToken: matchesTrade ? quoteResult?.toTokenInfo : undefined,
+      quoteCurrency: settings.currencyInfo.id,
+      stockTokenDetail: stockChannel.activeStockTokenDetail,
+    });
+    onPreSwap(stockReviewToken, {
+      fromToken: amountInputState.reviewFromToken,
+      toToken:
+        receiveToken && receivePrice
+          ? { ...receiveToken, ...receivePrice }
+          : undefined,
+    });
+  }, [
+    onPreSwap,
+    stockReviewToken,
+    amountInputState.reviewFromToken,
+    amountInputState.inputValue,
+    stockChannel.fromToken,
+    stockChannel.toToken,
+    stockChannel.activeStockTokenDetail,
+    quoteResult,
+    settings.currencyInfo.id,
+  ]);
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const fromTokenKey = getTokenIdentityKey(stockChannel.fromToken);
   const toTokenKey = getTokenIdentityKey(stockChannel.toToken);
@@ -1370,6 +1406,7 @@ function StockTradeTicket({
         />
         <StockEstimatedReceive
           forceLoading={showEstimatedReceiveSkeleton}
+          inputTokenPrice={amountInputState.inputTokenPrice}
           receiveDisplayScope={receiveDisplayScope}
           quoteMatchesAccount={isQuoteRequestForStockTrade({
             currentAccountId: swapFromAddressInfo.accountInfo?.account?.id,

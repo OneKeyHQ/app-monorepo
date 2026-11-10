@@ -31,6 +31,8 @@ export type ISwapReviewStepTexts = {
   swap: string;
 };
 
+export type ISwapReviewTokens = Pick<ISwapPreSwapData, 'fromToken' | 'toToken'>;
+
 export type IBuildSwapBatchTransferTypeParams = {
   networkId?: string;
   accountId?: string;
@@ -213,7 +215,7 @@ export type IBuildSwapReviewStateInput = {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   stockReviewToken?: ISwapToken;
-  reviewFromToken?: ISwapToken;
+  reviewTokens?: ISwapReviewTokens;
   fromTokenAmount?: string;
   toTokenAmount?: string;
   quoteResult?: IFetchQuoteResult;
@@ -253,7 +255,7 @@ export function buildSwapReviewState({
   fromToken,
   toToken,
   stockReviewToken,
-  reviewFromToken,
+  reviewTokens,
   fromTokenAmount,
   toTokenAmount,
   quoteResult,
@@ -287,24 +289,27 @@ export function buildSwapReviewState({
   const isBatchApproveAndSwap =
     batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP;
   const needFetchGas = needApprove && !isBatchApproveAndSwap;
-  const pricedFromToken =
-    fromToken &&
-    reviewFromToken &&
-    equalTokenNoCaseSensitive({ token1: fromToken, token2: reviewFromToken })
+  const withReviewPrice = (token?: ISwapToken, reviewToken?: ISwapToken) =>
+    token &&
+    reviewToken &&
+    equalTokenNoCaseSensitive({ token1: token, token2: reviewToken })
       ? {
-          ...fromToken,
-          price: reviewFromToken.price,
-          currency: reviewFromToken.currency,
+          ...token,
+          price: reviewToken.price,
+          currency: reviewToken.currency,
         }
-      : fromToken;
-  const hasReviewInputPrice = pricedFromToken !== fromToken;
+      : token;
+  const pricedFromToken = withReviewPrice(fromToken, reviewTokens?.fromToken);
+  const pricedToToken = withReviewPrice(toToken, reviewTokens?.toToken);
+  const hasReviewPrice =
+    pricedFromToken !== fromToken || pricedToToken !== toToken;
   const reviewRateDifference =
-    (!hasReviewInputPrice && rateDifference) ||
+    (!hasReviewPrice && rateDifference) ||
     buildSwapRateDifference({
       fromTokenPrice: pricedFromToken?.price,
-      toTokenPrice: toToken?.price,
+      toTokenPrice: pricedToToken?.price,
       fromTokenCurrency: pricedFromToken?.currency,
-      toTokenCurrency: toToken?.currency,
+      toTokenCurrency: pricedToToken?.currency,
       defaultTokenCurrency,
       currencyMap,
       instantRate: quoteResult?.instantRate,
@@ -379,7 +384,7 @@ export function buildSwapReviewState({
   const preSwapData: ISwapPreSwapData = {
     swapType,
     fromToken: withStockReviewMetadata(pricedFromToken),
-    toToken: withStockReviewMetadata(toToken),
+    toToken: withStockReviewMetadata(pricedToToken),
     shouldFallback,
     fromTokenAmount,
     toTokenAmount,

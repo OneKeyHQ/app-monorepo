@@ -10,6 +10,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveStockTradeTokenPrice } from '../hooks/swapStockFiatValueUtils';
+
 import {
   buildSwapBatchTransferType,
   buildSwapReviewState,
@@ -67,12 +69,84 @@ function createQuoteResult(
 }
 
 describe('stock review metadata snapshot', () => {
+  it.each([true, false])(
+    'keeps both fiat prices in the buy/sell snapshot (buy=%p)',
+    (isBuy) => {
+      const stock = {
+        ...toToken,
+        symbol: 'AAPLon',
+        isStock: true,
+        price: undefined,
+        stock: { subtitle: '', sourceLogoUri: '', tokenToAssetRatio: '0.9' },
+      };
+      const pay = { ...fromToken, symbol: 'USDC', price: undefined };
+      const stockPrice = resolveStockTradeTokenPrice({
+        token: stock,
+        stockTokenDetail: {
+          networkId: stock.networkId,
+          address: stock.contractAddress,
+          price: '10',
+        },
+      });
+      const pricedStock = { ...stock, ...stockPrice };
+      const pricedPay = { ...pay, price: '0.9995', currency: 'usd' };
+      const snapshot = buildSwapReviewState({
+        fromToken: isBuy ? pay : stock,
+        toToken: isBuy ? stock : pay,
+        reviewTokens: {
+          fromToken: isBuy ? pricedPay : pricedStock,
+          toToken: isBuy ? pricedStock : pricedPay,
+        },
+        fromTokenAmount: isBuy ? '22' : '2',
+        toTokenAmount: isBuy ? '2' : '22',
+        swapType: ESwapTabSwitchType.STOCK,
+        supportPreBuild: true,
+        texts,
+      }).preSwapData;
+      const fiat = (token: ISwapToken | undefined, amount: string) =>
+        getSwapTokenDisplayFiatValue({
+          token,
+          amount,
+          targetCurrency: 'usd',
+          currencyMap: {},
+        });
+      expect(fiat(snapshot.fromToken, snapshot.fromTokenAmount ?? '')).toBe(
+        isBuy ? '21.989' : '20',
+      );
+      expect(fiat(snapshot.toToken, snapshot.toTokenAmount ?? '')).toBe(
+        isBuy ? '20' : '21.989',
+      );
+      expect(stock.price).toBeUndefined();
+      expect(pay.price).toBeUndefined();
+    },
+  );
+
+  it.each([
+    { ...toToken, networkId: 'evm--56', price: '3', currency: 'usd' },
+    {
+      ...toToken,
+      contractAddress: 'another-token',
+      price: '3',
+      currency: 'usd',
+    },
+  ])('rejects a receive price from another token identity', (reviewToToken) => {
+    const snapshot = buildSwapReviewState({
+      fromToken,
+      toToken,
+      reviewTokens: { toToken: reviewToToken },
+      swapType: ESwapTabSwitchType.STOCK,
+      supportPreBuild: true,
+      texts,
+    }).preSwapData;
+    expect(snapshot.toToken).toBe(toToken);
+  });
+
   it('uses the same input price for fiat value and initial price impact', () => {
     const inputToken = { ...fromToken, price: '0.5', currency: 'usd' };
     const snapshot = buildSwapReviewState({
       fromToken: inputToken,
       toToken: { ...toToken, price: '1', currency: 'usd' },
-      reviewFromToken: { ...inputToken, price: '1' },
+      reviewTokens: { fromToken: { ...inputToken, price: '1' } },
       quoteResult: createQuoteResult({ instantRate: '1' }),
       rateDifference: {
         value: '+100%',
@@ -92,7 +166,7 @@ describe('stock review metadata snapshot', () => {
     const snapshot = buildSwapReviewState({
       fromToken: inputToken,
       toToken,
-      reviewFromToken,
+      reviewTokens: { fromToken: reviewFromToken },
       fromTokenAmount: '22',
       toTokenAmount: '0.12',
       swapType: ESwapTabSwitchType.STOCK,
@@ -131,7 +205,7 @@ describe('stock review metadata snapshot', () => {
       const snapshot = buildSwapReviewState({
         fromToken,
         toToken,
-        reviewFromToken,
+        reviewTokens: { fromToken: reviewFromToken },
         swapType: ESwapTabSwitchType.STOCK,
         supportPreBuild: true,
         texts,
