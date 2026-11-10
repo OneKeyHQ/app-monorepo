@@ -1030,11 +1030,52 @@ it('returns completed mobile Done to token selection in the same session', async
   expect(activeTestId('dust-sweep-action').textContent).toBe(
     ETranslations.global_done,
   );
-  fireEvent.click(activeTestId('dust-sweep-action'));
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
   expect(mockAgain).toHaveBeenCalledTimes(1);
   expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
   expect(ref.getCurrentRoute()?.name).toBe('Selection');
   expect(mockProviderUnmounts).toBe(0);
+});
+
+it('waits for the completed live sheet to close before resetting and popping Execution', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const closing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => closing.promise);
+  const done = activeTestId('dust-sweep-action');
+  await act(async () => {
+    fireEvent.click(done);
+    fireEvent.click(done);
+  });
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(ref.getCurrentRoute()?.name).toBe('Execution');
+  expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  await act(async () => closing.resolve());
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
+  expect(mockProviderUnmounts).toBe(0);
+});
+
+it('does not replace the closing result sheet when Execution blurs and refocuses', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const closing = deferred<void>();
+  mockDialogClose.mockImplementationOnce(() => closing.promise);
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const sheetsBefore = liveSheetCalls().length;
+  await act(async () => ref.navigate('Other'));
+  await act(async () => ref.goBack());
+  expect(liveSheetCalls()).toHaveLength(sheetsBefore);
+  expect(mockAgain).not.toHaveBeenCalled();
+  await act(async () => closing.resolve());
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
 });
 
 it('bubbles selection Back through the first modal screen without starting execution', () => {
