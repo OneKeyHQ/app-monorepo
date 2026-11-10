@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ONEKEY_ID_OAUTH_BIND_PATH,
+  RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
@@ -43,10 +46,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
-import {
-  PRIME_USER_BANNED_CODE,
-  isPrimeUserBannedError,
-} from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -1313,34 +1313,6 @@ class ServicePrime extends ServiceBase {
   // slot check is a strict persisted-bytes read
   // (readPersistedAccessTokenBySessionSourceStrict), never getSession.
   authStateWriteMutex = new Semaphore(1);
-
-  // A banned OneKey ID is signed out on this device through the exact-token
-  // invalid-session reconciliation; callers surface the ban notice.
-  async handlePrimeUserBanned({
-    requestAuthToken,
-    requestUrl,
-  }: {
-    requestAuthToken?: string;
-    requestUrl?: string;
-  }) {
-    // A bind rejection can describe the incoming OAuth identity, not the
-    // signed-in account.
-    if (
-      !requestAuthToken ||
-      requestUrl?.split('?')[0].endsWith('/account/identities/oauth/bind')
-    ) {
-      return;
-    }
-    const user = await primePersistAtom.get();
-    if (!user.isLoggedIn || !user.isLoggedInOnServer) {
-      return;
-    }
-    await this.handlePrimeLoginInvalidToken({
-      requestAuthToken,
-      errorCode: PRIME_USER_BANNED_CODE,
-      requestUrl,
-    });
-  }
 
   private sourceLessOneKeyIdRecoveryRetryTimer:
     | ReturnType<typeof setTimeout>
@@ -3459,7 +3431,7 @@ class ServicePrime extends ServiceBase {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
         >(
-          '/prime/v1/account/identities/oauth/bind',
+          ONEKEY_ID_OAUTH_BIND_PATH,
           {
             token: oauthAccessToken,
             legacyOneKeyIdAuthToken,

@@ -350,7 +350,7 @@ const {
 } = require('@onekeyhq/shared/src/locale/enum/translations');
 const {
   stashRequestAuthTokenOfError,
-  takeRequestAuthTokenOfError,
+  takeRequestAuthContextOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   getPrimeGiftVerifyFailureLogPayload,
@@ -3725,18 +3725,16 @@ describe('ServicePrime invalid-token handling', () => {
     // closure and its backgroundApi) in a module-global map, so a single
     // shared service must be used and the handler swapped per test.
     const handlerImpl = jest.fn();
-    const bannedHandlerImpl = jest.fn();
 
     beforeAll(async () => {
       const { service, backgroundApi } = createService();
       backgroundApi.servicePrime = {
         handlePrimeLoginInvalidToken: handlerImpl,
-        handlePrimeUserBanned: bannedHandlerImpl,
       };
       await service.getPrimeClient();
     });
 
-    it('hands 90012 to the banned-session handler without exposing the token', async () => {
+    it('signs out a 90012 session through the invalid-token handler without exposing the token', async () => {
       const rawError = {
         data: { code: 90_012, requestUrl: '/prime/v1/user/info' },
       };
@@ -3750,36 +3748,28 @@ describe('ServicePrime invalid-token handling', () => {
         code: 90_012,
         className: 'OneKeyErrorPrimeUserBanned',
       });
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
-        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        }),
       );
-      expect(handlerImpl).not.toHaveBeenCalled();
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
-    it('keeps the bind path when an SNI error records only the service origin', async () => {
-      const config = {
-        url: '/prime/v1/account/identities/oauth/bind',
-        method: 'post',
-        headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
-      };
-      await mockCapturedInterceptors.requestOnFulfilled?.(config);
+    it('keeps the signed-in account for a bind ban whose error records only the service origin', async () => {
       const error = {
         data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
       };
       stashRequestAuthTokenOfError({
         error,
         requestAuthToken: REQUEST_TOKEN,
-        requestConfig: config,
+        requestUrl: '/prime/v1/account/identities/oauth/bind',
       });
       await expect(
         mockCapturedInterceptors.responseOnRejected?.(error),
       ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestUrl: '/prime/v1/account/identities/oauth/bind',
-        }),
-      );
+      expect(handlerImpl).not.toHaveBeenCalled();
     });
 
     it('rejects a banned body even when automatic error handling was disabled', async () => {
@@ -3794,7 +3784,7 @@ describe('ServicePrime invalid-token handling', () => {
       await expect(
         mockCapturedInterceptors.responseOnFulfilled?.(response),
       ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(bannedHandlerImpl).toHaveBeenCalled();
+      expect(handlerImpl).toHaveBeenCalled();
     });
 
     it('normalizes a ban returned as HTTP 403 without exposing its request config', async () => {
@@ -3810,7 +3800,7 @@ describe('ServicePrime invalid-token handling', () => {
         .catch((reason: unknown) => reason);
       expect(thrown).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
-      expect(bannedHandlerImpl).toHaveBeenCalledWith(
+      expect(handlerImpl).toHaveBeenCalledWith(
         expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
       );
     });
@@ -3823,7 +3813,7 @@ describe('ServicePrime invalid-token handling', () => {
     });
 
     it('keeps the banned error when signing out fails', async () => {
-      bannedHandlerImpl.mockRejectedValueOnce(
+      handlerImpl.mockRejectedValueOnce(
         new OneKeyLocalError('storage unavailable'),
       );
       await expect(
@@ -3874,7 +3864,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
       // Read-and-delete: a second take returns nothing.
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
@@ -9136,72 +9126,6 @@ describe('ServicePrime banned OneKey ID', () => {
     result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(7);
     return result;
   }
-
-  it('signs the exact banned session out through the invalid-token reconciliation', async () => {
-    const { service } = setup();
-    const handleSpy = jest
-      .spyOn(service, 'handlePrimeLoginInvalidToken')
-      .mockResolvedValue({ cleared: false });
-    await service.handlePrimeUserBanned({
-      requestAuthToken: REQUEST_TOKEN,
-      requestUrl: '/prime/v1/user/info',
-    });
-    expect(handleSpy).toHaveBeenCalledWith({
-      requestAuthToken: REQUEST_TOKEN,
-      errorCode: 90_012,
-      requestUrl: '/prime/v1/user/info',
-    });
-  });
-
-  it('stages the local logout only for the active session token', async () => {
-    resetIdentityRecoveryStateForTest('ready');
-    const { service, backgroundApi, simpleDbPrime } = setup();
-    simpleDbPrime.getEffectiveAuthSessionSource.mockResolvedValue(
-      EPrimeAuthSessionSource.LegacyEmailSupabase,
-    );
-    await service.handlePrimeUserBanned({ requestAuthToken: 'previous-token' });
-    await flushAsync();
-    expect(
-      backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutReconciliation,
-    ).not.toHaveBeenCalled();
-
-    await service.handlePrimeUserBanned({ requestAuthToken: REQUEST_TOKEN });
-    await flushAsync();
-    expect(
-      backgroundApi.serviceIdentityExit.stageRemoteOneKeyIdLogoutReconciliation,
-    ).toHaveBeenCalledWith({ expectedAccessToken: REQUEST_TOKEN });
-    expect(
-      backgroundApi.serviceIdentityExit.executeIdentityExit,
-    ).toHaveBeenCalledWith({ planId: 'system:invalid-token-operation' });
-    // The logout keeps the Keyless wallet and its credentials.
-    expect(
-      backgroundApi.serviceKeylessWallet.cleanupLocalKeylessOAuthTokens,
-    ).not.toHaveBeenCalled();
-  });
-
-  test.each([
-    { requestAuthToken: '' },
-    {
-      requestAuthToken: REQUEST_TOKEN,
-      requestUrl: '/prime/v1/account/identities/oauth/bind',
-    },
-  ])(
-    'ignores a missing token or an incoming bind identity: %j',
-    async (request) => {
-      const { service } = setup();
-      const handleSpy = jest.spyOn(service, 'handlePrimeLoginInvalidToken');
-      await service.handlePrimeUserBanned(request);
-      expect(handleSpy).not.toHaveBeenCalled();
-    },
-  );
-
-  it('ignores a logged-out projection with a retained Keyless session', async () => {
-    const { service } = setup();
-    user.isLoggedIn = false;
-    const handleSpy = jest.spyOn(service, 'handlePrimeLoginInvalidToken');
-    await service.handlePrimeUserBanned({ requestAuthToken: REQUEST_TOKEN });
-    expect(handleSpy).not.toHaveBeenCalled();
-  });
 
   it('does not reinterpret 90012 carrying conflict metadata as an account merge', () => {
     const { service } = setup();

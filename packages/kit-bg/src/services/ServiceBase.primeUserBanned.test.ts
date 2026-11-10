@@ -15,7 +15,7 @@ import type {
 } from 'axios';
 
 const REQUEST_TOKEN = 'test-request-token';
-const mockHandleBanned = jest.fn(async () => undefined);
+const mockHandleInvalidToken = jest.fn(async () => ({ cleared: false }));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -59,6 +59,7 @@ jest.mock('@onekeyhq/shared/src/request/availabilityMetrics', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: { network: { start: jest.fn(), end: jest.fn(), error: jest.fn() } },
+    prime: { subscription: { onekeyIdInvalidToken: jest.fn() } },
   },
 }));
 jest.mock(
@@ -112,14 +113,14 @@ describe('OneKey ID client through global and service interceptors', () => {
             getActiveAuthToken: async () => REQUEST_TOKEN,
           },
         },
-        servicePrime: { handlePrimeUserBanned: mockHandleBanned },
+        servicePrime: { handlePrimeLoginInvalidToken: mockHandleInvalidToken },
       },
     });
     client = await service.getOneKeyIdClient(EServiceEndpointEnum.Prime);
   });
 
   beforeEach(() => {
-    mockHandleBanned.mockClear();
+    mockHandleInvalidToken.mockClear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -164,25 +165,36 @@ describe('OneKey ID client through global and service interceptors', () => {
         .catch((e: unknown) => e);
 
       expect(error).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-      expect(mockHandleBanned).toHaveBeenCalledTimes(1);
-      expect(mockHandleBanned).toHaveBeenCalledWith({
-        requestAuthToken: REQUEST_TOKEN,
-        requestUrl: '/prime/v1/user/info',
-      });
+      expect(mockHandleInvalidToken).toHaveBeenCalledTimes(1);
+      expect(mockHandleInvalidToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+          requestUrl: '/prime/v1/user/info',
+        }),
+      );
       expect(JSON.stringify(error)).not.toContain(REQUEST_TOKEN);
     },
   );
 
-  it('retains the incoming OAuth bind path across a 403 conversion', async () => {
-    respondWith(403, 90_012);
-    const path = '/prime/v1/account/identities/oauth/bind';
+  test.each([200, 403])(
+    'keeps the signed-in account when an incoming OAuth bind identity is banned (HTTP %s)',
+    async (status) => {
+      respondWith(status, 90_012);
+      await expect(
+        client.post('/prime/v1/account/identities/oauth/bind', {
+          token: 'incoming-oauth-token',
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(mockHandleInvalidToken).not.toHaveBeenCalled();
+    },
+  );
 
-    await expect(
-      client.post(path, { token: 'incoming-oauth-token' }),
-    ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
-
-    expect(mockHandleBanned).toHaveBeenCalledWith(
-      expect.objectContaining({ requestUrl: path }),
+  it('keeps the banned error when signing out fails', async () => {
+    respondWith(200, 90_012);
+    mockHandleInvalidToken.mockRejectedValueOnce(new Error('storage'));
+    await expect(client.get('/prime/v1/user/info')).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
     );
   });
 
@@ -194,7 +206,7 @@ describe('OneKey ID client through global and service interceptors', () => {
 
     expect(error).toBeInstanceOf(OneKeyServerApiError);
     expect(error).toMatchObject({ code: 403, httpStatusCode: 403 });
-    expect(mockHandleBanned).not.toHaveBeenCalled();
+    expect(mockHandleInvalidToken).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -207,6 +219,6 @@ describe('OneKey ID client through global and service interceptors', () => {
       data: { code: 0 },
     });
     expect(adapter).toHaveBeenCalledTimes(1);
-    expect(mockHandleBanned).not.toHaveBeenCalled();
+    expect(mockHandleInvalidToken).not.toHaveBeenCalled();
   });
 });

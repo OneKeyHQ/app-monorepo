@@ -1,6 +1,6 @@
 import { isPrimeUserBannedError } from './primeUserBanned';
 
-describe('Prime account restrictions', () => {
+describe('isPrimeUserBannedError', () => {
   test.each([
     { code: 90_012 },
     { data: { code: '90012' } },

@@ -16,53 +16,57 @@
  * interceptor run in the runtime that constructed the client, i.e. bg).
  * The token intentionally cannot cross the bg/main bridge.
  */
-const requestAuthTokenByError = new WeakMap<object, string>();
-export type IOneKeyIdRequestContext = {
+export const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
+
+type IRequestAuthHeaders = {
+  get?: (headerName: string) => unknown;
+} & Record<string, unknown>;
+
+export function readRequestAuthTokenHeader(headers: unknown): string {
+  const h = headers as IRequestAuthHeaders | undefined;
+  const value =
+    h?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
+    h?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
+    h?.[ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase()];
+  return value ? String(value) : '';
+}
+
+export type IRequestAuthContextOfError = {
+  requestAuthToken: string;
+  // Error conversions may record only the service origin; this keeps the
+  // original request path.
   requestUrl?: string;
 };
-const oneKeyIdContext = new WeakMap<object, IOneKeyIdRequestContext>();
 
-export function stashOneKeyIdRequestContext(
-  request: object,
-  context: IOneKeyIdRequestContext,
-) {
-  oneKeyIdContext.set(request, context);
-}
-
-export function takeOneKeyIdRequestContext(requestOrError: object) {
-  const context = oneKeyIdContext.get(requestOrError);
-  oneKeyIdContext.delete(requestOrError);
-  return context;
-}
+const requestAuthContextByError = new WeakMap<
+  object,
+  IRequestAuthContextOfError
+>();
 
 export function stashRequestAuthTokenOfError({
   error,
   requestAuthToken,
-  requestConfig,
+  requestUrl,
 }: {
   error: object;
   requestAuthToken: string;
-  requestConfig?: object;
+  requestUrl?: string;
 }): void {
-  requestAuthTokenByError.set(error, requestAuthToken);
-  if (requestConfig) {
-    const context = takeOneKeyIdRequestContext(requestConfig);
-    if (context) {
-      oneKeyIdContext.set(error, context);
-    }
-  }
+  requestAuthContextByError.set(error, { requestAuthToken, requestUrl });
 }
 
 /**
- * Read-and-delete: returns the stashed token ('' when absent) and removes
- * the entry so no later reader — or long-lived reference to the error —
- * can recover it.
+ * Read-and-delete: returns the stashed context (an empty token when absent)
+ * and removes the entry so no later reader — or long-lived reference to the
+ * error — can recover the token.
  */
-export function takeRequestAuthTokenOfError(error: unknown): string {
+export function takeRequestAuthContextOfError(
+  error: unknown,
+): IRequestAuthContextOfError {
   if (typeof error !== 'object' || error === null) {
-    return '';
+    return { requestAuthToken: '' };
   }
-  const requestAuthToken = requestAuthTokenByError.get(error) ?? '';
-  requestAuthTokenByError.delete(error);
-  return requestAuthToken;
+  const context = requestAuthContextByError.get(error);
+  requestAuthContextByError.delete(error);
+  return context ?? { requestAuthToken: '' };
 }

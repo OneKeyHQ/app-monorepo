@@ -137,7 +137,7 @@ describe('ErrorToastContainer', () => {
     });
   });
 
-  it('shows a persistent restriction dialog instead of an actionable toast', async () => {
+  it('shows a persistent ban dialog instead of an actionable toast', async () => {
     render(<ErrorToastContainer />);
     await act(async () => {
       appEventBus.emit(EAppEventBusNames.ShowToast, {
@@ -218,7 +218,7 @@ describe('ErrorToastContainer', () => {
   });
 
   it.each([90_012, '90012'])(
-    'shows a serialized ban %s as the restriction dialog without a toast',
+    'shows a serialized ban %s as the ban dialog without a toast',
     async (errorCode) => {
       render(<ErrorToastContainer />);
       await act(async () => {
