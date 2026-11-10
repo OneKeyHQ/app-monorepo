@@ -38,7 +38,7 @@ import { buildModalRouteParams } from './routeUtils';
 import {
   describeSupportPayload,
   normalizeSupportConversationId,
-  summarizeSupportParams,
+  pickSupportParams,
   traceSupportNotification,
 } from './supportNotificationTrace';
 import timerUtils from './timerUtils';
@@ -792,9 +792,17 @@ export function parseNotificationPayload(
           // not be dropped: without it the click silently opens the Messenger
           // home (a brand-new conversation window) instead of the target
           // conversation (OK-66809).
+          const payloadTopLevelConversationId = (
+            parsedPayload as { conversationId?: unknown }
+          ).conversationId;
+          const paramsConversationId = extras?.params?.conversationId;
+          const dataConversationId = data?.conversationId;
+          // `extras.params` wins over the payload when both carry an id, so an
+          // explicit undefined in params must not hide a payload id.
           const rawConversationId =
-            mergedData.conversationId ??
-            (parsedPayload as { conversationId?: unknown }).conversationId;
+            paramsConversationId !== undefined
+              ? paramsConversationId
+              : (dataConversationId ?? payloadTopLevelConversationId);
           const conversationId =
             normalizeSupportConversationId(rawConversationId);
           // A blank string means "no id" (open the support entry); only a
@@ -807,17 +815,31 @@ export function parseNotificationPayload(
             rawConversationId !== null &&
             conversationId === undefined &&
             !isBlankConversationId;
+          // `extras.params` wins over the payload when both carry an id, so
+          // report which field actually supplied the opened conversation.
+          let conversationIdSource:
+            | 'extras.params'
+            | 'data'
+            | 'payload'
+            | undefined;
+          if (paramsConversationId !== undefined) {
+            conversationIdSource = 'extras.params';
+          } else if (dataConversationId !== undefined) {
+            conversationIdSource = 'data';
+          } else if (payloadTopLevelConversationId !== undefined) {
+            conversationIdSource = 'payload';
+          }
           traceSupportNotification('payload-received', {
             modeRaw: mode,
             modeNormalized: normalizedMode,
             action,
-            msgId: extras?.params?.msgId,
             ...describeSupportPayload(payload),
-            params: summarizeSupportParams(extras?.params),
+            ...pickSupportParams(extras?.params),
             rawConversationIdType:
               rawConversationId === undefined
                 ? 'absent'
                 : typeof rawConversationId,
+            conversationIdSource,
             conversationId,
             hasConversationId: conversationId !== undefined,
           });

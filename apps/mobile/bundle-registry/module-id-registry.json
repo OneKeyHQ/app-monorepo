@@ -28041,6 +28041,7 @@
     "packages/shared/src/utils/stringUtils.ts": 8200,
     "packages/shared/src/utils/supabaseAuthErrorUtils.ts": 5985,
     "packages/shared/src/utils/supabaseClientUtils.ts": 523,
+    "packages/shared/src/utils/supportNotificationTrace.ts": 24291,
     "packages/shared/src/utils/swapColdStartCacheSnapshotUtils.ts": 16366,
     "packages/shared/src/utils/swapEntryUtils.ts": 1161,
     "packages/shared/src/utils/swapHistoryNetworkUtils.ts": 8613,

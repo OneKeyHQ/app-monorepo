@@ -185,6 +185,44 @@ describe('support notification delivery across startup', () => {
     });
   });
 
+  it('lets extras.params.conversationId override the payload id', async () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: 'payload-id' },
+        }),
+        fallback,
+        { params: { conversationId: 'params-id' } },
+      ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'params-id',
+    });
+  });
+
+  it('keeps the payload id when extras.params has no conversation id', async () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: 'payload-id' },
+        }),
+        fallback,
+        { params: { conversationId: undefined, msgId: 'msg-1' } },
+      ),
+    ).toBe(true);
+    expect(fallback).not.toHaveBeenCalled();
+    await expect(service.takePendingSupportConversation()).resolves.toEqual({
+      conversationId: 'payload-id',
+    });
+  });
+
   it('rejects an unusable conversation id before queuing', () => {
     const fallback = jest.fn();
     expect(
