@@ -1260,12 +1260,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     forceRebuild?: boolean;
     reason?: string;
   }): Promise<void> {
+    const client = await this.getWebSocketClient();
+    if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
+      await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
+        client,
+        reason: params?.reason ?? 'resumeSubscriptions',
+      });
+      return;
+    }
     if (this._resumeRecoveryPromise) {
       await this._resumeRecoveryPromise;
       return;
     }
 
     this._resumeRecoveryPromise = (async () => {
+      if (this._bboNeedsResubscribe) {
+        this._bboNeedsResubscribe = false;
+        this._hasInitialSubscription = false;
+        this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
+        // BBO changes while delivery is paused are lost; resubscribe for a snapshot.
+        for (const spec of Object.values(this.allSubSpecsMap)) {
+          if (
+            spec.type === ESubscriptionType.BBO &&
+            !(await this._destroySubscription(spec))
+          ) {
+            await this._forceReconnectTransport();
+            return;
+          }
+        }
+      }
       const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
       if (
         this._shouldRebuildOpenSocketSubscriptionsOnResume({
@@ -1283,7 +1306,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         await this._cleanupAllSubscriptions();
         await timerUtils.wait(50);
       }
-      await this.updateSubscriptions();
+      // Keep socket recovery outside this single-flight to avoid re-entering it.
+      this._hasInitialSubscription = true;
+      await this._enqueueSubscriptionReconcile();
     })().finally(() => {
       this._resumeRecoveryPromise = null;
     });
@@ -1457,10 +1482,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   subscriptionsHandlerDisabledCount = 0;
 
+  private _bboNeedsResubscribe = false;
+
   @backgroundMethod()
   async disableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = true;
     this.subscriptionsHandlerDisabledCount += 1;
+    this._bboNeedsResubscribe = true;
+    this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
   }
 
   @backgroundMethod()
@@ -1505,7 +1534,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
     // before the reconcile (OK-53014 ordering).
     this._watchSubscriptionAtoms();
-    await this.updateSubscriptions();
+    await this._reconcileOpenSocketSubscriptionsOnResume();
     return true;
   }
 
@@ -1834,6 +1863,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = socket?.readyState;
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
+    this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
     void invalidatePerpsLiquidationRiskInputs();
     this._forgetTransportSubscriptions();
@@ -2373,6 +2403,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
     await invalidatePerpsLiquidationRiskInputs();
     this._invalidateFastL2RecoveryTask();
     this._unwatchSubscriptionAtoms();
@@ -3120,6 +3151,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _markNetworkStatusOffline(): void {
+    this._emitHyperliquidDataUpdate(ESubscriptionType.BBO, null);
     void invalidatePerpsLiquidationRiskInputs();
     void perpsNetworkStatusAtom.set(
       (prev): IPerpsNetworkStatus => ({

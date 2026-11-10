@@ -11,11 +11,6 @@ const MarketDetailV2Modal = LazyLoadPage(
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );
-const MarketHighlightsModal = LazyLoadPage(() =>
-  import('../MarketHighlights/MarketHighlightsPage').then((module) => ({
-    default: module.MarketHighlightsPage,
-  })),
-);
 const MobileTokenSelectorModal = LazyLoadPage(
   () =>
     import('../MarketDetailV2/components/TokenSelector/MobileTokenSelector'),
@@ -43,12 +38,6 @@ export const ModalMarketStack: IModalFlowNavigatorConfig<
   {
     name: EModalMarketRoutes.MarketBannerDetail,
     component: MarketBannerDetailModal,
-  },
-  {
-    name: EModalMarketRoutes.MarketHighlights,
-    component: MarketHighlightsModal,
-    modalContentMaxWidth: 800,
-    modalContentMaxHeight: 640,
   },
   {
     name: EModalMarketRoutes.MobileTokenSelector,

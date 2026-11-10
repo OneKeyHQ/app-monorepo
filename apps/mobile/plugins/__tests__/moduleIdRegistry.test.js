@@ -215,6 +215,16 @@ describe('moduleIdRegistry', () => {
     expect(isModuleIdInDomain(fileMap.get(moduleKey), 'workspace')).toBe(true);
   });
 
+  it('registers privacy scan effects for strict native builds', () => {
+    const moduleKey =
+      'packages/kit/src/provider/Container/FullWindowOverlayContainer/PrivacyChainSyncEffects.tsx';
+    const registry = loadRegistry();
+    const fileMap = createFileToIdMap({ registry, strict: true });
+
+    expect(fileMap.get(moduleKey)).toBe(registry.modules[moduleKey]);
+    expect(isModuleIdInDomain(fileMap.get(moduleKey), 'workspace')).toBe(true);
+  });
+
   it('ignores unresolved dependency edges in strict mode', () => {
     const fileMap = createFileToIdMap({
       registry: createRegistry(),

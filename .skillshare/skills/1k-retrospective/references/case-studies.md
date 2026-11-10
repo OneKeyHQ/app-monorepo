@@ -1362,6 +1362,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Derive each iOS list's available height from the same per-page sticky header height as the Pager. The regression checks the rendered row snapshot before and after native selection for both states.
 **Catchable by**: Sections 5 and 6: Check destination list geometry independently of the displayed header when switching between tabs with different heights.
 
+## Case: Extracted privacy sync effects blocked strict native bundling
+**Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. The effects run in the main UI runtime and report network changes through the background bridge; native wake-lock ownership and separate main/bg JS heaps are unchanged. Web/Desktop single-runtime and extension bundling do not use this native registry.
+**Symptom**: The Native CI job failed before producing its startup reports after the floating privacy sync indicator was replaced with a nonvisual effects component.
+**Root Cause**: The new PrivacyChainSyncEffects.tsx import entered the native graph without a stable module ID; the registry still contained only the removed PrivacyChainSyncLight.tsx path.
+**Fix**: Register the new module through the existing allocator and add a strict-registry regression test that fails without the entry. Split threshold loading, network reporting and wake-lock cleanup into scoped hooks without changing their behavior. Focused tests pass; the local full native graph build remains blocked by external symlinked dependencies, so the remote Native job must confirm full bundling after push.
+**Catchable by**: Sections 3, 4 and 6: When extracting a shared component, verify the strict native registry as well as its runtime behavior; add a regression test for the new imported path.
+
+## Case: Removing a floating sync panel removed the chain pause entry
+**Date**: 2026-11-09 | **Platforms**: Web/Desktop single JS runtime and extension/iOS/Android main UI through the existing background service bridge. Native resource ownership and separate main/bg heaps are unchanged.
+**Symptom**: After the global privacy sync panel was removed, an active chain had no UI action that could pause scanning across page visits. Settings retained only chain Resume and separate account Pause controls.
+**Root Cause**: The deleted panel was the only foreground caller of pauseLocalWalletScan. Account pause changes account participation and does not set the persisted network pause flag.
+**Fix**: Add Pause beside the existing settings status for active unfinished chains, retain Resume for a paused chain, and reuse the existing background operations. Keep busy state and an immediate re-entry guard; render the resulting state only from background publication. Show the existing localized error Toast when either chain action fails so the unchanged scan state is explained. Tests cover network scoping, account controls, paused/resumed publication, pending and failed requests, retry, and available-state boundaries. Native-device interaction remains unverified.
+**Catchable by**: Sections 4-6: Before removing a UI surface, trace every action to its last remaining caller and distinguish account-level controls from network-level controls; test reachable actions as well as rendered status.
+
 ## Case: Privacy account management modules were missing from the native registry (OK-66558)
 **Date**: 2026-11-06 | **Platforms**: iOS and Android production/union bundles. Account management renders in the main UI runtime; background scan logic, native resources and main/bg heap isolation are unchanged.
 **Symptom**: The Native CI job failed while bundling the newly extracted account row and gallery preview.
@@ -1375,3 +1389,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Preview controls used literal English strings and stored rendered fixture names instead of locale-neutral data.
 **Fix**: Reuse existing translation keys, add four preview-specific templates through Lokalise, and format fixture names during rendering so language changes preserve the selected scenario and simulated account state.
 **Catchable by**: Include developer previews and dynamic fixture labels in localization review; exercise locale changes after interacting with the preview.
+
+## Case: Wallet selector positioned only against its first viewport (OK-64041)
+**Date**: 2026-11-09 | **Platforms**: Desktop/Web single JS runtime; mobile selector UI main with a native list instance per view. Background initialization and wallet-data ownership are unchanged.
+**Symptom**: The selected last wallet could be outside the visible list after the selector's measured viewport shrank following its first positioning request.
+**Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
+**Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
+**Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.
+
+## Case: WalletConnect namespace approval mismatch
+**Date**: 2026-10-31 | **Platforms**: iOS (reproduced); Android, Desktop, Web, Extension (shared WalletConnect service)
+**Symptom**: OpenRouter/Coinbase connection approval returned to Home with an SDK `Unsupported events` error. Proposals requiring EVM also omitted optional Algorand from the session despite offering its account in the approval UI.
+**Root Cause**: Account selection skipped unsupported namespaces, but approval construction retained them with undefined events. When required namespaces were present, another filter removed optional namespaces that were absent from the required set, including supported Algorand.
+**Fix**: Filter approval namespaces by the wallet's supported implementation map and process all optional namespaces while retaining unsupported-chain filtering. Required namespace validation remains in place.
+**Catchable by**: Section 4: data flow end-to-end; regression tests must cover unsupported optional namespaces and supported optional namespaces alongside a different required namespace, checking both approved accounts and real SDK validation.
+
+## Case: WalletConnect inherited namespace keys
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Proposals with required EVM and optional `toString`, `constructor`, or `__proto__` passed SDK proposal validation but produced invalid approval namespaces and extra unsupported account selectors.
+**Root Cause**: Support checks read ordinary object properties without checking ownership. Inherited functions were treated as supported implementations and methods/events; assigning `__proto__` also changed the approval result object's prototype.
+**Fix**: Reuse an own-property-checked implementation lookup for approval account selection and namespace construction. Unsupported required namespaces are rejected and unsupported optional namespaces are omitted before accessing methods/events.
+**Catchable by**: Section 4: data flow end-to-end; test inherited property names as external keys, assert account selection and result prototype, and validate the resulting session with the real SDK.
+
+## Case: WalletConnect optional namespace without supported chains
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Required EVM with optional Algorand on unsupported chains produced an Algorand account selector with no available network IDs and an empty Algorand approval namespace. The account selector's empty network list falls back to all networks.
+**Root Cause**: Optional namespace support was checked by implementation alone; neither account selection nor approval construction required a usable supported chain. The SDK validators accept an empty optional namespace, so validator-only assertions missed the issue.
+**Fix**: Omit optional account selectors without supported networks and only write optional approval namespaces with at least one merged supported chain and a matching non-empty account address. Preserve required namespace processing and supported optional chains.
+**Catchable by**: Section 4: data flow end-to-end; assert UI account-selection inputs and exact namespace keys for all-unsupported, partially supported, and missing-account cases in addition to real SDK validation.

@@ -5,6 +5,7 @@
 import { act, render, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNative } from './TradingViewNative.native';
 
@@ -24,12 +25,24 @@ const mockPushStatusBarEntry = jest.fn<
 >(() => mockStatusBarEntry);
 const mockPopStatusBarEntry = jest.fn<void, [typeof mockStatusBarEntry]>();
 const mockWindowDimensions = { height: 844, width: 390 };
+const mockRootState: { index: number; routes: { name: ERootRoutes }[] } = {
+  index: 0,
+  routes: [{ name: ERootRoutes.TradingViewNativeFullscreen }],
+};
 const mockInsets = { top: 24, right: 0, bottom: 24, left: 0 };
 const mockContainer = jest.fn<null, [ITradingViewNativeProps]>(() => null);
 let mockTransition: ITradingViewNativeFullscreenTransition | undefined;
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
   | undefined;
+
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: {
+      getState: () => mockRootState,
+    },
+  },
+}));
 
 jest.mock('expo-screen-orientation', () => ({
   OrientationLock: {
@@ -130,6 +143,8 @@ describe('TradingViewNative screen orientation', () => {
     mockIsSpanning.mockReturnValue(false);
     mockWindowDimensions.height = 844;
     mockWindowDimensions.width = 390;
+    mockRootState.index = 0;
+    mockRootState.routes = [{ name: ERootRoutes.TradingViewNativeFullscreen }];
     mockInsets.top = 24;
     mockAppStateChangeHandler = undefined;
     mockTransition = undefined;
@@ -426,7 +441,31 @@ describe('TradingViewNative screen orientation', () => {
     },
   );
 
-  it('exits fullscreen when the app leaves the foreground', () => {
+  it.each([false, true])(
+    'exits the visible fullscreen chart when the app leaves the foreground (iOS: %s)',
+    (isIOS) => {
+      platformEnv.isNativeAndroid = !isIOS;
+      platformEnv.isNativeIOS = isIOS;
+      const handleFullscreenChange = jest.fn();
+      render(
+        <TradingViewNative
+          source={source}
+          isNativeChartFullscreen
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      act(() => {
+        mockAppStateChangeHandler?.('background');
+      });
+
+      expect(handleFullscreenChange).toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('keeps iOS fullscreen across backgrounding while indicator settings cover it', () => {
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
     const handleFullscreenChange = jest.fn();
     render(
       <TradingViewNative
@@ -436,10 +475,20 @@ describe('TradingViewNative screen orientation', () => {
       />,
     );
 
+    mockRootState.routes.push({ name: ERootRoutes.Modal });
+    mockRootState.index = 1;
     act(() => {
+      mockAppStateChangeHandler?.('inactive');
       mockAppStateChangeHandler?.('background');
+      mockAppStateChangeHandler?.('active');
     });
 
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+
+    mockRootState.routes.pop();
+    mockRootState.index = 0;
+    act(() => mockAppStateChangeHandler?.('background'));
     expect(handleFullscreenChange).toHaveBeenCalledWith(false);
   });
 

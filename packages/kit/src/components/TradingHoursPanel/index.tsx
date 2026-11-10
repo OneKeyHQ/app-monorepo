@@ -661,6 +661,10 @@ function TradingHoursHoverPopover({
     <Popover
       open={isOpen}
       onOpenChange={setIsOpen}
+      // Start-aligned: some hosts stretch the trigger to the full column
+      // (the inline status row measures that width), and the default
+      // `bottom-end` would then float the panel far from the status chip.
+      placement="bottom-start"
       title={<TradingHoursTitle />}
       renderTrigger={
         <Stack

@@ -345,7 +345,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
             tools.mkdir()
             # The same real Yarn afterInstall hook and patch-package CLI as the repo.
             shutil.copy2(repository / '.yarn/plugins/@yarnpkg/plugin-after-install.cjs', tools / 'after-install.cjs')
-            package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.12.0',
+            package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.18.1',
                        'workspaces': ['apps/*'],
                        'dependencies': {'isarray': '2.0.5', 'is-number': '7.0.0', 'is-odd': '3.0.1'},
                        'scripts': {'postinstall': f'node {repository}/node_modules/patch-package/index.js --error-on-fail'}}
@@ -357,7 +357,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
                 'dependencies': {'isarray': '1.0.0'},
             }))
             (root / '.yarnrc.yml').write_text(
-                f'yarnPath: {repository}/.yarn/releases/yarn-4.12.0.cjs\n'
+                f'yarnPath: {repository}/.yarn/releases/yarn-4.18.1.cjs\n'
                 f'nodeLinker: node-modules\nafterInstall: yarn postinstall\nplugins:\n  - path: {tools}/after-install.cjs\n')
             (root / 'patches').mkdir()
             subprocess.run(['git', 'init', '-q', str(root)], check=True)

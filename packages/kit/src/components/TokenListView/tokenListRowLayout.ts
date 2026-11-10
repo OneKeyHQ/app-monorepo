@@ -1,6 +1,7 @@
 import { getTokenRowIconSize } from './tokenListRowLayoutShared';
 
 import type {
+  ITokenListFooterLayout,
   ITokenListHeaderLayout,
   ITokenRowContainerStyle,
 } from './tokenListRowLayoutShared';
@@ -27,4 +28,14 @@ export function getTokenListHeaderLayout(
     cellGap: WEB_CELL_GAP,
     containerProps: { mx: 0, px: WEB_ROW_HORIZONTAL_PADDING },
   };
+}
+
+// The web NativeList already insets its footer slot by the content padding,
+// the same inset the rows get, so footer rows drop every outer margin and pad
+// themselves like a row.
+export function getTokenListFooterLayout(_options: {
+  tableLayout?: boolean;
+  plainMode?: boolean;
+}): ITokenListFooterLayout {
+  return { mx: 0, itemProps: { mx: 0, px: '$3' } };
 }
