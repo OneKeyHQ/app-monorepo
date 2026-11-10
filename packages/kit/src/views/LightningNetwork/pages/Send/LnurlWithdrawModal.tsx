@@ -9,6 +9,7 @@ import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import { useLightningSparkSession } from '@onekeyhq/kit/src/hooks/useLightningSparkSession';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,6 +55,11 @@ function LnurlWithdrawModal() {
   const { accountId, networkId, lnurlDetails } = isSendFlow
     ? routeParams
     : dAppQuery;
+  // On self-custody Lightning the service pays an invoice of this device's
+  // Breez SDK, which claims the payment only while connected. Holding the
+  // session keeps it connected until 60 s after this page closes; a payment
+  // that arrives later stays claimable.
+  useLightningSparkSession({ accountId, networkId });
 
   const origin = useMemo(() => {
     if (lnurlDetails?.url) {
