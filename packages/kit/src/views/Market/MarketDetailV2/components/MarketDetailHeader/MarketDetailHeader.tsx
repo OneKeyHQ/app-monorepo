@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
+  GlassButtonCapsule,
   HeaderIconButton,
   Icon,
   InteractiveIcon,
@@ -92,8 +94,13 @@ export function MarketDetailHeader({
 }) {
   const media = useMedia();
   const intl = useIntl();
-  const { width: windowWidth } = useWindowDimensions();
-  const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const {
+    top: safeAreaTop,
+    left: safeAreaLeft,
+    right: safeAreaRight,
+  } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
@@ -109,6 +116,34 @@ export function MarketDetailHeader({
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
+  const isInPageHeaderTarget =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const portraitHeaderGeometryRef = useRef<{
+    width: number;
+    top: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  if (
+    isInPageHeaderTarget &&
+    isFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    portraitHeaderGeometryRef.current = {
+      width: windowWidth,
+      top: safeAreaTop,
+      left: safeAreaLeft,
+      right: safeAreaRight,
+    };
+  }
+  const inPageHeaderGeometry = isInPageHeaderTarget
+    ? portraitHeaderGeometryRef.current
+    : null;
   const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
   // DApp mode hides the sidebar above md, so this header owns global navigation.
   const showDappHeaderAboveDetail =
@@ -206,9 +241,9 @@ export function MarketDetailHeader({
     ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
     : Math.max(
         0,
-        windowWidth -
-          safeAreaLeft -
-          safeAreaRight -
+        (inPageHeaderGeometry?.width ?? windowWidth) -
+          (inPageHeaderGeometry?.left ?? safeAreaLeft) -
+          (inPageHeaderGeometry?.right ?? safeAreaRight) -
           40 -
           44 -
           (showFavoriteButton ? 100 : 44) -
@@ -463,6 +498,56 @@ export function MarketDetailHeader({
     ],
     [handleBackPress, intl, isTitleInLeftItem, renderNativeHeaderTitle],
   );
+
+  if (inPageHeaderGeometry) {
+    return (
+      <>
+        <Page.Header headerShown={false} />
+        <XStack
+          testID="market-detail-in-page-header"
+          alignItems="center"
+          width={inPageHeaderGeometry.width}
+          px="$4"
+          pt={inPageHeaderGeometry.top}
+          pb={10}
+          gap="$3"
+        >
+          <GlassButtonCapsule circular>
+            <NavBackButton
+              onPress={handleBackPress}
+              borderWidth={0}
+              hitSlop={4}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.global_back,
+              })}
+            />
+          </GlassButtonCapsule>
+          <XStack flex={1} minWidth={0}>
+            {renderNativeHeaderTitle()}
+          </XStack>
+          <GlassButtonCapsule circular={!showFavoriteButton}>
+            <XStack alignItems="center" gap="$4">
+              {showFavoriteButton ? (
+                <HeaderIconButton
+                  icon={starChecked ? 'StarSolid' : 'StarOutline'}
+                  onPress={handleStarNative}
+                  borderWidth={0}
+                  hitSlop={4}
+                />
+              ) : null}
+              <HeaderIconButton
+                icon="ShareOutline"
+                onPress={handleShareNative}
+                disabled={!canShare}
+                borderWidth={0}
+                hitSlop={4}
+              />
+            </XStack>
+          </GlassButtonCapsule>
+        </XStack>
+      </>
+    );
+  }
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
     // Explicit headerShown is required because this route can also be

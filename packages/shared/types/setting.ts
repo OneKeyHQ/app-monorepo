@@ -58,6 +58,9 @@ export type ITermsConsentRound = {
   version: string;
   firstPromptAt: number;
   notNowAt?: number;
+  // When the dialog actually appeared. A check stores the round before the UI
+  // shows it, and its result can still be dropped by a lock or a backup detour.
+  shownAt?: number;
 };
 
 export type ITermsConsentState = {
