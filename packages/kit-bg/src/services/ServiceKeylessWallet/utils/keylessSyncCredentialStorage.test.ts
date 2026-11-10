@@ -1,7 +1,14 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessStorageUtils from './keylessStorageUtils';
 import keylessSyncCredentialStorage from './keylessSyncCredentialStorage';
+
+const mockDiagnostic = jest.fn<void, unknown[]>();
+jest.mock('../../ServiceKeylessCloudSync/hardwareCloudSyncLog', () => ({
+  logHardwareCloudSyncDiagnostic: (...args: unknown[]) =>
+    mockDiagnostic(...args),
+}));
 
 let mockStoredPayload: string | null = null;
 
@@ -80,4 +87,41 @@ describe('shared Cloud credential storage source changes', () => {
       keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
     ).resolves.toBeNull();
   });
+});
+
+test('credential diagnostics distinguish missing storage from unreadable storage without clearing it', async () => {
+  mockDiagnostic.mockClear();
+  mockStoredPayload = null;
+  await expect(
+    keylessSyncCredentialStorage.getCredential('unused'),
+  ).resolves.toBeNull();
+  expect(mockDiagnostic).not.toHaveBeenCalled();
+  const failure = new OneKeyLocalError('synthetic-private-storage-error');
+  jest
+    .mocked(keylessStorageUtils.storageGetItem)
+    .mockRejectedValueOnce(failure);
+  await expect(
+    keylessSyncCredentialStorage.getCredential('unused'),
+  ).rejects.toBe(failure);
+  expect(mockDiagnostic).toHaveBeenCalledWith('credential_storage_read_failed');
+  mockStoredPayload = 'synthetic-private-corrupt-ciphertext';
+  await expect(
+    keylessSyncCredentialStorage.getCredential('unused'),
+  ).resolves.toBeNull();
+  expect(mockDiagnostic).toHaveBeenCalledWith(
+    'credential_storage_decrypt_failed',
+  );
+  expect(JSON.stringify(mockDiagnostic.mock.calls)).not.toContain(
+    'synthetic-private',
+  );
+});
+
+test('repeated successful credential reads do not produce diagnostics', async () => {
+  await keylessSyncCredentialStorage.saveCredential(credential);
+  mockDiagnostic.mockClear();
+  for (let i = 0; i < 5; i += 1)
+    await keylessSyncCredentialStorage.getCredential(
+      credential.keylessWalletId,
+    );
+  expect(mockDiagnostic).not.toHaveBeenCalled();
 });
