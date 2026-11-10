@@ -75,18 +75,21 @@ describe.each([
     }
   });
 
-  it('hides only extension browser CTAs when subscribed', () => {
+  it('replaces only extension browser CTAs with status copy when subscribed', () => {
     for (const featureId of featureOrder) {
+      let expectedKind = 'featureAction';
+      if (isExtension && browserFeatures.has(featureId)) {
+        expectedKind =
+          featureId === EPrimeFeatures.DAppTranslate
+            ? 'availableInApp'
+            : 'alwaysOn';
+      }
       expect(
         utils.getPrimeFeatureIntroCtaKind({
           featureId,
           isPrimeSubscriptionActive: true,
         }),
-      ).toBe(
-        isExtension && browserFeatures.has(featureId)
-          ? 'none'
-          : 'featureAction',
-      );
+      ).toBe(expectedKind);
     }
   });
 

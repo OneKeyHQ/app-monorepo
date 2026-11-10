@@ -1,6 +1,8 @@
 export enum ETranslationsMock {
   mock_do_not_delete_this_key = 'mock',
   prime_app_only__title = 'prime_app_only__title',
+  prime_available_in_app__title = 'prime_available_in_app__title',
+  prime_always_on__title = 'prime_always_on__title',
 
   // ----------------------------------------------
   v4_migration_input_v4_password = 'Enter v4 password',

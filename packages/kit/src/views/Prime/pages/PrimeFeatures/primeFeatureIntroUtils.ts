@@ -50,6 +50,8 @@ export type IPrimeFeatureIntroCtaKind =
   | 'subscribe'
   | 'featureAction'
   | 'comingSoon'
+  | 'availableInApp'
+  | 'alwaysOn'
   | 'none';
 
 const PRIME_FEATURE_VIDEO_CDN_BASE_URL =
@@ -329,7 +331,9 @@ export function getPrimeFeatureIntroCtaKind({
     return 'subscribe';
   }
   if (platformEnv.isExtension && feature.action === 'browser') {
-    return 'none';
+    return feature.id === EPrimeFeatures.DAppTranslate
+      ? 'availableInApp'
+      : 'alwaysOn';
   }
   if (feature.isComingSoon) {
     return 'comingSoon';

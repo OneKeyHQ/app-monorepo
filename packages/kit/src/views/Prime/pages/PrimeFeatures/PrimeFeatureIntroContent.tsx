@@ -906,7 +906,10 @@ export function PrimeFeatureIntroContent({
   // only needs its design padding — adding safeAreaBottom here too would
   // double-stack the inset on notched iOS.
   const dialogFooterBottomPadding = DIALOG_FOOTER_BOTTOM_PADDING;
-  const shouldShowFooterAction = ctaKind !== 'none';
+  const shouldShowFooterAction =
+    shouldUseSubscribeCta ||
+    shouldUseFeatureActionCta ||
+    shouldUseComingSoonCta;
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||
     (shouldUseSubscribeCta && (isPackagesLoading || isFooterActionLoading));
@@ -1067,6 +1070,31 @@ export function PrimeFeatureIntroContent({
       getTokenValue(gtMd ? '$9' : '$12', 'size') +
       2 * getTokenValue('$px', 'size');
   }
+  let footerStatusText: string | undefined;
+  if (ctaKind === 'availableInApp') {
+    footerStatusText = intl.formatMessage({
+      id: ETranslationsMock.prime_available_in_app__title,
+      defaultMessage: 'Available in App',
+    });
+  } else if (ctaKind === 'alwaysOn') {
+    footerStatusText = intl.formatMessage({
+      id: ETranslationsMock.prime_always_on__title,
+      defaultMessage: 'Always on',
+    });
+  }
+  const footerStatus = footerStatusText ? (
+    <Stack
+      testID="prime-feature-intro-status"
+      width="100%"
+      height={extensionFooterMinHeight}
+      alignItems="center"
+      justifyContent="center"
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+        {footerStatusText}
+      </SizableText>
+    </Stack>
+  ) : undefined;
 
   // Desktop renders this as the dialog footer's extraContent; mobile renders it
   // inline above the footer with swipe-to-change-feature handlers attached.
@@ -1164,7 +1192,9 @@ export function PrimeFeatureIntroContent({
             buttonContainerProps={{
               justifyContent: 'flex-end',
               minHeight: extensionFooterMinHeight,
+              width: footerStatusText ? '100%' : undefined,
             }}
+            confirmButton={footerStatus}
             confirmButtonProps={
               shouldShowFooterAction
                 ? {
