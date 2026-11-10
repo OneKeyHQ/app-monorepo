@@ -348,7 +348,7 @@ export type ITradingViewChartSettingsProps = {
   onChange?: (value: ITradingViewChartSettingsValue) => void;
   /** Receives the complete value after the user confirms the draft. */
   onConfirm?: (value: ITradingViewChartSettingsValue) => void | Promise<void>;
-  /** Called after the confirmed draft has been committed locally. */
+  /** Called after a confirmation or dialog reset has been committed locally. */
   onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
@@ -532,13 +532,13 @@ export function TradingViewChartSettings({
     isResettingRef.current = true;
     const resetValue = createTradingViewChartSettingsValue();
     updateSettingsValue(() => resetValue);
-    // Reset is a sibling action of Confirm rather than a pending edit, so the
-    // defaults are applied right away while the settings stay open. The draft
-    // already shows them and persisting resolves within a frame or two, so
-    // skip the submitting state: toggling every control disabled for that
-    // long makes the whole dialog flash.
+    // Keep controls enabled during the short save to avoid flashing the dialog.
     try {
-      await persistValue(resetValue);
+      if ((await persistValue(resetValue)) && !usePageFooter) {
+        await onConfirmSuccess?.();
+      }
+    } catch (error) {
+      onConfirmError?.(error);
     } finally {
       isResettingRef.current = false;
     }

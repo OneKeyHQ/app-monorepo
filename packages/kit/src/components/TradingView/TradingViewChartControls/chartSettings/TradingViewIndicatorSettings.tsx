@@ -47,11 +47,11 @@ export type ITradingViewIndicatorSettingsProps = {
   isSubmitting?: boolean;
   /** Called when the editable draft changes. */
   onChange?: (value: ITradingViewIndicatorSettingsValue) => void;
-  /** Receives the complete value after the user confirms the draft. */
+  /** Saves the confirmed draft or the defaults from a full reset. */
   onConfirm?: (
     value: ITradingViewIndicatorSettingsValue,
   ) => void | Promise<void>;
-  /** Called after the confirmed draft has been committed locally. */
+  /** Called after a confirmation or full reset has been committed locally. */
   onConfirmSuccess?: () => void | Promise<void>;
   /** Called when the external confirmation fails. */
   onConfirmError?: (error: unknown) => void;
@@ -154,6 +154,7 @@ export function TradingViewIndicatorSettings({
       ),
   );
   const [isConfirming, setIsConfirming] = useState(false);
+  const isResettingRef = useRef(false);
   const submitInProgress = isSubmitting || isConfirming;
 
   useEffect(() => {
@@ -183,7 +184,18 @@ export function TradingViewIndicatorSettings({
   );
   const effectiveSelectedIndicatorId = selectedIndicator?.id ?? '';
 
-  const handleReset = useCallback(() => {
+  const persistValue = async (
+    nextValue: ITradingViewIndicatorSettingsValue,
+  ) => {
+    await onConfirm?.(nextValue);
+    commitSettingsValue(nextValue);
+  };
+
+  const handleReset = async () => {
+    if (submitInProgress || isResettingRef.current) {
+      return;
+    }
+
     if (displayMode === 'focused') {
       const defaultSettingsValue = createDefaultValue();
       updateSettingsValue((currentValue) =>
@@ -216,15 +228,17 @@ export function TradingViewIndicatorSettings({
         ),
       );
     }
-  }, [
-    createDefaultValue,
-    displayMode,
-    effectiveSelectedIndicatorId,
-    normalizedMaxActiveSubIndicatorCount,
-    selectedIndicatorId,
-    selectedIndicatorScope,
-    updateSettingsValue,
-  ]);
+
+    isResettingRef.current = true;
+    try {
+      await persistValue(nextValue);
+      await onConfirmSuccess?.();
+    } catch (error) {
+      onConfirmError?.(error);
+    } finally {
+      isResettingRef.current = false;
+    }
+  };
 
   const handleToggleIndicator = useCallback(
     (indicatorId: string, active: boolean) => {
@@ -271,7 +285,7 @@ export function TradingViewIndicatorSettings({
   };
 
   const handleConfirm = async () => {
-    if (submitInProgress) {
+    if (submitInProgress || isResettingRef.current) {
       return false;
     }
 
@@ -281,8 +295,7 @@ export function TradingViewIndicatorSettings({
       if (normalizedSettingsValue !== settingsValue) {
         updateSettingsValue(() => normalizedSettingsValue);
       }
-      await onConfirm?.(normalizedSettingsValue);
-      commitSettingsValue();
+      await persistValue(normalizedSettingsValue);
       didConfirm = true;
     } catch (error) {
       onConfirmError?.(error);
@@ -415,7 +428,7 @@ export function TradingViewIndicatorSettings({
           ),
         );
       }}
-      onReset={handleReset}
+      onReset={() => void handleReset()}
       onConfirm={handleConfirm}
       onClose={handleClose}
       isSubmitting={submitInProgress}
