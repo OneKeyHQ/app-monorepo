@@ -14,6 +14,22 @@ jest.mock('../../primitives', () => ({
 const { BannerSwiper } =
   require('./BannerSwiper.web') as typeof import('./BannerSwiper.web');
 
+const originalIntersectionObserver = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'IntersectionObserver',
+);
+let initialVisibility: boolean | null = true;
+const visibilityObservers: {
+  disconnect: jest.Mock<void, []>;
+  notify: (visible: boolean) => void;
+}[] = [];
+
+function changeVisibility(visible: boolean) {
+  const current = visibilityObservers.at(-1);
+  assert(current, 'Missing banner visibility observer');
+  act(() => current.notify(visible));
+}
+
 function pointer(target: EventTarget, type: string, x: number) {
   const event = new MouseEvent(type, {
     bubbles: true,
@@ -35,7 +51,7 @@ function setup({
   autoplayDelayMs = 1000,
 } = {}) {
   const onOpen = jest.fn();
-  const { container } = render(
+  const { container, unmount } = render(
     <BannerSwiper
       data={Array.from({ length: count }, (_, index) => index)}
       autoplay={autoplay}
@@ -71,12 +87,57 @@ function setup({
     assert(card, 'Missing active banner');
     return card;
   };
-  return { viewport, activeCard, onOpen };
+  return { viewport, activeCard, onOpen, unmount };
 }
 
 describe('Banner Web pointer interaction', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    initialVisibility = true;
+    visibilityObservers.length = 0;
+    Object.defineProperty(globalThis, 'IntersectionObserver', {
+      configurable: true,
+      writable: true,
+      value: jest.fn((callback: IntersectionObserverCallback) => {
+        let target: Element | undefined;
+        const disconnect = jest.fn<void, []>();
+        const observe = jest.fn<void, [Element]>();
+        const observer: IntersectionObserver = {
+          root: null,
+          rootMargin: '0px',
+          scrollMargin: '0px',
+          thresholds: [0.1],
+          observe,
+          unobserve: jest.fn(),
+          disconnect,
+          takeRecords: () => [],
+        };
+        const notify = (visible: boolean) => {
+          assert(target, 'Missing observed banner');
+          const bounds = target.getBoundingClientRect();
+          callback(
+            [
+              {
+                target,
+                isIntersecting: visible,
+                intersectionRatio: visible ? 1 : 0,
+                boundingClientRect: bounds,
+                intersectionRect: bounds,
+                rootBounds: null,
+                time: performance.now(),
+              },
+            ],
+            observer,
+          );
+        };
+        observe.mockImplementation((element: Element) => {
+          target = element;
+          if (initialVisibility !== null) notify(initialVisibility);
+        });
+        visibilityObservers.push({ disconnect, notify });
+        return observer;
+      }),
+    });
     // The shared Jest setup replaces this with a no-op for non-DOM suites.
     const eventTarget: EventTarget = globalThis;
     jest
@@ -100,6 +161,15 @@ describe('Banner Web pointer interaction', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
+    if (originalIntersectionObserver) {
+      Object.defineProperty(
+        globalThis,
+        'IntersectionObserver',
+        originalIntersectionObserver,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, 'IntersectionObserver');
+    }
   });
 
   it('blocks a delayed click after a short drag and allows the next click', () => {
@@ -177,5 +247,61 @@ describe('Banner Web pointer interaction', () => {
     expect(screen.getByTestId('index').textContent).toBe('1');
     act(() => jest.advanceTimersByTime(3000));
     expect(screen.getByTestId('index').textContent).toBe('0');
+  });
+
+  it('waits for the initial visibility report before starting autoplay', () => {
+    initialVisibility = null;
+    setup({ autoplay: true, autoplayLoop: true });
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+
+    changeVisibility(true);
+    act(() => jest.advanceTimersByTime(999));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+  });
+
+  it('cancels a pending tick offscreen and restarts a full interval on return', () => {
+    setup({ autoplay: true, autoplayLoop: true });
+    act(() => jest.advanceTimersByTime(999));
+    changeVisibility(false);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+
+    changeVisibility(true);
+    act(() => jest.advanceTimersByTime(999));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+  });
+
+  it('preserves the current slide while hidden and resumes looping when visible', () => {
+    setup({ autoplay: true, autoplayLoop: true });
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+    changeVisibility(false);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
+    changeVisibility(true);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('0');
+  });
+
+  it('disconnects on unmount and ignores a queued visibility callback', () => {
+    const { unmount } = setup({ autoplay: true, autoplayLoop: true });
+    const current = visibilityObservers.at(-1);
+    assert(current, 'Missing banner visibility observer');
+    unmount();
+    expect(current.disconnect).toHaveBeenCalledTimes(1);
+    act(() => current.notify(true));
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps autoplay available without IntersectionObserver', () => {
+    Reflect.deleteProperty(globalThis, 'IntersectionObserver');
+    setup({ autoplay: true, autoplayLoop: true });
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('index').textContent).toBe('1');
   });
 });

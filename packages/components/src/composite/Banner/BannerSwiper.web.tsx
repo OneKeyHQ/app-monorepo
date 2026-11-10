@@ -215,16 +215,44 @@ export function BannerSwiper<T>({
   }, [goToPage, loop, paint, settle]);
 
   useEffect(() => {
+    const viewport = viewportRef.current;
     if (
       !autoplay ||
       !loop ||
       paused ||
+      !viewport ||
       (!autoplayLoop && currentIndex === count - 1)
     ) {
       return undefined;
     }
-    const timer = setTimeout(goToNextIndex, autoplayDelayMs);
-    return () => clearTimeout(timer);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    const startTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(goToNextIndex, autoplayDelayMs);
+    };
+    // Cancel directly on visibility changes, even when a hidden tab is frozen.
+    const observer =
+      typeof IntersectionObserver === 'undefined'
+        ? undefined
+        : new IntersectionObserver(
+            ([entry]) => {
+              if (disposed) return;
+              clearTimeout(timer);
+              if (entry?.isIntersecting) startTimer();
+            },
+            { threshold: 0.1 },
+          );
+    if (observer) {
+      observer.observe(viewport);
+    } else {
+      startTimer();
+    }
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      observer?.disconnect();
+    };
   }, [
     autoplay,
     autoplayDelayMs,
