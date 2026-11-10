@@ -73,6 +73,7 @@ type IOneKeyIdActionItemProps = {
   drillIn?: boolean;
   testID?: string;
   disabled?: boolean;
+  isLoading?: boolean;
 };
 
 type IOneKeyIdAction = IOneKeyIdActionItemProps & {
@@ -88,6 +89,7 @@ function OneKeyIdActionItem({
   drillIn = true,
   testID,
   disabled = false,
+  isLoading = false,
 }: IOneKeyIdActionItemProps) {
   const media = useMedia();
 
@@ -108,7 +110,8 @@ function OneKeyIdActionItem({
       title={title}
       subtitle={media.gtMd ? subtitle : undefined}
       disabled={disabled}
-      accessibilityState={{ disabled }}
+      isLoading={isLoading}
+      accessibilityState={{ disabled, busy: isLoading }}
       onPress={disabled ? undefined : onPress}
       titleProps={{
         size: media.gtMd ? '$bodyMdMedium' : '$bodyLgMedium',
@@ -457,7 +460,8 @@ function OneKeyIdPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const media = useMedia();
-  const { toInviteRewardPage } = useReferFriends();
+  const { toInviteRewardPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn, user } = useOneKeyAuth();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -592,6 +596,8 @@ function OneKeyIdPage() {
         id: ETranslations.id_refer_a_friend_desc,
       }),
       onPress: toInviteRewardPage,
+      disabled: isReferralEntryPending,
+      isLoading: isReferralEntryLoading,
     },
     {
       key: 'devices',
@@ -670,7 +676,7 @@ function OneKeyIdPage() {
                     <Fragment key={key}>
                       <OneKeyIdActionItem
                         {...actionProps}
-                        disabled={isBanned}
+                        disabled={isBanned || actionProps.disabled}
                       />
                       {index < manageServiceActions.length - 1 ? (
                         <SectionDivider />
