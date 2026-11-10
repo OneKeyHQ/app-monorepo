@@ -4,6 +4,8 @@ const { test } = require('node:test');
 const os = require('os');
 const path = require('path');
 
+const { hasForbiddenRuntimeFontLoader } = require('../lint/font');
+
 const { getPostScriptName } = require('./font-file-utils');
 const {
   RemoteFontsUnavailableError,
@@ -15,6 +17,7 @@ const {
   resolveSource,
   resolveSourceOrFallback,
   sha256,
+  syncIosFonts,
   verifyAgainstLock,
 } = require('./fonts-sync');
 
@@ -355,3 +358,54 @@ test('a staged EAS directory that does not match the lock is rejected', () =>
       /does not match brand\.lock\.json/,
     );
   }));
+
+test('syncIosFonts updates an existing iOS Fonts directory and skips when absent', () =>
+  withTempDir(async (tempRoot) => {
+    const missingIosDir = path.join(tempRoot, 'missing-ios-fonts');
+    syncIosFonts(fallbackFiles, missingIosDir);
+    assert.equal(fs.existsSync(missingIosDir), false);
+
+    const iosDir = path.join(tempRoot, 'ios-fonts');
+    fs.mkdirSync(iosDir, { recursive: true });
+    fs.writeFileSync(path.join(iosDir, 'BrandSans-Regular.ttf'), 'stale');
+    syncIosFonts(fallbackFiles, iosDir);
+    for (const slot of SLOTS) {
+      assert.equal(
+        fs
+          .readFileSync(path.join(iosDir, slot.fileName))
+          .equals(fs.readFileSync(fallbackFiles[slot.key])),
+        true,
+      );
+    }
+  }));
+
+test('hasForbiddenRuntimeFontLoader guards useLoadCustomFonts against expo-font and require(ttf)', () => {
+  const useLoadCustomFontsPath = path.join(
+    fontsDir,
+    '../hooks/useLoadCustomFonts.ts',
+  );
+  assert.equal(
+    hasForbiddenRuntimeFontLoader(
+      fs.readFileSync(useLoadCustomFontsPath, 'utf-8'),
+    ),
+    false,
+  );
+  assert.equal(
+    hasForbiddenRuntimeFontLoader("import { useFonts } from 'expo-font';"),
+    true,
+  );
+  assert.equal(
+    hasForbiddenRuntimeFontLoader("const expoFont = require('expo-font');"),
+    true,
+  );
+  assert.equal(
+    hasForbiddenRuntimeFontLoader('const [loaded] = useFonts({});'),
+    true,
+  );
+  assert.equal(
+    hasForbiddenRuntimeFontLoader(
+      "const font = require('../fonts/brand/BrandSans-Regular.ttf');",
+    ),
+    true,
+  );
+});
