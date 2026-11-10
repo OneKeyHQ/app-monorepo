@@ -11,9 +11,11 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   ESwitchSize,
   Icon,
+  IconButton,
   SizableText,
   Stack,
   XStack,
@@ -21,19 +23,33 @@ import {
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/borrowMarketDisplayName';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { BorrowAlerts } from '@onekeyhq/kit/src/views/Borrow/components/BorrowAlerts';
+import { BorrowBonusTooltip } from '@onekeyhq/kit/src/views/Borrow/components/BorrowBonusTooltip';
+import { withNetApySignColor } from '@onekeyhq/kit/src/views/Borrow/components/borrowOverview.utils';
 import { CollateralBadge } from '@onekeyhq/kit/src/views/Borrow/components/BorrowTableList/CollateralBadge';
 import { CollateralSwitch } from '@onekeyhq/kit/src/views/Borrow/components/CollateralSwitchCell';
 import { useBorrowEModeStatus } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowEModeStatus';
+import { useBorrowRewards } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowRewards';
+import { useBorrowRewardsClaimDialog } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowRewardsClaimDialog';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowEModeStatus,
+  IBorrowRewards,
+} from '@onekeyhq/shared/types/staking';
 
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
 import { EarnPositionHealthFactorRow } from './EarnPositionHealthFactorRow';
+import {
+  lendingPendingTxsOf,
+  lendingRewardsRowOf,
+} from './mobile/earnLendingPositions';
 import {
   lendingCollateralOf,
   lendingEModeLabelOf,
@@ -42,6 +58,7 @@ import {
 import type {
   IEarnLendingMarketRef,
   IEarnLendingReserveRef,
+  IEarnLendingRewardsRow,
 } from './mobile/earnLendingPositions';
 import type {
   IEarnPositionMeta,
@@ -82,6 +99,9 @@ type ILendingCard = {
   market: IEarnLendingMarketRef;
   /** the account's E-Mode in the market, as the market page reads it */
   eModeStatus: IBorrowEModeStatus | null;
+  /** what the account can claim in the market, as the market page read it */
+  borrowRewards: IBorrowRewards | null;
+  refreshRewards: () => void;
 };
 
 const LendingCardContext = createContext<ILendingCard | undefined>(undefined);
@@ -89,7 +109,8 @@ const LendingCardContext = createContext<ILendingCard | undefined>(undefined);
 /**
  * One lending card's market: its E-Mode read once for the card's E-Mode line
  * and its collateral switches (Aave enables collateral within the account's
- * E-Mode), read again after a Borrow transaction settles
+ * E-Mode), and its rewards for the card's Rewards row, both read again
+ * after a Borrow transaction settles
  */
 export function LendingCardScope({
   market,
@@ -109,6 +130,19 @@ export function LendingCardScope({
     marketAddress: market.market.marketAddress,
     accountId: market.accountId,
   });
+  const {
+    borrowRewards,
+    isError: isRewardsError,
+    refresh: runRewardsRefresh,
+  } = useBorrowRewards({
+    networkId: market.market.networkId,
+    provider: market.market.provider,
+    marketAddress: market.market.marketAddress,
+    accountId: market.accountId,
+  });
+  const refreshRewards = useCallback(() => {
+    void runRewardsRefresh();
+  }, [runRewardsRefresh]);
   const settledCount = actions?.settledCount ?? 0;
   const seenSettledCountRef = useRef(settledCount);
   useEffect(() => {
@@ -117,11 +151,18 @@ export function LendingCardScope({
     }
     seenSettledCountRef.current = settledCount;
     void refreshEModeStatus();
-  }, [refreshEModeStatus, settledCount]);
+    refreshRewards();
+  }, [refreshEModeStatus, refreshRewards, settledCount]);
   const visibleEModeStatus = isError ? null : eModeStatus;
+  const visibleRewards = isRewardsError ? null : borrowRewards;
   const value = useMemo(
-    () => ({ market, eModeStatus: visibleEModeStatus }),
-    [market, visibleEModeStatus],
+    () => ({
+      market,
+      eModeStatus: visibleEModeStatus,
+      borrowRewards: visibleRewards,
+      refreshRewards,
+    }),
+    [market, refreshRewards, visibleEModeStatus, visibleRewards],
   );
   return (
     <LendingCardContext.Provider value={value}>
@@ -194,40 +235,300 @@ function LendingEModeTrigger() {
   );
 }
 
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+
 /**
- * A lending card's Health Factor line with the market's E-Mode: on the same
- * line in the wide layout, under it on the phone. The E-Mode alone where the
- * card has no loan, so no Health Factor
+ * The position's Net APY, the market page's figure: green where the
+ * position earns more than its loans cost, red where it pays
+ */
+function LendingNetApy() {
+  const intl = useIntl();
+  const card = useContext(LendingCardContext);
+  const netApyText = card?.market.summary?.netApyText;
+  if (!netApyText) {
+    return null;
+  }
+  return (
+    <XStack testID="earn-portfolio-lending-net-apy" ai="center" gap="$2">
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        {intl.formatMessage({ id: ETranslations.defi_net_apy })}
+      </SizableText>
+      <EarnText
+        size="$bodyMdMedium"
+        color="$text"
+        fontVariant={TABULAR_NUMS}
+        numberOfLines={1}
+        text={withNetApySignColor({ text: netApyText })}
+      />
+    </XStack>
+  );
+}
+
+/**
+ * OneKey's bonus on the market while it runs one: what the account has
+ * received, and the market page's own explanation behind the info button
+ */
+function LendingPlatformBonus() {
+  const intl = useIntl();
+  const card = useContext(LendingCardContext);
+  const platformBonus = card?.market.summary?.platformBonus;
+  if (!card || !platformBonus) {
+    return null;
+  }
+  const { market, accountId } = card.market;
+  return (
+    <XStack testID="earn-portfolio-lending-bonus" ai="center" gap="$2">
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        {platformBonus.data?.title?.text ||
+          intl.formatMessage({ id: ETranslations.defi_platform_bonus })}
+      </SizableText>
+      <EarnText
+        size="$bodyMdMedium"
+        color="$text"
+        fontVariant={TABULAR_NUMS}
+        numberOfLines={1}
+        text={platformBonus.totalReceived.description}
+      />
+      {/* The button's own padding sits outside the line's height */}
+      <Stack my="$-1" ml="$-1">
+        <BorrowBonusTooltip
+          data={platformBonus}
+          accountId={accountId}
+          networkId={market.networkId}
+          provider={market.provider}
+          marketAddress={market.marketAddress}
+        />
+      </Stack>
+    </XStack>
+  );
+}
+
+/**
+ * A lending card's figures line, what the market page showed over its
+ * tables (demo 11-10): the Health Factor of a loan, the position's Net APY,
+ * the market's E-Mode and OneKey's bonus. One line in the wide layout,
+ * wrapping when it must; on the phone the Health Factor and the Net APY
+ * share a line and the rest go under it
  */
 export function LendingHealthLine({
   meta,
   stacked = false,
 }: {
   meta?: IEarnPositionMeta;
-  /** the phone: E-Mode on a line of its own under the Health Factor */
+  /** the phone: E-Mode and the bonus on lines of their own */
   stacked?: boolean;
 }) {
   const card = useContext(LendingCardContext);
   // As LendingEModeTrigger shows: only a market with categories
   const hasEMode = Boolean(card?.eModeStatus?.categories?.length);
+  const hasNetApy = Boolean(card?.market.summary?.netApyText);
+  const hasBonus = Boolean(card?.market.summary?.platformBonus);
   const healthFactor =
     meta?.kind === 'healthFactor' ? (
       <EarnPositionHealthFactorRow meta={meta} />
     ) : null;
-  if (!hasEMode) {
-    return healthFactor;
+  if (!healthFactor && !hasNetApy && !hasEMode && !hasBonus) {
+    return null;
   }
-  return stacked ? (
-    <YStack gap="$2">
-      {healthFactor}
-      <LendingEModeTrigger />
-    </YStack>
-  ) : (
+  if (stacked) {
+    return (
+      <YStack gap="$2">
+        {healthFactor || hasNetApy ? (
+          <XStack ai="center" columnGap="$6" rowGap="$2" flexWrap="wrap">
+            {healthFactor}
+            <LendingNetApy />
+          </XStack>
+        ) : null}
+        {hasEMode ? <LendingEModeTrigger /> : null}
+        <LendingPlatformBonus />
+      </YStack>
+    );
+  }
+  return (
     <XStack ai="center" columnGap="$6" rowGap="$2" flexWrap="wrap">
       {healthFactor}
-      <LendingEModeTrigger />
+      <LendingNetApy />
+      {hasEMode ? <LendingEModeTrigger /> : null}
+      <LendingPlatformBonus />
     </XStack>
   );
+}
+
+/**
+ * The market's warnings and its health factor's, the market page's own
+ * boxes with their Receive and Swap buttons, under the card's figures
+ */
+export function LendingAlerts() {
+  const card = useContext(LendingCardContext);
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const alerts = card?.market.summary?.alerts;
+  if (!card || !alerts?.length) {
+    return null;
+  }
+  return (
+    // Clear of the figures above and the table under it
+    <Stack testID="earn-portfolio-lending-alerts" py="$1">
+      <BorrowAlerts
+        alerts={alerts}
+        accountId={activeAccount.account?.id || undefined}
+        walletId={activeAccount.wallet?.id}
+        indexedAccountId={
+          card.market.indexedAccountId ?? activeAccount.indexedAccount?.id
+        }
+        marketNetworkId={card.market.market.networkId}
+      />
+    </Stack>
+  );
+}
+
+function useOpenLendingHistory(market: IEarnLendingMarketRef) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const label = intl.formatMessage({ id: ETranslations.global_history });
+  const open = useCallback(() => {
+    BorrowNavigation.pushToBorrowHistory(navigation, {
+      accountId: market.accountId,
+      networkId: market.market.networkId,
+      provider: market.market.provider,
+      marketAddress: market.market.marketAddress,
+      title: label,
+    });
+  }, [label, market, navigation]);
+  return { open, label };
+}
+
+/**
+ * The market's transactions, the market page's History, where the other
+ * cards have the way to their detail page: the same place and size, so the
+ * card's value still ends over its table's. Its room stays where the
+ * market has nothing to list
+ */
+export function LendingHistoryButton({
+  market,
+}: {
+  market: IEarnLendingMarketRef;
+}) {
+  const { open, label } = useOpenLendingHistory(market);
+  if (!market.summary?.hasHistory) {
+    return <Stack w="$5" />;
+  }
+  return (
+    // The chevron's 20 pt of room; the button's own padding reaches past it
+    // on every side without moving the icon
+    <Stack w="$5" h="$5" ai="center" jc="center">
+      <IconButton
+        testID="earn-portfolio-lending-history"
+        icon="ClockTimeHistoryOutline"
+        iconSize="$4"
+        variant="tertiary"
+        size="small"
+        p="$1.5"
+        m={-5}
+        title={label}
+        aria-label={label}
+        onPress={open}
+      />
+    </Stack>
+  );
+}
+
+/**
+ * The market's transactions still out, beside its name, as the market page
+ * counted them where its History was: the rows' own blue badge, opening the
+ * market's transactions
+ */
+export function LendingPendingBadge({
+  market,
+}: {
+  market: IEarnLendingMarketRef;
+}) {
+  const intl = useIntl();
+  const actions = usePortfolioLendingActions();
+  const { open } = useOpenLendingHistory(market);
+  const count = useMemo(
+    () =>
+      lendingPendingTxsOf({
+        pendingTxs: actions?.pendingTxs ?? NO_PENDING_TXS,
+        market,
+      }).length,
+    [actions?.pendingTxs, market],
+  );
+  if (!count) {
+    return null;
+  }
+  const pending = intl.formatMessage({ id: ETranslations.global_pending });
+  const label = count > 1 ? `${count} ${pending}` : pending;
+  return (
+    // The badge is 20 pt tall; padding the negative margins take back
+    // makes its tap area 44 pt without moving it
+    <Stack
+      testID="earn-portfolio-lending-pending"
+      role="button"
+      aria-label={label}
+      flexShrink={0}
+      py="$3"
+      my="$-3"
+      px="$2"
+      mx="$-2"
+      cursor="pointer"
+      onPress={open}
+      {...buildKeyboardPressProps(open, 2)}
+    >
+      <Badge badgeType="info" badgeSize="sm">
+        <Badge.Text>{label}</Badge.Text>
+      </Badge>
+    </Stack>
+  );
+}
+
+/**
+ * A lending card's Rewards row: what the account can claim in the market
+ * as one line, its Claim opening the market's rewards window (each reward
+ * with its own Claim, and one for all). Undefined while there is nothing
+ * to claim. Every claim out: the row shows Pending instead of its button
+ */
+export function useLendingCardRewards():
+  | {
+      row: IEarnLendingRewardsRow;
+      isPending: boolean;
+      open: () => void;
+    }
+  | undefined {
+  const card = useContext(LendingCardContext);
+  const actions = usePortfolioLendingActions();
+  const refreshMarkets = actions?.refresh;
+  const refreshRewards = card?.refreshRewards;
+  const handleClaimed = useCallback(async () => {
+    refreshRewards?.();
+    await refreshMarkets?.();
+  }, [refreshMarkets, refreshRewards]);
+  const { openRewardsDialog, pendingClaimIds } = useBorrowRewardsClaimDialog({
+    market: card?.market.market,
+    accountId: card?.market.accountId,
+    borrowRewards: card?.borrowRewards,
+    pendingTxs: actions?.pendingTxs ?? NO_PENDING_TXS,
+    onClaimed: handleClaimed,
+  });
+  const row = useMemo(
+    () => lendingRewardsRowOf(card?.borrowRewards),
+    [card?.borrowRewards],
+  );
+  return useMemo(() => {
+    if (!row) {
+      return undefined;
+    }
+    const pendingIds = new Set(pendingClaimIds);
+    return {
+      row,
+      isPending:
+        row.claimIds.length > 0 &&
+        row.claimIds.every((id) => pendingIds.has(id)),
+      open: () => {
+        actions?.onOpenWindow();
+        openRewardsDialog();
+      },
+    };
+  }, [actions, openRewardsDialog, pendingClaimIds, row]);
 }
 
 /**

@@ -1,25 +1,18 @@
-import { useCallback, useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { buildBorrowTag } from '../../Staking/utils/utils';
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
 import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
+import { useBorrowRewardsClaimDialog } from '../hooks/useBorrowRewardsClaimDialog';
 import { useLoadedOnce } from '../hooks/useLoadedOnce';
-import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
-import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
-import { getPendingBorrowClaimIds } from './BorrowRewardsMetric.utils';
 import { OverviewMetric } from './OverviewMetric';
 
 import type { IOverviewMetricProps } from './OverviewMetric';
@@ -46,9 +39,6 @@ export function BorrowRewardsMetric({
   const placeholderAmountText = useBorrowPlaceholderAmountText();
   const { market, earnAccount, pendingTxs } = useBorrowContext();
 
-  const provider = market?.provider;
-  const networkId = market?.networkId;
-  const marketAddress = market?.marketAddress;
   const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
   const metricScopeKey = JSON.stringify([
     buildBorrowMarketKey(market ?? undefined),
@@ -59,105 +49,15 @@ export function BorrowRewardsMetric({
     metricScopeKey,
   );
 
-  const pendingClaimIds = useMemo<string[]>(() => {
-    if (!earnAccountId || !networkId || !provider || !marketAddress) {
-      return [];
-    }
-    return getPendingBorrowClaimIds({
-      pendingTxs,
+  const { openRewardsDialog: handleShowRewardsDialog } =
+    useBorrowRewardsClaimDialog({
+      market,
       accountId: earnAccountId,
-      networkId,
-      provider,
-      marketAddress,
+      borrowRewards,
+      pendingTxs,
+      isError,
+      onClaimed,
     });
-  }, [earnAccountId, marketAddress, networkId, pendingTxs, provider]);
-
-  const handleBorrowClaim = useUniversalBorrowClaim({
-    networkId: networkId ?? '',
-    accountId: earnAccountId ?? '',
-  });
-
-  const handleShowRewardsDialog = useCallback(() => {
-    if (
-      isError ||
-      !borrowRewards?.button ||
-      !provider ||
-      !marketAddress ||
-      !networkId ||
-      !earnAccountId
-    )
-      return;
-
-    const rewardsDetails = borrowRewards.button;
-    const claimableGroups = rewardsDetails.data.rewardsDetail.claimable ?? [];
-    const pendingIdSet = new Set(pendingClaimIds);
-    const allIds: string[] = [];
-    for (const group of claimableGroups) {
-      for (const item of group.items) {
-        if (!pendingIdSet.has(item.id)) {
-          allIds.push(item.id);
-        }
-      }
-    }
-
-    const buildStakingInfo = (claimIds: string[]) => ({
-      label: EEarnLabels.Claim,
-      protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-      protocolLogoURI: market?.logoURI,
-      tags: [
-        EEarnLabels.Borrow,
-        buildBorrowTag({
-          provider,
-          action: 'claim',
-          claimIds,
-          claimScope: {
-            networkId,
-            marketAddress,
-          },
-        }),
-      ],
-    });
-
-    showBorrowClaimRewardsDialog({
-      rewardsDetails,
-      pendingClaimIds,
-      onClaimItem: async (item) =>
-        handleBorrowClaim({
-          provider,
-          marketAddress,
-          ids: [item.id],
-          stakingInfo: buildStakingInfo([item.id]),
-          onSuccess: () => {
-            void onClaimed();
-          },
-        }),
-      onClaimAll: async () => {
-        if (allIds.length === 0) {
-          return false;
-        }
-        return handleBorrowClaim({
-          provider,
-          marketAddress,
-          ids: allIds,
-          stakingInfo: buildStakingInfo(allIds),
-          onSuccess: () => {
-            void onClaimed();
-          },
-        });
-      },
-    });
-  }, [
-    isError,
-    borrowRewards?.button,
-    provider,
-    marketAddress,
-    networkId,
-    earnAccountId,
-    market?.logoURI,
-    handleBorrowClaim,
-    pendingClaimIds,
-    onClaimed,
-  ]);
 
   return (
     <OverviewMetric

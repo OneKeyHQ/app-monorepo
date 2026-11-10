@@ -15,7 +15,9 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TokenGroup } from '@onekeyhq/kit/src/components/Token/TokenGroup';
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPositionEffectiveDeposit } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -25,11 +27,17 @@ import {
   getRewardButtonText,
 } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
-import { LendingCollateralLine, LendingRowButton } from '../EarnLendingActions';
+import {
+  LendingCollateralLine,
+  LendingRowButton,
+  useLendingCardRewards,
+} from '../EarnLendingActions';
 
+import { lendingRewardSymbolsOf } from './earnLendingPositions';
 import { isCheckRow } from './earnPositionModel';
 import { holdingRowActionOf } from './myPortfolio.utils';
 
+import type { IEarnLendingRewardsRow } from './earnLendingPositions';
 import type {
   IEarnPositionSectionAsset,
   IEarnPositionSectionView,
@@ -413,6 +421,132 @@ function HoldingSection({
       (section.kind === 'deposited' || section.kind === 'supplied') ? (
         <EffectiveDepositRow effectiveDeposit={effectiveDeposit} />
       ) : null}
+    </YStack>
+  );
+}
+
+/**
+ * A Rewards row's tokens: the one logo as the rows above have theirs, or
+ * several overlapped, each ringed in what it sits on
+ */
+export function LendingRewardTokens({
+  tokens,
+  size,
+  backgroundColor = '$bgApp',
+}: {
+  tokens: IEarnLendingRewardsRow['tokens'];
+  size: 'sm' | 'md';
+  backgroundColor?: string;
+}) {
+  if (tokens.length === 1) {
+    return <Token size={size} tokenImageUri={tokens[0].logoURI} />;
+  }
+  return (
+    // The rings' own width taken back, so the first logo starts where the
+    // rows' logos do
+    <TokenGroup
+      tokens={tokens.map((token) => ({ tokenImageUri: token.logoURI }))}
+      size={size}
+      maxVisible={3}
+      showRemainingBadge={false}
+      backgroundColor={backgroundColor}
+      m="$-0.5"
+      flexShrink={0}
+    />
+  );
+}
+
+/**
+ * A lending card's Claim, the rows' small secondary button, opening the
+ * market's rewards window; the rows' Pending badge once every claim is out
+ */
+export function LendingRewardsAction({
+  rewards,
+}: {
+  rewards: NonNullable<ReturnType<typeof useLendingCardRewards>>;
+}) {
+  const intl = useIntl();
+  if (rewards.isPending) {
+    return (
+      <Badge badgeType="info" badgeSize="sm">
+        <Badge.Text>
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </Badge.Text>
+      </Badge>
+    );
+  }
+  const label =
+    rewards.row.buttonText ||
+    intl.formatMessage({ id: ETranslations.earn_claim });
+  return (
+    <Button
+      testID="earn-portfolio-lending-claim"
+      size="small"
+      variant="secondary"
+      hitSlop={ROW_ACTION_HIT_SLOP}
+      aria-label={`${label} ${lendingRewardSymbolsOf(rewards.row.tokens)}`}
+      onPress={rewards.open}
+    >
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * A lending market's rewards as the phone card's last panel (demo 11-10):
+ * one row for all of them, Claim at its end as every row's button sits.
+ * One reward alone leads with its amount, as the rows above do; several
+ * with their names. Nothing while there is nothing to claim
+ */
+export function LendingRewardsPanel() {
+  const intl = useIntl();
+  const rewards = useLendingCardRewards();
+  if (!rewards) {
+    return null;
+  }
+  const { row } = rewards;
+  return (
+    <YStack
+      testID="earn-portfolio-lending-rewards"
+      gap="$1"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      bg="$bgSubdued"
+    >
+      <SizableText size="$bodySmMedium" color="$textSubdued" py="$1">
+        {row.title || intl.formatMessage({ id: ETranslations.earn_rewards })}
+      </SizableText>
+      <XStack ai="center" gap="$3" minHeight={36} py="$1">
+        <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+          <LendingRewardTokens
+            tokens={row.tokens}
+            size="md"
+            backgroundColor="$bgSubdued"
+          />
+          <YStack flexShrink={1} minWidth={0}>
+            {row.amount ? (
+              <EarnText
+                size="$bodyMdMedium"
+                color="$text"
+                numberOfLines={1}
+                text={row.amount}
+              />
+            ) : (
+              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                {lendingRewardSymbolsOf(row.tokens)}
+              </SizableText>
+            )}
+            <EarnText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              text={row.value}
+            />
+          </YStack>
+        </XStack>
+        <LendingRewardsAction rewards={rewards} />
+      </XStack>
     </YStack>
   );
 }

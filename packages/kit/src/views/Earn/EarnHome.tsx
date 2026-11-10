@@ -599,6 +599,13 @@ function BasicEarnHome({
       mode: 'earn' | 'borrow';
       switchType?: IEarnModeSwitchType;
     }) => {
+      if (mode === 'borrow') {
+        // The notification's Borrow button: the home's Loans tab, in front
+        // of any page open over it (demo 11-10: the market's own page, where
+        // it went, is retired)
+        void EarnNavigation.popToEarnHome(navigation, { mode: 'borrow' });
+        return;
+      }
       if (mode !== defaultMode) {
         handleModeChange(mode, switchType ?? 'default');
       }
@@ -607,7 +614,7 @@ function BasicEarnHome({
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
     };
-  }, [defaultMode, handleModeChange]);
+  }, [defaultMode, handleModeChange, navigation]);
 
   const earnFocusTabRoutes = useMemo(
     () =>
@@ -690,7 +697,9 @@ function BasicEarnHome({
   }, [navigation]);
 
   // The desktop home has no Borrow pane or Positions tab: links that asked
-  // for them (notifications, the detail page's way back) open the pages.
+  // for them (notifications, the detail page's way back) open the Loans tab
+  // (demo 11-10: the market's own page is retired on web) and My portfolio.
+  const [loansRequestAt, setLoansRequestAt] = useState<number>();
   const requestedMode = route.params?.mode;
   const requestedTab = route.params?.tab;
   // A token's breadcrumb asks for its row
@@ -709,7 +718,7 @@ function BasicEarnHome({
     }
     if (requestedMode === 'borrow') {
       navigation.setParams({ mode: 'earn', tab: undefined });
-      BorrowNavigation.pushToBorrowHome(navigation);
+      setLoansRequestAt(Date.now());
       return;
     }
     if (requestedTab === 'portfolio') {
@@ -839,6 +848,7 @@ function BasicEarnHome({
             onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
             onBorrowNetworksChange={handleBorrowNetworksChange}
             openRequest={desktopOpenRequest}
+            loansRequestAt={loansRequestAt}
           />
         </EarnPageContainer>
       </LazyPageContainer>

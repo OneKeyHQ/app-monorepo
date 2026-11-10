@@ -8,10 +8,7 @@ import type { ICollateralCellState } from '@onekeyhq/kit/src/views/Borrow/compon
 import { normalizeEModeLabel } from '@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch/emodeUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type {
-  IEarnPortfolioPosition,
-  IEarnPositionManageTarget,
-} from '@onekeyhq/shared/types/earn/portfolioPositions';
+import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
   IBorrowEModeStatus,
   IEarnActionIcon,
@@ -81,40 +78,19 @@ export function positionPendingTag(position: IEarnPortfolioPosition): string {
 }
 
 /**
- * The market a card's loan sits in, for the market's own page (the Borrow
- * page, where repaying and the collateral are): set where the card holds a
- * lending position that borrows, or one read from its market (a supply
- * there is managed on that page too). Found by the target the card hands its
- * Manage, the one object the card was built with (demo 10-28)
+ * Whether a card holds a loan or a position read from its lending market.
+ * On web such a card has no page of its own to open since the market's
+ * page was retired (demo 11-10): the card carries the market's controls
+ * and figures itself, so its header line doesn't open anything there. The
+ * phone app keeps the detail page
  */
-export function findLoanMarketOf(
-  protocols: IEarnProtocolView[],
-  target: IEarnPositionManageTarget,
-): { provider: string; networkId: string; marketAddress: string } | undefined {
-  for (const protocol of protocols) {
-    const card = protocol.positions.find(
-      (position) => position.action?.target === target,
-    );
-    if (card) {
-      const isLoan = card.sources.some(
-        (source) =>
-          source.category === 'lending' &&
-          (source.debts.length > 0 ||
-            source.source.provider === EARN_LENDING_MARKET_SOURCE),
-      );
-      // The market is the position's vault, named on Manage's target or on
-      // the position itself
-      const marketAddress = target.vault || card.source.earn.vault;
-      return isLoan && marketAddress
-        ? {
-            provider: target.provider,
-            networkId: target.networkId,
-            marketAddress,
-          }
-        : undefined;
-    }
-  }
-  return undefined;
+export function isLoanPositionCard(position: IEarnPositionView): boolean {
+  return position.sources.some(
+    (source) =>
+      source.category === 'lending' &&
+      (source.debts.length > 0 ||
+        source.source.provider === EARN_LENDING_MARKET_SOURCE),
+  );
 }
 
 /**

@@ -730,6 +730,8 @@ export type ILoanRouteFacts = {
   // With a loan there, the server's reading of the position: the Borrow
   // page's figure, color and status
   healthFactorDetail?: IHealthFactorDetail;
+  // The market lists transactions of the account: the window's History
+  hasHistory?: boolean;
 };
 
 export type ILoanRouteBlock =

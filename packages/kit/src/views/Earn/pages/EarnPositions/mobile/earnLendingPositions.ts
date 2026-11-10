@@ -3,23 +3,33 @@ import BigNumber from 'bignumber.js';
 import { getBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '@onekeyhq/kit/src/views/Borrow/borrowMarketKey';
 import { hasPositiveBorrowBalance } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
-import { readLoanHealth } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
+import {
+  readLoanHealth,
+  summarizeLoanPositionYield,
+  toLoanPositionNetApy,
+} from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import type { IEarnDesktopAccountMarket } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopHomeData';
+import type { IStakePendingTx } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
+import { parseBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
 import type {
   IEarnPortfolioPosition,
   IEarnPortfolioPositionsResponse,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
+  IBorrowAlert,
   IBorrowBalance,
+  IBorrowHealthFactor,
   IBorrowMarketItem,
   IBorrowReserveItem,
+  IBorrowRewards,
   IBorrowToken,
+  IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 /**
  * Where a position the client reads from a lending market itself comes
- * from: such a card opens the market's own page, the Borrow page
+ * from: such a card carries the market's own controls and figures
  */
 export const EARN_LENDING_MARKET_SOURCE = 'onekey-lending-markets';
 
@@ -28,12 +38,28 @@ export type IEarnLendingSuppliedReserve =
 export type IEarnLendingBorrowedReserve =
   IBorrowReserveItem['borrowed']['assets'][number];
 
+/**
+ * What the market's own page showed over its tables, which the card shows
+ * now that the page is retired on web (demo 11-10)
+ */
+export type IEarnLendingMarketSummary = {
+  /** The position's Net APY in %, the Loans window's figure, as "3.06%" */
+  netApyText?: string;
+  /** The market's warnings and the health factor's, in that order */
+  alerts: IBorrowAlert[];
+  /** OneKey's bonus on the market, while it runs one */
+  platformBonus?: IBorrowReserveItem['overview']['platformBonus'];
+  /** Whether the account has transactions listed in the market */
+  hasHistory: boolean;
+};
+
 /** The market a lending card was read from, and the account it was read for */
 export type IEarnLendingMarketRef = {
   market: IBorrowMarketItem;
   /** The account's own account on the market's network */
   accountId: string;
   indexedAccountId?: string;
+  summary?: IEarnLendingMarketSummary;
 };
 
 /**
@@ -91,6 +117,37 @@ function toDeFiAsset({
   };
 }
 
+/**
+ * A market's summary for its card: the Net APY worked out as the Loans
+ * window and the market page do (the server's own where the position is
+ * worth nothing), the warnings of the market and of its health factor, the
+ * bonus, and whether History has anything to list
+ */
+export function buildLendingMarketSummary({
+  reserves,
+  healthFactor,
+}: {
+  reserves: IBorrowReserveItem;
+  healthFactor?: IBorrowHealthFactor;
+}): IEarnLendingMarketSummary {
+  const netApy = toLoanPositionNetApy(summarizeLoanPositionYield(reserves));
+  const serverNetApy = reserves.overview?.netApy?.text?.trim();
+  const hasServerNetApy = Boolean(serverNetApy && /\d/.test(serverNetApy));
+  let netApyText: string | undefined;
+  if (netApy !== undefined) {
+    netApyText = `${new BigNumber(netApy).toFixed(2)}%`;
+  } else if (hasServerNetApy) {
+    netApyText = serverNetApy;
+  }
+  return {
+    netApyText,
+    alerts: [...(reserves.alerts ?? []), ...(healthFactor?.alerts ?? [])],
+    platformBonus: reserves.overview?.platformBonus,
+    // Listed unless the server says there is nothing, as the market page read it
+    hasHistory: !reserves.overview?.history?.disabled,
+  };
+}
+
 const sumValues = (assets: IDeFiAsset[]) =>
   assets.reduce((sum, asset) => sum.plus(asset.value), new BigNumber(0));
 
@@ -100,7 +157,7 @@ const isSameProvider = (a: string, b: string) =>
 /**
  * One market's position as My portfolio and the supply page read it: the
  * market's name and logo, the account's rows, the health factor where a loan
- * rides on them, opening the market's own page
+ * rides on them
  */
 function buildLendingPosition({
   market,
@@ -196,7 +253,12 @@ export function withLendingMarketPositions({
       return;
     }
     const marketRef: IEarnLendingMarketRef | undefined = accountId
-      ? { market, accountId, indexedAccountId }
+      ? {
+          market,
+          accountId,
+          indexedAccountId,
+          summary: buildLendingMarketSummary({ reserves, healthFactor }),
+        }
       : undefined;
     const own = reported.filter(
       (position) =>
@@ -332,4 +394,102 @@ export function lendingSupplyPositionOf({
     health: backsLoan ? readLoanHealth(healthFactor) : undefined,
     earnings24hFiatValue: value.times(apy).div(100).div(365).toFixed(),
   });
+}
+
+/**
+ * The account's Borrow transactions still out in one market, which its
+ * card counts beside its name. A market is told by its network and its
+ * provider: the transactions' tags name no market
+ */
+export function lendingPendingTxsOf({
+  pendingTxs,
+  market,
+}: {
+  pendingTxs: readonly IStakePendingTx[];
+  market: IEarnLendingMarketRef;
+}): IStakePendingTx[] {
+  const provider = market.market.provider.toLowerCase();
+  return pendingTxs.filter((tx) => {
+    if (
+      tx.decodedTx.networkId !== market.market.networkId ||
+      tx.decodedTx.accountId !== market.accountId
+    ) {
+      return false;
+    }
+    const providers = (tx.stakingInfo.tags ?? [])
+      .map((tag) => parseBorrowTag(tag)?.provider.toLowerCase())
+      .filter(Boolean);
+    // One tagged with the bare Borrow label is the network's market's
+    return providers.length === 0 || providers.includes(provider);
+  });
+}
+
+/** What a lending card's Rewards row shows: the market's rewards as one line */
+export type IEarnLendingRewardsRow = {
+  /** The section's name, the server's ("Rewards") */
+  title?: string;
+  /** The rewards' tokens, each once */
+  tokens: { symbol: string; logoURI: string }[];
+  /** One reward alone: its own amount */
+  amount?: IEarnText;
+  /** What all of them are worth */
+  value: IEarnText;
+  /** The button's word, the server's ("Claim") */
+  buttonText?: string;
+  /** Every reward that can be claimed, for telling whether all are out */
+  claimIds: string[];
+};
+
+/**
+ * The market's rewards as the card's one Rewards row, which opens the
+ * market's rewards window: nothing while the server has the claim off
+ * (nothing to claim), as the market page showed no button then
+ */
+export function lendingRewardsRowOf(
+  borrowRewards: IBorrowRewards | null | undefined,
+): IEarnLendingRewardsRow | undefined {
+  if (!borrowRewards?.button || borrowRewards.button.disabled) {
+    return undefined;
+  }
+  const detail = borrowRewards.button.data?.rewardsDetail;
+  const claimable = (detail?.claimable ?? []).flatMap((group) => group.items);
+  const linked = (detail?.unclaimable ?? []).flatMap((group) => group.items);
+  const seen = new Set<string>();
+  const tokens: IEarnLendingRewardsRow['tokens'] = [];
+  [...claimable, ...linked].forEach(({ token }) => {
+    const key = `${token.symbol}|${token.logoURI}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      tokens.push({ symbol: token.symbol, logoURI: token.logoURI });
+    }
+  });
+  if (!tokens.length) {
+    return undefined;
+  }
+  return {
+    title: borrowRewards.title?.text || undefined,
+    tokens,
+    amount:
+      claimable.length === 1 && linked.length === 0
+        ? claimable[0].title
+        : undefined,
+    value: borrowRewards.description,
+    buttonText: borrowRewards.button.text?.text || undefined,
+    claimIds: claimable.map((item) => item.id),
+  };
+}
+
+// The names a Rewards row lists before it counts the rest
+const REWARD_SYMBOLS_SHOWN = 3;
+
+/** The rewards' names on one line: "ARB, USDC", and past three "+2" */
+export function lendingRewardSymbolsOf(
+  tokens: IEarnLendingRewardsRow['tokens'],
+): string {
+  const shown = tokens
+    .slice(0, REWARD_SYMBOLS_SHOWN)
+    .map((token) => token.symbol)
+    .join(', ');
+  const rest = tokens.length - REWARD_SYMBOLS_SHOWN;
+  return rest > 0 ? `${shown} +${rest}` : shown;
 }

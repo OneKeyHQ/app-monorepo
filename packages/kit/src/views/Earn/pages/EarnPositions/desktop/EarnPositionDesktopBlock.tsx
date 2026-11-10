@@ -17,29 +17,39 @@ import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/De
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ProtocolAssetBalanceText } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolAssetBalanceText';
 import { PROTOCOL_TABLE_COLUMN_GAP } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolUnifiedTable';
+import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
 import {
+  LendingAlerts,
   LendingCardScope,
   LendingCollateralLine,
   LendingHealthLine,
+  LendingHistoryButton,
+  LendingPendingBadge,
+  useLendingCardRewards,
 } from '../EarnLendingActions';
 import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 import {
   DaysLeftText,
   EffectiveDepositText,
+  LendingRewardTokens,
+  LendingRewardsAction,
   PendingBadge,
   RowAction,
   daysLeftOf,
   rowButtonOf,
 } from '../mobile/EarnHoldingSections';
+import { lendingRewardSymbolsOf } from '../mobile/earnLendingPositions';
 import { PositionPnlLine, useHoldingRedeem } from '../mobile/EarnPositionCard';
 import { isCheckRow } from '../mobile/earnPositionModel';
 import {
   hasPositionDetailPage,
   holdingRowActionOf,
+  isLoanPositionCard,
   lendingMarketOf,
 } from '../mobile/myPortfolio.utils';
 
@@ -160,6 +170,145 @@ function HoldingTableRow({
   );
 }
 
+/** A panel's header strip: its title, then what the two columns hold */
+function SectionStrip({
+  title,
+  columns,
+  isFirst,
+  hasAmount = true,
+}: {
+  title: string;
+  columns: IPositionTableColumns;
+  isFirst: boolean;
+  /** Off where the rows under it have no one amount: several rewards */
+  hasAmount?: boolean;
+}) {
+  const intl = useIntl();
+  // The first column names what the tokens are (Deposited, Supplied); this
+  // one says how many: never a bare "Balance", which elsewhere is the
+  // wallet's (demo 10-29)
+  const balanceLabel = intl.formatMessage({
+    id: ETranslations.content__amount,
+  });
+  const valueLabel = intl.formatMessage({ id: ETranslations.global_value });
+  return (
+    <XStack
+      {...columns.inset}
+      py="$2"
+      mt={isFirst ? '$0' : '$2'}
+      ai="center"
+      bg="$bgSubdued"
+      gap={PROTOCOL_TABLE_COLUMN_GAP}
+    >
+      <Stack {...columns.first}>
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {title}
+        </SizableText>
+      </Stack>
+      <Stack {...columns.second}>
+        {hasAmount ? (
+          <SizableText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {balanceLabel}
+          </SizableText>
+        ) : null}
+      </Stack>
+      <Stack {...columns.value}>
+        <SizableText
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
+          {valueLabel}
+        </SizableText>
+      </Stack>
+    </XStack>
+  );
+}
+
+/**
+ * A lending market's rewards as the table's last panel (demo 11-10): one
+ * row for all of them, the tokens and their names, Claim beside them as
+ * every row's button sits, and what they are worth. One reward alone shows
+ * its amount as the rows above do; several have no one amount, so the strip
+ * names none. Nothing while there is nothing to claim
+ */
+function LendingRewardsTableSection({
+  columns,
+}: {
+  columns: IPositionTableColumns;
+}) {
+  const intl = useIntl();
+  const rewards = useLendingCardRewards();
+  if (!rewards) {
+    return null;
+  }
+  const { row } = rewards;
+  return (
+    <>
+      <SectionStrip
+        title={
+          row.title || intl.formatMessage({ id: ETranslations.earn_rewards })
+        }
+        columns={columns}
+        isFirst={false}
+        hasAmount={Boolean(row.amount)}
+      />
+      <XStack
+        testID="earn-portfolio-lending-rewards"
+        {...columns.inset}
+        py="$2"
+        ai="center"
+        minHeight={52}
+        gap={PROTOCOL_TABLE_COLUMN_GAP}
+      >
+        <XStack {...columns.first} ai="center" gap="$2">
+          <LendingRewardTokens tokens={row.tokens} size="sm" />
+          <SizableText
+            size="$bodyMdMedium"
+            numberOfLines={1}
+            flex={1}
+            minWidth={0}
+          >
+            {lendingRewardSymbolsOf(row.tokens)}
+          </SizableText>
+          <XStack flexShrink={0} ml="$1">
+            <LendingRewardsAction rewards={rewards} />
+          </XStack>
+        </XStack>
+        <YStack {...columns.second}>
+          {row.amount ? (
+            <EarnText
+              size="$bodyMd"
+              color="$text"
+              numberOfLines={1}
+              fontVariant={TABULAR_NUMS}
+              text={row.amount}
+            />
+          ) : null}
+        </YStack>
+        <Stack {...columns.value}>
+          <EarnText
+            size="$bodyMdMedium"
+            color="$text"
+            textAlign="right"
+            numberOfLines={1}
+            fontVariant={TABULAR_NUMS}
+            text={row.value}
+          />
+        </Stack>
+      </XStack>
+    </>
+  );
+}
+
 /**
  * A holding's panels as the wallet DeFi Portfolio's sectioned table: a
  * subdued header strip per panel (its title, Amount, Value), then a line
@@ -173,13 +322,15 @@ export function HoldingSectionsTable({
   position,
   redeem,
   endInset,
+  hasLendingRewards = false,
 }: {
   position: IEarnPositionView;
   redeem?: IEarnHoldingRedeem;
   /** the room kept at the right: the chevron after the total above it */
   endInset?: number;
+  /** a lending market's card: its rewards as the last panel */
+  hasLendingRewards?: boolean;
 }) {
-  const intl = useIntl();
   const { effectiveDeposit } = position;
   // Every row's action once, so the table knows whether it has any
   const sections = useMemo(
@@ -203,53 +354,15 @@ export function HoldingSectionsTable({
     ),
     endInset,
   });
-  // The first column names what the tokens are (Deposited, Supplied); this
-  // one says how many: never a bare "Balance", which elsewhere is the
-  // wallet's (demo 10-29)
-  const balanceLabel = intl.formatMessage({
-    id: ETranslations.content__amount,
-  });
-  const valueLabel = intl.formatMessage({ id: ETranslations.global_value });
   return (
     <YStack>
       {sections.map(({ section, rows }, sectionIndex) => (
         <Fragment key={section.key}>
-          <XStack
-            {...columns.inset}
-            py="$2"
-            mt={sectionIndex === 0 ? '$0' : '$2'}
-            ai="center"
-            bg="$bgSubdued"
-            gap={PROTOCOL_TABLE_COLUMN_GAP}
-          >
-            <Stack {...columns.first}>
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {section.title}
-              </SizableText>
-            </Stack>
-            <Stack {...columns.second}>
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {balanceLabel}
-              </SizableText>
-            </Stack>
-            <Stack {...columns.value}>
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {valueLabel}
-              </SizableText>
-            </Stack>
-          </XStack>
+          <SectionStrip
+            title={section.title}
+            columns={columns}
+            isFirst={sectionIndex === 0}
+          />
           {rows.map(({ asset, action }, index) => (
             <HoldingTableRow
               key={`${section.key}-${asset.symbol}-${index}`}
@@ -276,6 +389,9 @@ export function HoldingSectionsTable({
           ) : null}
         </Fragment>
       ))}
+      {hasLendingRewards ? (
+        <LendingRewardsTableSection columns={columns} />
+      ) : null}
     </YStack>
   );
 }
@@ -285,8 +401,11 @@ export function HoldingSectionsTable({
  * (badge and name, then the PnL, the value and the way to the detail page,
  * the whole line opening it), the health factor of a loan, and the panels
  * as a table. The same view, the same Redeem and the same row actions as
- * the phone card. A lending market's card read from the market also has
- * the market's E-Mode on its Health Factor line (demo 11-03).
+ * the phone card. A lending market's card read from the market carries
+ * what the market's own page did (demo 11-03, 11-10): History where the
+ * others have their chevron, the transactions still out beside the name,
+ * the Net APY, E-Mode and bonus on the Health Factor line, the market's
+ * warnings, and its rewards as the table's last panel.
  */
 function EarnPositionDesktopBlockCmp({
   position,
@@ -297,10 +416,17 @@ function EarnPositionDesktopBlockCmp({
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { value, meta, source, action, hasDeposit } = position;
+  // The name and chevron brighten on hover, as the DeFi home's tile titles do
+  const [isHovered, setIsHovered] = useState(false);
+  // A loan's card has no page of its own on web (demo 11-10)
   const canOpen =
-    Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
+    Boolean(action) &&
+    Boolean(onManage) &&
+    hasPositionDetailPage(source) &&
+    (platformEnv.isNative || !isLoanPositionCard(position));
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
+  const isLit = Boolean(openDetail) && isHovered;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
   const lendingMarket = lendingMarketOf(position);
   // The values end under the header's own, its chevron's room kept
@@ -309,12 +435,24 @@ function EarnPositionDesktopBlockCmp({
       position={position}
       redeem={redeem}
       endInset={TOTAL_CHEVRON_SLOT}
+      hasLendingRewards={Boolean(lendingMarket)}
     />
   );
-  // The name and chevron brighten on hover, as the DeFi home's tile titles do
-  const [isHovered, setIsHovered] = useState(false);
-  const isLit = Boolean(openDetail) && isHovered;
-
+  // After the value: the way to the detail page, a lending market's
+  // History in its place, or the room alone, so every value in the card
+  // ends on one edge
+  let headerEnd = <Stack w="$5" />;
+  if (openDetail) {
+    headerEnd = (
+      <Icon
+        name="ChevronRightSmallOutline"
+        size="$5"
+        color={isLit ? '$icon' : '$iconSubdued'}
+      />
+    );
+  } else if (lendingMarket) {
+    headerEnd = <LendingHistoryButton market={lendingMarket} />;
+  }
   return (
     <YStack gap="$2" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
       <XStack
@@ -349,6 +487,9 @@ function EarnPositionDesktopBlockCmp({
               {position.name}
             </SizableText>
           ) : null}
+          {lendingMarket ? (
+            <LendingPendingBadge market={lendingMarket} />
+          ) : null}
         </XStack>
         {/* The PnL keeps clear of the value, so the two read apart */}
         <XStack ai="center" gap="$6" flexShrink={0}>
@@ -372,23 +513,14 @@ function EarnPositionDesktopBlockCmp({
               numberOfLines={1}
               fontVariant={TABULAR_NUMS}
             />
-            {/* Without a detail page the chevron's place stays, so every
-                value in the card ends on one edge */}
-            {openDetail ? (
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$5"
-                color={isLit ? '$icon' : '$iconSubdued'}
-              />
-            ) : (
-              <Stack w="$5" />
-            )}
+            {headerEnd}
           </XStack>
         </XStack>
       </XStack>
       {lendingMarket ? (
         <LendingCardScope market={lendingMarket}>
           <LendingHealthLine meta={meta} />
+          <LendingAlerts />
           {table}
         </LendingCardScope>
       ) : (

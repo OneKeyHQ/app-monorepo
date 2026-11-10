@@ -234,6 +234,13 @@ jest.mock('../../../Earn/EarnProviderMirror', () => ({
   EarnProviderMirror: ({ children }: { children?: ReactNode }) => children,
 }));
 
+// The page takes its buttons' sizes from the Earn forms' footer, whose fade
+// loads reanimated; the sizes alone stand in
+jest.mock('../../../Staking/components/EarnFormFooter', () => ({
+  EARN_FULL_WIDTH_BUTTONS: {},
+  EARN_HALF_BUTTON: {},
+}));
+
 jest.mock('../../../Staking/hooks/useEarnAccount', () => ({
   useEarnAccount: () => ({
     earnAccount: {

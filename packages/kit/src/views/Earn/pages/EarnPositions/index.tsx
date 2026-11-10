@@ -26,6 +26,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { EarnPortfolioSettingsTrigger } from '../../components/EarnPortfolioSettings';
 import { PortfolioTabContent } from '../../components/PortfolioTabContent';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import { useEarnWindowReturn } from '../../earnWindowReturn';
 import { useEarnHideSmallAssets } from '../../hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
 import { useHeaderHeightCacheKey } from '../../hooks/useHeaderHeightCacheKey';
@@ -150,6 +151,9 @@ export default function EarnPositions() {
   // page and its shared PortfolioTabContent exactly as before.
   const isMyPortfolioLayout = useMyPortfolioLayout();
   const { gtMd } = useMedia();
+  // Opened from the Loans window's Manage (demo 11-10): back opens the
+  // window again as it was left
+  useEarnWindowReturn();
   // A share of the DeFi home's split asks for its protocols' cards
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnPositions>();
   const focusProtocols = route.params?.focusProtocols;

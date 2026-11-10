@@ -89,6 +89,7 @@ export type ILoanRoutePosition = Pick<
   | 'canBorrowHere'
   | 'walletBalance'
   | 'healthFactorDetail'
+  | 'hasHistory'
 >;
 
 type IMarketParams = {
@@ -247,6 +248,9 @@ export async function readLoanRoutePosition({
     walletBalance: held?.walletBalance?.amount ?? held?.walletBalance?.number,
     healthFactorDetail:
       debtValue > 0 ? readLoanHealth(healthFactor).detail : undefined,
+    // Listed unless the server says there is nothing, as the market's own
+    // page read it
+    hasHistory: !reserves.overview?.history?.disabled,
   };
 }
 
@@ -333,6 +337,7 @@ async function readRouteFacts({
     canBorrowHere: position ? position.canBorrowHere : true,
     walletBalance: position?.walletBalance,
     healthFactorDetail: position?.healthFactorDetail,
+    hasHistory: position?.hasHistory ?? false,
     eModeLabel,
   };
 }

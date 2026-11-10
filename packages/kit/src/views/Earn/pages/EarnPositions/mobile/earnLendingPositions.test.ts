@@ -1,15 +1,21 @@
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowEModeStatus,
   IBorrowHealthFactor,
   IBorrowMarketItem,
   IBorrowReserveItem,
+  IBorrowRewards,
   IEarnRepayActionData,
   IEarnWithdrawActionData,
 } from '@onekeyhq/shared/types/staking';
 
 import {
+  buildLendingMarketSummary,
+  lendingPendingTxsOf,
+  lendingRewardSymbolsOf,
+  lendingRewardsRowOf,
   lendingSupplyPositionOf,
   withLendingMarketPositions,
 } from './earnLendingPositions';
@@ -21,18 +27,20 @@ import {
 import { position, token } from './earnPositionModel.fixtures';
 import {
   findLendingMarketCardKey,
-  findLoanMarketOf,
   holdingRowActionOf,
+  isLoanPositionCard,
   lendingCollateralOf,
   lendingEModeLabelOf,
   lendingMarketOf,
 } from './myPortfolio.utils';
 
+import type { IEarnLendingMarketRef } from './earnLendingPositions';
 import type {
   IEarnPositionSectionKind,
   IEarnPositionView,
 } from './earnPositionModel';
 import type { IEarnDesktopAccountMarket } from '../../../components/desktopHome/useEarnDesktopHomeData';
+import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
 
 const AAVE_CORE: IBorrowMarketItem = {
   provider: 'aave',
@@ -215,7 +223,7 @@ describe('withLendingMarketPositions', () => {
     expect(merged).toBe(EMPTY);
   });
 
-  it("opens the market's Borrow page, a supply alone included", () => {
+  it("is the market's own card, a supply alone included", () => {
     const supplyOnly: IEarnDesktopAccountMarket = {
       market: AAVE_CORE,
       reserves: reserves({ supplied: [['USDC', '5', '5']] }),
@@ -228,14 +236,224 @@ describe('withLendingMarketPositions', () => {
       translate,
     });
     const [card] = protocols.flatMap((protocol) => protocol.positions);
-    expect(card.action).toBeDefined();
-    expect(
-      card.action ? findLoanMarketOf(protocols, card.action.target) : undefined,
-    ).toEqual({
-      provider: 'aave',
-      networkId: 'evm--1',
-      marketAddress: AAVE_CORE.marketAddress,
+    expect(isLoanPositionCard(card)).toBe(true);
+  });
+
+  it("hands the card its market's summary", () => {
+    const { protocols } = buildEarnPortfolioView({
+      response: withLendingMarketPositions({
+        response: EMPTY,
+        entries: [
+          {
+            market: AAVE_CORE,
+            accountId: 'account-1',
+            reserves: {
+              ...reserves({ supplied: [['USDC', '5', '5']] }),
+              alerts: [{ title: { text: 'Paused' }, badge: 'warning' }],
+            } as IBorrowReserveItem,
+            healthFactor: {
+              ...HEALTH,
+              alerts: [{ title: { text: 'Close to liquidation' } }],
+            } as unknown as IBorrowHealthFactor,
+          },
+        ],
+      }),
+      translate,
     });
+    const [card] = protocols.flatMap((protocol) => protocol.positions);
+    expect(
+      lendingMarketOf(card)?.summary?.alerts.map((alert) => alert.title.text),
+    ).toEqual(['Paused', 'Close to liquidation']);
+  });
+});
+
+describe('buildLendingMarketSummary', () => {
+  const withRates = ({
+    supplyApy,
+    borrowApy,
+    overview,
+  }: {
+    supplyApy: string;
+    borrowApy: string;
+    overview?: Partial<IBorrowReserveItem['overview']>;
+  }) =>
+    ({
+      overview,
+      supplied: {
+        assets: [
+          {
+            token: borrowToken('USDC'),
+            suppliedAmount: balance('100', '100'),
+            apyDetail: { apy: supplyApy },
+          },
+        ],
+      },
+      borrowed: {
+        assets: [
+          {
+            token: borrowToken('ETH'),
+            borrowedAmount: balance('0.01', '40'),
+            apyDetail: { apy: borrowApy },
+          },
+        ],
+      },
+    }) as unknown as IBorrowReserveItem;
+
+  it("works the Net APY out from the position's own rows", () => {
+    // 100 at 4% less 40 at 2.5%, over the 60 the position is worth
+    expect(
+      buildLendingMarketSummary({
+        reserves: withRates({ supplyApy: '4', borrowApy: '2.5' }),
+      }).netApyText,
+    ).toBe('5.00%');
+  });
+
+  it("falls back on the server's figure, and on nothing for a dash", () => {
+    const worthless = (netApy: string) =>
+      buildLendingMarketSummary({
+        reserves: {
+          ...reserves({ supplied: [] }),
+          overview: { netApy: { text: netApy } },
+        } as unknown as IBorrowReserveItem,
+      }).netApyText;
+    expect(worthless('1.56%')).toBe('1.56%');
+    expect(worthless('-')).toBeUndefined();
+  });
+
+  it('lists History unless the server says there is nothing', () => {
+    const hasHistory = (overview?: Partial<IBorrowReserveItem['overview']>) =>
+      buildLendingMarketSummary({
+        reserves: withRates({ supplyApy: '1', borrowApy: '1', overview }),
+      }).hasHistory;
+    expect(hasHistory()).toBe(true);
+    expect(
+      hasHistory({
+        history: { type: 'history', disabled: false, text: { text: '' } },
+      }),
+    ).toBe(true);
+    expect(
+      hasHistory({
+        history: { type: 'history', disabled: true, text: { text: '' } },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('lendingPendingTxsOf', () => {
+  const market: IEarnLendingMarketRef = {
+    market: AAVE_CORE,
+    accountId: 'account-1',
+  };
+  const tx = ({
+    networkId = 'evm--1',
+    accountId = 'account-1',
+    tags,
+  }: {
+    networkId?: string;
+    accountId?: string;
+    tags: string[];
+  }) =>
+    ({
+      decodedTx: { networkId, accountId },
+      stakingInfo: { label: EEarnLabels.Borrow, tags },
+    }) as unknown as IStakePendingTx;
+
+  it("counts the account's transactions in the market", () => {
+    const pendingTxs = [
+      tx({ tags: [EEarnLabels.Borrow, 'borrow:aave:repay'] }),
+      // One tagged with the bare label is the network's market's
+      tx({ tags: [EEarnLabels.Borrow] }),
+      tx({ tags: ['borrow:morpho:repay'] }),
+      tx({ networkId: 'evm--42161', tags: ['borrow:aave:repay'] }),
+      tx({ accountId: 'account-2', tags: ['borrow:aave:repay'] }),
+    ];
+    expect(lendingPendingTxsOf({ pendingTxs, market })).toEqual([
+      pendingTxs[0],
+      pendingTxs[1],
+    ]);
+  });
+});
+
+describe('lendingRewardsRowOf', () => {
+  const item = (symbol: string, amount: string) => ({
+    id: `claim-${symbol}`,
+    title: { text: amount },
+    token: borrowToken(symbol),
+  });
+  const rewards = ({
+    disabled = false,
+    claimable,
+    unclaimable = [],
+  }: {
+    disabled?: boolean;
+    claimable: ReturnType<typeof item>[];
+    unclaimable?: ReturnType<typeof item>[];
+  }) =>
+    ({
+      title: { text: 'Rewards' },
+      description: { text: '$1.23' },
+      button: {
+        type: 'rewardsDetails',
+        disabled,
+        text: { text: 'Claim' },
+        data: {
+          rewardsDetail: {
+            claimable: [{ items: claimable }],
+            unclaimable: unclaimable.length
+              ? [{ title: { text: 'Elsewhere' }, items: unclaimable }]
+              : undefined,
+          },
+        },
+      },
+    }) as unknown as IBorrowRewards;
+
+  it('has no row while the server has the claim off', () => {
+    expect(lendingRewardsRowOf(null)).toBeUndefined();
+    expect(
+      lendingRewardsRowOf(rewards({ disabled: true, claimable: [] })),
+    ).toBeUndefined();
+    expect(lendingRewardsRowOf(rewards({ claimable: [] }))).toBeUndefined();
+  });
+
+  it('shows one reward with its own amount', () => {
+    expect(
+      lendingRewardsRowOf(rewards({ claimable: [item('ARB', '1.2 ARB')] })),
+    ).toEqual({
+      title: 'Rewards',
+      tokens: [{ symbol: 'ARB', logoURI: 'https://logo/ARB.png' }],
+      amount: { text: '1.2 ARB' },
+      value: { text: '$1.23' },
+      buttonText: 'Claim',
+      claimIds: ['claim-ARB'],
+    });
+  });
+
+  it('names several, each token once, without an amount', () => {
+    const row = lendingRewardsRowOf(
+      rewards({
+        claimable: [item('ARB', '1.2 ARB'), item('ARB', '0.3 ARB')],
+        unclaimable: [item('KMNO', '5 KMNO')],
+      }),
+    );
+    expect(row?.tokens.map((reward) => reward.symbol)).toEqual(['ARB', 'KMNO']);
+    expect(row?.amount).toBeUndefined();
+    // What the row's Pending waits on: the claims that can go out from here
+    expect(row?.claimIds).toEqual(['claim-ARB', 'claim-ARB']);
+  });
+});
+
+describe('lendingRewardSymbolsOf', () => {
+  const tokens = (symbols: string[]) =>
+    symbols.map((symbol) => ({ symbol, logoURI: '' }));
+
+  it('lists up to three names, then counts the rest', () => {
+    expect(lendingRewardSymbolsOf(tokens(['ARB']))).toBe('ARB');
+    expect(lendingRewardSymbolsOf(tokens(['ARB', 'USDC', 'KMNO']))).toBe(
+      'ARB, USDC, KMNO',
+    );
+    expect(
+      lendingRewardSymbolsOf(tokens(['ARB', 'USDC', 'KMNO', 'JTO', 'PYUSD'])),
+    ).toBe('ARB, USDC, KMNO +2');
   });
 });
 
@@ -394,10 +612,12 @@ describe("a market's rows read from the market (demo 11-03)", () => {
       ['GHO', 'supplied', '0xgho'],
     ]);
     expect(read('borrowed')).toEqual([['cbBTC', 'borrowed', '0xcbbtc']]);
+    // With what the market's own page showed over its tables
     expect(lendingMarketOf(card)).toEqual({
       market: AAVE_CORE,
       accountId: ACCOUNT_ID,
       indexedAccountId: INDEXED_ACCOUNT_ID,
+      summary: expect.objectContaining({ alerts: [], hasHistory: true }),
     });
   });
 

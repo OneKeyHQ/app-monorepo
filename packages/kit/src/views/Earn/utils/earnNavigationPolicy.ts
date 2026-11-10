@@ -4,16 +4,16 @@ const preservedChildRoutes: Partial<
   Record<ETabEarnRoutes, ReadonlySet<ETabEarnRoutes>>
 > = {
   [ETabEarnRoutes.EarnProtocols]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
-  // A loan opens its market's Borrow page, a lending supply its details
-  // (demo 10-28); back returns to My portfolio
+  // A lending supply opens its details (demo 10-28); back returns to My
+  // portfolio
   [ETabEarnRoutes.EarnPositions]: new Set([
     ETabEarnRoutes.EarnProtocolDetails,
-    ETabEarnRoutes.BorrowHome,
     ETabEarnRoutes.EarnLendingDetails,
   ]),
+  // The phone app's Borrow page (retired on web, demo 11-10)
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
-  // The Loans page's loans open their markets (demo 10-28)
-  [ETabEarnRoutes.EarnLoans]: new Set([ETabEarnRoutes.BorrowHome]),
+  // The Loans page's loans open their cards in My portfolio (demo 11-03)
+  [ETabEarnRoutes.EarnLoans]: new Set([ETabEarnRoutes.EarnPositions]),
   // Tokens home → token's protocol list / protocol detail (OK-58505)
   [ETabEarnRoutes.EarnTokens]: new Set([
     ETabEarnRoutes.EarnProtocols,

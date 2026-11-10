@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EarnNavigation } from '@onekeyhq/kit/src/views/Earn/earnUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 
 import { BorrowNavigation } from '../../../borrowUtils';
@@ -19,7 +20,8 @@ interface IUseBorrowReserveDetailBreadcrumbParams {
 }
 
 // DeFi › Aave Core › cbBTC (demo 11-03): home, the reserve's own market, the
-// reserve
+// reserve. On web the market is named only: its own page is retired there
+// (demo 11-10), the Loans window and My portfolio hold what it did
 export function useBorrowReserveDetailBreadcrumb({
   symbol,
   provider,
@@ -41,13 +43,15 @@ export function useBorrowReserveDetailBreadcrumb({
         },
         {
           label: marketLabel || normalizeToEarnProvider(provider) || provider,
-          onClick: () => {
-            BorrowNavigation.pushToBorrowHome(appNavigation, {
-              provider,
-              networkId,
-              marketAddress,
-            });
-          },
+          onClick: platformEnv.isNative
+            ? () => {
+                BorrowNavigation.pushToBorrowHome(appNavigation, {
+                  provider,
+                  networkId,
+                  marketAddress,
+                });
+              }
+            : undefined,
         },
         { label: symbol },
       ],

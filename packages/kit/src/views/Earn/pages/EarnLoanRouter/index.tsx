@@ -14,6 +14,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
+  Button,
   HeightTransition,
   Icon,
   Page,
@@ -56,6 +57,7 @@ import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDur
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { resolveHealthFactorValueColor } from '../../../Borrow/components/healthFactorValueColor';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
@@ -445,8 +447,8 @@ function SkeletonFormRow({
   );
 }
 
-// The way from the loan's market here to the market's own page, where the
-// whole position is managed: repaying, collateral, borrowing more
+// The way from the loan's market here to its card in My portfolio, where
+// the whole position is managed: repaying, withdrawing, collateral, E-Mode
 function PositionManageLink({ onPress }: { onPress: () => void }) {
   const intl = useIntl();
   const [isHovered, setIsHovered] = useState(false);
@@ -1828,15 +1830,38 @@ function EarnLoanRouterPage() {
       wide,
     ],
   );
-  // The market's own page, the whole position there
+  // The market's card in My portfolio, the whole position there (demo
+  // 11-10: the market's own page is retired); back opens this window again
   const positionMarket = selectedRoute?.market;
   const handleManagePosition = useCallback(() => {
     if (!positionMarket) {
       return;
     }
-    leaveWindowFor(ETabEarnRoutes.BorrowHome, selectedRoute?.key);
-    BorrowNavigation.pushToBorrowHome(navigation, positionMarket);
+    leaveWindowFor(ETabEarnRoutes.EarnPositions, selectedRoute?.key);
+    EarnNavigation.pushToEarnPositions(navigation, {
+      focusMarket: buildBorrowMarketKey(positionMarket),
+    });
   }, [leaveWindowFor, navigation, positionMarket, selectedRoute?.key]);
+  // The picked market's transactions, where the Earn window has its History
+  // (demo 11-10): the market's own page had it
+  const historyAccountId = selectedFacts?.networkAccountId;
+  const hasHistory = Boolean(
+    positionMarket && historyAccountId && selectedFacts?.hasHistory,
+  );
+  const historyLabel = intl.formatMessage({ id: ETranslations.global_history });
+  const handleOpenHistory = useCallback(() => {
+    if (!positionMarket || !historyAccountId) {
+      return;
+    }
+    BorrowNavigation.pushToBorrowHistory(navigation, {
+      accountId: historyAccountId,
+      networkId: positionMarket.networkId,
+      provider: positionMarket.provider,
+      marketAddress: positionMarket.marketAddress,
+      title: historyLabel,
+      isModal: true,
+    });
+  }, [historyAccountId, historyLabel, navigation, positionMarket]);
   // The picked market's page for one of its tokens, its form on that side
   // with the amount typed here. Paid with another token, the supply isn't
   // the collateral yet: that form opens empty
@@ -2235,6 +2260,23 @@ function EarnLoanRouterPage() {
     EARN_LOAN_MODAL_SIZE.height,
     Boolean(done),
   );
+  // The Earn window's History button, in the same place
+  const renderHistory = useCallback(
+    () => (
+      <Button
+        testID="earn-loan-history"
+        h="$8"
+        mr="unset"
+        variant="tertiary"
+        icon="ClockTimeHistoryOutline"
+        size="small"
+        onPress={handleOpenHistory}
+      >
+        {historyLabel}
+      </Button>
+    ),
+    [handleOpenHistory, historyLabel],
+  );
   // The done view names what went in (a supply alone, its token only); the
   // form is the Loans window, its picks heading the form
   const renderDoneTitle = useCallback(
@@ -2473,6 +2515,7 @@ function EarnLoanRouterPage() {
             : intl.formatMessage({ id: ETranslations.earn_loans__action })
         }
         headerTitle={done ? renderDoneTitle : undefined}
+        headerRight={hasHistory && !done ? renderHistory : undefined}
       />
       <Page.Body>
         {/* What the done view's modal fits its height to; the columns fill

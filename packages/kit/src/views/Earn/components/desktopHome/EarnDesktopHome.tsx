@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -236,6 +236,7 @@ export function EarnDesktopHome({
   onRegisterBorrowRefresh,
   onBorrowNetworksChange,
   openRequest,
+  loansRequestAt,
 }: {
   portfolioData: IUseEarnPortfolioReturn;
   displayTotalFiatValue?: string;
@@ -256,6 +257,12 @@ export function EarnDesktopHome({
   onBorrowNetworksChange?: (networkIds: string[]) => void;
   /** A token's breadcrumb on its pages: its row opens in the Earn tab */
   openRequest?: IEarnDesktopOpenRequest;
+  /**
+   * A link that asked for the borrow side (a notification, the retired
+   * market page's address): the Loans tab opens; the time tells one request
+   * from the next
+   */
+  loansRequestAt?: number;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -561,6 +568,22 @@ export function EarnDesktopHome({
     () => EarnNavigation.pushToEarnLoans(navigation),
     [navigation],
   );
+  // A link that asked for the borrow side opens the Loans tab, and at a
+  // phone's width, where the home has no tabs, the Loans page (demo 11-10:
+  // the market's own page, where such links went, is retired)
+  const isWideHome = media.gtMd;
+  const handledLoansRequestRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!loansRequestAt || handledLoansRequestRef.current === loansRequestAt) {
+      return;
+    }
+    handledLoansRequestRef.current = loansRequestAt;
+    if (isWideHome) {
+      handleOpenLoansTab();
+    } else {
+      handleOpenLoansPage();
+    }
+  }, [handleOpenLoansPage, handleOpenLoansTab, isWideHome, loansRequestAt]);
   const handleOpenProtocolsPage = useCallback(
     () => EarnNavigation.pushToEarnAllProtocols(navigation),
     [navigation],

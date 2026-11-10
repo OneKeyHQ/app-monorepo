@@ -16,6 +16,7 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -25,13 +26,23 @@ import type {
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
-import { LendingCardScope, LendingHealthLine } from '../EarnLendingActions';
+import {
+  LendingAlerts,
+  LendingCardScope,
+  LendingHealthLine,
+  LendingHistoryButton,
+  LendingPendingBadge,
+} from '../EarnLendingActions';
 import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 
-import { EarnHoldingSections } from './EarnHoldingSections';
+import {
+  EarnHoldingSections,
+  LendingRewardsPanel,
+} from './EarnHoldingSections';
 import {
   canRedeemFromCard,
   hasPositionDetailPage,
+  isLoanPositionCard,
   isPositiveAmountText,
   lendingMarketOf,
   sellsEarly,
@@ -209,12 +220,27 @@ function EarnPositionCardCmp({
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { value, meta, source, action, hasDeposit } = position;
+  // A loan's card has no page of its own on web (demo 11-10)
   const canOpen =
-    Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
+    Boolean(action) &&
+    Boolean(onManage) &&
+    hasPositionDetailPage(source) &&
+    (platformEnv.isNative || !isLoanPositionCard(position));
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
   const lendingMarket = lendingMarketOf(position);
+  // After the value: the way to the detail page, a lending market's
+  // History in its place, or the room alone, so every value ends on one
+  // edge
+  let headerEnd = <Stack w="$5" />;
+  if (openDetail) {
+    headerEnd = (
+      <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+    );
+  } else if (lendingMarket) {
+    headerEnd = <LendingHistoryButton market={lendingMarket} />;
+  }
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
@@ -247,6 +273,9 @@ function EarnPositionCardCmp({
                 {position.name}
               </SizableText>
             ) : null}
+            {lendingMarket ? (
+              <LendingPendingBadge market={lendingMarket} />
+            ) : null}
           </XStack>
           <XStack ai="center" gap="$1" flexShrink={0}>
             <ProtocolValueCell
@@ -266,17 +295,7 @@ function EarnPositionCardCmp({
               textAlign="right"
               numberOfLines={1}
             />
-            {/* Without a detail page the chevron's place stays, so every
-                value ends on one edge */}
-            {openDetail ? (
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            ) : (
-              <Stack w="$5" />
-            )}
+            {headerEnd}
           </XStack>
         </XStack>
         {hasDeposit ? (
@@ -290,11 +309,14 @@ function EarnPositionCardCmp({
       </YStack>
 
       {lendingMarket ? (
-        // A lending market's card read from the market: its E-Mode under
-        // the Health Factor (demo 11-03)
+        // A lending market's card read from the market carries what the
+        // market's own page did (demo 11-03, 11-10): its figures, its
+        // warnings, and its rewards as the last panel
         <LendingCardScope market={lendingMarket}>
           <LendingHealthLine meta={meta} stacked />
+          <LendingAlerts />
           <EarnHoldingSections position={position} redeem={redeem} />
+          <LendingRewardsPanel />
         </LendingCardScope>
       ) : (
         <>

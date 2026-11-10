@@ -52,10 +52,12 @@ const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
-// The desktop home has no Earn | Borrow switch, so Borrow and the positions
-// page are pages of their own here, as they already are on native
-const BorrowHome = LazyLoadRootTabPage(
-  () => import('../../../views/Borrow/pages/BorrowHomePage'),
+// The phone app's Borrow page. On web it is retired (demo 11-10): the
+// route stays so its address lands on the DeFi home's Loans tab
+const BorrowHome = LazyLoadRootTabPage(() =>
+  platformEnv.isNative
+    ? import('../../../views/Borrow/pages/BorrowHomePage')
+    : import('../../../views/Borrow/pages/BorrowHomeRetired'),
 );
 
 const EarnPositions = LazyLoadRootTabPage(
