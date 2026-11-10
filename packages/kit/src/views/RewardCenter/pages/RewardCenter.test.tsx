@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore Actived
 
 import type { ReactNode } from 'react';
 
@@ -11,6 +12,7 @@ import {
 } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RewardCenterTestIDs } from '../testIDs';
 
@@ -43,6 +45,9 @@ const mockClaim = jest.fn<
   []
 >();
 let mockRedeemCode = '';
+let mockActivated = true;
+const mockPushModal = jest.fn();
+const mockResetField = jest.fn();
 const mockRedeem = jest.fn<
   Promise<{ success: boolean } | undefined>,
   [unknown]
@@ -61,7 +66,7 @@ const mockDefer = {
 };
 
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: () => '' }),
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
 jest.mock('@react-navigation/core', () => ({
@@ -121,7 +126,7 @@ jest.mock('@onekeyhq/components', () => {
     useDeferredPromise: () => mockDefer,
     useNetInfo: () => ({ isRawInternetReachable: true }),
     useForm: () => ({
-      resetField: jest.fn(),
+      resetField: mockResetField,
       getValues: () => mockRedeemCode,
       reset: () => {
         mockRedeemCode = '';
@@ -182,7 +187,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       }) => {
         if (body.url === '/api/tronRent/isReceived') return mockInventory;
         if (body.url === '/api/account')
-          return { code: 0, data: { isActived: true } };
+          return { code: 0, data: { isActived: mockActivated } };
         if (body.url === '/api/v1/coupon/redeem') return mockRedeem(body);
         if (body.url === '/api/tronRent/addFreeTronRentRecord')
           return mockClaim();
@@ -221,7 +226,7 @@ jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     pop: jest.fn(),
-    pushModal: jest.fn(),
+    pushModal: mockPushModal,
   }),
 }));
 
@@ -327,6 +332,9 @@ describe('inline TRON energy claim', () => {
   });
   afterEach(() => {
     mockActiveAccount = {};
+    mockActivated = true;
+    mockInventory.monthRemain = 2;
+    mockInventory.monthIPRemain = 2;
   });
 
   function inlineCenter(onClose?: () => void) {
@@ -391,12 +399,45 @@ describe('inline TRON energy claim', () => {
     );
     expect(redeem).toHaveProperty('disabled', true);
     expect(onClose).not.toHaveBeenCalled();
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
     view.unmount();
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledWith({
       isResourceClaimed: true,
       isResourceRedeemed: true,
     });
+  });
+
+  it.each([
+    ['monthRemain', ETranslations.tron_energy_claim_limit_reached_notice],
+    ['monthIPRemain', ETranslations.tron_energy_claim_limit_ip_reached_notice],
+  ] as const)(
+    'shows the %s limit on the daily button only',
+    async (field, label) => {
+      mockInventory[field] = 0;
+      mockRedeemCode = 'test-coupon';
+      render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim.textContent).toBe(label), {
+        timeout: 3000,
+      });
+      expect(claim).toHaveProperty('disabled', true);
+      expect(screen.getByTestId(RewardCenterTestIDs.redeemBtn)).toHaveProperty(
+        'disabled',
+        false,
+      );
+    },
+  );
+
+  it('offers TRX top-up on both tabs for an inactive account', async () => {
+    mockActivated = false;
+    render(inlineCenter());
+    const actions = await screen.findAllByTestId(RewardCenterTestIDs.topUpBtn);
+    expect(actions).toHaveLength(2);
+    fireEvent.click(actions[0]);
+    expect(mockPushModal).toHaveBeenCalled();
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockRedeem).not.toHaveBeenCalled();
   });
 
   it('does not show the previous address claim after selecting another account', async () => {

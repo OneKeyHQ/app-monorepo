@@ -26,5 +26,7 @@ export const TestModalRouter: IModalFlowNavigatorConfig<
   {
     name: ETestModalPages.NetworkFeeSubsidy,
     component: NetworkFeeSubsidyModal,
+    modalContentMaxWidth: 800,
+    modalContentMaxHeight: 520,
   },
 ];

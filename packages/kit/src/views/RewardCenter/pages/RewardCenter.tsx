@@ -1,5 +1,6 @@
 // cspell:ignore Actived
 import {
+  type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
@@ -82,11 +83,9 @@ export type ITronRewardCardState = {
     monthlyLimit?: number;
     inventoryFallback: ReactNode;
     accountSelector: ReactNode;
-    alert: ReactNode;
     claimButton: ReactNode;
     redeemField: ReactNode;
     redeemButton: ReactNode;
-    redeemAlert: ReactNode;
   };
 };
 
@@ -262,6 +261,7 @@ function RewardCenterDetails({
   const redeemPending = useRef(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [redeemedSelection, setRedeemedSelection] = useState<string>();
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [lastClaim, setLastClaim] = useState<{
@@ -275,6 +275,7 @@ function RewardCenterDetails({
   const { resetField } = form;
   useEffect(() => {
     resetField('code');
+    setRedeemedSelection(undefined);
   }, [selectionKey, resetField]);
 
   const claimSource = network?.isTestnet
@@ -459,15 +460,18 @@ function RewardCenterDetails({
     }
   }, [accountActivation?.isActived, setStopActivationPolling]);
 
+  const isInline = Boolean(renderInline);
   const notifyRewardSuccess = useCallback(() => {
-    Toast.success({
-      title: intl.formatMessage({ id: ETranslations.global_success }),
-    });
+    if (!isInline) {
+      Toast.success({
+        title: intl.formatMessage({ id: ETranslations.global_success }),
+      });
+    }
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
     }, 1000);
-  }, [intl]);
+  }, [intl, isInline]);
 
   const handleClaimResource = useCallback(async () => {
     if (!account || !network || !result || isClaimed || claimPending.current)
@@ -611,6 +615,7 @@ function RewardCenterDetails({
       });
 
       form.reset({ code: '' });
+      if (isInline) setRedeemedSelection(selectionKey);
       closeResult.current.isResourceRedeemed = true;
       notifyRewardSuccess();
       return resp;
@@ -620,7 +625,16 @@ function RewardCenterDetails({
       redeemPending.current = false;
       setIsRedeeming(false);
     }
-  }, [account, claimSource, form, intl, network, notifyRewardSuccess]);
+  }, [
+    account,
+    claimSource,
+    form,
+    intl,
+    network,
+    notifyRewardSuccess,
+    selectionKey,
+    isInline,
+  ]);
 
   useEffect(() => () => onCloseRef.current?.({ ...closeResult.current }), []);
 
@@ -776,6 +790,13 @@ function RewardCenterDetails({
     });
   }, [account, network, nativeToken, navigation]);
 
+  let claimLimitNotice: ETranslations | undefined;
+  if (result?.monthIPRemain === 0) {
+    claimLimitNotice = ETranslations.tron_energy_claim_limit_ip_reached_notice;
+  } else if (result?.monthRemain === 0) {
+    claimLimitNotice = ETranslations.tron_energy_claim_limit_reached_notice;
+  }
+
   const renderClaimButton = useCallback(() => {
     if (!isClaimResourceAvailable) {
       return null;
@@ -816,12 +837,16 @@ function RewardCenterDetails({
           isClaimed ||
           isAccountNotActivated ||
           exhausted ||
-          result?.monthIPRemain === 0 ||
-          result?.monthRemain === 0
+          Boolean(claimLimitNotice)
         }
         onPress={handleClaimResource}
       >
-        {intl.formatMessage({ id: getTronClaimLabel(isClaimed, exhausted) })}
+        {intl.formatMessage({
+          id:
+            renderInline && claimLimitNotice && !isClaimed && !exhausted
+              ? claimLimitNotice
+              : getTronClaimLabel(isClaimed, exhausted),
+        })}
       </Button>
     );
   }, [
@@ -832,6 +857,7 @@ function RewardCenterDetails({
     isClaiming,
     isClaimed,
     handleClaimResource,
+    claimLimitNotice,
     exhausted,
     renderInline,
     isCreatingTronAccount,
@@ -848,6 +874,16 @@ function RewardCenterDetails({
     isRedeeming ||
     !isClaimResourceAvailable ||
     isAccountNotActivated;
+  let redeemLabel = renderInline
+    ? ETranslations.global_redeem
+    : ETranslations.wallet_subsidy_claim;
+  if (
+    isInline &&
+    redeemedSelection === selectionKey &&
+    !form.formState.isValid
+  ) {
+    redeemLabel = ETranslations.redemption_success_title;
+  }
   const redeemButton = (
     <Button
       testID={RewardCenterTestIDs.redeemBtn}
@@ -859,11 +895,7 @@ function RewardCenterDetails({
       loading={isRedeeming}
       disabled={redeemDisabled}
     >
-      {intl.formatMessage({
-        id: renderInline
-          ? ETranslations.global_redeem
-          : ETranslations.wallet_subsidy_claim,
-      })}
+      {intl.formatMessage({ id: redeemLabel })}
     </Button>
   );
   const redeemField = (
@@ -873,6 +905,11 @@ function RewardCenterDetails({
           <Form.Field name="code" rules={{ required: true }}>
             <Input
               testID={RewardCenterTestIDs.redeemCodeInput}
+              onChangeText={
+                redeemedSelection
+                  ? () => setRedeemedSelection(undefined)
+                  : undefined
+              }
               w={renderInline ? undefined : '100%'}
               backgroundColor={renderInline ? undefined : '$bgStrong'}
               size={renderInline ? 'large' : 'medium'}
@@ -899,86 +936,66 @@ function RewardCenterDetails({
   // Top-of-page alert, by priority: unsupported account > hard claim limits >
   // inactive account (with a Top up action). The claim button stays labelled
   // as-is and just disabled; the reason is surfaced here.
-  const renderTopAlert = useCallback(
-    (mode: 'claim' | 'redeem' = 'claim') => {
-      if (isWatchingAccountNotClaimable) {
-        return (
-          <Alert
-            type="warning"
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_error_watching_account,
-            })}
-            closable={false}
-            mb="$5"
-          />
-        );
-      }
+  const renderTopAlert = useCallback(() => {
+    if (isWatchingAccountNotClaimable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_watching_account,
+          })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
 
-      if (mode === 'claim' && result?.monthIPRemain === 0) {
-        return (
-          <Alert
-            type="warning"
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.tron_energy_claim_limit_ip_reached_notice,
-            })}
-            closable={false}
-            mb="$5"
-          />
-        );
-      }
+    if (claimLimitNotice) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({ id: claimLimitNotice })}
+          closable={false}
+          mb="$5"
+        />
+      );
+    }
 
-      if (mode === 'claim' && result?.monthRemain === 0) {
-        return (
-          <Alert
-            type="warning"
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.tron_energy_claim_limit_reached_notice,
-            })}
-            closable={false}
-            mb="$5"
-          />
-        );
-      }
+    if (isAccountNotActivated && isClaimResourceAvailable) {
+      return (
+        <Alert
+          type="warning"
+          icon="InfoCircleOutline"
+          title={intl.formatMessage({
+            id: ETranslations.tron_energy_account_inactive_deposit_notice,
+          })}
+          closable={false}
+          mb="$5"
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_top_up,
+            }),
+            primaryTestID: RewardCenterTestIDs.topUpBtn,
+            onPrimaryPress: handleTopUp,
+            isPrimaryLoading: isNativeTokenLoading && !nativeToken,
+          }}
+        />
+      );
+    }
 
-      if (isAccountNotActivated && isClaimResourceAvailable) {
-        return (
-          <Alert
-            type="warning"
-            icon="InfoCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.tron_energy_account_inactive_deposit_notice,
-            })}
-            closable={false}
-            mb="$5"
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.global_top_up,
-              }),
-              primaryTestID: RewardCenterTestIDs.topUpBtn,
-              onPrimaryPress: handleTopUp,
-              isPrimaryLoading: isNativeTokenLoading && !nativeToken,
-            }}
-          />
-        );
-      }
-
-      return null;
-    },
-    [
-      isWatchingAccountNotClaimable,
-      isAccountNotActivated,
-      isClaimResourceAvailable,
-      result?.monthIPRemain,
-      result?.monthRemain,
-      intl,
-      handleTopUp,
-      isNativeTokenLoading,
-      nativeToken,
-    ],
-  );
+    return null;
+  }, [
+    isWatchingAccountNotClaimable,
+    isAccountNotActivated,
+    isClaimResourceAvailable,
+    claimLimitNotice,
+    intl,
+    handleTopUp,
+    isNativeTokenLoading,
+    nativeToken,
+  ]);
 
   const renderHeaderRight = useCallback(() => {
     if (!showAccountSelector) {
@@ -1029,6 +1046,60 @@ function RewardCenterDetails({
   }, [showAccountSelector, intl, navigation]);
 
   if (renderInline) {
+    let claimButton = renderClaimButton();
+    let accountAction: ReactElement | null = null;
+    if (isClaimResourceAvailable === false) {
+      accountAction = (
+        <Button
+          testID={RewardCenterTestIDs.unsupportedAccountBtn}
+          variant="primary"
+          size="large"
+          disabled
+        >
+          {intl.formatMessage({
+            id: isWatchingAccountNotClaimable
+              ? ETranslations.wallet_bulk_send_error_watching_account
+              : ETranslations.wallet_no_tron_account,
+          })}
+        </Button>
+      );
+    } else if (!account) {
+      accountAction = claimButton;
+    } else if (isAccountNotActivated) {
+      accountAction = (
+        <Button
+          testID={RewardCenterTestIDs.topUpBtn}
+          variant="primary"
+          size="large"
+          loading={isNativeTokenLoading && !nativeToken}
+          onPress={handleTopUp}
+        >
+          {intl.formatMessage({ id: ETranslations.global_top_up })} ≥ 0.1 TRX
+        </Button>
+      );
+    }
+    if (
+      accountAction &&
+      (!claimButton || (!isClaimed && !exhausted && !claimLimitNotice))
+    ) {
+      claimButton = accountAction;
+    } else if (
+      account &&
+      !result &&
+      !isLoadingResourceState &&
+      isClaimResourceAvailable
+    ) {
+      claimButton = (
+        <Button
+          testID={RewardCenterTestIDs.retryInventoryBtn}
+          variant="primary"
+          size="large"
+          onPress={() => refreshInventory()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      );
+    }
     return renderInline({
       accountName: account?.name || account?.address,
       claimed: isClaimed,
@@ -1039,13 +1110,15 @@ function RewardCenterDetails({
         total: result?.totalReceivedLimit,
         monthlyRemaining: result?.monthRemain,
         monthlyLimit: result?.monthLimit,
-        inventoryFallback: result ? null : renderClaimResource(),
+        inventoryFallback: isLoadingResourceState ? (
+          <Skeleton.BodyLg />
+        ) : (
+          <SizableText size="$heading3xl">—</SizableText>
+        ),
         accountSelector: renderHeaderRight(),
-        alert: renderTopAlert(),
-        claimButton: renderClaimButton(),
+        claimButton,
         redeemField,
-        redeemButton,
-        redeemAlert: renderTopAlert('redeem'),
+        redeemButton: accountAction ?? redeemButton,
       },
     });
   }
@@ -1104,9 +1177,11 @@ function RewardCenterDetails({
 
 function RewardCenterAccountSelectorSync({
   children,
+  renderLoading,
   params: { accountId, networkId, walletId, showAccountSelector = true },
 }: {
   children: ReactNode;
+  renderLoading?: () => ReactNode;
   params: IRewardCenterParams;
 }) {
   const actions = useAccountSelectorActions();
@@ -1219,7 +1294,7 @@ function RewardCenterAccountSelectorSync({
   }, [accountId, actions, networkId, showAccountSelector, targetWalletId]);
 
   if (!isReady) {
-    return null;
+    return renderLoading?.() ?? null;
   }
 
   return children;
@@ -1228,9 +1303,11 @@ function RewardCenterAccountSelectorSync({
 export function TronRewardCenterContent({
   params,
   renderInline,
+  renderLoading,
 }: {
   params: IRewardCenterParams;
   renderInline?: IInlineRewardView;
+  renderLoading?: () => ReactNode;
 }) {
   const selectorSceneUrlRef = useRef<string | undefined>(undefined);
   selectorSceneUrlRef.current ??= `reward-center-${Date.now()}-${Math.random()}`;
@@ -1244,7 +1321,10 @@ export function TronRewardCenterContent({
       }}
       enabledNum={[0]}
     >
-      <RewardCenterAccountSelectorSync params={params}>
+      <RewardCenterAccountSelectorSync
+        params={params}
+        renderLoading={renderLoading}
+      >
         <RewardCenterDetails
           selectorSceneUrl={selectorSceneUrl}
           params={params}

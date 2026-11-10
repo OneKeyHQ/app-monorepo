@@ -9,12 +9,15 @@ import {
   Dialog,
   Icon,
   Page,
+  Pagination,
   ScrollView,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
   useInModalDialog,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
@@ -25,13 +28,21 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { showOneKeyIdLoginFailedToast } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
 import { TronRewardCenterContent } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
+import { useSettingsPageStyle } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useSettingsPageStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import {
+  DesktopSubsidyLayout,
+  desktopSubsidySidebarWidth,
+} from './DesktopSubsidyLayout';
 import { EnergyArtwork } from './EnergyArtwork';
 import { SubsidyPreviewMenu, TronRewardPreview } from './SubsidyPreview';
-import { TronClaimDialog, subsidyDialogProps } from './TronClaimDialog';
+import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
 
+import type { ISubsidyPanel } from './DesktopSubsidyLayout';
 import type { ISubsidyPreviewMode } from './SubsidyPreview';
 
 const loginRequiredLabel = '需登录';
@@ -71,68 +82,84 @@ const subsidyFAQs = [
 
 type ISubsidyRecord = {
   title: string;
-  subtitle: string;
+  network: 'TRON' | 'Base';
+  timestamp: string;
   saved: number;
   icon: IKeyOfIcons;
 };
 
-const records: ISubsidyRecord[] = [
-  {
-    title: 'USDT 转账',
-    subtitle: 'TRON · 今天 10:24',
-    saved: 1.24,
-    icon: 'FlashSolid',
-  },
-  {
-    title: 'USDC 转账',
-    subtitle: 'Base · 昨天 18:06',
-    saved: 0.08,
-    icon: 'GasOutline',
-  },
-  {
-    title: 'USDT 转账',
-    subtitle: 'TRON · 昨天 09:41',
-    saved: 1.18,
-    icon: 'FlashSolid',
-  },
-  ...[
-    0.12, 1.2, 0.18, 1.18, 0.22, 1.24, 0.09, 1.22, 0.14, 1.26, 0.16, 1.19, 0.25,
-    1.21, 0.7,
-  ].map((saved, index): ISubsidyRecord => {
-    const isTron = index % 2 === 1;
-    const day = String(12 - Math.floor(index / 2)).padStart(2, '0');
-    return {
-      title: isTron ? 'USDT 转账' : 'USDC 转账',
-      subtitle: `${isTron ? 'TRON' : 'Base'} · 10-${day} ${isTron ? '09:41' : '18:06'}`,
-      saved,
-      icon: isTron ? 'FlashSolid' : 'GasOutline',
-    };
-  }),
+function demoRecord(
+  network: ISubsidyRecord['network'],
+  timestamp: string,
+  saved: number,
+): ISubsidyRecord {
+  const isTron = network === 'TRON';
+  return {
+    title: isTron ? 'USDT 转账' : 'USDC 转账',
+    network,
+    timestamp,
+    saved,
+    icon: isTron ? 'FlashSolid' : 'GasOutline',
+  };
+}
+
+const records = [
+  demoRecord('TRON', '2026-11-10T02:24:00Z', 1.24),
+  demoRecord('Base', '2026-11-09T10:06:00Z', 0.08),
+  demoRecord('TRON', '2026-11-09T01:41:00Z', 1.18),
+  demoRecord('Base', '2026-11-08T11:52:00Z', 0.12),
+  demoRecord('TRON', '2026-11-08T04:17:00Z', 1.2),
+  demoRecord('Base', '2026-11-07T07:38:00Z', 0.18),
+  demoRecord('TRON', '2026-11-07T00:53:00Z', 1.18),
+  demoRecord('Base', '2026-11-06T09:12:00Z', 0.22),
+  demoRecord('TRON', '2026-11-06T03:46:00Z', 1.24),
+  demoRecord('Base', '2026-11-05T12:21:00Z', 0.09),
+  demoRecord('TRON', '2026-11-05T05:09:00Z', 1.22),
+  demoRecord('Base', '2026-11-04T08:34:00Z', 0.14),
+  demoRecord('TRON', '2026-11-04T02:58:00Z', 1.26),
+  demoRecord('Base', '2026-11-03T10:43:00Z', 0.16),
+  demoRecord('TRON', '2026-11-03T06:15:00Z', 1.19),
+  demoRecord('Base', '2026-11-02T13:07:00Z', 0.25),
+  demoRecord('TRON', '2026-11-02T01:32:00Z', 1.21),
+  demoRecord('Base', '2026-11-01T08:49:00Z', 0.7),
 ];
 
 const totalSaved = records.reduce((total, record) => total + record.saved, 0);
+const summaryStats = [
+  { label: '已补贴交易', value: `${records.length} 笔` },
+  { label: '补贴类型', value: '2 项' },
+];
 
 const usageSteps = [
   {
     title: '登录 OneKey ID',
+    shortDescription: '查看当前可用的补贴。',
     description: '登录后可查看 TRON 能量领取资格和多链网络费补贴。',
   },
   {
     title: '领取或查看补贴',
+    shortDescription: '按地址领取 TRON 能量，多链补贴登录后即可使用。',
     description:
       '选择 TRON 账户领取免费能量，领取后 10 分钟内有效。多链网络费补贴在登录后即可使用。',
   },
   {
     title: '发起交易并使用补贴',
+    shortDescription: '在交易确认页查看补贴金额和自付网络费。',
     description:
       '发起支持的转账或兑换，在交易确认页查看本次补贴和需自行支付的网络费。',
   },
 ];
 
-function GuestUsageGuide() {
+function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
+  const stepSpacing = compact ? '$3' : '$5';
   return (
-    <YStack gap="$4">
-      <SizableText size="$headingMd">操作说明</SizableText>
+    <YStack gap={compact ? '$5' : '$4'}>
+      <SizableText
+        size={compact ? '$headingSm' : '$headingMd'}
+        color={compact ? '$textSubdued' : '$text'}
+      >
+        操作说明
+      </SizableText>
       <YStack>
         {usageSteps.map((step, index) => (
           <YStack key={step.title}>
@@ -142,11 +169,14 @@ function GuestUsageGuide() {
                   width={18}
                   height={18}
                   borderRadius="$full"
-                  bg="$bgAccent"
+                  bg={compact ? '$bgStrong' : '$bgAccent'}
                   alignItems="center"
                   justifyContent="center"
                 >
-                  <SizableText size="$bodyXsMedium" color="$textInverse">
+                  <SizableText
+                    size="$bodyXsMedium"
+                    color={compact ? '$text' : '$textInverse'}
+                  >
                     {index + 1}
                   </SizableText>
                 </Stack>
@@ -165,14 +195,14 @@ function GuestUsageGuide() {
                 flex={1}
                 minWidth={0}
                 pt="$1"
-                pb={index < usageSteps.length - 1 ? '$5' : '$0'}
+                pb={index < usageSteps.length - 1 ? stepSpacing : '$0'}
               >
                 <SizableText
                   size="$bodySm"
                   lineHeight={20}
                   color="$textSubdued"
                 >
-                  {step.description}
+                  {compact ? step.shortDescription : step.description}
                 </SizableText>
               </YStack>
             </XStack>
@@ -183,18 +213,32 @@ function GuestUsageGuide() {
   );
 }
 
-function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
+function SubsidyRecordList({
+  items,
+  rowHeight,
+}: {
+  items: ISubsidyRecord[];
+  rowHeight?: number;
+}) {
+  const headingSize = rowHeight === undefined ? '$headingMd' : '$headingSm';
   return (
     <YStack
-      bg="$bgSubdued"
-      borderRadius="$6"
-      borderCurve="continuous"
-      overflow="hidden"
-      p="$4"
-      gap="$6"
+      {...(rowHeight === undefined && {
+        gap: '$6',
+        p: '$4',
+        bg: '$bgSubdued',
+        borderRadius: '$6',
+        borderCurve: 'continuous',
+        overflow: 'hidden',
+      })}
     >
       {items.map((record) => (
-        <XStack key={record.subtitle} alignItems="center" gap="$3">
+        <XStack
+          key={record.timestamp}
+          minHeight={rowHeight}
+          alignItems="center"
+          gap="$3"
+        >
           <Stack
             width="$8"
             height="$8"
@@ -206,11 +250,11 @@ function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
           </Stack>
           <YStack flex={1} minWidth={0} gap="$1">
             <XStack alignItems="baseline" gap="$3">
-              <SizableText size="$bodyMdMedium" flex={1}>
+              <SizableText size={headingSize} flex={1}>
                 {record.title}
               </SizableText>
               <SizableText
-                size="$bodyMdMedium"
+                size={headingSize}
                 color="$textSuccess"
                 flexShrink={0}
               >
@@ -218,11 +262,51 @@ function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {record.subtitle}
+              {record.network} ·{' '}
+              {formatDate(record.timestamp, { hideTimeForever: true })}
             </SizableText>
           </YStack>
         </XStack>
       ))}
+    </YStack>
+  );
+}
+
+function DesktopSubsidyHistory() {
+  const rowHeight = 52;
+  const [pageSize, setPageSize] = useState(1);
+  const [recordIndex, setRecordIndex] = useState(0);
+  const current = Math.floor(recordIndex / pageSize) + 1;
+  const start = (current - 1) * pageSize;
+  const total = Math.ceil(records.length / pageSize);
+
+  return (
+    <YStack flex={1} minHeight={0} gap="$3">
+      <YStack
+        flex={1}
+        minHeight={0}
+        onLayout={({ nativeEvent }) =>
+          setPageSize(
+            Math.max(1, Math.floor(nativeEvent.layout.height / rowHeight)),
+          )
+        }
+      >
+        <SubsidyRecordList
+          items={records.slice(start, start + pageSize)}
+          rowHeight={rowHeight}
+        />
+      </YStack>
+      {total > 1 ? (
+        <Pagination
+          alignSelf="flex-end"
+          flexShrink={0}
+          current={current}
+          total={total}
+          siblingCount={0}
+          onChange={(page) => setRecordIndex((page - 1) * pageSize)}
+          testID="subsidy-desktop-history-pagination"
+        />
+      ) : null}
     </YStack>
   );
 }
@@ -242,10 +326,7 @@ function SubsidySummaryStats() {
       overflow="hidden"
       onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
     >
-      {[
-        { label: '已补贴交易', value: `${records.length} 笔` },
-        { label: '补贴类型', value: '2 项' },
-      ].map(({ label, value }, index) => (
+      {summaryStats.map(({ label, value }, index) => (
         <Stack
           key={label}
           flex={stacked ? undefined : 1}
@@ -299,33 +380,134 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function MultichainDetails() {
+  return (
+    <YStack gap="$5" testID="subsidy-drawer-multichain">
+      <YStack>
+        <DetailRow label="支持网络" value={multichainBenefit.networks} />
+        <DetailRow label="适用操作" value={multichainBenefit.scope} />
+      </YStack>
+      <YStack gap="$3">
+        <SizableText size="$headingSm">使用说明</SizableText>
+        {multichainBenefit.rules.map((rule) => (
+          <SizableText key={rule} size="$bodyMd" color="$textSubdued">
+            {rule}
+          </SizableText>
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
+function SubsidyFAQ() {
+  return (
+    <Accordion type="single" collapsible>
+      {subsidyFAQs.map(({ question, answer }) => (
+        <Accordion.Item key={question} value={question}>
+          <Accordion.Trigger
+            unstyled
+            group
+            cursor="pointer"
+            flexDirection="row"
+            alignItems="center"
+            gap="$3"
+            minHeight="$11"
+            borderWidth={0}
+            borderRadius="$3"
+            mx="$-2"
+            px="$2"
+            py="$2"
+            bg="$transparent"
+            hoverStyle={{ bg: '$bgSubdued' }}
+            pressStyle={{ bg: '$bgActive' }}
+            focusVisibleStyle={{
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineColor: '$focusRing',
+            }}
+          >
+            {({ open }: { open: boolean }) => (
+              <>
+                <SizableText
+                  flex={1}
+                  minWidth={0}
+                  textAlign="left"
+                  size={open ? '$bodyMdMedium' : '$bodyMd'}
+                  color="$text"
+                >
+                  {question}
+                </SizableText>
+                <Stack
+                  flexShrink={0}
+                  transition="quick"
+                  rotate={open ? '-180deg' : '0deg'}
+                >
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$4"
+                    color={open ? '$iconActive' : '$iconSubdued'}
+                    $group-hover={{ color: '$iconHover' }}
+                  />
+                </Stack>
+              </>
+            )}
+          </Accordion.Trigger>
+          <Accordion.HeightAnimator transition="quick" overflow="hidden">
+            <Accordion.Content unstyled pt="$1" pb="$3" pr="$6">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {answer}
+              </SizableText>
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      ))}
+    </Accordion>
+  );
+}
+
 function BenefitCard({
   title,
   description,
+  descriptionMaxWidth,
   actionLabel,
   onPress,
   testID,
   cardTestID,
+  selected,
+  listRow,
 }: {
   title: string;
   description: string;
-  actionLabel: string;
+  descriptionMaxWidth?: number;
+  actionLabel?: string;
   onPress: () => void | Promise<void>;
   testID: string;
   cardTestID?: string;
+  selected?: boolean;
+  listRow: boolean;
 }) {
   return (
     <Button
       testID={testID}
       childrenAsText={false}
       onPress={onPress}
-      width="100%"
+      alignSelf="stretch"
       height="auto"
-      px="$4"
+      px={listRow ? '$3' : '$4'}
       py="$4"
       bg="$bgSubdued"
-      borderWidth={0}
       borderRadius="$6"
+      borderWidth={0}
+      {...(listRow && {
+        bg: '$transparent',
+        mx: '$-3',
+        pr: '$2.5',
+        py: '$2',
+        borderRadius: '$3',
+        hoverStyle: { bg: '$bgHover' },
+        pressStyle: { bg: '$bgHover' },
+      })}
+      aria-pressed={selected}
     >
       <XStack
         testID={cardTestID}
@@ -341,13 +523,18 @@ function BenefitCard({
           primary={title}
           secondary={description}
           primaryTextProps={{ size: '$headingSm' }}
-          secondaryTextProps={{ size: '$bodySm' }}
+          secondaryTextProps={{
+            size: '$bodySm',
+            maxWidth: descriptionMaxWidth,
+          }}
         />
         <XStack alignItems="center" flexShrink={0} gap="$1.5">
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {actionLabel}
-          </SizableText>
-          <ListItem.DrillIn />
+          {actionLabel ? (
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {actionLabel}
+            </SizableText>
+          ) : null}
+          <ListItem.DrillIn color={selected ? '$iconActive' : '$iconSubdued'} />
         </XStack>
       </XStack>
     </Button>
@@ -358,12 +545,26 @@ function NetworkFeeSubsidy() {
   const intl = useIntl();
   const { isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const [previewMode, setPreviewMode] = useState<ISubsidyPreviewMode>('live');
+  const [previewSession, setPreviewSession] = useState(0);
   const [previewValidUntil, setPreviewValidUntil] = useState<number>();
   const signedIn =
     previewMode === 'live' ? Boolean(isLoggedIn) : previewMode !== 'guest';
+  const { gtMd } = useMedia();
+  const wide = Boolean(
+    gtMd &&
+    (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension),
+  );
+  const desktopGuest = wide && !signedIn;
+  const { pageBackgroundColor, headerStyle, headerBackgroundColor } =
+    useSettingsPageStyle(wide);
+  const [activePanel, setPanel] = useState<ISubsidyPanel>('tron');
+  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
+  const openTron = useCallback(() => {
+    setPanel('tron');
+    setClaimDialogOpen(!wide);
+  }, [wide]);
   const loginPending = useRef(false);
   const isMounted = useIsMounted();
-  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
@@ -374,9 +575,18 @@ function NetworkFeeSubsidy() {
       mode === 'claimed' ? Date.now() + 10 * 60_000 : undefined,
     );
   }, []);
+  const openPreview = useCallback(
+    (mode: ISubsidyPreviewMode) => {
+      selectPreview(mode);
+      setPreviewSession((session) => session + 1);
+      setPanel('tron');
+      setClaimDialogOpen(!wide && mode !== 'guest' && mode !== 'live');
+    },
+    [selectPreview, wide],
+  );
   const renderPreviewMenu = useCallback(
-    () => <SubsidyPreviewMenu mode={previewMode} onSelect={selectPreview} />,
-    [previewMode, selectPreview],
+    () => <SubsidyPreviewMenu mode={previewMode} onSelect={openPreview} />,
+    [previewMode, openPreview],
   );
   const showLogin = async (onSuccess?: () => void) => {
     if (previewMode === 'guest') {
@@ -397,7 +607,101 @@ function NetworkFeeSubsidy() {
     if (isMounted.current) onSuccess?.();
   };
 
-  const renderEnergyCard = ({
+  const showMultichainDetails = () => {
+    if (wide) {
+      setPanel('multichain');
+      return;
+    }
+    const detailsDialog = dialog.show({
+      title: multichainBenefit.title,
+      ...subsidyDialogProps,
+      onConfirmText: signedIn ? '知道了' : '登录 OneKey ID',
+      onConfirm: async ({ preventClose }) => {
+        if (!signedIn) {
+          preventClose();
+          await detailsDialog.close();
+          await showLogin();
+        }
+      },
+      renderContent: <MultichainDetails />,
+    });
+  };
+
+  const overview = signedIn ? (
+    <YStack gap="$2">
+      <YStack alignItems="center" gap="$2" pt="$2">
+        <SizableText
+          size="$heading4xl"
+          fontSize={40}
+          lineHeight={48}
+          textAlign="center"
+        >
+          ${totalSaved.toFixed(2)}
+        </SizableText>
+        <SizableText
+          size="$bodyXs"
+          color="$textDisabled"
+          letterSpacing={1.2}
+          textAlign="center"
+        >
+          累计获得补贴（演示）
+        </SizableText>
+      </YStack>
+      <SubsidySummaryStats />
+    </YStack>
+  ) : (
+    <YStack>
+      <Stack
+        alignSelf="center"
+        width={240}
+        height={240}
+        mt={-24}
+        mb={-116}
+        zIndex={1}
+        pointerEvents="none"
+        $gtMd={{ width: 280, height: 280, mt: -28, mb: -136 }}
+      >
+        <EnergyArtwork />
+      </Stack>
+      <YStack
+        bg="$bgSubdued"
+        borderRadius="$6"
+        borderCurve="continuous"
+        p="$4"
+        pt={96}
+        gap="$5"
+        $gtMd={{ pt: 112 }}
+      >
+        <SizableText size="$bodyLgMedium" textAlign="center" py="$2">
+          登录后即可享受网络费补贴
+        </SizableText>
+        <Button
+          testID="subsidy-login"
+          variant="accent"
+          size="large"
+          onPress={() => showLogin()}
+        >
+          登录 OneKey ID
+        </Button>
+      </YStack>
+    </YStack>
+  );
+  const multichainActionLabel = signedIn ? '查看详情' : loginRequiredLabel;
+  const multichainCard = (
+    <BenefitCard
+      testID="subsidy-detail-multichain"
+      listRow={wide}
+      selected={wide && signedIn ? activePanel === 'multichain' : undefined}
+      title={multichainBenefit.title}
+      description={
+        signedIn ? '支持的转账与兑换可享补贴' : '部分转账与兑换可享网络费补贴'
+      }
+      actionLabel={signedIn && wide ? undefined : multichainActionLabel}
+      onPress={desktopGuest ? () => showLogin() : showMultichainDetails}
+    />
+  );
+
+  const renderSubsidyBenefits = ({
     accountName,
     claimed = false,
     validUntil,
@@ -416,312 +720,284 @@ function NetworkFeeSubsidy() {
       description = '仍可使用兑换码';
       actionLabel = '已领完';
     }
+    const tronCard = (
+      <BenefitCard
+        cardTestID="subsidy-tron-energy"
+        testID="subsidy-tron-claim"
+        listRow={wide}
+        selected={wide && signedIn ? activePanel === 'tron' : undefined}
+        title="TRON 免费能量"
+        description={description}
+        descriptionMaxWidth={wide && claimed ? 168 : undefined}
+        actionLabel={
+          wide && signedIn && !claimed && !exhausted ? undefined : actionLabel
+        }
+        onPress={async () => {
+          if (!signedIn) {
+            await showLogin(openTron);
+            return;
+          }
+          openTron();
+        }}
+      />
+    );
+    if (desktopGuest) {
+      return (
+        <ScrollView
+          flex={1}
+          contentContainerStyle={{ flexGrow: 1 }}
+          testID="subsidy-desktop-guest"
+        >
+          <XStack
+            flexGrow={1}
+            px="$6"
+            pt="$2"
+            pb="$6"
+            gap="$6"
+            alignItems="stretch"
+          >
+            <YStack
+              width={desktopSubsidySidebarWidth}
+              borderRadius="$5"
+              bg="$bg"
+              p="$5"
+              gap="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {/* Discount the PNG's transparent padding when centering the login content. */}
+              <Stack
+                width="100%"
+                maxWidth={248}
+                aspectRatio={1}
+                mt="$-11"
+                mb="$-8"
+                pointerEvents="none"
+              >
+                <EnergyArtwork />
+              </Stack>
+              <SizableText size="$headingMd" textAlign="center">
+                登录后即可享受网络费补贴
+              </SizableText>
+              <Button
+                testID="subsidy-login"
+                variant="accent"
+                size="large"
+                width="100%"
+                maxWidth={216}
+                onPress={() => showLogin()}
+              >
+                登录 OneKey ID
+              </Button>
+            </YStack>
+            <YStack
+              flex={1}
+              minWidth={0}
+              gap="$8"
+              py="$3"
+              justifyContent="center"
+            >
+              <YStack gap="$3">
+                <SizableText size="$headingSm" color="$textSubdued">
+                  可享补贴
+                </SizableText>
+                {tronCard}
+                {multichainCard}
+              </YStack>
+              <GuestUsageGuide compact />
+            </YStack>
+          </XStack>
+        </ScrollView>
+      );
+    }
+    if (wide) {
+      let detail;
+      let detailTitle: string | undefined;
+      switch (activePanel) {
+        case 'tron':
+          detailTitle = 'TRON 免费能量';
+          detail = claimDetails ? (
+            <TronClaimView details={claimDetails} />
+          ) : (
+            <Skeleton.BodyLg />
+          );
+          break;
+        case 'multichain':
+          detailTitle = multichainBenefit.title;
+          detail = <MultichainDetails />;
+          break;
+        case 'history':
+          detailTitle = '补贴记录';
+          detail = <DesktopSubsidyHistory />;
+          break;
+        case 'help':
+          detailTitle = intl.formatMessage({ id: ETranslations.global_faqs });
+          detail = (
+            <YStack pl="$3" pr="$2" py="$1">
+              <SubsidyFAQ />
+            </YStack>
+          );
+          break;
+      }
+      return (
+        <DesktopSubsidyLayout
+          detailTitle={detailTitle}
+          totalSaved={totalSaved}
+          recordCount={records.length}
+          benefitCards={
+            <>
+              {tronCard}
+              {multichainCard}
+            </>
+          }
+          activePanel={activePanel}
+          onSelectPanel={setPanel}
+        >
+          {detail}
+        </DesktopSubsidyLayout>
+      );
+    }
     return (
       <>
-        <BenefitCard
-          cardTestID="subsidy-tron-energy"
-          testID="subsidy-tron-claim"
-          title="TRON 免费能量"
-          description={description}
-          actionLabel={actionLabel}
-          onPress={async () => {
-            if (!signedIn) {
-              await showLogin(() => setClaimDialogOpen(true));
-              return;
-            }
-            setClaimDialogOpen(true);
-          }}
-        />
+        {tronCard}
         {signedIn && claimDetails ? (
-          <TronClaimDialog
-            open={claimDialogOpen}
-            onClose={() => setClaimDialogOpen(false)}
+          <TronClaimView
+            dialog={{
+              open: claimDialogOpen,
+              onClose: () => setClaimDialogOpen(false),
+            }}
             details={claimDetails}
-            claimed={claimed}
-            validUntil={validUntil}
           />
         ) : null}
       </>
     );
   };
 
-  const showMultichainDetails = () => {
-    const detailsDialog = dialog.show({
-      title: multichainBenefit.title,
-      ...subsidyDialogProps,
-      onConfirmText: signedIn ? '知道了' : '登录 OneKey ID',
-      onConfirm: async ({ preventClose }) => {
-        if (!signedIn) {
-          preventClose();
-          await detailsDialog.close();
-          await showLogin();
-        }
-      },
-      renderContent: (
-        <YStack gap="$5" testID="subsidy-drawer-multichain">
-          <YStack>
-            <DetailRow label="支持网络" value={multichainBenefit.networks} />
-            <DetailRow label="适用操作" value={multichainBenefit.scope} />
-          </YStack>
-          <YStack gap="$3">
-            <SizableText size="$headingSm">使用说明</SizableText>
-            {multichainBenefit.rules.map((rule) => (
-              <SizableText key={rule} size="$bodyMd" color="$textSubdued">
-                {rule}
-              </SizableText>
-            ))}
-          </YStack>
-        </YStack>
-      ),
-    });
-  };
-
-  let energyCard;
+  let benefitsContent;
   if (previewMode !== 'live' && previewMode !== 'guest') {
-    energyCard = (
+    benefitsContent = (
       <TronRewardPreview
+        key={previewSession}
         mode={previewMode}
         validUntil={previewValidUntil}
-        onClaim={() => selectPreview('claimed')}
-        renderInline={renderEnergyCard}
+        onModeChange={selectPreview}
+        renderInline={renderSubsidyBenefits}
       />
     );
   } else if (signedIn) {
-    energyCard = (
+    benefitsContent = (
       <TronRewardCenterContent
         params={{
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
           walletId: wallet?.id,
         }}
-        renderInline={renderEnergyCard}
+        renderLoading={wide ? renderSubsidyBenefits : undefined}
+        renderInline={renderSubsidyBenefits}
       />
     );
   } else {
-    energyCard = renderEnergyCard();
+    benefitsContent = renderSubsidyBenefits();
   }
 
   return (
-    <Page>
+    <Page backgroundColor={pageBackgroundColor}>
       <Page.Header
+        headerContainerBackgroundColor={headerBackgroundColor}
+        headerStyle={headerStyle}
         title="补贴中心"
         headerRight={renderPreviewMenu}
         headerRightNoGlass
       />
       <Page.Body>
-        <ScrollView flex={1}>
-          <YStack
-            width="100%"
-            maxWidth={960}
-            alignSelf="center"
-            px="$5"
-            pt={signedIn ? '$2' : 0}
-            pb="$5"
-            gap="$6"
-          >
-            {signedIn ? (
-              <YStack gap="$2">
-                <YStack alignItems="center" gap="$2" pt="$2">
-                  <SizableText
-                    size="$heading4xl"
-                    fontSize={40}
-                    lineHeight={48}
-                    textAlign="center"
-                  >
-                    ${totalSaved.toFixed(2)}
-                  </SizableText>
-                  <SizableText
-                    size="$bodyXs"
-                    color="$textDisabled"
-                    letterSpacing={1.2}
-                    textAlign="center"
-                  >
-                    累计获得补贴（演示）
-                  </SizableText>
-                </YStack>
-                <SubsidySummaryStats />
-              </YStack>
-            ) : (
-              <YStack>
-                <Stack
-                  alignSelf="center"
-                  width={240}
-                  height={240}
-                  mt={-24}
-                  mb={-116}
-                  zIndex={1}
-                  pointerEvents="none"
-                  $gtMd={{ width: 280, height: 280, mt: -28, mb: -136 }}
-                >
-                  <EnergyArtwork />
-                </Stack>
-                <YStack
-                  bg="$bgSubdued"
-                  borderRadius="$6"
-                  borderCurve="continuous"
-                  p="$4"
-                  pt={96}
-                  gap="$5"
-                  $gtMd={{ pt: 112 }}
-                >
-                  <SizableText size="$bodyLgMedium" textAlign="center" py="$2">
-                    登录后即可享受网络费补贴
-                  </SizableText>
-                  <Button
-                    testID="subsidy-login"
-                    variant="accent"
-                    size="large"
-                    onPress={() => showLogin()}
-                  >
-                    登录 OneKey ID
-                  </Button>
-                </YStack>
-              </YStack>
-            )}
+        {wide ? (
+          benefitsContent
+        ) : (
+          <ScrollView flex={1}>
+            <YStack
+              width="100%"
+              maxWidth={960}
+              alignSelf="center"
+              px="$5"
+              pt={signedIn ? '$2' : 0}
+              pb="$5"
+              gap="$6"
+            >
+              {overview}
 
-            <YStack gap="$3">
-              <SizableText size="$headingMd">
-                {signedIn ? '我的补贴' : '可享补贴'}
-              </SizableText>
-              {energyCard}
-              <BenefitCard
-                testID="subsidy-detail-multichain"
-                title={multichainBenefit.title}
-                description={
-                  signedIn
-                    ? '支持的转账与兑换可享补贴'
-                    : '部分转账与兑换可享网络费补贴'
-                }
-                actionLabel={signedIn ? '查看详情' : loginRequiredLabel}
-                onPress={showMultichainDetails}
-              />
-            </YStack>
-
-            {signedIn ? (
               <YStack gap="$3">
-                <XStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  gap="$3"
-                >
-                  <SizableText size="$headingMd">补贴记录（演示）</SizableText>
-                  <Button
-                    testID="subsidy-view-all-records"
-                    childrenAsText={false}
-                    variant="tertiary"
-                    size="small"
-                    mx="$0"
-                    my="$0"
-                    px="$0"
-                    py="$0"
-                    borderWidth={0}
-                    hitSlop={12}
-                    hoverStyle={{ bg: '$transparent', opacity: 0.8 }}
-                    pressStyle={{ bg: '$transparent', opacity: 0.6 }}
-                    onPress={() => {
-                      dialog.show({
-                        title: '全部补贴记录（演示）',
-                        boundedSheetLayout: true,
-                        showFooter: false,
-                        renderContent: (
-                          <Dialog.ScrollView maxHeight={440}>
-                            <SubsidyRecordList items={records} />
-                          </Dialog.ScrollView>
-                        ),
-                      });
-                    }}
-                  >
-                    <XStack alignItems="center" gap="$1">
-                      <SizableText size="$bodySm" color="$textDisabled">
-                        查看更多
-                      </SizableText>
-                      <Icon
-                        name="ChevronRightSmallOutline"
-                        size="$4"
-                        color="$iconDisabled"
-                      />
-                    </XStack>
-                  </Button>
-                </XStack>
-                <SubsidyRecordList items={records.slice(0, 6)} />
-              </YStack>
-            ) : null}
-
-            {signedIn ? (
-              <YStack gap="$2">
                 <SizableText size="$headingMd">
-                  {intl.formatMessage({ id: ETranslations.global_faqs })}
+                  {signedIn ? '我的补贴' : '可享补贴'}
                 </SizableText>
-                <Accordion type="single" collapsible>
-                  {subsidyFAQs.map(({ question, answer }) => (
-                    <Accordion.Item key={question} value={question}>
-                      <Accordion.Trigger
-                        unstyled
-                        group
-                        cursor="pointer"
-                        flexDirection="row"
-                        alignItems="center"
-                        gap="$3"
-                        minHeight="$11"
-                        borderWidth={0}
-                        borderRadius="$3"
-                        mx="$-2"
-                        px="$2"
-                        py="$2"
-                        bg="$transparent"
-                        hoverStyle={{ bg: '$bgSubdued' }}
-                        pressStyle={{ bg: '$bgActive' }}
-                        focusVisibleStyle={{
-                          outlineWidth: 2,
-                          outlineStyle: 'solid',
-                          outlineColor: '$focusRing',
-                        }}
-                      >
-                        {({ open }: { open: boolean }) => (
-                          <>
-                            <SizableText
-                              flex={1}
-                              minWidth={0}
-                              textAlign="left"
-                              size={open ? '$bodyMdMedium' : '$bodyMd'}
-                              color="$text"
-                            >
-                              {question}
-                            </SizableText>
-                            <Stack
-                              flexShrink={0}
-                              transition="quick"
-                              rotate={open ? '-180deg' : '0deg'}
-                            >
-                              <Icon
-                                name="ChevronDownSmallOutline"
-                                size="$4"
-                                color={open ? '$iconActive' : '$iconSubdued'}
-                                $group-hover={{ color: '$iconHover' }}
-                              />
-                            </Stack>
-                          </>
-                        )}
-                      </Accordion.Trigger>
-                      <Accordion.HeightAnimator
-                        transition="quick"
-                        overflow="hidden"
-                      >
-                        <Accordion.Content unstyled pt="$1" pb="$3" pr="$6">
-                          <SizableText size="$bodyMd" color="$textSubdued">
-                            {answer}
-                          </SizableText>
-                        </Accordion.Content>
-                      </Accordion.HeightAnimator>
-                    </Accordion.Item>
-                  ))}
-                </Accordion>
+                {benefitsContent}
+                {multichainCard}
               </YStack>
-            ) : (
-              <GuestUsageGuide />
-            )}
-          </YStack>
-        </ScrollView>
+
+              {signedIn ? (
+                <YStack gap="$3">
+                  <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    gap="$3"
+                  >
+                    <SizableText size="$headingMd">
+                      补贴记录（演示）
+                    </SizableText>
+                    <Button
+                      testID="subsidy-view-all-records"
+                      childrenAsText={false}
+                      variant="tertiary"
+                      size="small"
+                      mx="$0"
+                      my="$0"
+                      px="$0"
+                      py="$0"
+                      borderWidth={0}
+                      hitSlop={12}
+                      hoverStyle={{ bg: '$transparent', opacity: 0.8 }}
+                      pressStyle={{ bg: '$transparent', opacity: 0.6 }}
+                      onPress={() => {
+                        dialog.show({
+                          title: '全部补贴记录（演示）',
+                          boundedSheetLayout: true,
+                          showFooter: false,
+                          renderContent: (
+                            <Dialog.ScrollView maxHeight={440}>
+                              <SubsidyRecordList items={records} />
+                            </Dialog.ScrollView>
+                          ),
+                        });
+                      }}
+                    >
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText size="$bodySm" color="$textDisabled">
+                          查看更多
+                        </SizableText>
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                      </XStack>
+                    </Button>
+                  </XStack>
+                  <SubsidyRecordList items={records.slice(0, 6)} />
+                </YStack>
+              ) : null}
+
+              {signedIn ? (
+                <YStack gap="$2">
+                  <SizableText size="$headingMd">
+                    {intl.formatMessage({ id: ETranslations.global_faqs })}
+                  </SizableText>
+                  <SubsidyFAQ />
+                </YStack>
+              ) : (
+                <GuestUsageGuide />
+              )}
+            </YStack>
+          </ScrollView>
+        )}
       </Page.Body>
     </Page>
   );

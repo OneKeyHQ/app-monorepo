@@ -2,12 +2,11 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
-import { useIntl } from 'react-intl';
 
 import {
   Dialog,
   DialogContainer,
-  Progress,
+  ScrollView,
   SegmentControl,
   SizableText,
   XStack,
@@ -15,6 +14,8 @@ import {
 } from '@onekeyhq/components';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { InventoryProgress } from './InventoryProgress';
 
 export const subsidyDialogProps = {
   boundedSheetLayout: true,
@@ -53,20 +54,13 @@ function ClaimDetailRow({
   );
 }
 
-export function TronClaimDialog({
-  open,
-  onClose,
+export function TronClaimView({
+  dialog,
   details,
-  claimed,
-  validUntil,
 }: {
-  open: boolean;
-  onClose: () => void;
+  dialog?: { open: boolean; onClose: () => void };
   details: ITronRewardCardState['claimDetails'];
-  claimed: boolean;
-  validUntil?: number;
 }) {
-  const intl = useIntl();
   const { hostKey, ownerKey } = useOverlayPageScope();
   const [tab, setTab] = useState<'claim' | 'redeem'>('claim');
   const isClaimTab = tab === 'claim';
@@ -83,7 +77,7 @@ export function TronClaimDialog({
       />
       {isClaimTab ? (
         <YStack
-          bg="$bgSubdued"
+          bg={dialog ? '$bgSubdued' : '$bg'}
           borderRadius="$6"
           borderCurve="continuous"
           p="$4"
@@ -105,12 +99,7 @@ export function TronClaimDialog({
             )}
           </YStack>
           {hasInventory && total > 0 ? (
-            <Progress
-              value={(remaining / total) * 100}
-              size="medium"
-              progressColor="$bgStrong"
-              indicatorColor="$bgAccent"
-            />
+            <InventoryProgress value={(remaining / total) * 100} />
           ) : null}
           <SizableText size="$bodySm" color="$textSubdued">
             每个地址每日可领取 1 次，领取资格每日 00:00（GMT+8）重置。
@@ -136,14 +125,6 @@ export function TronClaimDialog({
         ) : null}
         {isClaimTab ? null : details.redeemField}
       </YStack>
-      {isClaimTab ? details.alert : details.redeemAlert}
-      {isClaimTab && claimed ? (
-        <SizableText size="$bodySmMedium" color="$textSuccess">
-          {validUntil
-            ? `今日已领取，请在 ${intl.formatTime(validUntil, { hour: '2-digit', minute: '2-digit' })} 前使用。`
-            : '当前地址今日已领取。'}
-        </SizableText>
-      ) : null}
       {!isClaimTab ? (
         <YStack gap="$2">
           <SizableText size="$headingSm">使用说明</SizableText>
@@ -155,12 +136,30 @@ export function TronClaimDialog({
     </YStack>
   );
 
+  if (!dialog) {
+    return (
+      <YStack flex={1} minHeight={0} gap="$5">
+        <ScrollView flex={1}>{content}</ScrollView>
+        {action ? (
+          <YStack
+            alignSelf="flex-end"
+            flexShrink={0}
+            minWidth={160}
+            maxWidth="100%"
+          >
+            {action}
+          </YStack>
+        ) : null}
+      </YStack>
+    );
+  }
+
   return (
     <DialogContainer
-      open={open}
+      open={dialog.open}
       onClose={async () => {
         setTab('claim');
-        onClose();
+        dialog.onClose();
       }}
       overlayPage={hostKey && ownerKey ? { hostKey, ownerKey } : undefined}
       title="免费能量"
