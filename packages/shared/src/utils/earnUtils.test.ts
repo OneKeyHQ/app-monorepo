@@ -278,6 +278,16 @@ describe('earnUtils Unitas provider behavior (OK-61790)', () => {
       'Unitas',
     );
   });
+
+  it('marks the Unitas deposit as submitted by the protocol after the approve (OK-66931)', () => {
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'Unitas' })).toBe(
+      true,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: 'lista' })).toBe(
+      false,
+    );
+    expect(earnUtils.isProtocolExecutedStake({ providerName: '' })).toBe(false);
+  });
 });
 
 describe('earnUtils normalizeEarnUtmParams', () => {

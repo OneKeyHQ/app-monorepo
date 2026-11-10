@@ -88,6 +88,11 @@ const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
   isBitwayProvider({ providerName }) ||
   isUnitasProvider({ providerName });
 
+// Unitas (OK-66931): the protocol submits the deposit itself once the allowance
+// lands, so the approve is the only step the user signs and the button says so.
+const isProtocolExecutedStake = ({ providerName }: { providerName: string }) =>
+  isUnitasProvider({ providerName });
+
 const isEarnWithdrawPathReady = ({
   providerName,
   isLoading,
@@ -409,6 +414,7 @@ export default {
   isVaultBasedProvider,
   requiresEarnWithdrawPath,
   isEarnWithdrawPathReady,
+  isProtocolExecutedStake,
   shouldSendEarnProtocolVault,
   normalizeEarnUtmParams,
   isValidatorProvider,
