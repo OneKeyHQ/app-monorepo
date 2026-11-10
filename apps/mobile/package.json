@@ -73,6 +73,7 @@
     "rimraf": "3.0.2"
   },
   "dependencies": {
+    "@breeztech/breez-sdk-spark-react-native": "0.26.1",
     "@expo-google-fonts/inter": "^0.2.3",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
