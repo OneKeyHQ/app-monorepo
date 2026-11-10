@@ -1480,3 +1480,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The body's uniform `$5` padding added a full top inset below the sheet header's own bottom padding.
 **Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
 **Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
+
+## Case: Privacy account actions interfered with unrelated rows (OK-66891, OK-66892)
+**Date**: 2026-11-10 | **Platforms**: iOS, Android and extension main UI runtime; desktop/web single JS runtime. Background scanning, native resource ownership and shared account admission are unchanged.
+**Symptom**: An account action disabled unrelated rows, while deleting local data displayed loading on Pause. The first per-account guard also let a duplicate confirmation finish before the original request, allowing the dialog footer to close early.
+**Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
+**Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
+**Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
