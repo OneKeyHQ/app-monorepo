@@ -20,16 +20,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EARN_GUIDE_STEPS } from './earnGuide.utils';
+import { EarnGuideArt } from './EarnGuideArt';
 import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
 import type { IEarnGuideState, IEarnGuideStep } from './earnGuide.utils';
 import type { IEarnGuideCardPlace } from './earnGuideStore';
 
-// OneKey green a few steps darker (the dark palette's brand7, opaque: the
-// theme's own brand7 is translucent and would turn pale on the light page).
-// White type reads on it, and it sits quietly beside the banner's artwork
-export const EARN_GUIDE_GREEN = '#2B6A25';
-export const EARN_GUIDE_GREEN_HOVER = '#2F7329';
+// A deep ink, the dark the card's picture fades into on the side its words
+// are on (opaque, the same on a light page and a dark one). White type reads
+// on it and the ribbon glows on it
+export const EARN_GUIDE_INK = '#12102A';
+export const EARN_GUIDE_INK_HOVER = '#181538';
 // The banner's Join pill beside the card: pure white, 30 tall
 const EARN_GUIDE_PILL_BG = '#FFFFFF';
 const EARN_GUIDE_PILL_HEIGHT = 30;
@@ -84,7 +85,7 @@ function GuideStepMarkFace({
     >
       <SizableText
         size="$bodySmMedium"
-        color={isCurrent ? EARN_GUIDE_GREEN : '$whiteA10'}
+        color={isCurrent ? EARN_GUIDE_INK : '$whiteA10'}
       >
         {step}
       </SizableText>
@@ -177,7 +178,13 @@ export const EARN_GUIDE_CARD_PB = 15;
 /** The card's title, which the modal's header carries on */
 export function GuideCardTitle() {
   return (
-    <SizableText size="$headingLg" color="$whiteA12" numberOfLines={1}>
+    // Over the card's picture, as the steps below
+    <SizableText
+      position="relative"
+      size="$headingLg"
+      color="$whiteA12"
+      numberOfLines={1}
+    >
       {EARN_DESKTOP_DEMO_COPY.guideTitle}
     </SizableText>
   );
@@ -197,6 +204,7 @@ export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
     // Narrow, the action goes under the steps at the card's width, so the
     // steps keep theirs
     <XStack
+      position="relative"
       ai="flex-end"
       jc="space-between"
       gap="$4"
@@ -215,7 +223,7 @@ export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
             >
               <GuideStepMark step={step} status={status} />
               {/* 0.8 white is the faintest that still reads at 4.5:1 on
-                  the green; the mark and the weight carry the rest */}
+                  the ink; the mark and the weight carry the rest */}
               <SizableText
                 size={status === 'current' ? '$bodyLgMedium' : '$bodyLg'}
                 color={status === 'current' ? '$whiteA12' : '$whiteA10'}
@@ -305,10 +313,11 @@ export function EarnDesktopGuideCard({
         $md={{ pb: '$5' }}
         gap="$4"
         jc="space-between"
-        bg={EARN_GUIDE_GREEN}
-        hoverStyle={{ bg: EARN_GUIDE_GREEN_HOVER }}
+        bg={EARN_GUIDE_INK}
+        hoverStyle={{ bg: EARN_GUIDE_INK_HOVER }}
         borderRadius={EARN_GUIDE_CARD_RADIUS}
         borderCurve="continuous"
+        overflow="hidden"
         cursor="pointer"
         userSelect="none"
         pressStyle={{ scale: 0.98 }}
@@ -320,6 +329,7 @@ export function EarnDesktopGuideCard({
         }
         {...buildKeyboardPressProps(handleOpen, 2)}
       >
+        <EarnGuideArt radius={EARN_GUIDE_CARD_RADIUS} />
         <GuideCardTitle />
         <GuideCardSteps state={state} />
       </YStack>

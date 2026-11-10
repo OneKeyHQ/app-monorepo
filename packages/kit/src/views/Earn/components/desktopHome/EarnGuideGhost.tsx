@@ -7,12 +7,13 @@ import { Theme, YStack, useTheme } from '@onekeyhq/components';
 import {
   EARN_GUIDE_CARD_PB,
   EARN_GUIDE_CARD_RADIUS,
-  EARN_GUIDE_GREEN,
-  EARN_GUIDE_GREEN_HOVER,
+  EARN_GUIDE_INK,
+  EARN_GUIDE_INK_HOVER,
   GuideCardSteps,
   GuideCardTitle,
 } from './EarnDesktopGuideCard';
 import { EARN_GUIDE_MODAL_SIZE } from './earnGuide.utils';
+import { EarnGuideArt } from './EarnGuideArt';
 import { EarnGuideHeader } from './EarnGuideHeader';
 import { earnGuideStore } from './earnGuideStore';
 
@@ -55,7 +56,7 @@ const TITLE_RISE = -4;
 const BACKDROP_TEST_ID = 'app-modal-stacks-backdrop';
 const SCREEN_TEST_ID = 'APP-Modal-Screen';
 const BACKDROP_ALPHA = 0.5;
-// The modal's green header before the first open has measured it
+// The modal's ink header before the first open has measured it
 export const EARN_GUIDE_HEADER_HEIGHT = 108;
 
 /** Where the guide modal sits: the web modal's own rule, 90% of the window
@@ -149,8 +150,8 @@ type IGhostFrame = IEarnGuideRect & {
   radius: number;
   // Off the page in flight, 0 at both ends, where it is the card or the modal
   lift: number;
-  green: number;
-  greenColor: string;
+  band: number;
+  bandColor: string;
   // The modal header's steps and close, coming in as the card nears its size
   header: number;
   // The card's steps and action, going as it grows
@@ -160,7 +161,7 @@ type IGhostFrame = IEarnGuideRect & {
   // The modal's outline, drawn as the modal draws it
   ring: number;
   box: number;
-  // The body under the green: the modal's own color, over its content on
+  // The body under the ink: the modal's own color, over its content on
   // the way out
   cover: number;
   dim: number;
@@ -219,10 +220,11 @@ function EarnGuideGhostView({
   const ringRef = useRef<unknown>(null);
   const boxRef = useRef<unknown>(null);
   const coverRef = useRef<unknown>(null);
-  const greenRef = useRef<unknown>(null);
+  const bandRef = useRef<unknown>(null);
   const headerRef = useRef<unknown>(null);
   const titleRef = useRef<unknown>(null);
   const stepsRef = useRef<unknown>(null);
+  const artRef = useRef<unknown>(null);
 
   // One loop draws every layer from the same frame, written straight to the
   // page
@@ -257,13 +259,14 @@ function EarnGuideGhostView({
       ring.height = `${frame.height + 2}px`;
       ring.borderRadius = `${frame.radius + 1}px`;
       ring.opacity = `${frame.ring}`;
-      Object.assign(styleOf(greenRef) ?? {}, {
-        height: `${frame.green}px`,
-        backgroundColor: frame.greenColor,
+      Object.assign(styleOf(bandRef) ?? {}, {
+        height: `${frame.band}px`,
+        backgroundColor: frame.bandColor,
       });
       Object.assign(styleOf(coverRef) ?? {}, { opacity: `${frame.cover}` });
       Object.assign(styleOf(headerRef) ?? {}, { opacity: `${frame.header}` });
       Object.assign(styleOf(stepsRef) ?? {}, { opacity: `${frame.steps}` });
+      Object.assign(styleOf(artRef) ?? {}, { opacity: `${frame.steps}` });
       Object.assign(styleOf(titleRef) ?? {}, {
         transform: `translateY(${frame.rise}px)`,
       });
@@ -274,20 +277,18 @@ function EarnGuideGhostView({
       ...modal,
       radius: MODAL_RADIUS,
       lift: 0,
-      green: headerHeight,
-      greenColor: EARN_GUIDE_GREEN,
+      band: headerHeight,
+      bandColor: EARN_GUIDE_INK,
       header: 1,
       steps: 0,
       rise: TITLE_RISE,
       ring: 1,
     };
-    // The card's green as the pointer leaves it, lit when over it
-    const cardGreen = card?.isHovered
-      ? EARN_GUIDE_GREEN_HOVER
-      : EARN_GUIDE_GREEN;
-    // 0 is the card, 1 the modal. The ghost stays all green through the
+    // The card's ink as the pointer leaves it, lit when over it
+    const cardColor = card?.isHovered ? EARN_GUIDE_INK_HOVER : EARN_GUIDE_INK;
+    // 0 is the card, 1 the modal. The ghost stays all ink through the
     // first of the move, a card growing, and the modal's body opens under
-    // the green as it nears its place and the page has dimmed; a white body
+    // the ink as it nears its place and the page has dimmed; a white body
     // early on would read as a hole in a light page
     const moved = (p: number) => {
       if (!card) {
@@ -301,8 +302,8 @@ function EarnGuideGhostView({
         height,
         radius: between(EARN_GUIDE_CARD_RADIUS, MODAL_RADIUS, p),
         lift: Math.round(Math.sin(Math.PI * p) * 1000) / 1000,
-        green: between(height, headerHeight, ramp(p, 0.25, 0.85)),
-        greenColor: mixHex(cardGreen, EARN_GUIDE_GREEN, ramp(p, 0, 0.4)),
+        band: between(height, headerHeight, ramp(p, 0.25, 0.85)),
+        bandColor: mixHex(cardColor, EARN_GUIDE_INK, ramp(p, 0, 0.4)),
         header: ramp(p, 0.55, 1),
         steps: 1 - ramp(p, 0, 0.3),
         rise: between(0, TITLE_RISE, p),
@@ -624,12 +625,26 @@ function EarnGuideGhostView({
           bg="$bgApp"
         />
         <YStack
-          ref={greenRef as never}
+          ref={bandRef as never}
           position="absolute"
           top={0}
           left={0}
           right={0}
-        />
+          overflow="hidden"
+        >
+          {/* The card's picture, at the card's size: it goes with the
+              card's steps as the ink becomes the modal's header */}
+          <YStack
+            ref={artRef as never}
+            position="absolute"
+            top={0}
+            left={0}
+            width={card?.width ?? modal.width}
+            height={card?.height ?? headerHeight}
+          >
+            <EarnGuideArt radius={EARN_GUIDE_CARD_RADIUS} />
+          </YStack>
+        </YStack>
         <YStack
           ref={headerRef as never}
           position="absolute"

@@ -33,7 +33,7 @@ export type IEarnGuideRect = {
   height: number;
 };
 
-/** Where the card is, and whether the pointer is over it (its green lit) */
+/** Where the card is, and whether the pointer is over it (its ink lit) */
 export type IEarnGuideCardPlace = IEarnGuideRect & { isHovered?: boolean };
 
 /** Takes the guide out: covers the modal, has `leave` remove it, and goes
@@ -58,7 +58,7 @@ type IEarnGuideSnapshot = {
   previewAmount?: string;
   /** The guide modal is up: the preview key works over it too */
   isModalOpen?: boolean;
-  /** The modal's green header, where the growing card's green ends */
+  /** The modal's ink header, where the growing card's ink ends */
   headerHeight?: number;
   /** The modal closed on a finish (Done, My portfolio), not
       back to the card */

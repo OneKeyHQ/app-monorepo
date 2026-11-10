@@ -14,7 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
-  EARN_GUIDE_GREEN,
+  EARN_GUIDE_INK,
   GuideStepMark,
   getGuideStepStatus,
 } from './EarnDesktopGuideCard';
@@ -25,7 +25,7 @@ import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 import type { IEarnGuideStep } from './earnGuide.utils';
 
 /**
- * The guide modal's green header: its title and close, and the
+ * The guide modal's ink header: its title and close, and the
  * four steps. The card's ghost draws a copy as it grows into the modal
  */
 export function EarnGuideHeader({
@@ -37,7 +37,7 @@ export function EarnGuideHeader({
   shownStep: IEarnGuideStep;
   onPickStep?: (step: IEarnGuideStep) => void;
   onClose?: () => void;
-  // The ghost's copy: no green of its own, no title (the card's carries on
+  // The ghost's copy: no ink of its own, no title (the card's carries on
   // into its place), nothing to press or find
   isCopy?: boolean;
 }) {
@@ -69,13 +69,13 @@ export function EarnGuideHeader({
     <Theme name="dark">
       <YStack
         testID={tid('earn-guide-header')}
-        bg={isCopy ? undefined : EARN_GUIDE_GREEN}
+        bg={isCopy ? undefined : EARN_GUIDE_INK}
         px="$5"
         pt="$4"
         pb="$5"
         gap="$4"
         pointerEvents={isCopy ? 'none' : undefined}
-        // Where the card's green ends as it grows into this
+        // Where the card's ink ends as it grows into this
         onLayout={
           isCopy
             ? undefined
