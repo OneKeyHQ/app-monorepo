@@ -120,7 +120,7 @@ export function MarketDetailHeader({
     isNative,
     isStockToken,
   } = useMarketDetailHeaderDisplayData();
-  const { stockDetail, stockPreview } = useStockDetail();
+  const { stockDetail, stockPreview, isStockRoute } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
   const isInPageHeaderTarget =
@@ -151,15 +151,17 @@ export function MarketDetailHeader({
   const inPageHeaderGeometry = isInPageHeaderTarget
     ? portraitHeaderGeometryRef.current
     : null;
-  const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
+  const isCompactDetailLayout =
+    !media.gtLg &&
+    (platformEnv.isWeb || (!platformEnv.isNative && isStockRoute));
   // DApp mode hides the sidebar above md, so this header owns global navigation.
   const showDappHeaderAboveDetail =
-    platformEnv.isWebDappMode && media.gtMd && isMobileWebLayout;
+    platformEnv.isWebDappMode && media.gtMd && isCompactDetailLayout;
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
   const useListingStockHeader = Boolean(
     !pendingMarketAsset &&
-    (platformEnv.isNative || isMobileWebLayout) &&
+    (platformEnv.isNative || isCompactDetailLayout) &&
     isStockToken,
   );
   const detailKind = resolveMarketMobileDetailKind({
@@ -609,14 +611,14 @@ export function MarketDetailHeader({
   return (
     <>
       {showDappHeaderAboveDetail ? tabPageHeader : null}
-      {media.md || isMobileWebLayout ? (
+      {media.md || isCompactDetailLayout ? (
         <TabPageHeaderContainer
           hideNavigationHeader={!showDappHeaderAboveDetail}
         >
           <NavBackButton onPress={handleBackPress} />
           {platformEnv.isNativeIOS ? null : <XStack w="$3" flexShrink={0} />}
 
-          {platformEnv.isNative || isMobileWebLayout ? (
+          {platformEnv.isNative || isCompactDetailLayout ? (
             renderNativeHeaderTitle()
           ) : (
             <XStack flex={1} ai="center" gap="$2">
@@ -701,7 +703,7 @@ export function MarketDetailHeader({
           listingIdentity.assetId ||
           listingIdentity.stockId ||
           pendingMarketAsset ? (
-            <XStack gap={isMobileWebLayout ? '$6' : '$3'} ai="center">
+            <XStack gap={isCompactDetailLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
                   {...listingIdentity}
