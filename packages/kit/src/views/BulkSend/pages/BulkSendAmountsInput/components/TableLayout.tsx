@@ -255,6 +255,7 @@ function AmountCard() {
     previewState,
     setPreviewState,
     balance: isOneToMany ? tokenDetails?.balanceParsed : undefined,
+    minTransferAmount,
   });
 
   // Mode select options

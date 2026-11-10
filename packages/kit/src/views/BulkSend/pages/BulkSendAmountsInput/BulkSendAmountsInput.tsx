@@ -167,6 +167,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     balance: isOneToMany
       ? (displayBalance ?? tokenDetails?.balanceParsed)
       : undefined,
+    minTransferAmount,
   });
 
   // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range

@@ -261,16 +261,17 @@ export function RangeAmountInput() {
 
   const generatePreviewAmounts = useCallback(
     (min: string, max: string): string[] => {
-      if (!tokenInfo || !min || !max || transfersInfo.length === 0) return [];
+      if (!tokenInfo || !max || transfersInfo.length === 0) return [];
       return generateRandomAmountsFromRange({
         transfersInfo,
         rangeMin: min,
         rangeMax: max,
         decimals: tokenInfo.decimals,
         balance: isOneToMany ? [balance] : undefined,
+        minTransferAmount: ctxMinTransferAmount,
       });
     },
-    [transfersInfo, tokenInfo, balance, isOneToMany],
+    [transfersInfo, tokenInfo, balance, isOneToMany, ctxMinTransferAmount],
   );
 
   // Use refs to avoid stale closures in useEffect
@@ -285,7 +286,7 @@ export function RangeAmountInput() {
   // or when transfersInfo length changes (e.g., user adds/removes addresses)
   useEffect(() => {
     const { rangeMin, rangeMax } = amountInputValuesRef.current;
-    if (!rangeMin || !rangeMax || transfersInfo.length === 0) return;
+    if (!rangeMax || transfersInfo.length === 0) return;
 
     const errors = validateRangeRef.current(rangeMin, rangeMax);
     if (errors.rangeError) {
@@ -329,8 +330,7 @@ export function RangeAmountInput() {
         rangeError: errors.rangeError,
       });
 
-      const hasValidRange =
-        !errors.rangeError && newValues.rangeMin && newValues.rangeMax;
+      const hasValidRange = !errors.rangeError && newValues.rangeMax;
       const previewAmounts = hasValidRange
         ? generatePreviewAmountsRef.current(
             newValues.rangeMin,

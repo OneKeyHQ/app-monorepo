@@ -83,11 +83,8 @@ export function calculateIsAmountValid({
       );
     }
     case EAmountInputMode.Range:
-      return (
-        !amountInputErrors.rangeError &&
-        amountInputValues.rangeMin !== '' &&
-        amountInputValues.rangeMax !== ''
-      );
+      // Min is optional, see getBulkSendEffectiveRangeMin
+      return !amountInputErrors.rangeError && amountInputValues.rangeMax !== '';
     case EAmountInputMode.Custom:
       if (transferInfoErrors) {
         return isEmpty(transferInfoErrors);
@@ -234,6 +231,29 @@ export function getBulkSendMinTransferDisplayAmount({
   ).toFixed();
 }
 
+// An empty range min means "as low as the chain allows": the chain minimum
+// transfer amount, or the smallest token unit when the chain defines none.
+// ManyToOne / ManyToMany start with both range inputs empty and the "0"
+// placeholder reads as an already-filled min, so only the max is required.
+export function getBulkSendEffectiveRangeMin({
+  rangeMin,
+  minTransferAmount,
+  tokenDecimals,
+}: {
+  rangeMin: string;
+  minTransferAmount?: string;
+  tokenDecimals?: number;
+}): string {
+  if (rangeMin !== '') {
+    return rangeMin;
+  }
+
+  return getBulkSendMinTransferDisplayAmount({
+    minTransferAmount,
+    tokenDecimals,
+  });
+}
+
 export function formatIntervalSecondsRange({
   minSeconds,
   maxSeconds,
@@ -364,6 +384,7 @@ function formatWithSmartDecimals(
 
 /**
  * Generates random amounts for each transfer within the specified range.
+ * An empty rangeMin falls back to getBulkSendEffectiveRangeMin.
  *
  * @param balance - Optional array of balance constraints:
  *   - If not provided: only generate amounts within [rangeMin, rangeMax]
@@ -381,14 +402,22 @@ export function generateRandomAmountsFromRange({
   rangeMax,
   balance,
   decimals,
+  minTransferAmount,
 }: {
   transfersInfo: ITransferInfo[];
   rangeMin: string;
   rangeMax: string;
   balance?: string[];
   decimals: number;
+  minTransferAmount?: string;
 }): string[] {
-  const min = new BigNumber(rangeMin);
+  const min = new BigNumber(
+    getBulkSendEffectiveRangeMin({
+      rangeMin,
+      minTransferAmount,
+      tokenDecimals: decimals,
+    }),
+  );
   let max = new BigNumber(rangeMax);
   const count = transfersInfo.length;
 
@@ -396,7 +425,8 @@ export function generateRandomAmountsFromRange({
     return [];
   }
 
-  // Get input decimal places as minimum precision floor
+  // Get input decimal places as minimum precision floor. Uses the raw inputs
+  // so a fallback min never changes how amounts are formatted.
   const minDecimals = getDecimalPlaces(rangeMin);
   const maxDecimals = getDecimalPlaces(rangeMax);
   const inputDecimals = Math.max(minDecimals, maxDecimals);
@@ -573,7 +603,13 @@ export function validateRangeInput({
   tokenDecimals?: number;
   intl: IntlShape;
 }): string | undefined {
-  const minBN = new BigNumber(rangeMin || '0');
+  const minBN = new BigNumber(
+    getBulkSendEffectiveRangeMin({
+      rangeMin,
+      minTransferAmount,
+      tokenDecimals,
+    }),
+  );
   const maxBN = new BigNumber(rangeMax || '0');
 
   // Balance checks only when balance is provided
@@ -596,14 +632,17 @@ export function validateRangeInput({
     }
   }
 
-  // Check if range min is below chain minimum transfer amount
+  // Check if the range starts below chain minimum transfer amount. An empty
+  // min already sits on that minimum, so the max is what can fall below it.
   if (minTransferAmount) {
     const minTransferBN = new BigNumber(minTransferAmount);
+    const lowestEnteredBound = rangeMin !== '' ? rangeMin : rangeMax;
+    const lowestEnteredBoundBN = new BigNumber(lowestEnteredBound);
     if (
       !minTransferBN.isZero() &&
-      rangeMin !== '' &&
-      !minBN.isNaN() &&
-      minBN.isLessThan(minTransferBN)
+      lowestEnteredBound !== '' &&
+      !lowestEnteredBoundBN.isNaN() &&
+      lowestEnteredBoundBN.isLessThan(minTransferBN)
     ) {
       const minTransferDisplayAmount = getBulkSendMinTransferDisplayAmount({
         minTransferAmount,
@@ -617,11 +656,7 @@ export function validateRangeInput({
   }
 
   // Check if min >= max (invalid range)
-  if (
-    rangeMin !== '' &&
-    rangeMax !== '' &&
-    minBN.isGreaterThanOrEqualTo(maxBN)
-  ) {
+  if (rangeMax !== '' && minBN.isGreaterThanOrEqualTo(maxBN)) {
     return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_error_proper_range,
     });
