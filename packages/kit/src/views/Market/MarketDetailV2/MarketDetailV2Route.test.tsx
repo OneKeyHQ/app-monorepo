@@ -133,6 +133,34 @@ describe('createMarketDetailV2Route', () => {
     ).toBe(true);
   });
 
+  it('keeps the native detail mounted when a pending asset resolves', () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    const MarketDetailRoute = createMarketDetailV2Route();
+    const props = buildRouteProps('');
+    const view = render(
+      <MarketDetailRoute
+        {...props}
+        route={{
+          ...props.route,
+          params: {
+            network: '',
+            tokenAddress: '',
+            marketTokenId: 'shib',
+            pendingMarketAsset: { symbol: 'SHIB' },
+          },
+        }}
+      />,
+    );
+
+    mockPreloadedComponent = MockDirectRoute;
+    view.rerender(<MarketDetailRoute {...buildRouteProps('0xshib')} />);
+
+    expect(view.getByTestId('lazy-route').textContent).toBe('0xshib');
+    expect(mockLazyMounts).toEqual({ mounted: 1, unmounted: 0 });
+    expect(mockDirectMounts).toEqual({ mounted: 0, unmounted: 0 });
+  });
+
   it('preserves the existing component selection behavior on native routes', () => {
     mockedPlatformEnv.isDesktop = false;
     mockedPlatformEnv.isNative = true;

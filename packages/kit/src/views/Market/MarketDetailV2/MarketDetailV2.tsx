@@ -77,6 +77,7 @@ import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDe
 import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
+import { usePendingMarketAsset } from './hooks/usePendingMarketAsset';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -266,6 +267,35 @@ function MarketDetail({
     'marketVariantId' in params ? params.marketVariantId : undefined;
   const marketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const pendingMarketAsset =
+    'pendingMarketAsset' in params ? params.pendingMarketAsset : undefined;
+  const lastAssetPreview = useRef({
+    marketTokenId,
+    preview: pendingMarketAsset,
+  });
+  if (
+    pendingMarketAsset ||
+    lastAssetPreview.current.marketTokenId !== marketTokenId
+  ) {
+    lastAssetPreview.current = { marketTokenId, preview: pendingMarketAsset };
+  }
+  const setMarketAssetParams = useCallback(
+    (nextParams: Parameters<typeof navigation.setParams>[0]) => {
+      navigation.setParams(nextParams);
+    },
+    [navigation],
+  );
+  const { isResolving: isMarketAssetResolving, retry: retryMarketAsset } =
+    usePendingMarketAsset({
+      params: {
+        pendingMarketAsset,
+        marketTokenId,
+        network: routeNetworkId,
+        tokenAddress: routeTokenAddress,
+        isNative: routeIsNative,
+      },
+      setParams: setMarketAssetParams,
+    });
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -311,8 +341,11 @@ function MarketDetail({
     networkId,
   });
   const tokenDetailTarget = useMemo(
-    () => ({ tokenAddress, networkId, isNative: isNativeBoolean }),
-    [isNativeBoolean, networkId, tokenAddress],
+    () =>
+      isMarketAssetResolving
+        ? { tokenAddress: '', networkId: '', isNative: false }
+        : { tokenAddress, networkId, isNative: isNativeBoolean },
+    [isMarketAssetResolving, isNativeBoolean, networkId, tokenAddress],
   );
 
   // Track market entry analytics
@@ -325,7 +358,7 @@ function MarketDetail({
     isMarketAssetDetailLoading,
     isInitialTokenDetailPending,
   } = useAutoRefreshTokenDetail({
-    active: shouldOwnSharedMarketDetailState,
+    active: shouldOwnSharedMarketDetailState && !isMarketAssetResolving,
     resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
     tokenAddress,
     networkId,
@@ -342,6 +375,11 @@ function MarketDetail({
   const shouldDisableTrade =
     disableTrade ||
     (isDesktopLayout && !isRouteFocused && !shouldKeepEmbeddedSwapMounted);
+  const marketAssetLoadingPreview =
+    pendingMarketAsset ??
+    (!hasValidInitialContentPreview && isInitialTokenDetailPending
+      ? lastAssetPreview.current.preview
+      : undefined);
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -385,10 +423,10 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
-      <MarketCurrentTokenLiveDataSync />
+      {isMarketAssetResolving ? null : <MarketCurrentTokenLiveDataSync />}
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
-        preview={tokenDetailPreview}
+        preview={isMarketAssetResolving ? undefined : tokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
         retainedTokenTarget={tokenDetailTarget}
       />
@@ -399,6 +437,8 @@ function MarketDetail({
           <MarketDetailHeader
             showFavoriteButton={showFavoriteButton}
             marketTokenCategory={marketTokenCategory}
+            pendingMarketAsset={marketAssetLoadingPreview}
+            routeTokenPreview={tokenDetailPreview}
           />
         )}
 
@@ -432,8 +472,12 @@ function MarketDetail({
             </Stack>
           ) : (
             <MarketDetailResponsiveLayout
-              active={shouldOwnSharedMarketDetailState}
+              active={
+                shouldOwnSharedMarketDetailState && !isMarketAssetResolving
+              }
               isLayoutPending={isResolvingSwapAsset}
+              pendingMarketAsset={marketAssetLoadingPreview}
+              retryMarketAsset={retryMarketAsset}
               disablePerpsBanner={skipMarketDataFetch}
               isInitialContentPending={
                 !hasValidInitialContentPreview &&

@@ -14,6 +14,7 @@ import {
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
@@ -163,8 +164,10 @@ function HeaderStatRows({
 
 export function InformationPanel({
   mobileDetailKind,
+  pendingMarketAsset,
 }: {
   mobileDetailKind?: IMarketMobileDetailKind;
+  pendingMarketAsset?: IMarketTokenDetailRouteParams['pendingMarketAsset'];
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -178,28 +181,34 @@ export function InformationPanel({
   const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
-    tokenAddress: tokenAddress ?? '',
-    networkId: networkId ?? '',
+    tokenAddress: pendingMarketAsset ? '' : (tokenAddress ?? ''),
+    networkId: pendingMarketAsset ? '' : (networkId ?? ''),
   });
 
-  if (isMobileLayout && (isStockToken || mobileDetailKind === 'stock')) {
+  if (
+    !pendingMarketAsset &&
+    isMobileLayout &&
+    (isStockToken || mobileDetailKind === 'stock')
+  ) {
     return <StockMobilePriceHeader />;
   }
 
-  if (!tokenDetail) return <InformationPanelSkeleton />;
+  if (!tokenDetail && !pendingMarketAsset) return <InformationPanelSkeleton />;
 
   const {
-    name = '',
-    symbol = '',
-    price: currentPrice = '--',
-    priceChange24hPercent: tokenPriceChange24hPercent = '--',
+    name = pendingMarketAsset?.name ?? '',
+    symbol = pendingMarketAsset?.symbol ?? '',
+    price: currentPrice = pendingMarketAsset?.price?.toString() ?? '--',
+    priceChange24hPercent:
+      tokenPriceChange24hPercent = pendingMarketAsset?.change24h?.toString() ??
+        '--',
     marketCap,
     liquidity,
     priceConverted,
     holders = 0,
     communityRecognized,
     stock,
-  } = tokenDetail;
+  } = (pendingMarketAsset ? undefined : tokenDetail) ?? {};
 
   const formattedMarketCap = formatStatValueWithFormatter(
     marketCap,
@@ -216,7 +225,8 @@ export function InformationPanel({
     MARKET_CAP_FORMATTER,
   );
 
-  const mobileRangePriceChange = isMobileLayout ? rangePriceChange : undefined;
+  const mobileRangePriceChange =
+    isMobileLayout && !pendingMarketAsset ? rangePriceChange : undefined;
   const priceChange24hPercent =
     mobileRangePriceChange?.priceChangePercent ?? tokenPriceChange24hPercent;
   const { color: priceChangeColor, display: priceChangeDisplay } =
@@ -241,7 +251,7 @@ export function InformationPanel({
     >
       <YStack>
         <YStack pointerEvents="none">
-          {isPreviewTokenDetail ? (
+          {isPreviewTokenDetail || pendingMarketAsset ? (
             <BaseMarketTokenPrice
               size={getPriceSizeByValue(currentPrice)}
               price={currentPrice}
@@ -254,7 +264,7 @@ export function InformationPanel({
               price={currentPrice}
               tokenName={name}
               tokenSymbol={symbol}
-              lastUpdated={tokenDetail.lastUpdated?.toString()}
+              lastUpdated={tokenDetail?.lastUpdated?.toString()}
             />
           )}
           {priceConverted ? (

@@ -34,19 +34,20 @@ export function createMarketDetailV2Route(
   );
 
   function MarketDetailV2Route(props: IMarketDetailV2RouteProps) {
+    const { params } = props.route;
+    const initialPreloaded = useRef(getPreloadedMarketDetailV2Shell()?.default);
+    const usesAssetPreview = useRef(false);
+    if ('pendingMarketAsset' in params && params.pendingMarketAsset) {
+      usesAssetPreview.current = true;
+    }
     const shouldKeepComponentTypeStable = Boolean(
-      platformEnv.isDesktop || platformEnv.isWeb,
+      platformEnv.isDesktop || platformEnv.isWeb || usesAssetPreview.current,
     );
     // Keep the rendered component type stable for this route instance. A cold
     // lazy load may finish before the next param update; switching to the
     // direct component at that point would remount the entire detail screen.
-    const preloadedMarketDetailV2Ref = useRef(
-      shouldKeepComponentTypeStable
-        ? getPreloadedMarketDetailV2Shell()?.default
-        : undefined,
-    );
     const PreloadedMarketDetailV2 = shouldKeepComponentTypeStable
-      ? preloadedMarketDetailV2Ref.current
+      ? initialPreloaded.current
       : getPreloadedMarketDetailV2Shell()?.default;
 
     if (PreloadedMarketDetailV2) {
