@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const { exit } = require('process');
 
-const ts = require('typescript');
+const { parse: parseJsonc, printParseErrorCode } = require('jsonc-parser');
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const OXLINT_CONFIG_PATH = path.join(ROOT_DIR, '.oxlintrc.json');
@@ -113,15 +113,17 @@ function stripJsPluginRules(rules, prefixes) {
 }
 
 function parseOxlintConfig(rawConfig, configPath = OXLINT_CONFIG_PATH) {
-  const parsed = ts.parseConfigFileTextToJson(configPath, rawConfig);
-  if (parsed.error) {
-    const message = ts.flattenDiagnosticMessageText(
-      parsed.error.messageText,
-      '\n',
+  const errors = [];
+  const config = parseJsonc(rawConfig, errors, { allowTrailingComma: true });
+  if (errors.length > 0) {
+    const [firstError] = errors;
+    throw new Error(
+      `Failed to parse ${configPath}: ${printParseErrorCode(
+        firstError.error,
+      )} (offset ${firstError.offset})`,
     );
-    throw new Error(`Failed to parse ${configPath}: ${message}`);
   }
-  return parsed.config;
+  return config;
 }
 
 function createTypeAwareOxlintConfig(config) {

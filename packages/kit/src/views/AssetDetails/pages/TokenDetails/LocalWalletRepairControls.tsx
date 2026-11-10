@@ -13,7 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -157,8 +157,7 @@ export function PrivacyEnableDisclosure({
     <YStack gap="$3">
       <SizableText size="$bodyMd">
         {intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__desc,
-          defaultMessage: ETranslationsMock.privacy_enable_account__desc,
+          id: ETranslations.privacy_enable_account__desc,
         })}
       </SizableText>
       {deviceExportsViewKey && accountUtils.isHwAccount({ accountId }) ? (
@@ -379,9 +378,7 @@ export function BirthdayDialogForm({
               formRef.current.fromEarliest = next;
             }}
             label={intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_existing_unknown__desc,
-              defaultMessage:
-                ETranslationsMock.privacy_sync_start_existing_unknown__desc,
+              id: ETranslations.privacy_sync_start_from_beginning__desc,
             })}
             containerProps={{ py: '$0', mt: '$1' }}
             labelProps={{ variant: '$bodyMd', color: '$textSubdued' }}

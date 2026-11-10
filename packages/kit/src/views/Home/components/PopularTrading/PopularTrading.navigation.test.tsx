@@ -278,7 +278,8 @@ afterEach(() => {
 
 it.each([true, false])(
   'reserves the same content space when switching from a category to empty favorites in table layout %p',
-  (tableLayout) => {
+  async (tableLayout) => {
+    mockRecommendationResult = [mockRecord];
     const view = render(<PopularTrading tableLayout={tableLayout} />);
     const content = screen.getByTestId('home-market-content');
     const height = content.style.minHeight;
@@ -286,8 +287,12 @@ it.each([true, false])(
     expect(screen.getByText('Open token')).toBeTruthy();
     mockShowFavorites = true;
     view.rerender(<PopularTrading tableLayout={tableLayout} />);
+    await act(async () => mockRefreshFavorites());
     expect(screen.queryByText('Open token')).toBeNull();
-    expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
+    expect(screen.getByTestId('home-header-actions-btn')).toBeTruthy();
+    expect(screen.getByText('Bitcoin').closest('[style*="min-height"]')).toBe(
+      content,
+    );
     expect(screen.getByTestId('home-market-content')).toBe(content);
     expect(content.style.minHeight).toBe(height);
   },

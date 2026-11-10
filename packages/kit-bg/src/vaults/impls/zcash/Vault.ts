@@ -558,7 +558,6 @@ export default class Vault extends VaultBtc {
   }): Promise<{
     total?: BigNumber;
     spendable?: BigNumber;
-    coinbase?: BigNumber;
   }> {
     return zcashBalance.zcashGetIndexerTransparentBalance(this, params);
   }
@@ -661,8 +660,6 @@ export default class Vault extends VaultBtc {
     accountIndex: number;
     targetHeight: number;
     utxos: IZcashTransparentTxRequest['utxos'];
-    // Owned mining rewards this build path cannot spend or shield.
-    coinbaseZat: string;
   }> {
     return zcashTransparent.zcashFetchFreshTransparentUtxos(this, options);
   }
