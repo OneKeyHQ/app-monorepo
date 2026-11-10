@@ -1,5 +1,7 @@
 import {
   EHeadlessBuyOrderStatus,
+  type IHeadlessBuyAbandonReason,
+  type IHeadlessBuyCheckoutProgress,
   type IHeadlessBuyOrder,
   type IOnramperTransactionStatus,
 } from '../../../types/fiatCrypto';
@@ -13,15 +15,18 @@ export const HEADLESS_BUY_ORDER_DELAYED_MS = 60 * 60 * 1000;
 // real orders.
 export const HEADLESS_BUY_ORDER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
-// Raw statuses that carry no evidence of a payment.
-const PRE_PAYMENT_RAW_STATUSES = new Set(['init', 'new']);
+// Raw statuses that carry no evidence of a payment. `pending` belongs here:
+// a provider order is `pending` from creation, before its payment page is
+// ready (device-observed 2026-11-06 on Coinbase, where the authorization then
+// failed and the transaction stayed `pending`). Only `paid` and the terminal
+// statuses prove that money moved.
+const PRE_PAYMENT_RAW_STATUSES = new Set(['init', 'new', 'pending']);
 
 export function mapOnramperStatus(raw: string | undefined): {
   status: EHeadlessBuyOrderStatus;
   paymentSeen: boolean;
 } {
   switch (raw?.toLowerCase()) {
-    case 'pending':
     case 'paid':
       return { status: EHeadlessBuyOrderStatus.Processing, paymentSeen: true };
     case 'completed':
@@ -33,13 +38,136 @@ export function mapOnramperStatus(raw: string | undefined): {
     case 'refunded':
       return { status: EHeadlessBuyOrderStatus.Refunded, paymentSeen: true };
     default:
-      // init / new / unknown values: nothing has happened yet as far as the
-      // user is concerned.
+      // init / new / pending / unknown values: nothing has happened yet as
+      // far as the user is concerned.
       return {
         status: EHeadlessBuyOrderStatus.Processing,
         paymentSeen: false,
       };
   }
+}
+
+// Provider payment-page reasons (the SDK's `providerError.reason`) that mean
+// the payment authorization itself failed. Coinbase documents `commit_error`
+// as "payment authorization failed"; `commit_success` is its paid branch.
+const AUTHORIZATION_FAILED_PROVIDER_REASONS = new Set([
+  'onramp_api.commit_error',
+]);
+
+// Provider payment-page reasons that mean the page itself failed to load.
+const PAGE_LOAD_FAILED_PROVIDER_REASONS = new Set(['onramp_api.load_error']);
+
+// The SDK's support code for a web view navigation that failed in the URL
+// loading system (DNS, TLS, timeout, offline), with the NSURLError code:
+// `providerFailed:NSURLErrorDomain/-1200` for an SSL failure
+// (device-observed 2026-11-09 on Paybis).
+const URL_LOAD_ERROR_SUPPORT_CODE_PATTERN = /NSURLErrorDomain\/(-?\d+)/;
+// NSURLErrorCancelled: a navigation that was replaced or closed, which says
+// nothing about the page.
+const URL_LOAD_CANCELLED_CODE = '-999';
+
+// Whether the failure itself says the payment page failed to load. A page
+// reason, when there is one, is the page's own account and decides alone.
+function hasPageLoadFailureSignal({
+  providerReason,
+  supportCode,
+}: {
+  providerReason?: string;
+  supportCode?: string;
+}): boolean {
+  if (providerReason !== undefined) {
+    return PAGE_LOAD_FAILED_PROVIDER_REASONS.has(providerReason);
+  }
+  const urlErrorCode = supportCode
+    ? URL_LOAD_ERROR_SUPPORT_CODE_PATTERN.exec(supportCode)?.[1]
+    : undefined;
+  return urlErrorCode !== undefined && urlErrorCode !== URL_LOAD_CANCELLED_CODE;
+}
+
+// SDK events that prove the provider's payment surface came up: the page
+// reported ready, or the payment moved past it.
+const PAYMENT_SURFACE_EVENT_TYPES = new Set([
+  'providerReady',
+  'completed',
+  'paymentAuthorized',
+  'paymentProcessing',
+  'paymentPending',
+  'challengeStarted',
+  'challengeCompleted',
+  'customerOnboardingRequired',
+  'paymentCancelled',
+]);
+
+// Folds one SDK checkout event into the progress of its transaction. Returns
+// the same reference when the event adds nothing.
+export function applyHeadlessBuyCheckoutEvent(
+  progress: IHeadlessBuyCheckoutProgress | undefined,
+  event: { type?: string; renderType?: string },
+): IHeadlessBuyCheckoutProgress {
+  const current = progress ?? { paymentSurfaceReached: false };
+  const renderType = event.renderType ?? current.renderType;
+  const paymentSurfaceReached =
+    current.paymentSurfaceReached ||
+    (event.type !== undefined && PAYMENT_SURFACE_EVENT_TYPES.has(event.type));
+  if (
+    progress &&
+    renderType === current.renderType &&
+    paymentSurfaceReached === current.paymentSurfaceReached
+  ) {
+    return progress;
+  }
+  return { renderType, paymentSurfaceReached };
+}
+
+// How a failed checkout settles its order. SDK 1.3.1 reports every failure of
+// the provider's payment surface as `providerFailed` ("outcome unknown"): a
+// failed authorization, and a page that never loaded (device-observed
+// 2026-11-09 on Paybis: an SSL failure of the web view, no `providerReady`).
+// The page reason settles a failed authorization. A page load failure takes
+// both a load error reported with the failure (hasPageLoadFailureSignal) and
+// a web view that had not come up before it: a missing `providerReady` alone
+// proves nothing, since a provider page is not bound to report readiness,
+// and a load error after the page was up may follow a payment. Anything else
+// stays "outcome unknown" — including a failure with no progress on record.
+// Every other error code is a plain pre-payment failure.
+export function getHeadlessBuyAbandonReason({
+  errorCode,
+  providerReason,
+  supportCode,
+  progress,
+}: {
+  errorCode?: string;
+  providerReason?: string;
+  // The `failed` event's support code (SDK 1.3+).
+  supportCode?: string;
+  progress?: IHeadlessBuyCheckoutProgress;
+}): IHeadlessBuyAbandonReason {
+  if (errorCode !== 'providerFailed') {
+    return 'failed';
+  }
+  if (
+    providerReason !== undefined &&
+    AUTHORIZATION_FAILED_PROVIDER_REASONS.has(providerReason)
+  ) {
+    return 'authorizationFailed';
+  }
+  if (
+    progress?.renderType === 'webview' &&
+    !progress.paymentSurfaceReached &&
+    hasPageLoadFailureSignal({ providerReason, supportCode })
+  ) {
+    return 'pageLoadFailed';
+  }
+  return 'providerFailed';
+}
+
+// Failed by the client (24 h no-progress rule, or the provider's payment page
+// reporting a failed authorization) rather than by the backend. The backend
+// has not confirmed it, so such an order keeps being refreshed.
+export function isClientFailedHeadlessBuyOrder(
+  order: IHeadlessBuyOrder,
+): boolean {
+  return Boolean(order.timedOut || order.authorizationFailed);
 }
 
 function isPrePayment(rawStatus: string | undefined): boolean {
@@ -49,14 +177,15 @@ function isPrePayment(rawStatus: string | undefined): boolean {
   );
 }
 
-// Timed-out failures keep being refreshed: a late completion must flip them.
+// Client-decided failures keep being refreshed: a late completion must flip
+// them.
 export function isTerminalHeadlessBuyOrder(order: IHeadlessBuyOrder): boolean {
   switch (order.status) {
     case EHeadlessBuyOrderStatus.Delivered:
     case EHeadlessBuyOrderStatus.Refunded:
       return true;
     case EHeadlessBuyOrderStatus.Failed:
-      return !order.timedOut;
+      return !isClientFailedHeadlessBuyOrder(order);
     default:
       return false;
   }
@@ -75,15 +204,24 @@ export function isHeadlessBuyOrderDelayed(
 
 export type IHeadlessBuyFailureKind = 'notCharged' | 'refund' | 'unknown';
 
-// Which failure sentence to show. Only a backend reason lets us promise
-// anything about the money, and "not charged" is only safe when nothing ever
-// showed a payment (no local paymentAuthorized, no backend pending/paid) and
-// the payment surface never failed with the outcome unknown (SDK 1.3
-// `providerFailed`); a timeout knows nothing.
+// Which failure sentence to show. "Not charged" is only safe when nothing
+// ever showed a payment (no local paymentAuthorized, no backend paid) and the
+// payment surface never failed with the outcome unknown (SDK 1.3
+// `providerFailed`). Two things can then say so: a backend failure reason,
+// or the provider's page reporting a failed authorization — Onramper
+// confirmed (2026-11-06, again 2026-11-09) that no charge is made on
+// Coinbase's `commit_error`. A timed-out order knows nothing.
 export function getHeadlessBuyFailureKind(
   order: IHeadlessBuyOrder,
 ): IHeadlessBuyFailureKind {
-  if (order.timedOut || !order.statusReason) {
+  if (
+    order.authorizationFailed &&
+    !order.paymentSeen &&
+    !order.paymentOutcomeUnknown
+  ) {
+    return 'notCharged';
+  }
+  if (isClientFailedHeadlessBuyOrder(order) || !order.statusReason) {
     return 'unknown';
   }
   if (/refund/i.test(order.statusReason)) {
@@ -164,14 +302,18 @@ export function applyOnramperTransactionStatus(
       next.submittedAt = parseStatusDate(tx.statusDate) ?? now;
     }
   }
+  const clientFailed = isClientFailedHeadlessBuyOrder(order);
   if (mapped.status !== EHeadlessBuyOrderStatus.Processing) {
+    // A backend verdict replaces whatever the client had decided.
     next.status = mapped.status;
     next.timedOut = false;
-  } else if (order.timedOut && mapped.paymentSeen) {
-    // The provider finally saw the payment: back to processing.
+    delete next.authorizationFailed;
+  } else if (clientFailed && mapped.paymentSeen) {
+    // The provider saw a payment after all: back to processing.
     next.status = EHeadlessBuyOrderStatus.Processing;
     next.timedOut = false;
-  } else if (!order.timedOut) {
+    delete next.authorizationFailed;
+  } else if (!clientFailed) {
     next.status = EHeadlessBuyOrderStatus.Processing;
   }
   if (next.status !== EHeadlessBuyOrderStatus.Failed) {
@@ -179,6 +321,34 @@ export function applyOnramperTransactionStatus(
     // record: once the order leaves Failed, a later failure must show again.
     delete next.failureViewedAt;
   }
+  return next;
+}
+
+// The SDK ended this order's checkout on a paid outcome (`completed` /
+// `paymentPending`). That is payment evidence in any case. And an order the
+// client had failed on its own — the payment page reported a failed
+// authorization, or the 24 h rule fired — goes back to processing: the
+// provider accepted a payment after all, and the next lookup settles it. A
+// failure the backend reported is left alone. Returns the same reference
+// when nothing changes.
+export function applyHeadlessBuyPaidOutcome(
+  order: IHeadlessBuyOrder,
+): IHeadlessBuyOrder {
+  if (
+    order.status !== EHeadlessBuyOrderStatus.Failed ||
+    !isClientFailedHeadlessBuyOrder(order)
+  ) {
+    return order.paymentSeen ? order : { ...order, paymentSeen: true };
+  }
+  const next: IHeadlessBuyOrder = {
+    ...order,
+    status: EHeadlessBuyOrderStatus.Processing,
+    paymentSeen: true,
+    timedOut: false,
+  };
+  delete next.authorizationFailed;
+  // Same as a status round: the "unseen failure" mark belongs to one failure.
+  delete next.failureViewedAt;
   return next;
 }
 

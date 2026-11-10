@@ -239,6 +239,10 @@ jest.mock('../components/Layout', () => ({
   OnboardingPage: jest.requireMock('@onekeyhq/components').YStack,
 }));
 jest.mock('../components/OrbShader', () => ({ OrbShader: () => null }));
+jest.mock(
+  '../../Onboarding/pages/GetStarted/components/TermsAndPrivacy',
+  () => ({ TermsAndPrivacy: () => null }),
+);
 jest.mock('../components/OnboardingInviteCodeDialog', () => ({
   useShowOnboardingInviteCodeDialog: () => mockShowInviteDialog,
 }));

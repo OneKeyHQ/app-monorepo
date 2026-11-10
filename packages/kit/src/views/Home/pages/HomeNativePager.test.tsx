@@ -12,6 +12,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 
 import { HomeNativePager } from './HomeNativePager.native';
+import { HOME_PAGE_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
 
 import type { IHomeHeaderContainerProps } from './HomeHeaderContainer';
 import type { ISpotlightScrollState } from '../../../components/Spotlight/SpotlightScrollStateContext';
@@ -63,6 +64,7 @@ const mockNativeEvents: {
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
   stickyHeaderHeight?: number;
   stickyHeader?: React.ReactElement<{
+    children?: React.ReactNode;
     onLayout: (event: LayoutChangeEvent) => void;
   }>;
   topOverlay?: React.ReactNode;
@@ -673,6 +675,9 @@ describe('HomePageView complete header authority', () => {
     isNativeIOS: false,
     isNativeIOS26Plus: false,
   };
+  let smallScreen = true;
+  let externalPerps = false;
+  const switchTab = jest.fn();
   let walletBackedUp = true;
   let accountId = 'test-account';
   let validationRequired = false;
@@ -707,8 +712,18 @@ describe('HomePageView complete header authority', () => {
           Keyboard: { AwareScrollView: awareScrollView },
           Icon: Object.assign(host('Icon'), { prefetch: noop }),
           useScrollContentTabBarOffset: () => 48,
-          useMedia: () => ({ md: true }),
-          useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+          useMedia: () => ({ md: smallScreen }),
+          useTheme: () => ({
+            bgApp: { val: '#ffffff' },
+            text: { val: '#111111' },
+            textSubdued: { val: '#666666' },
+            textInverse: { val: '#ffffff' },
+            bgPrimary: { val: '#000000' },
+            iconSubdued: { val: '#666666' },
+            bgStrong: { val: '#dddddd' },
+            bgHover: { val: '#eeeeee' },
+            bgActive: { val: '#cccccc' },
+          }),
           useThemeName: () => 'light',
           useFocusedTab: () => 'spot',
           useTabsScrollToTop: () => noop,
@@ -743,6 +758,13 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/src/locale': {
           ETranslations: new Proxy({}, { get: (_target, key) => key }),
         },
+        '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource': {
+          setPerpPageEnterSource: noop,
+          EPerpPageEnterSource: { Home: 'Home' },
+        },
+        '@onekeyhq/shared/src/routes': {
+          ETabRoutes: { Home: 'Home', WebviewPerpTrade: 'WebviewPerpTrade' },
+        },
         '@onekeyhq/shared/types/wallet': { EHomeWalletTab },
         '@onekeyhq/shared/src/eventBus/appEventBus': {
           EAppEventBusNames: {},
@@ -769,7 +791,7 @@ describe('HomePageView complete header authority', () => {
           __esModule: true,
         },
         '../../../hooks/useAppNavigation': {
-          default: () => ({}),
+          default: () => ({ switchTab }),
           __esModule: true,
         },
         '../../../hooks/usePromiseResult': {
@@ -777,9 +799,6 @@ describe('HomePageView complete header authority', () => {
         },
         '../../../hooks/useRunAfterTokensDone': {
           runAfterTokensDone: () => noop,
-        },
-        '../../../hooks/useTabDoublePress': {
-          useTabDoublePress: noop,
         },
         '../../../hooks/useShortcutsOnRouteFocused': {
           useShortcutsOnRouteFocused: noop,
@@ -806,7 +825,10 @@ describe('HomePageView complete header authority', () => {
         '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger':
           { useUnifiedNetworkSelectorTrigger: () => ({}) },
         '../hooks/useHomeWalletTabSupport': {
-          useHomeWalletTabSupport: () => ({}),
+          useHomeWalletTabSupport: () => ({
+            isPerpsSupported: externalPerps,
+            perpTabShowWeb: externalPerps,
+          }),
         },
         '../components/HomeStickyHeaderContext': {
           HomeStickyHeaderContext: React.createContext({}),
@@ -868,7 +890,6 @@ describe('HomePageView complete header authority', () => {
         '../../../hooks/useAppNavigation',
         '../../../hooks/usePromiseResult',
         '../../../hooks/useRunAfterTokensDone',
-        '../../../hooks/useTabDoublePress',
         '../../../hooks/useShortcutsOnRouteFocused',
         '../../../states/jotai/contexts/accountOverview',
         '../../../states/jotai/contexts/accountSelector',
@@ -884,7 +905,6 @@ describe('HomePageView complete header authority', () => {
         './DeFiContainer',
         './HomeHeaderContainer',
         './HomeNativePager',
-        './homePageContentMaxWidth',
         './homePageNoWalletContent',
         './homeTabFreeze',
         './NFTListContainer',
@@ -928,6 +948,9 @@ describe('HomePageView complete header authority', () => {
       isNativeIOS26Plus: false,
     });
     walletBackedUp = true;
+    smallScreen = true;
+    externalPerps = false;
+    switchTab.mockClear();
     accountId = 'test-account';
     validationRequired = false;
     softwareAccountDisabled = false;
@@ -951,6 +974,43 @@ describe('HomePageView complete header authority', () => {
         }),
       },
     );
+
+  // The sticky header content is the native-tab-bar spacer followed by the
+  // settings panel, wrapped by the pager in its own measured view.
+  const stickyContentChildren = () => {
+    const rendered = mockNativeEvents.stickyHeader?.props.children as
+      | React.ReactElement<{ children?: React.ReactNode }>
+      | undefined;
+    return React.Children.toArray(
+      React.isValidElement(rendered) && rendered.type === React.Fragment
+        ? rendered.props.children
+        : rendered,
+    );
+  };
+  const nativeToolbarOf = () => {
+    const settings = stickyContentChildren().find(
+      (child) =>
+        (child as React.ReactElement<{ nativeToolbar?: unknown }>).props
+          ?.nativeToolbar,
+    ) as
+      | React.ReactElement<{
+          nativeToolbar: {
+            press?: { key: string };
+            pressConsumed?: boolean;
+            onPressConsumed?: (event: {
+              key: string;
+              anchorRect: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+              };
+            }) => void;
+          };
+        }>
+      | undefined;
+    return settings?.props.nativeToolbar;
+  };
 
   it.each(['ios', 'android', 'web'] as const)(
     'uses the native refresh control for an unbacked wallet on %s',
@@ -991,6 +1051,288 @@ describe('HomePageView complete header authority', () => {
       expect(screen.UNSAFE_getByType(HomeNativePager)).toBeTruthy();
     },
   );
+
+  it.each(['wide-web', 'wide-native'] as const)(
+    'draws centered pill tabs through the pager tab bar on %s',
+    (layout) => {
+      parentPlatform.isNative = layout === 'wide-native';
+      smallScreen = false;
+      const screen = renderParent();
+      const props = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      expect(props.nativeTabBar?.controlled).toBe(true);
+      expect(props.nativeTabBar?.style?.variant).toBe('pill');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBe(
+        HOME_PAGE_CONTENT_MAX_WIDTH,
+      );
+      expect(props.nativeTabBar?.style?.indicatorAnimationEnabled).toBe(false);
+      expect(props.nativeTabBar?.items.map((item) => item.key)).toEqual(
+        props.tabs.map((tab) => tab.id),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'keeps text tabs on small screens (native: %s)',
+    (isNative) => {
+      parentPlatform.isNative = isNative;
+      smallScreen = true;
+      const screen = renderParent();
+      const props = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      expect(props.nativeTabBar?.style?.variant).toBe('text');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBeUndefined();
+    },
+  );
+
+  it('routes text tabs by stable key through the existing pager command', () => {
+    const screen = renderParent();
+    const props = screen.UNSAFE_getByType(HomeNativePager)
+      .props as React.ComponentProps<typeof HomeNativePager>;
+    const historyIndex = props.tabs.findIndex(
+      (tab) => tab.id === EHomeWalletTab.History,
+    );
+    expect(props.nativeTabBar?.controlled).toBe(true);
+    expect(props.nativeTabBar?.items.map((item) => item.key)).toEqual(
+      props.tabs.map((tab) => tab.id),
+    );
+    mockSetPage.mockClear();
+    act(() =>
+      props.onNativeTabPress?.({
+        nativeEvent: { position: 99, key: EHomeWalletTab.History },
+      } as Parameters<NonNullable<typeof props.onNativeTabPress>>[0]),
+    );
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+    expect(mockSetPage).toHaveBeenCalledWith(historyIndex);
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.nativeTabBar.selectedKey,
+    ).toBe(EHomeWalletTab.History);
+    act(() =>
+      mockNativeEvents.onPageSelected?.({
+        nativeEvent: { position: historyIndex },
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.initialTabName).toBe(
+      props.tabs[historyIndex].name,
+    );
+    mockSetPage.mockClear();
+    act(() =>
+      props.onNativeTabPress?.({
+        nativeEvent: { position: 0, key: 'removed-tab' },
+      } as Parameters<NonNullable<typeof props.onNativeTabPress>>[0]),
+    );
+    expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('keeps toolbar settings aligned with React selection when animation focus is stale', () => {
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const name = (key: EHomeWalletTab) =>
+      props().tabs.find((tab) => tab.id === key)!.name;
+    const settingsName = (staleName: string) => {
+      const rendered = props().renderTabBar({
+        focusedTab: {
+          value: staleName,
+          get: () => staleName,
+          set: jest.fn(),
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          modify: jest.fn(),
+        },
+        onTabPress: jest.fn(),
+      }) as React.ReactElement<{ children?: React.ReactNode }>;
+      const settings = React.Children.toArray(
+        React.isValidElement(rendered) && rendered.type === React.Fragment
+          ? rendered.props.children
+          : rendered,
+      ).find(
+        (child) =>
+          (child as React.ReactElement<{ focusedTab?: string }>).props
+            ?.focusedTab !== undefined,
+      ) as React.ReactElement<{ focusedTab: string }> | undefined;
+      return settings?.props.focusedTab;
+    };
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+    const index = props().tabs.findIndex(
+      (tab) => tab.id === EHomeWalletTab.History,
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.History, position: index },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: index } }),
+    );
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.Portfolio, position: 0 },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+  });
+
+  it('keeps external Perps intent out of pager commands and maps later tabs by key', () => {
+    externalPerps = true;
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.Perps,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().tabs.map((tab) => tab.id)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    mockSetPage.mockClear();
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 1, key: EHomeWalletTab.Perps },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(switchTab).toHaveBeenCalledTimes(1);
+    expect(switchTab).toHaveBeenCalledWith('WebviewPerpTrade');
+    expect(mockSetPage).not.toHaveBeenCalled();
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.Portfolio);
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 2, key: EHomeWalletTab.History },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+    expect(mockSetPage).toHaveBeenCalledWith(1);
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 1 } }),
+    );
+    externalPerps = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.History);
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay an old toolbar request after tab or account round trips', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const toolbarRequest = () => nativeToolbarOf()?.press;
+    const pressToolbar = () =>
+      act(() =>
+        pagerProps().onNativeToolbarPress?.({
+          nativeEvent: {
+            key: EHomeWalletTab.Portfolio,
+            anchorRect: { x: 300, y: 100, width: 38, height: 38 },
+          },
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeToolbarPress']>
+        >[0]),
+      );
+    pressToolbar();
+    expect(toolbarRequest()?.key).toBe(EHomeWalletTab.Portfolio);
+    for (const key of [EHomeWalletTab.History, EHomeWalletTab.Portfolio]) {
+      const index = pagerProps().tabs.findIndex((tab) => tab.id === key);
+      act(() =>
+        pagerProps().onNativeTabPress?.({
+          nativeEvent: { key, position: index },
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeTabPress']>
+        >[0]),
+      );
+      expect(toolbarRequest()).toBeUndefined();
+      act(() =>
+        mockNativeEvents.onPageSelected?.({ nativeEvent: { position: index } }),
+      );
+      expect(toolbarRequest()).toBeUndefined();
+    }
+    pressToolbar();
+    expect(toolbarRequest()?.key).toBe(EHomeWalletTab.Portfolio);
+    accountId = 'replacement-account';
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(toolbarRequest()).toBeUndefined();
+    accountId = 'test-account';
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(toolbarRequest()).toBeUndefined();
+  });
+
+  it('reserves the native tab bar height for the React sticky content', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const spacer = stickyContentChildren()[0] as React.ReactElement<{
+      height?: number;
+      pointerEvents?: string;
+    }>;
+    expect(spacer.props.height).toBe(pagerProps().nativeTabBar?.style?.height);
+    expect(spacer.props.pointerEvents).toBe('none');
+  });
+
+  it('keeps a consumed toolbar request from replaying after a same-owner pager remount', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const pressNativeEvent = {
+      key: EHomeWalletTab.Portfolio,
+      anchorRect: { x: 300, y: 100, width: 38, height: 38 },
+    };
+    const pressToolbar = () =>
+      act(() =>
+        pagerProps().onNativeToolbarPress?.({
+          nativeEvent: pressNativeEvent,
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeToolbarPress']>
+        >[0]),
+      );
+    pressToolbar();
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
+    act(() => nativeToolbarOf()?.onPressConsumed?.(pressNativeEvent));
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // The auth wrapper adds and removes the tabs subtree for the same owner.
+    validationRequired = true;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    validationRequired = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // A fresh native request for the same item must open the panel again.
+    pressToolbar();
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
+  });
 
   it('clears capability when the pager unmounts and rejects its stale same-owner receipt', () => {
     Object.assign(parentPlatform, {

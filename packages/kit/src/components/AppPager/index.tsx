@@ -9,6 +9,7 @@ import {
 } from 'react-native-pager-view';
 
 import { ScrollContentRegistrationContext } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AppPagerContext, AppPagerPageContext } from './context';
 import { useAppPagerController } from './useAppPagerController';
@@ -19,6 +20,7 @@ import type {
   IAppPagerRef,
   IAppPagerTabBarProps,
 } from './types';
+import type { CollapsiblePagerViewProps } from 'react-native-pager-view';
 
 export type IAppPagerProps = {
   ref?: Ref<IAppPagerRef>;
@@ -30,7 +32,16 @@ export type IAppPagerProps = {
   onTabChange?: (event: IAppPagerChange) => void;
   onIndexChange?: (index: number) => void;
   disableScroll?: boolean;
+  // Horizontal page transition. Off on web, where a page change is instant.
+  // The pager always animates a swipe, so turning this off also turns off
+  // swiping between pages.
+  animationEnabled?: boolean;
   isRouteFocused?: boolean;
+  // The pager's own tab bar (a DOM tab bar on web). It renders above the
+  // `renderTabBar` output inside the same sticky slot.
+  nativeTabBar?: CollapsiblePagerViewProps['nativeTabBar'];
+  onNativeTabPress?: CollapsiblePagerViewProps['onNativeTabPress'];
+  onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
 };
 
 function AppPagerPage({
@@ -79,7 +90,11 @@ export function AppPager({
   onTabChange,
   onIndexChange,
   disableScroll,
+  animationEnabled = platformEnv.isNative,
   isRouteFocused = true,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
 }: IAppPagerProps) {
   const pagerRef = useRef<WebCollapsiblePagerView>(null);
   const restoreScrollPosition = useCallback(
@@ -92,6 +107,7 @@ export function AppPager({
     pagerRef,
     ref,
     restoreScrollPosition,
+    animationEnabled,
     onSelectionChange: (event) => {
       onTabChange?.(event);
     },
@@ -112,10 +128,13 @@ export function AppPager({
         ref={pagerRef}
         style={{ flex: 1 }}
         initialPage={controller.initialIndex}
-        scrollEnabled={!disableScroll}
+        scrollEnabled={animationEnabled && !disableScroll}
         isActive={isRouteFocused}
         pageRetentionDistance={pages.length}
         header={renderHeader?.()}
+        nativeTabBar={nativeTabBar}
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         stickyHeader={renderTabBar?.({
           focusedTab: controller.focusedTab,
           indexDecimal: controller.indexDecimal,

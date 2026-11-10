@@ -37,6 +37,32 @@ export function getTokenRowIconSize(gtMd: boolean): number {
   return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
 }
 
+type ITokenTableColumnWeight = 1 | 2 | 3;
+
+export type ITokenTableColumnWeights = {
+  asset: ITokenTableColumnWeight;
+  balance: ITokenTableColumnWeight;
+  price: ITokenTableColumnWeight;
+  // Empty column in front of the trailing swap button.
+  swapSpacer?: ITokenTableColumnWeight;
+};
+
+// The table used to be four equal columns with the swap button right-aligned in
+// the last one, and the token icon inside the first. Rows now keep the icon and
+// the button outside the weighted columns, so 2:3:3:2 approximates that grid
+// and keeps the price column clear of the button. NativeList only accepts
+// weights of 1 to 3. The header must use the same weights to stay aligned.
+export function getTokenTableColumnWeights(
+  withSwapAction: boolean | undefined,
+): ITokenTableColumnWeights {
+  if (!withSwapAction) return { asset: 1, balance: 1, price: 1 };
+  return { asset: 2, balance: 3, price: 3, swapSpacer: 2 };
+}
+
+// Row box style handed to NativeList as `style.container`; undefined keeps
+// the engine default.
+export type ITokenRowContainerStyle = { cornerRadius: number } | undefined;
+
 export type ITokenListHeaderLayout = {
   // Width of the slot the header keeps empty above the row's token icon.
   leadingWidth: number;
@@ -45,4 +71,11 @@ export type ITokenListHeaderLayout = {
   // Extra props for the header `ListItem` so its horizontal box matches the
   // rows; undefined keeps the `ListItem` defaults.
   containerProps?: { mx: number; px: number };
+};
+
+export type ITokenListFooterLayout = {
+  // Outer horizontal margin of the footer block.
+  mx: 0 | '$2' | undefined;
+  // Horizontal box of each footer `ListItem`; undefined keeps its defaults.
+  itemProps?: { mx: 0; px: '$3' };
 };

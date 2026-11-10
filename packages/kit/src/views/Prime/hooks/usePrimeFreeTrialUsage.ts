@@ -7,8 +7,11 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   createPrimeFreeTrialAttempt,
@@ -227,9 +230,15 @@ export function usePrimeFreeTrialUsage({
           // Errors flagged autoToast are already toasted by the background
           // proxy; never leave the press without any feedback.
           if (!(error as { autoToast?: boolean } | undefined)?.autoToast) {
-            Toast.error({
-              title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
-            });
+            if (isPrimeUserBannedError(error)) {
+              errorToastUtils.showToastOfError(
+                new OneKeyErrorPrimeUserBanned(),
+              );
+            } else {
+              Toast.error({
+                title: getPrimeFreeTrialErrorToastTitle({ error, intl }),
+              });
+            }
           }
           return { status: 'error', error };
         }

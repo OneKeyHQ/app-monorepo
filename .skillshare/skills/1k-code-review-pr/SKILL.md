@@ -94,7 +94,7 @@ For each substantive comment (skip empty approvals, CI status badges, pure forma
 
 **Your local advantages — use them aggressively:**
 - **Full source** — trace data flow across files, not just the diff
-- **Type system** — run `tsc`, verify types end-to-end
+- **Type system** — run `yarn tsc` (TypeScript 7 native), verify types end-to-end
 - **Architecture** — you know OneKey's import hierarchy and platform patterns
 - **Dependencies** — `yarn info`, changelogs, actual vulnerability reachability
 - **Runtime reasoning** — state flows, async lifecycles, race conditions

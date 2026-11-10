@@ -3,6 +3,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EHeadlessBuyOrderStatus,
   type IHeadlessBuyOrder,
@@ -383,6 +384,27 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
+  test('discardHeadlessBuyOrder drops a hidden order whose payment page never loaded', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // The provider's web view failed before it came up (OK-66774): nothing
+    // could be paid, so no order is left behind as Processing.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'pageLoadFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'pageLoadFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    // An already visible order is left alone.
+    expect(store.get('paid')).toMatchObject({ submittedAt: T0 });
+    expect(store.get('paid')?.paymentOutcomeUnknown).toBeUndefined();
+  });
+
   test('discardHeadlessBuyOrder surfaces a hidden order when the provider failed without confirming the payment', async () => {
     const { service, store } = createService([
       baseOrder(),
@@ -436,6 +458,288 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       status: EHeadlessBuyOrderStatus.Processing,
       accountName: 'Account 1',
       paymentOutcomeUnknown: true,
+    });
+  });
+
+  test('discardHeadlessBuyOrder shows a hidden order as failed when the payment authorization failed', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'authorized', paymentSeen: true }),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // The provider's payment page reported a failed authorization (Coinbase
+    // `commit_error`). The backend may leave the transaction `pending` for
+    // good, so the order is failed here instead of sitting in Processing.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'authorized',
+      reason: 'authorizationFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'authorizationFailed',
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    });
+    expect(store.get('01M3')?.paymentOutcomeUnknown).toBeUndefined();
+    // The Apple Pay sheet was approved before the provider failed to commit
+    // it: still failed, and the record keeps that evidence.
+    expect(store.get('authorized')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      paymentSeen: true,
+    });
+    // An already visible order is left alone.
+    expect(store.get('paid')).toMatchObject({
+      submittedAt: T0,
+      status: EHeadlessBuyOrderStatus.Processing,
+    });
+    expect(store.get('paid')?.authorizationFailed).toBeUndefined();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HeadlessBuyOrdersChanged,
+      undefined,
+    );
+  });
+
+  test('addHeadlessBuyOrder shows a record as failed when its authorization failure overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      accountName: 'Account 1',
+      authorizationFailed: true,
+    });
+  });
+
+  test('addHeadlessBuyOrder keeps an authorization failure when a repeated failure event followed it before the record landed', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    // The SDK published `failed` twice for one checkout. Only the first one
+    // carries the payment page's reason, so the second reads as "outcome
+    // unknown" — it must not replace the verdict that is waiting for the
+    // record.
+    await service.markHeadlessBuyOrderPaymentSeen({ transactionId: '01M3' });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    });
+    expect(store.get('01M3')?.paymentOutcomeUnknown).toBeUndefined();
+  });
+
+  test('addHeadlessBuyOrder keeps an unknown-outcome record when a plain failure followed it before the record landed', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    // Money may have moved on the first failure: a later plain failure of
+    // the same checkout must not get the record dropped.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'failed',
+    });
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentOutcomeUnknown: true,
+    });
+  });
+
+  test('discardHeadlessBuyOrder settles on the verdict that was waiting when the record lands before its replay', async () => {
+    const { service, store } = createService([]);
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    // The insert landed, its replay has not run yet, and the repeated
+    // failure event finds the record first.
+    store.set('01M3', baseOrder());
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    expect(store.get('01M3')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    });
+  });
+
+  test('addHeadlessBuyOrder still surfaces the record when the provider failure came after a plain one', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'failed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentOutcomeUnknown: true,
+    });
+  });
+
+  test('markHeadlessBuyOrderSubmitted puts an authorization-failed order back to processing when the checkout then reports a paid outcome', async () => {
+    const { service, store } = createService([baseOrder()]);
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'authorizationFailed',
+    });
+    await service.markHeadlessBuyOrderViewed({ transactionId: '01M3' });
+    expect(store.get('01M3')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      failureViewedAt: T0 + 1000,
+    });
+    emit.mockClear();
+    // The same checkout then ended on `completed` / `paymentPending`: the
+    // provider accepted a payment after all, so the detail the checkout opens
+    // must not read Failed.
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: '01M3',
+      order: baseOrder(),
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')?.authorizationFailed).toBeUndefined();
+    expect(store.get('01M3')?.failureViewedAt).toBeUndefined();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HeadlessBuyOrdersChanged,
+      undefined,
+    );
+    expect(
+      defaultLogger.fiatCrypto.onramper.orderStatusUpdated,
+    ).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        transactionId: '01M3',
+        from: EHeadlessBuyOrderStatus.Failed,
+        to: EHeadlessBuyOrderStatus.Processing,
+      }),
+    );
+  });
+
+  test('markHeadlessBuyOrderSubmitted settles on processing when the authorization failure landed during its read', async () => {
+    const { service, store, simpleDb } = createService([baseOrder()]);
+    // The failure write lands between the service's read and its patch.
+    const { getOrder } = simpleDb.headlessBuyOrders;
+    jest
+      .spyOn(simpleDb.headlessBuyOrders, 'getOrder')
+      .mockImplementationOnce(async (params) => {
+        const order = await getOrder.call(simpleDb.headlessBuyOrders, params);
+        store.set('01M3', {
+          ...baseOrder(),
+          submittedAt: T0 + 500,
+          status: EHeadlessBuyOrderStatus.Failed,
+          authorizationFailed: true,
+        });
+        return order;
+      });
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: '01M3',
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')?.authorizationFailed).toBeUndefined();
+  });
+
+  test('markHeadlessBuyOrderSubmitted leaves a failed order alone without a paid outcome, and a backend failure alone with one', async () => {
+    const { service, store } = createService([
+      baseOrder({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        authorizationFailed: true,
+      }),
+      baseOrder({
+        transactionId: 'backend',
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        statusReason: 'Declined',
+      }),
+    ]);
+    // The abandon / replay paths submit without payment evidence.
+    await service.markHeadlessBuyOrderSubmitted({ transactionId: '01M3' });
+    expect(store.get('01M3')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+    });
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: 'backend',
+      paymentSeen: true,
+    });
+    expect(store.get('backend')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      paymentSeen: true,
     });
   });
 
@@ -515,9 +819,10 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       transactionHash: '0xhash',
       lastCheckOk: true,
     });
+    // `pending` is applied as the raw status but is not payment evidence.
     expect(store.get('b')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Processing,
-      paymentSeen: true,
+      paymentSeen: false,
       rawStatus: 'pending',
     });
     expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
@@ -568,7 +873,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('b')).toMatchObject({ lastCheckOk: false });
     expect(store.get('c')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Processing,
-      paymentSeen: true,
+      rawStatus: 'pending',
       lastCheckOk: true,
     });
     expect(emit).not.toHaveBeenCalledWith(
@@ -683,6 +988,35 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       'v1',
       'v2',
     ]);
+  });
+
+  test('refreshHeadlessBuyOrders keeps checking an authorization-failed order, rarely, and leaves it failed on pending', async () => {
+    const { service, store, post } = createService([
+      baseOrder({
+        transactionId: 'auth-failed',
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        authorizationFailed: true,
+        lastCheckedAt: T0 + 1000 - 5 * 60_000,
+        lastCheckOk: true,
+      }),
+    ]);
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, { 'auth-failed': { status: 'pending' } }),
+    );
+    // Checked five minutes ago: a general refresh leaves it for later, the
+    // same budget as a timed-out record.
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).not.toHaveBeenCalled();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 10 * 60_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requestedIds(post)).toEqual(['auth-failed']);
+    expect(store.get('auth-failed')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      rawStatus: 'pending',
+      lastCheckOk: true,
+    });
   });
 
   test('refreshHeadlessBuyOrders sends at most twenty ids per request, newest first, and no more requests than the budget allows', async () => {
@@ -848,7 +1182,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('mock-1')?.lastCheckedAt).toBeUndefined();
     expect(store.get('local-1')?.lastCheckedAt).toBeUndefined();
     expect(store.get('a')).toMatchObject({
-      paymentSeen: true,
+      rawStatus: 'pending',
       lastCheckOk: true,
     });
   });

@@ -73,7 +73,11 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -99,8 +103,8 @@ import {
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -164,6 +168,12 @@ const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
 const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   const { AsyncStorageDevSettings } = await import('./AsyncStorageDevSettings');
   return { default: AsyncStorageDevSettings };
+});
+
+const LazyCipherKeyValueDevSettings = LazyLoad(async () => {
+  const { CipherKeyValueDevSettings } =
+    await import('./CipherKeyValueDevSettings');
+  return { default: CipherKeyValueDevSettings };
 });
 
 const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
@@ -1294,7 +1304,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 unknown 头像 脏数据 QA Unknown Avatar 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 移除Prime权益 remove entitlement subscription In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 unknown 头像 脏数据 QA Unknown Avatar 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 移除Prime权益 remove entitlement subscription In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data OneKey ID 封禁 离线 mock banned 90012',
       },
       {
         key: 'transaction',
@@ -2079,6 +2089,21 @@ const BaseDevSettingsSection = () => {
                       />
                       <SectionPressItem
                         icon="OnekeyDeviceCustom"
+                        title="CipherKeyValue hardware test"
+                        subtitle="Test device confirmation, repeatability and decryption"
+                        testID="dev-settings-cipher-key-value"
+                        searchKeywords="SLIP-0011 cipher encrypt decrypt hardware 硬件 加密 解密"
+                        onPress={() => {
+                          Dialog.show({
+                            title: 'CipherKeyValue hardware test',
+                            showConfirmButton: false,
+                            dismissOnOverlayPress: false,
+                            renderContent: <LazyCipherKeyValueDevSettings />,
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
                         title="Pro2 Firmware Update Dev Settings"
                         subtitle="Configure forced targets for Pro 2 firmwareUpdateV4"
                         testID="pro2-firmware-update-dev-settings-menu"
@@ -2806,16 +2831,12 @@ const BaseDevSettingsSection = () => {
                             subtitle={intl.formatMessage({
                               id: ETranslations.dev_hw_path__desc,
                             })}
+                            searchKeywords="Hardware Derivation Path Test BIP32 硬件 派生路径 签名 OK-66332"
                             testID="hardware-path-test-menu"
-                            onPress={async () => {
-                              const { HardwareDerivationPathTest } =
-                                await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HardwareDerivationPathTest');
-                              Dialog.cancel({
-                                title: intl.formatMessage({
-                                  id: ETranslations.dev_hw_path__title,
-                                }),
-                                renderContent: <HardwareDerivationPathTest />,
-                              });
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevHardwarePathTestModal,
+                              );
                             }}
                           />
                           <SectionPressItem
@@ -2982,6 +3003,46 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
+                      {platformEnv.isDev && platformEnv.isDesktop ? (
+                        <>
+                          <SectionFieldItem
+                            icon="PrimeOutline"
+                            name="mockPrimeUserBanned"
+                            title="OneKey ID banned account mock (offline)"
+                            subtitle="Turn on to show the banned-account toast without contacting a server."
+                            onValueChange={(enabled: boolean) => {
+                              if (enabled) {
+                                errorToastUtils.showToastOfError(
+                                  new OneKeyErrorPrimeUserBanned(),
+                                );
+                              }
+                            }}
+                            searchKeywords="OneKey ID 封禁 离线 mock banned 90012"
+                            testID="dev-settings-prime-banned-mock"
+                          >
+                            <Switch
+                              size={ESwitchSize.small}
+                              testID="dev-settings-prime-banned-mock-switch"
+                            />
+                          </SectionFieldItem>
+                          <SectionPressItem
+                            icon="PrimeOutline"
+                            title="Preview banned OneKey ID"
+                            subtitle="Enables the local mock and opens the actual account restriction page."
+                            searchKeywords="OneKey ID 封禁 离线 mock banned 90012"
+                            testID="dev-settings-prime-banned-preview"
+                            onPress={async () => {
+                              await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                                'mockPrimeUserBanned',
+                                true,
+                              );
+                              navigation.pushModal(EModalRoutes.PrimeModal, {
+                                screen: EPrimePages.OneKeyId,
+                              });
+                            }}
+                          />
+                        </>
+                      ) : null}
                       <SectionFieldItem
                         icon="PrimeOutline"
                         name="showPrimeTest"

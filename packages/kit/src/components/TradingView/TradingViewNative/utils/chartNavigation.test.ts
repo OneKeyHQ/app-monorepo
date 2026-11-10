@@ -6,6 +6,7 @@ import {
 import {
   getTradingViewNativeNavigationEvent,
   isTradingViewNativeNavigationHotZone,
+  isTradingViewNativeNavigationResetAvailable,
 } from './chartNavigation';
 import {
   createTradingViewNativeChartRuntimeState,
@@ -92,6 +93,60 @@ describe('TradingViewNative chart navigation', () => {
         viewport,
       }),
     ).toBeNull();
+  });
+
+  describe('reset availability', () => {
+    const isResetAvailable = (
+      state: ITradingViewNativeChartRuntimeState,
+      { isAutoScale = true } = {},
+    ) =>
+      isTradingViewNativeNavigationResetAvailable({
+        chartWidth: CHART_WIDTH,
+        isAutoScale,
+        pointCount: POINT_COUNT,
+        viewport: state.viewport,
+      });
+
+    it('hides reset at the default view', () => {
+      expect(isResetAvailable(createTradingViewNativeChartRuntimeState())).toBe(
+        false,
+      );
+    });
+
+    it.each<ITradingViewNativeNavigationAction>([
+      'zoomIn',
+      'zoomOut',
+      'scrollLeft',
+    ])('offers reset after %s', (action) => {
+      expect(
+        isResetAvailable(
+          navigate(createTradingViewNativeChartRuntimeState(), action),
+        ),
+      ).toBe(true);
+    });
+
+    it('offers reset while the main price axis is pinned', () => {
+      expect(
+        isResetAvailable(createTradingViewNativeChartRuntimeState(), {
+          isAutoScale: false,
+        }),
+      ).toBe(true);
+    });
+
+    it('hides reset again after resetting or navigating back', () => {
+      const initial = createTradingViewNativeChartRuntimeState();
+      expect(
+        isResetAvailable(navigate(navigate(initial, 'scrollLeft'), 'reset')),
+      ).toBe(false);
+      expect(
+        isResetAvailable(
+          navigate(navigate(initial, 'scrollLeft'), 'scrollRight'),
+        ),
+      ).toBe(false);
+      expect(
+        isResetAvailable(navigate(navigate(initial, 'zoomIn'), 'zoomOut')),
+      ).toBe(false);
+    });
   });
 
   describe('hot zone', () => {

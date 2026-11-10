@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
+  GlassButtonCapsule,
   HeaderIconButton,
   Icon,
   InteractiveIcon,
@@ -23,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import { FOLDABLE_IPHONE_TITLE_ITEM_WIDTH } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
@@ -32,6 +35,7 @@ import {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -90,8 +94,13 @@ export function MarketDetailHeader({
 }) {
   const media = useMedia();
   const intl = useIntl();
-  const { width: windowWidth } = useWindowDimensions();
-  const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const {
+    top: safeAreaTop,
+    left: safeAreaLeft,
+    right: safeAreaRight,
+  } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
@@ -107,6 +116,34 @@ export function MarketDetailHeader({
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
+  const isInPageHeaderTarget =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const portraitHeaderGeometryRef = useRef<{
+    width: number;
+    top: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  if (
+    isInPageHeaderTarget &&
+    isFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    portraitHeaderGeometryRef.current = {
+      width: windowWidth,
+      top: safeAreaTop,
+      left: safeAreaLeft,
+      right: safeAreaRight,
+    };
+  }
+  const inPageHeaderGeometry = isInPageHeaderTarget
+    ? portraitHeaderGeometryRef.current
+    : null;
   const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
   // DApp mode hides the sidebar above md, so this header owns global navigation.
   const showDappHeaderAboveDetail =
@@ -199,16 +236,19 @@ export function MarketDetailHeader({
   // Reserve the bar margins, back/action capsules, and the title's side gaps.
   // Custom bar items resist native compression, so constrain long identities
   // before UIKit lays out the left and right item groups.
-  const nativeHeaderTitleMaxWidth = Math.max(
-    0,
-    windowWidth -
-      safeAreaLeft -
-      safeAreaRight -
-      40 -
-      44 -
-      (showFavoriteButton ? 100 : 44) -
-      32,
-  );
+  const isTitleInLeftItem = isFoldableIPhone();
+  const nativeHeaderTitleMaxWidth = isTitleInLeftItem
+    ? FOLDABLE_IPHONE_TITLE_ITEM_WIDTH
+    : Math.max(
+        0,
+        (inPageHeaderGeometry?.width ?? windowWidth) -
+          (inPageHeaderGeometry?.left ?? safeAreaLeft) -
+          (inPageHeaderGeometry?.right ?? safeAreaRight) -
+          40 -
+          44 -
+          (showFavoriteButton ? 100 : 44) -
+          32,
+      );
 
   const renderNativeHeaderTitle = useCallback(
     () => (
@@ -446,9 +486,68 @@ export function MarketDetailHeader({
         identifier: 'market-detail-back',
         onPress: handleBackPress,
       },
+      ...(isTitleInLeftItem
+        ? [
+            {
+              type: 'custom' as const,
+              element: renderNativeHeaderTitle(),
+              hidesSharedBackground: true,
+            },
+          ]
+        : []),
     ],
-    [handleBackPress, intl],
+    [handleBackPress, intl, isTitleInLeftItem, renderNativeHeaderTitle],
   );
+
+  if (inPageHeaderGeometry) {
+    return (
+      <>
+        <Page.Header headerShown={false} />
+        <XStack
+          testID="market-detail-in-page-header"
+          alignItems="center"
+          width={inPageHeaderGeometry.width}
+          px="$4"
+          pt={inPageHeaderGeometry.top}
+          pb={10}
+          gap="$3"
+        >
+          <GlassButtonCapsule circular>
+            <NavBackButton
+              onPress={handleBackPress}
+              borderWidth={0}
+              hitSlop={4}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.global_back,
+              })}
+            />
+          </GlassButtonCapsule>
+          <XStack flex={1} minWidth={0}>
+            {renderNativeHeaderTitle()}
+          </XStack>
+          <GlassButtonCapsule circular={!showFavoriteButton}>
+            <XStack alignItems="center" gap="$4">
+              {showFavoriteButton ? (
+                <HeaderIconButton
+                  icon={starChecked ? 'StarSolid' : 'StarOutline'}
+                  onPress={handleStarNative}
+                  borderWidth={0}
+                  hitSlop={4}
+                />
+              ) : null}
+              <HeaderIconButton
+                icon="ShareOutline"
+                onPress={handleShareNative}
+                disabled={!canShare}
+                borderWidth={0}
+                hitSlop={4}
+              />
+            </XStack>
+          </GlassButtonCapsule>
+        </XStack>
+      </>
+    );
+  }
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
     // Explicit headerShown is required because this route can also be
@@ -461,7 +560,7 @@ export function MarketDetailHeader({
         // A fixed-width titleView avoids the initial intrinsic-size growth that
         // previously let long identities overlap the bar items. Keeping it in
         // the native title slot also avoids a custom left-item snapshot on pop.
-        headerTitle={renderNativeHeaderTitle}
+        headerTitle={isTitleInLeftItem ? '' : renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
@@ -486,6 +585,7 @@ export function MarketDetailHeader({
           hideNavigationHeader={!showDappHeaderAboveDetail}
         >
           <NavBackButton onPress={handleBackPress} />
+          {platformEnv.isNativeIOS ? null : <XStack w="$3" flexShrink={0} />}
 
           {platformEnv.isNative || isMobileWebLayout ? (
             renderNativeHeaderTitle()

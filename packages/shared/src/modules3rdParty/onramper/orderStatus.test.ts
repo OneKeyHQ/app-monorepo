@@ -7,8 +7,11 @@ import {
 import {
   HEADLESS_BUY_ORDER_DELAYED_MS,
   HEADLESS_BUY_ORDER_TIMEOUT_MS,
+  applyHeadlessBuyCheckoutEvent,
   applyHeadlessBuyOrderTimeRules,
+  applyHeadlessBuyPaidOutcome,
   applyOnramperTransactionStatus,
+  getHeadlessBuyAbandonReason,
   getHeadlessBuyFailureKind,
   getHeadlessBuyOrderSentenceId,
   isHeadlessBuyOrderDelayed,
@@ -45,9 +48,11 @@ describe('mapOnramperStatus', () => {
       status: processing,
       paymentSeen: false,
     });
+    // `pending` is what a provider order gets at creation — before the
+    // payment page is even ready — so it proves nothing about a payment.
     expect(mapOnramperStatus('pending')).toEqual({
       status: processing,
-      paymentSeen: true,
+      paymentSeen: false,
     });
     expect(mapOnramperStatus('paid')).toEqual({
       status: processing,
@@ -114,10 +119,28 @@ describe('applyOnramperTransactionStatus', () => {
   it('falls back to now when the status date is unparsable', () => {
     const next = applyOnramperTransactionStatus(
       order(),
-      { transactionId: '01M3', status: 'pending', statusDate: 'garbage' },
+      { transactionId: '01M3', status: 'paid', statusDate: 'garbage' },
       T0 + 5000,
     );
     expect(next?.submittedAt).toBe(T0 + 5000);
+  });
+
+  it('keeps a hidden order hidden while the backend only says pending', () => {
+    // Device-observed 2026-11-06 (Coinbase): the transaction was `pending`
+    // from creation, the payment authorization then failed and nothing was
+    // charged. Surfacing on `pending` would show a never-paid order.
+    const next = applyOnramperTransactionStatus(
+      order(),
+      {
+        transactionId: '01M3',
+        status: 'pending',
+        statusDate: '2023-11-14T22:13:20.000Z',
+      },
+      T0 + 5000,
+    );
+    expect(next?.submittedAt).toBeUndefined();
+    expect(next?.paymentSeen).toBe(false);
+    expect(next).toMatchObject({ rawStatus: 'pending', lastCheckOk: true });
   });
 
   it('keeps a hidden order hidden while the backend still says new', () => {
@@ -202,11 +225,25 @@ describe('applyOnramperTransactionStatus', () => {
         status: EHeadlessBuyOrderStatus.Failed,
         timedOut: true,
       }),
-      { transactionId: '01M3', status: 'pending' },
+      { transactionId: '01M3', status: 'paid' },
       T0,
     );
     expect(next?.status).toBe(EHeadlessBuyOrderStatus.Processing);
     expect(next?.timedOut).toBe(false);
+  });
+
+  it('keeps a timed-out order failed while the backend only says pending', () => {
+    const next = applyOnramperTransactionStatus(
+      order({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        timedOut: true,
+      }),
+      { transactionId: '01M3', status: 'pending' },
+      T0,
+    );
+    expect(next?.status).toBe(EHeadlessBuyOrderStatus.Failed);
+    expect(next?.timedOut).toBe(true);
   });
 
   it('forgets the viewed failure when a timed-out order recovers, so a later failure shows again', () => {
@@ -217,7 +254,7 @@ describe('applyOnramperTransactionStatus', () => {
         timedOut: true,
         failureViewedAt: T0,
       }),
-      { transactionId: '01M3', status: 'pending' },
+      { transactionId: '01M3', status: 'paid' },
       T0,
     );
     expect(recovered?.status).toBe(EHeadlessBuyOrderStatus.Processing);
@@ -353,6 +390,31 @@ describe('applyHeadlessBuyOrderTimeRules', () => {
     });
   });
 
+  it('fails a visible order the backend left pending with no payment evidence after 24 h', () => {
+    const stuck = order({ submittedAt: T0, rawStatus: 'pending' });
+    expect(
+      applyHeadlessBuyOrderTimeRules(
+        stuck,
+        T0 + HEADLESS_BUY_ORDER_TIMEOUT_MS - 1,
+      ),
+    ).toBe(stuck);
+    expect(
+      applyHeadlessBuyOrderTimeRules(stuck, T0 + HEADLESS_BUY_ORDER_TIMEOUT_MS),
+    ).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Failed,
+      timedOut: true,
+    });
+  });
+
+  it('deletes a hidden order the backend left pending with no payment evidence after 24 h', () => {
+    expect(
+      applyHeadlessBuyOrderTimeRules(
+        order({ rawStatus: 'pending' }),
+        T0 + HEADLESS_BUY_ORDER_TIMEOUT_MS,
+      ),
+    ).toBeUndefined();
+  });
+
   it('never fails an order that is already in payment', () => {
     const paid = order({
       submittedAt: T0,
@@ -473,6 +535,362 @@ describe('terminal / delayed / failure kind', () => {
         order({ statusReason: 'Refund issued', paymentOutcomeUnknown: true }),
       ),
     ).toBe('refund');
+  });
+});
+
+describe('getHeadlessBuyAbandonReason', () => {
+  it('reads a Coinbase commit error as a failed authorization, not an unknown outcome', () => {
+    // SDK 1.3.1 reports Coinbase's `commit_error` (payment authorization
+    // failed) under the "outcome unknown" code; the page reason settles it.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.commit_error',
+      }),
+    ).toBe('authorizationFailed');
+  });
+
+  it('keeps any other provider failure as outcome unknown', () => {
+    expect(getHeadlessBuyAbandonReason({ errorCode: 'providerFailed' })).toBe(
+      'providerFailed',
+    );
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.polling_error',
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('treats every other error code as a plain failure', () => {
+    expect(getHeadlessBuyAbandonReason({ errorCode: 'networkError' })).toBe(
+      'failed',
+    );
+    expect(getHeadlessBuyAbandonReason({})).toBe('failed');
+    // A provider-confirmed failure keeps its own handling whatever the page
+    // reason was.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'paymentFailed',
+        providerReason: 'onramp_api.commit_error',
+      }),
+    ).toBe('failed');
+  });
+
+  // Device-observed 2026-11-09 on Paybis: the web view failed on an SSL
+  // error (supportCode `providerFailed:NSURLErrorDomain/-1200`) with no
+  // `providerReady` before it.
+  it('reads a web view whose load failed before it came up as a page load failure', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('pageLoadFailed');
+    // The provider's page reporting its own load error counts as well.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.load_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('pageLoadFailed');
+  });
+
+  // A missing `providerReady` proves nothing by itself: a provider page is
+  // not bound to report readiness, so the order stays tracked.
+  it('keeps the outcome unknown without a load failure signal', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    // A cancelled navigation (NSURLErrorCancelled) is not a failed load.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-999',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('keeps the outcome unknown once the payment surface came up', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.load_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('keeps the outcome unknown when nothing proves the page did not load', () => {
+    const supportCode = 'providerFailed:NSURLErrorDomain/-1200';
+    // No progress on record, no render event, or a surface that is not a web
+    // view.
+    expect(
+      getHeadlessBuyAbandonReason({ errorCode: 'providerFailed', supportCode }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        progress: { paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        progress: { renderType: 'deeplink', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    // The page spoke, and not of a load error: it was up.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        providerReason: 'onramp_api.polling_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('still reads a commit error as a failed authorization on a loaded page', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.commit_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('authorizationFailed');
+  });
+});
+
+describe('applyHeadlessBuyCheckoutEvent', () => {
+  it('records the render type and whether the payment surface came up', () => {
+    const rendering = applyHeadlessBuyCheckoutEvent(undefined, {
+      type: 'renderingStarted',
+      renderType: 'webview',
+    });
+    expect(rendering).toEqual({
+      renderType: 'webview',
+      paymentSurfaceReached: false,
+    });
+    const ready = applyHeadlessBuyCheckoutEvent(rendering, {
+      type: 'providerReady',
+    });
+    expect(ready).toEqual({
+      renderType: 'webview',
+      paymentSurfaceReached: true,
+    });
+    // Nothing un-reaches the surface, and an event that adds nothing keeps
+    // the reference.
+    expect(
+      applyHeadlessBuyCheckoutEvent(ready, { type: 'providerError' }),
+    ).toBe(ready);
+  });
+
+  it('counts a payment event as proof of the surface, not a page error', () => {
+    for (const type of [
+      'paymentAuthorized',
+      'paymentProcessing',
+      'completed',
+    ]) {
+      expect(
+        applyHeadlessBuyCheckoutEvent(undefined, { type })
+          .paymentSurfaceReached,
+      ).toBe(true);
+    }
+    for (const type of ['checkoutFinalized', 'providerError', 'cancelled']) {
+      expect(
+        applyHeadlessBuyCheckoutEvent(undefined, { type })
+          .paymentSurfaceReached,
+      ).toBe(false);
+    }
+  });
+});
+
+describe('authorization-failed orders', () => {
+  const authorizationFailed = (overrides: Partial<IHeadlessBuyOrder> = {}) =>
+    order({
+      submittedAt: T0,
+      status: EHeadlessBuyOrderStatus.Failed,
+      authorizationFailed: true,
+      ...overrides,
+    });
+
+  it('keeps being refreshed, like a timed-out order', () => {
+    expect(isTerminalHeadlessBuyOrder(authorizationFailed())).toBe(false);
+  });
+
+  it('stays failed while the backend shows no payment', () => {
+    for (const status of ['pending', 'init', 'new']) {
+      const next = applyOnramperTransactionStatus(
+        authorizationFailed(),
+        { transactionId: '01M3', status },
+        T0 + 1000,
+      );
+      expect(next).toMatchObject({
+        status: EHeadlessBuyOrderStatus.Failed,
+        authorizationFailed: true,
+        rawStatus: status,
+        lastCheckOk: true,
+      });
+    }
+  });
+
+  it('returns to processing once the backend proves a payment', () => {
+    const paid = applyOnramperTransactionStatus(
+      authorizationFailed({ failureViewedAt: T0 }),
+      { transactionId: '01M3', status: 'paid' },
+      T0 + 1000,
+    );
+    expect(paid?.status).toBe(EHeadlessBuyOrderStatus.Processing);
+    expect(paid?.authorizationFailed).toBeUndefined();
+    expect(paid?.paymentSeen).toBe(true);
+    expect(paid?.failureViewedAt).toBeUndefined();
+    const delivered = applyOnramperTransactionStatus(
+      authorizationFailed(),
+      { transactionId: '01M3', status: 'completed', outAmount: 0.05 },
+      T0 + 1000,
+    );
+    expect(delivered?.status).toBe(EHeadlessBuyOrderStatus.Delivered);
+    expect(delivered?.authorizationFailed).toBeUndefined();
+  });
+
+  it('becomes a settled backend failure once the backend confirms it', () => {
+    const next = applyOnramperTransactionStatus(
+      authorizationFailed(),
+      { transactionId: '01M3', status: 'failed', statusReason: 'Declined' },
+      T0 + 1000,
+    );
+    expect(next?.status).toBe(EHeadlessBuyOrderStatus.Failed);
+    expect(next?.authorizationFailed).toBeUndefined();
+    expect(isTerminalHeadlessBuyOrder(next as IHeadlessBuyOrder)).toBe(true);
+    expect(getHeadlessBuyFailureKind(next as IHeadlessBuyOrder)).toBe(
+      'notCharged',
+    );
+  });
+
+  // Onramper confirmed (2026-11-06, 2026-11-09) that a Coinbase commit error
+  // takes no charge.
+  it('says the card was not charged', () => {
+    expect(getHeadlessBuyFailureKind(authorizationFailed())).toBe('notCharged');
+    expect(getHeadlessBuyOrderSentenceId(authorizationFailed(), T0)).toBe(
+      ETranslations.buy_order_failed_not_charged__desc,
+    );
+  });
+
+  it('does not say so once anything showed a payment or left its outcome unknown', () => {
+    expect(
+      getHeadlessBuyFailureKind(authorizationFailed({ paymentSeen: true })),
+    ).toBe('unknown');
+    expect(
+      getHeadlessBuyFailureKind(
+        authorizationFailed({ paymentOutcomeUnknown: true }),
+      ),
+    ).toBe('unknown');
+    // A timed-out order still knows nothing.
+    expect(
+      getHeadlessBuyFailureKind(
+        order({
+          submittedAt: T0,
+          status: EHeadlessBuyOrderStatus.Failed,
+          timedOut: true,
+        }),
+      ),
+    ).toBe('unknown');
+  });
+
+  it('is left alone by the time rules', () => {
+    const failed = authorizationFailed();
+    expect(
+      applyHeadlessBuyOrderTimeRules(
+        failed,
+        T0 + 3 * HEADLESS_BUY_ORDER_TIMEOUT_MS,
+      ),
+    ).toBe(failed);
+  });
+});
+
+describe('applyHeadlessBuyPaidOutcome', () => {
+  it('puts an order the client had failed on its own back to processing', () => {
+    for (const clientFailure of [
+      { authorizationFailed: true },
+      { timedOut: true },
+    ]) {
+      const next = applyHeadlessBuyPaidOutcome(
+        order({
+          submittedAt: T0,
+          status: EHeadlessBuyOrderStatus.Failed,
+          failureViewedAt: T0,
+          ...clientFailure,
+        }),
+      );
+      expect(next.status).toBe(EHeadlessBuyOrderStatus.Processing);
+      expect(next.paymentSeen).toBe(true);
+      expect(next.authorizationFailed).toBeUndefined();
+      expect(next.timedOut).toBeFalsy();
+      // The banner's "unseen failure" mark belonged to that failure.
+      expect(next.failureViewedAt).toBeUndefined();
+      // Still refreshed, and never failed by the 24 h rule again.
+      expect(isTerminalHeadlessBuyOrder(next)).toBe(false);
+      expect(
+        applyHeadlessBuyOrderTimeRules(
+          next,
+          T0 + 3 * HEADLESS_BUY_ORDER_TIMEOUT_MS,
+        ),
+      ).toBe(next);
+    }
+  });
+
+  it('leaves a failure the backend reported alone, noting only the payment evidence', () => {
+    const next = applyHeadlessBuyPaidOutcome(
+      order({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        statusReason: 'Declined',
+      }),
+    );
+    expect(next.status).toBe(EHeadlessBuyOrderStatus.Failed);
+    expect(next.paymentSeen).toBe(true);
+  });
+
+  it('notes the payment evidence on an order that is still processing', () => {
+    const next = applyHeadlessBuyPaidOutcome(order({ submittedAt: T0 }));
+    expect(next).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentSeen: true,
+    });
+  });
+
+  it('returns the same record when there is nothing to change', () => {
+    const processing = order({ submittedAt: T0, paymentSeen: true });
+    expect(applyHeadlessBuyPaidOutcome(processing)).toBe(processing);
+    const delivered = order({
+      submittedAt: T0,
+      paymentSeen: true,
+      status: EHeadlessBuyOrderStatus.Delivered,
+    });
+    expect(applyHeadlessBuyPaidOutcome(delivered)).toBe(delivered);
   });
 });
 

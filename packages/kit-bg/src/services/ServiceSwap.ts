@@ -50,12 +50,12 @@ import {
   getSwapHistoryNetworkIdsToEnrich,
   normalizeSwapHistoryNetworkInfo,
 } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
-  isStockSwapHistoryItem,
-  isSwapHistoryProtocolExcluded,
   isSwapHistoryTerminalStatus,
+  shouldDeleteSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   getDenyBridgeProviderString,
@@ -2945,50 +2945,28 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async cleanSwapHistoryItems(
     statuses?: ESwapTxHistoryStatus[],
-    options?: {
-      excludeProtocols?: EProtocolOfExchange[];
-      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
-      // isStock flag, so clearing it must not delete stock orders).
-      excludeStock?: boolean;
-      // Mirror of excludeStock for the Stock history surface: only clear stock
-      // trades, keeping everything the Swap/Bridge list owns.
-      onlyStock?: boolean;
-    },
+    options?: ISwapHistoryClearOptions,
   ) {
+    const shouldDeleteHistory = (item: ISwapTxHistory) =>
+      shouldDeleteSwapHistoryItem(item, statuses, options);
     await this.swapHistoryMutationMutex.runExclusive(async () => {
       await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
         statuses,
         options,
       );
-      // Cleared wholesale rather than by the id list below, which is derived
-      // from the pending atom: a queued item is precisely one the reconcile
-      // already evicted from that atom, so it would survive a filtered removal
-      // and be written back after the user cleared it. Over-clearing only costs
-      // an already-non-durable item its retry; resurrecting a deleted history
-      // is not recoverable.
-      this.swapHistoryDurableRetryQueue.clear();
+      // Reconciliation can evict a queued item from the pending atom, so
+      // apply the clear scope to the queue entries directly.
+      for (const [key, item] of this.swapHistoryDurableRetryQueue) {
+        if (shouldDeleteHistory(item)) {
+          this.swapHistoryDurableRetryQueue.delete(key);
+        }
+      }
       this.syncSwapHistoryDurableRetrySchedule();
       const inAppNotification = await inAppNotificationAtom.get();
       const deleteHistoryIds = filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
       )
-        .filter((item) => {
-          if (
-            isSwapHistoryProtocolExcluded({
-              item,
-              excludeProtocols: options?.excludeProtocols,
-            })
-          ) {
-            return false;
-          }
-          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-            return false;
-          }
-          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-            return false;
-          }
-          return statuses ? statuses.includes(item.status) : true;
-        })
+        .filter(shouldDeleteHistory)
         .map((item) =>
           item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
         );
@@ -2996,23 +2974,7 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
-        ).filter((item) => {
-          if (
-            isSwapHistoryProtocolExcluded({
-              item,
-              excludeProtocols: options?.excludeProtocols,
-            })
-          ) {
-            return true;
-          }
-          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-            return true;
-          }
-          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-            return true;
-          }
-          return statuses ? !statuses.includes(item.status) : false;
-        }),
+        ).filter((item) => !shouldDeleteHistory(item)),
       }));
       await Promise.all(
         deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),

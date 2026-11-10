@@ -5,9 +5,11 @@
 import { act, render, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNative } from './TradingViewNative.native';
 
+import type { ITradingViewNativeFullscreenTransition } from './TradingViewNativeFullscreenTransitionContext';
 import type {
   ITradingViewNativeProps,
   ITradingViewNativeSource,
@@ -16,12 +18,31 @@ import type {
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
 const mockIsSpanning = jest.fn(() => false);
-const mockStatusBar = jest.fn<null, [{ hidden?: boolean }]>(() => null);
+const mockStatusBarEntry = { hidden: true };
+const mockPushStatusBarEntry = jest.fn<
+  typeof mockStatusBarEntry,
+  [{ hidden?: boolean }]
+>(() => mockStatusBarEntry);
+const mockPopStatusBarEntry = jest.fn<void, [typeof mockStatusBarEntry]>();
 const mockWindowDimensions = { height: 844, width: 390 };
+const mockRootState: { index: number; routes: { name: ERootRoutes }[] } = {
+  index: 0,
+  routes: [{ name: ERootRoutes.TradingViewNativeFullscreen }],
+};
+const mockInsets = { top: 24, right: 0, bottom: 24, left: 0 };
 const mockContainer = jest.fn<null, [ITradingViewNativeProps]>(() => null);
+let mockTransition: ITradingViewNativeFullscreenTransition | undefined;
 let mockAppStateChangeHandler:
   | ((nextState: 'active' | 'background' | 'inactive') => void)
   | undefined;
+
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: {
+      getState: () => mockRootState,
+    },
+  },
+}));
 
 jest.mock('expo-screen-orientation', () => ({
   OrientationLock: {
@@ -46,9 +67,25 @@ jest.mock('react-native', () => ({
   Dimensions: {
     get: () => mockWindowDimensions,
   },
-  StatusBar: (props: { hidden?: boolean }) => mockStatusBar(props),
+  StatusBar: {
+    pushStackEntry: (props: { hidden?: boolean }) =>
+      mockPushStatusBarEntry(props),
+    popStackEntry: (entry: typeof mockStatusBarEntry) =>
+      mockPopStatusBarEntry(entry),
+  },
   useWindowDimensions: () => mockWindowDimensions,
 }));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => mockInsets,
+}));
+
+jest.mock('react-native-reanimated', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  return {
+    useSharedValue: (value: unknown) => react.useRef({ value }).current,
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
   isSpanning: () => mockIsSpanning(),
@@ -62,10 +99,20 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock('./TradingViewNativeContainer', () => ({
-  TradingViewNativeContainer: (props: ITradingViewNativeProps) =>
-    mockContainer(props),
-}));
+jest.mock('./TradingViewNativeContainer', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  const { TradingViewNativeFullscreenTransitionContext } = jest.requireActual<
+    typeof import('./TradingViewNativeFullscreenTransitionContext')
+  >('./TradingViewNativeFullscreenTransitionContext');
+  return {
+    TradingViewNativeContainer: (props: ITradingViewNativeProps) => {
+      mockTransition = react.useContext(
+        TradingViewNativeFullscreenTransitionContext,
+      );
+      return mockContainer(props);
+    },
+  };
+});
 
 const source: ITradingViewNativeSource = {
   kind: 'market',
@@ -74,6 +121,18 @@ const source: ITradingViewNativeSource = {
   symbol: 'TOKEN',
   tokenAddress: '0xabc',
 };
+
+function getContainerProps() {
+  return mockContainer.mock.calls.at(-1)?.[0];
+}
+
+function requestFullscreen(isFullscreen: boolean) {
+  act(() => getContainerProps()?.onNativeChartFullscreenChange?.(isFullscreen));
+}
+
+function reportLayerReady() {
+  act(() => mockTransition?.onLayerReady());
+}
 
 describe('TradingViewNative screen orientation', () => {
   beforeEach(() => {
@@ -84,7 +143,11 @@ describe('TradingViewNative screen orientation', () => {
     mockIsSpanning.mockReturnValue(false);
     mockWindowDimensions.height = 844;
     mockWindowDimensions.width = 390;
+    mockRootState.index = 0;
+    mockRootState.routes = [{ name: ERootRoutes.TradingViewNativeFullscreen }];
+    mockInsets.top = 24;
     mockAppStateChangeHandler = undefined;
+    mockTransition = undefined;
     mockLockAsync.mockResolvedValue(undefined);
   });
 
@@ -92,7 +155,7 @@ describe('TradingViewNative screen orientation', () => {
     render(<TradingViewNative source={source} />);
 
     expect(mockLockAsync).not.toHaveBeenCalled();
-    expect(mockStatusBar).not.toHaveBeenCalled();
+    expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
   });
 
   it('preserves the caller drawing configuration', () => {
@@ -109,7 +172,7 @@ describe('TradingViewNative screen orientation', () => {
     );
   });
 
-  it('locks Android phone fullscreen to landscape and restores portrait', async () => {
+  it('keeps the page until the prepared layer is shown, then reports fullscreen', async () => {
     const handleFullscreenChange = jest.fn();
     const { rerender } = render(
       <TradingViewNative
@@ -118,6 +181,34 @@ describe('TradingViewNative screen orientation', () => {
       />,
     );
 
+    requestFullscreen(true);
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+    expect(mockTransition).toMatchObject({
+      isRevealed: false,
+      isLandscapeLayout: true,
+      isStatusBarHidden: true,
+      layerOpacity: { value: 0 },
+    });
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
+
+    // The layer has drawn at the landscape size: rotate, then show it and
+    // hide the status bar.
+    reportLayerReady();
+    expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
+    expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+    expect(mockTransition?.layerOpacity?.value).toBe(0);
+    // The host may show the layer as soon as the window is landscape.
+    expect(mockTransition?.revealOnLandscape?.value).toBe(true);
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    expect(mockTransition?.layerOpacity?.value).toBe(1);
+    expect(mockTransition?.revealOnLandscape?.value).toBe(false);
+    expect(mockTransition?.isRevealed).toBe(true);
+    expect(mockPushStatusBarEntry).toHaveBeenCalledWith({ hidden: true });
+
     rerender(
       <TradingViewNative
         source={source}
@@ -125,20 +216,187 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
     );
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+    expect(mockPushStatusBarEntry).toHaveBeenCalledTimes(1);
+    expect(mockPopStatusBarEntry).not.toHaveBeenCalled();
+  });
+
+  it('restores the page before rotating back and hiding the layer', async () => {
+    const handleFullscreenChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />
+    );
+    const { rerender } = render(chart(false));
+    requestFullscreen(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    rerender(chart(true));
+    mockLockAsync.mockClear();
+
+    requestFullscreen(false);
+    expect(handleFullscreenChange).toHaveBeenLastCalledWith(false);
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockPopStatusBarEntry).toHaveBeenCalledWith(mockStatusBarEntry);
+
+    expect(mockTransition?.layerOpacity?.value).toBe(1);
+
+    // The owner has committed its restored page under the layer: rotate back
+    // and hide the layer together.
+    rerender(chart(false));
+    expect(mockLockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
+    expect(mockTransition?.layerOpacity?.value).toBe(0);
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
 
     await waitFor(() => {
-      expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
+      expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
     });
+  });
 
-    rerender(
+  it('covers the rotation back when the owner leaves fullscreen on its own', async () => {
+    const handleFullscreenChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />
+    );
+    const { rerender } = render(chart(false));
+    requestFullscreen(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    // The window has rotated to landscape.
+    mockWindowDimensions.height = 390;
+    mockWindowDimensions.width = 844;
+    rerender(chart(true));
+    mockLockAsync.mockClear();
+    handleFullscreenChange.mockClear();
+
+    // E.g. hardware back: the owner restores its page without the chart's
+    // control. The layer stays up and hides only as the window rotates back.
+    rerender(chart(false));
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+    expect(mockTransition?.isLandscapeLayout).toBe(true);
+    expect(mockPopStatusBarEntry).toHaveBeenCalledWith(mockStatusBarEntry);
+    expect(mockLockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
+    expect(mockTransition?.layerOpacity?.value).toBe(0);
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    });
+  });
+
+  it('waits for the page to lay out with the returned status bar', async () => {
+    const handleFullscreenChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />
+    );
+    const { rerender } = render(chart(false));
+    requestFullscreen(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    // The hidden status bar leaves no top inset.
+    mockInsets.top = 0;
+    rerender(chart(true));
+    mockLockAsync.mockClear();
+
+    requestFullscreen(false);
+    rerender(chart(false));
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockTransition?.layerOpacity?.value).toBe(1);
+
+    mockInsets.top = 24;
+    rerender(chart(false));
+    expect(mockLockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
+    expect(mockTransition?.layerOpacity?.value).toBe(0);
+  });
+
+  it('rotates back anyway when the status bar reports no top inset', async () => {
+    const handleFullscreenChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />
+    );
+    const { rerender } = render(chart(false));
+    requestFullscreen(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    mockInsets.top = 0;
+    rerender(chart(true));
+    mockLockAsync.mockClear();
+
+    jest.useFakeTimers();
+    try {
+      requestFullscreen(false);
+      rerender(chart(false));
+      expect(mockLockAsync).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(mockLockAsync).toHaveBeenCalledWith('PORTRAIT_UP');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('cancels a requested fullscreen before its layer is shown', () => {
+    const handleFullscreenChange = jest.fn();
+    render(
       <TradingViewNative
         source={source}
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
     );
 
-    expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
-    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+    requestFullscreen(true);
+    requestFullscreen(false);
+
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+    expect(mockLockAsync).not.toHaveBeenCalledWith('LANDSCAPE');
+  });
+
+  it('rotates anyway when the chart never reports a drawn frame', () => {
+    jest.useFakeTimers();
+    try {
+      render(
+        <TradingViewNative
+          source={source}
+          onNativeChartFullscreenChange={jest.fn()}
+        />,
+      );
+      requestFullscreen(true);
+      expect(mockLockAsync).not.toHaveBeenCalled();
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('lets the native iPhone page own orientation and dismissal', () => {
@@ -154,15 +412,11 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={onFullscreenChange}
       />,
     );
-    act(() =>
-      mockContainer.mock.calls
-        .at(-1)?.[0]
-        .onNativeChartFullscreenChange?.(false),
-    );
+    requestFullscreen(false);
     expect(onFullscreenChange).toHaveBeenCalledWith(false);
     rerender(<TradingViewNative source={source} />);
     expect(mockLockAsync).not.toHaveBeenCalled();
-    expect(mockStatusBar).not.toHaveBeenCalled();
+    expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -183,11 +437,35 @@ describe('TradingViewNative screen orientation', () => {
       unmount();
 
       expect(mockLockAsync).not.toHaveBeenCalled();
-      expect(mockStatusBar).not.toHaveBeenCalled();
+      expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
     },
   );
 
-  it('exits fullscreen when the app leaves the foreground', () => {
+  it.each([false, true])(
+    'exits the visible fullscreen chart when the app leaves the foreground (iOS: %s)',
+    (isIOS) => {
+      platformEnv.isNativeAndroid = !isIOS;
+      platformEnv.isNativeIOS = isIOS;
+      const handleFullscreenChange = jest.fn();
+      render(
+        <TradingViewNative
+          source={source}
+          isNativeChartFullscreen
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      act(() => {
+        mockAppStateChangeHandler?.('background');
+      });
+
+      expect(handleFullscreenChange).toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('keeps iOS fullscreen across backgrounding while indicator settings cover it', () => {
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
     const handleFullscreenChange = jest.fn();
     render(
       <TradingViewNative
@@ -197,14 +475,24 @@ describe('TradingViewNative screen orientation', () => {
       />,
     );
 
+    mockRootState.routes.push({ name: ERootRoutes.Modal });
+    mockRootState.index = 1;
     act(() => {
+      mockAppStateChangeHandler?.('inactive');
       mockAppStateChangeHandler?.('background');
+      mockAppStateChangeHandler?.('active');
     });
 
+    expect(handleFullscreenChange).not.toHaveBeenCalled();
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(true);
+
+    mockRootState.routes.pop();
+    mockRootState.index = 0;
+    act(() => mockAppStateChangeHandler?.('background'));
     expect(handleFullscreenChange).toHaveBeenCalledWith(false);
   });
 
-  it('keeps the orientation lock when the fullscreen callback changes', () => {
+  it('keeps the session when the fullscreen callback changes', () => {
     const previousHandler = jest.fn();
     const nextHandler = jest.fn();
     const { rerender } = render(
@@ -214,6 +502,7 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={previousHandler}
       />,
     );
+    reportLayerReady();
 
     rerender(
       <TradingViewNative
@@ -259,13 +548,14 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
     );
+    reportLayerReady();
 
     await waitFor(() => {
       expect(handleFullscreenChange).toHaveBeenCalledWith(false);
     });
   });
 
-  it('uses the current unfolded Android window without requesting rotation', () => {
+  it('uses the current unfolded Android window without requesting rotation', async () => {
     const handleFullscreenChange = jest.fn();
     mockIsSpanning.mockReturnValue(true);
 
@@ -276,30 +566,143 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
     );
+    expect(mockTransition?.isLandscapeLayout).toBe(false);
+    reportLayerReady();
 
+    await waitFor(() => {
+      expect(mockTransition?.isRevealed).toBe(true);
+    });
     expect(mockLockAsync).not.toHaveBeenCalled();
     expect(handleFullscreenChange).not.toHaveBeenCalled();
-    expect(mockStatusBar).not.toHaveBeenCalled();
+    expect(mockPushStatusBarEntry).not.toHaveBeenCalled();
 
     unmount();
 
     expect(mockLockAsync).toHaveBeenLastCalledWith('DEFAULT');
   });
 
-  it('uses the current Android landscape window without requesting rotation', () => {
+  it('uses the current Android landscape window without requesting rotation', async () => {
     mockWindowDimensions.height = 390;
     mockWindowDimensions.width = 844;
 
     const { unmount } = render(
       <TradingViewNative source={source} isNativeChartFullscreen />,
     );
+    expect(mockTransition?.isLandscapeLayout).toBe(false);
+    reportLayerReady();
 
+    await waitFor(() => {
+      expect(mockPushStatusBarEntry).toHaveBeenCalledWith({ hidden: true });
+    });
     expect(mockLockAsync).not.toHaveBeenCalled();
-    expect(mockStatusBar.mock.calls[0]?.[0]).toMatchObject({ hidden: true });
 
     unmount();
 
     expect(mockLockAsync).toHaveBeenLastCalledWith('DEFAULT');
+    expect(mockPopStatusBarEntry).toHaveBeenCalledWith(mockStatusBarEntry);
+  });
+
+  it('reports the window rotation until the window settles in portrait', async () => {
+    const handleFullscreenChange = jest.fn();
+    const handleWindowRotationChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+    mockLockAsync.mockImplementation(async (orientationLock) => {
+      const isLandscape = orientationLock === 'LANDSCAPE';
+      mockWindowDimensions.height = isLandscape ? 390 : 844;
+      mockWindowDimensions.width = isLandscape ? 844 : 390;
+    });
+    const { rerender } = render(chart(false));
+
+    // The page lays out in landscape from the moment the window rotates.
+    requestFullscreen(true);
+    expect(handleWindowRotationChange).toHaveBeenLastCalledWith(true);
+    reportLayerReady();
+    await waitFor(() => {
+      expect(handleFullscreenChange).toHaveBeenCalledWith(true);
+    });
+    rerender(chart(true));
+    expect(getContainerProps()).not.toHaveProperty(
+      'onNativeChartWindowRotationChange',
+    );
+
+    requestFullscreen(false);
+    rerender(chart(false));
+    await waitFor(() => {
+      expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    });
+    // Layouts queued in landscape can still arrive once the window is portrait.
+    expect(handleWindowRotationChange).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(false);
+    });
+    expect(handleWindowRotationChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops reporting the rotation when the window stays landscape', () => {
+    const handleWindowRotationChange = jest.fn();
+    const chart = () => (
+      <TradingViewNative
+        source={source}
+        onNativeChartFullscreenChange={jest.fn()}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+    jest.useFakeTimers();
+    try {
+      const { rerender } = render(chart());
+      requestFullscreen(true);
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(true);
+
+      // The session ends in a landscape window that ignores the portrait lock.
+      mockWindowDimensions.height = 390;
+      mockWindowDimensions.width = 844;
+      rerender(chart());
+      requestFullscreen(false);
+      act(() => {
+        jest.advanceTimersByTime(1999);
+      });
+      expect(handleWindowRotationChange).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(handleWindowRotationChange).toHaveBeenLastCalledWith(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reports no rotation for an Android window that is already landscape', async () => {
+    mockWindowDimensions.height = 390;
+    mockWindowDimensions.width = 844;
+    const handleWindowRotationChange = jest.fn();
+    const chart = (isNativeChartFullscreen: boolean) => (
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen={isNativeChartFullscreen}
+        onNativeChartFullscreenChange={jest.fn()}
+        onNativeChartWindowRotationChange={handleWindowRotationChange}
+      />
+    );
+
+    const { rerender } = render(chart(true));
+    reportLayerReady();
+    await waitFor(() => {
+      expect(mockTransition?.isRevealed).toBe(true);
+    });
+    requestFullscreen(false);
+    rerender(chart(false));
+
+    expect(getContainerProps()?.isNativeChartFullscreen).toBe(false);
+    expect(handleWindowRotationChange).not.toHaveBeenCalled();
   });
 
   it('locks a folded Android portrait window to landscape', async () => {
@@ -315,10 +718,11 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={handleFullscreenChange}
       />,
     );
+    reportLayerReady();
 
+    expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
     await waitFor(() => {
-      expect(mockLockAsync).toHaveBeenCalledWith('LANDSCAPE');
+      expect(mockPushStatusBarEntry).toHaveBeenCalledWith({ hidden: true });
     });
-    expect(mockStatusBar.mock.calls[0]?.[0]).toMatchObject({ hidden: true });
   });
 });

@@ -665,6 +665,19 @@ class ServiceDevSetting extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  public async testHardwareCipherKeyValue(params: {
+    connectId: string;
+    key: string;
+  }) {
+    if (!(await devSettingsPersistAtom.get()).enabled) {
+      throw new OneKeyLocalError('Developer mode is required.');
+    }
+    const { testHardwareCipherKeyValue } =
+      await import('./hardwareCipherKeyValueTest');
+    return testHardwareCipherKeyValue(this.backgroundApi, params);
+  }
+
   // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----
   //
   // Runtime model: in native production the app runs two isolated JS runtimes

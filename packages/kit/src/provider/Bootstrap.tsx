@@ -17,6 +17,7 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -27,6 +28,7 @@ import {
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -44,6 +46,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -174,6 +180,24 @@ const useDesktopEvents = platformEnv.isDesktop
         }
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
+        if (
+          isNeedUpdate &&
+          response &&
+          getUpdateFileType(response) === EUpdateFileType.appShell &&
+          response.updateStrategy !== EUpdateStrategy.force &&
+          response.updateStrategy !== EUpdateStrategy.seamless &&
+          response.status !== EAppUpdateStatus.manualInstall &&
+          !response.storeUrl &&
+          response.downloadUrl?.startsWith('https://')
+        ) {
+          if (response.status === EAppUpdateStatus.notify) {
+            onUpdateAction();
+          } else {
+            appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+          }
+          isCheckingUpdate.current = false;
+          return;
+        }
         // OTA (silent/seamless) updates download/install transparently in
         // the background. The desktop menu "Check for updates" must not open
         // the download/verify UI for these strategies — that breaks the
@@ -188,6 +212,26 @@ const useDesktopEvents = platformEnv.isDesktop
             response.updateStrategy ?? EUpdateStrategy.manual,
           );
         if (isNeedUpdate && isOtaStrategy) {
+          // Auto-download is a user preference (Settings → Download updates
+          // automatically), and it only applies to desktop appShell full
+          // packages. Keep the gate identical to AppUpdateForeground's
+          // auto-download gates: jsBundle OTA updates must keep downloading
+          // silently regardless of the setting.
+          const canAutoDownload =
+            !platformEnv.isDesktop ||
+            getUpdateFileType(response) !== EUpdateFileType.appShell ||
+            (await backgroundApiProxy.serviceSetting.getEnableAutoDownloadAppUpdate());
+          if (!canAutoDownload) {
+            // Surface the pending update instead of claiming "up to date": the
+            // setting copy promises "download only after you click Update", and
+            // HeaderUpdateButton already renders the manual Update capsule for
+            // silent appShell updates when auto-download is off. Seamless
+            // updates have no capsule, so this is also the only user feedback
+            // available for that strategy.
+            onUpdateAction();
+            isCheckingUpdate.current = false;
+            return;
+          }
           // serviceAppUpdate.downloadPackage() inside this hook gates on
           // DOWNLOAD_ENTRY_STATUSES, so calling it while already in-flight
           // is a safe no-op. Fire-and-forget — we don't await the download.
@@ -383,11 +427,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
@@ -593,14 +645,16 @@ const useLogVersionInfo = () => {
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
   const theme = useThemeVariant();
+  const [{ theme: themeSetting }] = useSettingsPersistAtom();
+  const followSystemTheme = themeSetting === 'system';
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
   const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
-    void setIntercomTheme(theme).catch(() => {
+    void setIntercomTheme(theme, followSystemTheme).catch(() => {
       console.warn('Failed to update Intercom theme');
     });
-  }, [theme]);
+  }, [theme, followSystemTheme]);
 
   useEffect(() => {
     const syncIntercom = () => {

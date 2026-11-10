@@ -129,6 +129,7 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
   };
   // Pass the scope so the picker can read live status while it is open.
   [EModalStakingRoutes.BorrowEModeCategorySelect]: {
@@ -143,6 +144,7 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.BorrowEModeNeedAction]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;
+    providerLogoURI?: string;
     targetEModeId: number;
     categoryLabel: string;
   };

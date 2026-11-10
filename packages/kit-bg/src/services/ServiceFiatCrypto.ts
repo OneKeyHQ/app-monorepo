@@ -9,7 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { isTerminalHeadlessBuyOrder } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import {
+  isClientFailedHeadlessBuyOrder,
+  isTerminalHeadlessBuyOrder,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -75,6 +78,15 @@ const RATE_LIMITED_PAUSE_MS = 60_000;
 const MOCK_TRANSACTION_ID_PREFIX = 'mock-';
 const LOCAL_TRANSACTION_ID_PREFIX = 'local-';
 
+// Checkout failures after which the record is kept and shown: the payment may
+// have gone through (`providerFailed`), or the user needs the failed order
+// (`authorizationFailed`). `cancelled` / `failed` / `pageLoadFailed` drop a
+// record nothing paid.
+const RECORD_KEEPING_ABANDON_REASONS = new Set<IHeadlessBuyAbandonReason>([
+  'providerFailed',
+  'authorizationFailed',
+]);
+
 function isSyntheticTransactionId(transactionId: string): boolean {
   return (
     transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX) ||
@@ -100,10 +112,11 @@ function sortOrdersNewestFirst(
   );
 }
 
-// Visible processing orders first, then hidden records, then timed-out
-// failures (the sort is stable, so each tier stays newest first).
+// Visible processing orders first, then hidden records, then client-decided
+// failures — timed out, or failed by the provider's payment page (the sort is
+// stable, so each tier stays newest first).
 function lookupPriority(order: IHeadlessBuyOrder): number {
-  if (order.timedOut) {
+  if (isClientFailedHeadlessBuyOrder(order)) {
     return 2;
   }
   return order.submittedAt === undefined ? 1 : 0;
@@ -292,6 +305,7 @@ class ServiceFiatCrypto extends ServiceBase {
       mergeDeriveAssetsNetworkIds: networkIds.filter(
         (_, index) => mergeDeriveFlags[index],
       ),
+      fetchedAt: Date.now(),
     };
   }
 
@@ -530,12 +544,8 @@ class ServiceFiatCrypto extends ServiceBase {
       transactionId,
     });
     if (existing?.submittedAt !== undefined) {
-      if (paymentSeen && !existing.paymentSeen) {
-        await simpleDb.headlessBuyOrders.patchOrder({
-          transactionId,
-          patch: { paymentSeen: true },
-        });
-        this.emitHeadlessBuyOrdersChanged();
+      if (paymentSeen) {
+        await this.settlePaidHeadlessBuyOrder(existing);
       }
       return;
     }
@@ -573,6 +583,12 @@ class ServiceFiatCrypto extends ServiceBase {
         return;
       }
     }
+    if (paymentSeen) {
+      // An authorization-failure write can land between the read above and
+      // the patch: the record is then visible and failed, with this paid
+      // outcome on top of it.
+      next = (await this.settlePaidHeadlessBuyOrder(next)) ?? next;
+    }
     defaultLogger.fiatCrypto.onramper.orderSubmitted({
       networkId: next.networkId,
       tokenSymbol: next.tokenSymbol,
@@ -582,12 +598,39 @@ class ServiceFiatCrypto extends ServiceBase {
     this.emitHeadlessBuyOrdersChanged();
   }
 
-  // cancelled / failed before completion: nothing was paid, drop the hidden
-  // record. A visible (paid) order is never discarded by a checkout event,
-  // and neither is a hidden one whose Apple Pay sheet was already authorized
-  // or whose payment surface failed with the outcome unknown (SDK 1.3
-  // `providerFailed`): money may have moved, so that record is surfaced for
-  // the user to track and the next status lookup settles it.
+  // A paid checkout outcome (`completed` / `paymentPending`) for a record that
+  // is already visible. Notes the payment evidence, and puts an order the
+  // client had failed on its own (authorization failed, timed out) back to
+  // processing: the SDK can end a checkout on a paid outcome after its payment
+  // page reported a failure, and the detail the checkout then opens must not
+  // read Failed. Returns the updated record, or undefined when nothing
+  // changed.
+  private async settlePaidHeadlessBuyOrder(
+    order: IHeadlessBuyOrder,
+  ): Promise<IHeadlessBuyOrder | undefined> {
+    if (order.paymentSeen && !isClientFailedHeadlessBuyOrder(order)) {
+      return undefined;
+    }
+    const change =
+      await this.backgroundApi.simpleDb.headlessBuyOrders.applyPaidOutcome({
+        transactionId: order.transactionId,
+      });
+    if (!change?.to) {
+      return undefined;
+    }
+    this.logHeadlessBuyOrderStatusChange(change.from, change.to);
+    this.emitHeadlessBuyOrdersChanged();
+    return change.to;
+  }
+
+  // cancelled / failed before completion, or a payment page that never
+  // loaded: nothing was paid, drop the hidden record. A visible (paid) order
+  // is never discarded by a checkout event, and neither is a hidden one whose
+  // Apple Pay sheet was already authorized or whose payment surface failed
+  // with the outcome unknown (SDK 1.3 `providerFailed`): money may have
+  // moved, so that record is surfaced for the user to track and the next
+  // status lookup settles it. A failed payment authorization
+  // (`authorizationFailed`) surfaces the record as failed.
   @backgroundMethod()
   public async discardHeadlessBuyOrder({
     transactionId,
@@ -597,16 +640,30 @@ class ServiceFiatCrypto extends ServiceBase {
     reason: IHeadlessBuyAbandonReason;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
+    // The SDK can publish more than one failure for a checkout. Once the
+    // record exists the first one wins on its own (it makes the record
+    // visible, and a visible record is left alone); while none exists the
+    // last one would decide alone. So a verdict that keeps the record stays
+    // put: a repeated event can neither turn a failed authorization into
+    // "outcome unknown" nor get an unknown-outcome order dropped.
+    const waiting = this.abandonedBeforeRecord.get(transactionId);
+    const effectiveReason =
+      waiting !== undefined && RECORD_KEEPING_ABANDON_REASONS.has(waiting)
+        ? waiting
+        : reason;
     // Noted before the read so an insert racing with this call replays the
     // discard whichever side finishes first.
-    this.abandonedBeforeRecord.set(transactionId, reason);
+    this.abandonedBeforeRecord.set(transactionId, effectiveReason);
     const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
     if (!order) {
       // No record yet: addHeadlessBuyOrder replays this once its insert lands.
       return;
     }
     this.abandonedBeforeRecord.delete(transactionId);
-    await this.settleAbandonedHeadlessBuyOrder({ order, reason });
+    await this.settleAbandonedHeadlessBuyOrder({
+      order,
+      reason: effectiveReason,
+    });
   }
 
   // Applies a cancel / failure that found no record when it arrived, now that
@@ -637,6 +694,30 @@ class ServiceFiatCrypto extends ServiceBase {
     const { simpleDb } = this.backgroundApi;
     const { transactionId } = order;
     if (order.submittedAt !== undefined) {
+      return;
+    }
+    if (reason === 'authorizationFailed') {
+      // The provider's payment page said the authorization failed, and the
+      // backend can leave such a transaction `pending` for good (Coinbase,
+      // device-observed 2026-11-06), so waiting for a backend verdict would
+      // park the order in Processing. It is failed here and kept, not
+      // dropped: a brief card hold is possible, so the user needs the order
+      // id, and the record keeps being refreshed — a backend status that
+      // proves a payment flips it back. Conditional inside the storage lock
+      // so a `completed` write that lands after the read above wins.
+      const failed = await simpleDb.headlessBuyOrders.patchOrder({
+        transactionId,
+        onlyIfHidden: true,
+        patch: {
+          submittedAt: Date.now(),
+          status: EHeadlessBuyOrderStatus.Failed,
+          authorizationFailed: true,
+        },
+      });
+      if (failed) {
+        this.logHeadlessBuyOrderStatusChange(order, failed);
+        this.emitHeadlessBuyOrdersChanged();
+      }
       return;
     }
     // `providerFailed` is not evidence of a payment (paymentSeen stays as it
@@ -721,7 +802,8 @@ class ServiceFiatCrypto extends ServiceBase {
   ) {
     if (
       from.status === to.status &&
-      Boolean(from.timedOut) === Boolean(to.timedOut)
+      Boolean(from.timedOut) === Boolean(to.timedOut) &&
+      Boolean(from.authorizationFailed) === Boolean(to.authorizationFailed)
     ) {
       return;
     }
@@ -732,6 +814,7 @@ class ServiceFiatCrypto extends ServiceBase {
       rawStatus: to.rawStatus,
       hasTxHash: Boolean(to.transactionHash),
       timedOut: to.timedOut,
+      authorizationFailed: to.authorizationFailed,
     });
   }
 
