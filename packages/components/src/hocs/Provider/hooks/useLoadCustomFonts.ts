@@ -1,16 +1,12 @@
-import { useFonts } from 'expo-font';
-
-import { BRAND_FONT_NATIVE_FAMILY } from '../fonts/brandFont';
-
-const customFont = {
-  [BRAND_FONT_NATIVE_FAMILY.regular]: require('../fonts/brand/BrandSans-Regular.ttf'),
-  [BRAND_FONT_NATIVE_FAMILY.medium]: require('../fonts/brand/BrandSans-Medium.ttf'),
-  [BRAND_FONT_NATIVE_FAMILY.semibold]: require('../fonts/brand/BrandSans-SemiBold.ttf'),
-  [BRAND_FONT_NATIVE_FAMILY.bold]: require('../fonts/brand/BrandSans-Bold.ttf'),
-  'GeistMono-Medium': require('../fonts/GeistMono-Medium.ttf'),
-  'GeistMono-Regular': require('../fonts/GeistMono-Regular.ttf'),
-};
-
-export default function useLoadCustomFonts() {
-  return useFonts(customFont);
+// The brand faces are already registered by the native runtime, so loading them
+// again through expo-font ships a second copy of every ttf inside the app:
+// - iOS: registered via UIAppFonts in ios/OneKeyWallet/Info.plist and resolved
+//   by PostScript name (the BRAND_FONT_NATIVE_FAMILY values).
+// - Android: written by development/scripts/fonts-sync.js into
+//   android/app/src/main/assets/fonts/ and resolved by ReactFontManager from
+//   assets/fonts/<family>.ttf.
+// Web/desktop/extension already use useLoadCustomFonts.web.ts + web-fonts.css.
+// Keep the [loaded, error] shape because FontProvider gates the first render on it.
+export default function useLoadCustomFonts(): [boolean, Error | null] {
+  return [true, null];
 }
