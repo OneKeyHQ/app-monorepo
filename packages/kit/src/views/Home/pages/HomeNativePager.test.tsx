@@ -12,6 +12,7 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 
 import { HomeNativePager } from './HomeNativePager.native';
+import { HOME_PAGE_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
 
 import type { IHomeHeaderContainerProps } from './HomeHeaderContainer';
 import type { ISpotlightScrollState } from '../../../components/Spotlight/SpotlightScrollStateContext';
@@ -716,6 +717,8 @@ describe('HomePageView complete header authority', () => {
             bgApp: { val: '#ffffff' },
             text: { val: '#111111' },
             textSubdued: { val: '#666666' },
+            textInverse: { val: '#ffffff' },
+            bgPrimary: { val: '#000000' },
             iconSubdued: { val: '#666666' },
             bgStrong: { val: '#dddddd' },
             bgHover: { val: '#eeeeee' },
@@ -902,7 +905,6 @@ describe('HomePageView complete header authority', () => {
         './DeFiContainer',
         './HomeHeaderContainer',
         './HomeNativePager',
-        './homePageContentMaxWidth',
         './homePageNoWalletContent',
         './homeTabFreeze',
         './NFTListContainer',
@@ -1050,15 +1052,36 @@ describe('HomePageView complete header authority', () => {
     },
   );
 
-  it.each(['web', 'wide-native'] as const)(
-    'keeps the existing tab bar on %s',
+  it.each(['wide-web', 'wide-native'] as const)(
+    'draws centered pill tabs through the pager tab bar on %s',
     (layout) => {
-      parentPlatform.isNative = layout !== 'web';
-      smallScreen = layout !== 'wide-native';
+      parentPlatform.isNative = layout === 'wide-native';
+      smallScreen = false;
       const screen = renderParent();
       const props = screen.UNSAFE_getByType(HomeNativePager)
         .props as React.ComponentProps<typeof HomeNativePager>;
-      expect(props.nativeTabBar).toBeUndefined();
+      expect(props.nativeTabBar?.controlled).toBe(true);
+      expect(props.nativeTabBar?.style?.variant).toBe('pill');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBe(
+        HOME_PAGE_CONTENT_MAX_WIDTH,
+      );
+      expect(props.nativeTabBar?.style?.indicatorAnimationEnabled).toBe(false);
+      expect(props.nativeTabBar?.items.map((item) => item.key)).toEqual(
+        props.tabs.map((tab) => tab.id),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'keeps text tabs on small screens (native: %s)',
+    (isNative) => {
+      parentPlatform.isNative = isNative;
+      smallScreen = true;
+      const screen = renderParent();
+      const props = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      expect(props.nativeTabBar?.style?.variant).toBe('text');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBeUndefined();
     },
   );
 

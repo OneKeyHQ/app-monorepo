@@ -1460,9 +1460,37 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
 **Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
 
+## Case: Perps deposit reused Solana payer and amount after switching to ETH (OK-66646)
+**Date**: 2026-11-10 | **Platforms**: Desktop/Web single-runtime UI hooks; reproduced and manually regressed on desktop.
+**Symptom**: Switching a Perps deposit from Solana USDC to native ETH sent the old Solana payer address and USDC quantity in an Ethereum quote, producing an invalid-address error.
+**Root Cause**: The account promise retained its previous result until the new network account resolved. The amount reset ran in a passive effect, while the amount-only debounce retained the previous token's quantity for 800ms.
+**Fix**: Bind account results to the selected account/network scope, reset amount state with token identity before effects run, and accept debounced amounts only when both token identity and amount match the current input.
+**Catchable by**: Test the real deposit and amount hooks together with delayed account resolution and fake timers. Assert that Solana USDC to ETH, account switches, same-network token switches, and rapid token round trips never quote with a stale payer or quantity.
+
 ## Case: Native Buy kept a Processing order after the payment page failed to load (OK-66774)
 **Date**: 2026-11-10 | **Platforms**: iOS native Buy (main runtime classifies the checkout failure, background runtime stores the order). Android, desktop, web and extension have no in-app checkout and are unaffected.
 **Symptom**: A Paybis checkout whose payment web view failed on an SSL error left an order shown as Processing, and the page sent the user to that order instead of offering a retry.
 **Root Cause**: Onramper SDK 1.3.1 reports every failure of the provider's payment surface as `providerFailed` (payment outcome unknown), including a web view that never loaded. The client kept every such order for tracking.
 **Fix**: Read a `providerFailed` as a page load failure only when the failure carries a load error (support code `NSURLErrorDomain/<code>` other than cancelled, or the page's own `load_error`) and the web view had not reported ready. That hidden order is dropped and the page offers an in-place retry; a failure without a load error stays tracked as outcome unknown. The first version of the fix inferred the load failure from a missing `providerReady` alone, which review rejected: a provider page is not bound to report readiness.
 **Catchable by**: Section 4: Edge cases — error states of a third-party surface. Decide an outcome that drops a payment record on positive evidence from the failure, never on an event that did not arrive.
+
+## Case: Bulk Send random amounts did nothing with only the max entered (OK-66698)
+**Date**: 2026-11-10 | **Platforms**: Bulk Send amounts page on desktop/web (single JS runtime), extension and mobile (main UI runtime). No background or native-resource changes.
+**Symptom**: In ManyToOne / ManyToMany range mode, entering only the max generated no amounts, showed no error and kept Review disabled.
+**Root Cause**: Range validity and generation both required a non-empty min, while these modes start with both inputs empty and the "0" placeholder reads as an already-filled min.
+**Fix**: Treat an empty min as the chain minimum transfer amount, or the smallest token unit when the chain defines none, in validation, validity and generation. Review follow-up: an amount that display rounding would drop below a lower bound it met keeps that bound's precision (chain minimum 5.46 with an integer max formatted 5.68 as "5"), and a shared OneToMany balance must cover the chain minimum for every transfer instead of only one. Second review round: that kept precision is capped at the token's decimals (a min of 1.12345678 on a 6-decimal token produced an 8-decimal amount), and a range entered before the vault settings load is revalidated and regenerated once the chain minimum arrives, in both the mobile preview and the desktop table.
+**Catchable by**: Sections 4 and 6: When an input becomes optional, test the fallback value through every later step (rounding, balance caps) against chain limits, including a decimal chain minimum with an integer input, a balance below minimum × transfer count, an input finer than the token's decimals, and a fallback read before its async source resolves.
+
+## Case: Native Buy rate and fee popovers doubled the gap under the title (OK-66874)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime), where the popover presents as a sheet. The anchored panel on expanded windows is unchanged.
+**Symptom**: The rate and fee explainer sheets left too much space between the title and the body.
+**Root Cause**: The body's uniform `$5` padding added a full top inset below the sheet header's own bottom padding.
+**Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
+
+## Case: Privacy account actions interfered with unrelated rows (OK-66891, OK-66892)
+**Date**: 2026-11-10 | **Platforms**: iOS, Android and extension main UI runtime; desktop/web single JS runtime. Background scanning, native resource ownership and shared account admission are unchanged.
+**Symptom**: An account action disabled unrelated rows, while deleting local data displayed loading on Pause. The first per-account guard also let a duplicate confirmation finish before the original request, allowing the dialog footer to close early.
+**Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
+**Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
+**Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
