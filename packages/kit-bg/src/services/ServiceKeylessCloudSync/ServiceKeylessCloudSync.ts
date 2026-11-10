@@ -580,6 +580,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           const recoveredItems = restoresRotatedHardwareKey
             ? await prepareHardwareCloudSyncLocalRecovery({
                 items,
+                knownPwdHashes,
                 syncCredential: this.buildSyncCredentialWithKeylessCredential({
                   ...credential,
                   source,
@@ -665,18 +666,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
           this.setKeylessCloudSyncCredentialCache({ ...credential, source });
           if (restoresRotatedHardwareKey) {
             await commitHardwareCloudSyncLocalRecovery(recoveredItems);
-          } else {
-            await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB(
-              {
-                syncCredential: this.buildSyncCredentialWithKeylessCredential({
-                  ...credential,
-                  source,
-                }),
-                password,
-                askPasswordOnlyIfHdXfpMissing: true,
-              },
-            );
           }
+          await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
+            syncCredential: this.buildSyncCredentialWithKeylessCredential({
+              ...credential,
+              source,
+            }),
+            password,
+            askPasswordOnlyIfHdXfpMissing: true,
+            onlyAddMissing: restoresRotatedHardwareKey,
+          });
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
             isCloudSyncEnabledKeyless: true,

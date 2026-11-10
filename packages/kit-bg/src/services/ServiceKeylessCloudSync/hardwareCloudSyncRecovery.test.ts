@@ -101,6 +101,7 @@ describe('hardware re-sign recovery preserves business versions', () => {
       const recovered = await prepareHardwareCloudSyncLocalRecovery({
         items: [local],
         syncCredential,
+        knownPwdHashes: new Set(),
       });
       await commitHardwareCloudSyncLocalRecovery(recovered);
       expect(local).toMatchObject({
@@ -133,6 +134,7 @@ describe('hardware re-sign recovery preserves business versions', () => {
     const recovered = await prepareHardwareCloudSyncLocalRecovery({
       items: [local],
       syncCredential,
+      knownPwdHashes: new Set(),
     });
     await commitHardwareCloudSyncLocalRecovery(recovered);
     expect(local).toMatchObject({
@@ -148,6 +150,7 @@ describe('hardware re-sign recovery preserves business versions', () => {
     const recovered = await prepareHardwareCloudSyncLocalRecovery({
       items: [local],
       syncCredential,
+      knownPwdHashes: new Set(),
     });
     local.rawData = 'public-test-later-edit';
     local.dataTime = 300;
@@ -172,6 +175,7 @@ describe('hardware re-sign recovery preserves business versions', () => {
     const recovered = await prepareHardwareCloudSyncLocalRecovery({
       items: [local],
       syncCredential,
+      knownPwdHashes: new Set(),
     });
     await commitHardwareCloudSyncLocalRecovery(recovered);
     expect(local.dataTime).toBe(300);
@@ -195,6 +199,7 @@ describe('hardware re-sign recovery preserves business versions', () => {
         prepareHardwareCloudSyncLocalRecovery({
           items: [local],
           syncCredential,
+          knownPwdHashes: new Set(),
         }),
       ).rejects.toMatchObject({
         reason: expect.stringContaining('Local hardware sync record'),
@@ -209,8 +214,37 @@ describe('hardware re-sign recovery preserves business versions', () => {
       await prepareHardwareCloudSyncLocalRecovery({
         items: [local],
         syncCredential,
+        knownPwdHashes: new Set(),
       }),
     ).toEqual([]);
     expect(build).not.toHaveBeenCalled();
+  });
+
+  test('an opaque record accepted by key history is retained without re-encryption', async () => {
+    local.rawData = '';
+    const before = { ...local };
+    const recovered = await prepareHardwareCloudSyncLocalRecovery({
+      items: [local],
+      syncCredential,
+      knownPwdHashes: new Set([local.pwdHash]),
+    });
+    await commitHardwareCloudSyncLocalRecovery(recovered);
+    expect(recovered).toEqual([]);
+    expect(build).not.toHaveBeenCalled();
+    expect(local).toEqual(before);
+  });
+
+  test('key history cannot recover a record with neither ciphertext nor plaintext', async () => {
+    local.rawData = '';
+    local.data = '';
+    await expect(
+      prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set([local.pwdHash]),
+      }),
+    ).rejects.toMatchObject({
+      reason: expect.stringContaining('Local hardware sync record'),
+    });
   });
 });

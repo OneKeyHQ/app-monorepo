@@ -24,20 +24,28 @@ type IRecoveredItem = {
 export async function prepareHardwareCloudSyncLocalRecovery({
   items,
   syncCredential,
+  knownPwdHashes,
 }: {
   items: IDBCloudSyncItem[];
   syncCredential: ICloudSyncCredential;
+  knownPwdHashes: ReadonlySet<string>;
 }): Promise<IRecoveredItem[]> {
   const currentHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
   const recovered: IRecoveredItem[] = [];
-  const candidates = items.filter(
-    (item) =>
+  const candidates = items.filter((item) => {
+    // Downloaded records can still be waiting for scene decryption. Preserve
+    // their ciphertext when the authenticated history already accepts the key.
+    const canRetainCiphertext =
+      !item.rawData && item.data && knownPwdHashes.has(item.pwdHash);
+    return (
+      !canRetainCiphertext &&
       isSupportedCloudSyncDataType(item.dataType) &&
       item.dataType !== EPrimeCloudSyncDataType.Lock &&
       (!item.pwdHash ||
         item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)) &&
-      !(item.pwdHash === currentHash && item.data),
-  );
+      !(item.pwdHash === currentHash && item.data)
+    );
+  });
   for (const item of candidates) {
     const original = { ...item };
     let raw: unknown;

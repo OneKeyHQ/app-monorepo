@@ -2238,12 +2238,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     password,
     askPasswordOnlyIfHdXfpMissing,
+    onlyAddMissing,
   }: {
     syncCredential: ICloudSyncCredential;
     password?: string;
     // Set with a password already from resolvePasswordOnlyIfHdXfpMissing, so
     // a missing one is never prompted here.
     askPasswordOnlyIfHdXfpMissing?: boolean;
+    onlyAddMissing?: boolean;
   }) {
     const resolvedPassword = askPasswordOnlyIfHdXfpMissing
       ? password
@@ -2426,6 +2428,9 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     await localDb.addAndUpdateSyncItems({
       items: totalItems,
+      // Recovery already retained existing business versions and tombstones.
+      // Check existence in the write transaction, including concurrent inserts.
+      skipUpdate: onlyAddMissing,
       // as init item dataTime is undefined, server will reject the upload
       skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });

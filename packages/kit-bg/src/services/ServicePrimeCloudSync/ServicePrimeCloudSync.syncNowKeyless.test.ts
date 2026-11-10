@@ -13,8 +13,10 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
+import localDb from '../../dbs/local/localDb';
 import { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import { MaskedLocalDbAgent } from '../../dbs/local/MaskedLocalDbAgent';
+import simpleDb from '../../dbs/simple/simpleDb';
 import {
   primeCloudSyncPersistAtom,
   primeMasterPasswordPersistAtom,
@@ -22,7 +24,11 @@ import {
 
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type {
+  IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
+} from '../../dbs/local/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
@@ -938,17 +944,21 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
       generateAllHdAndQrWalletsHashAndXfp: jest.fn(async () => undefined),
       mergeDuplicateHDWallets: jest.fn(async () => undefined),
       generateAllQrWalletsMissingXfp: jest.fn(async () => undefined),
-      getAllWallets: jest.fn(async () => {
-        throw stopAfterPasswordStage;
-      }),
+      getAllWallets: jest.fn(
+        async (): Promise<{
+          wallets: IDBWallet[];
+          allDevices: IDBDevice[];
+        }> => {
+          throw stopAfterPasswordStage;
+        },
+      ),
     };
-    const service = new ServicePrimeCloudSync({
-      backgroundApi: {
-        servicePassword: { promptPasswordVerify },
-        serviceAccount,
-      },
-    });
-    return { service, promptPasswordVerify, serviceAccount };
+    const backgroundApi = {
+      servicePassword: { promptPasswordVerify },
+      serviceAccount,
+    };
+    const service = new ServicePrimeCloudSync({ backgroundApi });
+    return { service, promptPasswordVerify, serviceAccount, backgroundApi };
   }
 
   afterEach(() => {
@@ -971,6 +981,117 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
     expect(serviceAccount.mergeDuplicateHDWallets).not.toHaveBeenCalled();
     // QR wallets need no password for their xfp.
     expect(serviceAccount.generateAllQrWalletsMissingXfp).toHaveBeenCalled();
+  });
+
+  test('recovery initialization adds missing records without replacing versions, tombstones or concurrent inserts', async () => {
+    const existing: IDBCloudSyncItem = {
+      id: 'public-test-existing',
+      rawKey: 'public-test-raw-key',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      rawData: 'public-test-recovered-plaintext',
+      data: 'public-test-recovered-ciphertext',
+      dataTime: 200,
+      pwdHash: 'hw-dek-current',
+      isDeleted: false,
+      localSceneUpdated: false,
+      serverUploaded: false,
+    };
+    const deleted = { ...existing, id: 'public-test-deleted', isDeleted: true };
+    const concurrent = {
+      ...existing,
+      id: 'public-test-concurrent',
+      dataTime: 300,
+    };
+    const missing = {
+      ...existing,
+      id: 'public-test-missing',
+      dataTime: undefined,
+    };
+    const records = new Map([existing, deleted].map((item) => [item.id, item]));
+    const snapshot = structuredClone([existing, deleted, concurrent]);
+    const txDb = {
+      txAddRecords: jest.fn(
+        async ({ records: incoming }: { records: IDBCloudSyncItem[] }) => {
+          for (const item of incoming) {
+            if (!records.has(item.id)) records.set(item.id, item);
+          }
+        },
+      ),
+      txUpdateRecords: jest.fn(),
+    };
+    Object.assign(localDb, {
+      addAndUpdateSyncItems: jest.fn(
+        async (params: Parameters<LocalDbBase['addAndUpdateSyncItems']>[0]) => {
+          // A writer inserts this after enumeration but before the transaction.
+          records.set(concurrent.id, concurrent);
+          await LocalDbBase.prototype.txAddAndUpdateSyncItems.call(
+            txDb as unknown as LocalDbBase,
+            {
+              ...params,
+              tx: {} as Parameters<
+                LocalDbBase['txAddAndUpdateSyncItems']
+              >[0]['tx'],
+            },
+          );
+        },
+      ),
+    });
+    Object.assign(simpleDb, {
+      botWallet: { getMetadataMap: jest.fn(async () => ({})) },
+    });
+    const { service, serviceAccount, backgroundApi } = buildInitService();
+    serviceAccount.getAllWallets.mockResolvedValueOnce({
+      wallets: [],
+      allDevices: [],
+    });
+    Object.assign(serviceAccount, {
+      getAllAccounts: jest.fn(async () => ({ accounts: [] })),
+      getAllIndexedAccounts: jest.fn(async () => ({ indexedAccounts: [] })),
+    });
+    Object.assign(backgroundApi, {
+      serviceDiscovery: {
+        getBrowserBookmarksWithFillingSortIndex: jest.fn(async () => []),
+      },
+      serviceMarketV2: {
+        getMarketWatchListWithFillingSortIndexV2: jest.fn(async () => ({
+          data: [],
+        })),
+      },
+      serviceCustomRpc: {
+        getAllCustomRpc: jest.fn(async () => []),
+        getAllCustomNetworks: jest.fn(async () => []),
+      },
+      serviceAddressBook: { getItemsByNetwork: jest.fn(async () => []) },
+      serviceCustomToken: {
+        getAllHiddenTokens: jest.fn(async () => []),
+        getAllCustomTokens: jest.fn(async () => []),
+      },
+    });
+    const mode = jest
+      .spyOn(service, 'getActiveSyncMode')
+      .mockResolvedValue(ECloudSyncMode.OnekeyId);
+    for (const manager of Object.values(service.syncManagers)) {
+      Object.assign(manager, {
+        buildInitSyncDBItems: jest.fn(async () =>
+          manager === service.syncManagers.wallet
+            ? [existing, deleted, concurrent, missing].map((item) => ({
+                ...item,
+                dataTime: undefined,
+                isDeleted: false,
+              }))
+            : [],
+        ),
+      });
+    }
+    await service.initLocalSyncItemsDB({
+      syncCredential: hardwareKey,
+      askPasswordOnlyIfHdXfpMissing: true,
+      onlyAddMissing: true,
+    });
+    expect([...records.values()]).toEqual([...snapshot, missing]);
+    expect(txDb.txUpdateRecords).not.toHaveBeenCalled();
+    expect(records.get(missing.id)?.pwdHash).toBe('hw-dek-current');
+    mode.mockRestore();
   });
 
   test('init with a given password still runs the HD steps', async () => {
