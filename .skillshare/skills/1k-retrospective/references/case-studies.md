@@ -1515,3 +1515,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The two Reset handlers followed different save paths. Closing unconditionally after an async save would also discard edits entered while the reset was saving.
 **Fix**: Save defaults and close the dialog only when the latest draft still matches the saved reset. Keep any newer edits available for Confirm and leave the dialog open on save failure.
 **Catchable by**: Test Reset in both dialogs with a delayed save. Check that an untouched draft closes after success, an edit made during the save remains available, and a failed save can be retried.
+
+## Case: Perps Add Position amount field did not focus on iOS (OK-66886)
+**Date**: 2026-11-10 | **Platforms**: iOS main UI runtime (React Native Fabric and UIKit keyboard accessory).
+**Symptom**: Tapping the amount field in Perps Add Position could leave it unfocused with the keyboard closed. The issue also covered position TP/SL fields.
+**Root Cause**: A Fabric layout update could make a recycled, empty `InputAccessoryView` host visible. Its absolute frame overlapped the text input and intercepted taps.
+**Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
+**Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.
