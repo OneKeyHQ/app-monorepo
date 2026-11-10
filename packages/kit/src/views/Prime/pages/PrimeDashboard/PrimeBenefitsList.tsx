@@ -17,7 +17,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -37,6 +37,7 @@ function PrimeBenefitsBaseItem({
   subtitle,
   onPress,
   isComingSoon,
+  isAppOnly,
   itemProps,
 }: {
   icon: IKeyOfIcons;
@@ -44,6 +45,7 @@ function PrimeBenefitsBaseItem({
   subtitle: string;
   onPress?: () => void;
   isComingSoon?: boolean;
+  isAppOnly?: boolean;
   itemProps?: IPrimeBenefitsItemLayoutProps;
 }) {
   const intl = useIntl();
@@ -57,7 +59,7 @@ function PrimeBenefitsBaseItem({
         userSelect="none"
         flex={1}
         primary={
-          <XStack alignItems="center">
+          <XStack alignItems="center" flexWrap={isAppOnly ? 'wrap' : undefined}>
             <SizableText
               textAlign="left"
               size="$bodyLgMedium"
@@ -71,6 +73,16 @@ function PrimeBenefitsBaseItem({
                 <Badge.Text>
                   {intl.formatMessage({
                     id: ETranslations.id_prime_soon,
+                  })}
+                </Badge.Text>
+              </Badge>
+            ) : null}
+            {isAppOnly ? (
+              <Badge ml="$2" badgeSize="sm" flexShrink={0}>
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: ETranslationsMock.prime_app_only__title,
+                    defaultMessage: 'App only',
                   })}
                 </Badge.Text>
               </Badge>
@@ -107,6 +119,7 @@ export function PrimeBenefitsItem({
         feature.descriptionValues,
       )}
       isComingSoon={feature.isComingSoon}
+      isAppOnly={feature.isAppOnly}
       onPress={onPress}
       itemProps={itemProps}
     />

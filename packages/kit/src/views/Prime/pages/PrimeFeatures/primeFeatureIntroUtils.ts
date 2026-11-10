@@ -1,5 +1,6 @@
 import type { IKeyOfIcons, IVideoSource } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -40,6 +41,7 @@ export type IPrimeFeatureIntro = {
     description: ETranslations;
   }[];
   isComingSoon?: boolean;
+  isAppOnly?: boolean;
   action?: IPrimeFeatureIntroAction;
   actionLabel?: ETranslations;
 };
@@ -256,6 +258,7 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
   },
   {
     id: EPrimeFeatures.DAppTranslate,
+    isAppOnly: platformEnv.isExtension,
     listIcon: 'TranslateOutline',
     title: ETranslations.prime_ai_translate_title,
     description: ETranslations.prime_ai_translate_desc,
@@ -324,6 +327,9 @@ export function getPrimeFeatureIntroCtaKind({
   }
   if (!isPrimeSubscriptionActive) {
     return 'subscribe';
+  }
+  if (platformEnv.isExtension && feature.action === 'browser') {
+    return 'none';
   }
   if (feature.isComingSoon) {
     return 'comingSoon';

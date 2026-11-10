@@ -35,7 +35,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
@@ -992,6 +992,16 @@ export function PrimeFeatureIntroContent({
             </Badge.Text>
           </Badge>
         ) : null}
+        {activeFeature.isAppOnly ? (
+          <Badge badgeSize="sm" flexShrink={0}>
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslationsMock.prime_app_only__title,
+                defaultMessage: 'App only',
+              })}
+            </Badge.Text>
+          </Badge>
+        ) : null}
       </XStack>
       <SizableText
         textAlign="center"
@@ -1047,7 +1057,12 @@ export function PrimeFeatureIntroContent({
     </YStack>
   );
 
-  const shouldRenderPageFooter = usePageFooter && shouldShowFooterAction;
+  const shouldRenderPageFooter =
+    usePageFooter && (platformEnv.isExtension || shouldShowFooterAction);
+  let extensionFooterMinHeight: '$9' | '$12' | undefined;
+  if (platformEnv.isExtension) {
+    extensionFooterMinHeight = gtMd ? '$9' : '$12';
+  }
 
   // Desktop renders this as the dialog footer's extraContent; mobile renders it
   // inline above the footer with swipe-to-change-feature handlers attached.
@@ -1144,6 +1159,8 @@ export function PrimeFeatureIntroContent({
             }}
             buttonContainerProps={{
               justifyContent: 'flex-end',
+              // Match the medium/large CTA height so the indicators stay put.
+              minHeight: extensionFooterMinHeight,
             }}
             confirmButtonProps={
               shouldShowFooterAction
