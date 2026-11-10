@@ -359,6 +359,7 @@ const DIAGNOSTIC_COUNT_FIELDS = [
   'localItemCount',
   'unknownLocalHashCount',
   'knownHashCount',
+  'ignoredLegacyLockCount',
   'attempt',
   'httpStatus',
   'businessCode',
@@ -421,9 +422,7 @@ const DIAGNOSTIC_STAGES = new Set([
   'request_revoke',
   'request_upload',
   'request_verify',
-  'reset_download_max_pages',
-  'reset_download_page',
-  'reset_download_short_page_completeness_unknown',
+  'reset_download_received',
   'restore_key_compatibility_guard',
   'revoke_session_completed',
   'revoke_session_failed',
@@ -534,6 +533,22 @@ export function getHardwareCloudSyncErrorDiagnostics(
   }
 }
 
+function getRestoreDiagnosticCategory(dataType?: string) {
+  switch (dataType) {
+    case 'Lock':
+      return 'Lock';
+    case HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE:
+      return 'Envelope';
+    case 'Wallet':
+      return 'Wallet';
+    case 'IndexedAccount':
+    case 'Account':
+      return 'Account';
+    default:
+      return 'Other';
+  }
+}
+
 // The allowlisted categories describe schema types, not user-provided data.
 // Unknown types collapse to Other and never become log keys or text.
 export function summarizeHardwareCloudSyncRestoreItems(
@@ -564,24 +579,7 @@ export function summarizeHardwareCloudSyncRestoreItems(
       counts.mismatchedItemCount += 1;
       if (item.isDeleted) counts.mismatchedDeletedCount += 1;
       else counts.mismatchedLiveCount += 1;
-      let category: 'Lock' | 'Envelope' | 'Wallet' | 'Account' | 'Other';
-      switch (item.dataType) {
-        case 'Lock':
-          category = 'Lock';
-          break;
-        case HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE:
-          category = 'Envelope';
-          break;
-        case 'Wallet':
-          category = 'Wallet';
-          break;
-        case 'IndexedAccount':
-        case 'Account':
-          category = 'Account';
-          break;
-        default:
-          category = 'Other';
-      }
+      const category = getRestoreDiagnosticCategory(item.dataType);
       counts[`mismatched${category}Count`] += 1;
       if (item.isDeleted) counts[`mismatchedDeleted${category}Count`] += 1;
     }

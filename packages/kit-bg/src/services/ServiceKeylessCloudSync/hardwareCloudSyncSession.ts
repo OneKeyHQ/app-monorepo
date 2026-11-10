@@ -10,6 +10,7 @@ import {
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IHardwareCloudSyncAuthContext } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   HardwareCloudSyncCancelledError,
@@ -728,14 +729,16 @@ async function listPreviousPwdHashes({
     session,
     method: 'POST',
     urlPath: '/prime/v1/sync/download',
-    data: { pwdHash, limit: 100_000 },
+    data: { pwdHash },
   });
   logHardwareCloudSyncDiagnostic('history_download_received', {
     hasServerDataArray: Array.isArray(serverData),
-    requestedLimit: 100_000,
     returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
     historyCompleteKnown: false,
   });
+  if (!Array.isArray(serverData)) {
+    throw new OneKeyLocalError('Invalid Cloud sync download response');
+  }
   const hashes: string[] = [];
   let missingEnvelopeCount = 0;
   let invalidEnvelopeCount = 0;
@@ -749,7 +752,7 @@ async function listPreviousPwdHashes({
     invalidGenerationCount: 0,
     missingWrappedKeyCount: 0,
   };
-  const envelopes = (serverData ?? []).filter((item) =>
+  const envelopes = serverData.filter((item) =>
     isHardwareCloudSyncKeyEnvelopeItem(item),
   );
   for (const item of envelopes) {
@@ -767,7 +770,6 @@ async function listPreviousPwdHashes({
   }
   logHardwareCloudSyncDiagnostic('history_received_completeness_unknown', {
     ...rejected,
-    requestedLimit: 100_000,
     returnedCount: serverData?.length ?? 0,
     envelopeCount: envelopes.length,
     missingEnvelopeCount,
@@ -1135,10 +1137,8 @@ export type IServerSyncRecord = {
   isDeleted?: boolean;
 };
 
-const RESET_DOWNLOAD_PAGE_SIZE = 1000;
-const RESET_DOWNLOAD_MAX_PAGES = 1000;
-
-// Every record, page by page: a partial copy would lose the rest on flush.
+// The server does not guarantee stable ordering across offset pages. Omitting
+// limit returns all records; the pre-download nonce protects the later flush.
 export async function downloadAllForReset({
   client,
   session,
@@ -1148,46 +1148,24 @@ export async function downloadAllForReset({
   session: IHardwareCloudSyncSession;
   pwdHash: string;
 }): Promise<IServerSyncRecord[]> {
-  const diagnostic = createHardwareCloudSyncDiagnostic();
-  const all: IServerSyncRecord[] = [];
-  for (let page = 0; page < RESET_DOWNLOAD_MAX_PAGES; page += 1) {
-    const { serverData } = await requestWithHardwareCloudSyncSession<{
-      serverData: IServerSyncRecord[];
-    }>({
-      client,
-      session,
-      method: 'POST',
-      urlPath: '/prime/v1/sync/download',
-      data: {
-        pwdHash,
-        includeDeleted: true,
-        start: page * RESET_DOWNLOAD_PAGE_SIZE,
-        limit: RESET_DOWNLOAD_PAGE_SIZE,
-      },
-    });
-    const items = serverData ?? [];
-    all.push(...items);
-    diagnostic('reset_download_page', {
-      page,
-      start: page * RESET_DOWNLOAD_PAGE_SIZE,
-      requestedLimit: RESET_DOWNLOAD_PAGE_SIZE,
-      returnedCount: items.length,
-      totalCount: all.length,
-      historyCompleteKnown: false,
-    });
-    if (items.length < RESET_DOWNLOAD_PAGE_SIZE) {
-      diagnostic('reset_download_short_page_completeness_unknown', {
-        totalCount: all.length,
-        historyCompleteKnown: false,
-      });
-      return all;
-    }
+  const { serverData } = await requestWithHardwareCloudSyncSession<{
+    serverData: IServerSyncRecord[];
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/download',
+    data: { pwdHash, includeDeleted: true },
+  });
+  logHardwareCloudSyncDiagnostic('reset_download_received', {
+    hasServerDataArray: Array.isArray(serverData),
+    returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
+    historyCompleteKnown: false,
+  });
+  if (!Array.isArray(serverData)) {
+    throw new OneKeyLocalError('Invalid Cloud sync download response');
   }
-  diagnostic('reset_download_max_pages', { totalCount: all.length });
-  throw new HardwareCloudSyncLocalError(
-    ETranslations.cloud_sync_key_change_too_much_data__msg,
-    'Too much synced data to change the encryption key.',
-  );
+  return serverData;
 }
 
 // Stale data version: the server's nonce moved since it was read.

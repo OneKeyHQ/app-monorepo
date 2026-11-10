@@ -572,6 +572,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
               localItemCount: items.length,
               ...summarizeHardwareCloudSyncRestoreItems(items, knownPwdHashes),
               knownHashCount: knownPwdHashes.size,
+              ignoredLegacyLockCount: items.filter(
+                (item) =>
+                  item.dataType === EPrimeCloudSyncDataType.Lock &&
+                  item.pwdHash &&
+                  keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash),
+              ).length,
               existingSigningPublicKeyEmpty:
                 !!existing && !existing.signingPublicKey,
               currentSigningPublicKeyEmpty: !credential.signingPublicKey,
@@ -579,7 +585,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
               localItemsMismatch:
                 !rebuildsLocalItemsNow &&
                 items.some(
-                  (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
+                  (item) =>
+                    item.pwdHash &&
+                    !(
+                      item.dataType === EPrimeCloudSyncDataType.Lock &&
+                      keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+                    ) &&
+                    !knownPwdHashes.has(item.pwdHash),
                 ),
               existingPwdHashMismatch:
                 !!existing && !knownPwdHashes.has(existing.pwdHash),
@@ -588,10 +600,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
                 existing.signingPublicKey !== credential.signingPublicKey,
             }),
           );
+          // Legacy keyless Lock rows never participate in business sync and
+          // cannot establish ownership. Keep all business rows, including
+          // tombstones, and the saved credential subject to the key checks.
           if (
             (!rebuildsLocalItemsNow &&
               items.some(
-                (item) => item.pwdHash && !knownPwdHashes.has(item.pwdHash),
+                (item) =>
+                  item.pwdHash &&
+                  !(
+                    item.dataType === EPrimeCloudSyncDataType.Lock &&
+                    keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+                  ) &&
+                  !knownPwdHashes.has(item.pwdHash),
               )) ||
             (existing &&
               (!knownPwdHashes.has(existing.pwdHash) ||

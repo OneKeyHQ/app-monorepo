@@ -13,6 +13,7 @@ import { Popover } from '.';
 
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   renderHook,
@@ -23,6 +24,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsDeferredGuideBlocked } from '../../hooks/useDeferredGuideBlocker';
+import {
+  GlassHeaderProvider,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 import { ShowCustom } from '../Toast/ShowCustom';
 
 import { Popover as NativePopover } from './index.native';
@@ -53,6 +58,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNativeIOS: true, isNative: true },
 }));
+jest.mock('@react-navigation/elements', () => ({
+  HeaderHeightContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0 }),
+}));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({ isFoldableIPhone: () => false }),
+);
 jest.mock('../../hooks', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -205,15 +222,11 @@ jest.mock('./popoverSideEffects', () => ({
   runPopoverOpenSideEffects: jest.fn(),
   runPopoverCloseSideEffects: jest.fn(),
 }));
-jest.mock('./anchoredPopover', () => ({
-  ...jest.requireActual<typeof import('./anchoredPopover')>(
-    './anchoredPopover',
-  ),
-  useHoverOpen: jest.fn(),
-}));
 jest.mock('@floating-ui/dom', () => ({
   ...jest.requireActual<typeof import('@floating-ui/dom')>('@floating-ui/dom'),
-  computePosition: jest.fn().mockResolvedValue({ x: 240, y: 132 }),
+  computePosition: jest
+    .fn()
+    .mockResolvedValue({ x: 240, y: 132, placement: 'bottom-end' }),
   autoUpdate: jest.fn(
     (_reference: Element, _floating: HTMLElement, update: () => void) => {
       update();
@@ -223,6 +236,8 @@ jest.mock('@floating-ui/dom', () => ({
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
+  getAnchoredTransformOrigin: (placement: string) =>
+    placement === 'bottom-end' ? 'right top' : undefined,
   OverlayView: ({
     children,
     visible,
@@ -260,6 +275,40 @@ function resolveNativeMeasure(
 ) {
   act(() => callback(0, 0, 300, height));
 }
+
+it.each([true, false])(
+  'isolates native sheet content from glass header styles (iOS: %s)',
+  (isNativeIOS) => {
+    mockPlatformEnv.isNativeIOS = isNativeIOS;
+    const onPress = jest.fn();
+    function TriggerContent() {
+      return <span>Glass trigger: {String(useInGlassHeader())}</span>;
+    }
+    function Content() {
+      return (
+        <button type="button" onClick={onPress}>
+          Glass content: {String(useInGlassHeader())}
+        </button>
+      );
+    }
+    render(
+      <GlassHeaderProvider>
+        <NativePopover
+          title="Translate"
+          open
+          renderTrigger={<TriggerContent />}
+          renderContent={<Content />}
+        />
+      </GlassHeaderProvider>,
+    );
+    expect(screen.getByText('Glass trigger: true')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Glass content: false' }),
+    );
+    expect(onPress).toHaveBeenCalledTimes(1);
+  },
+);
+
 it('uses the requested percentage for a narrow web sheet', () => {
   mockNarrow = true;
   render(
@@ -528,6 +577,9 @@ it.each([false, true])(
       expect(panel?.style.left).toBe('240px');
       expect(panel?.style.top).toBe('132px');
     });
+    // The overlay scales the panel from the resolved placement.
+    expect(panel?.dataset.placement).toBe('bottom-end');
+    expect(panel?.style.transformOrigin).toBe('right top');
   },
 );
 it('focuses actions and forwards both autofocus callbacks', async () => {
@@ -572,4 +624,104 @@ it('leaves focus alone for hover panels', async () => {
   expect(onOpenAutoFocus).not.toHaveBeenCalled();
   view.unmount();
   outside.remove();
+});
+
+describe('hover and trigger press interaction', () => {
+  const hoverable = { delay: { open: 250 } };
+
+  function renderHoverPopover() {
+    render(
+      <Popover
+        title="Rates"
+        hoverable={hoverable}
+        renderTrigger="Rate details"
+        renderContent={<span>Rate breakdown</span>}
+      />,
+    );
+    return screen.getByRole('button', { name: 'Rate details' });
+  }
+
+  function advance(ms: number) {
+    act(() => jest.advanceTimersByTime(ms));
+  }
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
+  });
+
+  it('stays closed after reentering an open trigger and clicking it', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    fireEvent.mouseLeave(trigger);
+    advance(50);
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('stays closed after clicking open and closed before hover finishes', () => {
+    const trigger = renderHoverPopover();
+    fireEvent.mouseEnter(trigger);
+    advance(50);
+    fireEvent.click(trigger);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+
+    advance(50);
+    fireEvent.click(trigger);
+    advance(250);
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('does not request reopening after the controlled owner closes', () => {
+    const onOpenChange = jest.fn();
+    const props = {
+      title: 'Rates',
+      hoverable,
+      onOpenChange,
+      renderTrigger: 'Rate details',
+      renderContent: <span>Rate breakdown</span>,
+    };
+    const view = render(<Popover {...props} open />);
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Rate details' }));
+    advance(50);
+    view.rerender(<Popover {...props} open={false} />);
+
+    advance(250);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('overlay')).toBeNull();
+  });
+
+  it('accepts a new hover after a controlled close', () => {
+    const onOpenChange = jest.fn();
+    const props = {
+      title: 'Rates',
+      hoverable,
+      onOpenChange,
+      renderTrigger: 'Rate details',
+      renderContent: <span>Rate breakdown</span>,
+    };
+    const view = render(<Popover {...props} open />);
+    const trigger = screen.getByRole('button', { name: 'Rate details' });
+    fireEvent.mouseLeave(trigger);
+    advance(100);
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    view.rerender(<Popover {...props} open={false} />);
+
+    fireEvent.mouseEnter(trigger);
+    advance(249);
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    advance(1);
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    view.rerender(<Popover {...props} open />);
+    expect(screen.queryByTestId('overlay')).not.toBeNull();
+  });
 });

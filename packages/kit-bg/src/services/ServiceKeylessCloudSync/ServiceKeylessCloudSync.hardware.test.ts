@@ -794,6 +794,92 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'keyless-old-lock',
+      isDeleted: false,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'hw-dek-old-lock',
+      isDeleted: true,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'ordinary-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: true,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+  ])(
+    'same-source recovery handles residual $dataType ($pwdHash, deleted=$isDeleted)',
+    async ({ dataType, pwdHash, isDeleted, allowed }) => {
+      const { service, backgroundApi, initLocalSyncItemsDB } = setup([
+        { pwdHash: 'hw-dek-gen3' },
+        {
+          dataType,
+          pwdHash,
+          isDeleted,
+          rawData: 'public-test-preserved-raw',
+          serverUploaded: false,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      mockStored = undefined;
+      const sessionApi = jest.requireMock<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      jest
+        .mocked(sessionApi.bootstrapHardwareCloudSyncDataKey)
+        .mockImplementationOnce(async ({ deriveKek }) => ({
+          dek: await deriveKek('00'.repeat(16)),
+          dekId: 'public-test-dek',
+          pwdHash: credential.pwdHash,
+          generation: 4,
+          previousPwdHashes: ['hw-dek-gen3'],
+        }));
+
+      const before =
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        });
+      const snapshot = structuredClone(before);
+      if (allowed) {
+        await service.enableHardwareCloudSync({ connectId });
+        expect(initLocalSyncItemsDB).toHaveBeenCalled();
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toThrow("can't unlock");
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+        expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        }),
+      ).toEqual(snapshot);
+    },
+  );
+
   test('switching to Keyless still needs sync off', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);
     mockConfig.hardwareCloudSyncKeySource = source;

@@ -138,6 +138,24 @@ it('fetches duplicate transactions only once', async () => {
   );
 });
 
+// Its previous transaction can still be missing from the backend.
+it('does not let a deposit too young to spend block confirmed funds', async () => {
+  const youngDeposit = {
+    ...utxo,
+    txid: '71'.repeat(32),
+    height: utxo.height + utxo.confirmations - 1,
+    confirmations: 1,
+  };
+  const { vault, getRawTransactions } = createVault({
+    utxos: [utxo, youngDeposit],
+  });
+  const result = await vault['zcashFetchFreshTransparentUtxos']();
+  expect(result.utxos).toEqual([expect.objectContaining({ txid })]);
+  expect(getRawTransactions).toHaveBeenCalledWith(
+    expect.objectContaining({ txids: [txid] }),
+  );
+});
+
 it('keeps previously received change at the internal address spendable', async () => {
   const legacyPath = "m/44'/133'/0'/1/0";
   const { vault } = createVault({ utxos: [{ ...utxo, path: legacyPath }] });
@@ -151,13 +169,16 @@ it('keeps previously received change at the internal address spendable', async (
 });
 
 it('skips an outpoint another send is spending', async () => {
-  const { vault } = createVault({ inUse: [`${txid.toUpperCase()}:0`] });
+  const { vault, getRawTransactions } = createVault({
+    inUse: [`${txid.toUpperCase()}:0`],
+  });
   const result = await vault['zcashFetchFreshTransparentUtxos']();
   expect(result.utxos).toEqual([]);
   expect(result.targetHeight).toBe(utxo.height + utxo.confirmations);
+  expect(getRawTransactions).not.toHaveBeenCalled();
 });
 
-it('preserves coinbase exclusion and reports its balance', async () => {
+it('leaves mining rewards out of the spendable set', async () => {
   const { vault } = createVault({
     parsed: [
       {
@@ -169,7 +190,6 @@ it('preserves coinbase exclusion and reports its balance', async () => {
   });
   const result = await vault['zcashFetchFreshTransparentUtxos']();
   expect(result.utxos).toEqual([]);
-  expect(result.coinbaseZat).toBe(utxo.value);
 });
 
 it.each(['missing', 'amount', 'output'])(

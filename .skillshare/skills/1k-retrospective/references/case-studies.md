@@ -6,6 +6,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 
 <!-- New cases are appended below this line -->
 
+## Case: Mobile Home market recommendation cards retained table header spacing
+**Date**: 2026-11-10 | **Platforms**: iOS, Android (native)
+**Symptom**: The mobile Home market recommendation card grid left an extra 32px blank area before the next Home block.
+**Root Cause**: The content minimum-height fix applied the desktop table header allowance to mobile favorites state, while the regression test only exercised a category list and never rendered recommendation cards.
+**Fix**: Applied the 32px header allowance only to table layout, kept the mobile favorites list reservation to its row and action-band height, and added a test that renders mobile recommendation cards and the Add button.
+**Catchable by**: Section 3: UI changes verified on mobile recommendation-card layout; Section 5: Test state must exercise the changed rendering branch
+
 ## Case: iOS OneKey ID logout dialog stuck with loading spinner
 **Date**: 2026-02-26 | **Platforms**: iOS (native)
 **Symptom**: After clicking logout in OneKey ID page, the confirmation dialog showed a permanent loading spinner and never closed, even after the modal behind it was dismissed.
@@ -1396,3 +1403,45 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: A once-only flag suppressed subsequent positioning after layout changed. The SDK's oversized-group alignment calculation is a separate concern and does not replay successful requests on resize.
 **Fix**: Track nonzero list dimensions and reissue the existing wallet/group target after layout changes, deduplicating unchanged requests. Cancel queued frames after input, selection changes, blur or unmount. Committed component regressions cover viewport shrink, deduplication and cancellation; latest complete-App visual and native touch/rotation acceptance remain open.
 **Catchable by**: Sections 5, 6 and 8: Test layout changes after an initial positioning succeeds, cancellation before its queued frame runs, and user control after resize.
+
+## Case: WalletConnect namespace approval mismatch
+**Date**: 2026-10-31 | **Platforms**: iOS (reproduced); Android, Desktop, Web, Extension (shared WalletConnect service)
+**Symptom**: OpenRouter/Coinbase connection approval returned to Home with an SDK `Unsupported events` error. Proposals requiring EVM also omitted optional Algorand from the session despite offering its account in the approval UI.
+**Root Cause**: Account selection skipped unsupported namespaces, but approval construction retained them with undefined events. When required namespaces were present, another filter removed optional namespaces that were absent from the required set, including supported Algorand.
+**Fix**: Filter approval namespaces by the wallet's supported implementation map and process all optional namespaces while retaining unsupported-chain filtering. Required namespace validation remains in place.
+**Catchable by**: Section 4: data flow end-to-end; regression tests must cover unsupported optional namespaces and supported optional namespaces alongside a different required namespace, checking both approved accounts and real SDK validation.
+
+## Case: WalletConnect inherited namespace keys
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Proposals with required EVM and optional `toString`, `constructor`, or `__proto__` passed SDK proposal validation but produced invalid approval namespaces and extra unsupported account selectors.
+**Root Cause**: Support checks read ordinary object properties without checking ownership. Inherited functions were treated as supported implementations and methods/events; assigning `__proto__` also changed the approval result object's prototype.
+**Fix**: Reuse an own-property-checked implementation lookup for approval account selection and namespace construction. Unsupported required namespaces are rejected and unsupported optional namespaces are omitted before accessing methods/events.
+**Catchable by**: Section 4: data flow end-to-end; test inherited property names as external keys, assert account selection and result prototype, and validate the resulting session with the real SDK.
+
+## Case: WalletConnect optional namespace without supported chains
+**Date**: 2026-11-02 | **Platforms**: Shared WalletConnect background service; reproduced in unit tests
+**Symptom**: Required EVM with optional Algorand on unsupported chains produced an Algorand account selector with no available network IDs and an empty Algorand approval namespace. The account selector's empty network list falls back to all networks.
+**Root Cause**: Optional namespace support was checked by implementation alone; neither account selection nor approval construction required a usable supported chain. The SDK validators accept an empty optional namespace, so validator-only assertions missed the issue.
+**Fix**: Omit optional account selectors without supported networks and only write optional approval namespaces with at least one merged supported chain and a matching non-empty account address. Preserve required namespace processing and supported optional chains.
+**Catchable by**: Section 4: data flow end-to-end; assert UI account-selection inputs and exact namespace keys for all-unsupported, partially supported, and missing-account cases in addition to real SDK validation.
+
+## Case: Invisible browser translation action (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime); no background or native-resource ownership changes.
+**Symptom**: The browser translation sheet had a blank action area, but tapping it still opened the OneKey ID sign-in gate on iOS.
+**Root Cause**: The mobile browser capsule supplied GlassHeaderContext to the native popover content. Button removed its primary background for glass chrome while the translation label retained its inverse color on the light sheet.
+**Fix**: Reset the glass-header context at the native popover content boundary for both sheet and anchored presentations, retaining the trigger's context and existing action handler. Desktop/Web popover implementations are unchanged.
+**Catchable by**: Sections 3, 6 and 8: Test overlay context isolation from glass triggers and verify visible action contrast, not only hit targets or accessibility labels.
+
+## Case: Excess translation sheet title spacing (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime).
+**Symptom**: The mobile translation sheet had excessive space between its title and the target-language row.
+**Root Cause**: The content's uniform `$5` padding added another full top inset below the native sheet header's existing bottom padding.
+**Fix**: Use `$2` content top padding on native, matching the translation settings view. Preserve `$5` horizontal/bottom padding and all non-native padding.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered native sheet, not each container in isolation.
+
+## Case: Native popover close lifecycle suite cannot load (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: Jest Web preset testing native overlay components; no production runtime changes.
+**Symptom**: CI unit-test shard 1 failed before running the native close lifecycle suite, while the focused translation and context-isolation tests passed.
+**Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
+**Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
+**Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.

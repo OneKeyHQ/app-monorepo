@@ -1403,6 +1403,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const renderContent = useCallback(() => {
+    let contentMinHeight: number | undefined;
+    if (shouldUseTableLayout) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        32 +
+        50;
+    } else if (hasUserFavorites && !showRecommendCards) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        50;
+    }
+
     const listContent = (() => {
       if (selectedMarketCategoryId) {
         return (
@@ -1473,15 +1485,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            <YStack
-              minHeight={
-                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              }
-            >
-              {renderEmptyStateCards()}
-            </YStack>
+            {renderEmptyStateCards()}
             <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
@@ -1511,13 +1515,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         <YStack
           testID="home-market-content"
           // Reserve three rows, the desktop header, and the bottom action band
-          // across categories, loading, empty states, and recommendation cards.
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0) +
-            50
-          }
+          // for table-based content. Mobile recommendation cards size to their
+          // two-row grid so the add button stays close to the cards.
+          minHeight={contentMinHeight}
         >
           {listContent}
         </YStack>

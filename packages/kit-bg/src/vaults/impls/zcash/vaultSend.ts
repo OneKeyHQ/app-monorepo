@@ -26,6 +26,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import { validateZcashMemoHex } from '@onekeyhq/shared/src/utils/zcashMemo';
 import type {
   IEstimateGasParams,
@@ -664,7 +665,8 @@ export async function broadcastTransaction(
     try {
       broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     } catch (error) {
-      // Like BTC, a failed broadcast keeps no input lock; a retry reuses the inputs and the node rejects a real double spend.
+      // As Ledger Live does, any failure releases the inputs: a retry spends the same coins, so
+      // if the first attempt did land the node refuses the second instead of paying twice.
       await vault.backgroundApi.simpleDb.privacyChainJournal
         .settleTransparentPendingTx({
           accountId: vault.accountId,
@@ -675,6 +677,20 @@ export async function broadcastTransaction(
             ...zcashDescribeError(releaseError),
           });
         });
+      // No answer (timeout, network, 5xx) may still mean the node has it, so the user is told to
+      // check the history before retrying.
+      if (isTransientNetworkLikeError(error)) {
+        console.error('[zcash] transparent broadcast outcome unknown', {
+          txid: expectedTxid,
+          ...zcashDescribeError(error),
+        });
+        throw toUserFacingZcashError(
+          zcashTransparentError(
+            'BROADCAST_OUTCOME_UNKNOWN',
+            'Zcash transparent broadcast outcome is unknown',
+          ),
+        );
+      }
       throw error;
     }
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {
