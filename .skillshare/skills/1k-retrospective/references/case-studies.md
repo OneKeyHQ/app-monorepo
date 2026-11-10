@@ -1460,6 +1460,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
 **Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
 
+## Case: Perps deposit reused Solana payer and amount after switching to ETH (OK-66646)
+**Date**: 2026-11-10 | **Platforms**: Desktop/Web single-runtime UI hooks; reproduced and manually regressed on desktop.
+**Symptom**: Switching a Perps deposit from Solana USDC to native ETH sent the old Solana payer address and USDC quantity in an Ethereum quote, producing an invalid-address error.
+**Root Cause**: The account promise retained its previous result until the new network account resolved. The amount reset ran in a passive effect, while the amount-only debounce retained the previous token's quantity for 800ms.
+**Fix**: Bind account results to the selected account/network scope, reset amount state with token identity before effects run, and accept debounced amounts only when both token identity and amount match the current input.
+**Catchable by**: Test the real deposit and amount hooks together with delayed account resolution and fake timers. Assert that Solana USDC to ETH, account switches, same-network token switches, and rapid token round trips never quote with a stale payer or quantity.
+
 ## Case: Native Buy kept a Processing order after the payment page failed to load (OK-66774)
 **Date**: 2026-11-10 | **Platforms**: iOS native Buy (main runtime classifies the checkout failure, background runtime stores the order). Android, desktop, web and extension have no in-app checkout and are unaffected.
 **Symptom**: A Paybis checkout whose payment web view failed on an SSL error left an order shown as Processing, and the page sent the user to that order instead of offering a retry.
