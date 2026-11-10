@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -790,6 +791,92 @@ describe('hardware Cloud key source lifecycle', () => {
       expect(generateHardwareCloudSyncCredentialWithSdk).toHaveBeenCalledWith(
         expect.objectContaining({ expectedCredentialId: source.credentialId }),
       );
+    },
+  );
+
+  test.each([
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'keyless-old-lock',
+      isDeleted: false,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'hw-dek-old-lock',
+      isDeleted: true,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'ordinary-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: true,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+  ])(
+    'same-source recovery handles residual $dataType ($pwdHash, deleted=$isDeleted)',
+    async ({ dataType, pwdHash, isDeleted, allowed }) => {
+      const { service, backgroundApi, initLocalSyncItemsDB } = setup([
+        { pwdHash: 'hw-dek-gen3' },
+        {
+          dataType,
+          pwdHash,
+          isDeleted,
+          rawData: 'public-test-preserved-raw',
+          serverUploaded: false,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      mockStored = undefined;
+      const sessionApi = jest.requireMock<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      jest
+        .mocked(sessionApi.bootstrapHardwareCloudSyncDataKey)
+        .mockImplementationOnce(async ({ deriveKek }) => ({
+          dek: await deriveKek('00'.repeat(16)),
+          dekId: 'public-test-dek',
+          pwdHash: credential.pwdHash,
+          generation: 4,
+          previousPwdHashes: ['hw-dek-gen3'],
+        }));
+
+      const before =
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        });
+      const snapshot = structuredClone(before);
+      if (allowed) {
+        await service.enableHardwareCloudSync({ connectId });
+        expect(initLocalSyncItemsDB).toHaveBeenCalled();
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toThrow("can't unlock");
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+        expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        }),
+      ).toEqual(snapshot);
     },
   );
 
@@ -1752,6 +1839,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a refresh after another one finished uses the stored token instead of reusing the rotated one', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -1785,6 +1873,25 @@ describe('a hardware key never outlives turned-off sync', () => {
     });
     expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
     expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] credential_refresh_reused_stored_session {"forceRequested":true}',
+    );
+    const diagnostics = log.mock.calls
+      .flat()
+      .filter((value) =>
+        String(value).includes('[HardwareCloudSyncDiagnostic]'),
+      )
+      .join(' ');
+    for (const secret of [
+      hardwareSession.accessToken,
+      hardwareSession.refreshToken,
+      hardwareSession.sessionId,
+      hardwareSession.dekId,
+      credential.pwdHash,
+      credential.keylessWalletId,
+    ]) {
+      expect(diagnostics).not.toContain(secret);
+    }
   });
 
   test('a refresh whose reply was lost keeps the stored token for the next refresh', async () => {
@@ -1921,6 +2028,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a revoked-session push is checked with the server, for this session only', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -1951,6 +2059,12 @@ describe('a hardware key never outlives turned-off sync', () => {
     await service.onHardwareSessionRevokedPush({
       sessionId: hardwareSession.sessionId,
     });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":false'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":true'),
+    );
     // The refresh's 90700, not the push, drops the key.
     expect(refreshHardwareCloudSyncSessionIfNeeded).toHaveBeenCalledWith(
       expect.objectContaining({ force: true }),
@@ -2143,6 +2257,7 @@ describe('checking the hardware session when the page opens or the App returns',
   });
 
   test('a session another device signed out drops the key and tells the page', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const service = start();
     jest
       .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
@@ -2155,6 +2270,9 @@ describe('checking the hardware session when the page opens or the App returns',
     expect(
       sessionApi.refreshHardwareCloudSyncSessionIfNeeded,
     ).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }));
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] sign_in_credential_deletion_guard {"deletionAllowed":true}',
+    );
     expect(mockStored).toBeUndefined();
     expect(dropped).toHaveBeenCalledTimes(1);
   });
