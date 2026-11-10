@@ -1785,7 +1785,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
         credential,
         rotated.next,
       );
-      await this.updateHardwareCloudSyncDeviceName(derived.source);
       await this.recordHardwareKeyGeneration(
         source.credentialId,
         rotated.generation,
@@ -1798,6 +1797,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.Keyless,
       });
+      // Display metadata must not turn an already completed key reset into a failure.
+      await this.updateHardwareCloudSyncDeviceName(derived.source).catch(
+        (error: unknown) =>
+          logHardwareCloudSyncFailure('Persist device name', error),
+      );
     } finally {
       if (committing) {
         this.hardwareCloudKeyCommitting = false;

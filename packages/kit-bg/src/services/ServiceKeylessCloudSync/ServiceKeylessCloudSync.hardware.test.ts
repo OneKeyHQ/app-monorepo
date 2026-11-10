@@ -2857,6 +2857,59 @@ describe('hardware reset session and local data races', () => {
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
 
+  test('finishes key reset when persisting the optional device name fails', async () => {
+    const { service, backgroundApi } = setup();
+    jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async (params) => {
+        await signIn(params);
+        return {
+          credential: current,
+          source: { ...source, deviceName: 'Latest label' },
+        };
+      });
+    jest
+      .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
+      .mockImplementationOnce(async (params) => {
+        await params.savePending({ ...next, generation: 2 });
+        await params.beforeFlush?.();
+        return { next, generation: 2, items: [] };
+      });
+    const setConfig = jest.mocked(primeCloudSyncPersistAtom.set);
+    const originalSetConfig = setConfig.getMockImplementation();
+    if (!originalSetConfig)
+      throw new OneKeyLocalError('Missing atom setter fixture');
+    setConfig.mockImplementation(async (update) => {
+      const updated =
+        typeof update === 'function' ? update(mockConfig) : update;
+      if (updated.hardwareCloudSyncKeySource?.deviceName === 'Latest label') {
+        throw new OneKeyLocalError('Display metadata storage unavailable');
+      }
+      mockConfig = updated;
+    });
+    try {
+      await service.resetHardwareCloudSyncKey({ connectId });
+    } finally {
+      setConfig.mockImplementation(originalSetConfig);
+    }
+    expect(mockStored?.pwdHash).toBe(next.pwdHash);
+    expect(
+      mockConfig.hardwareCloudSyncKeyGenerations?.[source.credentialId],
+    ).toBe(2);
+    expect(sessionApi.revokeHardwareCloudSyncSession).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'allExceptCurrent' }),
+    );
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
+    ).toHaveBeenCalledWith({
+      syncMode: ECloudSyncMode.Keyless,
+    });
+  });
+
   test('reset reads local items after signing and refuses cancellation once flush starts', async () => {
     const { service, backgroundApi } = setup();
     const edited = {

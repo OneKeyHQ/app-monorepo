@@ -8,6 +8,7 @@ import {
   buildHardwareCloudSyncAuthMessage,
   getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -331,6 +332,88 @@ describe('hardware Cloud SDK adapter', () => {
     });
     expect(result.source.deviceName).toBe('Latest label');
     expect(result.source.deviceBleName).toBeUndefined();
+  });
+
+  test.each([
+    new Error('Settings unavailable'),
+    convertDeviceError({
+      code: HardwareErrorCode.RuntimeError,
+      error: 'Unknown message',
+    }),
+  ])(
+    'keeps the known label when its optional refresh fails: %s',
+    async (error) => {
+      const { backgroundApi, hardware, sdk } = buildBackgroundApi(undefined, {
+        label: 'Known label',
+        bleName: null,
+      });
+      const state = await hardware.getDeviceState();
+      hardware.getDeviceState.mockClear();
+      hardware.getDeviceState
+        .mockResolvedValueOnce(state)
+        .mockRejectedValueOnce(error);
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceName).toBe('Known label');
+      expect(sdk.btcSignMessage).toHaveBeenCalled();
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('[HardwareCloudSync] Refresh device label'),
+      );
+    },
+  );
+
+  test.each([
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+    HardwareErrorCode.PinCancelled,
+    HardwareErrorCode.DeviceInterruptedFromOutside,
+    HardwareErrorCode.DeviceInterruptedFromUser,
+  ])(
+    'preserves cancellation during label refresh for SDK code %s',
+    async (code) => {
+      const { backgroundApi, hardware, sdk } = buildBackgroundApi();
+      const state = await hardware.getDeviceState();
+      hardware.getDeviceState.mockClear();
+      hardware.getDeviceState
+        .mockResolvedValueOnce(state)
+        .mockRejectedValueOnce(
+          convertDeviceError({ code, error: 'Action cancelled' }),
+        );
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toHaveProperty('payload.code', code);
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not continue after the label refresh aborts the hardware lease', async () => {
+    const { backgroundApi, hardware, sdk, ui, lease } = buildBackgroundApi();
+    const state = await hardware.getDeviceState();
+    hardware.getDeviceState.mockClear();
+    hardware.getDeviceState
+      .mockResolvedValueOnce(state)
+      .mockImplementationOnce(async () => {
+        ui.hardwareProcessingManager.cancelOneKeyOperation(lease);
+        throw new OneKeyLocalError('Settings unavailable');
+      });
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).rejects.toThrow('Operation canceled');
+    expect(sdk.btcSignMessage).not.toHaveBeenCalled();
   });
 
   test.each([

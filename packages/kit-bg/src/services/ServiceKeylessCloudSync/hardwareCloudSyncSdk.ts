@@ -278,17 +278,35 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 targetCredentialId: credentialId,
               });
             }
-            // V2 runtime reads do not refresh the label. Read settings only
-            // when there is no Bluetooth name to display.
-            const displayState = opened.state.identity.bleName
-              ? opened.state
-              : await call('getDeviceState.settings', () =>
+            // V2 runtime reads do not refresh the label. This display-only
+            // refresh must not block signing, but user cancellation still does.
+            let displayState = opened.state;
+            if (!displayState.identity.bleName) {
+              try {
+                displayState = await call('getDeviceState.settings', () =>
                   hardware.getDeviceState({
                     connectId,
                     params: { scope: 'settings' },
                     silentMode: true,
                   }),
                 );
+              } catch (error) {
+                assertCurrent();
+                if (
+                  isOneKeyHardwareError(error) &&
+                  (error.key === ETranslations.hardware_user_cancel_error ||
+                    error.key ===
+                      ETranslations.feedback_pin_verification_cancelled)
+                ) {
+                  throw error;
+                }
+                logHardwareCloudSyncFailure(
+                  'Refresh device label',
+                  error,
+                  diagnostics,
+                );
+              }
+            }
             const deviceName = deviceUtils.getDeviceDisplayName({
               state: displayState,
               preferBleName: true,
