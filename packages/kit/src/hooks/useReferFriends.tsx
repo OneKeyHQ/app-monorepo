@@ -49,12 +49,12 @@ const isSameReferralIdentity = (
 ) => left.every((value, index) => value === right[index]);
 
 let referralLoginCheck:
-  | { promise: Promise<boolean>; stale: boolean }
+  | { promise: Promise<boolean>; stale: boolean; invalidate: () => void }
   | undefined;
 
 function getReferralLoginStatus() {
   if (referralLoginCheck && !referralLoginCheck.stale) {
-    return referralLoginCheck.promise;
+    return referralLoginCheck;
   }
   const identity = getReferralIdentity();
   const check = {
@@ -62,19 +62,21 @@ function getReferralLoginStatus() {
       backgroundApiProxy.servicePrime.isLoggedIn(),
     ),
     stale: false,
+    invalidate: (): void => undefined,
   };
   const unsubscribe = primePersistAtom.sub(() => {
     if (!isSameReferralIdentity(identity, getReferralIdentity())) {
-      check.stale = true;
+      check.invalidate();
     }
   });
-  // A UI timeout abandons the attempt, not the shared background operation.
-  check.promise = check.promise.finally(() => {
+  check.invalidate = () => {
+    check.stale = true;
     unsubscribe();
     if (referralLoginCheck === check) referralLoginCheck = undefined;
-  });
+  };
+  check.promise = check.promise.finally(check.invalidate);
   referralLoginCheck = check;
-  return check.promise;
+  return check;
 }
 
 function openExtensionReferralInExpandTab(path: string, params?: object) {
@@ -241,8 +243,9 @@ export const useReferFriends = ({
             attempt.cancel();
           }
         });
+        const loginCheck = getReferralLoginStatus();
         const result = await Promise.race([
-          getReferralLoginStatus(),
+          loginCheck.promise,
           new Promise<'cancelled' | 'timeout'>((resolve) => {
             cancelWait = () => resolve('cancelled');
             timeoutTimer = setTimeout(() => resolve('timeout'), 5000);
@@ -250,6 +253,8 @@ export const useReferFriends = ({
         ]);
         if (cancelled || !activeRef.current || result === 'cancelled') return;
         if (result === 'timeout') {
+          // Abandon this read so retry can recover even if it never settles.
+          loginCheck.invalidate();
           throw new OneKeyLocalError('Referral entry timed out');
         }
         attempt.committing = true;
@@ -318,10 +323,17 @@ export const useReferFriends = ({
         {
           screen: ETabRoutes.ReferFriends,
           params: {
-            screen: isLogin
-              ? ETabReferFriendsRoutes.TabInviteReward
-              : ETabReferFriendsRoutes.TabReferAFriend,
-            params,
+            state: {
+              index: 0,
+              routes: [
+                {
+                  name: isLogin
+                    ? ETabReferFriendsRoutes.TabInviteReward
+                    : ETabReferFriendsRoutes.TabReferAFriend,
+                  params,
+                },
+              ],
+            },
           },
         },
         { pop: true },

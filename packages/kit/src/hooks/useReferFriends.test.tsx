@@ -1,7 +1,15 @@
 /** @jest-environment jsdom */
 import React from 'react';
 
-import { act, cleanup, renderHook } from '@testing-library/react';
+import {
+  BaseNavigationContainer,
+  StackRouter,
+  TabRouter,
+  createNavigationContainerRef,
+  createNavigatorFactory,
+  useNavigationBuilder,
+} from '@react-navigation/core';
+import { act, cleanup, render, renderHook } from '@testing-library/react';
 
 import {
   EModalReferFriendsRoutes,
@@ -13,6 +21,7 @@ import {
 import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import type { useReferFriends } from './useReferFriends';
+import type { ParamListBase } from '@react-navigation/core';
 
 const mockIsLoggedIn = jest.fn<Promise<boolean>, []>();
 const mockPushModal = jest.fn<void, unknown[]>();
@@ -136,6 +145,61 @@ async function flush() {
   });
 }
 
+function TestStack(props: Parameters<typeof useNavigationBuilder>[1]) {
+  const { state, descriptors, NavigationContent } = useNavigationBuilder(
+    StackRouter,
+    props,
+  );
+  return (
+    <NavigationContent>
+      {state.routes.map((route) => (
+        <React.Fragment key={route.key}>
+          {descriptors[route.key].render()}
+        </React.Fragment>
+      ))}
+    </NavigationContent>
+  );
+}
+
+function TestTabs(props: Parameters<typeof useNavigationBuilder>[1]) {
+  const { state, descriptors, NavigationContent } = useNavigationBuilder(
+    TabRouter,
+    props,
+  );
+  return (
+    <NavigationContent>
+      {state.routes.map((route) => (
+        <React.Fragment key={route.key}>
+          {descriptors[route.key].render()}
+        </React.Fragment>
+      ))}
+    </NavigationContent>
+  );
+}
+
+const Stack = createNavigatorFactory(TestStack)();
+const Tabs = createNavigatorFactory(TestTabs)();
+const EmptyScreen = () => null;
+
+function ReferralStack() {
+  return (
+    <Stack.Navigator>
+      {Object.values(ETabReferFriendsRoutes).map((name) => (
+        <Stack.Screen key={name} name={name} component={EmptyScreen} />
+      ))}
+    </Stack.Navigator>
+  );
+}
+
+function MainTabs() {
+  return (
+    <Tabs.Navigator>
+      <Tabs.Screen name={ETabRoutes.Home} component={EmptyScreen} />
+      <Tabs.Screen name={ETabRoutes.ReferFriends} component={ReferralStack} />
+    </Tabs.Navigator>
+  );
+}
+
 describe('referral entry feedback and cancellation', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -225,9 +289,11 @@ describe('referral entry feedback and cancellation', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
-  it('reuses a pending background read when retrying after timeout', async () => {
-    const check = deferred<boolean>();
-    mockIsLoggedIn.mockReturnValue(check.promise);
+  it('starts a fresh check on retry while the timed-out read remains hung', async () => {
+    const oldCheck = deferred<boolean>();
+    mockIsLoggedIn
+      .mockReturnValueOnce(oldCheck.promise)
+      .mockResolvedValueOnce(true);
     const { result } = renderHook(loadHook());
     act(() => {
       void result.current.toReferFriendsPage();
@@ -235,17 +301,54 @@ describe('referral entry feedback and cancellation', () => {
     await act(async () => {
       jest.advanceTimersByTime(5000);
     });
-    act(() => {
-      void result.current.toReferFriendsPage();
-    });
-    await flush();
-    expect(mockIsLoggedIn).toHaveBeenCalledTimes(1);
     await act(async () => {
-      check.resolve(true);
+      await result.current.toReferFriendsPage();
     });
+    expect(mockIsLoggedIn).toHaveBeenCalledTimes(2);
     expect(mockPushModal).toHaveBeenCalledTimes(1);
+    await act(async () => oldCheck.resolve(false));
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(mockError).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['resolve', 'reject'] as const)(
+    'keeps the fresh check shared when the timed-out read later %ss',
+    async (settlement) => {
+      const oldCheck = deferred<boolean>();
+      const newCheck = deferred<boolean>();
+      mockIsLoggedIn
+        .mockReturnValueOnce(oldCheck.promise)
+        .mockReturnValueOnce(newCheck.promise);
+      const hook = loadHook();
+      const first = renderHook(hook);
+      act(() => {
+        void first.result.current.toReferFriendsPage();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(mockIdentityListeners.size).toBe(0);
+      act(() => {
+        void first.result.current.toReferFriendsPage();
+      });
+      await flush();
+      await act(async () => {
+        if (settlement === 'resolve') oldCheck.resolve(false);
+        else oldCheck.reject(new Error('late failure'));
+      });
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(mockError).toHaveBeenCalledTimes(1);
+      const second = renderHook(hook);
+      act(() => {
+        void second.result.current.toReferFriendsPage();
+      });
+      await flush();
+      expect(mockIsLoggedIn).toHaveBeenCalledTimes(2);
+      first.unmount();
+      await act(async () => newCheck.resolve(true));
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+    },
+  );
   it('restores the entry after rejection and allows a fresh request', async () => {
     const beforeNavigate = jest.fn<Promise<void>, []>().mockResolvedValue();
     mockIsLoggedIn
@@ -449,28 +552,79 @@ describe('referral entry feedback and cancellation', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
-  it('opens the non-native tab with its original parameters', async () => {
-    mockPlatform.isNative = false;
-    mockIsLoggedIn.mockResolvedValue(true);
-    const { result } = renderHook(loadHook());
-    await act(async () => {
-      await result.current.toReferFriendsPage({
-        tab: 'benefits',
-        perksEntry: 'activity_hub',
+  it.each([true, false])(
+    'resets only the referral stack when login is %s',
+    async (isLoggedIn) => {
+      mockPlatform.isNative = false;
+      mockIsLoggedIn.mockResolvedValue(isLoggedIn);
+      const ref = createNavigationContainerRef<ParamListBase>();
+      const onUnhandledAction = jest.fn();
+      render(
+        <BaseNavigationContainer
+          ref={ref}
+          onUnhandledAction={onUnhandledAction}
+          initialState={{
+            index: 0,
+            routes: [
+              {
+                name: ERootRoutes.Main,
+                state: {
+                  index: 0,
+                  routes: [
+                    { name: ETabRoutes.Home, params: { preserved: true } },
+                    {
+                      name: ETabRoutes.ReferFriends,
+                      state: {
+                        index: 2,
+                        routes: [
+                          {
+                            name: ETabReferFriendsRoutes.TabReferAFriend,
+                            params: { code: 'old-code' },
+                          },
+                          { name: ETabReferFriendsRoutes.TabInviteReward },
+                          { name: ETabReferFriendsRoutes.TabYourReferred },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }}
+        >
+          <Stack.Navigator>
+            <Stack.Screen name={ERootRoutes.Main} component={MainTabs} />
+          </Stack.Navigator>
+        </BaseNavigationContainer>,
+      );
+      const previousHome = ref.getRootState().routes[0].state?.routes[0];
+      mockNavigate.mockImplementation((...args) => {
+        ref.navigate(...(args as Parameters<typeof ref.navigate>));
       });
-    });
-    expect(mockNavigate).toHaveBeenCalledWith(
-      ERootRoutes.Main,
-      {
-        screen: ETabRoutes.ReferFriends,
-        params: {
-          screen: ETabReferFriendsRoutes.TabInviteReward,
-          params: { tab: 'benefits', perksEntry: 'activity_hub' },
-        },
-      },
-      { pop: true },
-    );
-  });
+      const { result } = renderHook(loadHook());
+      await act(async () => {
+        await result.current.toReferFriendsPage({
+          tab: 'benefits',
+          perksEntry: 'activity_hub',
+        });
+      });
+      const tabs = ref.getRootState().routes[0].state;
+      const referral = tabs?.routes.find(
+        (route) => route.name === ETabRoutes.ReferFriends,
+      )?.state;
+      expect(onUnhandledAction).not.toHaveBeenCalled();
+      expect(tabs?.routes[tabs.index ?? 0].name).toBe(ETabRoutes.ReferFriends);
+      expect(tabs?.routes[0]).toEqual(previousHome);
+      expect(referral?.index).toBe(0);
+      expect(referral?.routes).toHaveLength(1);
+      expect(ref.getCurrentRoute()).toMatchObject({
+        name: isLoggedIn
+          ? ETabReferFriendsRoutes.TabInviteReward
+          : ETabReferFriendsRoutes.TabReferAFriend,
+        params: { tab: 'benefits', perksEntry: 'activity_hub' },
+      });
+    },
+  );
 
   it('opens the extension expanded tab before closing its popup', async () => {
     Object.assign(mockPlatform, { isNative: false, isExtensionUiPopup: true });
