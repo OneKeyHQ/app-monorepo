@@ -73,6 +73,7 @@
   },
   "dependencies": {
     "@backpackapp-io/react-native-toast": "0.14.0",
+    "@breeztech/breez-sdk-spark-react-native": "0.26.1",
     "@expo-google-fonts/inter": "^0.2.3",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",

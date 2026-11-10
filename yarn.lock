@@ -2919,6 +2919,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@breeztech/breez-sdk-spark-react-native@npm:0.26.1":
+  version: 0.26.1
+  resolution: "@breeztech/breez-sdk-spark-react-native@npm:0.26.1"
+  dependencies:
+    uniffi-bindgen-react-native: "git+https://github.com/breez/uniffi-bindgen-react-native.git#309bc8fa7fc56d4358dc75a78135a54d8225786b"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/9d20356925536ebef5ffd871f008d597c31d3b50c3ca6c1637f1880d6551bafaeb101fb586ed5b83342c5ff5dfd32c27f1e03280eee879ef82ddd8caeacafc1a
+  languageName: node
+  linkType: hard
+
 "@breeztech/breez-sdk-spark@npm:0.26.1":
   version: 0.26.1
   resolution: "@breeztech/breez-sdk-spark@npm:0.26.1"
@@ -11012,6 +11024,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:7.29.7"
     "@backpackapp-io/react-native-toast": "npm:0.14.0"
+    "@breeztech/breez-sdk-spark-react-native": "npm:0.26.1"
     "@expo-google-fonts/inter": "npm:^0.2.3"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
@@ -49358,6 +49371,16 @@ __metadata:
   version: 2.1.0
   resolution: "unicode-property-aliases-ecmascript@npm:2.1.0"
   checksum: 10/243524431893649b62cc674d877bd64ef292d6071dd2fd01ab4d5ad26efbc104ffcd064f93f8a06b7e4ec54c172bf03f6417921a0d8c3a9994161fe1f88f815b
+  languageName: node
+  linkType: hard
+
+"uniffi-bindgen-react-native@git+https://github.com/breez/uniffi-bindgen-react-native.git#309bc8fa7fc56d4358dc75a78135a54d8225786b":
+  version: 0.29.3-1
+  resolution: "uniffi-bindgen-react-native@https://github.com/breez/uniffi-bindgen-react-native.git#commit=309bc8fa7fc56d4358dc75a78135a54d8225786b"
+  bin:
+    ubrn: ./bin/cli.cjs
+    uniffi-bindgen-react-native: ./bin/cli.cjs
+  checksum: 10/e35abe42cbbfbed0aadf78983a3b41eccc7c99d4ff3c17388d113aa9fb6245c51c2969546af5dd8c54c3a9f8509b4d64217bf13f4abf6ed988fd1f199ae73fa9
   languageName: node
   linkType: hard
 
