@@ -351,6 +351,34 @@ export function isSwapHistoryProtocolExcluded({
   return Boolean(item.protocol && excludeProtocols.includes(item.protocol));
 }
 
+export type ISwapHistoryClearOptions = {
+  excludeProtocols?: EProtocolOfExchange[];
+  excludeStock?: boolean;
+  onlyStock?: boolean;
+};
+
+export function shouldDeleteSwapHistoryItem(
+  item: ISwapTxHistory,
+  statuses?: ESwapTxHistoryStatus[],
+  options?: ISwapHistoryClearOptions,
+): boolean {
+  if (
+    isSwapHistoryProtocolExcluded({
+      item,
+      excludeProtocols: options?.excludeProtocols,
+    })
+  ) {
+    return false;
+  }
+  if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+    return false;
+  }
+  if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+    return false;
+  }
+  return statuses ? statuses.includes(item.status) : true;
+}
+
 export function getSwapHistoryLongPendingWarningDelayMs({
   item,
   now = Date.now(),

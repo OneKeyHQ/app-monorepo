@@ -1445,3 +1445,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
 **Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
 **Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.
+
+## Case: Universal Search table headers used a different background (OK-66871)
+**Date**: 2026-11-10 | **Platforms**: Universal Search UI on desktop/web (single JS runtime) and mobile (main runtime).
+**Symptom**: The table headers in All, Tokens, and Stocks appeared against a different surface from the search page.
+**Root Cause**: The shared selectors used their own table header backgrounds, while Universal Search used `$bgApp` for the page.
+**Fix**: Pass `$bgApp` to the search result headers and keep the stock selector's default `$bg`. Update the existing stock selector test to expect the explicit default background.
+**Catchable by**: Check sticky header contrast against the enclosing surface in each results tab, and run the existing tests for shared selectors when adding a default prop.
+
+## Case: Mobile Stocks order history tab was missing (OK-66882)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android (main UI and background swap history service).
+**Symptom**: Mobile Stocks showed positions and a pending-order preview, with no tab for browsing completed orders.
+**Root Cause**: The mobile layout rendered positions directly without mounting the stock history list or providing a way to switch to it.
+**Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
+**Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
