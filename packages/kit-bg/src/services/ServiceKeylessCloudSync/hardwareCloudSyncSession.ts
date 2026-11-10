@@ -28,7 +28,12 @@ import type {
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
-import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
+import {
+  createHardwareCloudSyncDataError,
+  createHardwareCloudSyncDiagnostic,
+  getHardwareCloudSyncErrorDiagnostics,
+  logHardwareCloudSyncDiagnostic,
+} from './hardwareCloudSyncLog';
 
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
@@ -185,6 +190,29 @@ async function requestRaw<T>({
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
+  // A fixed route classification avoids logging URLs, query data, or account IDs.
+  const route = [
+    '/prime/v1/sync/lock',
+    '/prime/v1/sync/download',
+    '/prime/v1/sync/check',
+    '/prime/v1/sync/upload',
+    '/prime/v1/sync/flush',
+    `${AUTH_BASE}/refresh`,
+    `${AUTH_BASE}/revoke`,
+    `${AUTH_BASE}/challenge`,
+    `${AUTH_BASE}/verify`,
+  ].indexOf(urlPath);
+  const stages = [
+    'request_lock',
+    'request_download',
+    'request_check',
+    'request_upload',
+    'request_flush',
+    'request_refresh',
+    'request_revoke',
+    'request_challenge',
+    'request_verify',
+  ];
   const send = (clockOffsetMs: number) => {
     const headers: Record<string, string> = {
       DPoP: buildPossessionProof({
@@ -210,12 +238,32 @@ async function requestRaw<T>({
     // A proof with a stale time is refused like a bad token, for example when
     // the estimate predates a sleep. Resend once only if the re-measured clock
     // explains it; the new proof is not a replay of the refused one.
+    const diagnostic = createHardwareCloudSyncDiagnostic();
+    diagnostic(stages[route] ?? 'request_other');
+    diagnostic('request_failed', {
+      ...getHardwareCloudSyncErrorDiagnostics(error),
+      unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+    });
     if (!isHardwareCloudSyncUnauthorizedError(error)) throw error;
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
+      diagnostic('request_clock_retry_skipped', { clockRetry: false });
       throw error;
     }
-    return send(measured);
+    diagnostic('request_clock_retry', { clockRetry: true });
+    try {
+      const response = await send(measured);
+      diagnostic('request_clock_retry_success', {
+        httpStatus: response.status,
+      });
+      return response;
+    } catch (retryError) {
+      diagnostic('request_clock_retry_failed', {
+        ...getHardwareCloudSyncErrorDiagnostics(retryError),
+        unauthorized: isHardwareCloudSyncUnauthorizedError(retryError),
+      });
+      throw retryError;
+    }
   }
 }
 
@@ -284,12 +332,25 @@ export async function requestHardwareCloudSyncChallenge({
   // before the user is asked to sign it.
   const clockOffsetMs = await measureServerClockOffsetMs({ force: true });
   // The server recovers the identity key from the signature.
-  const response = await client.post<
+  let response: AxiosResponse<
     IApiClientResponse<{ challengeId: string; message: string }>
-  >(`${AUTH_BASE}/challenge`, {
-    deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
-    identityTag,
-  });
+  >;
+  try {
+    response = await client.post<
+      IApiClientResponse<{ challengeId: string; message: string }>
+    >(`${AUTH_BASE}/challenge`, {
+      deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
+      identityTag,
+    });
+  } catch (error) {
+    const diagnostic = createHardwareCloudSyncDiagnostic();
+    diagnostic('request_challenge');
+    diagnostic('request_failed', {
+      ...getHardwareCloudSyncErrorDiagnostics(error),
+      unauthorized: isHardwareCloudSyncUnauthorizedError(error),
+    });
+    throw error;
+  }
   const challenge = response.data.data;
   assertHardwareCloudSyncChallengeFor({
     message: challenge?.message,
@@ -521,13 +582,24 @@ export function computeHardwareCloudSyncPwdHash(dekId: string): string {
 // log them as data check failures.
 function readEnvelope(
   data: string | undefined,
+  onInvalid?: (
+    reason:
+      | 'invalidJsonCount'
+      | 'invalidShapeCount'
+      | 'invalidVersionCount'
+      | 'invalidIdCount'
+      | 'invalidSaltCount'
+      | 'invalidGenerationCount'
+      | 'missingWrappedKeyCount',
+  ) => void,
 ): IKeyEnvelope | undefined | null {
   if (!data) return undefined;
   let envelope: Partial<IKeyEnvelope> | undefined;
   try {
     envelope = JSON.parse(data) as Partial<IKeyEnvelope>;
   } catch {
-    envelope = undefined;
+    onInvalid?.('invalidJsonCount');
+    return null;
   }
   if (
     !envelope ||
@@ -540,6 +612,25 @@ function readEnvelope(
     typeof envelope.wrappedDek !== 'string' ||
     !envelope.wrappedDek
   ) {
+    if (!envelope) onInvalid?.('invalidShapeCount');
+    else {
+      if (
+        typeof envelope.dekId !== 'string' ||
+        !/^[0-9a-f]{32}$/.test(envelope.dekId)
+      )
+        onInvalid?.('invalidIdCount');
+      if (envelope.kekVersion !== HARDWARE_CLOUD_SYNC_KEK_VERSION)
+        onInvalid?.('invalidVersionCount');
+      if (!isHardwareCloudSyncKekSalt(envelope.kekSalt))
+        onInvalid?.('invalidSaltCount');
+      if (
+        !Number.isSafeInteger(envelope.generation) ||
+        (envelope.generation ?? 0) < 1
+      )
+        onInvalid?.('invalidGenerationCount');
+      if (typeof envelope.wrappedDek !== 'string' || !envelope.wrappedDek)
+        onInvalid?.('missingWrappedKeyCount');
+    }
     return null;
   }
   return envelope as IKeyEnvelope;
@@ -563,7 +654,13 @@ export async function readLockEnvelope({
   const { lock } = await requestWithHardwareCloudSyncSession<{
     lock: { data?: string } | null;
   }>({ client, session, method: 'GET', urlPath: '/prime/v1/sync/lock' });
-  return parseEnvelope(lock?.data);
+  logHardwareCloudSyncDiagnostic('lock_received', { hasLock: !!lock?.data });
+  const envelope = parseEnvelope(lock?.data);
+  logHardwareCloudSyncDiagnostic('lock_parsed', {
+    hasLock: !!envelope,
+    generation: envelope?.generation,
+  });
+  return envelope;
 }
 
 // A new data key with its own salt; the device signs the salted message once
@@ -634,21 +731,56 @@ async function listPreviousPwdHashes({
     urlPath: '/prime/v1/sync/download',
     data: { pwdHash },
   });
+  logHardwareCloudSyncDiagnostic('history_download_received', {
+    hasServerDataArray: Array.isArray(serverData),
+    returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
+    historyCompleteKnown: false,
+  });
   if (!Array.isArray(serverData)) {
     throw new OneKeyLocalError('Invalid Cloud sync download response');
   }
   const hashes: string[] = [];
+  let missingEnvelopeCount = 0;
+  let invalidEnvelopeCount = 0;
+  let currentEnvelopeCount = 0;
+  const rejected = {
+    invalidJsonCount: 0,
+    invalidShapeCount: 0,
+    invalidVersionCount: 0,
+    invalidIdCount: 0,
+    invalidSaltCount: 0,
+    invalidGenerationCount: 0,
+    missingWrappedKeyCount: 0,
+  };
   const envelopes = serverData.filter((item) =>
     isHardwareCloudSyncKeyEnvelopeItem(item),
   );
   for (const item of envelopes) {
     // A malformed or legacy envelope is not a key version of this wallet.
-    const envelope = readEnvelope(item.data);
+    const envelope = readEnvelope(item.data, (reason) => {
+      rejected[reason] += 1;
+    });
+    if (envelope === undefined) missingEnvelopeCount += 1;
+    if (envelope === null) invalidEnvelopeCount += 1;
     const hash = envelope
       ? computeHardwareCloudSyncPwdHash(envelope.dekId)
       : undefined;
+    if (hash === pwdHash) currentEnvelopeCount += 1;
     if (hash && hash !== pwdHash) hashes.push(hash);
   }
+  logHardwareCloudSyncDiagnostic('history_received_completeness_unknown', {
+    ...rejected,
+    returnedCount: serverData?.length ?? 0,
+    envelopeCount: envelopes.length,
+    missingEnvelopeCount,
+    invalidEnvelopeCount,
+    validEnvelopeCount:
+      envelopes.length - missingEnvelopeCount - invalidEnvelopeCount,
+    currentEnvelopeCount,
+    previousEnvelopeCount: hashes.length,
+    uniquePreviousCount: new Set(hashes).size,
+    historyCompleteKnown: false,
+  });
   return hashes;
 }
 
@@ -678,9 +810,17 @@ export async function bootstrapHardwareCloudSyncDataKey({
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const existing = await readLockEnvelope({ client, session });
     if (existing) {
+      logHardwareCloudSyncDiagnostic('bootstrap_existing_lock', {
+        generation: existing.generation,
+        minGeneration,
+        attempt,
+      });
       assertNotRolledBack(existing, minGeneration);
+      logHardwareCloudSyncDiagnostic('bootstrap_derive_kek_started');
       const kek = await deriveKek(existing.kekSalt);
+      logHardwareCloudSyncDiagnostic('bootstrap_unwrap_started');
       const dek = await unwrapDek({ kek, envelope: existing });
+      logHardwareCloudSyncDiagnostic('bootstrap_unwrap_succeeded');
       const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
       return {
         dek,
@@ -936,6 +1076,17 @@ export async function rotateHardwareCloudSyncDataKey<
     },
   ];
 
+  logHardwareCloudSyncDiagnostic('rotation_prepared', () => ({
+    previousGeneration: existing.generation,
+    nextGeneration: envelope.generation,
+    localItemCount: localItems.length,
+    returnedCount: serverData.length,
+    inputEnvelopeCount: envelopeRecords.length,
+    outputEnvelopeCount: envelopeItems.length,
+    previousCurrentEnvelopeIncluded: envelopeRecords.some(
+      (item) => readEnvelope(item.data)?.dekId === existing.dekId,
+    ),
+  }));
   assertCurrent();
   await savePending({ ...next, generation: envelope.generation });
   assertCurrent();
@@ -971,6 +1122,10 @@ export async function rotateHardwareCloudSyncDataKey<
       ],
     },
   });
+  logHardwareCloudSyncDiagnostic('rotation_flush_accepted', {
+    generation: envelope.generation,
+    outputEnvelopeCount: envelopeItems.length,
+  });
   return { next, items, generation: envelope.generation };
 }
 
@@ -1001,6 +1156,11 @@ export async function downloadAllForReset({
     method: 'POST',
     urlPath: '/prime/v1/sync/download',
     data: { pwdHash, includeDeleted: true },
+  });
+  logHardwareCloudSyncDiagnostic('reset_download_received', {
+    hasServerDataArray: Array.isArray(serverData),
+    returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
+    historyCompleteKnown: false,
   });
   if (!Array.isArray(serverData)) {
     throw new OneKeyLocalError('Invalid Cloud sync download response');

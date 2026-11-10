@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1838,6 +1839,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a refresh after another one finished uses the stored token instead of reusing the rotated one', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -1871,6 +1873,25 @@ describe('a hardware key never outlives turned-off sync', () => {
     });
     expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
     expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] credential_refresh_reused_stored_session {"forceRequested":true}',
+    );
+    const diagnostics = log.mock.calls
+      .flat()
+      .filter((value) =>
+        String(value).includes('[HardwareCloudSyncDiagnostic]'),
+      )
+      .join(' ');
+    for (const secret of [
+      hardwareSession.accessToken,
+      hardwareSession.refreshToken,
+      hardwareSession.sessionId,
+      hardwareSession.dekId,
+      credential.pwdHash,
+      credential.keylessWalletId,
+    ]) {
+      expect(diagnostics).not.toContain(secret);
+    }
   });
 
   test('a refresh whose reply was lost keeps the stored token for the next refresh', async () => {
@@ -2007,6 +2028,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a revoked-session push is checked with the server, for this session only', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -2037,6 +2059,12 @@ describe('a hardware key never outlives turned-off sync', () => {
     await service.onHardwareSessionRevokedPush({
       sessionId: hardwareSession.sessionId,
     });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":false'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":true'),
+    );
     // The refresh's 90700, not the push, drops the key.
     expect(refreshHardwareCloudSyncSessionIfNeeded).toHaveBeenCalledWith(
       expect.objectContaining({ force: true }),
@@ -2229,6 +2257,7 @@ describe('checking the hardware session when the page opens or the App returns',
   });
 
   test('a session another device signed out drops the key and tells the page', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const service = start();
     jest
       .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
@@ -2241,6 +2270,9 @@ describe('checking the hardware session when the page opens or the App returns',
     expect(
       sessionApi.refreshHardwareCloudSyncSessionIfNeeded,
     ).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }));
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] sign_in_credential_deletion_guard {"deletionAllowed":true}',
+    );
     expect(mockStored).toBeUndefined();
     expect(dropped).toHaveBeenCalledTimes(1);
   });

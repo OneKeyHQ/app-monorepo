@@ -6,7 +6,10 @@ import {
   buildHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -121,6 +124,54 @@ describe('hardware Cloud sync session', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('repeated successful sync requests do not produce diagnostic traffic', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const activeSession = session();
+    for (let i = 0; i < 5; i += 1) {
+      await requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: activeSession,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/download',
+        data: {},
+      });
+    }
+    expect(logger).not.toHaveBeenCalled();
+  });
+
+  test('challenge request failures log their phase and preserve the original error without retry', async () => {
+    const logger = jest.spyOn(defaultLogger.app.error, 'log');
+    logger.mockClear();
+    const c = fakeClient();
+    const error = new OneKeyServerApiError({
+      httpStatusCode: 503,
+      message: 'private-challenge-detail',
+    });
+    c.post.mockRejectedValue(error);
+    await expect(
+      requestHardwareCloudSyncChallenge({
+        client: c.client,
+        jwk: createHardwareCloudSyncDeviceKey(),
+        identityTag,
+        env,
+      }),
+    ).rejects.toBe(error);
+    expect(c.post).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('request_challenge'),
+    );
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('"httpStatus":503'),
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(
+      'private-challenge-detail',
+    );
+    expect(JSON.stringify(logger.mock.calls)).not.toContain(identityTag);
   });
 
   describe('server clock', () => {
@@ -933,6 +984,21 @@ describe('hardware Cloud sync session', () => {
           ([url]) => url === '/prime/v1/sync/download',
         );
         expect(downloads).toHaveLength(1);
+        const resetLogs = jest
+          .spyOn(defaultLogger.app.error, 'log')
+          .mock.calls.flat()
+          .filter(
+            (line) =>
+              typeof line === 'string' &&
+              line.includes('reset_download_received'),
+          );
+        expect(resetLogs.at(-1)).toEqual(
+          expect.stringContaining(`"returnedCount":${count}`),
+        );
+        expect(resetLogs.at(-1)).toEqual(
+          expect.stringContaining('"historyCompleteKnown":false'),
+        );
+        expect(resetLogs.at(-1)).not.toContain('requestedLimit');
         const body = downloads[0][1];
         expect(body).toMatchObject({ includeDeleted: true });
         expect(body).not.toHaveProperty('start');
@@ -1090,6 +1156,7 @@ describe('hardware Cloud sync session', () => {
         envelopeItem,
         other,
         { ...other, data: '{"dekId":"legacy"}' },
+        { ...other, data: '{invalid-json' },
       ];
       joiner.post.mockImplementation(
         async (_url: string, body: { limit?: number }) =>
@@ -1104,6 +1171,50 @@ describe('hardware Cloud sync session', () => {
       expect(joiner.post.mock.calls[0][1]).not.toHaveProperty('skip');
       expect(joiner.post.mock.calls[0][1]).not.toHaveProperty('start');
       expect(joined.dek).toBe(newer.dek);
+      const diagnostics = jest
+        .spyOn(defaultLogger.app.error, 'log')
+        .mock.calls.flat()
+        .filter(
+          (line) =>
+            typeof line === 'string' &&
+            line.includes('history_received_completeness_unknown'),
+        );
+      expect(diagnostics.at(-1)).not.toContain('requestedLimit');
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"returnedCount":100004'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidEnvelopeCount":2'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidIdCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidJsonCount":1'),
+      );
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"invalidShapeCount":0'),
+      );
+
+      expect(diagnostics.at(-1)).toEqual(
+        expect.stringContaining('"historyCompleteKnown":false'),
+      );
+      const logs = JSON.stringify(
+        jest.spyOn(defaultLogger.app.error, 'log').mock.calls,
+      );
+      for (const secret of [
+        key.dek,
+        key.dekId,
+        key.pwdHash,
+        newer.dek,
+        newer.dekId,
+        'public-test-access',
+        'public-test-refresh',
+        'public-test-session',
+      ]) {
+        expect(logs).not.toContain(secret);
+      }
+
       expect(joined.previousPwdHashes.toSorted()).toEqual(
         [
           key.pwdHash,
