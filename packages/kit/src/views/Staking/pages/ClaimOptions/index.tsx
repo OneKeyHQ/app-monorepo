@@ -72,6 +72,7 @@ const ClaimOptions = () => {
         protocolVault: protocolInfo?.vault || '',
         vault: protocolInfo?.vault || '',
         claimApprove: result?.claimApprove,
+        claimFollowUp: result?.claimFollowUp,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -118,6 +119,7 @@ const ClaimOptions = () => {
     [
       handleClaim,
       result?.claimApprove,
+      result?.claimFollowUp,
       finalSymbol,
       finalProvider,
       protocolInfo?.vault,
@@ -152,6 +154,8 @@ const ClaimOptions = () => {
               items={result.items}
               token={result.token}
               network={result.network}
+              description={result.description}
+              showDescription
               onPress={onPress}
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_claim,
