@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,6 +15,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
@@ -21,6 +23,7 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
@@ -34,6 +37,9 @@ import {
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
 } from '../../utils/swapDesktopCardShadow';
 
+import SwapHistoryClearButton from './SwapHistoryClearButton';
+import SwapMarketHistoryList from './SwapMarketHistoryList';
+import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProPositionsList from './SwapProPositionsList';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
@@ -43,8 +49,6 @@ type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList> & {
   portfolio: ReturnType<typeof useSwapStockPortfolioData>;
   displayPortfolio: ReturnType<typeof useSwapStockPortfolioData>;
 };
-// The stock page has a single positions tab, so its title is not a switch.
-const ignoreTitlePress = () => undefined;
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
 // The loader's runtime window decides whether a check needs a new request.
@@ -104,6 +108,59 @@ export function SwapStockPositionsProvider({
 
 export function useSwapStockPositions() {
   return useContext(PositionsContext);
+}
+
+export function SwapStockMobilePositions({
+  networks,
+  storeName,
+}: {
+  networks: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  storeName: EJotaiContextStoreNames;
+}) {
+  const [activeTab, setActiveTab] = useState(ETabName.Positions);
+  const showPositions = activeTab === ETabName.Positions;
+
+  return (
+    <>
+      {showPositions ? (
+        <SwapPendingHistoryListComponent
+          storeName={storeName}
+          protocol={EProtocolOfExchange.STOCK}
+        />
+      ) : null}
+      <YStack mt="$2">
+        <XStack
+          gap="$5"
+          borderBottomWidth="$0.5"
+          borderBottomColor="$borderSubdued"
+        >
+          <TabBarItem
+            name={ETabName.Positions}
+            isFocused={showPositions}
+            onPress={setActiveTab}
+          />
+          <TabBarItem
+            name={ETabName.SwapOrderHistory}
+            isFocused={!showPositions}
+            onPress={setActiveTab}
+          />
+        </XStack>
+        {showPositions ? (
+          <SwapStockPositions mobile networks={networks} />
+        ) : (
+          <XStack minHeight={180} mx="$-6">
+            <SwapMarketHistoryList
+              protocol={EProtocolOfExchange.STOCK}
+              isPushModal
+              firstSectionRightAction={
+                <SwapHistoryClearButton scope="stock" triggerVariant="icon" />
+              }
+            />
+          </XStack>
+        )}
+      </YStack>
+    </>
+  );
 }
 
 export function SwapStockPositions({
@@ -183,26 +240,11 @@ export function SwapStockPositions({
       $platform-web={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
       style={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
-      {mobile ? (
-        // The Pro tab bar's own item and bottom rule, so both trade tabs'
-        // positions titles stay identical (OK-63758).
-        // pointerEvents: a single title, so no hover, cursor or press state.
-        <XStack
-          borderBottomWidth="$0.5"
-          borderBottomColor="$borderSubdued"
-          pointerEvents="none"
-        >
-          <TabBarItem
-            name={ETabName.Positions}
-            isFocused
-            onPress={ignoreTitlePress}
-          />
-        </XStack>
-      ) : (
+      {!mobile ? (
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.title_all_positions })}
         </SizableText>
-      )}
+      ) : null}
       {mobile ? (
         <XStack
           pt="$2"

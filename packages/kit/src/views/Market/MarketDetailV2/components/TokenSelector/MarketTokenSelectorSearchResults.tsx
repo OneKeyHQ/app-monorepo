@@ -543,7 +543,7 @@ export function MarketSearchStockSection({
   onRetry,
   onPress,
   loadMore,
-  titleBg,
+  headerBg,
 }: {
   items: IMarketStockPublicItem[];
   isError: boolean;
@@ -557,7 +557,7 @@ export function MarketSearchStockSection({
     isLoadMoreError: boolean;
     onRetry: () => void;
   };
-  titleBg?: '$bg' | '$bgApp';
+  headerBg?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const headerCells = useSearchStockHeaderCells();
@@ -567,7 +567,7 @@ export function MarketSearchStockSection({
         title={intl.formatMessage({
           id: ETranslations.perps_token_selector_stocks,
         })}
-        bg={titleBg}
+        bg={headerBg}
       />
       {isError && items.length === 0 ? (
         <StockSearchError
@@ -578,6 +578,7 @@ export function MarketSearchStockSection({
       {items.length > 0 ? (
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
           <SelectorTableHeader
+            bg={headerBg}
             nameTitle={intl.formatMessage({
               id: ETranslations.market_stock_company,
             })}
@@ -613,13 +614,13 @@ export function MarketSearchTokenSection({
   showMore,
   onShowMore,
   onPress,
-  titleBg,
+  headerBg,
 }: {
   items: IMarketSearchResultToken[];
   showMore: boolean;
   onShowMore: () => void;
   onPress: (item: IMarketSearchResultToken) => void;
-  titleBg?: '$bg' | '$bgApp';
+  headerBg?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const headerCells = useSearchTokenHeaderCells();
@@ -629,11 +630,12 @@ export function MarketSearchTokenSection({
         title={intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_tokens,
         })}
-        bg={titleBg}
+        bg={headerBg}
       />
       {items.length > 0 ? (
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
           <SelectorTableHeader
+            bg={headerBg}
             nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
             cells={headerCells}
             nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
@@ -676,9 +678,11 @@ const SORT_VALUE_GETTERS: Record<
 export function TokenTabList({
   items,
   onPress,
+  headerBg,
 }: {
   items: IMarketSearchResultToken[];
   onPress: (item: IMarketSearchResultToken) => void;
+  headerBg?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const [sort, setSort] = useState<ISearchTokenSort | undefined>(undefined);
@@ -701,12 +705,13 @@ export function TokenTabList({
   const listHeader = useMemo(
     () => (
       <SelectorTableHeader
+        bg={headerBg}
         nameTitle={intl.formatMessage({ id: ETranslations.global_name })}
         cells={headerCells}
         nameColumnWidth={TOKEN_SELECTOR_SEARCH_NAME_COLUMN_WIDTH}
       />
     ),
-    [headerCells, intl],
+    [headerBg, headerCells, intl],
   );
 
   return (
