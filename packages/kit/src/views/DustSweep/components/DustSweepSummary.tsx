@@ -46,6 +46,7 @@ import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepFiatFormatter } from '../hooks/useDustSweepFiatFormatter';
 import { EDustSweepPhase, getDustSweepPresentation } from '../stateMachine';
 
+import { DustSweepActionTouch } from './DustSweepActionTouch';
 import { DustSweepResultBreakdown } from './DustSweepResultBreakdown';
 import { DustSweepSlippage } from './DustSweepSlippage';
 
@@ -572,6 +573,16 @@ export function DustSweepSummary({
   // settle, which may never happen offline, so Leave (it aborts) stays
   // reachable there, in place of the Continue that is disabled meanwhile.
   const leaveWhileStopping = model.stopping && Boolean(onLeave);
+  const actionDisabled =
+    assetsLoading ||
+    session.leaving ||
+    model.stopping ||
+    state.phase === EDustSweepPhase.Left ||
+    (selecting && loadStatus !== 'ready') ||
+    (selecting && !canStart && !assetSyncError);
+  const actionAccessibilityLabel = assetsLoading
+    ? intl.formatMessage({ id: ETranslations.global_syncing })
+    : label;
   const { height: windowHeight } = useWindowDimensions();
   const result = <DustSweepResult state={state} desktop={desktop} />;
   // Desktop is a card; the mobile selection footer sits on the list with a top
@@ -775,37 +786,42 @@ export function DustSweepSummary({
           </Button>
         ) : null}
         {leaveWhileStopping ? null : (
-          <Button
-            testID="dust-sweep-action"
-            flex={1}
-            height={DUST_SWEEP_ACTION_HEIGHT}
-            minHeight={DUST_SWEEP_ACTION_HEIGHT}
-            // Pause stays quiet while tokens convert; every other step is the
-            // primary action.
-            variant={
-              converting && state.phase !== EDustSweepPhase.Paused
-                ? 'secondary'
-                : 'primary'
-            }
-            loading={assetsLoading}
-            childrenAsText={!assetsLoading}
-            accessibilityLabel={
-              assetsLoading
-                ? intl.formatMessage({ id: ETranslations.global_syncing })
-                : undefined
-            }
-            disabled={
-              assetsLoading ||
-              session.leaving ||
-              model.stopping ||
-              state.phase === EDustSweepPhase.Left ||
-              (selecting && loadStatus !== 'ready') ||
-              (selecting && !canStart && !assetSyncError)
-            }
+          <DustSweepActionTouch
+            enabled={!desktop && selecting}
+            disabled={actionDisabled}
+            accessibilityLabel={actionAccessibilityLabel}
             onPress={onPress}
           >
-            {assetsLoading ? null : label}
-          </Button>
+            {(handlesPress, pressed) => (
+              <Button
+                testID={handlesPress ? undefined : 'dust-sweep-action'}
+                flex={1}
+                height={DUST_SWEEP_ACTION_HEIGHT}
+                minHeight={DUST_SWEEP_ACTION_HEIGHT}
+                // Pause stays quiet while tokens convert; every other step is
+                // the primary action.
+                variant={
+                  converting && state.phase !== EDustSweepPhase.Paused
+                    ? 'secondary'
+                    : 'primary'
+                }
+                bg={pressed ? '$bgPrimaryActive' : undefined}
+                loading={assetsLoading}
+                childrenAsText={!assetsLoading}
+                accessibilityLabel={
+                  assetsLoading ? actionAccessibilityLabel : undefined
+                }
+                accessible={handlesPress ? false : undefined}
+                importantForAccessibility={
+                  handlesPress ? 'no-hide-descendants' : undefined
+                }
+                disabled={actionDisabled}
+                onPress={handlesPress ? undefined : onPress}
+              >
+                {assetsLoading ? null : label}
+              </Button>
+            )}
+          </DustSweepActionTouch>
         )}
       </XStack>
     </YStack>

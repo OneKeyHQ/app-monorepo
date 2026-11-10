@@ -24479,6 +24479,8 @@
     "packages/kit/src/views/DustSweep/DustSweepFlow.tsx": 20377,
     "packages/kit/src/views/DustSweep/DustSweepPage.tsx": 9561,
     "packages/kit/src/views/DustSweep/DustSweepProvider.tsx": 10707,
+    "packages/kit/src/views/DustSweep/components/DustSweepActionTouch.android.tsx": 7419,
+    "packages/kit/src/views/DustSweep/components/DustSweepActionTouch.tsx": 12585,
     "packages/kit/src/views/DustSweep/components/DustSweepDetails.tsx": 11607,
     "packages/kit/src/views/DustSweep/components/DustSweepFilters.tsx": 533,
     "packages/kit/src/views/DustSweep/components/DustSweepResultBreakdown.tsx": 9819,
