@@ -29,12 +29,19 @@ import notificationsUtils, {
 import timerUtils from './timerUtils';
 
 const mockLog = jest.fn<void, unknown[]>();
+const mockSupportReplyClicked = jest.fn<void, [unknown]>();
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
     app: {
       error: { log: (...args: unknown[]) => mockLog(...args) },
       page: { notificationItemClicked: jest.fn() },
+    },
+    notification: {
+      support: {
+        supportReplyClicked: (params: unknown) =>
+          mockSupportReplyClicked(params),
+      },
     },
   },
 }));
@@ -372,6 +379,42 @@ describe('legacy notification clicks from native background', () => {
     platformEnv.isExtensionBackground = originalIsExtensionBackground;
     platformEnv.isDesktop = originalIsDesktop;
     platformEnv.isWeb = originalIsWeb;
+  });
+
+  it('logs the clicked notification mode and payload presence before routing', async () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeBackgroundThread = false;
+    platformEnv.isDesktop = true;
+    appGlobals.$navigationRef = {
+      current: { getState: jest.fn(() => ({ routes: [] })) },
+    } as never;
+    mockSupportReplyClicked.mockClear();
+
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-message-center',
+      message: undefined,
+      mode: ENotificationPushMessageMode.openInApp,
+      payload: 'https://onekey.so/',
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: ENotificationPushMessageMode.openInApp,
+      hasPayload: true,
+      isFromNotificationClick: false,
+    });
+
+    mockSupportReplyClicked.mockClear();
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-system-push',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: ENotificationPushMessageMode.command,
+      payload: JSON.stringify({ action: 'unknownAction' }),
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: ENotificationPushMessageMode.command,
+      hasPayload: true,
+      isFromNotificationClick: true,
+    });
   });
 
   it('keeps foreground legacy clicks on the explicit pushModal path', async () => {

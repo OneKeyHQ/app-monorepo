@@ -37,6 +37,22 @@ export class SupportScene extends BaseScene {
     return { mode, action, conversationId, conversationIdSource, msgId };
   }
 
+  // Fires for every notification click before mode routing, so a payload that
+  // never reaches the support command (old-version payload, missing mode/payload)
+  // is still visible in the logs, together with its source.
+  @LogToLocal({ level: 'info' })
+  supportReplyClicked({
+    mode,
+    hasPayload,
+    isFromNotificationClick,
+  }: {
+    mode: string | number | undefined;
+    hasPayload: boolean;
+    isFromNotificationClick: boolean;
+  }) {
+    return { mode, hasPayload, isFromNotificationClick };
+  }
+
   @LogToLocal({ level: 'info' })
   supportReplyQueued({
     conversationId,

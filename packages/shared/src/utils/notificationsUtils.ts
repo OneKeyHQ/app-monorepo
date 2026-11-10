@@ -782,7 +782,11 @@ export function parseNotificationPayload(
           data?: Record<string, unknown>;
           conversationId?: unknown;
         };
-        const { action, data } = parsedPayload;
+        const action =
+          typeof parsedPayload.action === 'string'
+            ? parsedPayload.action.trim()
+            : parsedPayload.action;
+        const { data } = parsedPayload;
         if (!action) {
           fallbackHandler();
           return false;
@@ -897,6 +901,16 @@ async function navigateToNotificationDetail({
       );
     });
   }
+
+  // OK-66809: record the clicked notification routing inputs before mode
+  // handling. This funnel sees both system-push and message-center clicks, so
+  // an old-version payload (mode != command) or a missing payload is still
+  // diagnosable even when no support command log follows.
+  defaultLogger.notification.support.supportReplyClicked({
+    mode: typeof mode === 'number' ? mode : undefined,
+    hasPayload: !!payload,
+    isFromNotificationClick: !!isFromNotificationClick,
+  });
 
   if (isFromNotificationClick) {
     // `$navigationRef` only exists in the foreground runtime. On native this
