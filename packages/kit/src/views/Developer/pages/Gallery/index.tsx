@@ -176,6 +176,26 @@ const AmountInputGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AmountInput'),
 );
 
+const SelectableRowGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SelectableRow'),
+);
+
+const ButtonCompositionGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ButtonComposition'),
+);
+
+const AccordionGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Accordion'),
+);
+
+const StepIndicatorGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StepIndicator'),
+);
+
 const OrderBookGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OrderBookGallery'),
@@ -351,6 +371,19 @@ export const galleryScreenList: {
   component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
+  { name: EGalleryRoutes.ComponentAccordion, component: AccordionGallery },
+  {
+    name: EGalleryRoutes.ComponentButtonComposition,
+    component: ButtonCompositionGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSelectableRow,
+    component: SelectableRowGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentStepIndicator,
+    component: StepIndicatorGallery,
+  },
   {
     name: EGalleryRoutes.ComponentPrivacyTokenDetails,
     component: PrivacyTokenDetailsGallery,
