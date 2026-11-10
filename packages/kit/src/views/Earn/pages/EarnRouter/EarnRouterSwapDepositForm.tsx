@@ -67,6 +67,7 @@ import { StakingAmountResultLine } from '../../../Staking/components/StakingAmou
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
   EARN_BUTTON_LOOK_TRANSITION,
+  EarnFormCompactContext,
   EarnFormOffersInlineContext,
   EarnFormRow,
   EarnFormSummary,
@@ -93,6 +94,7 @@ import {
   keepFirstFrame,
   readFirstFrame,
 } from './earnFirstFrameCache';
+import { isNotableBridgeFee, isNotableBridgeTime } from './earnRouteNotable';
 import {
   EARN_ROUTER_SWAP_IDLE,
   buildEarnSwapToken,
@@ -1253,6 +1255,7 @@ export function EarnRouterSwapDepositForm({
   // Picked another protocol a moment ago: this form is the one being left
   const isSwitchingOffer = useContext(EarnFormSwitchingContext);
   const listsOffersInline = useContext(EarnFormOffersInlineContext);
+  const isCompact = useContext(EarnFormCompactContext);
   const handlePress = footerActionOverride ? handleOverridePress : handleStart;
   const confirmButtonProps = {
     testID: 'earn-router-swap-deposit',
@@ -1649,9 +1652,16 @@ export function EarnRouterSwapDepositForm({
   // What goes into the vault, under what pays for it; more than the
   // balance says so in its place, in red. Brought in by a pick in Pay with,
   // it grows in under the box
+  const showsBridgeDuration =
+    !isCompact || (Boolean(bridgeDuration) && isNotableBridgeTime(bridgeQuote));
+  const showsBridgeFee =
+    !isCompact ||
+    (Boolean(bridgeFee) && isNotableBridgeFee(bridgeFeeValue, payFiat));
   const amountLines = (
     <HeightTransition
       duration={DEPOSIT_LINE_MS}
+      // Compact, nothing stands under an empty box
+      hide={isCompact && !hasAmount}
       skipInitialAnimation={!revealsDepositLine}
     >
       <YStack pt="$2">
@@ -1683,26 +1693,30 @@ export function EarnRouterSwapDepositForm({
         )}
         {/* A bridge says before the press how long it takes and what
             the network charges, as the Swap page's route does */}
-        {isBridge ? (
+        {isBridge && (showsBridgeDuration || showsBridgeFee) ? (
           <YStack pt="$1">
-            <StakingAmountResultLine
-              testID="earn-router-bridge-duration"
-              label={intl.formatMessage({
-                id: ETranslations.provider_swap_duration,
-              })}
-              value={bridgeDuration ?? '–'}
-              isPlaceholder={!bridgeDuration}
-              loading={isQuoting || isEmptySettling}
-            />
-            <StakingAmountResultLine
-              testID="earn-router-bridge-fee"
-              label={intl.formatMessage({
-                id: ETranslations.provider_network_fee,
-              })}
-              value={bridgeFee ?? '–'}
-              isPlaceholder={!bridgeFee}
-              loading={isQuoting || isEmptySettling}
-            />
+            {showsBridgeDuration ? (
+              <StakingAmountResultLine
+                testID="earn-router-bridge-duration"
+                label={intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+                value={bridgeDuration ?? '–'}
+                isPlaceholder={!bridgeDuration}
+                loading={isQuoting || isEmptySettling}
+              />
+            ) : null}
+            {showsBridgeFee ? (
+              <StakingAmountResultLine
+                testID="earn-router-bridge-fee"
+                label={intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+                value={bridgeFee ?? '–'}
+                isPlaceholder={!bridgeFee}
+                loading={isQuoting || isEmptySettling}
+              />
+            ) : null}
           </YStack>
         ) : null}
       </YStack>
@@ -1773,7 +1787,13 @@ export function EarnRouterSwapDepositForm({
       {summary}
       <EarnFormFooter
         isInModalContext={Boolean(isInModalContext)}
-        progress={progress}
+        // Compact, the button names the steps; the tracker comes with the
+        // press, and stays where a step after the first is still to run
+        progress={
+          !isCompact || isBusy || getProgressStep(flow) > 1
+            ? progress
+            : undefined
+        }
         confirmText={confirmText}
         confirmButtonProps={confirmButtonProps}
         keyboardStage={

@@ -6,7 +6,6 @@ import { Platform } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
-  Badge,
   HeightTransition,
   Icon,
   Image,
@@ -41,6 +40,7 @@ import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils';
 import { warmSwapNetworkParents } from '../EarnAssetSelect/earnAssetSelectNetworkParents';
+import { OfferMark } from '../EarnRouter/EarnOfferOptionCard';
 
 import { useLoanToneColors } from './loanToneColors';
 
@@ -561,62 +561,56 @@ function MarketCell({
           hoverRingColor={hoverRingColor}
         />
       ) : (
-        <ProtocolImage
-          logoURI={route.market.logoURI}
-          networkLogoURI={route.market.network.logoURI}
-        />
+        // The network is a mark after the name: the logo keeps to the
+        // market
+        <ProtocolImage logoURI={route.market.logoURI} />
       )}
       <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {route.marketLabel}
-        </SizableText>
-        {/* The swap's or the bridge's tag sits by the tokens, as on the
-            deposit modal's cards. The pair is what tells a kind's cards
-            apart: it keeps its width, and the tag goes under it where the
-            column is too narrow for both */}
+        {/* The market, then its network and what comes before the supply
+            (a swap, a bridge) as marks, as on the Earn window's cards */}
         <XStack
           ai="center"
           columnGap="$1.5"
-          rowGap="$1.5"
+          rowGap="$0.5"
           minWidth={0}
           flexWrap="wrap"
         >
           <SizableText
-            size="$bodySm"
-            color="$textSubdued"
+            size="$bodyLgMedium"
             numberOfLines={1}
-            flexShrink={0}
-            maxWidth="100%"
+            flexShrink={1}
+            minWidth={0}
           >
-            {pairLabel
-              ? EARN_DESKTOP_DEMO_COPY.loanPairOn(
-                  pairLabel,
-                  route.market.network.name,
-                )
-              : route.market.network.name}
+            {route.marketLabel}
           </SizableText>
-          {payPath ? (
-            <Badge
-              testID={`earn-loan-route-${payPath}-${route.key}`}
-              // As the Earn window's cards tag what comes before a deposit
-              badgeType="info"
-              badgeSize="sm"
-              flexShrink={0}
-              // Taller than the small line it sits on: it overhangs it
-              // rather than making these cards taller than the rest
-              my="$-0.5"
-            >
-              <Badge.Text>
-                {intl.formatMessage({
+          <XStack ai="center" gap="$1" flexShrink={0}>
+            <OfferMark
+              label={route.market.network.name}
+              imageUri={route.market.network.logoURI}
+            />
+            {payPath ? (
+              <OfferMark
+                testID={`earn-loan-route-${payPath}-${route.key}`}
+                label={intl.formatMessage({
                   id:
                     payPath === 'bridge'
                       ? ETranslations.swap_page_bridge
                       : ETranslations.global_swap,
                 })}
-              </Badge.Text>
-            </Badge>
-          ) : null}
+                icon={
+                  payPath === 'bridge' ? 'BridgeOutline' : 'SwitchHorOutline'
+                }
+                tone="info"
+              />
+            ) : null}
+          </XStack>
         </XStack>
+        {/* The pair is what tells a kind's cards apart */}
+        {pairLabel ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {pairLabel}
+          </SizableText>
+        ) : null}
       </YStack>
     </XStack>
   );
@@ -815,6 +809,7 @@ function ReserveLink({
     <XStack
       testID={testID}
       role="link"
+      aria-label={EARN_DESKTOP_DEMO_COPY.loanAssetOn(token.symbol, marketLabel)}
       alignSelf="flex-start"
       maxWidth="100%"
       ai="center"
@@ -836,8 +831,9 @@ function ReserveLink({
       {...buildKeyboardPressProps(isShown ? onPress : undefined, 2)}
     >
       <Token size="xs" tokenImageUri={token.logoURI} />
+      {/* The card names the market: the token alone here */}
       <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-        {EARN_DESKTOP_DEMO_COPY.loanAssetOn(token.symbol, marketLabel)}
+        {token.symbol}
       </SizableText>
       <Icon
         name="ChevronRightSmallOutline"
@@ -993,7 +989,14 @@ function RouteRow({
             hide={!isOpen}
             duration={reduceMotion ? 0 : RESERVE_LINKS_MS}
           >
-            <YStack pt={CARD_GAP} pl={indent} gap="$1" aria-hidden={!isOpen}>
+            <XStack
+              pt={CARD_GAP}
+              pl={indent}
+              columnGap="$5"
+              rowGap="$1"
+              flexWrap="wrap"
+              aria-hidden={!isOpen}
+            >
               <ReserveLink
                 testID={`earn-loan-route-reserve-supply-${route.key}`}
                 token={route.collateral}
@@ -1008,7 +1011,7 @@ function RouteRow({
                 isShown={isOpen}
                 onPress={() => onOpenReserve(route, 'borrow')}
               />
-            </YStack>
+            </XStack>
           </HeightTransition>
         </YStack>
       ) : null}

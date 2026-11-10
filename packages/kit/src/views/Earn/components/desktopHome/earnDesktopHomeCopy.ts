@@ -103,7 +103,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   loanCurrentLtv: 'Current LTV',
   // Under the LTV bar's wall
   loanMaxShort: (ltv: string) => `Max ${ltv}`,
-  loanPositionTitle: (market: string) => `Your ${market} position`,
+  // The card beside the form names the market
+  loanPosition: 'Your position',
   // The account's loans, a card per market, above the Loans list
   yourLoans: 'Your loans',
   loanPoolInfo:
@@ -116,10 +117,11 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // After the Earn window's pick: the network it is on
   onNetwork: (network: string) => `on ${network}`,
   // The Earn window's picked card: what tells the offer apart
-  bonusApy: 'Bonus APY',
-  bonusEnds: 'Bonus ends',
+  // The picked card's strip: a cell each, a short name over a figure
+  bonus: 'Bonus',
+  endsIn: 'Ends in',
   // How long the bonus has left; its date shows on hover
-  inDays: (days: number) => (days === 1 ? 'in 1 day' : `in ${days} days`),
+  days: (days: number) => (days === 1 ? '1 day' : `${days} days`),
   maturity: 'Maturity',
   fixedRateEarlySale: 'Selling before maturity gets the market price.',
   loanNotLent: (symbol: string, eMode?: string) =>
@@ -146,7 +148,6 @@ export const EARN_DESKTOP_DEMO_COPY = {
   assetSelectNoEarn: (network: string) =>
     `This token has no Earn options on ${network}`,
   assetSelectNoLoan: 'No market here takes this token',
-  loanPairOn: (pair: string, network: string) => `${pair} on ${network}`,
   // Under one token's offers, where another of its kind pays more
   earnClassHint: (kind: string) => `Compare all ${kind}`,
   loanDone: (borrowed: string, market: string, supplied?: string) =>

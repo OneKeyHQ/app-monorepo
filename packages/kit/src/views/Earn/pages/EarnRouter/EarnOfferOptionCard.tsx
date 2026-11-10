@@ -47,7 +47,7 @@ const MARK_TONES = {
 // A tag as a mark after the name, where words crowded the card: the
 // network by its logo, a bonus a star, a bridge a bridge. Its words come
 // on hover, and to a screen reader
-function OfferMark({
+export function OfferMark({
   label,
   icon,
   imageUri,
@@ -222,7 +222,12 @@ export function EarnOfferOptionCard({
             protocolLogoURI={logoURI}
           />
         ) : (
-          <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
+          // Where the network is a mark after the name, the logo keeps
+          // to the protocol: the network once
+          <ProtocolImage
+            logoURI={logoURI}
+            networkLogoURI={networkName ? undefined : networkLogoURI}
+          />
         )}
         <YStack flex={1} minWidth={0} gap="$0.5">
           {/* The name that tells the offers apart, its tags as marks after

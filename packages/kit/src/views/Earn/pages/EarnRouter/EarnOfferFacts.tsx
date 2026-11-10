@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   SizableText,
+  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -134,33 +135,75 @@ const getTipClause = (tip: IProtocolTip) => {
   return cut > 0 ? sentence.slice(0, cut) : sentence;
 };
 
-function FactRow({ label, children }: { label: string; children: ReactNode }) {
+// A figure of the offer: its name over it, a cell in the card's strip
+function FactCell({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <XStack ai="center" jc="space-between" gap="$3" minHeight={FACT_ROW_HEIGHT}>
-      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+    <YStack gap="$0.5" minWidth={0} flexShrink={0}>
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
-      <XStack ai="center" gap="$1" flexShrink={1} minWidth={0} jc="flex-end">
+      <XStack ai="center" gap="$1" minHeight={FACT_ROW_HEIGHT}>
         {children}
       </XStack>
-    </XStack>
+    </YStack>
   );
 }
 
-// The tip's point in one line under the figures, a size below them: a note
-// to them, and room for the whole point ("…and at least 3 days"). Pointing
-// at it shows the whole tip, worded as on the details page
-function NoteRow({ text, tip }: { text: string; tip?: IProtocolTip }) {
+function NoteTip({ text, tip }: { text: string; tip?: IProtocolTip }) {
+  return tip ? (
+    <YStack gap="$1">
+      <EarnText text={tip.title} size="$bodySmMedium" />
+      <EarnText text={tip.description} size="$bodySm" color="$textSubdued" />
+    </YStack>
+  ) : (
+    text
+  );
+}
+
+// The tip's point behind a mark, beside the figures: pointing at it shows
+// the whole tip, worded as on the details page
+function NoteMark({ text, tip }: { text: string; tip?: IProtocolTip }) {
+  return (
+    <Tooltip
+      placement="top"
+      contentProps={{ maxWidth: 320 }}
+      renderTrigger={
+        <XStack
+          testID="earn-offer-note"
+          aria-label={text}
+          w="$6"
+          h="$6"
+          ai="center"
+          jc="center"
+          flexShrink={0}
+        >
+          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        </XStack>
+      }
+      renderContent={<NoteTip text={text} tip={tip} />}
+    />
+  );
+}
+
+// With no figure in the strip, the point itself in one line
+function NoteLine({ text, tip }: { text: string; tip?: IProtocolTip }) {
   const line = (
-    <XStack ai="center" gap="$1.5" minHeight={FACT_ROW_HEIGHT}>
+    <XStack
+      testID="earn-offer-note"
+      ai="center"
+      gap="$1.5"
+      flex={1}
+      minWidth={0}
+      minHeight={FACT_ROW_HEIGHT}
+    >
       <Icon
         name="InfoCircleOutline"
-        size="$3.5"
+        size="$4"
         color="$iconSubdued"
         flexShrink={0}
       />
       <SizableText
-        size="$bodySm"
+        size="$bodyMd"
         color="$textSubdued"
         numberOfLines={1}
         flex={1}
@@ -179,28 +222,18 @@ function NoteRow({ text, tip }: { text: string; tip?: IProtocolTip }) {
       triggerAsChild
       renderTrigger={line}
       contentProps={{ maxWidth: 320 }}
-      renderContent={
-        <YStack gap="$1">
-          <EarnText text={tip.title} size="$bodySmMedium" />
-          <EarnText
-            text={tip.description}
-            size="$bodySm"
-            color="$textSubdued"
-          />
-        </YStack>
-      }
+      renderContent={<NoteTip text={text} tip={tip} />}
     />
   );
 }
 
 /**
  * Under the card the form is on, what tells it apart before depositing,
- * so the details page is a choice and not a step. In a panel of its own:
- * what is already in it, a vault's base and bonus rate and how long the
- * bonus has left, a fixed rate's maturity, then one line on getting the
- * money back out (the tip, or that leaving a fixed rate early is at the
- * market's price). Then Details, which goes to the page with the amount
- * and the Pay with token
+ * so the details page is a choice and not a step. One strip: what is
+ * already in it, a vault's bonus and how long it has left, a fixed rate's
+ * maturity; then a mark for getting the money back out (the tip, or that
+ * leaving a fixed rate early is at the market's price). A press on the
+ * strip goes to the offer's page with the amount and the Pay with token
  */
 export function EarnOfferFacts({
   offer,
@@ -221,6 +254,7 @@ export function EarnOfferFacts({
   const [settings] = useSettingsPersistAtom();
   const detail = useOfferDetail({ offer, symbol, enabled: isShown });
   const handleDetails = useCallback(() => onDetails(offer), [offer, onDetails]);
+  const detailsLabel = intl.formatMessage({ id: ETranslations.global_details });
 
   const popup =
     detail?.apyDetail?.button?.type === 'popup'
@@ -258,11 +292,11 @@ export function EarnOfferFacts({
       ? offer.item.provider.maturity
       : undefined;
 
-  const rows: ReactNode[] = [];
+  const cells: ReactNode[] = [];
   // What is already in it leads: the one figure that is the user's own
   if (depositedFiatValue && depositedFiatValue > 0) {
-    rows.push(
-      <FactRow
+    cells.push(
+      <FactCell
         key="deposited"
         label={intl.formatMessage({ id: ETranslations.earn_deposited })}
       >
@@ -274,45 +308,37 @@ export function EarnOfferFacts({
         >
           {depositedFiatValue}
         </NumberSizeableTextWrapper>
-      </FactRow>,
+      </FactCell>,
     );
   }
-  // The split only where there is a bonus: the card's rate is the base
-  // otherwise
+  // The bonus alone: the card's rate is the total, and the base is what is
+  // left of it
   if (apyParts?.bonus) {
-    rows.push(
-      <FactRow
-        key="base"
-        label={intl.formatMessage({ id: ETranslations.earn_base_apy })}
-      >
-        <SizableText size="$bodyMdMedium">{apyParts.base}</SizableText>
-      </FactRow>,
-      <FactRow key="bonus" label={EARN_DESKTOP_DEMO_COPY.bonusApy}>
+    cells.push(
+      <FactCell key="bonus" label={EARN_DESKTOP_DEMO_COPY.bonus}>
         <SizableText size="$bodyMdMedium" color={apyParts.bonusColor}>
           {apyParts.bonus}
         </SizableText>
-        {/* The token it is paid in, by its logo and symbol */}
+        {/* The token it is paid in, by its logo: the form's earnings name
+            it once an amount is in */}
         {bonusToken ? (
-          <XStack ai="center" gap="$1" ml="$1">
+          <Stack aria-label={bonusToken[0]}>
             <Token size="xxs" tokenImageUri={bonusToken[1]} />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {bonusToken[0]}
-            </SizableText>
-          </XStack>
+          </Stack>
         ) : null}
-      </FactRow>,
+      </FactCell>,
     );
   }
   // How long the bonus has left, which is what weighs in a choice; its date
   // on hover
   if (apyParts?.bonus && campaignEnd && bonusDaysLeft > 0) {
-    rows.push(
-      <FactRow key="ends" label={EARN_DESKTOP_DEMO_COPY.bonusEnds}>
+    cells.push(
+      <FactCell key="ends" label={EARN_DESKTOP_DEMO_COPY.endsIn}>
         <Tooltip
           placement="top"
           renderTrigger={
             <SizableText size="$bodyMdMedium">
-              {EARN_DESKTOP_DEMO_COPY.inDays(bonusDaysLeft)}
+              {EARN_DESKTOP_DEMO_COPY.days(bonusDaysLeft)}
             </SizableText>
           }
           renderContent={intl.formatDate(new Date(Number(campaignEnd)), {
@@ -321,68 +347,84 @@ export function EarnOfferFacts({
             year: 'numeric',
           })}
         />
-      </FactRow>,
+      </FactCell>,
     );
   }
   if (maturity) {
-    rows.push(
-      <FactRow key="maturity" label={EARN_DESKTOP_DEMO_COPY.maturity}>
+    cells.push(
+      <FactCell key="maturity" label={EARN_DESKTOP_DEMO_COPY.maturity}>
         <SizableText size="$bodyMdMedium">{maturity}</SizableText>
-      </FactRow>,
+      </FactCell>,
     );
   }
-  let note: ReactNode = null;
+  // Getting the money back out: the tip, or that leaving a fixed rate early
+  // is at the market's price. Beside the figures it is a mark with the
+  // point behind it; with no figure, the strip's own line
+  let noteText: string | undefined;
+  let noteTip: IProtocolTip | undefined;
   if (maturity) {
-    note = <NoteRow text={EARN_DESKTOP_DEMO_COPY.fixedRateEarlySale} />;
+    noteText = EARN_DESKTOP_DEMO_COPY.fixedRateEarlySale;
   } else if (tip && tipClause) {
-    note = <NoteRow text={tipClause} tip={tip} />;
+    noteText = tipClause;
+    noteTip = tip;
+  }
+  let lead: ReactNode = cells;
+  if (!cells.length) {
+    lead = noteText ? (
+      <NoteLine text={noteText} tip={noteTip} />
+    ) : (
+      <SizableText size="$bodyMdMedium">{detailsLabel}</SizableText>
+    );
   }
 
+  // One strip under the card's row, and the way to the offer's page: its
+  // figures a cell each, and a chevron at its end. A layer of its own in
+  // the card: lighter than the picked card in the light theme, darker in
+  // the dark one
   return (
-    <YStack gap="$2.5" pt="$3">
-      {/* A layer of its own in the card: lighter than the picked card in
-          the light theme, darker in the dark one */}
-      {rows.length || note ? (
-        <YStack
-          bg="$bgSubdued"
-          borderRadius="$3"
-          borderCurve="continuous"
-          px="$3"
-          py="$2"
-          gap="$1"
-        >
-          {rows}
-          {note}
-        </YStack>
-      ) : null}
+    <XStack
+      testID="earn-offer-details"
+      role="link"
+      aria-label={detailsLabel}
+      mt="$3"
+      ai="center"
+      gap="$2"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      pl="$3"
+      pr="$2"
+      py="$2"
+      userSelect="none"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      // The card under it is already the one picked
+      onPress={(event: { stopPropagation: () => void }) => {
+        event.stopPropagation();
+        handleDetails();
+      }}
+      {...buildKeyboardPressProps(handleDetails, 2)}
+    >
       <XStack
-        testID="earn-offer-details"
-        role="link"
-        alignSelf="flex-start"
+        flex={1}
+        minWidth={0}
         ai="center"
-        gap="$0.5"
-        // The text keeps the panel's edge; the pressed fill reaches past it
-        mx="$-1.5"
-        px="$1.5"
-        py="$0.5"
-        borderRadius="$2"
-        borderCurve="continuous"
-        userSelect="none"
-        cursor="pointer"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        // The card under it is already the one picked
-        onPress={(event: { stopPropagation: () => void }) => {
-          event.stopPropagation();
-          handleDetails();
-        }}
-        {...buildKeyboardPressProps(handleDetails, 2)}
+        columnGap="$5"
+        rowGap="$2"
+        flexWrap="wrap"
       >
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.global_details })}
-        </SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+        {lead}
       </XStack>
-    </YStack>
+      {cells.length && noteText ? (
+        <NoteMark text={noteText} tip={noteTip} />
+      ) : null}
+      <Icon
+        name="ChevronRightSmallOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+    </XStack>
   );
 }

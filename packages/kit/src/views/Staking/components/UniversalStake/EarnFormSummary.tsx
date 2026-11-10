@@ -152,6 +152,11 @@ export const EarnFormSwitchingContext = createContext(false);
 // not split over and under it
 export const EarnFormOffersInlineContext = createContext(false);
 
+// The Earn and Loans windows: a form that says as little as it can. Nothing
+// under the boxes until an amount brings figures; then the result alone,
+// the form's other rows under "Details"
+export const EarnFormCompactContext = createContext(false);
+
 // A new amount's figures on their way: the values on screen dim (never the
 // labels), and a row with no value yet holds a placeholder its size. A
 // switch only dims: a dash stays a dash
@@ -1023,6 +1028,7 @@ export function EarnFormSummary({
 }) {
   const carry = useContext(EarnOutcomeCarryContext);
   const isSwitching = useContext(EarnFormSwitchingContext);
+  const isCompact = useContext(EarnFormCompactContext);
   // Figures there as the form mounts are on screen already (the last
   // protocol's, carried over a switch): only figures that come later fade in
   const isFirstRenderRef = useRef(true);
@@ -1097,12 +1103,26 @@ export function EarnFormSummary({
     [isDimmed, isLoading, isSwitching],
   );
   const shouldFold = shownRows.length > VISIBLE_ROW_LIMIT;
-  const visibleRows = shouldFold
+  let visibleRows = shouldFold
     ? shownRows.slice(0, VISIBLE_ROW_LIMIT - 1)
     : shownRows;
-  const foldedRows = shouldFold ? shownRows.slice(VISIBLE_ROW_LIMIT - 1) : [];
+  let foldedRows = shouldFold ? shownRows.slice(VISIBLE_ROW_LIMIT - 1) : [];
+  if (isCompact) {
+    visibleRows = [];
+    foldedRows = shownRows;
+  }
   if (!shownOutcome && !shownRows.length && !footnote) {
     return null;
+  }
+  // Compact, with no figure in and none on its way: dashes say nothing
+  if (
+    isCompact &&
+    !hasOwnValues &&
+    !carried &&
+    !isOutcomeLoading &&
+    !isLoading
+  ) {
+    return footnote ? <YStack px="$3.5">{footnote}</YStack> : null;
   }
   // Each part brings its own space above it, so a part that is not there
   // (or is still opening) leaves no gap
@@ -1136,7 +1156,7 @@ export function EarnFormSummary({
             duration={ROWS_HEIGHT_MS}
             skipInitialAnimation={hasRowsFromStart}
           >
-            {shownRows.length ? (
+            {visibleRows.length ? (
               <YStack pt={shownOutcome ? '$4' : '$1'} pb="$1" gap="$3">
                 {visibleRows.map((row, index) => (
                   <EarnFormRowEntry
@@ -1152,8 +1172,13 @@ export function EarnFormSummary({
           {/* "Details" opens and folds with its own animation only: inside
               the block, the block's height would chase the unfold and show
               the rows late, the fold leaving their space to close after */}
-          {shownRows.length && (foldedRows.length || detailsPlaceholder) ? (
-            <YStack pt="$2" pb="$1">
+          {shownRows.length &&
+          (foldedRows.length || (detailsPlaceholder && !isCompact)) ? (
+            // Right under the result, it keeps a row's distance from it
+            <YStack
+              pt={!visibleRows.length && shownOutcome ? '$4' : '$2'}
+              pb="$1"
+            >
               {foldedRows.length ? (
                 <EarnFormDetails rows={foldedRows} />
               ) : (

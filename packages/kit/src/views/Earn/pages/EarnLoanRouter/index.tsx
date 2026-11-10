@@ -32,7 +32,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -72,6 +71,7 @@ import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import {
+  EarnFormCompactContext,
   EarnFormRow,
   EarnFormSummary,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
@@ -98,6 +98,10 @@ import {
   EarnDoneHeader,
   formatDoneAmount,
 } from '../EarnRouter/EarnDepositDone';
+import {
+  isNotableBridgeFee,
+  isNotableBridgeTime,
+} from '../EarnRouter/earnRouteNotable';
 import {
   EARN_OFFER_ROUTES_COLUMN_WIDTH,
   getEarnSwapFee,
@@ -186,6 +190,8 @@ const formatHealth = (value: number) =>
 const noop = () => undefined;
 
 // The line under the Pay with box grows in this long, as the deposit modal's
+// The position's rows open and fold in this long
+const POSITION_FOLD_MS = 200;
 const SUPPLY_LINE_MS = 200;
 
 // Each step's word over the button, the one the button itself uses
@@ -1380,6 +1386,11 @@ function EarnLoanRouterPage() {
           formatter: 'value',
           formatterOptions: { currency },
         });
+  const showsBridgeDuration =
+    Boolean(bridgeDuration) && isNotableBridgeTime(bridgeQuote);
+  const showsBridgeFee =
+    Boolean(bridgeFee) &&
+    isNotableBridgeFee(bridgeFeeValue, collateralValue?.toFixed());
   const collateralBox = (
     <YStack>
       <StakingAmountInput
@@ -1431,8 +1442,13 @@ function EarnLoanRouterPage() {
       {/* What the swap or the bridge brings and goes in as collateral,
           under what pays for it; a bridge's time and fee under that. It
           grows in with a pick of another token in Pay with */}
-      <HeightTransition duration={SUPPLY_LINE_MS} hide={!isSwapping}>
-        <YStack pt="$2" aria-hidden={!isSwapping}>
+      {/* Nothing under an empty box; a bridge's time and fee only where
+          they weigh */}
+      <HeightTransition
+        duration={SUPPLY_LINE_MS}
+        hide={!isSwapping || !hasCollateral}
+      >
+        <YStack pt="$2" aria-hidden={!isSwapping || !hasCollateral}>
           <StakingAmountResultLine
             testID="earn-loan-swap-supply-amount"
             label={EARN_DESKTOP_DEMO_COPY.youSupply}
@@ -1440,26 +1456,31 @@ function EarnLoanRouterPage() {
             isPlaceholder={!supplyLine.startsWith('≈')}
             loading={payWith.isQuoting}
           />
-          {conversion === 'bridge' ? (
+          {conversion === 'bridge' &&
+          (showsBridgeDuration || showsBridgeFee) ? (
             <YStack pt="$1">
-              <StakingAmountResultLine
-                testID="earn-loan-bridge-duration"
-                label={intl.formatMessage({
-                  id: ETranslations.provider_swap_duration,
-                })}
-                value={bridgeDuration ?? '–'}
-                isPlaceholder={!bridgeDuration}
-                loading={payWith.isQuoting}
-              />
-              <StakingAmountResultLine
-                testID="earn-loan-bridge-fee"
-                label={intl.formatMessage({
-                  id: ETranslations.provider_network_fee,
-                })}
-                value={bridgeFee ?? '–'}
-                isPlaceholder={!bridgeFee}
-                loading={payWith.isQuoting}
-              />
+              {showsBridgeDuration ? (
+                <StakingAmountResultLine
+                  testID="earn-loan-bridge-duration"
+                  label={intl.formatMessage({
+                    id: ETranslations.provider_swap_duration,
+                  })}
+                  value={bridgeDuration ?? '–'}
+                  isPlaceholder={!bridgeDuration}
+                  loading={payWith.isQuoting}
+                />
+              ) : null}
+              {showsBridgeFee ? (
+                <StakingAmountResultLine
+                  testID="earn-loan-bridge-fee"
+                  label={intl.formatMessage({
+                    id: ETranslations.provider_network_fee,
+                  })}
+                  value={bridgeFee ?? '–'}
+                  isPlaceholder={!bridgeFee}
+                  loading={payWith.isQuoting}
+                />
+              ) : null}
             </YStack>
           ) : null}
         </YStack>
@@ -1673,13 +1694,18 @@ function EarnLoanRouterPage() {
           current={serverHealth}
         />
       }
-      note={
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.defi_liquidation_at_less_than_1_00,
-          })}
-        </SizableText>
-      }
+      // The same for every loan: behind the label's (i), not a line of
+      // its own
+      tooltip={{
+        type: 'text',
+        data: {
+          description: {
+            text: intl.formatMessage({
+              id: ETranslations.defi_liquidation_at_less_than_1_00,
+            }),
+          },
+        },
+      }}
     />
   );
   // One asset's liquidation price holds only while nothing else is in the
@@ -1742,6 +1768,12 @@ function EarnLoanRouterPage() {
     ) : null;
 
   // Figures that land after the form shows fade in
+  // The position's own rows, folded until asked for
+  const [isPositionOpen, setIsPositionOpen] = useState(false);
+  const togglePosition = useCallback(
+    () => setIsPositionOpen((open) => !open),
+    [],
+  );
   const fadeInProps = reduceMotion
     ? undefined
     : {
@@ -1915,57 +1947,88 @@ function EarnLoanRouterPage() {
   const positionBlock =
     hasPosition && selectedRoute && selectedFacts ? (
       <YStack testID="earn-loan-position" px="$3.5" gap="$3" {...fadeInProps}>
-        <XStack ai="center" gap="$2">
-          <Token size="xs" tokenImageUri={selectedRoute.market.logoURI} />
-          <SizableText size="$bodyMdMedium" flexShrink={1} numberOfLines={1}>
-            {EARN_DESKTOP_DEMO_COPY.loanPositionTitle(
-              selectedRoute.marketLabel,
-            )}
-          </SizableText>
-          <PositionManageLink onPress={handleManagePosition} />
-        </XStack>
-        <EarnFormRow
-          testID="earn-loan-position-collateral"
-          label={intl.formatMessage({ id: ETranslations.defi_collateral })}
-          tooltip={{
-            type: 'text',
-            data: {
-              description: { text: EARN_DESKTOP_DEMO_COPY.loanPoolInfo },
-            },
-          }}
-          value={
-            <PositionValue
-              assets={withAsset(
-                selectedFacts.collateralAssets,
-                hasCollateral ? selectedRoute.collateral : undefined,
-              )}
-              before={selectedFacts.collateralValue}
-              after={selectedFacts.collateralValue + selectedNewCollateralValue}
-              isChanging={hasCollateral}
-              currency={currency}
-            />
-          }
-        />
-        <EarnFormRow
-          testID="earn-loan-position-borrowed"
-          label={intl.formatMessage({
-            id: ETranslations.wallet_defi_asset_type_borrowed,
-          })}
-          value={
-            <PositionValue
-              assets={withAsset(
-                selectedFacts.debtAssets,
-                hasLoan ? selectedRoute.borrow : undefined,
-              )}
-              before={selectedFacts.debtValue}
-              after={selectedFacts.debtValue + selectedLoanValue}
-              isChanging={hasLoan}
-              currency={currency}
-            />
-          }
-        />
+        {/* What the loan does to the position's safety stays in view; what
+            backs it and what it owes open under "Your position" */}
         {healthRow}
         {liquidationRow}
+        <YStack>
+          <XStack ai="center" gap="$2">
+            <XStack
+              testID="earn-loan-position-toggle"
+              role="button"
+              aria-expanded={isPositionOpen}
+              ai="center"
+              gap="$0.5"
+              cursor="pointer"
+              userSelect="none"
+              pressStyle={{ opacity: 0.5 }}
+              onPress={togglePosition}
+              {...buildKeyboardPressProps(togglePosition, 2)}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {EARN_DESKTOP_DEMO_COPY.loanPosition}
+              </SizableText>
+              <Icon
+                name={
+                  isPositionOpen
+                    ? 'ChevronTopSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+            <PositionManageLink onPress={handleManagePosition} />
+          </XStack>
+          <HeightTransition duration={POSITION_FOLD_MS} hide={!isPositionOpen}>
+            <YStack pt="$3" gap="$3" aria-hidden={!isPositionOpen}>
+              <EarnFormRow
+                testID="earn-loan-position-collateral"
+                label={intl.formatMessage({
+                  id: ETranslations.defi_collateral,
+                })}
+                tooltip={{
+                  type: 'text',
+                  data: {
+                    description: { text: EARN_DESKTOP_DEMO_COPY.loanPoolInfo },
+                  },
+                }}
+                value={
+                  <PositionValue
+                    assets={withAsset(
+                      selectedFacts.collateralAssets,
+                      hasCollateral ? selectedRoute.collateral : undefined,
+                    )}
+                    before={selectedFacts.collateralValue}
+                    after={
+                      selectedFacts.collateralValue + selectedNewCollateralValue
+                    }
+                    isChanging={hasCollateral}
+                    currency={currency}
+                  />
+                }
+              />
+              <EarnFormRow
+                testID="earn-loan-position-borrowed"
+                label={intl.formatMessage({
+                  id: ETranslations.wallet_defi_asset_type_borrowed,
+                })}
+                value={
+                  <PositionValue
+                    assets={withAsset(
+                      selectedFacts.debtAssets,
+                      hasLoan ? selectedRoute.borrow : undefined,
+                    )}
+                    before={selectedFacts.debtValue}
+                    after={selectedFacts.debtValue + selectedLoanValue}
+                    isChanging={hasLoan}
+                    currency={currency}
+                  />
+                }
+              />
+            </YStack>
+          </HeightTransition>
+        </YStack>
       </YStack>
     ) : null;
 
@@ -2211,7 +2274,9 @@ function EarnLoanRouterPage() {
       true,
     );
   } else {
-    progress = renderSteps(pressSteps, 1, false);
+    // Before the press the button names the steps; the tracker comes with
+    // the press
+    progress = null;
   }
 
   // ---------- Done ----------
@@ -2580,7 +2645,9 @@ function EarnLoanRouterPageWithProvider() {
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         <DiscoveryBrowserProviderMirror>
-          <EarnLoanRouterPage />
+          <EarnFormCompactContext.Provider value>
+            <EarnLoanRouterPage />
+          </EarnFormCompactContext.Provider>
         </DiscoveryBrowserProviderMirror>
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
