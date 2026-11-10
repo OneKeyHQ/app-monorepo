@@ -351,22 +351,13 @@ textarea {
   top: 0 !important;
 }
 
-/* Home wallet rows: the package pulls the quiet swap button 7px into the row
-   gap. Push it 13px out instead, so the value column ends on the same line as
-   the balance row's last action label and "Dust sweep" in the tab bar. */
-.ok-native-list-item
-  .ok-native-list-icon-button.ok-native-list-tertiary-icon[data-native-list-quiet-row-action='true'] {
-  margin-inline-start: 13px;
-}
-
-/* Home wallet token rows and their swap button follow the app's buttons,
-   which keep the arrow cursor and signal interactivity through their hover
-   background; the package ships `cursor: pointer` on both. The extra
-   attribute outranks the package's row rule, which is injected later. */
-.ok-native-list-item[data-testid^='home-token-item-'][data-native-list-row-press-enabled]
-  > .ok-native-list-row,
-.ok-native-list-item[data-testid^='home-token-item-'] .ok-native-list-icon-button {
-  cursor: default;
+/* Home token rows on wide desktop / web show their Swap button only while the
+   row is hovered or holds keyboard focus. Screens that cannot hover keep it. */
+@media (hover: hover) and (pointer: fine) {
+  .ok-native-list-item[data-testid^='home-token-item-']:not(:hover):not(:focus-within)
+    [data-native-list-action='swap'] {
+    opacity: 0;
+  }
 }
 
 /* 

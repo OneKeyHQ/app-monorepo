@@ -4437,7 +4437,7 @@ function TokenListBlock({
         // Desktop / web table lists every token; no "show more".
         limit={tableLayout && !platformEnv.isNative ? undefined : 6}
         plainMode
-        // Desktop / web wallet rows have no column header; native tablets
+        // Desktop / web table rows have no column header; native tablets
         // keep the sortable one.
         withHeader={!!platformEnv.isNative}
         withFooter
@@ -4547,16 +4547,6 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
-  // Wide desktop / web: the "Tokens · subtotal" row only explains the total
-  // when DeFi or perps value is part of it, so a tokens-only account drops
-  // it; Dust sweep lives in the tab row there (see TabHeaderSettings).
-  const hasNonTokenValue =
-    homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey &&
-    [homePortfolioDisplay.defiFiatUsd, homePortfolioDisplay.perpsFiatUsd].some(
-      (value) => !!value && new BigNumber(value).gt(0),
-    );
-  const showTokenTitleRow = !tableLayout || hasNonTokenValue;
-
   return (
     <DustSweepEntryCapabilitiesProvider
       isFocused={Boolean(isFocused && isRouteFocused)}
@@ -4566,16 +4556,14 @@ function TokenListBlock({
       ) : (
         <RichBlock
           withTitleSeparator
-          title={
-            showTokenTitleRow
-              ? intl.formatMessage({
-                  id: ETranslations.global_universal_search_tabs_tokens,
-                })
-              : undefined
-          }
-          subTitle={showTokenTitleRow ? renderSubTitle() : undefined}
+          title={intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_tokens,
+          })}
+          subTitle={renderSubTitle()}
+          // Wide desktop / web: Dust sweep sits in the tab row instead (see
+          // TabHeaderSettings); native tablets keep it here.
           headerActions={
-            tableLayout ? undefined : (
+            tableLayout && !platformEnv.isNative ? undefined : (
               <TokenListDustSweepAction showLabel={tableLayout} />
             )
           }

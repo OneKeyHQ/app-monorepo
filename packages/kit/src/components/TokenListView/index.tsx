@@ -1051,8 +1051,6 @@ function TokenListViewCmp(props: IProps) {
         <YStack style={{ flex: 1 }}>
           <ListLoading
             isTokenSelectorView={!tableLayout}
-            // Desktop / web table: skeleton rows in the wallet row layout.
-            walletRows={!!tableLayout && !platformEnv.isNative}
             // No column header above the rows, so no placeholder for one.
             listHeaderProps={withHeader ? undefined : { display: 'none' }}
           />

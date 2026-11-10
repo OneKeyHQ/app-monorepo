@@ -187,7 +187,7 @@ function TokenListSettings({
   nativeToolbar,
 }: {
   // Wide desktop: drop the tertiary overhang so the circle ends at the page
-  // edge, on one line with "More" in the balance row and the rows' swap.
+  // edge, on one line with "More" in the balance row.
   flushCircle?: boolean;
   nativeToolbar?: IHomeNativeToolbar;
 }) {

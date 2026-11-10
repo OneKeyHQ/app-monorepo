@@ -70,14 +70,13 @@ import TokenActionsView from './TokenActionsView';
 import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
 import {
   TOKEN_LIST_CONTENT_PADDING_HORIZONTAL,
-  TOKEN_WALLET_ROW_ICON_SIZE,
-  TOKEN_WALLET_ROW_TEXT_INSET,
   getTokenRowIconSize,
   getTokenTableColumnWeights,
 } from './tokenListRowLayoutShared';
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
 import type {
+  DataColumn,
   DataRow,
   IdentityRow,
   NativeListActionAnchor,
@@ -283,7 +282,6 @@ export function NativeTokenSelectorList({
     left: number;
     top: number;
     content: string;
-    placement?: 'bottom' | 'left';
   }>();
   const [externalWebScrollHost, setExternalWebScrollHost] =
     useState<HTMLElement | null>(null);
@@ -366,7 +364,6 @@ export function NativeTokenSelectorList({
         members?: IAccountToken[];
         allMembers?: IAccountToken[];
         memberFiatValues?: (ITokenFiat | undefined)[];
-        isLastWalletRow?: boolean;
         row: RowModel;
       }
     >;
@@ -426,27 +423,11 @@ export function NativeTokenSelectorList({
         members?: IAccountToken[];
         allMembers?: IAccountToken[];
         memberFiatValues?: (ITokenFiat | undefined)[];
-        isLastWalletRow?: boolean;
         row: RowModel;
       }
     >();
     const targetCurrency = settings.currencyInfo?.id ?? '';
     const iconSize = getTokenRowIconSize(gtMd);
-    // Desktop / web home table: wallet rows with dividers between them. The
-    // last token row has none; the footer draws the longer closing line.
-    // Native tablets keep the three-column rows.
-    const walletRowLayout =
-      !!tableLayout && !isTokenSelector && !platformEnv.isNative;
-    let lastWalletRowKey: string | undefined;
-    if (walletRowLayout) {
-      for (let index = rows.length - 1; index >= 0; index -= 1) {
-        const candidate = rows[index];
-        if (!isTokenSelectorSyntheticRow(candidate)) {
-          lastWalletRowKey = rowKeys?.get(candidate.$key) ?? candidate.$key;
-          break;
-        }
-      }
-    }
     const columnWeights = getTokenTableColumnWeights(withSwapAction);
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
@@ -526,11 +507,8 @@ export function NativeTokenSelectorList({
           const cached = canReuseRows
             ? previousCache?.rows.get(rowKey)
             : undefined;
-          const isLastWalletRow =
-            walletRowLayout && rowKey === lastWalletRowKey;
           if (
             cached?.token === token &&
-            !!cached.isLastWalletRow === isLastWalletRow &&
             cached.cellValue === homeCellValues[key] &&
             cached.swapDisabled === swapDisabled[key] &&
             cached.fiat === fiat &&
@@ -878,118 +856,7 @@ export function NativeTokenSelectorList({
                 },
               },
             };
-            if (walletRowLayout) {
-              const swapLabel = intl.formatMessage({
-                id: ETranslations.global_swap,
-              });
-              const symbolText = nativeRow.title;
-              const walletRow: DataRow = {
-                type: 'dataRow',
-                key: rowKey,
-                height: 60,
-                heightRounding: 'nearest',
-                testID: nativeRow.testID,
-                leading: {
-                  kind: 'token',
-                  image: tokenLogo
-                    ? {
-                        uri: tokenLogo,
-                        width: TOKEN_WALLET_ROW_ICON_SIZE,
-                        height: TOKEN_WALLET_ROW_ICON_SIZE,
-                        loadingStrategy: 'skeleton',
-                      }
-                    : undefined,
-                  overlays,
-                  ...getNativeListTokenFallback({
-                    symbol: symbolText,
-                    size: TOKEN_WALLET_ROW_ICON_SIZE,
-                    theme,
-                    fallbackIcon: {
-                      name: 'CryptoCoinOutline',
-                      tintColor: theme.iconSubdued,
-                      size: 24,
-                    },
-                  }),
-                },
-                badges: nativeRow.badges,
-                separator: !isLastWalletRow,
-                columns: [
-                  {
-                    key: 'asset',
-                    text: token.name || symbolText,
-                    secondaryText: balanceText.text
-                      ? `${balanceText.text} ${symbolText}`
-                      : symbolText,
-                    secondaryTextSegments: balanceText.segments
-                      ? [...balanceText.segments, { text: ` ${symbolText}` }]
-                      : undefined,
-                    secondaryTone: 'primary',
-                    titleIcon,
-                    secondaryTitleIcon,
-                    weight: 3,
-                  },
-                  {
-                    key: 'value',
-                    text: valueText.text,
-                    textSegments: valueText.segments,
-                    secondaryText: priceChangeText.text,
-                    secondaryTextSegments: priceChangeText.segments,
-                    secondaryTone: priceChangeTone,
-                    alignment: 'end',
-                    weight: 1,
-                  },
-                ],
-                // Quiet swap: 38 round icon button with no background until
-                // its row is hovered; hovering it shows the "Swap" tooltip.
-                trailing: withSwapAction
-                  ? [
-                      {
-                        kind: 'icon',
-                        name: 'SwitchHorOutline',
-                        buttonStyle: 'tertiary',
-                        quietRowAction: true,
-                        actionKey: 'swap',
-                        hoverActionKey: 'swap-tip',
-                        disabled: swapDisabled[key] ?? true,
-                        testID: 'token-actions-swap-btn',
-                        accessibilityLabel: swapLabel,
-                      },
-                    ]
-                  : [],
-                style: {
-                  container: TOKEN_ROW_CONTAINER_STYLE,
-                  horizontalPadding: 12,
-                  verticalPadding: 8,
-                  leadingGap: 12,
-                  columns: {
-                    token: '$bodyLg',
-                    fontWeight: 'medium',
-                    lines: 1,
-                  },
-                  columnSecondary: {
-                    token: '$bodyMd',
-                    lines: 1,
-                  },
-                  image: {
-                    width: TOKEN_WALLET_ROW_ICON_SIZE,
-                    height: TOKEN_WALLET_ROW_ICON_SIZE,
-                    shape: 'circle',
-                  },
-                },
-              };
-              nativeRows.push(walletRow);
-              nextRows.set(rowKey, {
-                token,
-                cellValue: homeCellValues[key],
-                swapDisabled: swapDisabled[key],
-                fiat,
-                members,
-                allMembers,
-                memberFiatValues,
-                isLastWalletRow,
-                row: walletRow,
-              });
-            } else if (tableLayout && !isTokenSelector) {
+            if (tableLayout && !isTokenSelector) {
               const swapAction: TrailingAccessory[] = withSwapAction
                 ? [
                     {
@@ -1005,6 +872,41 @@ export function NativeTokenSelectorList({
                     },
                   ]
                 : [];
+              const assetColumn: DataColumn = {
+                key: 'asset',
+                text: nativeRow.title,
+                secondaryText: token.name,
+                titleIcon,
+                secondaryTitleIcon,
+                weight: columnWeights.asset,
+              };
+              const priceColumn: DataColumn = {
+                key: 'price',
+                text: priceText.text,
+                textSegments: priceText.segments,
+                secondaryText: priceChangeText.text,
+                secondaryTextSegments: priceChangeText.segments,
+                secondaryTone: priceChangeTone,
+                alignment: 'end',
+                weight: columnWeights.price,
+              };
+              // Desktop and web end the row on the holdings, value over
+              // amount (amount alone while there is no value); their Swap
+              // shows on hover only (web index.css). Native tablets keep
+              // balance | price | Swap.
+              const [holdingsPrimary, holdingsSecondary] =
+                !platformEnv.isNative && valueText.text
+                  ? [valueText, balanceText]
+                  : [balanceText, valueText];
+              const holdingsColumn: DataColumn = {
+                key: 'balance',
+                text: holdingsPrimary.text,
+                textSegments: holdingsPrimary.segments,
+                secondaryText: holdingsSecondary.text,
+                secondaryTextSegments: holdingsSecondary.segments,
+                alignment: 'end',
+                weight: columnWeights.balance,
+              };
               const tableRow: DataRow = {
                 type: 'dataRow',
                 key: rowKey,
@@ -1013,44 +915,22 @@ export function NativeTokenSelectorList({
                 testID: nativeRow.testID,
                 leading,
                 badges: nativeRow.badges,
-                columns: [
-                  {
-                    key: 'asset',
-                    text: nativeRow.title,
-                    secondaryText: token.name,
-                    titleIcon,
-                    secondaryTitleIcon,
-                    weight: columnWeights.asset,
-                  },
-                  {
-                    key: 'balance',
-                    text: balanceText.text,
-                    textSegments: balanceText.segments,
-                    secondaryText: valueText.text,
-                    secondaryTextSegments: valueText.segments,
-                    alignment: 'end',
-                    weight: columnWeights.balance,
-                  },
-                  {
-                    key: 'price',
-                    text: priceText.text,
-                    textSegments: priceText.segments,
-                    secondaryText: priceChangeText.text,
-                    secondaryTextSegments: priceChangeText.segments,
-                    secondaryTone: priceChangeTone,
-                    alignment: 'end',
-                    weight: columnWeights.price,
-                  },
-                  ...(columnWeights.swapSpacer
-                    ? [
-                        {
-                          key: 'swapSpacer',
-                          text: '',
-                          weight: columnWeights.swapSpacer,
-                        },
-                      ]
-                    : []),
-                ],
+                columns: platformEnv.isNative
+                  ? [
+                      assetColumn,
+                      holdingsColumn,
+                      priceColumn,
+                      ...(columnWeights.swapSpacer
+                        ? [
+                            {
+                              key: 'swapSpacer',
+                              text: '',
+                              weight: columnWeights.swapSpacer,
+                            },
+                          ]
+                        : []),
+                    ]
+                  : [assetColumn, priceColumn, holdingsColumn],
                 trailing: swapAction,
                 style: {
                   container: TOKEN_ROW_CONTAINER_STYLE,
@@ -1106,17 +986,6 @@ export function NativeTokenSelectorList({
       },
       rows: nativeRows,
       theme,
-      ...(walletRowLayout
-        ? {
-            // 6% black dividers from the text column to the row's end.
-            listStyle: {
-              separator: {
-                inset: TOKEN_WALLET_ROW_TEXT_INSET,
-                color: theme.strongBackground,
-              },
-            },
-          }
-        : undefined),
       ...(structuralTransition ? { structuralTransition } : undefined),
       ...(disclosure ? { disclosure } : undefined),
       ...(onRefresh
@@ -1235,29 +1104,6 @@ export function NativeTokenSelectorList({
       } else if (event.actionKey === 'press') {
         const token = tokenByKey.get(event.rowKey ?? '');
         if (token) onPressToken?.(token);
-      } else if (
-        !platformEnv.isNative &&
-        event.actionKey === 'swap-tip' &&
-        event.anchor?.source === 'trailingAccessory'
-      ) {
-        // To the left of the button: above it would cover the swap button of
-        // the row above.
-        const anchor = event.anchor;
-        const rootRect = hostAnchorRef.current?.getBoundingClientRect();
-        if (!rootRect) return;
-        closeIconTooltip();
-        activeTooltipToken.current = anchor.token;
-        listRef.current?.setActionAnchorState({
-          token: anchor.token,
-          open: true,
-        });
-        setIconTooltip({
-          anchor,
-          left: anchor.windowRect.x - rootRect.x,
-          top: anchor.windowRect.y - rootRect.y,
-          content: intl.formatMessage({ id: ETranslations.global_swap }),
-          placement: 'left',
-        });
       } else if (
         !platformEnv.isNative &&
         (event.actionKey === 'gas-info' ||
@@ -1396,7 +1242,7 @@ export function NativeTokenSelectorList({
           <LazyTooltip
             open
             triggerAsChild
-            placement={iconTooltip.placement ?? 'bottom'}
+            placement="bottom"
             offset={6}
             onOpenChange={(open) => {
               if (!open) closeIconTooltip();

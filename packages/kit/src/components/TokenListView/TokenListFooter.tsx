@@ -53,7 +53,6 @@ import {
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
-import { TOKEN_WALLET_ROW_ICON_INSET } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -67,6 +66,9 @@ type IProps = {
 
 // The hover capsule reaches this far past the text on each side.
 const FOOTER_TEXT_BUTTON_PADDING = 10;
+// Token icon edge inside a desktop table row (the row's horizontal padding);
+// the footer's line and text start here.
+const FOOTER_ICON_INSET = 12;
 
 // 40-high quiet text button: no background at rest, light capsule on hover.
 function FooterTextButton({
@@ -475,8 +477,8 @@ function TokenListFooter(props: IProps) {
 
   // Desktop / web home: low-value, risky and add-token sit on one line of
   // quiet text buttons that starts at the token icon edge, under a closing
-  // line that is longer than the row dividers. The low-value page already
-  // carries the explanation, so the row's help popover is not repeated here.
+  // line. The low-value page already carries the explanation, so the row's
+  // help popover is not repeated here.
   if (tableLayout && plainMode && !platformEnv.isNative) {
     const showLowValue = !isSearchMode && filteredSmallBalanceTokens.length > 0;
     const showRisky = !isSearchMode && filteredRiskyTokens.length > 0;
@@ -486,13 +488,13 @@ function TokenListFooter(props: IProps) {
     }
     return (
       <YStack>
-        <Stack h={1} ml={TOKEN_WALLET_ROW_ICON_INSET} bg="$bgStrong" />
+        <Stack h={1} ml={FOOTER_ICON_INSET} bg="$bgStrong" />
         <XStack
           flexWrap="wrap"
           alignItems="center"
           columnGap="$2"
           py="$1.5"
-          pl={TOKEN_WALLET_ROW_ICON_INSET - FOOTER_TEXT_BUTTON_PADDING}
+          pl={FOOTER_ICON_INSET - FOOTER_TEXT_BUTTON_PADDING}
           pr="$3"
         >
           {showLowValue ? (

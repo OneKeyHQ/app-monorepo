@@ -33,14 +33,6 @@ export function getTokenListSlotInsetCompensation({
 export const TOKEN_ROW_ICON_SIZE_WIDE = 32;
 export const TOKEN_ROW_ICON_SIZE_COMPACT = 40;
 
-// Desktop / web home rows (two columns: name over "amount SYMBOL", value over
-// 24h change). The text column starts after the row's 12 padding, the 40 icon
-// and the 12 gap; the dividers between rows start there too.
-export const TOKEN_WALLET_ROW_ICON_SIZE = 40;
-export const TOKEN_WALLET_ROW_TEXT_INSET = 64;
-// Icon edge inside the row box; the footer's closing line starts here.
-export const TOKEN_WALLET_ROW_ICON_INSET = 12;
-
 export function getTokenRowIconSize(gtMd: boolean): number {
   return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
 }
