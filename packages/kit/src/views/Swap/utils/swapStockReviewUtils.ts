@@ -158,6 +158,7 @@ export function buildSwapStockReviewDisplay({
     amount: paymentTokenAmount,
     targetCurrency,
     currencyMap,
+    strictCurrencyConversion: true,
   });
   const paymentFiatValueBN = new BigNumber(paymentFiatValue);
   const estimatedSharesBN = new BigNumber(estimatedShares);
