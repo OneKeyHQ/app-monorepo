@@ -466,6 +466,7 @@ function AmountCard() {
         rangeMin: newValues.rangeMin,
         rangeMax: newValues.rangeMax,
         balance: isOneToMany ? balance : undefined,
+        transferCount: isOneToMany ? transfersInfo.length : undefined,
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
         tokenDecimals: tokenInfo?.decimals,

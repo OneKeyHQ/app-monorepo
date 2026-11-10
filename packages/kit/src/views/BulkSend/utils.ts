@@ -382,6 +382,27 @@ function formatWithSmartDecimals(
   );
 }
 
+// Display rounding goes down, which must not drop an amount below a lower
+// bound it met before rounding: chain minimum 5.46 with an integer max would
+// format 5.68 as "5". Such an amount keeps the bound's own precision instead.
+function keepAtOrAboveBound({
+  amount,
+  formatted,
+  bound,
+}: {
+  amount: BigNumber;
+  formatted: string;
+  bound: BigNumber;
+}): string {
+  if (amount.isLessThan(bound) || bound.isLessThanOrEqualTo(formatted)) {
+    return formatted;
+  }
+
+  return amount
+    .decimalPlaces(bound.decimalPlaces() ?? 0, BigNumber.ROUND_DOWN)
+    .toFixed();
+}
+
 /**
  * Generates random amounts for each transfer within the specified range.
  * An empty rangeMin falls back to getBulkSendEffectiveRangeMin.
@@ -419,6 +440,12 @@ export function generateRandomAmountsFromRange({
     }),
   );
   let max = new BigNumber(rangeMax);
+  const chainMin = new BigNumber(
+    getBulkSendMinTransferDisplayAmount({
+      minTransferAmount,
+      tokenDecimals: decimals,
+    }),
+  );
   const count = transfersInfo.length;
 
   if (min.isNaN() || max.isNaN() || count === 0) {
@@ -426,7 +453,9 @@ export function generateRandomAmountsFromRange({
   }
 
   // Get input decimal places as minimum precision floor. Uses the raw inputs
-  // so a fallback min never changes how amounts are formatted.
+  // so a fallback min does not change how amounts are formatted; the few
+  // amounts that rounding would drop below a bound go through
+  // keepAtOrAboveBound.
   const minDecimals = getDecimalPlaces(rangeMin);
   const maxDecimals = getDecimalPlaces(rangeMax);
   const inputDecimals = Math.max(minDecimals, maxDecimals);
@@ -536,7 +565,13 @@ export function generateRandomAmountsFromRange({
 
   // Format amounts with smart decimals
   const formattedAmounts = randomAmounts.map((amount) =>
-    formatWithSmartDecimals(amount, inputDecimals, decimals),
+    keepAtOrAboveBound({
+      amount,
+      formatted: formatWithSmartDecimals(amount, inputDecimals, decimals),
+      // A balance-capped amount can sit below the range min, but it still has
+      // to clear the chain minimum.
+      bound: amount.isLessThan(min) ? chainMin : min,
+    }),
   );
 
   // Final check: ensure formatted total doesn't exceed balance due to rounding
@@ -585,11 +620,15 @@ export function generateAmountsFromSpecifiedAmount({
 /**
  * Validates a range amount input.
  * Returns an error message if validation fails, undefined otherwise.
+ *
+ * @param transferCount - How many transfers share `balance` (OneToMany). Omit
+ *   it when `balance` belongs to a single sender.
  */
 export function validateRangeInput({
   rangeMin,
   rangeMax,
   balance,
+  transferCount,
   minTransferAmount,
   tokenSymbol,
   tokenDecimals,
@@ -598,6 +637,7 @@ export function validateRangeInput({
   rangeMin: string;
   rangeMax: string;
   balance?: string;
+  transferCount?: number;
   minTransferAmount?: string;
   tokenSymbol?: string;
   tokenDecimals?: number;
@@ -626,6 +666,21 @@ export function validateRangeInput({
     // Only check if min exceeds balance (min must be achievable)
     // max > balance is allowed - generation logic will use balance/count as effective max
     if (minBN.isGreaterThan(balanceBN)) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
+
+    // A shared balance is split across every transfer, and generation caps
+    // each amount at balance / transferCount. That cap must not land below
+    // what the chain accepts for a single transfer.
+    const chainMinBN = new BigNumber(
+      getBulkSendMinTransferDisplayAmount({ minTransferAmount, tokenDecimals }),
+    );
+    if (
+      transferCount &&
+      chainMinBN.times(transferCount).isGreaterThan(balanceBN)
+    ) {
       return intl.formatMessage({
         id: ETranslations.swap_page_button_insufficient_balance,
       });

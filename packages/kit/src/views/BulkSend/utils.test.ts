@@ -206,6 +206,49 @@ describe('validateRangeInput', () => {
       }),
     ).toBe(ETranslations.swap_page_button_insufficient_balance);
   });
+  // OneToMany splits one balance across every transfer, and generation caps
+  // each amount at balance / transferCount. 0.000008 BTC cannot give two
+  // recipients the 0.00000546 dust minimum each.
+  it('rejects a shared balance that cannot cover the chain minimum for every transfer', () => {
+    const params = {
+      rangeMin: '',
+      rangeMax: '0.00001',
+      balance: '0.000008',
+      minTransferAmount: '0.00000546',
+      tokenSymbol: 'BTC',
+      tokenDecimals: 8,
+      intl,
+    };
+
+    expect(validateRangeInput({ ...params, transferCount: 2 })).toBe(
+      ETranslations.swap_page_button_insufficient_balance,
+    );
+    expect(
+      validateRangeInput({
+        ...params,
+        rangeMin: '0.00000546',
+        transferCount: 2,
+      }),
+    ).toBe(ETranslations.swap_page_button_insufficient_balance);
+    expect(validateRangeInput({ ...params, transferCount: 1 })).toBeUndefined();
+    // Without a count the balance belongs to a single sender.
+    expect(validateRangeInput(params)).toBeUndefined();
+  });
+
+  it('accepts a shared balance that covers the chain minimum for every transfer', () => {
+    expect(
+      validateRangeInput({
+        rangeMin: '',
+        rangeMax: '0.00001',
+        balance: '0.00001092',
+        minTransferAmount: '0.00000546',
+        tokenSymbol: 'BTC',
+        tokenDecimals: 8,
+        transferCount: 2,
+        intl,
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe('calculateIsAmountValid (Range)', () => {
@@ -332,6 +375,55 @@ describe('generateRandomAmountsFromRange', () => {
         decimals: 18,
       }),
     );
+  });
+
+  // NEXA: chain minimum 5.46 with an integer max. Following the max's zero
+  // decimals would format 5.68 as "5", below the minimum.
+  it('keeps amounts at or above a decimal chain minimum when max is an integer', () => {
+    jest
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(0.5);
+
+    expect(
+      generateRandomAmountsFromRange({
+        transfersInfo,
+        rangeMin: '',
+        rangeMax: '10',
+        decimals: 2,
+        minTransferAmount: '5.46',
+      }),
+    ).toEqual(['5.68', '7']);
+  });
+
+  it('keeps amounts at or above an entered min with more decimals than are shown', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    expect(
+      generateRandomAmountsFromRange({
+        transfersInfo,
+        rangeMin: '1.23456',
+        rangeMax: '5',
+        decimals: 18,
+      }),
+    ).toEqual(['1.23456', '1.23456']);
+  });
+
+  // 11.9 / 2 = 5.95 each: below the entered min, yet still above the chain
+  // minimum, so rounding to the inputs' zero decimals must not cross it.
+  it('keeps balance-capped amounts at or above the chain minimum', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    expect(
+      generateRandomAmountsFromRange({
+        transfersInfo,
+        rangeMin: '8',
+        rangeMax: '10',
+        balance: ['11.9'],
+        decimals: 2,
+        minTransferAmount: '5.46',
+      }),
+    ).toEqual(['5.95', '5.95']);
   });
 
   it('generates nothing without a max', () => {
