@@ -137,10 +137,15 @@ test('requires release steps to call the Yarn release the repository ships', (t)
   f.write('.github/workflows/release-test.yml', install('yarn-4.12.0.cjs'));
   assert.match(
     f.check().errors.join('\n'),
-    /Yarn release yarn-4\.18\.1\.cjs, not yarn-4\.12\.0\.cjs/u,
+    /release \.yarn\/releases\/yarn-4\.18\.1\.cjs, not \.yarn\/releases\/yarn-4\.12\.0\.cjs/u,
   );
   f.write('.github/workflows/release-test.yml', install('yarn-4.18.1.cjs'));
   assert.deepEqual(f.check().errors, []);
+  f.write('.yarnrc.yml', 'yarnPath: .yarn/bin/yarn-4.18.1.cjs\n');
+  assert.match(
+    f.check().errors.join('\n'),
+    /release \.yarn\/bin\/yarn-4\.18\.1\.cjs, not \.yarn\/releases\/yarn-4\.18\.1\.cjs/u,
+  );
 });
 
 test('checks cache-refresh because release jobs restore its snapshot', (t) => {
