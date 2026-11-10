@@ -402,10 +402,13 @@ class DesktopApiDev {
             message: safeMessage,
           });
         }
-        return {
-          ...parsed,
-          httpStatus: response.status,
-        };
+        if (!response.ok) {
+          return {
+            ...parsed,
+            httpStatus: response.status,
+          };
+        }
+        return parsed;
       } catch (_error) {
         // Non-JSON response (typically a CF block page). Surface a stable,
         // non-HTML error message so the renderer / caller never sees raw
