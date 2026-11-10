@@ -11,6 +11,17 @@ const initialProps: Parameters<typeof usePerpsAmountInput>[0] = {
 };
 
 describe('usePerpsAmountInput', () => {
+  it('clears token input when switching to another token on the same network', () => {
+    const { result, rerender } = renderHook(usePerpsAmountInput, {
+      initialProps: { ...initialProps, resetKey: 'evm--1::USDC' },
+    });
+    act(() => result.current.setAmount('62.161578'));
+    rerender({ ...initialProps, resetKey: 'evm--1::ETH' });
+    expect(result.current.amount).toBe('');
+    expect(result.current.source.amount).toBe('');
+    expect(result.current.tokenAmountBN.isZero()).toBe(true);
+  });
+
   it('preserves both the entered USD amount and transfer quantity over repeated switches', () => {
     const { result, rerender } = renderHook(usePerpsAmountInput, {
       initialProps,
