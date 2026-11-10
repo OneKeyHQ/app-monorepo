@@ -276,27 +276,34 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it.each([true, false])(
-  'reserves the same content space when switching from a category to empty favorites in table layout %p',
-  async (tableLayout) => {
-    mockRecommendationResult = [mockRecord];
-    const view = render(<PopularTrading tableLayout={tableLayout} />);
-    const content = screen.getByTestId('home-market-content');
-    const height = content.style.minHeight;
-    expect(Number.parseFloat(height)).toBeGreaterThan(0);
-    expect(screen.getByText('Open token')).toBeTruthy();
-    mockShowFavorites = true;
-    view.rerender(<PopularTrading tableLayout={tableLayout} />);
-    await act(async () => mockRefreshFavorites());
-    expect(screen.queryByText('Open token')).toBeNull();
-    expect(screen.getByTestId('home-header-actions-btn')).toBeTruthy();
-    expect(screen.getByText('Bitcoin').closest('[style*="min-height"]')).toBe(
-      content,
-    );
-    expect(screen.getByTestId('home-market-content')).toBe(content);
-    expect(content.style.minHeight).toBe(height);
-  },
-);
+it('reserves the same content space when switching from a category to empty favorites in table layout', async () => {
+  mockRecommendationResult = [mockRecord];
+  const view = render(<PopularTrading tableLayout />);
+  const content = screen.getByTestId('home-market-content');
+  const height = content.style.minHeight;
+  expect(Number.parseFloat(height)).toBeGreaterThan(0);
+  expect(screen.getByText('Open token')).toBeTruthy();
+  mockShowFavorites = true;
+  view.rerender(<PopularTrading tableLayout />);
+  await act(async () => mockRefreshFavorites());
+  expect(screen.queryByText('Open token')).toBeNull();
+  expect(screen.getByTestId('home-header-actions-btn')).toBeTruthy();
+  expect(screen.getByText('Bitcoin').closest('[style*="min-height"]')).toBe(
+    content,
+  );
+  expect(screen.getByTestId('home-market-content')).toBe(content);
+  expect(content.style.minHeight).toBe(height);
+});
+
+it('does not reserve table height for mobile recommendation cards', () => {
+  const view = render(<PopularTrading />);
+  const content = screen.getByTestId('home-market-content');
+  expect(content.style.minHeight).toBe('');
+  expect(screen.getByText('Open token')).toBeTruthy();
+  mockShowFavorites = true;
+  view.rerender(<PopularTrading />);
+  expect(content.style.minHeight).toBe('');
+});
 
 it('keeps the current view until recommendations are ready after clearing favorites', async () => {
   mockShowFavorites = true;
