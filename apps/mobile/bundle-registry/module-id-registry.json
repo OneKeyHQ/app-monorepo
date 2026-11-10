@@ -18795,6 +18795,7 @@
     "packages/components/src/actions/Tooltip/useTooltipOpenState.ts": 3083,
     "packages/components/src/actions/Trigger/index.tsx": 8924,
     "packages/components/src/actions/index.ts": 9237,
+    "packages/components/src/composite/Banner/BannerSwiper.ts": 12332,
     "packages/components/src/composite/Banner/CloseButton.tsx": 8342,
     "packages/components/src/composite/Banner/PaginationButton.tsx": 21487,
     "packages/components/src/composite/Banner/index.tsx": 22269,
