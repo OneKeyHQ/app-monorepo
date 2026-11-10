@@ -429,4 +429,40 @@ describe('DesktopApiSniRequest.uploadFile', () => {
 
     await expect(upload).rejects.toMatchObject({ code: 'SNI_CANCELLED' });
   });
+
+  test('classifies pre-write TCP refusal on uploadFile as SNI_CONNECTION_REFUSED and destroys incomplete requests on early reply', async () => {
+    requestSpy.mockImplementationOnce(((options: RequestOptions) => {
+      const request = new FakeUploadRequest(options);
+      requests.push(request);
+      setImmediate(() => {
+        request.destroy(
+          Object.assign(new Error('connect ECONNREFUSED 93.184.216.34:443'), {
+            code: 'ECONNREFUSED',
+          }),
+        );
+      });
+      return request;
+    }) as unknown as typeof https.request);
+
+    await expect(makeApi().uploadFile(baseConfig())).rejects.toMatchObject({
+      code: 'SNI_CONNECTION_REFUSED',
+    });
+
+    requestSpy.mockImplementationOnce(((
+      options: RequestOptions,
+      callback?: (response: IncomingMessage) => void,
+    ) => {
+      const request = new FakeUploadRequest(options);
+      requests.push(request);
+      // Server replies 413 before the stream finishes piping.
+      setImmediate(() => respond(callback, 413, '{"code":413}'));
+      return request;
+    }) as unknown as typeof https.request);
+
+    await expect(makeApi().uploadFile(baseConfig())).resolves.toMatchObject({
+      statusCode: 413,
+    });
+    expect(requests[1].destroy).toHaveBeenCalled();
+    expect(requests[1].source?.destroyed).toBe(true);
+  });
 });

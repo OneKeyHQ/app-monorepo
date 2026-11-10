@@ -186,7 +186,7 @@ describe('native log upload transport', () => {
 
     await expect(
       uploadLogBundle({ uploadToken: 'token', digest: nativeDigest() }),
-    ).rejects.toMatchObject({ reason: 'network' });
+    ).rejects.toMatchObject({ reason: 'network', retryable: false });
     expect(mockedCreateUploadTask).not.toHaveBeenCalled();
     expect(mockedLogUpload.uploadFailed).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -195,6 +195,18 @@ describe('native log upload transport', () => {
         errorMessage: 'Socket closed after write to <ip>',
       }),
     );
+
+    jest.clearAllMocks();
+    mockedUploadViaIpTable.mockResolvedValue({
+      route: 'failed',
+      errorCode: 'SNI_TLS_FAILED',
+      errorMessage: 'SSLException during body write',
+    });
+
+    await expect(
+      uploadLogBundle({ uploadToken: 'token', digest: nativeDigest() }),
+    ).rejects.toMatchObject({ reason: 'network', retryable: false });
+    expect(mockedCreateUploadTask).not.toHaveBeenCalled();
   });
 
   test('cancels a stalled domain upload at the timeout', async () => {

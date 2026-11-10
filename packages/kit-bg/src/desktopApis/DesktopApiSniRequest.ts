@@ -210,7 +210,7 @@ function invalidConfig(message: string): never {
   throw new SniRequestError('SNI_INVALID_CONFIG', message, true);
 }
 
-export function classifyTransportError(error: Error): Error {
+export function classifyTransportError(error: Error, isUpload = false): Error {
   if (error instanceof SniRequestError) {
     return error;
   }
@@ -229,6 +229,17 @@ export function classifyTransportError(error: Error): Error {
   }
   if (/TLS|SSL|handshake|EPROTO/i.test(message)) {
     return new SniRequestError('SNI_TLS_FAILED', error.message, true);
+  }
+  if (isUpload) {
+    if (/\bECONNREFUSED\b/i.test(message)) {
+      return new SniRequestError('SNI_CONNECTION_REFUSED', error.message);
+    }
+    if (/\b(?:ENOTFOUND|EAI_AGAIN)\b/i.test(message)) {
+      return new SniRequestError('SNI_DNS_FAILED', error.message);
+    }
+    if (/\b(?:ENETUNREACH|EHOSTUNREACH)\b/i.test(message)) {
+      return new SniRequestError('SNI_NETWORK_UNREACHABLE', error.message);
+    }
   }
   return error;
 }
@@ -1101,6 +1112,14 @@ class DesktopApiSniRequest {
         releaseRequestSlot?.();
         releaseRequestSlot = undefined;
         activeFileStream?.destroy();
+        if (
+          normalizedConfig.bodyFile &&
+          activeRequest &&
+          !activeRequest.writableEnded &&
+          !(activeRequest as { ended?: boolean }).ended
+        ) {
+          activeRequest.destroy();
+        }
       };
 
       const settleReject = (error: Error) => {
@@ -1247,7 +1266,9 @@ class DesktopApiSniRequest {
         });
 
         request.on('error', (error: Error) => {
-          settleReject(classifyTransportError(error));
+          settleReject(
+            classifyTransportError(error, Boolean(normalizedConfig.bodyFile)),
+          );
         });
 
         timeoutId = setTimeout(() => {

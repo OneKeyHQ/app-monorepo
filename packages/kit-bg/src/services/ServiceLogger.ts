@@ -3,7 +3,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import {
@@ -16,7 +15,7 @@ import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { uploadFileViaIpTable } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
-import { redactIpLiterals } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import { getSniRequestErrorCode } from '@onekeyhq/shared/src/request/helpers/sniRequestQaUtils';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -178,13 +177,6 @@ class ServiceLogger extends ServiceBase {
     delete baseHeaders['Content-Length'];
     const headers = await withCustomUAHeaders(uploadUrl, baseHeaders);
 
-    let hostname = 'unknown';
-    try {
-      hostname = new URL(uploadUrl).hostname;
-    } catch {
-      // Logged as unknown; the transport rejects the URL itself.
-    }
-    const startedAt = Date.now();
     try {
       const result = await uploadFileViaIpTable({
         url: uploadUrl,
@@ -197,13 +189,6 @@ class ServiceLogger extends ServiceBase {
       }
       const httpStatus =
         result.response.statusCode ?? result.response.status ?? 0;
-      defaultLogger.setting.logUpload.uploadSucceeded({
-        path: 'sni',
-        hostname,
-        sizeBytes,
-        elapsedMs: Date.now() - startedAt,
-        httpStatus,
-      });
       return {
         route: 'sni',
         httpStatus,
@@ -212,17 +197,9 @@ class ServiceLogger extends ServiceBase {
       };
     } catch (error) {
       const errorCode = getSniRequestErrorCode(error) || 'unknown';
-      const errorMessage = redactIpLiterals(
+      const errorMessage = sanitizeSniDiagnosticText(
         error instanceof Error ? error.message : String(error),
       );
-      defaultLogger.setting.logUpload.uploadFailed({
-        path: 'sni',
-        hostname,
-        sizeBytes,
-        elapsedMs: Date.now() - startedAt,
-        errorCode,
-        errorMessage,
-      });
       // Plain result instead of a thrown error: the native error shape does
       // not survive the bg -> main bridge reliably.
       return { route: 'failed', errorCode, errorMessage };

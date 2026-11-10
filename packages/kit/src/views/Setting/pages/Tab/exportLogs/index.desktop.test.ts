@@ -155,11 +155,11 @@ describe('desktop log upload transport', () => {
     );
   });
 
-  test('falls back to the domain upload after a non-timeout SNI failure', async () => {
+  test('falls back to the domain upload after a pre-write SNI failure', async () => {
     mockedUploadViaIpTable.mockResolvedValue({
       route: 'failed',
-      errorCode: 'SNI_TLS_FAILED',
-      errorMessage: 'handshake failed',
+      errorCode: 'SNI_CONNECTION_REFUSED',
+      errorMessage: 'connection refused',
     });
     mockedUploadLoggerBundle.mockResolvedValue(SUCCESS_PAYLOAD);
 
@@ -169,8 +169,11 @@ describe('desktop log upload transport', () => {
     expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
       expect.objectContaining({
         path: 'domain',
-        skipReason: 'sni_failed:SNI_TLS_FAILED',
+        skipReason: 'sni_failed:SNI_CONNECTION_REFUSED',
       }),
+    );
+    expect(mockedLogUpload.uploadSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'domain', httpStatus: 200 }),
     );
   });
 
@@ -198,7 +201,7 @@ describe('desktop log upload transport', () => {
 
     await expect(
       uploadLogBundle({ uploadToken: 'token', digest: desktopDigest() }),
-    ).rejects.toMatchObject({ reason: 'network' });
+    ).rejects.toMatchObject({ reason: 'network', retryable: false });
     expect(mockedUploadLoggerBundle).not.toHaveBeenCalled();
     expect(mockedLogUpload.uploadFailed).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -207,6 +210,18 @@ describe('desktop log upload transport', () => {
         errorMessage: 'Socket closed after write to <ip>',
       }),
     );
+
+    jest.clearAllMocks();
+    mockedUploadViaIpTable.mockResolvedValue({
+      route: 'failed',
+      errorCode: 'SNI_TLS_FAILED',
+      errorMessage: 'SSL write error',
+    });
+
+    await expect(
+      uploadLogBundle({ uploadToken: 'token', digest: desktopDigest() }),
+    ).rejects.toMatchObject({ reason: 'network', retryable: false });
+    expect(mockedUploadLoggerBundle).not.toHaveBeenCalled();
   });
 
   test('maps a main-process domain timeout to a terminal timeout error', async () => {

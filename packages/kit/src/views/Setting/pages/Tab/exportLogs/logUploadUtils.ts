@@ -19,13 +19,14 @@ const SNI_TIMEOUT_ERROR_CODES = new Set(['SNI_TIMEOUT', 'SNI_REQUEST_TIMEOUT']);
 
 // Errors that occur before any request body bytes are written to the socket,
 // so falling back to the domain upload route cannot duplicate the POST.
+// Note: SNI_TLS_FAILED is intentionally excluded because on Android and
+// Desktop TLS/SSL stream errors can also surface after body bytes are written.
 const SNI_PRE_WRITE_UPLOAD_ERROR_CODES = new Set([
   'SNI_UNSUPPORTED',
   'SNI_INVALID_CONFIG',
   'SNI_INVALID_URL',
   'SNI_DNS_FAILED',
   'SNI_CONNECTION_REFUSED',
-  'SNI_TLS_FAILED',
   'SNI_CERT_FAILED',
   'SNI_SECURITY_POLICY_FAILED',
   'SNI_RESOURCE_LIMIT',
@@ -38,18 +39,23 @@ export class LogUploadError extends OneKeyLocalError {
 
   readonly httpStatus?: number;
 
+  readonly retryable?: boolean;
+
   constructor({
     reason,
     message,
     httpStatus,
+    retryable,
   }: {
     reason: ILogUploadErrorReason;
     message: string;
     httpStatus?: number;
+    retryable?: boolean;
   }) {
     super(message);
     this.reason = reason;
     this.httpStatus = httpStatus;
+    this.retryable = retryable;
   }
 }
 
@@ -110,6 +116,9 @@ export function isSniPreWriteUploadErrorCode(code: string): boolean {
  */
 export function isRetryableLogUploadError(error: unknown): boolean {
   if (error instanceof LogUploadError) {
+    if (typeof error.retryable === 'boolean') {
+      return error.retryable;
+    }
     if (error.reason === 'network') {
       return true;
     }

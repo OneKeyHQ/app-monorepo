@@ -367,8 +367,11 @@ class DesktopApiDev {
       );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new OneKeyLocalError('Invalid JSON response');
+        }
         if (typeof parsed.code === 'number') {
-          if (parsed.code === 0) {
+          if (parsed.code === 0 && response.ok) {
             sendProgress({
               stage: ELogUploadStage.Success,
               progressPercent: 100,
@@ -378,16 +381,31 @@ class DesktopApiDev {
               stage: ELogUploadStage.Error,
               message:
                 (parsed?.data as { message?: string } | undefined)?.message ||
-                parsed.message,
+                parsed.message ||
+                `Upload failed (HTTP ${response.status})`,
             });
           }
-        } else {
+        } else if (response.ok && parsed.data) {
           sendProgress({
             stage: ELogUploadStage.Success,
             progressPercent: 100,
           });
+        } else {
+          const safeMessage =
+            typeof parsed.message === 'string' && parsed.message
+              ? parsed.message
+              : `Upload failed (HTTP ${response.status}, cf-ray=${
+                  response.headers.get('cf-ray') ?? 'n/a'
+                })`;
+          sendProgress({
+            stage: ELogUploadStage.Error,
+            message: safeMessage,
+          });
         }
-        return parsed;
+        return {
+          ...parsed,
+          httpStatus: response.status,
+        };
       } catch (_error) {
         // Non-JSON response (typically a CF block page). Surface a stable,
         // non-HTML error message so the renderer / caller never sees raw

@@ -75,6 +75,15 @@ describe('isRetryableLogUploadError', () => {
     ).toBe(true);
     expect(
       isRetryableLogUploadError(
+        new LogUploadError({
+          reason: 'network',
+          retryable: false,
+          message: 'SNI post-write failure',
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isRetryableLogUploadError(
         new LogUploadError({ reason: 'http', httpStatus: 502, message: '' }),
       ),
     ).toBe(true);
@@ -127,9 +136,10 @@ describe('isRetryableLogUploadError', () => {
 });
 
 describe('isSniPreWriteUploadErrorCode', () => {
-  test('allows domain fallback only for pre-write SNI errors', () => {
-    expect(isSniPreWriteUploadErrorCode('SNI_TLS_FAILED')).toBe(true);
+  test('allows domain fallback only for strictly pre-write SNI errors', () => {
     expect(isSniPreWriteUploadErrorCode('SNI_CONNECTION_REFUSED')).toBe(true);
+    expect(isSniPreWriteUploadErrorCode('SNI_CERT_FAILED')).toBe(true);
+    expect(isSniPreWriteUploadErrorCode('SNI_TLS_FAILED')).toBe(false);
     expect(isSniPreWriteUploadErrorCode('SNI_RESPONSE_FAILED')).toBe(false);
     expect(isSniPreWriteUploadErrorCode('SNI_NETWORK_UNREACHABLE')).toBe(false);
     expect(isSniPreWriteUploadErrorCode('SNI_TIMEOUT')).toBe(false);

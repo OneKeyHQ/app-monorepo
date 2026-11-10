@@ -18,7 +18,7 @@ import type {
   ILogUploadResponse,
   ILogUploadViaIpTableResult,
 } from '@onekeyhq/shared/src/logger/types';
-import { redactIpLiterals } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -107,6 +107,7 @@ export const exportLogs = async (fileBaseName?: string) => {
 
 type IDesktopUploadPayload = {
   code?: unknown;
+  httpStatus?: unknown;
   message?: string;
   data?: unknown;
 };
@@ -240,7 +241,7 @@ export const uploadLogBundle = async ({
       httpStatus,
       serverCode,
       errorCode: getErrorCode(error),
-      errorMessage: redactIpLiterals(getErrorMessage(error)),
+      errorMessage: sanitizeSniDiagnosticText(getErrorMessage(error)),
     });
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
@@ -298,9 +299,10 @@ export const uploadLogBundle = async ({
       !isSniPreWriteUploadErrorCode(sniResult.errorCode)
     ) {
       // Once the archive may have been written to the SNI socket, do not
-      // immediately replay a second POST over the domain in the same attempt.
+      // immediately replay a second POST over the domain or via outer retry.
       throw new LogUploadError({
         reason: 'network',
+        retryable: false,
         message:
           sniResult.errorMessage ||
           `SNI upload failed (${sniResult.errorCode})`,
@@ -312,10 +314,11 @@ export const uploadLogBundle = async ({
         hostname,
         sizeBytes: digest.sizeBytes,
         timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-        skipReason:
+        skipReason: sanitizeSniDiagnosticText(
           sniResult.route === 'skipped'
             ? sniResult.reason
             : `sni_failed:${sniResult.errorCode}`,
+        ),
       });
       const headers = await getRequestHeaders();
       headers.authorization = `Bearer ${uploadToken}`;
@@ -327,6 +330,17 @@ export const uploadLogBundle = async ({
         digest,
         filePath,
       });
+      if (typeof payload.httpStatus === 'number') {
+        httpStatus = payload.httpStatus;
+      } else if (
+        typeof payload.code === 'number' &&
+        payload.code >= 100 &&
+        payload.code < 600
+      ) {
+        httpStatus = payload.code;
+      } else if (payload.code === 0 && payload.data) {
+        httpStatus = 200;
+      }
     }
   } catch (error) {
     return failWith(error, httpStatus);
@@ -349,9 +363,20 @@ export const uploadLogBundle = async ({
     );
   }
 
-  if (!payload.data) {
+  if (
+    !payload.data ||
+    (typeof httpStatus === 'number' && (httpStatus < 200 || httpStatus >= 300))
+  ) {
     return failWith(
-      new OneKeyLocalError('Upload failed: missing response data'),
+      typeof httpStatus === 'number'
+        ? new LogUploadError({
+            reason: 'http',
+            httpStatus,
+            message:
+              payload.message ||
+              `Upload failed: missing response data (HTTP ${httpStatus})`,
+          })
+        : new OneKeyLocalError('Upload failed: missing response data'),
       httpStatus,
     );
   }

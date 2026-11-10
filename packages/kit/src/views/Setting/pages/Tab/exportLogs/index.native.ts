@@ -18,7 +18,7 @@ import utils from '@onekeyhq/shared/src/logger/utils';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
-import { redactIpLiterals } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -246,13 +246,14 @@ const uploadViaUploadTask = async ({
     uploadTaskError = new OneKeyLocalError('Upload task is not available');
   }
 
+  onSentBytes(0);
   onPathChange?.('fetch_fallback');
   defaultLogger.setting.logUpload.uploadStart({
     path: 'fetch_fallback',
     hostname: getHostnameForLog(uploadUrl),
     sizeBytes: digest.sizeBytes,
     timeoutMs,
-    skipReason: redactIpLiterals(
+    skipReason: sanitizeSniDiagnosticText(
       `upload_task_failed:${getErrorMessage(uploadTaskError)}`,
     ),
   });
@@ -350,7 +351,7 @@ export const uploadLogBundle = async ({
         error instanceof LogUploadError
           ? error.reason
           : (error as { code?: unknown } | undefined)?.code?.toString(),
-      errorMessage: redactIpLiterals(getErrorMessage(error)),
+      errorMessage: sanitizeSniDiagnosticText(getErrorMessage(error)),
     });
   };
   const failWith = (
@@ -407,9 +408,10 @@ export const uploadLogBundle = async ({
       !isSniPreWriteUploadErrorCode(sniResult.errorCode)
     ) {
       // Once the archive may have been written to the SNI socket, do not
-      // immediately replay a second POST over the domain in the same attempt.
+      // immediately replay a second POST over the domain or via outer retry.
       throw new LogUploadError({
         reason: 'network',
+        retryable: false,
         message:
           sniResult.errorMessage ||
           `SNI upload failed (${sniResult.errorCode})`,
@@ -422,10 +424,11 @@ export const uploadLogBundle = async ({
         hostname,
         sizeBytes: digest.sizeBytes,
         timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-        skipReason:
+        skipReason: sanitizeSniDiagnosticText(
           sniResult.route === 'skipped'
             ? sniResult.reason
             : `sni_failed:${sniResult.errorCode}`,
+        ),
       });
     }
 
@@ -501,9 +504,15 @@ export const uploadLogBundle = async ({
     );
   }
 
-  if (!payload.data) {
+  if (!payload.data || httpStatus < 200 || httpStatus >= 300) {
     return failWith(
-      new OneKeyLocalError('Upload failed: missing response data'),
+      new LogUploadError({
+        reason: 'http',
+        httpStatus,
+        message:
+          payload.message ||
+          `Upload failed: missing response data (HTTP ${httpStatus})`,
+      }),
       httpStatus,
     );
   }

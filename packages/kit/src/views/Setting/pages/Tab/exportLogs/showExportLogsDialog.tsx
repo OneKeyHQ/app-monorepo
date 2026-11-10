@@ -40,7 +40,7 @@ import type {
   ILogExportScope,
 } from '@onekeyhq/shared/src/logger/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { redactIpLiterals } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 
 import { downloadLogDigest } from './downloadLogDigest';
 import {
@@ -238,7 +238,7 @@ function UploadLogsDialogContent({
             errorCode: (
               error as { code?: unknown } | undefined
             )?.code?.toString(),
-            errorMessage: redactIpLiterals(resolvedError.message),
+            errorMessage: sanitizeSniDiagnosticText(resolvedError.message),
           });
           if (!retryable) {
             throw new AbortError(resolvedError);
