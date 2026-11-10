@@ -2,6 +2,7 @@ import { AppState, NativeEventEmitter, NativeModules } from 'react-native';
 
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
@@ -434,15 +435,32 @@ async function openIntercom(
   // A developer support URL override only applies to the hosted page, so it
   // routes around the native Messenger. The hosted page cannot open a specific
   // conversation, so notification opens keep using the SDK when it exists.
-  if (
-    !canUseNativeSdk() ||
-    (!params?.conversationId && (await getIntercomSupportUrlOverride()))
-  ) {
+  const nativeSdkReady = canUseNativeSdk();
+  // The override only matters for the hosted page, which cannot be reached
+  // with a conversation id and is irrelevant when the SDK is unavailable.
+  const supportUrlOverride =
+    nativeSdkReady && !params?.conversationId
+      ? await getIntercomSupportUrlOverride()
+      : undefined;
+  const webFallback = !nativeSdkReady || !!supportUrlOverride;
+  if (webFallback) {
+    defaultLogger.notification.support.supportReplyBranch({
+      conversationId: params?.conversationId,
+      selectedBranch: 'native-webview-fallback',
+      nativeSdkReady,
+    });
     return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
     );
   }
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId
+      ? 'native-conversation'
+      : 'native-home',
+    nativeSdkReady,
+  });
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
