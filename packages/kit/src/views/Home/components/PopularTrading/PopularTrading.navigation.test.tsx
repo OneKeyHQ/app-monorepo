@@ -295,14 +295,18 @@ it('reserves the same content space when switching from a category to empty favo
   expect(content.style.minHeight).toBe(height);
 });
 
-it('does not reserve table height for mobile recommendation cards', () => {
+it('does not reserve table height for mobile recommendation cards', async () => {
+  mockShowFavorites = true;
+  mockRecommendationResult = [mockRecord];
   const view = render(<PopularTrading />);
+  await act(async () => mockRefreshFavorites());
   const content = screen.getByTestId('home-market-content');
   expect(content.style.minHeight).toBe('');
-  expect(screen.getByText('Open token')).toBeTruthy();
-  mockShowFavorites = true;
-  view.rerender(<PopularTrading />);
-  expect(content.style.minHeight).toBe('');
+  expect(screen.getByText('Bitcoin')).toBeTruthy();
+  expect(
+    screen.getByTestId('home-header-actions-btn').hasAttribute('disabled'),
+  ).toBe(false);
+  view.unmount();
 });
 
 it('keeps the current view until recommendations are ready after clearing favorites', async () => {

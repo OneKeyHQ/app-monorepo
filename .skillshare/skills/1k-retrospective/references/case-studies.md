@@ -6,6 +6,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 
 <!-- New cases are appended below this line -->
 
+## Case: Mobile Home market recommendation cards retained table header spacing
+**Date**: 2026-11-10 | **Platforms**: iOS, Android (native)
+**Symptom**: The mobile Home market recommendation card grid left an extra 32px blank area before the next Home block.
+**Root Cause**: The content minimum-height fix applied the desktop table header allowance to mobile favorites state, while the regression test only exercised a category list and never rendered recommendation cards.
+**Fix**: Applied the 32px header allowance only to table layout, kept the mobile favorites list reservation to its row and action-band height, and added a test that renders mobile recommendation cards and the Add button.
+**Catchable by**: Section 3: UI changes verified on mobile recommendation-card layout; Section 5: Test state must exercise the changed rendering branch
+
 ## Case: iOS OneKey ID logout dialog stuck with loading spinner
 **Date**: 2026-02-26 | **Platforms**: iOS (native)
 **Symptom**: After clicking logout in OneKey ID page, the confirmation dialog showed a permanent loading spinner and never closed, even after the modal behind it was dismissed.
