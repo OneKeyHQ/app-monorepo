@@ -15,6 +15,12 @@ const TestSimpleModal = LazyLoadPage(() =>
   })),
 );
 
+const NetworkFeeSubsidyHistory = LazyLoadPage(() =>
+  import('../../Developer/pages/Gallery/Components/stories/NetworkFeeSubsidy/NetworkFeeSubsidyModal').then(
+    (m) => ({ default: m.NetworkFeeSubsidyHistory }),
+  ),
+);
+
 export const TestModalRouter: IModalFlowNavigatorConfig<
   ETestModalPages,
   ITestModalPagesParam
@@ -26,6 +32,12 @@ export const TestModalRouter: IModalFlowNavigatorConfig<
   {
     name: ETestModalPages.NetworkFeeSubsidy,
     component: NetworkFeeSubsidyModal,
+    modalContentMaxWidth: 800,
+    modalContentMaxHeight: 520,
+  },
+  {
+    name: ETestModalPages.NetworkFeeSubsidyHistory,
+    component: NetworkFeeSubsidyHistory,
     modalContentMaxWidth: 800,
     modalContentMaxHeight: 520,
   },

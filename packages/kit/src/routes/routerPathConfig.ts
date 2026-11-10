@@ -185,6 +185,7 @@ export const modalRouterPathConfig: IRoutePathConfig[] = [
           children: [
             route({ name: ETestModalPages.TestSimpleModal }),
             route({ name: ETestModalPages.NetworkFeeSubsidy }),
+            route({ name: ETestModalPages.NetworkFeeSubsidyHistory }),
           ],
         }),
       ]

@@ -20,6 +20,7 @@ const previewOptions = [
   { value: 'live', label: '跟随真实状态' },
   { value: 'guest', label: '未登录' },
   { value: 'available', label: '可领取' },
+  { value: 'emptyHistory', label: '无补贴记录' },
   { value: 'claimed', label: '今日已领取' },
   { value: 'exhausted', label: '今日已领完' },
   { value: 'monthlyLimit', label: '本月已达上限' },
@@ -63,7 +64,7 @@ export function TronRewardPreview({
   onModeChange,
   renderInline,
 }: {
-  mode: Exclude<ISubsidyPreviewMode, 'live' | 'guest'>;
+  mode: Exclude<ISubsidyPreviewMode, 'live' | 'guest' | 'emptyHistory'>;
   validUntil?: number;
   onModeChange: (value: 'claimed' | 'available') => void;
   renderInline: (state: ITronRewardCardState) => ReactNode;

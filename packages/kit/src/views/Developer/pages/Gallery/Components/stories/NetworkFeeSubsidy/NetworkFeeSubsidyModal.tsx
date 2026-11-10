@@ -6,7 +6,7 @@ import { useWindowDimensions } from 'react-native';
 import {
   Accordion,
   Button,
-  Dialog,
+  Empty,
   Icon,
   Page,
   Pagination,
@@ -19,10 +19,11 @@ import {
   useInModalDialog,
   useMedia,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { showOneKeyIdLoginFailedToast } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
@@ -31,6 +32,8 @@ import { TronRewardCenterContent } from '@onekeyhq/kit/src/views/RewardCenter/pa
 import { useSettingsPageStyle } from '@onekeyhq/kit/src/views/Setting/pages/Tab/useSettingsPageStyle';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITestModalPagesParam } from '@onekeyhq/shared/src/routes';
+import { ETestModalPages } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -103,7 +106,8 @@ function demoRecord(
   };
 }
 
-const records = [
+const recentRecordLimit = 6;
+const demoRecords = [
   demoRecord('TRON', '2026-11-10T02:24:00Z', 1.24),
   demoRecord('Base', '2026-11-09T10:06:00Z', 0.08),
   demoRecord('TRON', '2026-11-09T01:41:00Z', 1.18),
@@ -122,12 +126,6 @@ const records = [
   demoRecord('Base', '2026-11-02T13:07:00Z', 0.25),
   demoRecord('TRON', '2026-11-02T01:32:00Z', 1.21),
   demoRecord('Base', '2026-11-01T08:49:00Z', 0.7),
-];
-
-const totalSaved = records.reduce((total, record) => total + record.saved, 0);
-const summaryStats = [
-  { label: '已补贴交易', value: `${records.length} 笔` },
-  { label: '补贴类型', value: '2 项' },
 ];
 
 const usageSteps = [
@@ -227,6 +225,16 @@ function SubsidyRecordList({
         overflow: 'hidden',
       })}
     >
+      {items.length === 0 ? (
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          textAlign="center"
+          py="$2"
+        >
+          暂无补贴记录
+        </SizableText>
+      ) : null}
       {items.map((record) => (
         <XStack
           key={record.timestamp}
@@ -267,46 +275,110 @@ function SubsidyRecordList({
   );
 }
 
-function DesktopSubsidyHistory() {
-  const rowHeight = 52;
+function PaginatedSubsidyHistory({
+  records,
+  compact = false,
+}: {
+  records: ISubsidyRecord[];
+  compact?: boolean;
+}) {
+  const rowHeight = compact ? 52 : 64;
   const [pageSize, setPageSize] = useState(1);
   const [recordIndex, setRecordIndex] = useState(0);
-  const current = Math.floor(recordIndex / pageSize) + 1;
-  const start = (current - 1) * pageSize;
   const total = Math.ceil(records.length / pageSize);
+  const current = Math.min(
+    Math.floor(recordIndex / pageSize) + 1,
+    Math.max(total, 1),
+  );
+  const start = (current - 1) * pageSize;
 
-  return (
-    <YStack flex={1} minHeight={0} gap="$3">
-      <YStack
-        flex={1}
-        minHeight={0}
-        onLayout={({ nativeEvent }) =>
-          setPageSize(
-            Math.max(1, Math.floor(nativeEvent.layout.height / rowHeight)),
-          )
-        }
-      >
+  const list = (
+    <ScrollView
+      flex={1}
+      minHeight={0}
+      contentContainerStyle={records.length ? undefined : { flexGrow: 1 }}
+      onLayout={({ nativeEvent }) =>
+        setPageSize(
+          Math.max(1, Math.floor(nativeEvent.layout.height / rowHeight)),
+        )
+      }
+    >
+      {records.length ? (
         <SubsidyRecordList
           items={records.slice(start, start + pageSize)}
           rowHeight={rowHeight}
         />
-      </YStack>
-      {total > 1 ? (
-        <Pagination
-          alignSelf="flex-end"
-          flexShrink={0}
-          current={current}
-          total={total}
-          siblingCount={0}
-          onChange={(page) => setRecordIndex((page - 1) * pageSize)}
-          testID="subsidy-desktop-history-pagination"
+      ) : (
+        <Empty
+          flexGrow={1}
+          {...(compact
+            ? {
+                illustration: 'Orders',
+                title: '暂无补贴记录',
+                titleProps: { size: '$headingMd' },
+              }
+            : {
+                illustration: 'Document',
+                illustrationProps: { size: 88, mb: '$1' },
+                description: '暂无补贴记录',
+                descriptionProps: { size: '$bodyMd' },
+              })}
         />
+      )}
+    </ScrollView>
+  );
+  const pagination =
+    total > 1 ? (
+      <Pagination
+        alignSelf={compact ? 'flex-end' : 'center'}
+        flexShrink={0}
+        current={current}
+        total={total}
+        siblingCount={0}
+        onChange={(page) => setRecordIndex((page - 1) * pageSize)}
+        testID={
+          compact
+            ? 'subsidy-desktop-history-pagination'
+            : 'subsidy-history-pagination'
+        }
+      />
+    ) : null;
+
+  if (compact) {
+    return (
+      <YStack flex={1} minHeight={0} gap="$3">
+        {list}
+        {pagination}
+      </YStack>
+    );
+  }
+
+  return (
+    <Page>
+      <Page.Header title="全部补贴记录（演示）" />
+      <Page.Body px="$5" pt="$2">
+        {list}
+      </Page.Body>
+      {pagination ? (
+        <Page.Footer>
+          <YStack py="$3" borderTopWidth={1} borderTopColor="$borderSubdued">
+            {pagination}
+          </YStack>
+        </Page.Footer>
       ) : null}
-    </YStack>
+    </Page>
   );
 }
 
-function SubsidySummaryStats() {
+export function NetworkFeeSubsidyHistory() {
+  return <PaginatedSubsidyHistory records={demoRecords} />;
+}
+
+function SubsidySummaryStats({ recordCount }: { recordCount: number }) {
+  const summaryStats = [
+    { label: '已补贴交易', value: `${recordCount} 笔` },
+    { label: '补贴类型', value: '2 项' },
+  ];
   const { width, fontScale } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(width);
   const stacked = containerWidth < 320 || fontScale > 1.3;
@@ -538,8 +610,12 @@ function BenefitCard({
 
 function NetworkFeeSubsidy() {
   const intl = useIntl();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<ITestModalPagesParam>>();
   const { isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const [previewMode, setPreviewMode] = useState<ISubsidyPreviewMode>('live');
+  const records = previewMode === 'emptyHistory' ? [] : demoRecords;
+  const totalSaved = records.reduce((total, record) => total + record.saved, 0);
   const [previewSession, setPreviewSession] = useState(0);
   const [previewValidUntil, setPreviewValidUntil] = useState<number>();
   const signedIn =
@@ -574,8 +650,10 @@ function NetworkFeeSubsidy() {
     (mode: ISubsidyPreviewMode) => {
       selectPreview(mode);
       setPreviewSession((session) => session + 1);
-      setPanel('tron');
-      setClaimDialogOpen(!wide && mode !== 'guest' && mode !== 'live');
+      setPanel(mode === 'emptyHistory' ? 'history' : 'tron');
+      setClaimDialogOpen(
+        !wide && mode !== 'guest' && mode !== 'live' && mode !== 'emptyHistory',
+      );
     },
     [selectPreview, wide],
   );
@@ -642,7 +720,7 @@ function NetworkFeeSubsidy() {
           累计获得补贴（演示）
         </SizableText>
       </YStack>
-      <SubsidySummaryStats />
+      <SubsidySummaryStats recordCount={records.length} />
     </YStack>
   ) : (
     <YStack>
@@ -818,7 +896,7 @@ function NetworkFeeSubsidy() {
           break;
         case 'history':
           detailTitle = '补贴记录';
-          detail = <DesktopSubsidyHistory />;
+          detail = <PaginatedSubsidyHistory compact records={records} />;
           break;
         case 'help':
           detailTitle = intl.formatMessage({ id: ETranslations.global_faqs });
@@ -868,7 +946,7 @@ function NetworkFeeSubsidy() {
     benefitsContent = (
       <TronRewardPreview
         key={previewSession}
-        mode={previewMode}
+        mode={previewMode === 'emptyHistory' ? 'available' : previewMode}
         validUntil={previewValidUntil}
         onModeChange={selectPreview}
         renderInline={renderSubsidyBenefits}
@@ -933,45 +1011,42 @@ function NetworkFeeSubsidy() {
                     <SizableText size="$headingMd">
                       补贴记录（演示）
                     </SizableText>
-                    <Button
-                      testID="subsidy-view-all-records"
-                      childrenAsText={false}
-                      variant="tertiary"
-                      size="small"
-                      mx="$0"
-                      my="$0"
-                      px="$0"
-                      py="$0"
-                      borderWidth={0}
-                      hitSlop={12}
-                      hoverStyle={{ bg: '$transparent', opacity: 0.8 }}
-                      pressStyle={{ bg: '$transparent', opacity: 0.6 }}
-                      onPress={() => {
-                        dialog.show({
-                          title: '全部补贴记录（演示）',
-                          boundedSheetLayout: true,
-                          showFooter: false,
-                          renderContent: (
-                            <Dialog.ScrollView maxHeight={440}>
-                              <SubsidyRecordList items={records} />
-                            </Dialog.ScrollView>
-                          ),
-                        });
-                      }}
-                    >
-                      <XStack alignItems="center" gap="$1">
-                        <SizableText size="$bodySm" color="$textDisabled">
-                          查看更多
-                        </SizableText>
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$4"
-                          color="$iconDisabled"
-                        />
-                      </XStack>
-                    </Button>
+                    {records.length > recentRecordLimit ? (
+                      <Button
+                        testID="subsidy-view-all-records"
+                        childrenAsText={false}
+                        variant="tertiary"
+                        size="small"
+                        mx="$0"
+                        my="$0"
+                        px="$0"
+                        py="$0"
+                        borderWidth={0}
+                        hitSlop={12}
+                        hoverStyle={{ bg: '$transparent', opacity: 0.8 }}
+                        pressStyle={{ bg: '$transparent', opacity: 0.6 }}
+                        onPress={() =>
+                          navigation.push(
+                            ETestModalPages.NetworkFeeSubsidyHistory,
+                          )
+                        }
+                      >
+                        <XStack alignItems="center" gap="$1">
+                          <SizableText size="$bodySm" color="$textDisabled">
+                            查看更多
+                          </SizableText>
+                          <Icon
+                            name="ChevronRightSmallOutline"
+                            size="$4"
+                            color="$iconDisabled"
+                          />
+                        </XStack>
+                      </Button>
+                    ) : null}
                   </XStack>
-                  <SubsidyRecordList items={records.slice(0, 6)} />
+                  <SubsidyRecordList
+                    items={records.slice(0, recentRecordLimit)}
+                  />
                 </YStack>
               ) : null}
 
