@@ -1417,3 +1417,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Optional namespace support was checked by implementation alone; neither account selection nor approval construction required a usable supported chain. The SDK validators accept an empty optional namespace, so validator-only assertions missed the issue.
 **Fix**: Omit optional account selectors without supported networks and only write optional approval namespaces with at least one merged supported chain and a matching non-empty account address. Preserve required namespace processing and supported optional chains.
 **Catchable by**: Section 4: data flow end-to-end; assert UI account-selection inputs and exact namespace keys for all-unsupported, partially supported, and missing-account cases in addition to real SDK validation.
+
+## Case: Invisible browser translation action (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime); no background or native-resource ownership changes.
+**Symptom**: The browser translation sheet had a blank action area, but tapping it still opened the OneKey ID sign-in gate on iOS.
+**Root Cause**: The mobile browser capsule supplied GlassHeaderContext to the native popover content. Button removed its primary background for glass chrome while the translation label retained its inverse color on the light sheet.
+**Fix**: Reset the glass-header context at the native popover content boundary for both sheet and anchored presentations, retaining the trigger's context and existing action handler. Desktop/Web popover implementations are unchanged.
+**Catchable by**: Sections 3, 6 and 8: Test overlay context isolation from glass triggers and verify visible action contrast, not only hit targets or accessibility labels.
+
+## Case: Excess translation sheet title spacing (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime).
+**Symptom**: The mobile translation sheet had excessive space between its title and the target-language row.
+**Root Cause**: The content's uniform `$5` padding added another full top inset below the native sheet header's existing bottom padding.
+**Fix**: Use `$2` content top padding on native, matching the translation settings view. Preserve `$5` horizontal/bottom padding and all non-native padding.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered native sheet, not each container in isolation.
+
+## Case: Native popover close lifecycle suite cannot load (OK-66811)
+**Date**: 2026-11-10 | **Platforms**: Jest Web preset testing native overlay components; no production runtime changes.
+**Symptom**: CI unit-test shard 1 failed before running the native close lifecycle suite, while the focused translation and context-isolation tests passed.
+**Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
+**Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
+**Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.
