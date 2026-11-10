@@ -505,6 +505,13 @@ export function UniversalWithdraw({
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
     [providerName],
   );
+  const isProtocolExecutedWithdraw = useMemo(
+    () =>
+      earnUtils.isProtocolExecutedWithdraw({
+        providerName: providerName ?? '',
+      }),
+    [providerName],
+  );
   const requiresEarnWithdrawPath = useMemo(
     () =>
       earnUtils.requiresEarnWithdrawPath({
@@ -1736,7 +1743,13 @@ export function UniversalWithdraw({
   ]);
 
   const confirmText = useMemo(() => {
-    if (shouldApprove) return ETranslations.global_approve;
+    if (shouldApprove) {
+      // One tap covers both steps when the protocol submits the redeem request
+      // itself after the approve (OK-66931).
+      return isProtocolExecutedWithdraw
+        ? ETranslations.earn_approve_and_withdraw__action
+        : ETranslations.global_approve;
+    }
     if (effectiveShowExpiredRefresh) return ETranslations.global_refresh;
     if (shouldResumeEthenaCooldownUnstake) return ETranslations.defi_unstake;
     if (isCancelWithdrawal) return ETranslations.global_confirm;
@@ -1744,6 +1757,7 @@ export function UniversalWithdraw({
     return ETranslations.global_withdraw;
   }, [
     shouldApprove,
+    isProtocolExecutedWithdraw,
     effectiveShowExpiredRefresh,
     shouldResumeEthenaCooldownUnstake,
     isCancelWithdrawal,

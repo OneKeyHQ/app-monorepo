@@ -93,6 +93,14 @@ const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
 const isProtocolExecutedStake = ({ providerName }: { providerName: string }) =>
   isUnitasProvider({ providerName });
 
+// Unitas (OK-66931): the only withdraw that needs an approve is the gold-vault
+// redeem request, which the protocol submits once the receipt allowance lands.
+const isProtocolExecutedWithdraw = ({
+  providerName,
+}: {
+  providerName: string;
+}) => isUnitasProvider({ providerName });
+
 const isEarnWithdrawPathReady = ({
   providerName,
   isLoading,
@@ -415,6 +423,7 @@ export default {
   requiresEarnWithdrawPath,
   isEarnWithdrawPathReady,
   isProtocolExecutedStake,
+  isProtocolExecutedWithdraw,
   shouldSendEarnProtocolVault,
   normalizeEarnUtmParams,
   isValidatorProvider,
