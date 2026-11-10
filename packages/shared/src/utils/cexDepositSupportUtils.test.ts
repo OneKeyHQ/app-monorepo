@@ -87,26 +87,103 @@ describe('getCexDepositWarningExchange', () => {
 });
 
 describe('getCexDepositWarningFacts', () => {
-  it('trims values and falls back to the generic exchange label', () => {
+  it('trims values and omits a missing exchange label', () => {
     expect(
       getCexDepositWarningFacts({
         tokenSymbol: ' DAI ',
         networkName: ' Ethereum ',
         exchangeLabel: ' Binance ',
-        fallbackExchangeLabel: 'Exchange',
       }),
     ).toEqual({
       tokenSymbol: 'DAI',
       networkName: 'Ethereum',
       exchangeName: 'Binance',
     });
+    expect(getCexDepositWarningFacts({})).toEqual({});
+  });
+
+  it.each(['default', 'info'] as const)(
+    'uses a matching %s display badge label case-insensitively',
+    (type) => {
+      expect(
+        getCexDepositWarningFacts({
+          exchangeLabel: 'binance',
+          addressBadges: [
+            {
+              label: 'BiNaNcE',
+              type,
+            },
+          ],
+        }),
+      ).toEqual({
+        exchangeName: 'BiNaNcE',
+      });
+    },
+  );
+
+  it('uses a matching display name but preserves the raw exchange label otherwise', () => {
     expect(
       getCexDepositWarningFacts({
-        fallbackExchangeLabel: '交易所',
+        exchangeLabel: 'binance',
+        exchangeDisplayName: 'BINANCE',
       }),
     ).toEqual({
-      exchangeName: '交易所',
+      exchangeName: 'BINANCE',
     });
+    expect(
+      getCexDepositWarningFacts({
+        exchangeLabel: 'binance',
+        exchangeDisplayName: 'Binance.com',
+      }),
+    ).toEqual({
+      exchangeName: 'binance',
+    });
+  });
+
+  it.each(['warning', 'critical'] as const)(
+    'ignores a matching %s badge without changing the raw label',
+    (type) => {
+      expect(
+        getCexDepositWarningFacts({
+          exchangeLabel: 'binance',
+          addressBadges: [
+            {
+              label: 'BINANCE',
+              type,
+            },
+          ],
+        }),
+      ).toEqual({
+        exchangeName: 'binance',
+      });
+    },
+  );
+
+  it('ignores mismatched display badges without changing the raw label', () => {
+    expect(
+      getCexDepositWarningFacts({
+        exchangeLabel: 'binance',
+        addressBadges: [
+          {
+            label: 'Binance.com',
+            type: 'info',
+          },
+        ],
+      }),
+    ).toEqual({
+      exchangeName: 'binance',
+    });
+  });
+
+  it('omits blank token, network, and exchange details', () => {
+    expect(
+      getCexDepositWarningFacts({
+        tokenSymbol: ' ',
+        networkName: '  ',
+        exchangeLabel: ' ',
+        exchangeDisplayName: '  ',
+      }),
+    ).toEqual({});
   });
 });
 

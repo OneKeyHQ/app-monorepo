@@ -1,4 +1,7 @@
-import type { ICexSupportedInfo } from '@onekeyhq/shared/types/address';
+import type {
+  IAddressBadge,
+  ICexSupportedInfo,
+} from '@onekeyhq/shared/types/address';
 
 export function getBadgeQueryTokenAddress({
   isNFT,
@@ -40,23 +43,38 @@ export function getCexDepositWarningFacts({
   tokenSymbol,
   networkName,
   exchangeLabel,
-  fallbackExchangeLabel,
+  exchangeDisplayName,
+  addressBadges,
 }: {
   tokenSymbol?: string;
   networkName?: string;
   exchangeLabel?: string;
-  fallbackExchangeLabel: string;
+  exchangeDisplayName?: string;
+  addressBadges?: IAddressBadge[];
 }): {
   tokenSymbol?: string;
   networkName?: string;
-  exchangeName: string;
+  exchangeName?: string;
 } {
   const token = tokenSymbol?.trim();
   const network = networkName?.trim();
+  const exchange = exchangeLabel?.trim();
+  const badgeName = addressBadges
+    ?.find(
+      (badge) =>
+        (badge.type === 'default' || badge.type === 'info') &&
+        badge.label.trim().toLowerCase() === exchange?.toLowerCase(),
+    )
+    ?.label.trim();
+  const displayName = badgeName || exchangeDisplayName?.trim();
+  const exchangeName =
+    exchange && displayName?.toLowerCase() === exchange.toLowerCase()
+      ? displayName
+      : exchange;
   return {
     ...(token ? { tokenSymbol: token } : {}),
     ...(network ? { networkName: network } : {}),
-    exchangeName: exchangeLabel?.trim() || fallbackExchangeLabel.trim(),
+    ...(exchangeName ? { exchangeName } : {}),
   };
 }
 

@@ -1,7 +1,6 @@
 import {
   DescriptionList,
   Dialog,
-  Divider,
   SizableText,
   YStack,
 } from '@onekeyhq/components';
@@ -20,11 +19,15 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ICexSupportedInfo } from '@onekeyhq/shared/types/address';
 
+import {
+  cexDepositWarningMessages,
+  formatCexDepositWarningMessage,
+} from './cexDepositWarningMessages';
+
 import type { IntlShape } from 'react-intl';
 
 const FACT_VALUE_TEXT_PROPS = {
   color: '$text',
-  numberOfLines: 2,
 } as const;
 
 function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
@@ -39,6 +42,7 @@ function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
 
 function CexDepositWarningContent({
   tokenSymbol,
+  assetLabel,
   networkName,
   networkLabel,
   exchangeName,
@@ -46,50 +50,63 @@ function CexDepositWarningContent({
   body,
 }: {
   tokenSymbol?: string;
+  assetLabel: string;
   networkName?: string;
   networkLabel: string;
-  exchangeName: string;
+  exchangeName?: string;
   exchangeLabel: string;
   body: string;
 }) {
-  const subject = [tokenSymbol, networkName].filter(Boolean).join(' · ');
+  const subject = [exchangeName, tokenSymbol, networkName]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <YStack gap="$4">
-      <YStack
-        testID="cex-deposit-unsupported-summary"
-        gap="$2"
-        p="$4"
-        bg="$bgSubdued"
-        borderRadius="$3"
-        borderCurve="continuous"
-        accessibilityLabel={
-          subject ? `${subject} → ${exchangeName}` : exchangeName
-        }
-      >
-        {tokenSymbol ? (
-          <SizableText size="$headingMd">{tokenSymbol}</SizableText>
-        ) : null}
-        {tokenSymbol ? <Divider /> : null}
-        <DescriptionList gap="$2.5">
-          {networkName ? (
-            <DescriptionList.Item>
-              <DescriptionList.Item.Key>
-                {networkLabel}
-              </DescriptionList.Item.Key>
-              <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
-                {networkName}
-              </DescriptionList.Item.Value>
-            </DescriptionList.Item>
-          ) : null}
-          <DescriptionList.Item>
-            <DescriptionList.Item.Key>{exchangeLabel}</DescriptionList.Item.Key>
-            <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
-              {exchangeName}
-            </DescriptionList.Item.Value>
-          </DescriptionList.Item>
-        </DescriptionList>
-      </YStack>
+      {subject ? (
+        <YStack
+          testID="cex-deposit-unsupported-summary"
+          gap="$2"
+          p="$4"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          borderCurve="continuous"
+          accessibilityLabel={subject}
+        >
+          <DescriptionList gap="$2.5">
+            {exchangeName ? (
+              <DescriptionList.Item>
+                <DescriptionList.Item.Key>
+                  {exchangeLabel}
+                </DescriptionList.Item.Key>
+                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                  {exchangeName}
+                </DescriptionList.Item.Value>
+              </DescriptionList.Item>
+            ) : null}
+            {tokenSymbol ? (
+              <DescriptionList.Item>
+                <DescriptionList.Item.Key>
+                  {assetLabel}
+                </DescriptionList.Item.Key>
+                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                  {tokenSymbol}
+                </DescriptionList.Item.Value>
+              </DescriptionList.Item>
+            ) : null}
+            {networkName ? (
+              <DescriptionList.Item>
+                <DescriptionList.Item.Key>
+                  {networkLabel}
+                </DescriptionList.Item.Key>
+                <DescriptionList.Item.Value textProps={FACT_VALUE_TEXT_PROPS}>
+                  {networkName}
+                </DescriptionList.Item.Value>
+              </DescriptionList.Item>
+            ) : null}
+          </DescriptionList>
+        </YStack>
+      ) : null}
       <SizableText size="$bodyLg" color="$textSubdued">
         {body}
       </SizableText>
@@ -103,6 +120,7 @@ function showCexDepositUnsupportedDialog({
   tokenSymbol,
   networkName,
   exchangeLabel,
+  exchangeDisplayName,
   page,
 }: {
   intl: IntlShape;
@@ -110,6 +128,7 @@ function showCexDepositUnsupportedDialog({
   tokenSymbol?: string;
   networkName?: string;
   exchangeLabel?: string;
+  exchangeDisplayName?: string;
   page: ICexDepositWarningPage;
 }): Promise<boolean> {
   const fallbackExchangeLabel = intl.formatMessage({
@@ -119,8 +138,13 @@ function showCexDepositUnsupportedDialog({
     tokenSymbol,
     networkName,
     exchangeLabel,
-    fallbackExchangeLabel,
+    exchangeDisplayName,
   });
+  const values = {
+    exchange: facts.exchangeName,
+    token: facts.tokenSymbol,
+    network: facts.networkName,
+  };
   const trackingContext: ISendCexDepositWarningContext = {
     network: networkId,
     tokenSymbol: facts.tokenSymbol,
@@ -145,27 +169,38 @@ function showCexDepositUnsupportedDialog({
     defaultLogger.transaction.send.sendCexDepositWarningShow(trackingContext);
 
     Dialog.show({
-      icon: 'ShieldOutline',
+      icon: 'ErrorOutline',
       tone: 'warning',
-      title: intl.formatMessage({
-        id: ETranslations.cex_deposit_may_not_be_supported__title,
-      }),
+      title: formatCexDepositWarningMessage(
+        intl,
+        facts.exchangeName
+          ? cexDepositWarningMessages.dialogTitle
+          : cexDepositWarningMessages.dialogTitleWithoutExchange,
+        values,
+      ),
       renderContent: (
         <CexDepositWarningContent
           tokenSymbol={facts.tokenSymbol}
+          assetLabel={intl.formatMessage({
+            id: ETranslations.global_asset,
+          })}
           networkName={facts.networkName}
           networkLabel={intl.formatMessage({
             id: ETranslations.global_network,
           })}
           exchangeName={facts.exchangeName}
           exchangeLabel={fallbackExchangeLabel}
-          body={intl.formatMessage({
-            id: ETranslations.cex_deposit_may_not_be_supported__desc,
-          })}
+          body={formatCexDepositWarningMessage(
+            intl,
+            facts.exchangeName && facts.tokenSymbol && facts.networkName
+              ? cexDepositWarningMessages.dialogDescription
+              : cexDepositWarningMessages.dialogDescriptionWithoutDetails,
+            values,
+          )}
         />
       ),
       onConfirmText: intl.formatMessage({
-        id: ETranslations.global_continue,
+        id: ETranslations.global_continue_anyway,
       }),
       onCancelText: intl.formatMessage({
         id: ETranslations.global_back,
@@ -203,6 +238,7 @@ export async function confirmCexDepositIfUnsupported({
   networkId,
   tokenSymbol,
   networkName,
+  exchangeDisplayName,
   page,
   cexSupportedInfo,
   hasAcknowledgedWarning,
@@ -212,6 +248,7 @@ export async function confirmCexDepositIfUnsupported({
   networkId: string;
   tokenSymbol?: string;
   networkName?: string;
+  exchangeDisplayName?: string;
   page: ICexDepositWarningPage;
   cexSupportedInfo?: ICexSupportedInfo;
   hasAcknowledgedWarning?: boolean;
@@ -232,6 +269,7 @@ export async function confirmCexDepositIfUnsupported({
     tokenSymbol,
     networkName,
     exchangeLabel: cexSupportedInfo?.cexLabel,
+    exchangeDisplayName,
     page,
   });
   return { canProceed: confirmed, hasAcknowledgedWarning: confirmed };

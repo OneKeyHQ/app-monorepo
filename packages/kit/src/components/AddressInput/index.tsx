@@ -26,6 +26,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getCexDepositWarningFacts } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -122,6 +123,7 @@ export type IAddressInputValue = {
   };
   similarAddress?: string;
   cexSupportedInfo?: ICexSupportedInfo;
+  exchangeDisplayName?: string;
 };
 
 type IAddressInputActionsLayout = 'default' | 'recipient';
@@ -174,6 +176,8 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
+  tokenSymbol?: string;
+  networkName?: string;
 };
 
 export type IAddressQueryResult = {
@@ -347,6 +351,8 @@ export function AddressInput(props: IAddressInputProps) {
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
     tokenAddress,
+    tokenSymbol,
+    networkName,
     ...rest
   } = props;
   const intl = useIntl();
@@ -569,6 +575,10 @@ export function AddressInput(props: IAddressInputProps) {
       isContract: queryResult.isContract,
       similarAddress: queryResult.similarAddress,
       cexSupportedInfo: queryResult.cexSupportedInfo,
+      exchangeDisplayName: getCexDepositWarningFacts({
+        exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
+        addressBadges: queryResult.addressBadges,
+      }).exchangeName,
     };
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
@@ -768,7 +778,12 @@ export function AddressInput(props: IAddressInputProps) {
         numberOfLines={screenWidth <= 768 ? 3 : 2}
         {...(screenWidth <= 768 && { minHeight: 64 })}
       />
-      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
+      <AddressInputWarnings
+        queryResult={queryResult}
+        networkId={networkId}
+        tokenSymbol={tokenSymbol}
+        networkName={networkName}
+      />
     </>
   );
 }
