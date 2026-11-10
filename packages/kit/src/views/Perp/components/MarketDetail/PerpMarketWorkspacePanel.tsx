@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -12,6 +12,7 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 
 import { useActiveTradeDisplay } from '../../hooks/useActiveTradeDisplay';
 import { PerpCandles } from '../PerpCandles';
+import { PerpOrderBook } from '../PerpOrderBook';
 
 import { PerpFundingChart } from './PerpFundingChart';
 import {
@@ -19,13 +20,14 @@ import {
   PerpMarketDetailContent,
 } from './PerpMarketDetailContent';
 
-type IPerpMarketWorkspaceView = 'chart' | 'funding' | 'info';
+type IPerpMarketWorkspaceView = 'chart' | 'funding' | 'info' | 'orderBook';
 
 const WORKSPACE_VIEW_ITEMS: Array<{
   key: IPerpMarketWorkspaceView;
   translationId: ETranslations;
 }> = [
   { key: 'chart', translationId: ETranslations.market_chart },
+  { key: 'orderBook', translationId: ETranslations.perps_order_book },
   { key: 'info', translationId: ETranslations.global_info },
   { key: 'funding', translationId: ETranslations.perp_position_funding },
 ];
@@ -65,18 +67,25 @@ export function PerpMarketWorkspacePanel({
   onTouchScroll?: (deltaY: number) => void;
 }) {
   const intl = useIntl();
+  const { gtXl } = useMedia();
+  const showOrderBookTab = !platformEnv.isNative && !gtXl;
   const [activeView, setActiveView] =
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const visibleActiveView =
-    mode !== 'perp' && activeView === 'funding' ? 'chart' : activeView;
+    (mode !== 'perp' && activeView === 'funding') ||
+    (!showOrderBookTab && activeView === 'orderBook')
+      ? 'chart'
+      : activeView;
   const workspaceViewItems = useMemo(
     () =>
-      mode === 'perp'
-        ? WORKSPACE_VIEW_ITEMS
-        : WORKSPACE_VIEW_ITEMS.filter((item) => item.key !== 'funding'),
-    [mode],
+      WORKSPACE_VIEW_ITEMS.filter(
+        (item) =>
+          (item.key !== 'funding' || mode === 'perp') &&
+          (item.key !== 'orderBook' || showOrderBookTab),
+      ),
+    [mode, showOrderBookTab],
   );
   const marketKey = useMemo(
     () => coin || displayName || baseName || 'unknown',
@@ -105,10 +114,10 @@ export function PerpMarketWorkspacePanel({
   );
 
   useEffect(() => {
-    if (mode !== 'perp' && activeView === 'funding') {
-      setActiveView('chart');
+    if (activeView !== visibleActiveView) {
+      setActiveView(visibleActiveView);
     }
-  }, [activeView, mode]);
+  }, [activeView, visibleActiveView]);
 
   useEffect(() => {
     const handleShowFundingHistory = () => {
@@ -182,6 +191,12 @@ export function PerpMarketWorkspacePanel({
             onTouchScroll={onTouchScroll}
           />
         </YStack>
+
+        {visibleActiveView === 'orderBook' ? (
+          <YStack flex={1} minHeight={0} overflow="hidden">
+            <PerpOrderBook />
+          </YStack>
+        ) : null}
 
         {shouldRenderFunding ? (
           <YStack
