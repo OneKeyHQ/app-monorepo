@@ -60,6 +60,9 @@ const NETWORK_CHIP_CUTOUT_STYLE = {
 // The +N count keeps its fill inside the see-through ring, 24 high like the
 // logos; a fill under the ring would make it read 28.
 const NETWORK_COUNT_CHIP_STYLE = { backgroundClip: 'padding-box' };
+// A static count: equal-width digits would pad the narrow "1" out to the
+// width of "7" and leave "+17" looking loosely spaced.
+const PROPORTIONAL_NUMS: ['proportional-nums'] = ['proportional-nums'];
 
 // Same size as the loaded chips, so the copy button and the page below do not
 // move when the networks arrive (only shown without a cached list).
@@ -401,7 +404,10 @@ function AllNetworksManagerTrigger({
         ))}
         {hiddenCount > 0 ? (
           <XStack
-            px="$1"
+            // One less on the "+" side, one more on the digits' side: reads
+            // centered in the pill.
+            pl={5}
+            pr={7}
             bg="$gray5"
             borderRadius="$full"
             ml="$-2"
@@ -413,7 +419,9 @@ function AllNetworksManagerTrigger({
             h={28}
             style={cutChips ? NETWORK_COUNT_CHIP_STYLE : undefined}
           >
-            <SizableText size="$bodySm">+{hiddenCount}</SizableText>
+            <SizableText size="$bodySm" fontVariant={PROPORTIONAL_NUMS}>
+              +{hiddenCount}
+            </SizableText>
           </XStack>
         ) : null}
       </XStack>
