@@ -1510,3 +1510,19 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
 **Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
 **Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
+
+
+## Case: Devices sharing a recovery phrase could replace each other's Cloud name
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing persisted metadata delivered to main. SDK/native resource ownership is unchanged.
+**Symptom**: Renaming another physical device restored from the same recovery phrase could replace the selected Cloud device's name, and an unrelated Bluetooth name could disable future label refreshes.
+**Root Cause**: The Cloud credential ID identifies the standard wallet rather than the physical device, so matching only that ID admitted metadata from other devices using the same wallet.
+**Fix**: Keep a local hash of the physical device's normalized serial number when Cloud signing reads it. Reuse another flow's label only when both wallet and physical bindings match, and recheck the binding during the atom update. Keep unbound legacy sources unchanged until a Cloud signing operation identifies their device; no extra hardware reads are added.
+**Catchable by**: Sections 4, 5 and 6: Test two devices with the same wallet fingerprint but different serial numbers, missing physical identity, legacy metadata and a physical-source change during an async label lookup.
+
+
+## Case: A failed post-reset sync left the committed Cloud device name stale
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg and main. No SDK/native resource ownership changes.
+**Symptom**: After the data key was committed, a forced-sync error skipped the device-name refresh. The selected Cloud device kept its previous name and physical binding despite successful hardware signing.
+**Root Cause**: Making metadata persistence best effort prevented storage errors from failing the reset, but placing it only after successful synchronization still skipped it on the failure path.
+**Fix**: Remember the freshly signed source only after the data-key commit succeeds, then attempt its metadata update in finalization regardless of later synchronization failure. Keep metadata errors non-fatal and preserve the original synchronization error.
+**Catchable by**: Sections 4, 5 and 6: Fail the network step after key commit and assert the new key remains stored, the source name and physical binding refresh, and the original network error is still reported.

@@ -103,6 +103,7 @@ function buildBackgroundApi(
     label?: string;
     bleName?: string | null;
     deviceType?: string;
+    serialNo?: string | null;
   } = {},
 ) {
   const sdk = {
@@ -333,6 +334,37 @@ describe('hardware Cloud SDK adapter', () => {
     expect(result.source.deviceName).toBe('Latest label');
     expect(result.source.deviceBleName).toBeUndefined();
   });
+
+  test.each([
+    {
+      serialNo: 'synthetic-device-a',
+      expected: createHash('sha256').update('synthetic-device-a').digest('hex'),
+    },
+    {
+      serialNo: ' SYNTHETIC-DEVICE-A ',
+      expected: createHash('sha256').update('synthetic-device-a').digest('hex'),
+    },
+    { serialNo: '', expected: undefined },
+    { serialNo: null, expected: undefined },
+    { serialNo: undefined, expected: undefined },
+    { serialNo: '000000000000', expected: undefined },
+  ])(
+    'keeps a local physical binding for serial $serialNo',
+    async ({ serialNo, expected }) => {
+      const { backgroundApi } = buildBackgroundApi(undefined, {
+        serialNo,
+        bleName: 'Neo 1797',
+      });
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceSerialNoHash).toBe(expected);
+      expect(result.source).not.toHaveProperty('serialNo');
+    },
+  );
 
   test.each([
     new Error('Settings unavailable'),

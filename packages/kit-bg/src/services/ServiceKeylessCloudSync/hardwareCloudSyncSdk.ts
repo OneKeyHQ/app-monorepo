@@ -40,6 +40,7 @@ import {
   deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
+import { getHardwareCloudSyncDeviceSerialNoHash } from './hardwareCloudSyncDeviceName';
 import {
   convertHardwareCloudSyncDeviceError,
   createHardwareCloudSyncDataError,
@@ -311,6 +312,9 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               state: displayState,
               preferBleName: true,
             });
+            const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+              opened.state.identity.serialNo,
+            );
 
             let standard:
               | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
@@ -387,6 +391,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               ...(displayState.identity.bleName
                 ? { deviceBleName: deviceName }
                 : {}),
+              ...(deviceSerialNoHash ? { deviceSerialNoHash } : {}),
               deviceType: opened.state.identity.deviceType,
               // The image only; the serial number is not kept.
               deviceAvatar: getDeviceAvatarImage(

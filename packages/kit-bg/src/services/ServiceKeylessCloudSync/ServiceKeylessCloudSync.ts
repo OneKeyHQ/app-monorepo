@@ -142,7 +142,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async updateHardwareCloudSyncDeviceName(
     source: Pick<
       IHardwareCloudSyncKeySource,
-      'credentialId' | 'deviceName' | 'deviceBleName'
+      'credentialId' | 'deviceName' | 'deviceBleName' | 'deviceSerialNoHash'
     >,
     { onlyIfLabelFallback = false }: { onlyIfLabelFallback?: boolean } = {},
   ) {
@@ -150,9 +150,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
       const current = config.hardwareCloudSyncKeySource;
       if (
         current?.credentialId !== source.credentialId ||
-        (onlyIfLabelFallback && current.deviceBleName) ||
+        (onlyIfLabelFallback &&
+          (current.deviceBleName ||
+            current.deviceSerialNoHash !== source.deviceSerialNoHash)) ||
         (current.deviceName === source.deviceName &&
-          current.deviceBleName === source.deviceBleName)
+          current.deviceBleName === source.deviceBleName &&
+          current.deviceSerialNoHash === source.deviceSerialNoHash)
       ) {
         return config;
       }
@@ -162,6 +165,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           ...current,
           deviceName: source.deviceName,
           deviceBleName: source.deviceBleName,
+          deviceSerialNoHash: source.deviceSerialNoHash,
         },
       };
     });
@@ -179,6 +183,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (
       !source ||
       source.deviceBleName ||
+      !source.deviceSerialNoHash ||
       !accountUtils.isHwWallet({ walletId })
     )
       return;
@@ -208,6 +213,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (credentialId !== source.credentialId) return;
     const device = await localDb.getDeviceSafe(wallet.associatedDevice);
     if (!device) return;
+    const { getHardwareCloudSyncDeviceSerialNoHash } =
+      await import('./hardwareCloudSyncDeviceName');
+    const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+      device.deviceStateInfo?.identity.serialNo ||
+        deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ||
+        device.uuid,
+    );
+    if (deviceSerialNoHash !== source.deviceSerialNoHash) return;
     const bleName = device.deviceStateInfo?.identity.bleName
       ? deviceUtils.getDeviceDisplayName({
           state: device.deviceStateInfo,
@@ -220,7 +233,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       deviceUtils.getDefaultDeviceLabel(device.deviceType) ||
       device.name;
     await this.updateHardwareCloudSyncDeviceName(
-      { credentialId, deviceName, deviceBleName: bleName },
+      { credentialId, deviceName, deviceBleName: bleName, deviceSerialNoHash },
       { onlyIfLabelFallback: true },
     );
   }
@@ -1608,6 +1621,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         >
       | undefined;
     let committing = false;
+    let committedSource: IHardwareCloudSyncKeySource | undefined;
     let replacement: IKeylessCloudSyncCredential | undefined;
     let replacementGeneration = 0;
     let migrationSource = credential;
@@ -1785,6 +1799,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         credential,
         rotated.next,
       );
+      committedSource = derived.source;
       await this.recordHardwareKeyGeneration(
         source.credentialId,
         rotated.generation,
@@ -1797,12 +1812,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
       await this.backgroundApi.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.Keyless,
       });
-      // Display metadata must not turn an already completed key reset into a failure.
-      await this.updateHardwareCloudSyncDeviceName(derived.source).catch(
-        (error: unknown) =>
-          logHardwareCloudSyncFailure('Persist device name', error),
-      );
     } finally {
+      // A committed key keeps its fresh display metadata even if synchronization
+      // fails, while optional metadata storage cannot replace the original error.
+      if (committedSource) {
+        await this.updateHardwareCloudSyncDeviceName(committedSource).catch(
+          (error: unknown) =>
+            logHardwareCloudSyncFailure('Persist device name', error),
+        );
+      }
       if (committing) {
         this.hardwareCloudKeyCommitting = false;
         await this.hideDialogLoading();
