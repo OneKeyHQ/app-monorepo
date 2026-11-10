@@ -133,6 +133,8 @@ function RawPopover({
   offset: offsetProp,
   hoverable,
   keepChildrenMounted: keepChildrenMountedProp,
+  nativeAnchorRect,
+  webAnchorElement,
 }: IPopoverProps) {
   const isOpen = Boolean(isOpenProp);
   useDeferredGuideBlocker(isOpen);
@@ -200,6 +202,10 @@ function RawPopover({
   const reposition = useAnchoredPosition({
     open: isOpen && !isSheet,
     triggerRef,
+    anchorElement: renderTrigger ? undefined : webAnchorElement,
+    // Without a trigger, anchor to the viewport rect the caller measured
+    // (e.g. a pager toolbar button drawn outside React).
+    anchorRect: renderTrigger ? undefined : nativeAnchorRect,
     panel,
     placement: placement as Placement,
     offset,
