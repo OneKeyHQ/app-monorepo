@@ -90,7 +90,7 @@ export function UniversalSearchTokenTab({
   );
   return (
     <YStack flex={1}>
-      <TokenTabList items={tokens} onPress={handlePress} />
+      <TokenTabList items={tokens} onPress={handlePress} headerBg="$bgApp" />
     </YStack>
   );
 }
@@ -111,7 +111,11 @@ export function UniversalSearchStockTab({
   );
   return (
     <YStack flex={1}>
-      <MarketStockSelectorTable result={result} onItemPress={handlePress} />
+      <MarketStockSelectorTable
+        result={result}
+        onItemPress={handlePress}
+        headerBg="$bgApp"
+      />
     </YStack>
   );
 }

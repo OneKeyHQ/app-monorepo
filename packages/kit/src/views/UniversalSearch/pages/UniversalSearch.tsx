@@ -1342,7 +1342,7 @@ export function UniversalSearch({
             content = (
               <MarketSearchStockSection
                 {...getStockProps(section)}
-                titleBg="$bgApp"
+                headerBg="$bgApp"
               />
             );
           } else if (isMarketSection(section.tabIndex)) {
@@ -1352,7 +1352,7 @@ export function UniversalSearch({
                 showMore={Boolean(section.showMore)}
                 onShowMore={() => handleTabPress(section.title)}
                 onPress={handleTokenRowPress}
-                titleBg="$bgApp"
+                headerBg="$bgApp"
               />
             );
           } else {
