@@ -27,7 +27,6 @@ export enum EAppSyncStorageKeys {
   onekey_referral_last_page_tab = 'onekey_referral_last_page_tab',
   onekey_intercom_native_support_opened = 'onekey_intercom_native_support_opened',
   onekey_wallet_banner_last_shown_id = 'onekey_wallet_banner_last_shown_id',
-  onekey_wallet_activity_seen_at = 'onekey_wallet_activity_seen_at',
   onekey_onramper_id_signed_in = 'onekey_onramper_id_signed_in',
 }
 

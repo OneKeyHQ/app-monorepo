@@ -20,7 +20,6 @@ import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
-import { WalletActivityHint } from '../components/WalletActivityHint/WalletActivityHint';
 import WalletBanner from '../components/WalletBanner';
 import { HomeTestIDs } from '../testIDs';
 
@@ -155,20 +154,14 @@ function BaseHomeHeaderContainer({
         pointerEvents="box-none"
       >
         {actionsInBalanceRow ? (
-          <YStack>
-            <XStack alignItems="center" gap="$5">
-              <Stack gap="$2.5" flex={1} minWidth={0}>
-                <HomeOverviewContainer />
-              </Stack>
-              {isWalletNotBackedUp ? null : (
-                <WalletActions inBalanceRow flexShrink={0} />
-              )}
-            </XStack>
-            {/* Replaces the removed Recent activity column: renders only
-                while something is pending or not yet seen, and brings its
-                own gap so it can fold away to nothing. */}
-            {isWalletNotBackedUp ? null : <WalletActivityHint />}
-          </YStack>
+          <XStack alignItems="center" gap="$5">
+            <Stack gap="$2.5" flex={1} minWidth={0}>
+              <HomeOverviewContainer />
+            </Stack>
+            {isWalletNotBackedUp ? null : (
+              <WalletActions inBalanceRow flexShrink={0} />
+            )}
+          </XStack>
         ) : (
           <>
             <HomeHeaderGesture onRefresh={onHomePageRefresh}>

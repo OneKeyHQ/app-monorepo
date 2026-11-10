@@ -63,9 +63,6 @@ export type IHistoryAmount = {
   secondaryTextSegments?: readonly ValueTextSegment[];
 };
 
-// Which way an asset transfer went, as the row itself reads it.
-export type IHistoryTransferDirection = 'send' | 'receive' | 'both';
-
 export type IHistoryNetworkBadge = {
   logoURI?: string;
   letter?: string;
@@ -239,8 +236,6 @@ function buildHistoryActivityRowUnchecked({
     presentation: 'stacked' | 'table';
   };
   address: string;
-  direction?: IHistoryTransferDirection;
-  labeledTitle?: boolean;
 } {
   const decodedTx = history.decodedTx;
   const action = getDisplayedActions({ decodedTx })[0];
@@ -253,10 +248,6 @@ function buildHistoryActivityRowUnchecked({
   let leading: LeadingVisual = { kind: 'icon', name: 'Document2Outline' };
   let amounts: IHistoryAmount[] = [];
   let secondaryLeading: LeadingVisual | undefined;
-  let direction: IHistoryTransferDirection | undefined;
-  // False while the title only restates what the amounts already show
-  // (Send, Receive, Swap); true for a backend label or a non-transfer action.
-  let labeledTitle = false;
   let icon = 'Document2Outline';
   const badges: BadgeModel[] = [];
   if (action.type === EDecodedTxActionType.ASSET_TRANSFER) {
@@ -311,9 +302,6 @@ function buildHistoryActivityRowUnchecked({
           isUTXO &&
           decodedTx.payload?.type === EOnChainHistoryTxType.Receive));
     title = info.label;
-    direction = 'both';
-    if (sendOnly) direction = 'send';
-    else if (receiveOnly) direction = 'receive';
     if (sendOnly) {
       title = label(
         privateSend
@@ -452,35 +440,21 @@ function buildHistoryActivityRowUnchecked({
       icon = 'CoinsOutline';
     // A local-wallet row's server label describes the wrong side; as in
     // TxActionTransfer, it never overrides Send/Receive.
-    if (privateSend) {
-      title = label(ETranslations.private_send_private_send);
-      labeledTitle = true;
-    } else if (
+    if (privateSend) title = label(ETranslations.private_send_private_send);
+    else if (
       decodedTx.status !== EDecodedTxStatus.Pending &&
       info.label &&
       !localWallet
-    ) {
+    )
       title = info.label;
-      // The backend labels plain transfers too ("Receive"); only a label
-      // that says more than the direction (Claim, Deposit…) counts.
-      const plainWords = [
-        ETranslations.global_send,
-        ETranslations.global_receive,
-        ETranslations.global_swap,
-      ].map((id) => label(id).toLowerCase());
-      labeledTitle = !plainWords.includes(info.label.trim().toLowerCase());
-    }
     if (!info.label && decodedTx.actions[0]?.assetTransfer?.isInternalSwap)
       title = label(ETranslations.global_swap);
     else if (
       !info.label &&
       decodedTx.actions[0]?.assetTransfer?.isInternalStaking
-    ) {
+    )
       title = decodedTx.actions[0].assetTransfer.internalStakingLabel ?? '';
-      labeledTitle = true;
-    }
   } else if (action.type === EDecodedTxActionType.TOKEN_APPROVE) {
-    labeledTitle = true;
     const info = getTxActionTokenApproveInfo(common);
     const increase =
       info.approveType === EApproveType.IncreaseAllowance ||
@@ -541,7 +515,6 @@ function buildHistoryActivityRowUnchecked({
         { key: 'approval', ...value, tone: 'secondary' },
       ];
   } else {
-    labeledTitle = true;
     const functionCall = action.functionCall;
     const unknown = action.unknownAction;
     title = functionCall
@@ -659,8 +632,6 @@ function buildHistoryActivityRowUnchecked({
     .join(' • ');
   return {
     address,
-    direction,
-    labeledTitle,
     row: {
       key: history.id,
       type: 'activity',

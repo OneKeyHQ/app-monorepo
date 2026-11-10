@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { isEmpty, unionBy, uniqBy } from 'lodash';
 
@@ -87,6 +88,11 @@ type IPendingTokenRefreshAfterTokensDone = {
 const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
   `${account.accountId}::${account.networkId}`;
 
+export type ITxHistoryCompactListProps = {
+  data: IAccountHistoryTx[];
+  onPressHistory: (history: IAccountHistoryTx) => void;
+};
+
 function TxHistoryListContainer(
   params:
     | {
@@ -95,11 +101,20 @@ function TxHistoryListContainer(
         limit?: number;
         emptyTitle?: string;
         emptyDescription?: string;
+        // Draws loaded rows itself (the desktop Recent activity column); the
+        // regular list still covers loading and empty states.
+        renderCompactList?: (props: ITxHistoryCompactListProps) => ReactNode;
       }
     | undefined,
 ) {
-  const { plainMode, tableLayout, limit, emptyTitle, emptyDescription } =
-    params ?? {};
+  const {
+    plainMode,
+    tableLayout,
+    limit,
+    emptyTitle,
+    emptyDescription,
+    renderCompactList,
+  } = params ?? {};
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
@@ -904,6 +919,17 @@ function TxHistoryListContainer(
       ) : null,
     [],
   );
+
+  if (
+    renderCompactList &&
+    historyState.initialized &&
+    displayedHistoryData.length > 0
+  ) {
+    return renderCompactList({
+      data: displayedHistoryData,
+      onPressHistory: handleHistoryItemPress,
+    });
+  }
 
   return (
     <>

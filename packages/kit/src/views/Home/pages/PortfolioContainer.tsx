@@ -212,13 +212,15 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
           gap={tableLayout ? '$10' : '$6'}
           pb={tableLayout ? '$8' : '$4'}
         >
-          {/* The wide desktop / web home keeps only the wallet: Market, Earn,
-              Upgrade, Support Hub and the Recent activity sidebar are left to
-              their own pages. With no sidebar, the token list polls account
-              history itself (showRecentHistory stays unset). */}
-          <TokenListBlock tableLayout={tableLayout || undefined} />
+          <TokenListBlock
+            showRecentHistory={tableLayout ? showRecentHistory : undefined}
+            tableLayout={tableLayout || undefined}
+          />
+          {/* The wide desktop / web home leaves Market, Earn, Upgrade and
+              Support Hub to their own pages. */}
           {tableLayout ? <DeFiListBlock refreshCacheOnly /> : otherBlocks}
         </YStack>
+        {recentHistorySidebar}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </Stack>
     </>
