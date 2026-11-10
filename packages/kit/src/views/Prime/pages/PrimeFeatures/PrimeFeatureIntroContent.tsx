@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import type { IVideoRef } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -26,9 +27,9 @@ import {
   Video,
   XStack,
   YStack,
+  getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
-import type { IVideoRef } from '@onekeyhq/components';
 import { isImageSourceArray } from '@onekeyhq/components/src/primitives/Image/utils';
 import { fs } from '@onekeyhq/components/src/utils/scale';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -1059,9 +1060,12 @@ export function PrimeFeatureIntroContent({
 
   const shouldRenderPageFooter =
     usePageFooter && (platformEnv.isExtension || shouldShowFooterAction);
-  let extensionFooterMinHeight: '$9' | '$12' | undefined;
+  let extensionFooterMinHeight: number | undefined;
   if (platformEnv.isExtension) {
-    extensionFooterMinHeight = gtMd ? '$9' : '$12';
+    // Button's transparent borders sit outside its text and vertical padding.
+    extensionFooterMinHeight =
+      getTokenValue(gtMd ? '$9' : '$12', 'size') +
+      2 * getTokenValue('$px', 'size');
   }
 
   // Desktop renders this as the dialog footer's extraContent; mobile renders it
@@ -1159,7 +1163,6 @@ export function PrimeFeatureIntroContent({
             }}
             buttonContainerProps={{
               justifyContent: 'flex-end',
-              // Match the medium/large CTA height so the indicators stay put.
               minHeight: extensionFooterMinHeight,
             }}
             confirmButtonProps={
