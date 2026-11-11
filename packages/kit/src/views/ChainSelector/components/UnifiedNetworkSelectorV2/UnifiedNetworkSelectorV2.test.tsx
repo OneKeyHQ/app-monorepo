@@ -8,6 +8,13 @@ import { act, render } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { ChainSelectorTestIDs } from '../../testIDs';
+
+import {
+  clearMoneroPortfolioDraft,
+  readMoneroPortfolioDraft,
+  saveMoneroPortfolioDraft,
+} from './moneroPortfolioDraft';
 import UnifiedNetworkSelectorPageV2 from './UnifiedNetworkSelectorV2';
 
 import type { NetworkContentV2 } from './NetworkContentV2';
@@ -56,6 +63,17 @@ const mockNavigation = { push: jest.fn() };
 const mockActions = { current: { updateSelectedAccountNetwork: jest.fn() } };
 const mockCreateAddress = jest.fn();
 const mockFindNetworks = jest.fn();
+const mockPortfolioGate = jest.fn();
+const mockUpdateAllNetworksState = jest
+  .fn<Promise<void>, [INetworksState]>()
+  .mockResolvedValue(undefined);
+const mockButton = jest.fn(
+  (_props: {
+    children?: ReactNode;
+    onPress?: () => Promise<void>;
+    testID?: string;
+  }) => null,
+);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockRoute = { params: { num: 0, sceneName: 'home' } };
 function mockContainer({ children }: { children?: ReactNode }) {
@@ -63,7 +81,10 @@ function mockContainer({ children }: { children?: ReactNode }) {
 }
 
 jest.mock('@onekeyhq/components', () => ({
-  Button: mockContainer,
+  Button: (props: Parameters<typeof mockButton>[0]) => {
+    mockButton(props);
+    return mockContainer(props);
+  },
   HeaderIconButton: () => null,
   Page: Object.assign(mockContainer, {
     Header: () => null,
@@ -81,7 +102,18 @@ jest.mock('@react-navigation/core', () => ({ useRoute: () => mockRoute }));
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceAllNetwork: {
+      updateAllNetworksState: (params: INetworksState) =>
+        mockUpdateAllNetworksState(params),
+    },
+  },
+}));
+jest.mock('@onekeyhq/shared/src/config/networkIds', () => ({
+  getNetworkIdsMap: () => ({ xmr: 'xmr--0', onekeyall: 'all' }),
+}));
+jest.mock('./useMoneroPortfolioGate', () => ({
+  useMoneroPortfolioGate: () => mockPortfolioGate,
 }));
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorProviderMirror: mockContainer,
@@ -193,7 +225,18 @@ function portfolioProps() {
 }
 
 describe('network selector selection revalidation', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPortfolioGate.mockResolvedValue(false);
+    mockFindNetworks.mockResolvedValue([]);
+  });
+  afterEach(() => {
+    clearMoneroPortfolioDraft({
+      walletId: 'wallet-1',
+      accountId: 'wallet-1-account',
+      indexedAccountId: undefined,
+    });
+  });
 
   it('refreshes cached selection before any local edits', () => {
     const view = render(
@@ -267,5 +310,72 @@ describe('network selector selection revalidation', () => {
       selectorElement({ networkMeta: refreshed, walletId: 'wallet-2' }),
     );
     expect(portfolioProps().networksState).toEqual(refreshed.allNetworksState);
+  });
+
+  it('gates Monero before creating addresses, saving choices, or leaving the selector', async () => {
+    const monero = {
+      id: 'xmr--0',
+      name: 'Monero',
+      isTestnet: false,
+    } as IServerNetworkMatch;
+    const meta = mockMeta(mockCachedMeta.allNetworksState);
+    meta.allNetworks = [...mockNetworks, monero];
+    meta.compatibleNetworks.mainnetItems = meta.allNetworks;
+    mockPortfolioGate.mockResolvedValue(true);
+    render(selectorElement({ networkMeta: meta, walletId: 'wallet-1' }));
+    const selection = {
+      enabledNetworks: { a: true, 'xmr--0': true },
+      disabledNetworks: { b: true },
+    };
+    act(() => portfolioProps().setNetworksState(selection));
+    const confirm = mockButton.mock.calls
+      .filter(
+        ([props]) =>
+          props.testID === ChainSelectorTestIDs.unifiedPortfolioConfirmBtn,
+      )
+      .at(-1)?.[0];
+    await act(async () => {
+      await confirm?.onPress?.();
+    });
+    expect(mockPortfolioGate).toHaveBeenCalledWith(monero);
+    expect(mockFindNetworks).not.toHaveBeenCalled();
+    expect(mockCreateAddress).not.toHaveBeenCalled();
+    expect(mockUpdateAllNetworksState).not.toHaveBeenCalled();
+    expect(
+      mockActions.current.updateSelectedAccountNetwork,
+    ).not.toHaveBeenCalled();
+    expect(portfolioProps().networksState).toEqual(selection);
+  });
+
+  it('saves a restored draft against the persisted selection and clears it after Done', async () => {
+    const owner = {
+      walletId: 'wallet-1',
+      accountId: 'wallet-1-account',
+      indexedAccountId: undefined,
+    };
+    const selection = {
+      enabledNetworks: { a: true, 'xmr--0': true },
+      disabledNetworks: { b: true },
+    };
+    saveMoneroPortfolioDraft(owner, selection);
+    const meta = mockMeta(mockCachedMeta.allNetworksState);
+    meta.allNetworks = [
+      ...mockNetworks,
+      { id: 'xmr--0', name: 'Monero', isTestnet: false } as IServerNetworkMatch,
+    ];
+    meta.compatibleNetworks.mainnetItems = meta.allNetworks;
+    render(selectorElement({ networkMeta: meta, walletId: 'wallet-1' }));
+    expect(portfolioProps().networksState).toEqual(selection);
+    const confirm = mockButton.mock.calls
+      .filter(
+        ([props]) =>
+          props.testID === ChainSelectorTestIDs.unifiedPortfolioConfirmBtn,
+      )
+      .at(-1)?.[0];
+    await act(async () => {
+      await confirm?.onPress?.();
+    });
+    expect(mockUpdateAllNetworksState).toHaveBeenCalledWith(selection);
+    expect(readMoneroPortfolioDraft(owner)).toBeUndefined();
   });
 });

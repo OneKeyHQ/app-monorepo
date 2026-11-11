@@ -83,12 +83,14 @@ function pool(
     isNetworkPaused: false,
     hasSyncError: false,
     hasAttemptedBalance: true,
+    actionBusy: false,
     busy: false,
     accountName: 'Account #1',
     isTempWallet: false,
     refresh: jest.fn(),
     refreshBalanceNow: jest.fn(async () => undefined),
     startSync: jest.fn(async () => undefined),
+    pauseSync: jest.fn(async () => undefined),
     enableAccount: jest.fn(async () => undefined),
     ...overrides,
   };
@@ -168,7 +170,7 @@ describe('token privacy status', () => {
     ).result.current;
     expect(syncing.detail).toBe('150 / 200 · 50.0%');
     expect(syncing.progress).toBe(50);
-    expect(syncing.onStop).toBeUndefined();
+    expect(syncing.onStop).toBeDefined();
     expect(
       renderStatus(
         pool('error', {
@@ -185,6 +187,43 @@ describe('token privacy status', () => {
     });
     expect(mockSetAllowCellularSync).toHaveBeenCalledWith({ allow: true });
   });
+
+  it.each(['syncing', 'preparing'] as const)(
+    'pauses an enabled account while %s through the pool',
+    async (status) => {
+      const value = pool(status);
+      const { result } = renderStatus(value);
+      await act(async () => result.current.onStop?.());
+      expect(value.pauseSync).toHaveBeenCalledTimes(1);
+      expect(value.enableAccount).not.toHaveBeenCalled();
+      expect(value.refreshBalanceNow).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows Pause while refresh waits for scan completion, but not while a control request is pending', () => {
+    const pendingRefresh = renderStatus(pool('syncing', { busy: true }));
+    expect(pendingRefresh.result.current.onStop).toBeDefined();
+    expect(pendingRefresh.result.current.busy).toBe(false);
+    expect(
+      renderStatus(pool('syncing', { busy: true, actionBusy: true })).result
+        .current.busy,
+    ).toBe(true);
+  });
+
+  it.each([
+    pool('enabling'),
+    pool('preparing', { isReady: false }),
+    pool('preparing', { enabled: false }),
+    pool('preparing', {
+      state: { enabled: true, paused: false, pendingOperation: 'enable' },
+    }),
+    pool('unavailable'),
+  ])(
+    'withholds Pause until setup is complete and scanning can run (%#)',
+    (value) => {
+      expect(renderStatus(value).result.current.onStop).toBeUndefined();
+    },
+  );
 
   it.each([
     ['accountPaused', 'enableAccount'],

@@ -718,6 +718,16 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
+  const pauseSync = useCallback(
+    () =>
+      runBusy(async () => {
+        await backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
+          networkId,
+        });
+        refreshRef.current();
+      }),
+    [networkId, runBusy],
+  );
   const isReady = (() => {
     // A privacy chain whose settings are still loading is not "no pools" yet.
     if (!hasPooledBalance)
@@ -752,12 +762,14 @@ export function useLocalWalletPool({
     isNetworkPaused: syncStatus === 'chainPaused',
     hasSyncError,
     hasAttemptedBalance,
+    actionBusy: busy,
     busy: busy || pendingRefresh?.scope === readScope,
     accountName: account?.name,
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
     refreshBalanceNow,
     startSync,
+    pauseSync,
     enableAccount,
   };
 }

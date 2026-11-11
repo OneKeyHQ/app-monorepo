@@ -37,6 +37,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useSupportNetworkId } from '../../../FiatCrypto/hooks';
 import { HomeTestIDs } from '../../testIDs';
+import { HomePrivacyActions } from '../HomePrivacyActions';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
@@ -48,6 +49,7 @@ import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
 
 import type { IActionCustomization, IWalletActionType } from './types';
+import type { IHomePrivacyActionsPresentation } from '../HomePrivacyActions';
 
 function WalletActionSend({
   customization,
@@ -431,7 +433,7 @@ function WalletActionSend({
   );
 }
 
-function WalletActions({ ...rest }: IXStackProps) {
+function WalletActionsContent({ ...rest }: IXStackProps) {
   const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
@@ -529,6 +531,21 @@ function WalletActions({ ...rest }: IXStackProps) {
         <WalletActionMore iconOnly />
       </RawActions>
     </YStack>
+  );
+}
+
+function WalletActions({
+  onPresentationChange,
+  ...props
+}: IXStackProps & {
+  onPresentationChange?: (
+    presentation: IHomePrivacyActionsPresentation,
+  ) => void;
+}) {
+  return (
+    <HomePrivacyActions {...props} onPresentationChange={onPresentationChange}>
+      <WalletActionsContent {...props} />
+    </HomePrivacyActions>
   );
 }
 

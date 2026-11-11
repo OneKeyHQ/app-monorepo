@@ -55,8 +55,14 @@ import {
 } from '../recentNetworksCache';
 import { TabSwitcher } from '../UnifiedNetworkSelector/TabSwitcher';
 
+import {
+  clearMoneroPortfolioDraft,
+  readMoneroPortfolioDraft,
+  saveMoneroPortfolioDraft,
+} from './moneroPortfolioDraft';
 import { NetworkContentV2 } from './NetworkContentV2';
 import PortfolioContentV2 from './PortfolioContentV2';
+import { useMoneroPortfolioGate } from './useMoneroPortfolioGate';
 import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 
 import type { IServerNetworkMatch } from '../../types';
@@ -128,6 +134,10 @@ function UnifiedNetworkSelectorV2() {
   }, [defaultTab, isOthersWallet, networkId]);
 
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
+  const pendingMoneroDraft = useMemo(
+    () => readMoneroPortfolioDraft({ walletId, accountId, indexedAccountId }),
+    [accountId, indexedAccountId, walletId],
+  );
 
   // Portfolio tab state (from AllNetworksManager).
   // Seed from the SWR cache synchronously so the first render doesn't flash
@@ -145,6 +155,7 @@ function UnifiedNetworkSelectorV2() {
       };
     }>(swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }));
     return (
+      pendingMoneroDraft ??
       cached?.allNetworksState ?? {
         enabledNetworks: {},
         disabledNetworks: {},
@@ -153,11 +164,12 @@ function UnifiedNetworkSelectorV2() {
   });
 
   const enabledNetworksInit = useRef(false);
-  const hasLocalNetworkChanges = useRef(false);
+  const hasLocalNetworkChanges = useRef(Boolean(pendingMoneroDraft));
 
   useEffect(() => {
-    hasLocalNetworkChanges.current = false;
-  }, [accountId, walletId]);
+    hasLocalNetworkChanges.current = Boolean(pendingMoneroDraft);
+    if (pendingMoneroDraft) setNetworksState(pendingMoneroDraft);
+  }, [accountId, pendingMoneroDraft, walletId]);
 
   const updateNetworksSelection = useCallback<typeof setNetworksState>(
     (value) => {
@@ -308,10 +320,26 @@ function UnifiedNetworkSelectorV2() {
   );
   useEffect(() => {
     if (!enabledNetworksInit.current && networks.allNetworks.length > 0) {
-      setOriginalEnabledNetworks(enabledNetworks);
+      setOriginalEnabledNetworks(
+        pendingMoneroDraft && networkMeta
+          ? networks.mainNetworks.filter((network) =>
+              isEnabledNetworksInAllNetworks({
+                networkId: network.id,
+                ...networkMeta.allNetworksState,
+                isTestnet: network.isTestnet,
+              }),
+            )
+          : enabledNetworks,
+      );
       enabledNetworksInit.current = true;
     }
-  }, [enabledNetworks, networks.allNetworks.length]);
+  }, [
+    enabledNetworks,
+    networkMeta,
+    networks.allNetworks.length,
+    networks.mainNetworks,
+    pendingMoneroDraft,
+  ]);
 
   const compatibleNetworks = networkMeta?.compatibleNetworks;
 
@@ -574,10 +602,32 @@ function UnifiedNetworkSelectorV2() {
     );
   }, [enabledNetworks, originalEnabledNetworks]);
 
+  const preserveMoneroPortfolioDraft = useCallback(() => {
+    saveMoneroPortfolioDraft(
+      { walletId, accountId, indexedAccountId },
+      networksState,
+    );
+  }, [accountId, indexedAccountId, networksState, walletId]);
+
+  const checkMoneroPortfolioGate = useMoneroPortfolioGate({
+    walletId,
+    accountId,
+    indexedAccountId,
+    activeNetworkId: networkId,
+    onOpenNetwork: handleNetworkPressItem,
+    onBeforeOpenNetwork: preserveMoneroPortfolioDraft,
+  });
+
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
     setIsCreatingEnabledAddresses(true);
     try {
+      const moneroNetwork = enabledNetworks.find(
+        (network) => network.id === getNetworkIdsMap().xmr,
+      );
+      if (moneroNetwork && (await checkMoneroPortfolioGate(moneroNetwork))) {
+        return;
+      }
       if (!isOthersWallet) {
         // 1. Find networks missing addresses
         const networksWithoutAccount = await findNetworksWithoutAccount({
@@ -621,6 +671,7 @@ function UnifiedNetworkSelectorV2() {
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
+      clearMoneroPortfolioDraft({ walletId, accountId, indexedAccountId });
 
       // 4. Switch to All Networks if not already on it. Recorded in the DB
       // only: this selector's recent chips never list All Networks, so the
@@ -649,6 +700,7 @@ function UnifiedNetworkSelectorV2() {
   }, [
     accountId,
     actions,
+    checkMoneroPortfolioGate,
     createAddress,
     enabledNetworks,
     findNetworksWithoutAccount,

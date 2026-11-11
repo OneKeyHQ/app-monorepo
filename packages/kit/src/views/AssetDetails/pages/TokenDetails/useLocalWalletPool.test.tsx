@@ -62,6 +62,7 @@ const mockRefreshAccount = jest.fn<
 >();
 const mockPageOpened = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockPauseScan = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
   [IAccountParams]
@@ -102,6 +103,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
         mockEnableAccount(params),
+      pauseLocalWalletScan: (params: { networkId: string }) =>
+        mockPauseScan(params),
       // jest hoists this factory above the `var` declarations below.
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       getLocalWalletAccountSupport: async () => mockWalletSupport,
@@ -262,6 +265,7 @@ beforeEach(() => {
     sessionId: 'refresh-session',
   });
   mockPageOpened.mockReset().mockResolvedValue(undefined);
+  mockPauseScan.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
     paused: mockPaused,
@@ -713,6 +717,46 @@ describe('useLocalWalletPool enable failure', () => {
     });
     expect(result.current.busy).toBe(false);
   });
+});
+
+describe('useLocalWalletPool pause', () => {
+  it.each([false, true])(
+    'uses the existing network pause and clears the control busy state (failure: %s)',
+    async (fails) => {
+      let resolvePause: (() => void) | undefined;
+      let rejectPause: ((error: Error) => void) | undefined;
+      mockPauseScan.mockImplementation(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            resolvePause = resolve;
+            rejectPause = reject;
+          }),
+      );
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushReads();
+      let pending: Promise<void> | undefined;
+      act(() => {
+        pending = result.current.pauseSync();
+      });
+      expect(mockPauseScan).toHaveBeenCalledWith({
+        networkId: props.networkId,
+      });
+      expect(result.current.actionBusy).toBe(true);
+      await act(async () => {
+        if (fails) {
+          const error = new Error('Pause failed');
+          rejectPause?.(error);
+          await expect(pending).rejects.toBe(error);
+        } else {
+          resolvePause?.();
+          await pending;
+        }
+      });
+      expect(result.current.actionBusy).toBe(false);
+    },
+  );
 });
 
 describe('useLocalWalletPool retained-page lifecycle', () => {

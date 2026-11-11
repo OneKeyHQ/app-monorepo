@@ -1,10 +1,12 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack, YStack } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
@@ -17,6 +19,8 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
+import type { IHomePrivacyActionsPresentation } from '../components/HomePrivacyActions';
+
 export interface IHomeHeaderContainerProps {
   layout: ReturnType<typeof useHomeHeaderLayout>;
 }
@@ -24,7 +28,14 @@ export interface IHomeHeaderContainerProps {
 // Share the rendering decision so the parent can select its height before commit.
 export function useHomeHeaderLayout() {
   const {
-    activeAccount: { wallet, account, network, vaultSettings },
+    activeAccount: {
+      wallet,
+      account,
+      network,
+      vaultSettings,
+      ready,
+      isNetworkNotMatched,
+    },
   } = useActiveAccount({
     num: 0,
   });
@@ -51,6 +62,30 @@ export function useHomeHeaderLayout() {
   // flicker that previously occurred when the page mounted with the banner
   // visible and then collapsed once the first balance fetch came back zero.
   const homeBalanceState = useHomeBalanceState();
+  const [privacyActionsPresentation, setPrivacyActionsPresentation] =
+    useState<IHomePrivacyActionsPresentation>();
+  const handleActionsPresentationChange = useCallback(
+    (presentation: IHomePrivacyActionsPresentation) => {
+      setPrivacyActionsPresentation((previous) =>
+        previous?.ownerKey === presentation.ownerKey &&
+        previous.variant === presentation.variant
+          ? previous
+          : presentation,
+      );
+    },
+    [],
+  );
+  const isMonero =
+    !!network?.id &&
+    !network.isAllNetworks &&
+    networkUtils.getNetworkImpl({ networkId: network.id }) === IMPL_XMR;
+  const actionsOwnerKey = `${network?.id ?? ''}:${account?.id ?? ''}`;
+  const privacyActionsVariant =
+    ready &&
+    !isNetworkNotMatched &&
+    privacyActionsPresentation?.ownerKey === actionsOwnerKey
+      ? privacyActionsPresentation.variant
+      : 'privacy-loading';
   const shouldShowBanner =
     !isWalletNotBackedUp &&
     hasWalletBannerContent &&
@@ -64,9 +99,22 @@ export function useHomeHeaderLayout() {
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
 
-  const variant = isWalletNotBackedUp
+  let variant = isWalletNotBackedUp
     ? 'backup:plain'
     : `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
+  // Enable and loading rows have different heights from the standard Add Money block.
+  if (
+    !isWalletNotBackedUp &&
+    platformEnv.isNative &&
+    isMonero &&
+    privacyActionsVariant !== 'standard'
+  ) {
+    variant = `${variant}:${privacyActionsVariant}`;
+  }
+  const onActionsPresentationChange =
+    platformEnv.isNative && isMonero
+      ? handleActionsPresentationChange
+      : undefined;
 
   return useMemo(
     () => ({
@@ -76,6 +124,7 @@ export function useHomeHeaderLayout() {
       shouldShowBanner,
       nativeMinHeight,
       variant,
+      onActionsPresentationChange,
     }),
     [
       wallet,
@@ -84,6 +133,7 @@ export function useHomeHeaderLayout() {
       shouldShowBanner,
       nativeMinHeight,
       variant,
+      onActionsPresentationChange,
     ],
   );
 }
@@ -95,6 +145,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
     homeBalanceState,
     shouldShowBanner,
     nativeMinHeight,
+    onActionsPresentationChange,
   } = layout;
 
   // Funnel denominator for backup / receive completion rates: log once per
@@ -148,7 +199,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
         </HomeHeaderGesture>
         {isWalletNotBackedUp ? null : (
           <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-            <WalletActions />
+            <WalletActions onPresentationChange={onActionsPresentationChange} />
           </HomeHeaderGesture>
         )}
       </Stack>

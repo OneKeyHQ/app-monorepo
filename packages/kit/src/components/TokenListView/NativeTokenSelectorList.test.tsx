@@ -263,6 +263,30 @@ const arbToken: IAccountToken = {
   address: '0xarb',
 };
 
+function validateInstalledSnapshot(snapshot: NativeListSnapshot) {
+  const validatorUrl = pathToFileURL(
+    join(
+      dirname(
+        require.resolve('@onekeyfe/react-native-native-list/package.json'),
+      ),
+      'lib/module/validation.js',
+    ),
+  ).href;
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      'import { readFileSync } from "node:fs"; globalThis.__DEV__ = true; const { validateSnapshot } = await import(process.argv[1]); validateSnapshot(JSON.parse(readFileSync(0, "utf8")));',
+      validatorUrl,
+    ],
+    { input: JSON.stringify(snapshot), encoding: 'utf8' },
+  );
+  expect(result.stderr).toBe('');
+  expect(result.status).toBe(0);
+}
+
 it('omits an absent Home sidecar so token rows remain a valid list input', () => {
   const wasNative = platformEnv.isNative;
   platformEnv.isNative = true;
@@ -286,6 +310,157 @@ it('omits an absent Home sidecar so token rows remain a valid list input', () =>
   expect(mockListSidecar).toBeUndefined();
   expect(mockSnapshot?.rows).toHaveLength(1);
 });
+
+it.each([
+  { tableLayout: false, isNative: false },
+  { tableLayout: false, isNative: true },
+  { tableLayout: true, isNative: false },
+])(
+  'updates the native token sync status without replacing balances or its details action (table: $tableLayout, native: $isNative)',
+  ({ tableLayout, isNative }) => {
+    const wasNative = platformEnv.isNative;
+    platformEnv.isNative = isNative;
+    mockRowLayoutEngine = isNative ? 'native' : 'web';
+    try {
+      const token = {
+        ...ethToken,
+        $key: 'xmr--0_native',
+        networkId: 'xmr--0',
+        symbol: 'XMR',
+        name: 'Monero',
+        isNative: true,
+      };
+      const onPressToken = jest.fn();
+      const props = {
+        rows: [token],
+        networkId: token.networkId,
+        crossNetworkGroupingActive: false,
+        zeroFillMissingFiat: false,
+        showProcessingState: false,
+        isSearching: false,
+        currentNetworkName: 'Monero',
+        empty: <div />,
+        tableLayout,
+        withPrice: true,
+        onPressToken,
+        tokenListMap: {
+          [token.$key]: {
+            balance: '2000000000000',
+            balanceParsed: '2',
+            fiatValue: '100',
+            price: 50,
+          },
+        },
+      };
+      const status = {
+        networkId: token.networkId,
+        label: 'Syncing',
+        loading: true,
+      };
+      const { rerender, getByTestId } = render(
+        <NativeTokenSelectorList {...props} nativeTokenStatus={status} />,
+      );
+      const syncing = mockSnapshot?.rows[0];
+      expect(syncing).toMatchObject({ height: 60 });
+      expect(syncing?.type).toBe(
+        tableLayout || isNative ? 'dataRow' : 'identity',
+      );
+      expect(syncing?.disabled).not.toBe(true);
+      if (syncing?.type === 'identity') {
+        expect(syncing.badges).toEqual([
+          { key: 'sync-status', text: 'Syncing' },
+        ]);
+        expect(syncing.trailing).toEqual([
+          { kind: 'spinner' },
+          expect.objectContaining({ kind: 'valuePair', primary: '2' }),
+        ]);
+        expect(syncing.subtitle).toContain('50');
+      } else if (syncing?.type === 'dataRow') {
+        if (tableLayout) {
+          expect(syncing.columns[0].secondaryText).toBe('Syncing');
+          expect(syncing.columns).toHaveLength(3);
+        } else {
+          expect(syncing.badges).toEqual([
+            { key: 'sync-status', text: 'Syncing' },
+          ]);
+          expect(syncing.columns).toHaveLength(2);
+          expect(syncing.columns[0].secondaryText).toContain('50');
+          expect(
+            syncing.columns[0].secondaryTextSegments
+              ?.map((segment) => segment.text)
+              .join(''),
+          ).toBe(syncing.columns[0].secondaryText);
+          expect(syncing.style?.lineGap).toBe(0);
+          expect(syncing.accessibilityLabel).toBe(
+            [
+              'XMR',
+              'Syncing',
+              syncing.columns[0].secondaryText,
+              syncing.columns[1].text,
+              syncing.columns[1].secondaryText,
+            ].join(', '),
+          );
+        }
+        expect(syncing.columns[1].text).toBe('2');
+        expect(syncing.columns[1].secondaryText).toContain('100');
+        expect(syncing.trailing).toEqual([{ kind: 'spinner' }]);
+      }
+      validateInstalledSnapshot(mockSnapshot!);
+      fireEvent.click(getByTestId(token.$key));
+      expect(onPressToken).toHaveBeenCalledWith(token);
+
+      rerender(
+        <NativeTokenSelectorList
+          {...props}
+          nativeTokenStatus={{ ...status, label: 'Paused', loading: false }}
+        />,
+      );
+      const paused = mockSnapshot?.rows[0];
+      if (paused?.type === 'identity' || paused?.type === 'dataRow') {
+        expect(paused.trailing).not.toContainEqual({ kind: 'spinner' });
+      }
+      if (isNative && paused?.type === 'dataRow') {
+        expect(paused.height).toBe(60);
+        expect(paused.accessibilityLabel).toContain('Paused');
+        expect(paused.accessibilityLabel).not.toContain('Syncing');
+        expect(paused.columns[1]).toEqual(
+          syncing?.type === 'dataRow' ? syncing.columns[1] : undefined,
+        );
+      }
+      validateInstalledSnapshot(mockSnapshot!);
+
+      rerender(<NativeTokenSelectorList {...props} />);
+      const synced = mockSnapshot?.rows[0];
+      if (synced?.type === 'identity') {
+        expect(synced.badges).toEqual([]);
+      } else if (synced?.type === 'dataRow') {
+        expect(synced.columns[0].secondaryText).toBe('Monero');
+      }
+      validateInstalledSnapshot(mockSnapshot!);
+
+      for (const extra of [
+        { isAllNetworks: true },
+        { isTokenSelector: true },
+        { networkId: 'evm--1' },
+      ]) {
+        rerender(
+          <NativeTokenSelectorList
+            {...props}
+            {...extra}
+            nativeTokenStatus={status}
+          />,
+        );
+        const unrelated = mockSnapshot?.rows[0];
+        if (unrelated?.type === 'identity' || unrelated?.type === 'dataRow') {
+          expect(unrelated.trailing).not.toContainEqual({ kind: 'spinner' });
+        }
+      }
+    } finally {
+      platformEnv.isNative = wasNative;
+      mockRowLayoutEngine = 'web';
+    }
+  },
+);
 
 it('passes disclosure content and toggle through the Web adapter', () => {
   const wasNative = platformEnv.isNative;
@@ -405,28 +580,6 @@ it('scales a held balance but leaves a searched token without fiat blank', () =>
 });
 
 it('keeps the creating address state within the installed NativeList accessory limit', () => {
-  const validatorUrl = pathToFileURL(
-    join(
-      dirname(
-        require.resolve('@onekeyfe/react-native-native-list/package.json'),
-      ),
-      'lib/module/validation.js',
-    ),
-  ).href;
-  const validateInstalledSnapshot = (snapshot: NativeListSnapshot) => {
-    const result = spawnSync(
-      process.execPath,
-      [
-        '--input-type=module',
-        '-e',
-        'import { readFileSync } from "node:fs"; globalThis.__DEV__ = true; const { validateSnapshot } = await import(process.argv[1]); validateSnapshot(JSON.parse(readFileSync(0, "utf8")));',
-        validatorUrl,
-      ],
-      { input: JSON.stringify(snapshot), encoding: 'utf8' },
-    );
-    expect(result.stderr).toBe('');
-    expect(result.status).toBe(0);
-  };
   const props = {
     rows: [ethToken, arbToken],
     networkId: 'evm--1',
