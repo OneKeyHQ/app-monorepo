@@ -11,13 +11,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Skeleton,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
@@ -150,22 +144,11 @@ export function DesktopLayout({
                 h={MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT}
                 flexShrink={0}
               >
-                {highlight ? (
-                  <MarketHighlightStrip
-                    highlight={highlight}
-                    highlights={highlights}
-                    compact={false}
-                  />
-                ) : (
-                  <YStack px="$5" pt="$3">
-                    <Skeleton
-                      h={40}
-                      w="100%"
-                      maxWidth={800}
-                      borderRadius="$3"
-                    />
-                  </YStack>
-                )}
+                <MarketHighlightStrip
+                  highlight={highlight}
+                  highlights={highlights}
+                  compact={false}
+                />
               </YStack>
             ) : null}
             <MarketBannerList compactTopSpacing={hasHighlightSlot} />

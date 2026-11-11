@@ -55,6 +55,11 @@ import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
 const MAX_CARD_ASSETS = 3;
+const ASSET_SLOT_MAX_WIDTH = 240;
+// 20px gap on each side of the 1px divider between asset slots.
+const ASSET_SLOT_SEPARATOR_WIDTH = 41;
+// Keeps the last slot's star off the card edge.
+const ASSET_ROW_TRAILING_PADDING = 10;
 
 function HighlightInfo({
   links,
@@ -66,11 +71,13 @@ function HighlightInfo({
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.global_info });
   const [isOpen, setIsOpen] = useState(false);
+  const validLinks = links.filter(({ url }) => /^https?:\/\//i.test(url));
 
   return (
     <Popover
       open={isOpen}
       onOpenChange={setIsOpen}
+      hoverable={wide}
       title={title}
       showHeader={!wide}
       placement="bottom-end"
@@ -85,10 +92,9 @@ function HighlightInfo({
           gap="$1"
           px="$2"
           py="$1"
-          borderRadius="$full"
-          bg={isOpen ? '$bgActive' : undefined}
-          hoverStyle={{ bg: isOpen ? '$bgActive' : '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
+          mx="$-2"
+          my="$-1"
+          cursor="default"
           accessibilityState={{ expanded: isOpen }}
         >
           <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -108,19 +114,19 @@ function HighlightInfo({
           pt={wide ? '$2.5' : undefined}
           gap="$2"
         >
-          <XStack
-            flexDirection={wide ? 'row' : 'column'}
-            flexWrap={wide ? 'wrap' : 'nowrap'}
-            gap={wide ? '$3' : '$1'}
-          >
-            {links
-              .filter(({ url }) => /^https?:\/\//i.test(url))
-              .map(({ title: label, url }, index) => (
+          {validLinks.length > 0 ? (
+            <XStack
+              flexDirection={wide ? 'row' : 'column'}
+              flexWrap={wide ? 'wrap' : 'nowrap'}
+              gap={wide ? '$3' : '$1'}
+            >
+              {validLinks.map(({ title: label, url }, index) => (
                 <XStack
                   key={`${url}:${index}`}
                   role="link"
                   minHeight={wide ? undefined : 40}
                   gap="$1"
+                  cursor="pointer"
                   alignItems="center"
                   justifyContent={wide ? 'flex-start' : 'space-between'}
                   onPress={() => openUrlExternal(url)}
@@ -139,7 +145,8 @@ function HighlightInfo({
                   />
                 </XStack>
               ))}
-          </XStack>
+            </XStack>
+          ) : null}
           <SizableText size={wide ? '$bodySm' : '$bodyMd'} color="$textSubdued">
             {intl.formatMessage({
               id: ETranslationsMock.market_highlights_disclaimer__desc,
@@ -228,32 +235,45 @@ function HighlightAssetRow({
   quote,
   onPress,
   wide,
+  slotWidth,
 }: {
   asset: IMarketHighlightAsset;
   quote?: IMarketHighlightQuote;
   onPress: (asset: IMarketHighlightAsset) => void;
   wide: boolean;
+  slotWidth?: number;
 }) {
   const { favorite } = asset;
   const maxLeverage = asset.type === 'perp' ? quote?.maxLeverage : undefined;
+  let slotRowWidth: number | '100%' | undefined = '100%';
+  if (wide) {
+    slotRowWidth = slotWidth ? slotWidth + 24 : undefined;
+  }
   return (
     <XStack
       alignItems="center"
-      width={wide ? undefined : '100%'}
-      maxWidth={wide ? 240 : undefined}
+      // Hover background bleeds 12px past the slot via negative margins, so
+      // the occupied width (and star alignment) stays at slotWidth.
+      width={slotRowWidth}
+      px={wide ? '$3' : undefined}
+      mx={wide ? '$-3' : undefined}
+      borderRadius={wide ? '$3' : undefined}
+      hoverStyle={wide ? { bg: '$bgHover' } : undefined}
+      maxWidth={wide ? ASSET_SLOT_MAX_WIDTH + 24 : undefined}
       minWidth={0}
       py={wide ? '$3' : undefined}
-      gap={wide ? '$3' : '$1'}
+      gap={wide ? '$5' : '$1'}
     >
       <XStack
         testID={`market-highlights-asset-${getMarketWatchlistKey(favorite)}`}
         role="button"
-        flex={wide ? undefined : 1}
+        flex={wide && !slotWidth ? undefined : 1}
         flexShrink={1}
         minWidth={0}
         alignItems="center"
         gap="$3"
         minHeight={44}
+        cursor="pointer"
         onPress={() => onPress(asset)}
       >
         <Token
@@ -359,6 +379,21 @@ function HighlightCard({
 }) {
   const publishedAt = new Date(item.publishedAt);
   const time = formatRelativeTimeAbbr(publishedAt);
+  const [assetRowWidth, setAssetRowWidth] = useState(0);
+  // Every card splits its row into MAX_CARD_ASSETS equal slots, whatever its
+  // own asset count, so stars line up across cards.
+  const slotWidth =
+    wide && assetRowWidth > 0
+      ? Math.min(
+          ASSET_SLOT_MAX_WIDTH,
+          Math.floor(
+            (assetRowWidth -
+              ASSET_ROW_TRAILING_PADDING -
+              (MAX_CARD_ASSETS - 1) * ASSET_SLOT_SEPARATOR_WIDTH) /
+              MAX_CARD_ASSETS,
+          ),
+        )
+      : undefined;
 
   return (
     <YStack
@@ -406,6 +441,12 @@ function HighlightCard({
         flexWrap={wide ? 'wrap' : 'nowrap'}
         alignItems={wide ? 'center' : 'stretch'}
         gap={wide ? '$5' : '$2'}
+        pr={wide ? ASSET_ROW_TRAILING_PADDING : undefined}
+        onLayout={
+          wide
+            ? ({ nativeEvent }) => setAssetRowWidth(nativeEvent.layout.width)
+            : undefined
+        }
       >
         {item.assets.slice(0, MAX_CARD_ASSETS).map((asset, index) => {
           const identity = getMarketWatchlistKey(asset.favorite);
@@ -419,6 +460,7 @@ function HighlightCard({
                 quote={quotes?.get(identity)}
                 onPress={onAssetPress}
                 wide={wide}
+                slotWidth={slotWidth}
               />
             </Fragment>
           );
@@ -533,6 +575,7 @@ function MarketHighlightsContent() {
               keyExtractor={(item) => item.highlightId}
               renderItem={renderItem}
               ListHeaderComponent={<Stack height={10} />}
+              ListFooterComponent={<Stack height={10} />}
             />
           </YStack>
         ) : (
