@@ -17,7 +17,11 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -51,6 +55,7 @@ import {
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
 import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
+import { convertFiat } from '../../utils/fiatConvert';
 import { Currency } from '../Currency';
 
 import { getTokenListFooterLayout } from './tokenListRowLayout';
@@ -256,6 +261,20 @@ function TokenListFooter(props: IProps) {
     filteredSmallBalanceTokens === smallBalanceTokens
       ? smallBalanceTokensFiatValue
       : filteredSmallBalanceFiatValue;
+  // Beside the label, "< $0.01" reads as the folding rule rather than a total,
+  // so a total that small is left out. Hidden balances keep their mask.
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const showSmallBalanceTotal =
+    hideValue ||
+    new BigNumber(
+      convertFiat({
+        value: displayedSmallBalanceFiatValue ?? 0,
+        sourceCurrency: 'usd',
+        targetCurrency: currencyInfo?.id ?? 'usd',
+        currencyMap,
+      }),
+    ).gte(0.01);
 
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
@@ -489,7 +508,8 @@ function TokenListFooter(props: IProps) {
     }
     return (
       <YStack>
-        <Stack h={1} ml={FOOTER_ICON_INSET} bg="$bgStrong" />
+        {/* Spans the row content: icon edge to the last column's edge. */}
+        <Stack h={1} mx={FOOTER_ICON_INSET} bg="$bgStrong" />
         <XStack
           flexWrap="wrap"
           alignItems="center"
@@ -503,21 +523,32 @@ function TokenListFooter(props: IProps) {
               testID="token-list-footer-low-value-btn"
               onPress={handleOnPressLowValueTokens}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {`${filteredSmallBalanceTokens.length} ${intl.formatMessage({
                   id: ETranslations.low_value_assets,
                 })}`}
               </SizableText>
-              <Currency
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                sourceCurrency="usd"
-                hideValue
-                ml="$1"
-              >
-                {displayedSmallBalanceFiatValue}
-              </Currency>
+              {showSmallBalanceTotal ? (
+                <>
+                  {/* Spaced like the "Tokens · total" title. */}
+                  <SizableText
+                    size="$bodyMdMedium"
+                    color="$textSubdued"
+                    mx="$1"
+                  >
+                    ·
+                  </SizableText>
+                  <Currency
+                    size="$bodyMdMedium"
+                    color="$textSubdued"
+                    formatter="value"
+                    sourceCurrency="usd"
+                    hideValue
+                  >
+                    {displayedSmallBalanceFiatValue}
+                  </Currency>
+                </>
+              ) : null}
             </FooterTextButton>
           ) : null}
           {showRisky ? (
@@ -525,7 +556,7 @@ function TokenListFooter(props: IProps) {
               testID="token-list-footer-risky-btn"
               onPress={handleOnPressRiskyTokens}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {intl.formatMessage(
                   { id: ETranslations.wallet_collapsed_risk_assets_number },
                   { number: blockedTokensLength },
@@ -539,7 +570,7 @@ function TokenListFooter(props: IProps) {
               icon="PlusSmallOutline"
               onPress={handleOnPressManageTokens}
             >
-              <SizableText size="$bodyMd" color="$textSubdued">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {intl.formatMessage({ id: ETranslations.add_token_label })}
               </SizableText>
             </FooterTextButton>

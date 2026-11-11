@@ -77,6 +77,8 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
   useSettingsValuePersistAtom: () => [{ hideValue: false }],
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
