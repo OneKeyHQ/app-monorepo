@@ -357,6 +357,7 @@ const DIAGNOSTIC_COUNT_FIELDS = [
   'inputEnvelopeCount',
   'outputEnvelopeCount',
   'localItemCount',
+  'recoveredLocalItemCount',
   'unknownLocalHashCount',
   'knownHashCount',
   'ignoredLegacyLockCount',
