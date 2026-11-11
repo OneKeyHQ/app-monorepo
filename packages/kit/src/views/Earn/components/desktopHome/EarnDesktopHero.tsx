@@ -48,8 +48,15 @@ import {
 } from './EarnDesktopProtocolSplit';
 import { EarnDesktopRewardPillsSkeleton } from './EarnDesktopRewardPills';
 import { warmEarnPositions } from './earnDesktopWarm';
+import {
+  getTickingPlaces,
+  getTickingStepSeconds,
+  splitTickingValue,
+} from './earnTicking.utils';
+import { EarnTickingDigits } from './EarnTickingDigits';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
+import type { LayoutChangeEvent } from 'react-native';
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 // The wallet home's balance size, with the same line height. A total too long
@@ -96,11 +103,14 @@ const REWARDS_SETTLE_MS = REWARDS_EASE_MS + 100;
 const hadRewardsByAccount = new Map<string, boolean>();
 
 // The total keeps moving between refreshes at the estimated daily change's
-// per-second rate. It shows cents only, so it re-renders about when the next
-// cent accrues, between once a second and once a minute. It stands still while
-// hidden, loading or off screen
+// per-second rate. It shows as many places as it takes for the last one to
+// be seen moving (the cents alone when they move often enough, or when no
+// place allowed would), and re-renders about when that place changes, between
+// once a second and once a minute. It stands still while hidden, loading or
+// off screen
 function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
   const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
+  const places = getTickingPlaces(perSecond);
   const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
   const [now, setNow] = useState(() => Date.now());
   if (anchor.total !== total) {
@@ -108,7 +118,13 @@ function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
   }
   const tickMs =
     perSecond > 0 && isRunning
-      ? Math.min(MAX_TICK_MS, Math.max(MIN_TICK_MS, 10 / perSecond))
+      ? Math.min(
+          MAX_TICK_MS,
+          Math.max(
+            MIN_TICK_MS,
+            getTickingStepSeconds(perSecond, places) * 1000,
+          ),
+        )
       : 0;
   useEffect(() => {
     if (!tickMs) {
@@ -119,16 +135,23 @@ function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
     return () => clearInterval(timer);
   }, [tickMs]);
   const elapsedSeconds = Math.max(0, (now - anchor.at) / 1000);
-  return total + perSecond * elapsedSeconds;
+  return { value: total + perSecond * elapsedSeconds, places };
 }
 
 function TotalValue({
   value,
+  amount,
+  digits,
   currency,
   fontSize,
   isHidden,
 }: {
   value: number;
+  // What is written in place of the value: the total cut at its cents, when
+  // the digits after them follow
+  amount?: string;
+  // The digits after the cents, on the total's baseline
+  digits?: ReactNode;
   currency: string;
   fontSize: number;
   isHidden: boolean;
@@ -157,27 +180,96 @@ function TotalValue({
       </SizableText>
     );
   }
-  const amount = (
+  const formatted = (
     <NumberSizeableTextWrapper
       {...textProps}
       splitDecimal
       formatter="value"
       formatterOptions={{ currency }}
+      // Beside the digits the amount is the part that gives way
+      {...(digits ? { flexShrink: 1, minWidth: 0 } : undefined)}
     >
-      {String(Math.abs(value))}
+      {amount ?? String(Math.abs(value))}
     </NumberSizeableTextWrapper>
   );
   // The value formatter writes a negative as "< 0.01", so the sign goes in
   // front of the formatted amount
-  return value < 0 ? (
+  return value < 0 || digits ? (
     <XStack ai="baseline" minWidth={0} x={x}>
-      <SizableText {...textProps}>-</SizableText>
-      {amount}
+      {value < 0 ? <SizableText {...textProps}>-</SizableText> : null}
+      {formatted}
+      {digits}
     </XStack>
   ) : (
     <YStack minWidth={0} x={x}>
-      {amount}
+      {formatted}
     </YStack>
+  );
+}
+
+/**
+ * The net worth as it grows: the total, and after its cents the smaller
+ * digits that are seen to move. It holds the clock, so the hero around it is
+ * not drawn again at every tick
+ */
+function TickingTotalValue({
+  total,
+  change24h,
+  isRunning,
+  currency,
+  fontSize,
+  isHidden,
+  isStatic,
+  hidesDigits,
+  onDigitsWidth,
+}: {
+  total: number;
+  change24h: number;
+  isRunning: boolean;
+  currency: string;
+  fontSize: number;
+  isHidden: boolean;
+  // The copy that is only measured: no motion
+  isStatic?: boolean;
+  // No room for them at any size
+  hidesDigits?: boolean;
+  // How wide the digits are at this size; none, nothing
+  onDigitsWidth?: (width: number) => void;
+}) {
+  const { value, places } = useTickingTotal(total, change24h, isRunning);
+  const { cents, digits } =
+    hidesDigits || isHidden
+      ? { cents: '', digits: '' }
+      : splitTickingValue(value, places);
+  const hasDigits = digits.length > 0;
+  useEffect(() => {
+    if (!hasDigits) {
+      onDigitsWidth?.(0);
+    }
+  }, [hasDigits, onDigitsWidth]);
+  const handleDigitsLayout = useCallback(
+    (event: LayoutChangeEvent) =>
+      onDigitsWidth?.(Math.ceil(event.nativeEvent.layout.width)),
+    [onDigitsWidth],
+  );
+  return (
+    <TotalValue
+      value={value}
+      amount={hasDigits ? cents : undefined}
+      digits={
+        hasDigits ? (
+          <EarnTickingDigits
+            digits={digits}
+            fontSize={fontSize}
+            isStatic={isStatic}
+            onLayout={onDigitsWidth ? handleDigitsLayout : undefined}
+          />
+        ) : undefined
+      }
+      currency={currency}
+      fontSize={fontSize}
+      isHidden={isHidden}
+    />
   );
 }
 
@@ -316,11 +408,8 @@ function BasicEarnDesktopHero({
   const earnings = new BigNumber(earnings24h).toNumber() || 0;
   const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   // Net worth grows by the earnings less what the loans accrue
-  const value = useTickingTotal(
-    total,
-    earnings - borrowInterest24h,
-    isActive && !isHidden && !isLoading,
-  );
+  const change24h = earnings - borrowInterest24h;
+  const isTicking = isActive && !isHidden && !isLoading;
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const isReadyToEarn = !isLoading && !hasPositions && Boolean(readyToEarn);
   const toShownCurrency = (usd: number) =>
@@ -332,10 +421,8 @@ function BasicEarnDesktopHero({
         currencyMap,
       }),
     ).toNumber() || 0;
-  const shownValue =
-    isReadyToEarn && readyToEarn
-      ? toShownCurrency(readyToEarn.valueUsd)
-      : value;
+  const readyValue =
+    isReadyToEarn && readyToEarn ? toShownCurrency(readyToEarn.valueUsd) : 0;
   const handleToggleHideValue = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
     await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
@@ -386,14 +473,24 @@ function BasicEarnDesktopHero({
   const [heroWidth, setHeroWidth] = useState(0);
   const [fullWidth, setFullWidth] = useState(0);
   const [fontSize, setFontSize] = useState<ITotalFontSize>(TOTAL_FONT_SIZE);
+  // The moving digits after the cents, as wide as the unseen copy has them.
+  // They are the first to go when the total has no room: a size smaller
+  // first, then the total without them
+  const [digitsWidth, setDigitsWidth] = useState(0);
+  let hidesDigits = false;
   if (heroWidth && fullWidth) {
-    const fits = (size: ITotalFontSize) =>
-      (fullWidth * size) / TOTAL_FONT_SIZE +
+    const fits = (width: number) => (size: ITotalFontSize) =>
+      (width * size) / TOTAL_FONT_SIZE +
         (isReadyToEarn ? 0 : ENTRY_PADDING_WIDTH + CHEVRON_SIZE[size].px) +
         (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
       heroWidth;
-    const nextFontSize = TOTAL_FONT_SIZES.find(fits) ?? MIN_TOTAL_FONT_SIZE;
+    let nextFontSize = TOTAL_FONT_SIZES.find(fits(fullWidth));
+    if (!nextFontSize && digitsWidth) {
+      hidesDigits = true;
+      nextFontSize = TOTAL_FONT_SIZES.find(fits(fullWidth - digitsWidth));
+    }
+    nextFontSize = nextFontSize ?? MIN_TOTAL_FONT_SIZE;
     if (nextFontSize !== fontSize) {
       setFontSize(nextFontSize);
     }
@@ -561,12 +658,25 @@ function BasicEarnDesktopHero({
             setFullWidth(Math.ceil(event.nativeEvent.layout.width))
           }
         >
-          <TotalValue
-            value={shownValue}
-            currency={currency}
-            fontSize={TOTAL_FONT_SIZE}
-            isHidden={isHidden}
-          />
+          {isReadyToEarn ? (
+            <TotalValue
+              value={readyValue}
+              currency={currency}
+              fontSize={TOTAL_FONT_SIZE}
+              isHidden={isHidden}
+            />
+          ) : (
+            <TickingTotalValue
+              total={total}
+              change24h={change24h}
+              isRunning={isTicking}
+              currency={currency}
+              fontSize={TOTAL_FONT_SIZE}
+              isHidden={isHidden}
+              isStatic
+              onDigitsWidth={setDigitsWidth}
+            />
+          )}
         </XStack>
       )}
       <YStack gap="$2">
@@ -618,7 +728,7 @@ function BasicEarnDesktopHero({
                 flexShrink={1}
               >
                 <TotalValue
-                  value={shownValue}
+                  value={readyValue}
                   currency={currency}
                   fontSize={fontSize}
                   isHidden={isHidden}
@@ -656,11 +766,14 @@ function BasicEarnDesktopHero({
                   minWidth={0}
                   flexShrink={1}
                 >
-                  <TotalValue
-                    value={value}
+                  <TickingTotalValue
+                    total={total}
+                    change24h={change24h}
+                    isRunning={isTicking}
                     currency={currency}
                     fontSize={fontSize}
                     isHidden={isHidden}
+                    hidesDigits={hidesDigits}
                   />
                 </YStack>
                 <Icon
