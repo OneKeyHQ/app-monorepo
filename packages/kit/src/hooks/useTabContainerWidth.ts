@@ -51,10 +51,12 @@ export const useTabContainerWidth = platformEnv.isNative
         if (platformEnv.isWebDappMode || md) {
           return `calc(100vw)`;
         }
+        // The page's left border only; its right border sits past the
+        // window's edge.
         return `calc(100vw - ${
           MIN_SIDEBAR_WIDTH +
           DESKTOP_MODE_UI_PAGE_MARGIN +
-          DESKTOP_MODE_UI_PAGE_BORDER_WIDTH * 2
+          DESKTOP_MODE_UI_PAGE_BORDER_WIDTH
         }px)`;
       }, [md]);
     };
