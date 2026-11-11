@@ -1618,3 +1618,66 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The inactive position tab mounted on first focus, allowing scroll synchronization to run before its incoming list was ready. Warm-switch checks did not exercise this initial mount.
 **Fix**: Enable the existing per-tab eager-mount capability only for the Android position tab. Android 35 verification with an ordinary token and no positions preserved the header on the initial visit and a fresh re-entry; populated position lists and iOS manual regression remain unverified.
 **Catchable by**: Sections 3 and 8: Verify the first tab switch after a fresh detail mount at partial and full header collapse, then compare subsequent switches and a fresh re-entry.
+
+## Case: Passive support polling bypassed the startup delay
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: First-screen visibility requested a support JWT and pinged Intercom before Bootstrap's ten-second delay elapsed.
+**Root Cause**: Visibility, unlock and push paths could start the unread task independently of Bootstrap.
+**Fix**: Add a controller startup gate enabled only by Bootstrap's delayed callback. Keep explicit support opens immediate and test visibility, unlock, push and identity changes before the gate opens.
+**Catchable by**: Sections 4 and 5: Trace every entry into a delayed subsystem; a timer in one caller does not constrain independent callers.
+
+## Case: Native support image previews used persistent disk caches
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main UI runtimes; image caching is owned by the native image loader.
+**Symptom**: Received, pending and selected support images could remain in the native image disk cache after app data reset.
+**Root Cause**: Support used the shared Image default caching policy for private attachments and local previews.
+**Fix**: Set cachePolicy="none" on all three support image surfaces, mapping to the native NONE policy, and cover all three states in rendering tests.
+**Catchable by**: Sections 3 and 6: Review platform-specific storage behavior of shared media components, including pending and draft states.
+
+## Case: Accepted support messages remained failed locally
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A lost send response showed a failed pending bubble even after polling returned the accepted message; retry could create another conversation.
+**Root Cause**: Pending state trusted request completion without reconciling server client IDs, and new-conversation recovery depended on receiving its creation response.
+**Fix**: Reconcile pending messages by client ID, prevent late failures from restoring acknowledged bubbles, and query existing conversations before explicit retries. Recover creation responses through read-only polling.
+**Catchable by**: Sections 4 and 5: Test successful server mutation followed by a lost response, including polling before the original promise rejects.
+
+## Case: Support inbox polling dropped loaded page boundaries
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: A new or updated first-page conversation pushed the previous boundary item out of an already loaded inbox.
+**Root Cause**: Polling replaced the first page while retaining only later pages, and could replace the cursor belonging to the loaded range.
+**Fix**: Retain the complete loaded range, merge refreshed first-page content by ID, and keep pagination owned by the last loaded page. Test cursor/page pagination and repeated boundary shifts.
+**Catchable by**: Sections 4 and 5: Combine pagination with live refreshes; verify the union of loaded IDs and ownership of the next-page cursor.
+
+## Case: Stalled support uploads left the composer pending indefinitely
+**Date**: 2026-11-12 | **Platforms**: iOS and Android main runtimes using Expo transport; Web, desktop and extension using browser transport.
+**Symptom**: An upload whose connection never settled kept the attachment and composer pending without a recovery deadline.
+**Root Cause**: The upload passed the caller's abort signal but had no timeout of its own.
+**Fix**: Link caller cancellation to a sixty-second upload deadline and remove listeners/timers on completion. Test stalled native and Web requests, pre-aborted signals and cancellation without automatic mutation retries.
+**Catchable by**: Section 5: Every externally awaited upload needs bounded completion and cleanup, separately from its metadata request.
+
+## Case: Creating a support conversation interrupted the composer
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; Web and desktop single runtimes.
+**Symptom**: Assigning the newly created conversation ID remounted the page; preserving the key alone still temporarily disabled the composer while its first refresh was pending.
+**Root Cause**: Route identity used the server ID, and the page discarded the acknowledged creation data before the first GET completed.
+**Fix**: Preserve the page instance for its own creation transition and retain the acknowledged conversation as a fallback. Continue resetting drafts on actual conversation changes; test the same input node, focus, draft and editability with the first GET held pending.
+**Catchable by**: Sections 4 and 5: Distinguish enrichment of the current route from navigation to another entity, and test the interval before a follow-up read completes.
+
+## Case: A late extension logout observer revoked a fresh support visitor
+**Date**: 2026-11-12 | **Platforms**: Extension main windows with separate JS heaps, shared IndexedDB/Web Locks and bg-owned authoritative account state; native main/bg identity checks also covered.
+**Symptom**: A second window processing logout later could delete the anonymous visitor already created by the first window.
+**Root Cause**: Each runtime treated its local identity transition as permission to clear shared credentials without a shared transition marker or authoritative account check.
+**Fix**: Coordinate the persisted identity marker and anonymous boot with the same lock. Check bg identity before transitions and after obtaining a JWT; test independent module registries over shared storage and delayed atom synchronization.
+**Catchable by**: Sections 3 and 5: Independent UI runtimes can observe one identity change at different times; shared-resource mutation needs shared ownership and current identity verification.
+
+## Case: Support previews were consumed while hidden and older replies resurfaced
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main runtimes; extension windows coordinate shared notification metadata through IndexedDB/Web Locks. Web and desktop use one app runtime, with separate Web tabs coordinated by storage locks.
+**Symptom**: Hiding while notification metadata was being read could permanently consume an unseen preview. A follow-up that recorded only the newest reply caused older replies from the same batch to appear in later polls or after restart.
+**Root Cause**: Session validity did not imply visibility, persistence preceded publication, and per-reply bookkeeping lost the existing one-preview-per-batch behavior.
+**Fix**: Validate a visibility generation after asynchronous work, publish the newest preview synchronously to the visible host, then persist the observed batch's bounded IDs/timestamps under the shared lock. Keep unread badges and allow genuinely new replies.
+**Catchable by**: Sections 5 and 6: Pause lock acquisition, metadata reads and writes around hide/resume and competing windows; also test two unread conversations across another poll and a cold restart.
+
+## Case: Submitted support form values reverted after a failed refresh
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: A successful form POST followed by a failed GET cleared the draft and exposed the old server value. Confirming again could submit that stale value.
+**Root Cause**: The form treated a resolved polling refresh as a successful read even though the scheduler absorbs read errors. Reusing a poll started before the POST was also insufficient confirmation.
+**Fix**: Add a fresh-read result that waits for an older poll before starting the post-write read. Release a submitted draft only after a valid snapshot; retain it after failed reads and release it when polling recovers, without overwriting newer edits. Test the production POST/failed-GET/reconfirm flow and inactive-screen cancellation.
+**Catchable by**: Sections 4 and 5: Separate mutation success, request completion and authoritative read success; cached display data is not confirmation of a write.

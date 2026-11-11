@@ -82,6 +82,10 @@ export function createSupportPollingTask(
   jobs.add(job);
   return {
     refresh: () => execute(job),
+    async refreshAfterCurrent() {
+      await job.pending;
+      await execute(job);
+    },
     push() {
       if (!jobs.has(job) || job.failures) return;
       if (job.pending) job.queued = true;

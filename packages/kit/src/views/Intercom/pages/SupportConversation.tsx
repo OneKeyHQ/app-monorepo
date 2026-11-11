@@ -497,13 +497,13 @@ function SupportConversationContent({
                     lastInGroup={!isSameGroup(next)}
                     disabled={!!pending || !active}
                     onFormSubmit={async (partId, identifier, value) => {
-                      if (!session || !conversationId) return;
+                      if (!session || !conversationId) return false;
                       await session.submitForm(conversationId, {
                         partId,
                         identifier,
                         value,
                       });
-                      await refreshConversation();
+                      return !!(await resource.refreshData());
                     }}
                     onQuickReply={
                       conversationId && index === parts.length - 1

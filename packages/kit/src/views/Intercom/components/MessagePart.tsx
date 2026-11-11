@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,11 +27,12 @@ export function MessagePart({
 }: {
   part: IIntercomPart;
   onQuickReply?: (partId: string, replyId: string, text: string) => void;
+  // True requires a successful conversation read started after the form write.
   onFormSubmit?: (
     partId: string,
     identifier: string,
     value: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   disabled?: boolean;
   firstInGroup?: boolean;
   lastInGroup?: boolean;
@@ -141,7 +142,10 @@ export function MessagePart({
               field={field}
               disabled={disabled}
               submit={async (value) => {
-                await onFormSubmit?.(part.id, field.identifier, value);
+                return (
+                  (await onFormSubmit?.(part.id, field.identifier, value)) ??
+                  false
+                );
               }}
             />
           ))}
@@ -192,11 +196,20 @@ function SupportFormField({
 }: {
   field: NonNullable<IIntercomPart['form']>['fields'][number];
   disabled?: boolean;
-  submit: (value: string) => Promise<void>;
+  submit: (value: string) => Promise<boolean>;
 }) {
   const intl = useIntl();
-  const [draft, setDraft] = useState<string>();
-  const value = draft ?? field.value;
+  const latestField = useRef(field);
+  latestField.current = field;
+  const [draft, setDraft] = useState<{
+    value: string;
+    awaitingSnapshot?: typeof field;
+  }>();
+  // Failed reads retain the field object; a new object is a server snapshot.
+  const value =
+    draft && (!draft.awaitingSnapshot || draft.awaitingSnapshot === field)
+      ? draft.value
+      : field.value;
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -206,7 +219,7 @@ function SupportFormField({
         testID={`support-form-${field.identifier}`}
         value={value}
         onChangeText={(text) =>
-          setDraft(text === field.value ? undefined : text)
+          setDraft(text === field.value ? undefined : { value: text })
         }
         editable={!disabled && !field.disabled && !pending}
         keyboardType={field.type === 'email' ? 'email-address' : 'default'}
@@ -220,8 +233,14 @@ function SupportFormField({
           setPending(true);
           setFailed(false);
           try {
-            await submit(value);
-            setDraft((current) => (current === value ? undefined : current));
+            const refreshed = await submit(value);
+            const snapshot = latestField.current;
+            setDraft((current) => {
+              if (current?.value !== value) return current;
+              return refreshed
+                ? undefined
+                : { value, awaitingSnapshot: snapshot };
+            });
           } catch {
             setFailed(true);
           } finally {

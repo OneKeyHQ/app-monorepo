@@ -14,9 +14,13 @@ export function useSupportResource<T>(
   enabled: boolean,
   poll = false,
 ) {
-  const task = useRef<ReturnType<typeof createSupportPollingTask> | undefined>(
-    undefined,
-  );
+  const task = useRef<
+    | {
+        refresh: () => Promise<void>;
+        refreshData: () => Promise<T | undefined>;
+      }
+    | undefined
+  >(undefined);
   const [state, setState] = useState<{
     load: () => Promise<T>;
     data?: T;
@@ -25,6 +29,7 @@ export function useSupportResource<T>(
   }>({ load, loading: enabled, failed: false });
   useEffect(() => {
     let disposed = false;
+    let latestResult: T | undefined;
     setState((previous) =>
       previous.load === load
         ? { ...previous, loading: enabled }
@@ -42,9 +47,12 @@ export function useSupportResource<T>(
         }));
         try {
           const data = await load();
-          if (!disposed)
+          if (!disposed) {
+            latestResult = data;
             setState({ load, data, loading: false, failed: false });
+          }
         } catch (error) {
+          latestResult = undefined;
           if (!disposed)
             setState((previous) => ({
               ...previous,
@@ -56,7 +64,15 @@ export function useSupportResource<T>(
       },
       poll ? 15_000 : undefined,
     );
-    task.current = current;
+    const resourceTask = {
+      refresh: current.refresh,
+      async refreshData() {
+        // A write must not be acknowledged by a poll started before it.
+        await current.refreshAfterCurrent();
+        return disposed ? undefined : latestResult;
+      },
+    };
+    task.current = resourceTask;
     void current.refresh();
     const onPush = () => current.push();
     if (poll)
@@ -64,13 +80,14 @@ export function useSupportResource<T>(
     return () => {
       disposed = true;
       current.stop();
-      if (task.current === current) task.current = undefined;
+      if (task.current === resourceTask) task.current = undefined;
       appEventBus.off(EAppEventBusNames.SupportConversationUpdated, onPush);
     };
   }, [enabled, load, poll]);
   const refresh = useCallback(async () => {
     await task.current?.refresh();
   }, []);
+  const refreshData = useCallback(async () => task.current?.refreshData(), []);
   const current =
     state.load === load
       ? state
@@ -80,5 +97,6 @@ export function useSupportResource<T>(
     loading: current.loading,
     failed: current.failed,
     refresh,
+    refreshData,
   };
 }

@@ -2,6 +2,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -16,6 +17,53 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+it('confirms a write with a new read after the existing poll finishes', async () => {
+  const old = deferred<string>();
+  const load = jest
+    .fn(async () => 'after write')
+    .mockImplementationOnce(() => old.promise);
+  const { result } = renderHook(() => useSupportResource(load, true));
+  await act(async () => {});
+  const refreshed = result.current.refreshData();
+  expect(load).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    old.resolve('before write');
+    expect(await refreshed).toBe('after write');
+  });
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(result.current.data).toBe('after write');
+});
+
+it('reports a failed confirmation without returning retained display data', async () => {
+  const load = jest.fn(async () => 'displayed');
+  const { result } = renderHook(() => useSupportResource(load, true));
+  await act(async () => {});
+  load.mockRejectedValueOnce(new OneKeyLocalError('Read failed'));
+  await act(async () => {
+    expect(await result.current.refreshData()).toBeUndefined();
+  });
+  expect(result.current.data).toBe('displayed');
+  expect(result.current.failed).toBe(true);
+});
+
+it('cancels a queued confirmation after the screen becomes inactive', async () => {
+  const old = deferred<string>();
+  const load = jest.fn(() => old.promise);
+  const { result, rerender } = renderHook(
+    ({ enabled }) => useSupportResource(load, enabled),
+    { initialProps: { enabled: true } },
+  );
+  await act(async () => {});
+  const refreshed = result.current.refreshData();
+  rerender({ enabled: false });
+  await act(async () => {
+    old.resolve('private conversation');
+    expect(await refreshed).toBeUndefined();
+  });
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(result.current.data).toBeUndefined();
+});
 
 it('discards an old account response after a new loader takes over', async () => {
   const old = deferred<string>();

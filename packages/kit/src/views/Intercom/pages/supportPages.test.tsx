@@ -272,6 +272,18 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+const part = {
+  id: 'part-1',
+  created_at: 1_700_000_000,
+  body: [{ type: 'paragraph', text: 'Hello support' }],
+};
+const conversation = {
+  id: '42',
+  read: true,
+  conversation_parts: [part],
+  composer_state: { visibility: 'visible_and_enabled' },
+};
+
 function formPart(value: string): IIntercomPart {
   return {
     id: 'form-part',
@@ -318,10 +330,10 @@ it.each([true, false])(
     let finish!: () => void;
     const submit = jest.fn(
       () =>
-        new Promise<void>((resolve, reject) => {
+        new Promise<boolean>((resolve, reject) => {
           finish = () =>
             success
-              ? resolve()
+              ? resolve(true)
               : reject(new OneKeyLocalError('Form submission failed'));
         }),
     );
@@ -360,17 +372,63 @@ it.each([true, false])(
   },
 );
 
-const part = {
-  id: 'part-1',
-  created_at: 1_700_000_000,
-  body: [{ type: 'paragraph', text: 'Hello support' }],
-};
-const conversation = {
-  id: '42',
-  read: true,
-  conversation_parts: [part],
-  composer_state: { visibility: 'visible_and_enabled' },
-};
+it.each([false, true])(
+  'retains a saved form after GET failure and respects newer local edits=%s on recovery',
+  async (editBeforeRecovery) => {
+    mockRoute.params = { userId: null, conversationId: '42' };
+    let saved = 'before@example.com';
+    let failRefresh = false;
+    const posted: string[] = [];
+    mockRequest.mockImplementation(async (path, parameters) => {
+      if (path === 'conversations/42/form') {
+        const submitted = parameters?.form_params as { value: string };
+        posted.push(submitted.value);
+        saved = submitted.value.toLowerCase();
+        failRefresh = true;
+        return {};
+      }
+      if (path === 'conversations/42') {
+        if (failRefresh) throw new OneKeyLocalError('Refresh failed');
+        return {
+          ...conversation,
+          conversation_parts: [
+            {
+              ...part,
+              participant_is_admin: true,
+              form: formPart(saved).form,
+            },
+          ],
+        };
+      }
+      return {};
+    });
+    render(<SupportScreen />);
+    const input = (await screen.findByTestId(
+      'support-form-email',
+    )) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Saved@example.com' } });
+    fireEvent.click(screen.getByTestId('support-form-submit-email'));
+    await screen.findByTestId('support-retry');
+    await waitFor(() => expect(input.disabled).toBe(false));
+    expect(input.value).toBe('Saved@example.com');
+    fireEvent.click(screen.getByTestId('support-form-submit-email'));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    await waitFor(() => expect(input.disabled).toBe(false));
+    expect(posted).toEqual(['Saved@example.com', 'Saved@example.com']);
+    if (editBeforeRecovery)
+      fireEvent.change(input, { target: { value: 'next-draft@example.com' } });
+    failRefresh = false;
+    fireEvent.click(screen.getByTestId('support-retry'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('support-retry')).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(input.value).toBe(
+        editBeforeRecovery ? 'next-draft@example.com' : 'saved@example.com',
+      ),
+    );
+  },
+);
 
 beforeEach(() => {
   jest.clearAllMocks();
