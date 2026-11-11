@@ -1,4 +1,5 @@
 import appGlobals from '../../appGlobals';
+import platformEnv from '../../platformEnv';
 
 import {
   type EIntercomBridge,
@@ -98,10 +99,13 @@ export const getCurrentLocale = async (): Promise<string | undefined> => {
 export const getIntercomLanguageOverride = async (): Promise<string> =>
   toIntercomLanguageOverride(await getCurrentLocale());
 
-// Reads the developer-mode support page override from the background runtime.
+// Only the extension uses the developer-mode support page override.
 export const getIntercomSupportUrlOverride = async (): Promise<
   string | undefined
 > => {
+  if (!platformEnv.isExtension) {
+    return undefined;
+  }
   try {
     const backgroundApiProxy = appGlobals.$backgroundApiProxy;
 
