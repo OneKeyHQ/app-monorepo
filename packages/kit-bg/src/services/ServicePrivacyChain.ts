@@ -3913,10 +3913,11 @@ class ServicePrivacyChain extends ServiceBase {
     accountIds: string[],
   ): Promise<string | undefined> {
     for (const accountId of accountIds) {
-      const address = // eslint-disable-next-line no-await-in-loop
-      (await this.backgroundApi.serviceAccount.getDBAccountSafe({ accountId }))
-        ?.address;
-      if (address) return address;
+      // eslint-disable-next-line no-await-in-loop
+      const account = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+      if (account?.address) return account.address;
     }
     return undefined;
   }
