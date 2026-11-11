@@ -1569,6 +1569,20 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
 **Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.
 
+## Case: Prime extension browser actions and pagination spacing (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Subscribed users saw browser-home actions without a usable embedded browser; hiding those actions initially moved the pagination dots by 2px.
+**Root Cause**: Shared benefits did not gate browser actions by extension capability. The reserved CTA slot omitted the Button's two transparent borders.
+**Fix**: Replace subscribed extension browser CTAs with noninteractive availability text, label only AI translation as app-only, preserve pagination, and reserve button content height plus both border widths. Keep unsubscribed CTAs and other-platform behavior unchanged.
+**Catchable by**: Sections 3 and 8: Compare actual pagination positions across CTA/no-CTA transitions in popup, narrow side panel, and full-screen; token height alone is not rendered border-box height.
+
+## Case: Prime extension media letterboxing and resize navigation (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Narrow video introductions placed the title far below the visible media; resizing then selecting another benefit could leave the hero blank.
+**Root Cause**: A fixed 400px hero letterboxed 16:10 video on narrow screens. Swiper cached its initial height, and virtualized slide updates after resizing reset the scroll offset despite a successful requested scroll.
+**Fix**: Size extension video heroes from measured width, capped at 400px; refresh carousel geometry when dimensions change and retain the short extension carousel window. Keep icon heroes and all non-extension sizing unchanged.
+**Catchable by**: Section 8: Inspect rendered media-to-title spacing and test resize followed by pagination, including video/icon transitions, rather than checking only the active slide during resize.
+
 ## Case: Bitcoin dependency hardening broke BIP322 message verification
 **Date**: 2026-11-11 | **Platforms**: Shared Bitcoin message verification on supported clients.
 **Symptom**: Updating the bitcoinjs-lib dependency used by bip322-js from 6.1.7 to 6.1.10 rejected previously valid BIP322 signatures.

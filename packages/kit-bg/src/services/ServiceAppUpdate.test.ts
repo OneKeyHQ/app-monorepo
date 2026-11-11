@@ -1431,6 +1431,56 @@ describe('ServiceAppUpdate state transitions', () => {
       }
     });
 
+    test('desktop app-shell download allows the backend placeholder downloadUrl', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.notify,
+          latestVersion: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          // Backend keeps the field only for cross-platform response parity;
+          // the installer is resolved from the electron feed by version.
+          downloadUrl: 'feedUrl',
+        });
+        expect(await service.canDownloadCurrentTarget()).toBe(true);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test('desktop app-shell download is rejected without any download source', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.notify,
+          latestVersion: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+        });
+        // Neither an HTTPS URL nor the known desktop placeholder.
+        expect(await service.canDownloadCurrentTarget()).toBe(false);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test('desktop app-shell download rejects an unknown non-HTTPS downloadUrl', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        resetAtom({
+          status: EAppUpdateStatus.notify,
+          latestVersion: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'http://evil.com/app.dmg',
+        });
+        expect(await service.canDownloadCurrentTarget()).toBe(false);
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
     test.each([
       [EAppUpdateStatus.downloadPackage, 'downloadPackageFailed'],
       [EAppUpdateStatus.verifyASC, 'verifyASCFailed'],
@@ -2406,6 +2456,52 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result).toBeUndefined();
     });
 
+    test('desktop keeps an appShell release whose downloadUrl is a placeholder', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        mockFetchConfigResponse({
+          version: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          // Placeholder kept only for cross-platform response parity.
+          downloadUrl: 'feedUrl',
+        });
+
+        const result = await service.fetchConfig();
+
+        expect(result).toBeDefined();
+        expect(result?.version).toBe('2.0.0');
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
+    test('native rejects the desktop placeholder downloadUrl', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = false;
+      mockFetchConfigResponse({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'feedUrl',
+      });
+      expect(await service.fetchConfig()).toBeUndefined();
+    });
+
+    test('desktop rejects an unknown non-HTTPS downloadUrl', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        mockFetchConfigResponse({
+          version: '2.0.0',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'http://evil.com/app.dmg',
+        });
+        expect(await service.fetchConfig()).toBeUndefined();
+      } finally {
+        platform.isDesktop = false;
+      }
+    });
+
     test('accepts appShell with HTTPS downloadUrl', async () => {
       mockFetchConfigResponse({
         version: '2.0.0',
@@ -2445,6 +2541,73 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result?.storeUrl).toBe(
         'https://apps.apple.com/app/onekey/id1609559473',
       );
+    });
+  });
+
+  // =========================================================================
+  // Desktop feed-sourced app-shell update (regression)
+  // =========================================================================
+  describe('desktop feed-sourced app-shell update', () => {
+    test('a full-update payload with a placeholder downloadUrl reaches notify', async () => {
+      const platform = require('@onekeyhq/shared/src/platformEnv').default;
+      platform.isDesktop = true;
+      try {
+        resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+        jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+        const get = jest.fn(async () => ({
+          data: {
+            code: 0,
+            data: {
+              version: '9906.17.2',
+              platform: 'desktop-macosARM',
+              updateStrategy: EUpdateStrategy.manual,
+              isForceUpdate: false,
+              // Mirrors the test-env full-update payload that used to be
+              // dropped by the HTTPS validation.
+              downloadUrl: 'feedUrl',
+              sha256: null,
+              storeUrl: null,
+              changeLog: '### Improvements',
+              summary: 'Improved network connection stability.',
+            },
+          },
+        }));
+        jest.spyOn(service, 'getClient').mockResolvedValue({ get } as any);
+
+        const info = await service.fetchAppUpdateInfo(true);
+
+        expect(info.status).toBe(EAppUpdateStatus.notify);
+        expect(info.latestVersion).toBe('9906.17.2');
+        expect(info.updateStrategy).toBe(EUpdateStrategy.manual);
+        // The desktop download gate must accept the feed-sourced target.
+        expect(await service.canDownloadCurrentTarget()).toBe(true);
+
+        // A failed integrity check quarantines the placeholder target…
+        resetAtom({
+          status: EAppUpdateStatus.downloadPackage,
+          latestVersion: '9906.17.2',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'feedUrl',
+        });
+        await service.downloadPackageFailed({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'download',
+        });
+        expect(await service.canDownloadCurrentTarget()).toBe(false);
+
+        // …and the same placeholder on a newer target must not stay blocked.
+        jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+          version: '9906.18.0',
+          updateStrategy: EUpdateStrategy.manual,
+          downloadUrl: 'feedUrl',
+        });
+        await service.fetchAppUpdateInfo(true);
+        expect(atomValue.latestVersion).toBe('9906.18.0');
+        expect(atomValue.blockedDownloadUrl).toBeUndefined();
+        expect(await service.canDownloadCurrentTarget()).toBe(true);
+      } finally {
+        platform.isDesktop = false;
+      }
     });
   });
 
