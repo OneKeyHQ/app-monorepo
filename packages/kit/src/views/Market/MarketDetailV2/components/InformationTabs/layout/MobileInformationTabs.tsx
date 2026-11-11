@@ -213,6 +213,7 @@ export function MobileInformationTabs({
     const portfolioTab = (
       <Tabs.Tab
         key="portfolio"
+        startMounted={platformEnv.isNativeAndroid}
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
         })}
