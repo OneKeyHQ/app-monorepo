@@ -16,6 +16,13 @@ import { withRewardScopesHint } from './RewardScopeInfo';
 import { useInviteHomeCardStyle } from './useInviteCardStyle';
 
 import type { IInviteRewardScopeItem } from './getInviteRewardRows';
+import type { IReferralBindDisplayStatus } from '../../../hooks/useWalletBoundReferralCode/referralBindStatusUtils';
+
+// The last status each wallet resolved to in this session. Switching back to a
+// wallet paints it at once, so the empty card does not drop to its skeleton
+// line and then grow the code button again; the fresh check still runs and
+// replaces it.
+const lastStatusByWallet = new Map<string, IReferralBindDisplayStatus>();
 
 // Whether the active wallet can still take a referral code. Perks calls this
 // on mount, beside its rewards request rather than after it, so the empty
@@ -28,10 +35,13 @@ export function useBenefitsBindStatus() {
       entry: platformEnv.isNative ? 'modal' : 'tab',
     });
   const { result, run: refresh } = usePromiseResult(
-    async () => ({
-      walletId,
-      status: await getReferralCodeBindDisplayStatus({ walletId }),
-    }),
+    async () => {
+      const status = await getReferralCodeBindDisplayStatus({ walletId });
+      if (walletId) {
+        lastStatusByWallet.set(walletId, status);
+      }
+      return { walletId, status };
+    },
     [getReferralCodeBindDisplayStatus, walletId],
     { undefinedResultIfReRun: true },
   );
@@ -40,9 +50,9 @@ export function useBenefitsBindStatus() {
   // undefined while a rerun clears `result`. Comparing those two undefined
   // values must not read `.status`.
   const status =
-    result !== undefined && result.walletId === walletId
+    (result !== undefined && result.walletId === walletId
       ? result.status
-      : undefined;
+      : undefined) ?? (walletId ? lastStatusByWallet.get(walletId) : undefined);
   return { walletId, status, refresh, bindWalletInviteCode };
 }
 

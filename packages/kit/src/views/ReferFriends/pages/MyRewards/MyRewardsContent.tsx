@@ -993,14 +993,11 @@ function DesktopRow({
   );
 }
 
-// The two lines of a loaded value (amount over the unpaid line), so a row does
-// not shrink while loading and pull the list below it up (OK-66978).
-const COMPACT_VALUE_SKELETON = (
-  <YStack ai="flex-end" gap="$0.5">
-    <Skeleton.BodyMd w={72} />
-    <Skeleton.BodySm w={56} />
-  </YStack>
-);
+// Room for both value lines: the 20px amount, a 2px gap and the 16px unpaid
+// line. Every compact row reserves it, so a row keeps one height from its
+// skeleton to whatever loads (two lines, one, or a note) and the list below
+// never moves (OK-66978).
+const COMPACT_VALUE_MIN_HEIGHT = 38;
 
 function CompactRow({
   row,
@@ -1018,7 +1015,12 @@ function CompactRow({
   const copy = useMyRewardsCopy();
   const renderValue = () => {
     if (row.status === 'loading') {
-      return COMPACT_VALUE_SKELETON;
+      return (
+        <>
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.BodySm w={56} />
+        </>
+      );
     }
     if (row.status === 'error') {
       return <SubduedNote>{copy.loadFailed}</SubduedNote>;
@@ -1027,7 +1029,7 @@ function CompactRow({
       return <SubduedNote>{labels.noReward}</SubduedNote>;
     }
     return (
-      <YStack ai="flex-end" gap="$0.5">
+      <>
         {row.paid ? (
           <RewardValue value={row.paid} size="$bodyMdMedium" />
         ) : null}
@@ -1043,7 +1045,7 @@ function CompactRow({
             />
           </XStack>
         ) : null}
-      </YStack>
+      </>
     );
   };
   return (
@@ -1066,7 +1068,14 @@ function CompactRow({
       drillIn
       onPress={onPress}
     >
-      {renderValue()}
+      <YStack
+        minHeight={COMPACT_VALUE_MIN_HEIGHT}
+        ai="flex-end"
+        jc="center"
+        gap="$0.5"
+      >
+        {renderValue()}
+      </YStack>
     </ListItem>
   );
 }
