@@ -91,6 +91,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     isBundleExists: jest.fn(async () => true),
     verifyExtractedBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
+    clearDownload: jest.fn(async () => undefined),
     resetToBuiltInBundle: jest.fn(async () => undefined),
     restart: jest.fn(),
     getBuiltinBundleVersion: jest.fn(async () => ''),
@@ -1492,5 +1493,140 @@ describe('servicePendingInstallTask', () => {
     expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
     expect(pendingTaskValue).toBeUndefined();
     expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+  });
+
+  test('missing extracted OTA bundle on startup invalidates ready atom, cleans staging download, and triggers auto recovery', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    appEventBus.emit.mockClear();
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      readyAt: 12_345,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.readyAt).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'jsBundlePackageRecovery' },
+    );
+  });
+
+  test('missing extracted OTA bundle on startup transitions manual ready atom to updateIncomplete', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.updateIncomplete);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+  });
+
+  test('tampered extracted OTA bundle (SHA mismatch) on startup transitions ready atom to verifyPackageFailed and clears staging download', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    autoUpdate.BundleUpdate.clearBundle.mockClear();
+
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(autoUpdate.BundleUpdate.clearBundle).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.updateError).toMatchObject({
+      code: EUpdateErrorCode.integrityFailed,
+    });
+  });
+
+  test('shouldSkipTargetByControl allows mandatory force updates through freezeUntil while keeping BOOT_FAILED blocked', async () => {
+    const service = createService();
+    const now = Date.now();
+    setState({
+      freezeUntil: now + 60_000,
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'DOWNLOAD_RETRY_EXHAUSTED',
+          createdAt: now,
+          expiresAt: now + 60_000,
+        },
+        '1.0.0:9': {
+          reason: 'BOOT_FAILED',
+          createdAt: now,
+          expiresAt: now + 60_000,
+        },
+      },
+    });
+
+    // Non-force update is blocked by freezeUntil / DOWNLOAD_RETRY_EXHAUSTED
+    expect(
+      await service.shouldSkipTargetByControl('2.0.0:1', 't1', 1, false),
+    ).toBe(true);
+    // Mandatory force update bypasses freezeUntil and non-BOOT_FAILED ignore
+    expect(
+      await service.shouldSkipTargetByControl('2.0.0:1', 't2', 2, false, {
+        isForceUpdate: true,
+      }),
+    ).toBe(false);
+    // Native-boot-crashing OTA bundle remains blocked even if marked force
+    expect(
+      await service.shouldSkipTargetByControl('1.0.0:9', 't3', 3, false, {
+        isForceUpdate: true,
+      }),
+    ).toBe(true);
   });
 });

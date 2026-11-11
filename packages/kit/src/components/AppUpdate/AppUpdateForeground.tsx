@@ -439,7 +439,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // guard prevents any retry — so the dialog ends up surfacing on the
     // following cold launch instead of the one right after the install.
     void (async () => {
-      const info =
+      let info =
         await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
       if (cancelled) return;
       if (
@@ -451,7 +451,32 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         !info.storeUrl &&
         !isFirstLaunchAfterUpdated(info)
       ) {
-        await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        try {
+          await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        } catch (readyError: unknown) {
+          const classified = getUpdateError(readyError, 'install');
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            createUpdateError(classified),
+          );
+          if (classified.code === EUpdateErrorCode.packageMissing) {
+            info =
+              await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage(
+                { forceMissing: true, allowJsBundle: false },
+              );
+          } else if (
+            classified.code === EUpdateErrorCode.integrityFailed ||
+            classified.code === EUpdateErrorCode.securityRejected ||
+            classified.code === EUpdateErrorCode.incompatible
+          ) {
+            info =
+              (await backgroundApiProxy.serviceAppUpdate.invalidateCorruptedReadyPackage?.(
+                classified,
+              )) ?? (await backgroundApiProxy.serviceAppUpdate.getUpdateInfo());
+          } else {
+            info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+          }
+        }
         if (cancelled) return;
       }
 
@@ -570,16 +595,26 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             ) {
               void BundleUpdate.installBundle(info.downloadedEvent).catch(
                 async (error: unknown) => {
+                  const installError = getUpdateError(error, 'install');
                   defaultLogger.app.appUpdate.endInstallPackage(
                     false,
-                    createUpdateError(getUpdateError(error, 'install')),
+                    createUpdateError(installError),
                   );
-                  if (
-                    getUpdateError(error, 'install').code ===
-                    EUpdateErrorCode.packageMissing
+                  if (installError.code === EUpdateErrorCode.packageMissing) {
+                    await backgroundApiProxy.serviceAppUpdate
+                      .reconcileAppShellPackage(
+                        platformEnv.isNative
+                          ? { forceMissing: true, allowJsBundle: true }
+                          : undefined,
+                      )
+                      .catch(() => undefined);
+                  } else if (
+                    installError.code === EUpdateErrorCode.integrityFailed ||
+                    installError.code === EUpdateErrorCode.securityRejected ||
+                    installError.code === EUpdateErrorCode.incompatible
                   ) {
                     await backgroundApiProxy.serviceAppUpdate
-                      .reconcileAppShellPackage()
+                      .invalidateCorruptedReadyPackage?.(installError)
                       .catch(() => undefined);
                   }
                 },
@@ -609,7 +644,10 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         } else {
           showUpdateDialog();
         }
-      } else if (info.status !== EAppUpdateStatus.updateIncomplete) {
+      } else if (
+        info.status !== EAppUpdateStatus.updateIncomplete ||
+        forceUpdate
+      ) {
         scheduleFetchUpdateInfo();
       }
     })().finally(() => {

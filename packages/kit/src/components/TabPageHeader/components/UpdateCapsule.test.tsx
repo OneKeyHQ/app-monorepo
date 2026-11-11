@@ -444,3 +444,57 @@ test('route focus changes keep transient update timers active', async () => {
   });
   expect(view.queryByTestId('header-update-notify-exit')).toBeNull();
 });
+
+test('jsBundle integrity failure renders retry button instead of locking out to GitHub releases', async () => {
+  mockDownloadPackage.mockClear();
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '1.0.0',
+        jsBundleVersion: '25',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyPackageFailed,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        },
+      }}
+    />,
+  );
+  expect(view.getByTestId('header-update-retry')).toBeTruthy();
+  expect(view.queryByTestId('header-update-github')).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+});
+
+test('jsBundle verifyASCFailed with integrityFailed re-downloads cleanly instead of re-verifying corrupt ASC', async () => {
+  mockDownloadPackage.mockClear();
+  mockVerifyASC.mockClear();
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '1.0.0',
+        jsBundleVersion: '25',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyASCFailed,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        },
+      }}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+  expect(mockVerifyASC).not.toHaveBeenCalled();
+});
