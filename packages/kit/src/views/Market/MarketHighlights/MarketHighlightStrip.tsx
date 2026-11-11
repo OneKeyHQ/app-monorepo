@@ -62,16 +62,19 @@ function CarouselItem({
   quotes,
   compact,
   itemProps,
+  active,
 }: {
   highlight: IMarketHighlight;
   quotes: Map<string, IMarketHighlightQuote> | undefined;
   compact: boolean;
   itemProps: IXStackProps;
+  active: boolean;
 }) {
   const assets = highlight.assets.slice(0, compact ? 1 : 2);
   return (
     <XStack
       role="button"
+      tabIndex={active ? 0 : -1}
       cursor="pointer"
       flexShrink={1}
       minWidth={0}
@@ -137,11 +140,13 @@ function CarouselRow({
   position,
   rowIndex,
   height,
+  active,
   children,
 }: {
   position: SharedValue<number>;
   rowIndex: number;
   height: number;
+  active: boolean;
   children: ReactNode;
 }) {
   // Fade rows in and out as they slide through the viewport.
@@ -155,6 +160,12 @@ function CarouselRow({
   }));
   return (
     <Animated.View
+      // Off-screen rows only fade out, so hide them from screen readers,
+      // keyboard focus and pointer events as well.
+      aria-hidden={!active}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
+      pointerEvents={active ? 'auto' : 'none'}
       style={[{ height, flexDirection: 'row', alignItems: 'center' }, style]}
     >
       {children}
@@ -184,10 +195,14 @@ function HighlightCarousel({
   // snaps back to 0 once the copy is fully in view.
   const position = useSharedValue(0);
   const stepRef = useRef(0);
+  // Index of the item that is (or is becoming) visible. The trailing copy of
+  // the first item is never active; its original row takes over instead.
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     stepRef.current = 0;
     position.value = 0;
+    setActiveIndex(0);
   }, [count, position]);
 
   const wasPausedRef = useRef(false);
@@ -201,6 +216,7 @@ function HighlightCarousel({
     const advance = () => {
       const next = stepRef.current + 1;
       stepRef.current = next >= count ? 0 : next;
+      setActiveIndex(stepRef.current);
       position.value = withTiming(
         next,
         {
@@ -244,12 +260,14 @@ function HighlightCarousel({
             position={position}
             rowIndex={rowIndex}
             height={height}
+            active={rowIndex === activeIndex}
           >
             <CarouselItem
               highlight={item}
               quotes={quotes}
               compact={compact}
               itemProps={itemProps}
+              active={rowIndex === activeIndex}
             />
           </CarouselRow>
         ))}
