@@ -20,7 +20,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
@@ -145,7 +144,6 @@ interface IPerpSettingsPopoverContentProps {
   onOpenPortfolio?: () => void;
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
-  onOpenReferral: IActivityHubOpenReferral;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
@@ -503,6 +501,7 @@ function PerpSettingsMainContent({
 
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
+  onOpenReferral: IActivityHubOpenReferral;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
   showGuideEntry?: boolean;
@@ -517,7 +516,10 @@ function PerpSettingsMenuContent({
   showActivityCenterEntry,
   showChartPositionSetting,
   showGuideEntry,
-}: IPerpSettingsPopoverContentProps & { isPopover?: boolean }) {
+}: IPerpSettingsPopoverContentProps & {
+  isPopover?: boolean;
+  onOpenReferral: IActivityHubOpenReferral;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -637,8 +639,6 @@ export function showPerpSettingsDialog({
   title: string;
   onOpenPortfolio: () => void;
   onOpenGuide?: () => void;
-  // Resolved by the caller in the page tree: the dialog content unmounts
-  // before the referral page opens.
   onOpenReferral: IActivityHubOpenReferral;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
@@ -688,11 +688,9 @@ export function PerpSettingsPopover({
   showActivityCenterEntry = false,
   showChartPositionSetting = false,
   showGuideEntry = false,
+  onOpenReferral,
 }: IPerpSettingsPopoverProps) {
   const intl = useIntl();
-  // Resolved outside the popover content, which unmounts before the referral
-  // page opens.
-  const openReferralPage = useOpenReferralPage();
 
   return (
     <PerpsProviderMirror>
@@ -706,7 +704,7 @@ export function PerpSettingsPopover({
           <PerpSettingsMenuContent
             isPopover
             closePopover={closePopover}
-            onOpenReferral={openReferralPage}
+            onOpenReferral={onOpenReferral}
             showActivityCenterEntry={showActivityCenterEntry}
             showChartPositionSetting={showChartPositionSetting}
             showGuideEntry={showGuideEntry}

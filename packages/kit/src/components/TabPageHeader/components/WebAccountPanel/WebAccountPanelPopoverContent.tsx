@@ -49,15 +49,14 @@ const AnimatedPanelView = styled(Stack, {
 export default function WebAccountPanelPopoverContent({
   initialView,
   connected,
-  showPerpsActivityCenter,
   closePopover,
-  onOpenReferral,
+  onOpenPerpsReferral,
 }: {
   initialView: IWebAccountPanelView;
   connected: boolean;
-  showPerpsActivityCenter: boolean;
   closePopover: () => void;
-  onOpenReferral: IActivityHubOpenReferral;
+  // Set only where the Perps activity center entry is shown.
+  onOpenPerpsReferral?: IActivityHubOpenReferral;
 }) {
   const intl = useIntl();
   const backLabel = intl.formatMessage({ id: ETranslations.global_back });
@@ -117,7 +116,7 @@ export default function WebAccountPanelPopoverContent({
           onNavigateSettings={() => navigate('settings')}
           onNavigateArticles={() => navigate('articles')}
           onNavigatePerpsActivityCenter={
-            showPerpsActivityCenter
+            onOpenPerpsReferral
               ? () => navigate('perpsActivityCenter')
               : undefined
           }
@@ -154,7 +153,7 @@ export default function WebAccountPanelPopoverContent({
         </YStack>
       );
     }
-    if (view === 'perpsActivityCenter') {
+    if (view === 'perpsActivityCenter' && onOpenPerpsReferral) {
       return (
         <YStack w="100%">
           <WebAccountPanelHeader title={backLabel} onBack={back} />
@@ -163,7 +162,7 @@ export default function WebAccountPanelPopoverContent({
             showTitle={false}
             menuLayout
             menuPopoverLayout
-            onOpenReferral={onOpenReferral}
+            onOpenReferral={onOpenPerpsReferral}
           />
         </YStack>
       );
@@ -184,8 +183,7 @@ export default function WebAccountPanelPopoverContent({
     closePopover,
     connected,
     backLabel,
-    showPerpsActivityCenter,
-    onOpenReferral,
+    onOpenPerpsReferral,
   ]);
 
   const presenceCustom = useMemo(() => ({ going }), [going]);

@@ -22,10 +22,6 @@ function usePerpsActivityCampaigns() {
   );
 }
 
-// The referral entry cancels itself when the component that owns it
-// unmounts, and the menu closes before it opens the referral page. Hosts that
-// render this content inside a dialog or popover must resolve the opener in
-// the page tree and pass it in, the way the Swap settings dialog does.
 export function PerpsActivityCenterContent({
   closePopover,
   showTitle = true,
@@ -41,6 +37,9 @@ export function PerpsActivityCenterContent({
   menuPopoverLayout?: boolean;
   menuShortcuts?: ReactNode;
   renderMenuReferral?: (referral: ReactNode) => ReactNode;
+  // Must come from a component that outlives this menu: the menu closes
+  // before the referral page opens, and the referral entry cancels itself
+  // when its owner unmounts.
   onOpenReferral: IActivityHubOpenReferral;
 }) {
   const campaigns = usePerpsActivityCampaigns();

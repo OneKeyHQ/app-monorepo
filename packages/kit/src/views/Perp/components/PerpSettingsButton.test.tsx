@@ -192,6 +192,15 @@ describe('PerpSettingsButton', () => {
 
   // The dialog content unmounts before the referral page opens, and the
   // referral entry cancels itself when its owner unmounts (OK-67127).
+  it('passes the page-owned referral opener to the desktop popover', () => {
+    mockMedia = { gtMd: true, gtXl: false };
+    render(<PerpSettingsButton showActivityCenterEntry />);
+
+    expect(mockPerpSettingsPopover).toHaveBeenCalledWith(
+      expect.objectContaining({ onOpenReferral: mockOpenReferralPage }),
+    );
+  });
+
   it('passes the page-owned referral opener to the mobile dialog', () => {
     mockIsNative = true;
     const view = render(<PerpSettingsButton showActivityCenterEntry />);

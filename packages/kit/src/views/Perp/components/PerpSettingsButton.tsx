@@ -51,8 +51,7 @@ export function PerpSettingsButton({
   } = useSpotlight(ESpotlightTour.perpLayoutSettingsMenu);
   const { showGuide } = useShowGuide({ forceModal: isMobileLayout });
   const { showPortfolio } = useShowPortfolio();
-  // The dialog renders outside the page tree and unmounts before the referral
-  // page opens, so the opener lives here.
+  // Owned here, not by the menu: see PerpsActivityCenterContent.
   const openReferralPage = useOpenReferralPage();
   const handleOpenDialog = useCallback(() => {
     if (isMobileLayout && isSettingsFeatureFirstVisit) {
@@ -128,6 +127,7 @@ export function PerpSettingsButton({
       showActivityCenterEntry={showActivityCenterEntry}
       showChartPositionSetting={shouldShowChartPositionSetting}
       showGuideEntry={showGuideEntry}
+      onOpenReferral={openReferralPage}
       renderTrigger={
         <IconButton
           testID="perp-content-icon-btn"
