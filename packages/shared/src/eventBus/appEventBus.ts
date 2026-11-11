@@ -746,6 +746,8 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    navigationAction?: 'push';
+    isNativeBackgroundNavigation?: true;
     extras?: {
       params?: {
         coin?: string;

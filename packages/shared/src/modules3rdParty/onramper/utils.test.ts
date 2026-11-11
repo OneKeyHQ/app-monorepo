@@ -4,10 +4,60 @@ import {
   getOnramperErrorFieldsForLog,
   getOnramperSignedInFromState,
   hasVerifiedOnramperUserInfo,
+  isSelfHealingOnramperError,
+  isStructuralOnramperError,
+  isUserCancelledOnramperError,
   sanitizeOnramperLogRecord,
 } from './utils';
 
 import type { IOnramperLogRecord, IOnramperStateKind } from './type';
+
+describe('onramper failure classes', () => {
+  it('treats a closed OnramperID sign-in as a user cancellation only', () => {
+    expect(isUserCancelledOnramperError({ code: 'oidcFlowCancelled' })).toBe(
+      true,
+    );
+    expect(isUserCancelledOnramperError({ code: 'oidcFlowFailed' })).toBe(
+      false,
+    );
+    expect(isUserCancelledOnramperError(undefined)).toBe(false);
+  });
+
+  it('marks stale-intent and state errors as self-healing', () => {
+    [
+      'intentInvalidated',
+      'intentAlreadyConsumed',
+      'invalidState',
+      'invalidStateTransition',
+    ].forEach((code) => {
+      expect(isSelfHealingOnramperError({ code })).toBe(true);
+    });
+    // A fresh checkout cannot fix these: they keep their own handling.
+    [
+      'paymentFailed',
+      'providerFailed',
+      'networkError',
+      'quoteUnavailable',
+    ].forEach((code) => {
+      expect(isSelfHealingOnramperError({ code })).toBe(false);
+    });
+    expect(isSelfHealingOnramperError({})).toBe(false);
+  });
+
+  it('keeps the three classes disjoint', () => {
+    ['oidcFlowCancelled', 'intentInvalidated', 'invalidState'].forEach(
+      (code) => {
+        expect(isStructuralOnramperError({ code })).toBe(false);
+      },
+    );
+    expect(isUserCancelledOnramperError({ code: 'intentInvalidated' })).toBe(
+      false,
+    );
+    expect(isSelfHealingOnramperError({ code: 'oidcFlowCancelled' })).toBe(
+      false,
+    );
+  });
+});
 
 describe('annotateOnramperSdkErrorMessage', () => {
   it('appends the BFFRecoveryError case name behind the NSError index', () => {

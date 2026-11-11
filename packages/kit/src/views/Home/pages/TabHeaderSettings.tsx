@@ -80,6 +80,20 @@ function useNativeSettingsToolbar(
   const onConfig = toolbar?.onConfig;
   const onPressConsumed = toolbar?.onPressConsumed;
   const title = intl.formatMessage({ id: ETranslations.global_filter });
+  const toolbarTestID =
+    key === EHomeWalletTab.Portfolio
+      ? 'home-media-icon-btn'
+      : 'home-filter-scam-history-supported-icon-btn';
+  const toolbarPress = toolbar?.press;
+  const webAnchorElement = useMemo(() => {
+    if (platformEnv.isNative || !toolbarPress || toolbarPress.key !== key) {
+      return undefined;
+    }
+    return (
+      document.querySelector<HTMLElement>(`[data-testid="${toolbarTestID}"]`) ??
+      undefined
+    );
+  }, [key, toolbarPress, toolbarTestID]);
   useEffect(() => {
     onConfig?.(
       key,
@@ -88,14 +102,11 @@ function useNativeSettingsToolbar(
             iconName: 'SliderHorOutline',
             selected,
             accessibilityLabel: title,
-            testID:
-              key === EHomeWalletTab.Portfolio
-                ? 'home-media-icon-btn'
-                : 'home-filter-scam-history-supported-icon-btn',
+            testID: toolbarTestID,
           }
         : undefined,
     );
-  }, [enabled, selected, title, key, onConfig]);
+  }, [enabled, selected, title, key, onConfig, toolbarTestID]);
   useEffect(() => () => onConfig?.(key, undefined), [key, onConfig]);
   useEffect(() => {
     if (!toolbar) return;
@@ -125,6 +136,7 @@ function useNativeSettingsToolbar(
         open,
         onOpenChange: setOpen,
         nativeAnchorRect: toolbar.press?.anchorRect,
+        webAnchorElement,
       }
     : {};
 }

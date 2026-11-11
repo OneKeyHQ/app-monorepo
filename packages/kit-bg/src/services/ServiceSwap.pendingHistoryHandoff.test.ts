@@ -469,6 +469,26 @@ describe('swap pending history handoff', () => {
       expect(jest.getTimerCount()).toBe(0);
     });
 
+    it('retries ordinary swap history after clearing only stock history', async () => {
+      const { service, stagePendingSwapHistoryItem } = createFailingStore();
+      const swap = createPendingHistory({ txId: '0xkeep-swap' });
+      const stock = createPendingHistory({ txId: '0xclear-stock' });
+      stock.baseInfo.toToken = { ...stock.baseInfo.toToken, isStock: true };
+      await service.addSwapHistoryItem(swap);
+      await service.addSwapHistoryItem(stock);
+      // Reconcile while storage is unavailable so both orders remain only in the retry queue.
+      await service.syncSwapHistoryPendingList();
+      stagePendingSwapHistoryItem.mockClear().mockResolvedValue(undefined);
+
+      await service.cleanSwapHistoryItems(undefined, { onlyStock: true });
+      await service.syncSwapHistoryPendingList();
+
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect(stagePendingSwapHistoryItem).toHaveBeenCalledWith(
+        expect.objectContaining({ txInfo: swap.txInfo }),
+      );
+    });
+
     it('retries the current status rather than the one that failed', async () => {
       const { service, stagePendingSwapHistoryItem } = createFailingStore();
       const history = createPendingHistory({ txId: '0xmoved-on' });

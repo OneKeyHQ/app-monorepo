@@ -1,0 +1,355 @@
+{
+  "source": "https://github.com/OneKeyHQ/firmware-classic1s/tree/a9fd633f56790f086947c12745b57beed61aaf5a/legacy/firmware",
+  "description": "Generated offline with unchanged official TON C cell, bit and address sources. Host adapters provide CommonCrypto SHA-256, signing workspace allocation, protobuf enum declarations and byte/hex helpers. Covers digest construction only; device UI, token lookup, transport and physical signing are not executed.",
+  "fixtures": [
+    {
+      "name": "native transfer",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true
+      },
+      "hash": "0a2d11d1daa00bf3b7e19ff5df7bf3ac1e29d55169071629656d0082ad99376d"
+    },
+    {
+      "name": "native memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEACgAKABAAAAAAbWVtby3bG5k="
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": false,
+        "comment": "memo"
+      },
+      "hash": "37bff7355faf0e1e8fac97284d275a0501d1f64981a5448523302d3399f9def6"
+    },
+    {
+      "name": "wallet activation",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 0,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 0,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true
+      },
+      "hash": "e6bd835a47d827373c149c66ee4fe7f205e9a9217d7a63ee6f362152e887c326"
+    },
+    {
+      "name": "raw Jetton",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAVQBVAKYPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwIX3X5w="
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "comment": "b5ee9c72c10101010055005500a60f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c085f75f9c"
+      },
+      "hash": "a2c6f52dcc87e8a076b7530169412c588116a59986b4405789443802195e3b2d"
+    },
+    {
+      "name": "structured Jetton",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAVQBVAKYPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwIX3X5w=",
+            "jetton": {
+              "amount": "1500000",
+              "toAddress": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+              "jettonMasterAddress": "EQBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUMv",
+              "jettonWalletAddress": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+              "fwdFee": "0"
+            }
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "jettonAmount": "1500000",
+        "jettonMasterAddress": "EQBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUMv",
+        "jettonWalletAddress": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "fwdFee": "0"
+      },
+      "hash": "a2c6f52dcc87e8a076b7530169412c588116a59986b4405789443802195e3b2d"
+    },
+    {
+      "name": "raw Jetton memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAXgBeALgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgIAAAAAbWVtb+CJcAg="
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "comment": "b5ee9c72c1010101005e005e00b80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c202000000006d656d6fe0897008"
+      },
+      "hash": "efd434eab39e86de87531a6a5270cb0f5e2d99305c67cd71849b5a810d91687c"
+    },
+    {
+      "name": "structured Jetton memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAXgBeALgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgIAAAAAbWVtb+CJcAg=",
+            "jetton": {
+              "amount": "1500000",
+              "toAddress": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+              "jettonMasterAddress": "EQBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUMv",
+              "jettonWalletAddress": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+              "fwdFee": "1",
+              "fwdPayload": "te6cckEBAQEACgAAEAAAAABtZW1vTcfy8Q=="
+            }
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": false,
+        "comment": "memo",
+        "jettonAmount": "1500000",
+        "jettonMasterAddress": "EQBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUMv",
+        "jettonWalletAddress": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "fwdFee": "1"
+      },
+      "hash": "efd434eab39e86de87531a6a5270cb0f5e2d99305c67cd71849b5a810d91687c"
+    },
+    {
+      "name": "Jetton batch",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAXgBeALgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgIAAAAAbWVtb+CJcAg="
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "1",
+            "sendMode": 3
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "comment": "b5ee9c72c1010101005e005e00b80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c202000000006d656d6fe0897008",
+        "extDestination": [
+          "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH"
+        ],
+        "extTonAmount": [
+          "1"
+        ],
+        "extPayload": [
+          ""
+        ]
+      },
+      "hash": "92d76489ef5d982d7a13deccae53e4b91b22ae487d4b7c0f58177deecbeb4c5d"
+    },
+    {
+      "name": "forward fee without memo",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAVgBWAKgPin6lAAAAAAAAAAAxbjYIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwgJ2BuuC"
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "comment": "b5ee9c72c10101010056005600a80f8a7ea50000000000000000316e3608004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c2027606eb82"
+      },
+      "hash": "b3940f795e71190cdf063e8874ca259537b71738833d99f2156c29cc27c9a17e"
+    },
+    {
+      "name": "zero Jetton amount",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAUgBSAKAPin6lAAAAAAAAAAAIAERERERERERERERERERERERERERERERERERERERERERFADy/zN0Mel7MItGcTQr0kxEJxa7dg/+OGv7/XToTMTKTwBkA5ns="
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQBERERERERERERERERERERERERERERERERERERERERERDel",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": true,
+        "comment": "b5ee9c72c10101010052005200a00f8a7ea5000000000000000008004444444444444444444444444444444444444444444444444444444444444445003cbfccdd0c7a5ecc22d19c4d0af4931109c5aedd83ff8e1afeff5d3a13313293c01900e67b"
+      },
+      "hash": "b1d80ed9e84f2f5d89fa80a3e1f9461edb79d93e6c8a5548ec98ba83fbf0e3b2"
+    },
+    {
+      "name": "four-message native batch",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEACgAKABAAAAAAbWVtby3bG5k="
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "1",
+            "sendMode": 3
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "2",
+            "sendMode": 3,
+            "payload": "te6ccsEBAQEAEQARAB4AAAAAc2Vjb25kIG1lbW+ijJqo"
+          },
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "3",
+            "sendMode": 3
+          }
+        ]
+      },
+      "sdkRequest": {
+        "destination": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+        "tonAmount": "50000000",
+        "seqno": 7,
+        "expireAt": 2000000000,
+        "mode": 3,
+        "isRawData": false,
+        "comment": "memo",
+        "extDestination": [
+          "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+          "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+          "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH"
+        ],
+        "extTonAmount": [
+          "1",
+          "2",
+          "3"
+        ],
+        "extPayload": [
+          "",
+          "b5ee9c72c101010100110011001e000000007365636f6e64206d656d6fa28c9aa8",
+          ""
+        ]
+      },
+      "hash": "2328c296da6b9113603bcaa84c372494a3f62b49f0fe7b145a0af7b29bac3626"
+    }
+  ]
+}

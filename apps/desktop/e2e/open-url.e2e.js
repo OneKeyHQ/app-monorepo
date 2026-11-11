@@ -898,8 +898,9 @@ async function runSniRequestFlow(page) {
 async function runFetchStreamSenderFlow() {
   const crypto = require('node:crypto');
   const { pathToFileURL } = require('node:url');
-  const ts = require('typescript');
+  const esbuild = require('esbuild');
   const out = path.join(repoRoot, '.tmp', 'fetch-stream-electron');
+  fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   const executablePath =
     process.env.DESKTOP_E2E_ELECTRON_PATH ||
@@ -908,242 +909,117 @@ async function runFetchStreamSenderFlow() {
     fs.existsSync(executablePath),
     'Provide an isolated Electron executable',
   );
-  const sourcePath = path.join(desktopDir, 'app', 'app.ts');
+  const appDir = path.join(desktopDir, 'app');
+  const sourcePath = path.join(appDir, 'app.ts');
   const source = fs.readFileSync(sourcePath, 'utf8');
-  const ast = ts.createSourceFile(
-    sourcePath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  const nodes = [];
-  const walk = (node) => {
-    nodes.push(node);
-    ts.forEachChild(node, walk);
-  };
-  walk(ast);
-  const counts = {};
-  const fragments = {};
-  const one = (name, predicate) => {
-    const matches = nodes.filter(predicate);
-    counts[name] = matches.length;
-    assert.equal(matches.length, 1, `Production node ${name} must be unique`);
-    fragments[name] = crypto
-      .createHash('sha256')
-      .update(matches[0].getText(ast))
-      .digest('hex');
-    return matches[0];
-  };
-  const text = (node) => node.getText(ast);
-  const declaration = (name) =>
-    one(
-      name,
-      (node) => ts.isFunctionDeclaration(node) && node.name?.text === name,
-    );
-  const variable = (name) =>
-    one(
-      name,
-      (node) =>
-        ts.isVariableDeclaration(node) && node.name.getText(ast) === name,
-    );
-  const call = (name, expression, event) =>
-    one(
-      name,
-      (node) =>
-        ts.isCallExpression(node) &&
-        text(node.expression) === expression &&
-        (ts.isStringLiteral(node.arguments[0])
-          ? node.arguments[0].text
-          : text(node.arguments[0])) === event,
-    );
-  const transpile = (input) =>
-    ts.transpileModule(input, {
-      compilerOptions: {
-        target: ts.ScriptTarget.ES2022,
-        module: ts.ModuleKind.CommonJS,
-      },
-    }).outputText;
-  const configSource = fs.readFileSync(
-    path.join(desktopDir, 'app/config.ts'),
-    'utf8',
-  );
-  const configAst = ts.createSourceFile(
-    'config.ts',
-    configSource,
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  const channels = [];
-  const visitConfig = (node) => {
-    if (
-      ts.isPropertyAssignment(node) &&
-      node.name.getText(configAst) === 'FETCH_STREAM'
-    )
-      channels.push(node);
-    ts.forEachChild(node, visitConfig);
-  };
-  visitConfig(configAst);
-  assert.equal(channels.length, 1);
-  const streamChannel = channels[0].initializer.text;
-  const protocol = text(variable('PROTOCOL').initializer);
-  const sharedPath = path.join(
-    repoRoot,
-    'packages/shared/src/utils/fetchStream.ts',
-  );
-  const helperPath = path.join(
-    desktopDir,
-    'app/libs/desktopApiModuleAllowlist.ts',
-  );
-  const extracted = {};
-  const extractFrom = (filename, names) => {
-    const raw = fs.readFileSync(filename, 'utf8');
-    const tree = ts.createSourceFile(
-      filename,
-      raw,
-      ts.ScriptTarget.Latest,
-      true,
-    );
-    return names
-      .map((name) => {
-        const matches = [];
-        const visit = (node) => {
-          if (
-            (ts.isFunctionDeclaration(node) && node.name?.text === name) ||
-            (ts.isVariableDeclaration(node) && node.name.getText(tree) === name)
-          )
-            matches.push(node);
-          ts.forEachChild(node, visit);
-        };
-        visit(tree);
-        assert.equal(
-          matches.length,
-          1,
-          `Dependency node ${name} must be unique`,
-        );
-        const node = matches[0];
-        const value = node.getText(tree);
-        extracted[name] = {
-          file: path.relative(repoRoot, filename),
-          count: matches.length,
-          sha256: crypto.createHash('sha256').update(value).digest('hex'),
-        };
-        return ts.isVariableDeclaration(node) ? `const ${value};` : value;
-      })
-      .join('\n');
-  };
-  const dependencySource = [
-    extractFrom(sharedPath, [
-      'createFetchStreamHandler',
-      'FETCH_STREAM_CHUNK_BYTES',
-      'FETCH_STREAM_MAX_ACTIVE',
-    ]),
-    extractFrom(helperPath, ['isTrustedMainWindowUrl']),
-    extractFrom(
-      path.join(repoRoot, 'packages/shared/src/utils/bufferUtils.ts'),
-      ['toBuffer', 'bytesToBase64', 'base64ToBytes'],
-    ),
-    extractFrom(path.join(repoRoot, 'packages/shared/src/utils/hexUtils.ts'), [
-      'hasHexPrefix',
-      'stripHexPrefix',
-    ]),
-    extractFrom(path.join(repoRoot, 'packages/shared/src/utils/miscUtils.ts'), [
-      'generateUUID',
-    ]),
-    extractFrom(
-      path.join(repoRoot, 'packages/shared/src/utils/fetchWithIdleTimeout.ts'),
-      ['FETCH_REQUEST_IDLE_TIMEOUT_MS', 'FETCH_RESPONSE_MAX_BYTES'],
-    ),
-  ].join('\n');
+
+  // The fixture imports the production modules instead of AST-extracting them
+  // from app.ts. esbuild — the same bundler that builds the desktop main
+  // process — resolves their @onekeyhq/shared dependencies. Error classes are
+  // stubbed (classification/i18n is not under test) and react-native is stubbed
+  // to its web Platform shape so the shared utils load outside the RN runtime.
+  const stubDir = path.join(out, 'stubs');
+  fs.mkdirSync(stubDir, { recursive: true });
+  const errorStubPath = path.join(stubDir, 'errorStub.cjs');
   fs.writeFileSync(
-    path.join(out, 'production.cjs'),
-    `const {Buffer}=require('node:buffer');
-    const uuid=require(${JSON.stringify(require.resolve('react-native-uuid/dist'))}).default;
-    const {isString}=require(${JSON.stringify(require.resolve('lodash'))});
-    class OneKeyLocalError extends Error {} // Fixture-only: error classification/i18n are not under test.
-    const streamingFetch=globalThis.fetch;
-    ${transpile(dependencySource)}
-    const hexUtils={stripHexPrefix};
-    const bufferUtils={bytesToBase64,base64ToBytes};
-    module.exports={createFetchStreamHandler,isTrustedMainWindowUrl};`,
+    errorStubPath,
+    `class OneKeyLocalError extends Error {
+  constructor(...args) {
+    super(typeof args[0] === 'string' ? args[0] : 'OneKeyLocalError');
+    this.name = 'OneKeyLocalError';
+  }
+}
+module.exports = { OneKeyLocalError };
+`,
   );
-  const shellState = [
-    'selectedShellDocumentCommitted',
-    'trustedSameDocumentRouteUrl',
-  ]
-    .map((name) => `let ${text(variable(name))};`)
-    .join('\n');
-  const predicate = one(
-    'sender-predicate',
-    (node) =>
-      ts.isBinaryExpression(node) &&
-      text(node.left) ===
-        'globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender',
+  const reactNativeStubPath = path.join(stubDir, 'reactNativeStub.cjs');
+  fs.writeFileSync(
+    reactNativeStubPath,
+    'const Platform={OS:"web",select:(options)=>options.web??options.default};\nmodule.exports={Platform};\n',
   );
-  const navigation = [
-    'did-navigate',
-    'did-navigate-in-page',
-    'will-navigate',
-    'will-redirect',
-    'will-frame-navigate',
-  ]
-    .map(
-      (event) => `${text(call(event, 'browserWindow.webContents.on', event))};`,
-    )
-    .join('\n');
-  const registration = text(
-    call(
-      'fetch-stream-handler',
-      'ipcMain.handle',
-      'ipcMessageKeys.FETCH_STREAM',
-    ),
-  );
-  const safeMain = `const ${text(variable('getSafelyMainWindow'))};`;
-  const safeWindow = `const ${text(variable('getSafelyBrowserWindow'))};`;
-  const guard = `const ${text(variable('guardMainWindowNavigation'))};`;
-  const closed = `${text(call('window-closed', 'browserWindow.on', 'closed'))};`;
-  const relay = `const ${text(variable('fetchStreamRequest'))};`;
-  const callbacks = transpile(
-    [
-      safeMain,
-      text(declaration('showMainWindow')),
-      text(declaration('createMainWindow')),
-      text(declaration('softRestartRenderer')),
-    ].join('\n'),
-  );
-  const factoryCallbacks = transpile(
-    [
-      safeWindow,
-      shellState,
-      `${text(predicate)};`,
-      guard,
-      navigation,
-      closed,
-      relay,
-      'ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);',
-      `${registration};`,
-    ].join('\n'),
-  );
+  await esbuild.build({
+    stdin: {
+      contents: `export { ipcMessageKeys } from './config';
+export { PROTOCOL } from './libs/protocol';
+export {
+  getMainWindow,
+  setMainWindow,
+  getSafelyMainWindow,
+  showMainWindow,
+  createSafelyBrowserWindowGetter,
+  createMainWindowClosedHandler,
+} from './libs/mainWindowAccess';
+export { createMainWindowFactory } from './libs/mainWindowFactory';
+export { createSoftRestartRenderer } from './libs/softRestart';
+export {
+  createShellDocumentTrustState,
+  createMainWindowSenderTrustPredicate,
+  installMainWindowShellNavigationHandlers,
+} from './libs/mainWindowShellTrust';
+export { createFetchStreamRelay } from './libs/fetchStreamRelay';
+`,
+      resolveDir: appDir,
+      loader: 'ts',
+    },
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    logLevel: 'silent',
+    outfile: path.join(out, 'production.cjs'),
+    alias: {
+      'react-native': reactNativeStubPath,
+      'react-native-uuid': require.resolve('react-native-uuid/dist'),
+    },
+    plugins: [
+      {
+        name: 'shared-error-stub',
+        setup(build) {
+          build.onLoad(
+            {
+              filter:
+                /packages\/shared\/src\/errors\/(index|errors\/localError)\.ts$/,
+            },
+            () => ({
+              contents: fs.readFileSync(errorStubPath, 'utf8'),
+              loader: 'js',
+            }),
+          );
+        },
+      },
+    ],
+  });
+  const production = require(path.join(out, 'production.cjs'));
+  const streamChannel = production.ipcMessageKeys.FETCH_STREAM;
+  const productionModuleFiles = [
+    'app.ts',
+    'libs/protocol.ts',
+    'libs/mainWindowAccess.ts',
+    'libs/mainWindowFactory.ts',
+    'libs/softRestart.ts',
+    'libs/mainWindowShellTrust.ts',
+    'libs/fetchStreamRelay.ts',
+  ];
   const provenance = {
     sourceSha256: crypto.createHash('sha256').update(source).digest('hex'),
-    counts,
-    fragments,
-    extracted,
+    modules: Object.fromEntries(
+      productionModuleFiles.map((file) => [
+        file,
+        crypto
+          .createHash('sha256')
+          .update(fs.readFileSync(path.join(appDir, file)))
+          .digest('hex'),
+      ]),
+    ),
     streamChannel,
-    sharedSha256: crypto
-      .createHash('sha256')
-      .update(fs.readFileSync(sharedPath))
-      .digest('hex'),
-    helperSha256: crypto
-      .createHash('sha256')
-      .update(fs.readFileSync(helperPath))
-      .digest('hex'),
     scope:
-      'Production callbacks in an isolated real Electron host; fixture window factory, no wallet or OTA verification',
+      'Production modules in an isolated real Electron host; fixture window factory, no wallet or OTA verification',
   };
   fs.writeFileSync(
     path.join(out, 'provenance.json'),
     JSON.stringify(provenance, null, 2),
   );
+
   const preload = `const {contextBridge,ipcRenderer}=require('electron');
     contextBridge.exposeInMainWorld('fixture', {invoke:r=>ipcRenderer.invoke(${JSON.stringify(streamChannel)},r),control:r=>ipcRenderer.invoke('fixture-control',r)});
     ipcRenderer.invoke(${JSON.stringify(streamChannel)},{action:'cancel',id:'preload-probe'}).then(result=>ipcRenderer.send('fixture-observation',{kind:'preload-probe',url:location.href,result}));`;
@@ -1165,26 +1041,40 @@ async function runFetchStreamSenderFlow() {
   fs.writeFileSync(path.join(out, 'child.html'), '<title>child</title>');
   const mainSource = `const {app,BrowserWindow,ipcMain,net,session}=require('electron');
     const fs=require('node:fs'),path=require('node:path');
+    const production=require('./production.cjs');
     const OUT=${JSON.stringify(out)};
     fs.mkdirSync(path.join(OUT,'cache'),{recursive:true});
     app.setPath('userData',path.join(OUT,'user-data'));app.setPath('sessionData',path.join(OUT,'session-data'));app.setPath('cache',path.join(OUT,'cache'));
-    const {createFetchStreamHandler,isTrustedMainWindowUrl}=require('./production.cjs');
     const events=[]; const record=(kind,data={})=>{events.push({time:Date.now(),kind,...data});fs.writeFileSync(path.join(OUT,'events.json'),JSON.stringify(events,null,2));};
     const logger={info:(...args)=>record('info',{args}),warn:(...args)=>record('warn',{args}),error:(...args)=>record('error',{args})};
-    let mainWindow=null,createMainWindowPromise=null,softRestarting=false,isAppReady=false;
+    let isAppReady=false;
     let selectedDev=false;let selectedSrc=${JSON.stringify(pathToFileURL(path.join(out, 'packaged/index.html')).href)};
     const store={getUpdateBundleData:()=>({bundleVersion:'fixture'}),resetConsecutiveBootFailCount:()=>{}};
-    const unregisterShortcuts=()=>{},getTrayWindow=()=>null,destroyTrayWindow=()=>{},PROTOCOL=${protocol};
-    const ipcMessageKeys={FETCH_STREAM:${JSON.stringify(streamChannel)}};
+    const getTrayWindow=()=>null,destroyTrayWindow=()=>{},unregisterShortcuts=()=>{};
+    const ipcMessageKeys={...production.ipcMessageKeys};
+    const getAppReady=()=>isAppReady,setAppReady=(ready)=>{isAppReady=ready;};
     globalThis.$desktopMainAppFunctions={getBundleIndexHtmlPath:()=>selectedSrc};
-    ${callbacks}
+    const createMainWindow=production.createMainWindowFactory(createMainWindowImpl);
+    const {softRestartRenderer}=production.createSoftRestartRenderer({
+      logger,app,store,getTrayWindow,destroyTrayWindow,setAppReady,session,
+      createMainWindow,
+      getBundleIndexHtmlPath:()=>selectedSrc,
+      getProcessMas:()=>process.mas,
+    });
     async function createMainWindowImpl(){
       const src=selectedSrc,isDevServer=selectedDev;
       const browserWindow=new BrowserWindow({width:900,height:650,show:true,webPreferences:{preload:path.join(OUT,'preload.cjs'),webSecurity:true,contextIsolation:true,sandbox:true,nodeIntegration:false,nodeIntegrationInSubFrames:true}});
-      mainWindow=browserWindow;
+      production.setMainWindow(browserWindow);
+      const getSafelyBrowserWindow=production.createSafelyBrowserWindowGetter(()=>browserWindow);
+      const shellTrustState=production.createShellDocumentTrustState();
+      globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender=production.createMainWindowSenderTrustPredicate({state:shellTrustState,getSafelyMainWindow:production.getSafelyMainWindow,getSafelyBrowserWindow,getAppShellUrl:()=>src,isDevServer});
+      production.installMainWindowShellNavigationHandlers({browserWindow,state:shellTrustState,getAppShellUrl:()=>src,isDevServer,getSafelyBrowserWindow,logger});
+      const relay=production.createFetchStreamRelay({net,getIsTrustedMainWindowSender:()=>globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender});
+      ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+      ipcMain.handle(ipcMessageKeys.FETCH_STREAM,relay.handleFetchStreamRequest);
+      browserWindow.on('closed',production.createMainWindowClosedHandler({browserWindow,unregisterShortcuts,getAppReady,setAppReady,logger}));
       browserWindow.webContents.on('render-process-gone',(_event,details)=>record('render-process-gone',details));
       for(const name of ['did-navigate','did-navigate-in-page','did-finish-load','destroyed'])browserWindow.webContents.on(name,(_event,url)=>record(name,{id:browserWindow.id,url}));
-      ${factoryCallbacks}
       await browserWindow.loadURL('about:blank');
       await new Promise(resolve=>setTimeout(resolve,150));
       await browserWindow.loadURL(src);
@@ -1197,10 +1087,12 @@ async function runFetchStreamSenderFlow() {
     });
     ipcMain.on('fixture-observation',(_event,data)=>record('renderer-observation',data));
     originalHandle('fixture-control',async(_event,action)=>{if(action==='restart'){selectedSrc=${JSON.stringify(pathToFileURL(path.join(out, 'ota/index.html')).href)};setTimeout(()=>void softRestartRenderer(),0);return true;}});
-    globalThis.fixtureHost={events,selectDev:async(url)=>{selectedSrc=url;selectedDev=true;await softRestartRenderer();return true;},ready:async()=>{await createMainWindowPromise;return true;},getWindow:()=>mainWindow,createForeign:async()=>{const w=new BrowserWindow({show:false,webPreferences:{preload:path.join(OUT,'preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false}});await w.loadURL(${JSON.stringify(pathToFileURL(path.join(out, 'foreign.html')).href)});return w.id;}};
-    app.whenReady().then(()=>createMainWindow()).catch(error=>{console.error(error);app.exit(1)});
+    const fixtureHost={events,selectDev:async(url)=>{selectedSrc=url;selectedDev=true;await softRestartRenderer();return true;},ready:async()=>{await app.whenReady();if(!production.getMainWindow()){await createMainWindow();}return true;},getWindow:()=>production.getMainWindow(),createForeign:async()=>{const w=new BrowserWindow({show:false,webPreferences:{preload:path.join(OUT,'preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false}});await w.loadURL(${JSON.stringify(pathToFileURL(path.join(out, 'foreign.html')).href)});return w.id;}};
+    globalThis.fixtureHost=fixtureHost;
+    app.whenReady().then(()=>fixtureHost.ready()).catch(error=>{console.error(error);app.exit(1)});
     app.on('window-all-closed',()=>{});`;
   fs.writeFileSync(path.join(out, 'main.cjs'), mainSource);
+
   const requests = [];
   const sockets = new Set();
   const server = http.createServer((request, response) => {

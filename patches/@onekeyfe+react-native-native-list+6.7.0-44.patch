@@ -1,0 +1,121 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
+index 0d0a5a4..3f52f4a 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
+@@ -25,6 +25,8 @@ export const nativeListGeneratedIcons = {
+   PlusLargeOutline: 'PlusLargeOutline',
+   PlusSmallOutline: 'PlusSmallOutline',
+   RefreshCcwOutline: 'RefreshCcwOutline',
++  // OneKey patch: the history table's swap rows use this icon.
++  SwitchHorOutline: 'SwitchHorOutline',
+   TicketOutline: 'TicketOutline',
+   WalletOutline: 'WalletOutline'
+ };
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+index 4c30885..2cbd93c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
+@@ -849,6 +849,12 @@ function createVisual(context, visual, selectorPresentation) {
+       frame.querySelector('.ok-native-list-visual-fallback:not(.ok-native-list-visual-corner)')?.remove();
+       const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', fallbackIcon ? undefined : 'fallbackText' in visual ? visual.fallbackText ?? '' : '');
+       if ('fallbackTextColor' in visual && visual.fallbackTextColor && !fallbackIcon) fallback.style.color = visual.fallbackTextColor;
++      // OneKey patch: a sized letter fallback, centred on the letter's cap height rather than its line box.
++      if ('fallbackTextSize' in visual && visual.fallbackTextSize && !fallbackIcon) {
++        fallback.style.fontSize = String(visual.fallbackTextSize) + 'px';
++        fallback.style.lineHeight = '1';
++        fallback.style.setProperty('text-box', 'trim-both cap alphabetic');
++      }
+       if (fallbackIcon) {
+         applySelectorIcon(fallback, fallbackIcon.name);
+         if (fallbackIcon.tintColor) fallback.style.color = fallbackIcon.tintColor;
+@@ -860,7 +866,9 @@ function createVisual(context, visual, selectorPresentation) {
+           }
+         }
+       }
+-      if (fallbackIcon?.backgroundColor) frame.style.background = fallbackBackground;else fallback.style.backgroundColor = 'var(--nl-image-fallback-background, transparent)';
++      // OneKey patch: a letter fallback may carry its own background, so lists
++      // that mix it with icon fallbacks keep the theme background for icons.
++      if (fallbackIcon?.backgroundColor) frame.style.background = fallbackBackground;else fallback.style.backgroundColor = !fallbackIcon && 'fallbackTextBackgroundColor' in visual && visual.fallbackTextBackgroundColor || 'var(--nl-image-fallback-background, transparent)';
+       frame.prepend(fallback);
+     };
+     if (image) image.addEventListener('error', showFallback, {
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+index 4050327..b6787b0 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+@@ -257,6 +257,10 @@ type VisualWithImage = Readonly<{
+     image?: ImageSource;
+     fallbackText?: string;
+     fallbackTextColor?: string;
++    /** OneKey patch: font size of a letter fallback (e.g. a token symbol's first letter). */
++    fallbackTextSize?: number;
++    /** OneKey patch: Web-only background behind a letter fallback; defaults to theme.imageFallbackBackground. */
++    fallbackTextBackgroundColor?: string;
+     backgroundColor?: string;
+     shape?: 'circle' | 'rounded' | 'square';
+     cornerIcon?: Readonly<{
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+index 9ac00b5..18e222c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+@@ -375,6 +375,10 @@ type VisualWithImage = Readonly<{
+   image?: ImageSource;
+   fallbackText?: string;
+   fallbackTextColor?: string;
++  /** OneKey patch: font size of a letter fallback (e.g. a token symbol's first letter). */
++  fallbackTextSize?: number;
++  /** OneKey patch: Web-only background behind a letter fallback; defaults to theme.imageFallbackBackground. */
++  fallbackTextBackgroundColor?: string;
+   backgroundColor?: string;
+   shape?: 'circle' | 'rounded' | 'square';
+   cornerIcon?: Readonly<{
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
+index d612a4d..6727f61 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
+@@ -23,6 +23,8 @@ export const nativeListGeneratedIcons: Readonly<Record<string, string>> = {
+   PlusLargeOutline: 'PlusLargeOutline',
+   PlusSmallOutline: 'PlusSmallOutline',
+   RefreshCcwOutline: 'RefreshCcwOutline',
++  // OneKey patch: the history table's swap rows use this icon.
++  SwitchHorOutline: 'SwitchHorOutline',
+   TicketOutline: 'TicketOutline',
+   WalletOutline: 'WalletOutline',
+ };
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+index 55651ba..5dded71 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
+@@ -1386,6 +1386,16 @@ function createVisual(
+         !fallbackIcon
+       )
+         fallback.style.color = visual.fallbackTextColor;
++      // OneKey patch: a sized letter fallback, centred on the letter's cap height rather than its line box.
++      if (
++        'fallbackTextSize' in visual &&
++        visual.fallbackTextSize &&
++        !fallbackIcon
++      ) {
++        fallback.style.fontSize = String(visual.fallbackTextSize) + 'px';
++        fallback.style.lineHeight = '1';
++        fallback.style.setProperty('text-box', 'trim-both cap alphabetic');
++      }
+       if (fallbackIcon) {
+         applySelectorIcon(fallback, fallbackIcon.name);
+         if (fallbackIcon.tintColor)
+@@ -1398,10 +1408,15 @@ function createVisual(
+           }
+         }
+       }
++      // OneKey patch: a letter fallback may carry its own background, so lists
++      // that mix it with icon fallbacks keep the theme background for icons.
+       if (fallbackIcon?.backgroundColor)
+         frame.style.background = fallbackBackground;
+       else
+         fallback.style.backgroundColor =
++          (!fallbackIcon &&
++            'fallbackTextBackgroundColor' in visual &&
++            visual.fallbackTextBackgroundColor) ||
+           'var(--nl-image-fallback-background, transparent)';
+       frame.prepend(fallback);
+     };

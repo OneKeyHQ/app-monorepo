@@ -55,6 +55,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EMarketHomeEntrySource } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -697,6 +698,7 @@ function PerpsEmptyRecommendSection() {
           testID={HomeTestIDs.popularViewMoreBtn}
           onPress={() =>
             navigateToMarketTab({
+              entrySource: EMarketHomeEntrySource.WalletHome,
               tabToSelect: 'perps',
               perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
             })
@@ -943,6 +945,7 @@ function PerpsEmptyRecommendSection() {
             testID={HomeTestIDs.popularViewMoreBtn}
             onPress={() =>
               navigateToMarketTab({
+                entrySource: EMarketHomeEntrySource.WalletHome,
                 tabToSelect: 'perps',
                 perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
               })

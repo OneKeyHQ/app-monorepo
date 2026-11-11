@@ -32,6 +32,7 @@ import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLiveP
 
 import {
   type IStockSimpleChartRange,
+  type IStockSimpleChartRangeChange,
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
@@ -94,6 +95,7 @@ type IStockSimpleChartProps = {
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
   onPriceUpdate?: (price: number | undefined) => void;
+  onRangeChange?: (change: IStockSimpleChartRangeChange | undefined) => void;
   onRequestRetry?: () => void;
   requestError?: boolean;
 };
@@ -127,6 +129,7 @@ export function StockSimpleChartContent({
   priceMode,
   priceScaleFormat,
   onPriceUpdate,
+  onRangeChange,
   requestError = false,
   onRequestRetry,
   retainPreviousRange = false,
@@ -530,6 +533,9 @@ export function StockSimpleChartContent({
   useEffect(() => {
     reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
   }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+  useEffect(() => {
+    onRangeChange?.(active ? rangeChange : undefined);
+  }, [active, onRangeChange, rangeChange]);
   // Unmounting (Pro mode, leaving the page) hands the header back to 24h.
   useEffect(() => () => reportRangeChange(undefined), [reportRangeChange]);
 

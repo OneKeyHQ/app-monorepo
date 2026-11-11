@@ -64,7 +64,6 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   localWallet: {
     activation: 'account-opt-in',
-    feeSetByProtocol: true,
     balanceShape: 'pooled',
     // t1/t3, or a ZIP-320 TEX address (tex1 + 38 bech32m chars).
     publicAddressPattern:

@@ -1275,18 +1275,34 @@ export async function syncLocalWalletGroupImpl(
         },
       );
     }
+    // Per account, from the local database only: another account's backfill must not hold this
+    // one's last-synced time or send gate.
+    const caughtUpAccountIds: string[] = [];
+    for (const item of prepared) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const progress = await api.getSyncProgress(item.account);
+        const reachedTip =
+          result.chainTip !== null &&
+          progress.chainTip !== null &&
+          progress.chainTip >= result.chainTip;
+        if (progress.isBackfillComplete && reachedTip) {
+          caughtUpAccountIds.push(item.accountId);
+        }
+      } catch (error) {
+        // Unread is not caught up; the next pass reads it again.
+        console.error('[zcash] account sync status unavailable', {
+          accountId: item.accountId,
+          ...zcashDescribeError(error),
+        });
+      }
+    }
     return {
       synced: true,
       syncError,
       stateChanged: result.stateChanged,
       chainTip: result.chainTip,
-      caughtUpAccountIds:
-        result.backfillRemaining === false &&
-        result.chainTip !== null &&
-        result.fullyScanned !== null &&
-        result.fullyScanned >= result.chainTip
-          ? prepared.map((item) => item.accountId)
-          : [],
+      caughtUpAccountIds,
       backfillRemaining:
         result.backfillRemaining ||
         (accounts.length < accountIds.length && result.stateChanged),

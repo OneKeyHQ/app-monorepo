@@ -5320,7 +5320,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       shouldUpdate = true;
     }
 
-    if (item.pwdHash !== updateItem.pwdHash) {
+    // A new encryption key does not make an older business edit newer.
+    // Explicit local initialization has no timestamp and preserves the old
+    // one below; incoming server versions must pass the ordinary time check.
+    if (
+      item.pwdHash !== updateItem.pwdHash &&
+      isNil(updateItem.dataTime) &&
+      !updateItem.serverUploaded
+    ) {
       shouldUpdate = true;
     }
 

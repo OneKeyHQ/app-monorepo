@@ -3968,6 +3968,11 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
+    // The popup is short-lived and can duplicate the refresh from a persistent
+    // extension window. Persistent extension windows still need refocus refresh.
+    if (platformEnv.isExtensionUiPopup) {
+      return undefined;
+    }
     const removeSubscription = onVisibilityStateChange((visible) => {
       if (visible && isFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();

@@ -127,6 +127,31 @@ const element = <Text testID="Do not translate ID" title="Hello">Visible text{'Y
   );
 });
 
+test('exported constant literals stay out of the i18n copy scan', (t) => {
+  const ctx = fixture(t);
+  fs.writeFileSync(
+    path.join(ctx.root, 'module/exported.ts'),
+    [
+      "export const label = 'Hello world';",
+      "export const wrapped = 'Wrapped copy' as const;",
+      "export const copyMap = { title: 'Travel Mode' };",
+      'export function Page() {',
+      "  const title = 'Welcome back';",
+      '  return title;',
+      '}',
+      '',
+    ].join('\n'),
+  );
+  const draft = scanModule({ modules: ['module/exported.ts'], root: ctx.root });
+  const texts = new Set(draft.entries.map((entry) => entry.text));
+  assert(!texts.has('Hello world'));
+  assert(!texts.has('Wrapped copy'));
+  // Exported object properties are still treated as UI copy.
+  assert(texts.has('Travel Mode'));
+  // Local strings inside an exported component are still UI copy.
+  assert(texts.has('Welcome back'));
+});
+
 test('incomplete references have stable ids and fill reuses the complete local key', (t) => {
   const ctx = fixture(t);
   writeJson(path.join(ctx.root, LOCALES_PATH, 'bn.json'), {});

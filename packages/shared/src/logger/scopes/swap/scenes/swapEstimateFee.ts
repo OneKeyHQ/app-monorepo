@@ -1,4 +1,5 @@
 import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -15,6 +16,7 @@ export class SwapEstimateFeeScene extends BaseScene {
   public swapEstimateFee({
     reviewSessionId,
     quoteId,
+    swapSource,
     swapType,
     slippage,
     router,
@@ -36,6 +38,8 @@ export class SwapEstimateFeeScene extends BaseScene {
   }: {
     reviewSessionId?: string;
     quoteId?: string;
+    // Entry that opened the trade, from the review analytics context.
+    swapSource?: ESwapSource;
     orderId: string;
     status: ESwapEventAPIStatus;
     message?: string;
@@ -60,6 +64,7 @@ export class SwapEstimateFeeScene extends BaseScene {
     return {
       reviewSessionId,
       quoteId,
+      swapSource,
       status,
       orderId,
       message: message === undefined ? undefined : getSwapErrorMessage(message),

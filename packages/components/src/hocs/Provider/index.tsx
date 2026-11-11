@@ -13,7 +13,6 @@ import { Haptics } from '../../primitives/Haptics';
 
 import { reportBrandFontFallback } from './fonts/reportBrandFontFallback';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
-import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
 import { TamaguiProvider } from './TamaguiProvider';
 
@@ -38,35 +37,14 @@ export type IUIProviderProps = PropsWithChildren<{
    */
   locale: ILocaleSymbol;
 
-  waitFontLoaded?: boolean;
-
   onLocaleChange?: (locale: ILocaleSymbol) => void;
 
   hapticFeedbackEnabled?: boolean;
 
   HyperlinkText: typeof HyperlinkText;
 }>;
-export type IFontProviderProps = PropsWithChildren;
 
 const MemoizedTamaguiProvider = memo(TamaguiProvider);
-
-function FontProvider({ children }: IFontProviderProps) {
-  const [loaded, error] = useLoadCustomFonts();
-  useEffect(() => {
-    reportBrandFontFallback();
-  }, []);
-  const shouldBypassFontGate =
-    platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread;
-
-  if (shouldBypassFontGate) {
-    return children;
-  }
-
-  if (platformEnv.isNative || platformEnv.isRuntimeBrowser) {
-    return loaded || error ? children : null;
-  }
-  return children;
-}
 
 export function ConfigProvider({
   children,
@@ -77,6 +55,10 @@ export function ConfigProvider({
   onLocaleChange,
   hapticFeedbackEnabled = true,
 }: IUIProviderProps) {
+  useEffect(() => {
+    reportBrandFontFallback();
+  }, []);
+
   // On iOS 26 the Liquid Glass nav bar's light/dark variant is driven by
   // react-navigation's theme, which resolves a frame late on each navigation
   // and makes the bar flash its light variant first. Mirror the resolved app
@@ -113,15 +95,13 @@ export function ConfigProvider({
   useAppearanceTheme(theme);
   return (
     <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
-      <FontProvider>
-        <SettingConfigContext.Provider value={providerValue}>
-          <SafeAreaProvider>
-            <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
-              {children}
-            </MemoizedTamaguiProvider>
-          </SafeAreaProvider>
-        </SettingConfigContext.Provider>
-      </FontProvider>
+      <SettingConfigContext.Provider value={providerValue}>
+        <SafeAreaProvider>
+          <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
+            {children}
+          </MemoizedTamaguiProvider>
+        </SafeAreaProvider>
+      </SettingConfigContext.Provider>
     </AppIntlProvider>
   );
 }

@@ -469,19 +469,21 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
 
   const appRequire = createRequire(path.join(appRoot, 'package.json'));
   const { JSDOM } = appRequire('jsdom');
-  const ts = appRequire('typescript');
+  const { transformSync } = appRequire('@swc/core');
 
   const evaluateProvider = (baseUrl, contextGlobals) => {
     const rewrittenTs = assetUrlsTs.replaceAll(
       'import.meta.url',
       JSON.stringify(baseUrl),
     );
-    const transpiled = ts.transpileModule(rewrittenTs, {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2020,
+    const transpiled = transformSync(rewrittenTs, {
+      filename: 'assetUrls.ts',
+      jsc: {
+        parser: { syntax: 'typescript' },
+        target: 'es2020',
       },
-    }).outputText;
+      module: { type: 'commonjs' },
+    }).code;
     const exportsObj = {};
     vm.runInNewContext(transpiled, {
       exports: exportsObj,

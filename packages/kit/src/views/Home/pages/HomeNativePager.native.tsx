@@ -34,6 +34,7 @@ export function HomeNativePager({
   onNativeTabPress,
   onNativeToolbarPress,
   headerHeightHint,
+  headerLayoutKey,
   topOverlayHeightHint,
   renderHeader,
   topOverlay,
@@ -44,13 +45,18 @@ export function HomeNativePager({
   onTabPrepare,
 }: IHomeNativePagerProps) {
   const [headerLayout, setHeaderLayout] = useState({
+    key: headerLayoutKey,
     hint: headerHeightHint,
     height: headerHeightHint ?? 182,
     generation: 0,
   });
-  if (headerLayout.hint !== headerHeightHint) {
+  if (
+    headerLayout.hint !== headerHeightHint ||
+    headerLayout.key !== headerLayoutKey
+  ) {
     // Reset before committing a new header variant, including A -> B -> A.
     setHeaderLayout({
+      key: headerLayoutKey,
       hint: headerHeightHint,
       height: headerHeightHint ?? 182,
       generation: headerLayout.generation + 1,

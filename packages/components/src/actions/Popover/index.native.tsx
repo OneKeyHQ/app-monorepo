@@ -29,6 +29,7 @@ import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
+import { GlassHeaderProvider } from '../../primitives/Button/GlassHeaderContext';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
@@ -123,7 +124,8 @@ function ModalPortalProvider({ children }: PropsWithChildren) {
   return (
     <ModalNavigatorContext.Provider value={modalNavigatorContext}>
       <PageContext.Provider value={pageContextValue}>
-        {children}
+        {/* Overlay content is outside the trigger's glass capsule. */}
+        <GlassHeaderProvider value={false}>{children}</GlassHeaderProvider>
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>
   );

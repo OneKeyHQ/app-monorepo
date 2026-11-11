@@ -152,6 +152,7 @@ jest.mock('../hooks/marketNetworkUtils', () => ({
 }));
 jest.mock('../hooks/useMarketEnterAnalytics', () => ({
   useMarketHomePageEnterAnalytics: jest.fn(),
+  useMarketHomeViewAnalytics: jest.fn(),
 }));
 jest.mock('../MarketWatchListProviderMirrorV2', () => ({
   MarketWatchListProviderMirrorV2: ({ children }: PropsWithChildren) =>

@@ -72,3 +72,10 @@ export type ITokenListHeaderLayout = {
   // rows; undefined keeps the `ListItem` defaults.
   containerProps?: { mx: number; px: number };
 };
+
+export type ITokenListFooterLayout = {
+  // Outer horizontal margin of the footer block.
+  mx: 0 | '$2' | undefined;
+  // Horizontal box of each footer `ListItem`; undefined keeps its defaults.
+  itemProps?: { mx: 0; px: '$3' };
+};

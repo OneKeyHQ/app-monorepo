@@ -384,6 +384,27 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
+  test('discardHeadlessBuyOrder drops a hidden order whose payment page never loaded', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // The provider's web view failed before it came up (OK-66774): nothing
+    // could be paid, so no order is left behind as Processing.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'pageLoadFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'pageLoadFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    // An already visible order is left alone.
+    expect(store.get('paid')).toMatchObject({ submittedAt: T0 });
+    expect(store.get('paid')?.paymentOutcomeUnknown).toBeUndefined();
+  });
+
   test('discardHeadlessBuyOrder surfaces a hidden order when the provider failed without confirming the payment', async () => {
     const { service, store } = createService([
       baseOrder(),

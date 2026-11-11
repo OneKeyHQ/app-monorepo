@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ONEKEY_ID_OAUTH_BIND_PATH,
+  RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   ONEKEY_ID_OAUTH_IDENTITY_ALREADY_BOUND_CODE,
@@ -24,6 +27,7 @@ import {
   OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
@@ -42,6 +46,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -955,6 +960,9 @@ class ServicePrime extends ServiceBase {
   }
 
   private isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    if (isPrimeUserBannedError(error)) {
+      return false;
+    }
     const e = error as OneKeyError | undefined;
     const errorData = e?.data as IOneKeyIdOAuthBindErrorData | undefined;
     return (
@@ -988,6 +996,9 @@ class ServicePrime extends ServiceBase {
     };
     fallbackMessage: string;
   }) {
+    if (isPrimeUserBannedError(response.data)) {
+      return new OneKeyErrorPrimeUserBanned();
+    }
     const errorCode = Number(response.data.code);
     const errorMessage = response.data.message || fallbackMessage;
     if ([90_002, 90_003].includes(errorCode)) {
@@ -1196,6 +1207,9 @@ class ServicePrime extends ServiceBase {
 
           return Array.isArray(translations) ? translations : batch;
         } catch (error) {
+          if (isPrimeUserBannedError(error)) {
+            throw error;
+          }
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
@@ -1220,6 +1234,18 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
+    if (
+      settledResults.some(
+        (result) =>
+          result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+      )
+    ) {
+      // The active UI session owns this feedback. Concurrent batches and
+      // stale sessions must not produce automatic background-call toasts.
+      const error = new OneKeyErrorPrimeUserBanned();
+      error.autoToast = false;
+      throw error;
+    }
     const rejected = settledResults.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
@@ -3405,7 +3431,7 @@ class ServicePrime extends ServiceBase {
         result = await client.post<
           IApiClientResponse<IOneKeyIdOAuthBindResponse>
         >(
-          '/prime/v1/account/identities/oauth/bind',
+          ONEKEY_ID_OAUTH_BIND_PATH,
           {
             token: oauthAccessToken,
             legacyOneKeyIdAuthToken,
@@ -4664,6 +4690,15 @@ class ServicePrime extends ServiceBase {
       profileRequest,
       serverUserInfoRequest,
     ]);
+
+    // The client interceptor already signed out the banned session.
+    const bannedResult = [profileResult, serverUserInfoResult].find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+    );
+    if (bannedResult) {
+      throw bannedResult.reason;
+    }
 
     await this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
       results: [profileResult, serverUserInfoResult],

@@ -429,7 +429,7 @@ describe('privacy send approval lifecycle', () => {
 
 describe('privacy fee checks stay local', () => {
   it.each(['xmr--0', 'zec--0'])(
-    '%s checks the actual fee and high-fee warning without uploading the proposal',
+    '%s checks the actual fee without uploading the proposal',
     async (networkId) => {
       const post = jest.fn();
       const service = new ServiceSend({
@@ -458,6 +458,7 @@ describe('privacy fee checks stay local', () => {
           feeAmount: '0.00001',
         }),
       ).resolves.toBe(true);
+      // A fee as large as the payment is not flagged; the runtime bounds it.
       const highFee = networkId === 'xmr--0' ? '1000000000000' : '100000000';
       await expect(
         service.preCheckIsFeeInfoOverflow({
@@ -465,7 +466,7 @@ describe('privacy fee checks stay local', () => {
           encodedTx: privacyProposal(networkId, highFee),
           feeAmount: '1',
         }),
-      ).resolves.toBe(networkId === 'xmr--0');
+      ).resolves.toBe(false);
       await expect(
         service.preCheckIsFeeInfoOverflow({
           ...params,

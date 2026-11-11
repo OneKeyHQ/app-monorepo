@@ -3,13 +3,45 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
+// Pay-block layout handlers the zone registered, newest last: jsdom has no
+// layout pass, so tests report measurements through these.
+const mockLayoutHandlers: ((event: {
+  nativeEvent: { layout: { height: number } };
+}) => void)[] = [];
 
 jest.mock('@onekeyhq/components', () => {
   const { createElement, Fragment } =
     jest.requireActual<typeof import('react')>('react');
   const passthrough = ({ children }: { children?: ReactNode }) =>
     createElement(Fragment, null, children);
+  const box = ({
+    children,
+    testID,
+    minHeight,
+    onLayout,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    minHeight?: number;
+    onLayout?: (typeof mockLayoutHandlers)[number];
+  }) => {
+    if (onLayout) {
+      mockLayoutHandlers.push(onLayout);
+    }
+    return createElement(
+      'div',
+      { 'data-testid': testID, 'data-min-height': minHeight },
+      children,
+    );
+  };
   return {
     Button: ({
       children,
@@ -25,30 +57,77 @@ jest.mock('@onekeyhq/components', () => {
         { type: 'button', 'data-testid': testID, onClick: onPress },
         children,
       ),
+    Icon: () => null,
     SizableText: passthrough,
     Spinner: () => null,
-    Stack: passthrough,
-    YStack: passthrough,
+    Stack: box,
+    XStack: box,
+    YStack: box,
   };
 });
+
+const mockStorage = new Map<string, string | number | boolean>();
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: {
+    syncStorage: {
+      // MMKV hands back "" from getString for a stored number; the zone
+      // must not depend on getNumber surviving the native mirror.
+      getString: (key: string) => {
+        const value = mockStorage.get(key);
+        if (value === undefined) {
+          return undefined;
+        }
+        return typeof value === 'string' ? value : '';
+      },
+      set: (key: string, value: string | number | boolean) => {
+        mockStorage.set(key, value);
+      },
+    },
+  },
+}));
+
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import { BuyActionZone } from './BuyActionZone';
 import { EBuyActionState } from './types';
 
-function renderZone(onViewOrder?: () => void) {
+const ZONE_HEIGHT_KEY = EAppSyncStorageKeys.onekey_onramper_pay_zone_height;
+
+beforeEach(() => {
+  mockStorage.clear();
+  mockLayoutHandlers.length = 0;
+});
+
+function renderZone(
+  onViewOrder?: () => void,
+  {
+    offerWebFallback,
+    errorText,
+    onSwitchAccount,
+  }: {
+    offerWebFallback?: boolean;
+    errorText?: string;
+    onSwitchAccount?: () => Promise<void>;
+  } = {},
+) {
   const onRetry = jest.fn();
+  const onWebFallback = jest.fn();
   render(
     <BuyActionZone
       state={EBuyActionState.RetryableError}
       nativeButton={null}
       isMock={false}
+      errorText={errorText}
       onMockPay={() => {}}
       onRetry={onRetry}
       onViewOrder={onViewOrder}
-      onWebFallback={() => {}}
+      onWebFallback={onWebFallback}
+      offerWebFallback={offerWebFallback}
+      onSwitchAccount={onSwitchAccount}
     />,
   );
-  return { onRetry };
+  return { onRetry, onWebFallback };
 }
 
 describe('BuyActionZone retryable error', () => {
@@ -59,6 +138,19 @@ describe('BuyActionZone retryable error', () => {
 
     expect(onRetry).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('headless-buy-view-order')).toBeNull();
+    expect(screen.queryByTestId('headless-buy-retry-web-fallback')).toBeNull();
+  });
+
+  it('offers the web widget under the retry after a declined payment', () => {
+    const { onRetry, onWebFallback } = renderZone(undefined, {
+      offerWebFallback: true,
+    });
+
+    expect(screen.getByTestId('headless-buy-retry')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('headless-buy-retry-web-fallback'));
+
+    expect(onWebFallback).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
   });
 
   it('sends the user to the order instead of a one-tap retry when the payment outcome is unknown', () => {
@@ -72,6 +164,42 @@ describe('BuyActionZone retryable error', () => {
 
     expect(onViewOrder).toHaveBeenCalledTimes(1);
     expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it('states the failure right above the action that answers it', () => {
+    renderZone(undefined, { errorText: 'Payment declined' });
+
+    const error = screen.getByTestId('headless-buy-zone-error');
+    expect(error.textContent).toBe('Payment declined');
+    // Document order is visual order: the reason comes before the retry.
+    expect(
+      error.compareDocumentPosition(screen.getByTestId('headless-buy-retry')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('offers verifying another email only when there may be a login to drop', () => {
+    const onSwitchAccount = jest.fn(() => Promise.resolve());
+    renderZone(undefined, { onSwitchAccount });
+
+    fireEvent.click(screen.getByTestId('headless-buy-switch-account'));
+
+    expect(onSwitchAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the switch-account action out without a login', () => {
+    renderZone();
+
+    expect(screen.queryByTestId('headless-buy-switch-account')).toBeNull();
+  });
+
+  it('leaves the switch-account action out while the payment outcome is unknown', () => {
+    const onSwitchAccount = jest.fn(() => Promise.resolve());
+    renderZone(jest.fn(), { onSwitchAccount });
+
+    // Signing out prepares a fresh checkout in place of "View order".
+    expect(screen.getByTestId('headless-buy-view-order')).toBeTruthy();
+    expect(screen.queryByTestId('headless-buy-switch-account')).toBeNull();
   });
 });
 
@@ -112,5 +240,102 @@ describe('BuyActionZone web fallback', () => {
 
     expect(onRetryInit).toHaveBeenCalledTimes(1);
     expect(onWebFallback).not.toHaveBeenCalled();
+  });
+});
+
+function renderReady() {
+  return render(
+    <BuyActionZone
+      state={EBuyActionState.Ready}
+      nativeButton={null}
+      isMock={false}
+      onMockPay={() => {}}
+      onRetry={() => {}}
+      onWebFallback={() => {}}
+    />,
+  );
+}
+
+function zoneMinHeight(container: HTMLElement) {
+  return Number((container.firstElementChild as HTMLElement).dataset.minHeight);
+}
+
+describe('BuyActionZone reserved height', () => {
+  it('reserves the pay block height remembered from an earlier visit', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, '92');
+
+    const { container } = renderReady();
+
+    expect(zoneMinHeight(container)).toBe(92);
+  });
+
+  it('ignores a remembered height no pay block could have', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, '400');
+
+    const { container } = renderReady();
+
+    expect(zoneMinHeight(container)).toBe(56);
+  });
+
+  it('grows to the tallest pay block it measures and remembers it', () => {
+    const { container } = renderReady();
+    const reportHeight = (height: number) =>
+      act(() => {
+        mockLayoutHandlers[mockLayoutHandlers.length - 1]({
+          nativeEvent: { layout: { height } },
+        });
+      });
+
+    reportHeight(91.2);
+    expect(zoneMinHeight(container)).toBe(92);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
+
+    // A pass under the button's minimum is the button mid-swap.
+    reportHeight(50);
+    expect(zoneMinHeight(container)).toBe(92);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
+  });
+
+  it('remembers the pay block of this visit for the next one, even when shorter', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, '120');
+    const { container } = renderReady();
+
+    act(() => {
+      mockLayoutHandlers[mockLayoutHandlers.length - 1]({
+        nativeEvent: { layout: { height: 92 } },
+      });
+    });
+
+    // Not shrunk on screen (the card would move under the user), but the
+    // next visit reserves what this provider's block actually needs.
+    expect(zoneMinHeight(container)).toBe(120);
+    expect(mockStorage.get(ZONE_HEIGHT_KEY)).toBe('92');
+  });
+
+  it('falls back when an older build left a number the mirror reads as ""', () => {
+    mockStorage.set(ZONE_HEIGHT_KEY, 91);
+
+    const { container } = renderReady();
+
+    expect(zoneMinHeight(container)).toBe(56);
+  });
+});
+
+describe('BuyActionZone quoting', () => {
+  it('says a quote is on its way while preparing', () => {
+    render(
+      <BuyActionZone
+        state={EBuyActionState.Preparing}
+        nativeButton={null}
+        isMock={false}
+        onMockPay={() => {}}
+        onRetry={() => {}}
+        onWebFallback={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('headless-buy-placeholder').textContent).toBe(
+      'buy_quote_loading__msg',
+    );
   });
 });

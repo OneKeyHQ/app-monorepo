@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard, View, type ViewInstance } from 'react-native';
 
 import {
   Checkbox,
@@ -10,10 +12,13 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import type { IInputProps } from '@onekeyhq/components';
+import { useScrollView } from '@onekeyhq/components/src/layouts/ScrollView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -157,8 +162,7 @@ export function PrivacyEnableDisclosure({
     <YStack gap="$3">
       <SizableText size="$bodyMd">
         {intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__desc,
-          defaultMessage: ETranslationsMock.privacy_enable_account__desc,
+          id: ETranslations.privacy_enable_account__desc,
         })}
       </SizableText>
       {deviceExportsViewKey && accountUtils.isHwAccount({ accountId }) ? (
@@ -176,6 +180,128 @@ export function PrivacyEnableDisclosure({
         </SizableText>
       ) : null}
     </YStack>
+  );
+}
+
+export function BirthdayHeightInput({
+  onFocus,
+  onBlur,
+  addOns,
+  feedback,
+  revealRequest,
+  ...props
+}: IInputProps & { feedback?: ReactNode; revealRequest?: number }) {
+  const intl = useIntl();
+  const [focused, setFocused] = useState(false);
+  const focusedRef = useRef(false);
+  const revealWithoutFocusRef = useRef(false);
+  const fieldRef = useRef<ViewInstance>(null);
+  const frameRef = useRef<ReturnType<typeof requestAnimationFrame> | undefined>(
+    undefined,
+  );
+  const { scrollViewRef, pageOffsetRef } = useScrollView();
+  const revealField = useCallback(() => {
+    if (
+      !platformEnv.isNative ||
+      (!focusedRef.current && !revealWithoutFocusRef.current)
+    )
+      return;
+    if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = undefined;
+      const field = fieldRef.current;
+      const scroll = scrollViewRef.current;
+      if (!field || !scroll?.measureInWindow) return;
+      // The overlay owns keyboard avoidance; only scroll the field and its error
+      // into the remaining body viewport, without adding another keyboard inset.
+      scroll.measureInWindow((_x, top, _width, viewportHeight) => {
+        field.measureInWindow((_fieldX, fieldTop, _fieldWidth, fieldHeight) => {
+          if (
+            (!focusedRef.current && !revealWithoutFocusRef.current) ||
+            fieldRef.current !== field
+          )
+            return;
+          revealWithoutFocusRef.current = false;
+          const bottomOverflow =
+            fieldTop + fieldHeight + 8 - (top + viewportHeight);
+          const topOverflow = fieldTop - 8 - top;
+          const delta =
+            topOverflow < 0 ? topOverflow : Math.max(0, bottomOverflow);
+          if (Math.abs(delta) > 1) {
+            scroll.scrollTo({
+              y: Math.max(0, pageOffsetRef.current.y + delta),
+              animated: true,
+            });
+          }
+        });
+      });
+    });
+  }, [pageOffsetRef, scrollViewRef]);
+  useEffect(() => {
+    if (revealRequest) {
+      revealWithoutFocusRef.current = true;
+      revealField();
+    }
+  }, [revealField, revealRequest]);
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    const shown = Keyboard.addListener('keyboardDidShow', revealField);
+    const changed = Keyboard.addListener('keyboardDidChangeFrame', revealField);
+    return () => {
+      focusedRef.current = false;
+      revealWithoutFocusRef.current = false;
+      shown.remove();
+      changed.remove();
+      if (frameRef.current !== undefined)
+        cancelAnimationFrame(frameRef.current);
+    };
+  }, [revealField]);
+
+  return (
+    <View ref={fieldRef} onLayout={revealField}>
+      <Input
+        {...props}
+        testID={props.testID}
+        keyboardType="number-pad"
+        onFocus={(event) => {
+          focusedRef.current = true;
+          setFocused(true);
+          onFocus?.(event);
+          revealField();
+        }}
+        onBlur={(event) => {
+          focusedRef.current = false;
+          setFocused(false);
+          onBlur?.(event);
+        }}
+        addOns={
+          platformEnv.isNative && focused && !props.disabled
+            ? [
+                ...(addOns ?? []),
+                {
+                  iconName: 'KeyboardDownOutline',
+                  testID: props.testID
+                    ? `${props.testID}-hide-keyboard`
+                    : undefined,
+                  accessibilityRole: 'button',
+                  accessibilityLabel: intl.formatMessage({
+                    id: ETranslations.global_done,
+                  }),
+                  onPress: () => Keyboard.dismiss(),
+                },
+              ]
+            : addOns
+        }
+      />
+      <YStack
+        testID={props.testID ? `${props.testID}-feedback` : undefined}
+        pt="$1"
+        minHeight="$6"
+        onLayout={revealField}
+      >
+        {feedback}
+      </YStack>
+    </View>
   );
 }
 
@@ -262,7 +388,7 @@ export function BirthdayDialogForm({
     );
   } else if (displayedMode === 'height') {
     editor = (
-      <Input
+      <BirthdayHeightInput
         testID="local-wallet-birthday-height-input"
         size="small"
         keyboardType="number-pad"
@@ -272,6 +398,30 @@ export function BirthdayDialogForm({
         value={displayedHeight}
         disabled={locked}
         error={showHeightError}
+        feedback={
+          showHeightError ? (
+            <SizableText
+              testID="local-wallet-birthday-height-error"
+              size="$bodySm"
+              color="$textCritical"
+              accessibilityRole="alert"
+            >
+              {getBirthdayHeightHint({
+                height: height.trim(),
+                invalid: true,
+                minHeight,
+                maxHeight,
+                label: intl.formatMessage({
+                  id: ETranslations.global_block_height,
+                }),
+                invalidText: intl.formatMessage({
+                  id: getBirthdayInputError('height'),
+                }),
+                format: (value) => intl.formatNumber(value),
+              })}
+            </SizableText>
+          ) : null
+        }
         onBlur={() => setHeightTouched(true)}
         onChangeText={(value) => {
           if (locked) return;
@@ -339,35 +489,7 @@ export function BirthdayDialogForm({
           },
         ]}
       />
-      {editor ? (
-        <YStack gap="$1">
-          {editor}
-          <YStack minHeight="$5">
-            {showHeightError ? (
-              <SizableText
-                testID="local-wallet-birthday-height-error"
-                size="$bodySm"
-                color="$textCritical"
-                accessibilityRole="alert"
-              >
-                {getBirthdayHeightHint({
-                  height: height.trim(),
-                  invalid: true,
-                  minHeight,
-                  maxHeight,
-                  label: intl.formatMessage({
-                    id: ETranslations.global_block_height,
-                  }),
-                  invalidText: intl.formatMessage({
-                    id: getBirthdayInputError('height'),
-                  }),
-                  format: (value) => intl.formatNumber(value),
-                })}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </YStack>
-      ) : null}
+      {editor ? <YStack gap="$1">{editor}</YStack> : null}
       {earliestBirthday ? (
         <YStack gap="$1">
           <Checkbox
@@ -379,9 +501,7 @@ export function BirthdayDialogForm({
               formRef.current.fromEarliest = next;
             }}
             label={intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_existing_unknown__desc,
-              defaultMessage:
-                ETranslationsMock.privacy_sync_start_existing_unknown__desc,
+              id: ETranslations.privacy_sync_start_from_beginning__desc,
             })}
             containerProps={{ py: '$0', mt: '$1' }}
             labelProps={{ variant: '$bodyMd', color: '$textSubdued' }}

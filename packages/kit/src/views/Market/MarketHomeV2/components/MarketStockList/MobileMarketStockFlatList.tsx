@@ -12,6 +12,7 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -43,7 +44,9 @@ function MobileMarketStockFlatListImpl({
   shouldSuppressItemPress,
 }: IMobileMarketStockFlatListProps) {
   const intl = useIntl();
-  const toMarketStockDetailPage = useToMarketStockDetailPage();
+  const toMarketStockDetailPage = useToMarketStockDetailPage({
+    from: EEnterWay.MarketList,
+  });
   const {
     items,
     isLoading,

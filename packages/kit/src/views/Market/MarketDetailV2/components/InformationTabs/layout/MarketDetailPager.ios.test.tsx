@@ -51,10 +51,12 @@ jest.mock('react-native-pager-view', () => {
           onPageSelected,
           style,
           headerHeight,
+          stickyHeaderHeights,
           nativeSmoothHeaderScrollEnabled,
         }: PropsWithChildren<{
           style: { opacity: number };
           headerHeight: number;
+          stickyHeaderHeights?: readonly number[];
           nativeSmoothHeaderScrollEnabled: boolean;
           header: React.ReactNode;
           stickyHeader: React.ReactNode;
@@ -75,6 +77,7 @@ jest.mock('react-native-pager-view', () => {
             data-testid="native-pager"
             style={style}
             data-header-height={headerHeight}
+            data-sticky-header-heights={stickyHeaderHeights?.join(',')}
             data-smooth={nativeSmoothHeaderScrollEnabled}
           >
             {header}
@@ -127,6 +130,7 @@ it('keeps the chart and each page state while selecting and renaming tabs', () =
   const pager = (positionName: string) => (
     <MarketDetailPager
       initialTabName="Position"
+      getStickyHeaderHeight={(tabKey) => (tabKey === 'portfolio' ? 89 : 45)}
       renderHeader={() => <Chart />}
       renderTabBar={renderTabBar}
       onTabChange={changed}
@@ -143,6 +147,7 @@ it('keeps the chart and each page state while selecting and renaming tabs', () =
   );
   const { getByTestId, getByText, rerender } = render(pager('Position'));
   const chart = getByTestId('chart');
+  expect(getByTestId('native-pager').dataset.stickyHeaderHeights).toBe('45,89');
   expect(getByTestId('portfolio').dataset.focused).toBe('true');
   fireEvent.click(getByTestId('portfolio'));
   fireEvent.click(getByText('Overview'));

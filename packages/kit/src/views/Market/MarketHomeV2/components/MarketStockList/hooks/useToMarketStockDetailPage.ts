@@ -45,6 +45,8 @@ import type {
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
+  // Entry reported by detail analytics when the target does not set its own.
+  from?: EEnterWay;
 }
 
 export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
@@ -250,10 +252,13 @@ export function useToMarketStockDetailPage(
         return true;
       }
 
+      const entryFrom = stockPreview?.from ?? options?.from;
+
       if (options?.replaceCurrentDetail) {
         const stockDetailParams = {
           stockId,
           ...stockTokenParams,
+          ...(entryFrom ? { from: entryFrom } : undefined),
           ...(stockPreview
             ? {
                 stockPreviewSymbol: stockPreview.symbol,
@@ -343,7 +348,7 @@ export function useToMarketStockDetailPage(
             ...(stockPreview?.initialSection
               ? { initialSection: stockPreview.initialSection }
               : undefined),
-            ...(stockPreview?.from ? { from: stockPreview.from } : undefined),
+            ...(entryFrom ? { from: entryFrom } : undefined),
           },
         },
       });
@@ -357,6 +362,7 @@ export function useToMarketStockDetailPage(
       currentRouteName,
       isModalPage,
       options?.replaceCurrentDetail,
+      options?.from,
       preloadLayout,
       splitViewType,
       tokenDetailActions,

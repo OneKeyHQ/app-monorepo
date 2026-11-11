@@ -1,1 +1,1 @@
-export { MobileLayout } from './legacyMobileLayout';
+export { MobileLayout } from './StockAwareMobileLayout';

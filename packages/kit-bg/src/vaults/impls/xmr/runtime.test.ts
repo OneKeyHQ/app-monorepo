@@ -1,3 +1,4 @@
+import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLocalWalletSyncErrorKind } from '../../localWallet/userFacingError';
@@ -168,6 +169,48 @@ describe('xmr runtime session', () => {
     const api = await getXmrRuntime(vault);
     await expect(api.balance('3', '1')).rejects.toThrow('WALLET_BUSY');
     await expect(api.balance('3', '1')).rejects.toThrow('WALLET_BUSY');
+    expect(raw.openWallet).toHaveBeenCalledTimes(1);
+  });
+
+  // A runtime without a node answers NODE_NOT_CONFIGURED; while the node is down that is expected.
+  it('keeps the retry window instead of reopening while the node is unreachable', async () => {
+    raw.setNodeUrl.mockImplementation(async () => {
+      throw runtimeError('NETWORK_ERROR');
+    });
+    raw.chainTip.mockImplementation(async () => {
+      throw runtimeError('NODE_NOT_CONFIGURED');
+    });
+    for (let call = 0; call < 3; call += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const api = await getXmrRuntime(vault);
+      // eslint-disable-next-line no-await-in-loop
+      const error = await api.chainTip().catch((e: unknown) => e);
+      // Read like the runtime's own errors: send and broadcast show an unreachable node, not a lost tx.
+      expect(readXmrRuntimeError(error)?.code).toBe('NETWORK_ERROR');
+      expect(getLocalWalletSyncErrorKind(error)).toBe('nodeUnreachable');
+    }
+    expect(raw.openWallet).toHaveBeenCalledTimes(1);
+    expect(raw.setNodeUrl).toHaveBeenCalledTimes(1);
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 30_000);
+    await getXmrRuntime(vault);
+    expect(raw.setNodeUrl).toHaveBeenCalledTimes(2);
+    raw.setNodeUrl.mockReset();
+  });
+
+  it('reports a missing node without reopening when none is configured', async () => {
+    const noNode = {
+      getXmrNetwork: async () => 'mainnet',
+      resolveXmrNodeUrl: async () => {
+        throw new OneKeyLocalError('no node');
+      },
+    } as unknown as Vault;
+    raw.chainTip.mockImplementation(async () => {
+      throw runtimeError('NODE_NOT_CONFIGURED');
+    });
+    const api = await getXmrRuntime(noNode);
+    await expect(api.chainTip()).rejects.toThrow('NODE_NOT_CONFIGURED');
     expect(raw.openWallet).toHaveBeenCalledTimes(1);
   });
 });

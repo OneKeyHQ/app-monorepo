@@ -45,19 +45,14 @@ export function MarketDetailPager({
   scrollEnabled = true,
   initialHeaderHeight,
   initialStickyHeaderHeight,
+  getStickyHeaderHeight,
 }: IMarketDetailPagerProps) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState<number | null>(
-    null,
-  );
+  const [measuredStickyHeaderHeight, setMeasuredStickyHeaderHeight] = useState<
+    number | null
+  >(null);
   const [hasViewport, setHasViewport] = useState(false);
-  const isLayoutReady =
-    hasViewport && headerHeight !== null && stickyHeaderHeight !== null;
-  const canShowInitialLayout =
-    initialHeaderHeight !== undefined &&
-    initialStickyHeaderHeight !== undefined;
-  const isVisible = canShowInitialLayout || isLayoutReady;
   const theme = useTheme();
   const pages = useMemo(
     () =>
@@ -78,6 +73,15 @@ export function MarketDetailPager({
     onSelectionChange: onTabChange,
     onBeforeCommand,
   });
+  const stickyHeaderHeight =
+    getStickyHeaderHeight?.(pages[controller.selectedIndex]?.key ?? '') ??
+    measuredStickyHeaderHeight;
+  const isLayoutReady =
+    hasViewport && headerHeight !== null && stickyHeaderHeight !== null;
+  const canShowInitialLayout =
+    initialHeaderHeight !== undefined &&
+    initialStickyHeaderHeight !== undefined;
+  const isVisible = canShowInitialLayout || isLayoutReady;
   const context = useMemo(
     () => ({ focusedName: controller.focusedName }),
     [controller.focusedName],
@@ -111,6 +115,11 @@ export function MarketDetailPager({
           stickyHeaderHeight={
             stickyHeaderHeight ?? initialStickyHeaderHeight ?? 44
           }
+          stickyHeaderHeights={
+            getStickyHeaderHeight
+              ? pages.map((page) => getStickyHeaderHeight(page.key))
+              : undefined
+          }
           pageRetentionDistance={children.length}
           offscreenPageLimit={Math.max(1, children.length - 1)}
           header={
@@ -131,10 +140,14 @@ export function MarketDetailPager({
             <View
               testID="market-detail-native-sticky-header"
               collapsable={false}
-              onLayout={({ nativeEvent }) => {
-                const height = Math.ceil(nativeEvent.layout.height);
-                if (height > 0) setStickyHeaderHeight(height);
-              }}
+              onLayout={
+                getStickyHeaderHeight
+                  ? undefined
+                  : ({ nativeEvent }) => {
+                      const height = Math.ceil(nativeEvent.layout.height);
+                      if (height > 0) setMeasuredStickyHeaderHeight(height);
+                    }
+              }
             >
               {renderTabBar({
                 focusedTab: controller.focusedTab,

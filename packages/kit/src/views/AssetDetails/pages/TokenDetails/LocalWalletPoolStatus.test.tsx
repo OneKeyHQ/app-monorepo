@@ -22,6 +22,8 @@ const mockPushModal = jest.fn();
 
 jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => false,
+  Easing:
+    jest.requireActual<typeof import('react-native')>('react-native').Easing,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({

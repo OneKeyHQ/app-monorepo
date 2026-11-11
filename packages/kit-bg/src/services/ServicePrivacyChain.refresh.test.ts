@@ -12,8 +12,13 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
 }));
 const mockPublish = jest.fn(async (_updater: unknown) => undefined);
+// No published positions: these cases never reach a long catch-up.
+const mockReadState = jest.fn(async () => ({ progress: {} }));
 jest.mock('../states/jotai/atoms', () => ({
-  privacyChainAtom: { set: (updater: unknown) => mockPublish(updater) },
+  privacyChainAtom: {
+    set: (updater: unknown) => mockPublish(updater),
+    get: () => mockReadState(),
+  },
 }));
 
 const ServicePrivacyChain = require('./ServicePrivacyChain')

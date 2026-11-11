@@ -15,6 +15,7 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
@@ -59,6 +60,7 @@ function MobileMarketTokenFlatListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: selectedCategory,
+    from: EEnterWay.MarketList,
   });
 
   // Data management

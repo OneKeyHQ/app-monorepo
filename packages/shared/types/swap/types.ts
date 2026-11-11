@@ -464,6 +464,7 @@ export interface ISwapQuoteEventPayload {
   params: IFetchQuotesParams;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   accountId?: string;
+  quoteCurrency?: string;
   quoteRequestId: string;
 }
 interface ISocketAsset {
@@ -647,6 +648,7 @@ export interface ISwapGasInfo {
   externalSponsorPromoEligible?: boolean;
 }
 export interface ISwapPreSwapData {
+  strictCurrencyConversion?: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromTokenAmount?: string;

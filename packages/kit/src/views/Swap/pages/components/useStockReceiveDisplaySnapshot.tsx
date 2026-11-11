@@ -3,7 +3,11 @@ import type { ReactNode, RefObject } from 'react';
 
 import type { ISwapPreSwapData } from '@onekeyhq/shared/types/swap/types';
 
+import type { IStockResolvedTokenPrice } from '../../hooks/swapStockFiatValueUtils';
+
 export type IStockReceiveDisplayValue = {
+  inputTokenPrice?: IStockResolvedTokenPrice;
+  receiveTokenPrice?: IStockResolvedTokenPrice;
   currencySymbol: string;
   rateDifference: ISwapPreSwapData['rateDifference'];
   receiveAmount: string;

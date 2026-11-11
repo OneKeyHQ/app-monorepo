@@ -3049,6 +3049,10 @@ export function useSwapBuildTx({
                         defaultTokenCurrency: persistSettings.currencyInfo.id,
                         currencyMap,
                         instantRate: builtInstantRate,
+                        strictCurrencyConversion:
+                          prev.preSwapData.strictCurrencyConversion ||
+                          prev.preSwapData.swapType ===
+                            ESwapTabSwitchType.STOCK,
                       }),
                 swapBuildResultData: {
                   reviewQuoteResult: data,
@@ -4373,6 +4377,9 @@ export function useSwapBuildTx({
                     toTokenCurrency: prev.preSwapData.toToken?.currency,
                     defaultTokenCurrency: persistSettings.currencyInfo.id,
                     currencyMap,
+                    strictCurrencyConversion:
+                      prev.preSwapData.strictCurrencyConversion ||
+                      prev.preSwapData.swapType === ESwapTabSwitchType.STOCK,
                     instantRate: new BigNumber(
                       rebuiltQuoteResult.toAmount ?? '',
                     )

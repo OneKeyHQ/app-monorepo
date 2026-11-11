@@ -1,6 +1,7 @@
 import {
   EHeadlessBuyOrderStatus,
   type IHeadlessBuyAbandonReason,
+  type IHeadlessBuyCheckoutProgress,
   type IHeadlessBuyOrder,
   type IOnramperTransactionStatus,
 } from '../../../types/fiatCrypto';
@@ -53,30 +54,116 @@ const AUTHORIZATION_FAILED_PROVIDER_REASONS = new Set([
   'onramp_api.commit_error',
 ]);
 
-// How a failed checkout settles its order. SDK 1.3.1 reports every Coinbase
-// page error as `providerFailed` ("outcome unknown"), a failed authorization
-// included, so the page reason that preceded the failure decides between the
-// two; every other error code is a plain pre-payment failure.
+// Provider payment-page reasons that mean the page itself failed to load.
+const PAGE_LOAD_FAILED_PROVIDER_REASONS = new Set(['onramp_api.load_error']);
+
+// The SDK's support code for a web view navigation that failed in the URL
+// loading system (DNS, TLS, timeout, offline), with the NSURLError code:
+// `providerFailed:NSURLErrorDomain/-1200` for an SSL failure
+// (device-observed 2026-11-09 on Paybis).
+const URL_LOAD_ERROR_SUPPORT_CODE_PATTERN = /NSURLErrorDomain\/(-?\d+)/;
+// NSURLErrorCancelled: a navigation that was replaced or closed, which says
+// nothing about the page.
+const URL_LOAD_CANCELLED_CODE = '-999';
+
+// Whether the failure itself says the payment page failed to load. A page
+// reason, when there is one, is the page's own account and decides alone.
+function hasPageLoadFailureSignal({
+  providerReason,
+  supportCode,
+}: {
+  providerReason?: string;
+  supportCode?: string;
+}): boolean {
+  if (providerReason !== undefined) {
+    return PAGE_LOAD_FAILED_PROVIDER_REASONS.has(providerReason);
+  }
+  const urlErrorCode = supportCode
+    ? URL_LOAD_ERROR_SUPPORT_CODE_PATTERN.exec(supportCode)?.[1]
+    : undefined;
+  return urlErrorCode !== undefined && urlErrorCode !== URL_LOAD_CANCELLED_CODE;
+}
+
+// SDK events that prove the provider's payment surface came up: the page
+// reported ready, or the payment moved past it.
+const PAYMENT_SURFACE_EVENT_TYPES = new Set([
+  'providerReady',
+  'completed',
+  'paymentAuthorized',
+  'paymentProcessing',
+  'paymentPending',
+  'challengeStarted',
+  'challengeCompleted',
+  'customerOnboardingRequired',
+  'paymentCancelled',
+]);
+
+// Folds one SDK checkout event into the progress of its transaction. Returns
+// the same reference when the event adds nothing.
+export function applyHeadlessBuyCheckoutEvent(
+  progress: IHeadlessBuyCheckoutProgress | undefined,
+  event: { type?: string; renderType?: string },
+): IHeadlessBuyCheckoutProgress {
+  const current = progress ?? { paymentSurfaceReached: false };
+  const renderType = event.renderType ?? current.renderType;
+  const paymentSurfaceReached =
+    current.paymentSurfaceReached ||
+    (event.type !== undefined && PAYMENT_SURFACE_EVENT_TYPES.has(event.type));
+  if (
+    progress &&
+    renderType === current.renderType &&
+    paymentSurfaceReached === current.paymentSurfaceReached
+  ) {
+    return progress;
+  }
+  return { renderType, paymentSurfaceReached };
+}
+
+// How a failed checkout settles its order. SDK 1.3.1 reports every failure of
+// the provider's payment surface as `providerFailed` ("outcome unknown"): a
+// failed authorization, and a page that never loaded (device-observed
+// 2026-11-09 on Paybis: an SSL failure of the web view, no `providerReady`).
+// The page reason settles a failed authorization. A page load failure takes
+// both a load error reported with the failure (hasPageLoadFailureSignal) and
+// a web view that had not come up before it: a missing `providerReady` alone
+// proves nothing, since a provider page is not bound to report readiness,
+// and a load error after the page was up may follow a payment. Anything else
+// stays "outcome unknown" — including a failure with no progress on record.
+// Every other error code is a plain pre-payment failure.
 export function getHeadlessBuyAbandonReason({
   errorCode,
   providerReason,
+  supportCode,
+  progress,
 }: {
   errorCode?: string;
   providerReason?: string;
+  // The `failed` event's support code (SDK 1.3+).
+  supportCode?: string;
+  progress?: IHeadlessBuyCheckoutProgress;
 }): IHeadlessBuyAbandonReason {
   if (errorCode !== 'providerFailed') {
     return 'failed';
   }
-  return providerReason !== undefined &&
+  if (
+    providerReason !== undefined &&
     AUTHORIZATION_FAILED_PROVIDER_REASONS.has(providerReason)
-    ? 'authorizationFailed'
-    : 'providerFailed';
+  ) {
+    return 'authorizationFailed';
+  }
+  if (
+    progress?.renderType === 'webview' &&
+    !progress.paymentSurfaceReached &&
+    hasPageLoadFailureSignal({ providerReason, supportCode })
+  ) {
+    return 'pageLoadFailed';
+  }
+  return 'providerFailed';
 }
 
 // Failed by the client (24 h no-progress rule, or the provider's payment page
 // reporting a failed authorization) rather than by the backend. The backend
-// has not confirmed it, so such an order keeps being refreshed and never
-// claims anything about the money.
+// has not confirmed it, so such an order keeps being refreshed.
 export function isClientFailedHeadlessBuyOrder(
   order: IHeadlessBuyOrder,
 ): boolean {
@@ -117,14 +204,23 @@ export function isHeadlessBuyOrderDelayed(
 
 export type IHeadlessBuyFailureKind = 'notCharged' | 'refund' | 'unknown';
 
-// Which failure sentence to show. Only a backend reason lets us promise
-// anything about the money, and "not charged" is only safe when nothing ever
-// showed a payment (no local paymentAuthorized, no backend paid) and the
+// Which failure sentence to show. "Not charged" is only safe when nothing
+// ever showed a payment (no local paymentAuthorized, no backend paid) and the
 // payment surface never failed with the outcome unknown (SDK 1.3
-// `providerFailed`); a client-decided failure knows nothing.
+// `providerFailed`). Two things can then say so: a backend failure reason,
+// or the provider's page reporting a failed authorization — Onramper
+// confirmed (2026-11-06, again 2026-11-09) that no charge is made on
+// Coinbase's `commit_error`. A timed-out order knows nothing.
 export function getHeadlessBuyFailureKind(
   order: IHeadlessBuyOrder,
 ): IHeadlessBuyFailureKind {
+  if (
+    order.authorizationFailed &&
+    !order.paymentSeen &&
+    !order.paymentOutcomeUnknown
+  ) {
+    return 'notCharged';
+  }
   if (isClientFailedHeadlessBuyOrder(order) || !order.statusReason) {
     return 'unknown';
   }

@@ -11,6 +11,7 @@ export const desktopApiPublicMethods: Readonly<
     'revenueCatGetAppUserId',
     'revenueCatGetCustomerInfo',
     'revenueCatGetOfferings',
+    'revenueCatGetStorefront',
     'revenueCatIsAvailable',
     'revenueCatLogInWithVerifiedSession',
     'revenueCatLogOut',

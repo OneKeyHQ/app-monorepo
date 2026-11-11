@@ -778,6 +778,7 @@ describe('MarketTokenSelector stock default category', () => {
 
     expect(mockUseToMarketStockDetailPage).toHaveBeenCalledWith({
       replaceCurrentDetail: true,
+      from: 'DetailSwitch',
     });
   });
 

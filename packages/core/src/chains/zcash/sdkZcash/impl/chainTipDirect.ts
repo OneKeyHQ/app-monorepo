@@ -1,5 +1,5 @@
 // cspell:ignore lightd Zaino
-import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
+import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 
 // A lightweight gRPC-web probe without loading WASM.
 
@@ -186,7 +186,7 @@ async function fetchGrpcWebUnaryFrame({
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await privacyChainNodeFetch(
+    const response = await privacyChainNodeRequest(
       `${lightwalletdUrl.replace(/\/+$/, '')}${path}`,
       {
         method: 'POST',
@@ -199,17 +199,14 @@ async function fetchGrpcWebUnaryFrame({
       },
     );
     if (!response.ok) return null;
-    const grpcStatus = response.headers.get('grpc-status');
+    const grpcStatus = response.headers?.get('grpc-status') ?? null;
     if (grpcStatus !== null && grpcStatus !== '0') return null;
-    const body = new Uint8Array(await response.arrayBuffer());
-    if (!grpcWebBodySucceeded(body)) return null;
-    return extractGrpcWebDataFrame(body);
+    if (!grpcWebBodySucceeded(response.bytes)) return null;
+    return extractGrpcWebDataFrame(response.bytes);
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
-    // An unread body holds a desktop host stream until it is cancelled.
-    controller.abort();
   }
 }
 

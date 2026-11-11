@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function ReceivePrivacyPromotion({
   onEnable,
@@ -25,8 +25,7 @@ export function ReceivePrivacyPromotion({
       <Icon name="ShieldOutline" size="$5" color="$iconSubdued" />
       <SizableText size="$bodySmMedium" flex={1}>
         {intl.formatMessage({
-          id: ETranslationsMock.privacy_enable_account__title,
-          defaultMessage: ETranslationsMock.privacy_enable_account__title,
+          id: ETranslations.privacy_enable_account__title,
         })}
       </SizableText>
       <Button

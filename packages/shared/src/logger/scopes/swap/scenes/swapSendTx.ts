@@ -2,6 +2,7 @@ import {
   getSafeErrorIdentifiers,
   getSwapErrorMessage,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -14,6 +15,7 @@ export class SwapSendTxScene extends BaseScene {
   public swapSendTx({
     reviewSessionId,
     quoteId,
+    swapSource,
     swapType,
     slippage,
     router,
@@ -41,6 +43,8 @@ export class SwapSendTxScene extends BaseScene {
   }: {
     reviewSessionId?: string;
     quoteId?: string;
+    // Entry that opened the trade, from the review analytics context.
+    swapSource?: ESwapSource;
     status: ESwapEventAPIStatus;
     // The raw error stays here: only fixed categories and allowlisted
     // identifiers derived from it reach the server.
@@ -67,6 +71,7 @@ export class SwapSendTxScene extends BaseScene {
     return {
       reviewSessionId,
       quoteId,
+      swapSource,
       status,
       ...(status === ESwapEventAPIStatus.FAIL
         ? {

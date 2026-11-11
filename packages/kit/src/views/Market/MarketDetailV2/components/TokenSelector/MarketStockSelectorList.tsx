@@ -42,9 +42,11 @@ const MarketStockSelectorTable = memo(
   ({
     result,
     onItemPress,
+    headerBg = '$bg',
   }: {
     result: IMarketStockSelectorListResult;
     onItemPress: (item: IMarketStockPublicItem) => void;
+    headerBg?: '$bg' | '$bgApp';
   }) => {
     const intl = useIntl();
     // The selector dropdown is a picker, not the full Market Stocks table, so
@@ -183,6 +185,7 @@ const MarketStockSelectorTable = memo(
           // so the row minHeight must be overridden here or the header stays
           // 56px tall no matter what height it is given.
           headerRowProps={{
+            bg: headerBg,
             height: TOKEN_SELECTOR_HEADER_HEIGHT,
             minHeight: TOKEN_SELECTOR_HEADER_HEIGHT,
           }}

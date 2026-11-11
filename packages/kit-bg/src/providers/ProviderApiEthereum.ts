@@ -50,6 +50,10 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+function normalizeSigningAddress(address: string) {
+  return hexUtils.addHexPrefix(address.toLowerCase());
+}
+
 export type ISwitchEthereumChainParameter = {
   chainId: string;
   // networkId?: string; // not use?
@@ -495,9 +499,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     transaction: IEncodedTxEvm,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      transaction.from,
+      normalizeSigningAddress,
+    );
 
     if (!isNil(transaction.value)) {
       transaction.value = prefixTxValueToHex(transaction.value);
@@ -584,9 +593,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -604,16 +614,26 @@ class ProviderApiEthereum extends ProviderApiBase {
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const {
+      account,
       accountInfo: { accountId, networkId, address: accountAddress } = {},
     } = (await this.getAccountsInfo(request))[0];
 
     let message = messages[0] as string;
     let address = messages[1] as string;
 
+    // An explicit address must not be reinterpreted as data by legacy argument handling.
+    if (
+      typeof address === 'string' &&
+      hexUtils.isHexString(address.toLowerCase(), 20)
+    ) {
+      this.assertAccountAddress(account, address, normalizeSigningAddress);
+    }
+
     // FIX: DYDX, KAVA evm use second param as message
     if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
       [address, message] = messages;
     }
+    this.assertAccountAddress(account, address, normalizeSigningAddress);
     message = autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -706,11 +726,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
 
     let message;
+    let signingAddress = messages[1];
     if (messages.length && messages[0]) {
       message = messages[0] ?? null;
       if (
@@ -719,9 +740,12 @@ class ProviderApiEthereum extends ProviderApiBase {
           address: message,
         })
       ) {
+        signingAddress = message;
         message = messages[1] ?? null;
       }
     }
+
+    this.assertAccountAddress(account, signingAddress, normalizeSigningAddress);
 
     let parsedData = message;
     try {
@@ -771,9 +795,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     if (process.env.NODE_ENV !== 'production') {
       console.log('eth_signTypedData_v3', messages, request);
     }
@@ -823,9 +848,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(account, messages[0], normalizeSigningAddress);
     if (process.env.NODE_ENV !== 'production') {
       console.log('eth_signTypedData_v4', messages, request);
     }

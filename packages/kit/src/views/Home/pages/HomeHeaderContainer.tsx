@@ -1,11 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { Stack, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -17,7 +10,6 @@ import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
@@ -25,34 +17,17 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-import type { LayoutChangeEvent } from 'react-native';
-
-/**
- * Identifies the header layout (OK-63873). The header is measured by the
- * collapsible tab container after layout, so a switch between layouts of
- * different height (funded: actions + banner band; empty: the add-money
- * block) left the tab content one or two frames behind. HomePageView keeps
- * the measured height per variant and hands the container the expected
- * height before paint whenever the variant changes.
- */
 export interface IHomeHeaderContainerProps {
-  onHeaderVariantChange?: (variant: string) => void;
-  /** The measured height of this container (alerts above it excluded). */
-  onHeaderLayout?: (variant: string, height: number) => void;
+  layout: ReturnType<typeof useHomeHeaderLayout>;
 }
 
-function BaseHomeHeaderContainer({
-  onHeaderVariantChange,
-  onHeaderLayout,
-}: IHomeHeaderContainerProps) {
+// Share the rendering decision so the parent can select its height before commit.
+export function useHomeHeaderLayout() {
   const {
     activeAccount: { wallet, account, network, vaultSettings },
   } = useActiveAccount({
     num: 0,
   });
-  // Wide desktop / web: the action row joins the total's row, on the right.
-  const { gtMd } = useMedia();
-  const actionsInBalanceRow = !platformEnv.isNative && gtMd;
 
   // Mirror WalletBanner's own render condition so the placeholder height
   // matches what the banner will actually display. WalletBanner returns null
@@ -89,24 +64,41 @@ function BaseHomeHeaderContainer({
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
 
-  // Layout effect: the parent applies the remembered height for this variant
-  // in the same commit, before the frame with the new layout is painted.
-  // Without a banner the action row still differs by balance state (actions
-  // row, add-money block, loading placeholder), so each keeps its own height.
-  // Not backed up: no actions or banner, one layout.
-  let headerVariant = 'backup:plain';
-  if (!isWalletNotBackedUp) {
-    headerVariant = `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
-  }
-  useLayoutEffect(() => {
-    onHeaderVariantChange?.(headerVariant);
-  }, [headerVariant, onHeaderVariantChange]);
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      onHeaderLayout?.(headerVariant, event.nativeEvent.layout.height);
-    },
-    [headerVariant, onHeaderLayout],
+  const variant = isWalletNotBackedUp
+    ? 'backup:plain'
+    : `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
+
+  return useMemo(
+    () => ({
+      wallet,
+      isWalletNotBackedUp,
+      homeBalanceState,
+      shouldShowBanner,
+      nativeMinHeight,
+      variant,
+    }),
+    [
+      wallet,
+      isWalletNotBackedUp,
+      homeBalanceState,
+      shouldShowBanner,
+      nativeMinHeight,
+      variant,
+    ],
   );
+}
+
+function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
+  const {
+    wallet,
+    isWalletNotBackedUp,
+    homeBalanceState,
+    shouldShowBanner,
+    nativeMinHeight,
+  } = layout;
+  // Wide desktop / web: the action row joins the total's row, on the right.
+  const { gtMd } = useMedia();
+  const actionsInBalanceRow = !platformEnv.isNative && gtMd;
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -140,7 +132,6 @@ function BaseHomeHeaderContainer({
       $gtMd={{ gap: '$8' }}
       bg="$bgApp"
       pointerEvents="box-none"
-      onLayout={onHeaderLayout ? handleLayout : undefined}
     >
       <Stack
         testID={HomeTestIDs.headerContainer}
@@ -190,16 +181,5 @@ function BaseHomeHeaderContainer({
   );
 }
 
-// The provider mirror must wrap the component (not live inside its return):
-// `useHomeBalanceState` reads tokenList context atoms, so the hook call in
-// `BaseHomeHeaderContainer`'s body has to sit inside the provider.
-// Note: on the URL-account page (which reuses HomePageView) the token list is
-// written to the separate urlAccountHomeTokenList store, not this mirror's
-// homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
-// the holdings override simply stays inactive there (worth-only behavior).
-export const HomeHeaderContainer = memo((props: IHomeHeaderContainerProps) => (
-  <HomeTokenListProviderMirror>
-    <BaseHomeHeaderContainer {...props} />
-  </HomeTokenListProviderMirror>
-));
+export const HomeHeaderContainer = memo(BaseHomeHeaderContainer);
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';

@@ -99,6 +99,7 @@ import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import {
+  InfiniReplacementUnavailableError,
   InvoiceExpiredError,
   JsonRPCResponseError,
   OneKeyLocalError,
@@ -2112,6 +2113,7 @@ describe('Infini Speed Up broadcast validation', () => {
     );
     await expect(speedUp(service)).rejects.toMatchObject({
       autoToast: true,
+      className: 'InfiniReplacementExpired',
       data: { paymentValidationFailure: 'quoteExpired' },
     });
   });
@@ -2138,7 +2140,11 @@ describe('Infini Speed Up broadcast validation', () => {
       expect(
         backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
       ).toHaveBeenCalledTimes(1);
-      await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+      const retry = speedUp(service);
+      await expect(retry).rejects.toBeInstanceOf(
+        InfiniReplacementUnavailableError,
+      );
+      await expect(retry).rejects.toMatchObject({ autoToast: true });
       expect(vault.signTransaction).not.toHaveBeenCalled();
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
@@ -2210,6 +2216,7 @@ describe('Infini Speed Up broadcast validation', () => {
       new Error('Storage failed'),
     );
     await expect(speedUp(service)).rejects.toMatchObject({
+      className: 'InfiniReplacementExpired',
       data: { paymentValidationFailure: 'quoteExpired' },
     });
     expect(
@@ -2255,11 +2262,13 @@ describe('Infini Speed Up broadcast validation', () => {
         status === 'expired'
           ? {
               autoToast: true,
+              className: 'InfiniReplacementExpired',
               data: { paymentValidationFailure: 'quoteExpired' },
             }
           : {
               autoToast: true,
               key: ETranslations.prime_close_and_try_again__desc,
+              name: 'InfiniReplacementUnavailable',
             },
       );
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
@@ -2412,6 +2421,7 @@ describe('Infini Speed Up broadcast validation', () => {
       await expect(attempt).rejects.toMatchObject({
         key: ETranslations.send_the_invoice_has_expired,
         autoToast: true,
+        className: 'InfiniReplacementExpired',
         data: { paymentValidationFailure: 'quoteExpired' },
       });
       expect(
@@ -2453,6 +2463,7 @@ describe('Infini Speed Up broadcast validation', () => {
       await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
       await expect(attempt).rejects.toMatchObject({
         autoToast: true,
+        className: 'InfiniReplacementExpired',
         data: { paymentValidationFailure: 'quoteExpired' },
       });
       expect(api).toHaveBeenCalledTimes(2);
@@ -2728,7 +2739,13 @@ describe('Infini Speed Up broadcast validation', () => {
     backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockResolvedValue(
       { payment: { expiresAt: Date.now() - 1 } },
     );
-    await expect(speedUp(service)).rejects.toBeInstanceOf(InvoiceExpiredError);
+    const attempt = speedUp(service);
+    await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
+    await expect(attempt).rejects.toMatchObject({
+      className: 'InfiniReplacementExpired',
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 

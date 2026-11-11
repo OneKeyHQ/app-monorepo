@@ -1,11 +1,509 @@
+diff --git a/node_modules/react-native-camera-kit/android/src/main/java/com/rncamerakit/CKCamera.kt b/node_modules/react-native-camera-kit/android/src/main/java/com/rncamerakit/CKCamera.kt
+index 928c5e3..e464398 100644
+--- a/node_modules/react-native-camera-kit/android/src/main/java/com/rncamerakit/CKCamera.kt
++++ b/node_modules/react-native-camera-kit/android/src/main/java/com/rncamerakit/CKCamera.kt
+@@ -89,6 +89,12 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+     private var barcodeFrame: BarcodeFrame? = null
+     private var cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+     private var cameraProvider: ProcessCameraProvider? = null
++    private var boundUseCases: List<UseCase> = emptyList()
++    @Volatile private var isActive = false
++    @Volatile private var isAttached = false
++    @Volatile private var isDisposed = false
++    @Volatile private var bindingGeneration = 0
++    private var attachGeneration = 0
+     private var outputPath: String? = null
+     private var shutterAnimationDuration: Int = 50
+     private var shutterPhotoSound: Boolean = true
+@@ -134,17 +140,64 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+     override fun onAttachedToWindow() {
+         super.onAttachedToWindow()
++        if (isDisposed) return
++        isAttached = true
++        attachGeneration++
++        if (cameraExecutor.isShutdown) {
++            cameraExecutor = Executors.newSingleThreadExecutor()
++        }
+         if (hasPermissions()) {
+-            viewFinder.post { setupCamera() }
++            val generation = attachGeneration
++            viewFinder.post {
++                if (isAttached && generation == attachGeneration) setupCamera(generation)
++            }
+         }
+     }
+ 
+     override fun onDetachedFromWindow() {
+         super.onDetachedFromWindow()
+ 
++        isAttached = false
++        attachGeneration++
++        unbindOwnedUseCases()
++        orientationListener?.disable()
++        orientationListener = null
++        cameraProvider = null
+         cameraExecutor.shutdown()
++    }
++
++    fun setIsActive(active: Boolean) {
++        if (isDisposed) return
++        if (isActive == active) return
++        isActive = active
++        if (active) {
++            if (isAttached && cameraProvider != null) bindCameraUseCases()
++        } else {
++            unbindOwnedUseCases()
++        }
++    }
++
++    fun dispose() {
++        if (isDisposed) return
++        isDisposed = true
++        isActive = false
++        isAttached = false
++        attachGeneration++
++        unbindOwnedUseCases()
+         orientationListener?.disable()
+-        cameraProvider?.unbindAll()
++        orientationListener = null
++        cameraProvider = null
++        cameraExecutor.shutdown()
++    }
++
++    private fun unbindOwnedUseCases() {
++        bindingGeneration++
++        imageAnalyzer?.clearAnalyzer()
++        if (boundUseCases.isNotEmpty()) {
++            cameraProvider?.unbind(*boundUseCases.toTypedArray())
++            boundUseCases = emptyList()
++        }
++        camera = null
+     }
+ 
+     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+@@ -184,9 +237,10 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+     /** Initialize CameraX, and prepare to bind the camera use cases  */
+     @SuppressLint("ClickableViewAccessibility")
+-    private fun setupCamera() {
++    private fun setupCamera(generation: Int) {
+         val cameraProviderFuture = ProcessCameraProvider.getInstance(getActivity())
+         cameraProviderFuture.addListener({
++            if (isDisposed || !isAttached || generation != attachGeneration) return@addListener
+             // Used to bind the lifecycle of cameras to the lifecycle owner
+             try {
+                 cameraProvider = cameraProviderFuture.get()
+@@ -296,7 +350,11 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+     }
+ 
+     private fun bindCameraUseCases() {
+-        if (viewFinder.display == null) return
++        if (isDisposed || !isAttached || !isActive || viewFinder.display == null) return
++
++        val cameraProvider = cameraProvider ?: return
++        unbindOwnedUseCases()
++        val generation = bindingGeneration
+ 
+         val previewWidth = viewFinder.getWidth();
+         val previewHeight = viewFinder.getHeight();
+@@ -307,10 +365,6 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+         val rotation = viewFinder.display.rotation
+ 
+-        // CameraProvider
+-        val cameraProvider = cameraProvider
+-                ?: throw IllegalStateException("Camera initialization failed.")
+-
+         // CameraSelector
+         val cameraSelector = CameraSelector.Builder().requireLensFacing(lensType).build()
+ 
+@@ -343,6 +397,7 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+         if (scanBarcode) {
+             val analyzer = QRCodeAnalyzer({ barcodes, imageSize ->
++                if (isDisposed || !isAttached || !isActive || generation != bindingGeneration) return@QRCodeAnalyzer
+                 if (barcodes.isEmpty()) return@QRCodeAnalyzer
+ 
+                 // 1. Filter by allowed barcode formats
+@@ -362,7 +417,7 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+                 // 2. No frame? → behave like original code
+                 if (barcodeFrame == null) {
+-                    onBarcodeRead(filteredByType)
++                    onBarcodeRead(filteredByType, generation)
+                     return@QRCodeAnalyzer
+                 }
+ 
+@@ -387,21 +442,19 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+ 
+                 // 5. Emit if any left
+                 if (filteredBarcodes.isNotEmpty()) {
+-                    onBarcodeRead(filteredBarcodes)
++                    onBarcodeRead(filteredBarcodes, generation)
+                 }
+             }, scanThrottleDelay)
+             imageAnalyzer!!.setAnalyzer(cameraExecutor, analyzer)
+             useCases.add(imageAnalyzer)
+         }
+ 
+-        // Must unbind the use-cases before rebinding them
+-        cameraProvider.unbindAll()
+-
+         try {
+             // A variable number of use-cases can be passed here -
+             // camera provides access to CameraControl & CameraInfo
+             val newCamera = cameraProvider.bindToLifecycle(getActivity() as AppCompatActivity, cameraSelector, *useCases.toTypedArray())
+             camera = newCamera
++            boundUseCases = useCases.filterNotNull()
+ 
+             resetZoom(newCamera)
+ 
+@@ -539,7 +592,8 @@ class CKCamera(context: ThemedReactContext) : FrameLayout(context), LifecycleObs
+         rectOverlay.drawRectBounds(focusRects)
+     }
+ 
+-    private fun onBarcodeRead(barcodes: List<Barcode>) {
++    private fun onBarcodeRead(barcodes: List<Barcode>, generation: Int) {
++        if (isDisposed || !isAttached || !isActive || generation != bindingGeneration) return
+         val codeFormat = CodeFormat.fromBarcodeType(barcodes.first().format);
+         val surfaceId = UIManagerHelper.getSurfaceId(currentContext)
+         UIManagerHelper
+diff --git a/node_modules/react-native-camera-kit/android/src/newarch/java/com/rncamerakit/CKCameraManager.kt b/node_modules/react-native-camera-kit/android/src/newarch/java/com/rncamerakit/CKCameraManager.kt
+index cbca7f5..fc50582 100644
+--- a/node_modules/react-native-camera-kit/android/src/newarch/java/com/rncamerakit/CKCameraManager.kt
++++ b/node_modules/react-native-camera-kit/android/src/newarch/java/com/rncamerakit/CKCameraManager.kt
+@@ -1,15 +1,13 @@
+ package com.rncamerakit
+ 
+ import android.graphics.Color
+-import android.util.Log
+ import android.util.Size
+ import androidx.annotation.ColorInt
+ import com.facebook.react.bridge.ReactApplicationContext
++import com.facebook.react.bridge.Arguments
+ import com.facebook.react.bridge.ReadableArray
+ import com.facebook.react.bridge.ReadableMap
+-import com.facebook.react.bridge.ReadableType
+ import com.facebook.react.common.MapBuilder
+-import com.facebook.react.common.ReactConstants.TAG
+ import com.facebook.react.uimanager.SimpleViewManager
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.ViewManagerDelegate
+@@ -32,24 +30,22 @@ class CKCameraManager(context: ReactApplicationContext) : SimpleViewManager<CKCa
+         return CKCamera(context)
+     }
+ 
++    override fun onDropViewInstance(view: CKCamera) {
++        view.dispose()
++        super.onDropViewInstance(view)
++    }
++
+     override fun receiveCommand(view: CKCamera, commandId: String?, args: ReadableArray?) {
+-        var logCommand = "CameraManager received command $commandId("
+-        for (i in 0..(args?.size() ?: 0)) {
+-            if (i > 0) {
+-                logCommand += ", "
+-            }
+-            logCommand += when (args?.getType(0)) {
+-                ReadableType.Null -> "Null"
+-                ReadableType.Array -> "Array"
+-                ReadableType.Boolean -> "Boolean"
+-                ReadableType.Map -> "Map"
+-                ReadableType.Number -> "Number"
+-                ReadableType.String -> "String"
+-                else ->  ""
+-            }
+-        }
+-        logCommand += ")"
+-        Log.d(TAG, logCommand)
++        val command = commandId ?: return
++        delegate.receiveCommand(view, command, args ?: Arguments.createArray())
++    }
++
++    override fun setActive(view: CKCamera, active: Boolean) {
++        view.setIsActive(active)
++    }
++
++    override fun dispose(view: CKCamera) {
++        view.dispose()
+     }
+ 
+     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> {
+diff --git a/node_modules/react-native-camera-kit/android/src/oldarch/java/com/rncamerakit/CKCameraManager.kt b/node_modules/react-native-camera-kit/android/src/oldarch/java/com/rncamerakit/CKCameraManager.kt
+index 298b889..41db405 100644
+--- a/node_modules/react-native-camera-kit/android/src/oldarch/java/com/rncamerakit/CKCameraManager.kt
++++ b/node_modules/react-native-camera-kit/android/src/oldarch/java/com/rncamerakit/CKCameraManager.kt
+@@ -1,15 +1,12 @@
+ package com.rncamerakit
+ 
+ import android.graphics.Color
+-import android.util.Log
+ import android.util.Size
+ import androidx.annotation.ColorInt
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReadableArray
+ import com.facebook.react.bridge.ReadableMap
+-import com.facebook.react.bridge.ReadableType
+ import com.facebook.react.common.MapBuilder
+-import com.facebook.react.common.ReactConstants.TAG
+ import com.facebook.react.uimanager.SimpleViewManager
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.ViewManagerDelegate
+@@ -26,24 +23,25 @@ class CKCameraManager(var context: ReactApplicationContext) : SimpleViewManager<
+         return CKCamera(context)
+     }
+ 
++    override fun onDropViewInstance(view: CKCamera) {
++        view.dispose()
++        super.onDropViewInstance(view)
++    }
++
++    override fun getCommandsMap(): Map<String, Int> =
++        mapOf("setActive" to 1, "dispose" to 2)
++
+     override fun receiveCommand(view: CKCamera, commandId: String?, args: ReadableArray?) {
+-        var logCommand = "CameraManager received command $commandId("
+-        for (i in 0..(args?.size() ?: 0)) {
+-            if (i > 0) {
+-                logCommand += ", "
+-            }
+-            logCommand += when (args?.getType(0)) {
+-                ReadableType.Null -> "Null"
+-                ReadableType.Array -> "Array"
+-                ReadableType.Boolean -> "Boolean"
+-                ReadableType.Map -> "Map"
+-                ReadableType.Number -> "Number"
+-                ReadableType.String -> "String"
+-                else ->  ""
++        when (commandId) {
++            "setActive", "1" -> if (args != null && args.size() > 0) {
++                view.setIsActive(args.getBoolean(0))
+             }
++            "dispose", "2" -> view.dispose()
+         }
+-        logCommand += ")"
+-        Log.d(TAG, logCommand)
++    }
++
++    override fun receiveCommand(view: CKCamera, commandId: Int, args: ReadableArray?) {
++        receiveCommand(view, commandId.toString(), args)
+     }
+ 
+     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> {
+diff --git a/node_modules/react-native-camera-kit/dist/specs/CameraNativeComponent.d.ts b/node_modules/react-native-camera-kit/dist/specs/CameraNativeComponent.d.ts
+index 0d7996d..8feb084 100644
+--- a/node_modules/react-native-camera-kit/dist/specs/CameraNativeComponent.d.ts
++++ b/node_modules/react-native-camera-kit/dist/specs/CameraNativeComponent.d.ts
+@@ -1,3 +1,4 @@
++import type * as React from 'react';
+ import type { ViewProps, ColorValue, HostComponent } from 'react-native';
+ import type { DirectEventHandler, Double, Float, Int32, WithDefault } from 'react-native/Libraries/Types/CodegenTypes';
+ type OnReadCodeData = {
+@@ -50,5 +51,11 @@ export interface NativeProps extends ViewProps {
+         uri: string;
+     }>;
+ }
++type CameraNativeComponentType = HostComponent<NativeProps>;
++interface NativeCommands {
++    setActive: (viewRef: React.ElementRef<CameraNativeComponentType>, active: boolean) => void;
++    dispose: (viewRef: React.ElementRef<CameraNativeComponentType>) => void;
++}
++export declare const Commands: NativeCommands;
+ declare const _default: HostComponent<NativeProps>;
+ export default _default;
+diff --git a/node_modules/react-native-camera-kit/dist/types.d.ts b/node_modules/react-native-camera-kit/dist/types.d.ts
+index 637debd..46db178 100644
+--- a/node_modules/react-native-camera-kit/dist/types.d.ts
++++ b/node_modules/react-native-camera-kit/dist/types.d.ts
+@@ -23,6 +23,8 @@ export type CaptureData = {
+     size?: number;
+ };
+ export type CameraApi = {
++    setActive: (active: boolean) => void;
++    dispose: () => void;
+     capture: () => Promise<CaptureData>;
+     requestDeviceCameraAuthorization: () => Promise<boolean>;
+     checkDeviceCameraAuthorizationStatus: () => Promise<boolean>;
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraManager.mm b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraManager.mm
+index 6ef4da3..92718e2 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraManager.mm
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraManager.mm
+@@ -44,4 +44,7 @@ @interface RCT_EXTERN_MODULE (CKCameraManager, RCTViewManager)
+ RCT_EXPORT_VIEW_PROPERTY(zoom, NSNumber)
+ RCT_EXPORT_VIEW_PROPERTY(maxZoom, NSNumber)
+ 
++RCT_EXTERN_METHOD(setActive : (nonnull NSNumber *)reactTag active : (BOOL)active)
++RCT_EXTERN_METHOD(dispose : (nonnull NSNumber *)reactTag)
++
+ @end
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraViewComponentView.mm b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraViewComponentView.mm
+index a91fb2f..7632149 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraViewComponentView.mm
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CKCameraViewComponentView.mm
+@@ -313,6 +313,18 @@ - (void)updateProps:(const Props::Shared &)props
+   [_view didSetProps:changedProps];
+ }
+ 
++- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args {
++  RCTCKCameraHandleCommand(self, commandName, args);
++}
++
++- (void)setActive:(BOOL)active {
++  [_view setActive:active];
++}
++
++- (void)dispose {
++  [_view dispose];
++}
++
+ + (BOOL)shouldBeRecycled {
+   // Disable recycling as cameras are expensive to keep in memory and may cause
+   // unintended behaviors (we need to reset the camera properly when recycling)
+@@ -320,6 +332,12 @@ + (BOOL)shouldBeRecycled {
+   return NO;
+ }
+ 
++- (void)invalidate {
++  self.contentView = nil;
++  _view = nil;
++  [super invalidate];
++}
++
+ - (void)prepareForRecycle {
+   [super prepareForRecycle];
+   [self prepareView];
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraManager.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraManager.swift
+index 6a570ca..a72c171 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraManager.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraManager.swift
+@@ -19,6 +19,20 @@ import React
+         return CameraView()
+     }
+ 
++    @objc(setActive:active:)
++    public func setActive(_ reactTag: NSNumber, active: Bool) {
++        bridge.uiManager.addUIBlock { _, viewRegistry in
++            (viewRegistry?[reactTag] as? CameraView)?.setActive(active)
++        }
++    }
++
++    @objc(dispose:)
++    public func dispose(_ reactTag: NSNumber) {
++        bridge.uiManager.addUIBlock { _, viewRegistry in
++            (viewRegistry?[reactTag] as? CameraView)?.dispose()
++        }
++    }
++
+     @objc public static func capture(camera: CameraView,
+                        options: NSDictionary,
+                        resolve: @escaping RCTPromiseResolveBlock,
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraProtocol.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraProtocol.swift
+index a0c2353..3b1eb26 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraProtocol.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraProtocol.swift
+@@ -11,6 +11,7 @@ protocol CameraProtocol: AnyObject, FocusInterfaceViewDelegate {
+ 
+     func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat])
+     func cameraRemovedFromSuperview()
++    func update(isActive: Bool)
+ 
+     func update(torchMode: TorchMode)
+     func update(flashMode: FlashMode)
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
+index 1e5cc62..b948524 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
+@@ -31,6 +31,7 @@ public class CameraView: UIView {
+ 
+     // props
+     // camera settings
++    private var isActive = false
+     @objc public var cameraType: CameraType = .back
+     @objc public var resizeMode: ResizeMode = .contain
+     @objc public var flashMode: FlashMode = .auto
+@@ -67,6 +68,8 @@ public class CameraView: UIView {
+ 
+     // MARK: - Setup
+ 
++    private var isRemoved = false
++
+     // This is used to delay camera setup until we have both granted permission & received default props
+     var hasCameraBeenSetup = false
+     var hasPropBeenSetup = false {
+@@ -80,6 +83,7 @@ public class CameraView: UIView {
+         }
+     }
+     private func setupCamera() {
++        guard !isRemoved else { return }
+         if hasPropBeenSetup && hasPermissionBeenGranted && !hasCameraBeenSetup {
+             let convertedAllowedTypes = convertAllowedBarcodeTypes()
+ 
+@@ -176,11 +180,23 @@ public class CameraView: UIView {
+     }
+ 
+     override public func removeFromSuperview() {
+-        camera.cameraRemovedFromSuperview()
+-
++        dispose()
+         super.removeFromSuperview()
+     }
+ 
++    @objc public func setActive(_ active: Bool) {
++        guard !isRemoved, isActive != active else { return }
++        isActive = active
++        camera.update(isActive: active)
++    }
++
++    @objc public func dispose() {
++        guard !isRemoved else { return }
++        isRemoved = true
++        isActive = false
++        camera.cameraRemovedFromSuperview()
++    }
++
+     // MARK: React lifecycle
+ 
+     override public func reactSetFrame(_ frame: CGRect) {
+@@ -389,7 +405,8 @@ public class CameraView: UIView {
+                     AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                         if granted {
+                             DispatchQueue.main.async {
+-                                self?.hasPermissionBeenGranted = true
++                                guard let self, !self.isRemoved else { return }
++                                self.hasPermissionBeenGranted = true
+                             }
+                         }
+                     }
+@@ -407,7 +424,10 @@ public class CameraView: UIView {
+                 // The user has not yet been presented with the option to grant video access.
+                 AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                     if granted {
+-                        self?.hasPermissionBeenGranted = true
++                        DispatchQueue.main.async {
++                            guard let self, !self.isRemoved else { return }
++                            self.hasPermissionBeenGranted = true
++                        }
+                     }
+                 }
+             default:
+@@ -464,6 +484,7 @@ public class CameraView: UIView {
+     }
+ 
+     private func onBarcodeRead(barcode: String, codeFormat: CodeFormat) {
++        guard isActive && !isRemoved else { return }
+         // Throttle barcode detection
+         let now = Date.timeIntervalSinceReferenceDate
+         guard lastBarcodeDetectedTime + Double(scanThrottleDelay) / 1000 < now else {
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-index 135a383..2087431 100644
+index 135a383..c2a8d79 100644
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -24,6 +24,13 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -24,7 +24,15 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
  
      // utilities
      private var setupResult: SetupResult = .notStarted
+-    private var isSessionRunning: Bool = false
 +    // Set once the view is removed (teardown). A late-arriving setup() task must
 +    // not resurrect an already-torn-down session by calling startRunning() after
 +    // cameraRemovedFromSuperview() stopped it. We cannot reuse setupResult for
@@ -13,12 +511,16 @@ index 135a383..2087431 100644
 +    // return value of setupCaptureSession() before checking it, which would clear
 +    // any flag set here. See the guard in setup() (REACT-NATIVE-430).
 +    private var isTornDown = false
-     private var isSessionRunning: Bool = false
++    private var isViewRemoved = false
++    private var desiredActive = false
      private var backgroundRecordingId: UIBackgroundTaskIdentifier = .invalid
  
-@@ -89,6 +96,12 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     private var videoDeviceInput: AVCaptureDeviceInput?
+@@ -88,11 +96,18 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     }
  
      func cameraRemovedFromSuperview() {
++        isViewRemoved = true
          sessionQueue.async {
 +            // Mark teardown BEFORE (and regardless of) stopRunning, so that any
 +            // setup() task still queued on sessionQueue is blocked from calling
@@ -27,11 +529,36 @@ index 135a383..2087431 100644
 +            // non-success setupResult still latches the flag.
 +            self.isTornDown = true
              if self.setupResult == .success {
-                 self.session.stopRunning()
-                 self.removeObservers()
-@@ -112,34 +125,44 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+-                self.session.stopRunning()
+-                self.removeObservers()
++                self.reconcileSessionRunning()
+             }
++            self.removeObservers()
+         }
+ 
+         #if !targetEnvironment(macCatalyst)
+@@ -111,35 +126,66 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+ 
      // MARK: - Public
  
++    func update(isActive: Bool) {
++        sessionQueue.async {
++            self.desiredActive = isActive
++            self.reconcileSessionRunning()
++        }
++    }
++
++    private func reconcileSessionRunning() {
++        guard setupResult == .success else { return }
++        if desiredActive && !isTornDown {
++            if !session.isRunning {
++                session.startRunning()
++            }
++        } else if session.isRunning {
++            session.stopRunning()
++        }
++    }
++
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
 -        // cameraPreview.session = ... causes begin/commitConfiguration on the current thread
 -        // so it must be on the same thread as setupCaptureSession to avoid startRunning executing inbetween
@@ -41,7 +568,10 @@ index 135a383..2087431 100644
 -            self.cameraPreview.session = self.session
 -            self.cameraPreview.previewLayer.videoGravity = .resizeAspect
 -
-             self.initializeMotionManager()
+-            self.initializeMotionManager()
++            if !self.isViewRemoved {
++                self.initializeMotionManager()
++            }
 +        }
  
 -            // Setup the capture session.
@@ -58,6 +588,7 @@ index 135a383..2087431 100644
 +        // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
 +        // so that the main queue isn't blocked, which keeps the UI responsive.
 +        self.sessionQueue.async {
++            guard !self.isTornDown else { return }
 +            self.setupResult = self.setupCaptureSession(
 +                cameraType: cameraType, supportedBarcodeType: supportedBarcodeType)
  
@@ -82,7 +613,7 @@ index 135a383..2087431 100644
 +            // dead session (REACT-NATIVE-430 hardening against late setup tasks).
 +            if self.setupResult == .success && !self.isTornDown {
 +                self.cameraPreview.session = self.session
-+                self.session.startRunning()
++                self.reconcileSessionRunning()
 +            }
  
 -                DispatchQueue.main.async {
@@ -96,7 +627,7 @@ index 135a383..2087431 100644
              }
          }
      }
-@@ -347,6 +370,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -347,6 +393,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func update(resizeMode: ResizeMode) {
@@ -104,14 +635,48 @@ index 135a383..2087431 100644
          DispatchQueue.main.async {
              switch resizeMode {
              case .cover:
+@@ -831,10 +878,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+         // Automatically try to restart the session running if media services were reset and the last start running succeeded.
+         if error.code == .mediaServicesWereReset {
+             sessionQueue.async {
+-                if self.isSessionRunning {
+-                    self.session.startRunning()
+-                    self.isSessionRunning = self.session.isRunning
+-                }
++                self.reconcileSessionRunning()
+             }
+         }
+         // Otherwise, enable the user to try to resume the session running.
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/SimulatorCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/SimulatorCamera.swift
+index d72a060..eaaec15 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/SimulatorCamera.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/SimulatorCamera.swift
+@@ -63,6 +63,10 @@ class SimulatorCamera: CameraProtocol {
+ 
+     }
+ 
++    func update(isActive: Bool) {
++        // Simulator capture has no hardware session to pause.
++    }
++
+     func update(onOrientationChange: RCTDirectEventBlock?) {
+         self.onOrientationChange = onOrientationChange
+     }
 diff --git a/node_modules/react-native-camera-kit/src/Camera.android.tsx b/node_modules/react-native-camera-kit/src/Camera.android.tsx
-index 56cddbc..ae14ea0 100644
+index 56cddbc..bd95a85 100644
 --- a/node_modules/react-native-camera-kit/src/Camera.android.tsx
 +++ b/node_modules/react-native-camera-kit/src/Camera.android.tsx
-@@ -8,15 +8,6 @@ import NativeCameraKitModule from './specs/NativeCameraKitModule';
- const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
-   const nativeRef = React.useRef(null);
+@@ -2,23 +2,28 @@ import React from 'react';
+ import { findNodeHandle, processColor } from 'react-native';
+ import { supportedCodeFormats, type CameraApi } from './types';
+ import type { CameraProps } from './CameraProps';
+-import NativeCamera from './specs/CameraNativeComponent';
++import NativeCamera, { Commands } from './specs/CameraNativeComponent';
+ import NativeCameraKitModule from './specs/NativeCameraKitModule';
  
+ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+-  const nativeRef = React.useRef(null);
+-
 -  // RN doesn't support optional view props yet (sigh)
 -  // so we have to use -1 to indicate 'undefined'
 -  // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
@@ -120,13 +685,42 @@ index 56cddbc..ae14ea0 100644
 -  props.scanThrottleDelay = props.scanThrottleDelay ?? -1;
 -
 -  props.allowedBarcodeTypes = props.allowedBarcodeTypes ?? supportedCodeFormats;
--
++  const nativeRef = React.useRef<React.ElementRef<typeof NativeCamera>>(null);
++  const desiredActiveRef = React.useRef(true);
++  const disposedRef = React.useRef(false);
+ 
    React.useImperativeHandle(ref, () => ({
++    setActive: (active: boolean) => {
++      if (disposedRef.current) return;
++      desiredActiveRef.current = active;
++      if (nativeRef.current) Commands.setActive(nativeRef.current, active);
++    },
++    dispose: () => {
++      if (disposedRef.current) return;
++      disposedRef.current = true;
++      desiredActiveRef.current = false;
++      if (nativeRef.current) Commands.dispose(nativeRef.current);
++    },
      capture: async (options = {}) => {
++      if (disposedRef.current) throw new Error('Camera has been disposed');
        return await NativeCameraKitModule.capture(options, findNodeHandle(nativeRef.current) ?? undefined);
-@@ -29,7 +20,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
      },
-   }));
+     requestDeviceCameraAuthorization: () => {
+@@ -27,9 +32,28 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+     checkDeviceCameraAuthorizationStatus: () => {
+       throw new Error('Not implemented');
+     },
+-  }));
++  }), []);
++
++  React.useLayoutEffect(() => {
++    if (!nativeRef.current) return;
++    if (disposedRef.current) {
++      Commands.dispose(nativeRef.current);
++    } else {
++      Commands.setActive(nativeRef.current, desiredActiveRef.current);
++    }
++  }, []);
  
 -  const transformedProps: CameraProps = { ...props };
 +  // RN doesn't support optional view props yet (sigh)
@@ -144,10 +738,23 @@ index 56cddbc..ae14ea0 100644
    transformedProps.frameColor = processColor(props.frameColor) as any;
    transformedProps.laserColor = processColor(props.laserColor) as any;
 diff --git a/node_modules/react-native-camera-kit/src/Camera.ios.tsx b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
-index 0845d6d..5a4f841 100644
+index 0845d6d..456c390 100644
 --- a/node_modules/react-native-camera-kit/src/Camera.ios.tsx
 +++ b/node_modules/react-native-camera-kit/src/Camera.ios.tsx
-@@ -11,15 +11,17 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+@@ -2,27 +2,43 @@ import React from 'react';
+ import { findNodeHandle } from 'react-native';
+ import { supportedCodeFormats, type CameraApi } from './types';
+ import type { CameraProps } from './CameraProps';
+-import NativeCamera from './specs/CameraNativeComponent';
++import NativeCamera, { Commands } from './specs/CameraNativeComponent';
+ import NativeCameraKitModule from './specs/NativeCameraKitModule';
+ 
+ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+-  const nativeRef = React.useRef(null);
++  const nativeRef = React.useRef<React.ElementRef<typeof NativeCamera>>(null);
++  const desiredActiveRef = React.useRef(true);
++  const disposedRef = React.useRef(false);
+ 
    // RN doesn't support optional view props yet (sigh)
    // so we have to use -1 to indicate 'undefined'
    // All int/float/double props from src/specs/CameraNativeComponent.ts need be mentioned here
@@ -173,9 +780,37 @@ index 0845d6d..5a4f841 100644
 +  };
  
    React.useImperativeHandle(ref, () => ({
++    setActive: (active: boolean) => {
++      if (disposedRef.current) return;
++      desiredActiveRef.current = active;
++      if (nativeRef.current) Commands.setActive(nativeRef.current, active);
++    },
++    dispose: () => {
++      if (disposedRef.current) return;
++      disposedRef.current = true;
++      desiredActiveRef.current = false;
++      if (nativeRef.current) Commands.dispose(nativeRef.current);
++    },
      capture: async () => {
-@@ -34,7 +36,7 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
-   }));
++      if (disposedRef.current) throw new Error('Camera has been disposed');
+       return await NativeCameraKitModule.capture({}, findNodeHandle(nativeRef.current) ?? undefined);
+     },
+     requestDeviceCameraAuthorization: async () => {
+@@ -31,10 +47,19 @@ const Camera = React.forwardRef<CameraApi, CameraProps>((props, ref) => {
+     checkDeviceCameraAuthorizationStatus: async () => {
+       return await NativeCameraKitModule.checkDeviceCameraAuthorizationStatus();
+     },
+-  }));
++  }), []);
++
++  React.useLayoutEffect(() => {
++    if (!nativeRef.current) return;
++    if (disposedRef.current) {
++      Commands.dispose(nativeRef.current);
++    } else {
++      Commands.setActive(nativeRef.current, desiredActiveRef.current);
++    }
++  }, []);
  
    // @ts-expect-error props for codegen differ a bit from the user-facing ones
 -  return <NativeCamera style={{ minWidth: 100, minHeight: 100 }} ref={nativeRef} {...props} />;
@@ -183,3 +818,52 @@ index 0845d6d..5a4f841 100644
  });
  
  export default Camera;
+diff --git a/node_modules/react-native-camera-kit/src/specs/CameraNativeComponent.ts b/node_modules/react-native-camera-kit/src/specs/CameraNativeComponent.ts
+index e9d5d7d..1cbe0bc 100644
+--- a/node_modules/react-native-camera-kit/src/specs/CameraNativeComponent.ts
++++ b/node_modules/react-native-camera-kit/src/specs/CameraNativeComponent.ts
+@@ -3,6 +3,7 @@ import type {
+   ColorValue,
+   HostComponent,
+ } from 'react-native';
++import type * as React from 'react';
+ import type {
+   DirectEventHandler,
+   Double,
+@@ -14,6 +15,7 @@ import type {
+ // While this import is deprecated, official docs still shows this as valid
+ // and the alternative doesn't work (import doesn't exist for this RN version)
+ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
++import codegenNativeCommands from 'react-native/Libraries/Utilities/codegenNativeCommands';
+ 
+ type OnReadCodeData = {
+     codeStringValue: string;
+@@ -66,4 +68,15 @@ export interface NativeProps extends ViewProps {
+   onPictureTaken?: DirectEventHandler<{uri: string}>;
+ }
+ 
++type CameraNativeComponentType = HostComponent<NativeProps>;
++
++interface NativeCommands {
++  setActive: (viewRef: React.ElementRef<CameraNativeComponentType>, active: boolean) => void;
++  dispose: (viewRef: React.ElementRef<CameraNativeComponentType>) => void;
++}
++
++export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
++  supportedCommands: ['setActive', 'dispose'],
++});
++
+ export default codegenNativeComponent<NativeProps>('CKCamera') as HostComponent<NativeProps>;
+diff --git a/node_modules/react-native-camera-kit/src/types.ts b/node_modules/react-native-camera-kit/src/types.ts
+index ec6fb12..c9b6421 100644
+--- a/node_modules/react-native-camera-kit/src/types.ts
++++ b/node_modules/react-native-camera-kit/src/types.ts
+@@ -67,6 +67,8 @@ export type CaptureData = {
+ };
+ 
+ export type CameraApi = {
++  setActive: (active: boolean) => void;
++  dispose: () => void;
+   capture: () => Promise<CaptureData>;
+   requestDeviceCameraAuthorization: () => Promise<boolean>;
+   checkDeviceCameraAuthorizationStatus: () => Promise<boolean>;

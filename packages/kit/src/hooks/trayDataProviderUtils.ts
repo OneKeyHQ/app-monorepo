@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
-import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
+import type {
+  ITrayData,
+  ITrayWatchlistItem,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -39,6 +42,44 @@ export const TRAY_DATA_REFRESH_EVENT_NAMES = [
   // Without this, tray stays stale when home polling (not tray) confirms a pending tx.
   EAppEventBusNames.LocalPendingTxConfirmed,
 ] as const;
+
+// The tray renderer has no jotai store of its own, so the client's hide-value
+// setting has to travel on the payloads the main window sends it.
+export function createTrayDataSender({
+  send,
+  getHideValue,
+}: {
+  send: (data: ITrayData) => void;
+  getHideValue: () => boolean;
+}) {
+  let lastDelivered: ITrayData | undefined;
+
+  const deliver = (data: ITrayData) => {
+    // Read at send time: a gather builds its payload up front and can
+    // outlive a toggle.
+    const payload: ITrayData = { ...data, hideValue: getHideValue() };
+    // Main keeps its previous cache for error placeholders, so they never
+    // become what the tray shows.
+    if (!payload.isError) lastDelivered = payload;
+    send(payload);
+  };
+
+  return {
+    send: deliver,
+    // A toggle must reach the tray at once. Waiting for the next gather would
+    // leave the balance readable for as long as its network requests take,
+    // and forever if that gather fails.
+    syncHideValue: () => {
+      // The locked placeholder carries nothing to hide.
+      if (!lastDelivered || lastDelivered.isLocked) return;
+      if (lastDelivered.hideValue === getHideValue()) return;
+      deliver(lastDelivered);
+    },
+    reset: () => {
+      lastDelivered = undefined;
+    },
+  };
+}
 
 export function getTrayCurrencyDisplayInfo({
   currencyInfo,

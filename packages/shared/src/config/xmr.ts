@@ -5,6 +5,15 @@ export const XMR_TARGET_BLOCK_SECONDS = 120;
 export const XMR_EARLIEST_SCAN_HEIGHT = 1;
 export const XMR_EARLIEST_SCAN_TIMESTAMP_MS = Date.UTC(2014, 3, 18);
 
+/**
+ * A real mainnet block, so the clock can bound a birthday a node's tip would push later.
+ * Refresh it about yearly: counting forward at 120s runs ~400 blocks a year late.
+ */
+export const XMR_HEIGHT_CHECKPOINT = {
+  height: 3_700_000,
+  timestampMs: 1_781_905_872_000,
+};
+
 /** Consensus lock: the network rejects a younger output as a ring member. */
 export const XMR_OUTPUT_LOCK_BLOCKS = 10;
 

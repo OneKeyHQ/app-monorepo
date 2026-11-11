@@ -1,3 +1,4 @@
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -152,9 +153,15 @@ class ProviderApiSui extends ProviderApiBase {
     params: Omit<ISignAndExecuteTransactionBlockInput, 'transactionBlock'>,
   ): Promise<SuiTransactionBlockResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeSuiAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
     const encodedTx: IEncodedTxSui = {
       rawTx: params.blockSerialize,
       sender: address ?? '',
@@ -185,9 +192,15 @@ class ProviderApiSui extends ProviderApiBase {
     params: Omit<ISignTransactionBlockInput, 'transactionBlock'>,
   ): Promise<ISignTransactionBlockOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeSuiAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
     const encodedTx: IEncodedTxSui = {
       rawTx: params.blockSerialize,
       sender: address ?? '',
@@ -216,9 +229,14 @@ class ProviderApiSui extends ProviderApiBase {
     params: ISignMessageInput,
   ): Promise<ISuiSignMessageOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { account, accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeSuiAddress,
+    );
 
     const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -259,9 +277,16 @@ class ProviderApiSui extends ProviderApiBase {
     params: IOneKeySuiSignTransactionInput,
   ): Promise<IOneKeySuiSignTransactionOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeSuiAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
 
     const dAppAccount = params.account;
     if (
@@ -298,9 +323,16 @@ class ProviderApiSui extends ProviderApiBase {
     params: IOneKeySuiSignAndExecuteTransactionInput,
   ): Promise<IOneKeySuiSignAndExecuteTransactionOutput> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const { accountInfo: { accountId, networkId, address } = {} } = (
+    const { account, accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    this.assertAccountAddress(
+      account,
+      params.account?.address,
+      normalizeSuiAddress,
+    );
+    this.assertAccountAddress(account, address, normalizeSuiAddress);
 
     const dAppAccount = params.account;
     if (

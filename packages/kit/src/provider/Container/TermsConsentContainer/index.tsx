@@ -12,7 +12,10 @@ import {
   useMedia,
   useOnRouterChange,
 } from '@onekeyhq/components';
-import { getTermsConsentRecheckDelay } from '@onekeyhq/kit-bg/src/services/ServiceSetting/termsConsent';
+import {
+  getTermsConsentRecheckDelay,
+  hasTermsConsentDialogAsked,
+} from '@onekeyhq/kit-bg/src/services/ServiceSetting/termsConsent';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { useTermsConsentPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -116,12 +119,27 @@ export function TermsConsentContainer() {
 
   const handleClose = useCallback(() => Promise.resolve(), []);
 
-  if (
-    !prompt ||
-    isLocked ||
-    isOnBackupPage ||
-    acceptedVersion === prompt.version
-  ) {
+  const shownVersion =
+    prompt && !isLocked && !isOnBackupPage && acceptedVersion !== prompt.version
+      ? prompt.version
+      : undefined;
+
+  const isShownStored =
+    shownVersion !== undefined &&
+    hasTermsConsentDialogAsked(termsConsentState, shownVersion);
+
+  // A check stores its round before this dialog shows, and a lock or a backup
+  // detour can still drop the result, so the dialog reports when it really
+  // appears. Only then do Get Started and the ready page stop recording.
+  useEffect(() => {
+    if (shownVersion && !isShownStored) {
+      void backgroundApiProxy.serviceSetting
+        .markTermsConsentShown({ version: shownVersion })
+        .catch(() => undefined);
+    }
+  }, [shownVersion, isShownStored]);
+
+  if (!prompt || shownVersion === undefined) {
     return null;
   }
 

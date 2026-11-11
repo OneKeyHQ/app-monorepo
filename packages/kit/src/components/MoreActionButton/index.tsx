@@ -25,6 +25,7 @@ import {
   Popover,
   ScrollView,
   SizableText,
+  Spinner,
   Stack,
   Tooltip,
   XStack,
@@ -532,6 +533,9 @@ interface IMoreActionContentGridItemProps {
   lottieSrc?: any;
   isPrimeFeature?: boolean;
   hidePrimeBadge?: boolean;
+  keepOpenOnPress?: boolean;
+  disabled?: boolean;
+  isLoading?: boolean;
 }
 
 function MoreActionContentGridItem({
@@ -548,6 +552,9 @@ function MoreActionContentGridItem({
   lottieSrc,
   isPrimeFeature,
   hidePrimeBadge,
+  keepOpenOnPress,
+  disabled,
+  isLoading,
   isDesktopMode,
   isDarkTheme,
 }: IMoreActionContentGridItemProps & {
@@ -557,16 +564,17 @@ function MoreActionContentGridItem({
   const { closePopover } = usePopoverContext();
 
   const handlePress = useCallback(() => {
-    if (ignorePress) {
+    if (ignorePress || disabled) {
       return;
     }
     defaultLogger.ui.button.click({
       trackId: trackID,
     });
+    if (keepOpenOnPress) return onPress();
     return runAfterActionListClose(() => closePopover?.(), onPress, {
       waitForAnimation: false,
     });
-  }, [closePopover, ignorePress, onPress, trackID]);
+  }, [closePopover, disabled, ignorePress, keepOpenOnPress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
@@ -610,7 +618,8 @@ function MoreActionContentGridItem({
   return (
     <YStack
       testID={testID}
-      onPress={handlePress}
+      onPress={disabled ? undefined : handlePress}
+      accessibilityState={{ disabled: !!disabled, busy: !!isLoading }}
       group
       w="$20"
       flexShrink={1}
@@ -636,8 +645,11 @@ function MoreActionContentGridItem({
         position="relative"
       >
         <YStack>
-          {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
-          {lottieSrc ? (
+          {isLoading ? <Spinner size="small" /> : null}
+          {!isLoading && icon ? (
+            <Icon size="$6" color="$icon" name={icon} />
+          ) : null}
+          {!isLoading && lottieSrc ? (
             <Stack w="$8" h="$8" ai="center" jc="center">
               <LottieView width={32} height={32} source={lottieSrc} />
             </Stack>
@@ -818,6 +830,7 @@ function MoreActionOneKeyId() {
   if (!isLoggedIn) {
     return (
       <XStack
+        testID="more-action-onekey-id"
         alignItems="center"
         py={isDesktopMode ? '$2.5' : '$4'}
         px={isDesktopMode ? '$3' : '$4'}
@@ -863,6 +876,7 @@ function MoreActionOneKeyId() {
 
   return (
     <XStack
+      testID="more-action-onekey-id"
       alignItems="center"
       py={isDesktopMode ? '$2.5' : '$4'}
       px={isDesktopMode ? '$3' : '$4'}
@@ -1513,12 +1527,16 @@ const MoreActionMoreGrid = () => {
   const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
   const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
-  const { closePopover } = usePopoverContext();
+  const { closePopover, open } = usePopoverContext();
   const handleHelpAndSupport = useCallback(() => {
     void showIntercom();
   }, []);
   const themeVariant = useThemeVariant();
-  const { toReferFriendsPage } = useReferFriends();
+  const { toReferFriendsPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends({
+      isEntryActive: open !== false,
+      beforeNavigate: closePopover,
+    });
   const handleReferFriends = useCallback(() => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
@@ -1564,6 +1582,9 @@ const MoreActionMoreGrid = () => {
         testID: 'referral' as const,
         onPress: handleReferFriends,
         trackID: 'wallet-referral',
+        keepOpenOnPress: true,
+        disabled: isReferralEntryPending,
+        isLoading: isReferralEntryLoading,
       },
       ...(showReviewControlledFeatures
         ? [
@@ -1594,6 +1615,8 @@ const MoreActionMoreGrid = () => {
     intl,
     themeVariant,
     handleReferFriends,
+    isReferralEntryPending,
+    isReferralEntryLoading,
     handleDevMode,
     showReviewControlledFeatures,
   ]);

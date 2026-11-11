@@ -7,6 +7,7 @@ import {
 import {
   HEADLESS_BUY_ORDER_DELAYED_MS,
   HEADLESS_BUY_ORDER_TIMEOUT_MS,
+  applyHeadlessBuyCheckoutEvent,
   applyHeadlessBuyOrderTimeRules,
   applyHeadlessBuyPaidOutcome,
   applyOnramperTransactionStatus,
@@ -575,6 +576,156 @@ describe('getHeadlessBuyAbandonReason', () => {
       }),
     ).toBe('failed');
   });
+
+  // Device-observed 2026-11-09 on Paybis: the web view failed on an SSL
+  // error (supportCode `providerFailed:NSURLErrorDomain/-1200`) with no
+  // `providerReady` before it.
+  it('reads a web view whose load failed before it came up as a page load failure', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('pageLoadFailed');
+    // The provider's page reporting its own load error counts as well.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.load_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('pageLoadFailed');
+  });
+
+  // A missing `providerReady` proves nothing by itself: a provider page is
+  // not bound to report readiness, so the order stays tracked.
+  it('keeps the outcome unknown without a load failure signal', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    // A cancelled navigation (NSURLErrorCancelled) is not a failed load.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-999',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('keeps the outcome unknown once the payment surface came up', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode: 'providerFailed:NSURLErrorDomain/-1200',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.load_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('keeps the outcome unknown when nothing proves the page did not load', () => {
+    const supportCode = 'providerFailed:NSURLErrorDomain/-1200';
+    // No progress on record, no render event, or a surface that is not a web
+    // view.
+    expect(
+      getHeadlessBuyAbandonReason({ errorCode: 'providerFailed', supportCode }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        progress: { paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        progress: { renderType: 'deeplink', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+    // The page spoke, and not of a load error: it was up.
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        supportCode,
+        providerReason: 'onramp_api.polling_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: false },
+      }),
+    ).toBe('providerFailed');
+  });
+
+  it('still reads a commit error as a failed authorization on a loaded page', () => {
+    expect(
+      getHeadlessBuyAbandonReason({
+        errorCode: 'providerFailed',
+        providerReason: 'onramp_api.commit_error',
+        progress: { renderType: 'webview', paymentSurfaceReached: true },
+      }),
+    ).toBe('authorizationFailed');
+  });
+});
+
+describe('applyHeadlessBuyCheckoutEvent', () => {
+  it('records the render type and whether the payment surface came up', () => {
+    const rendering = applyHeadlessBuyCheckoutEvent(undefined, {
+      type: 'renderingStarted',
+      renderType: 'webview',
+    });
+    expect(rendering).toEqual({
+      renderType: 'webview',
+      paymentSurfaceReached: false,
+    });
+    const ready = applyHeadlessBuyCheckoutEvent(rendering, {
+      type: 'providerReady',
+    });
+    expect(ready).toEqual({
+      renderType: 'webview',
+      paymentSurfaceReached: true,
+    });
+    // Nothing un-reaches the surface, and an event that adds nothing keeps
+    // the reference.
+    expect(
+      applyHeadlessBuyCheckoutEvent(ready, { type: 'providerError' }),
+    ).toBe(ready);
+  });
+
+  it('counts a payment event as proof of the surface, not a page error', () => {
+    for (const type of [
+      'paymentAuthorized',
+      'paymentProcessing',
+      'completed',
+    ]) {
+      expect(
+        applyHeadlessBuyCheckoutEvent(undefined, { type })
+          .paymentSurfaceReached,
+      ).toBe(true);
+    }
+    for (const type of ['checkoutFinalized', 'providerError', 'cancelled']) {
+      expect(
+        applyHeadlessBuyCheckoutEvent(undefined, { type })
+          .paymentSurfaceReached,
+      ).toBe(false);
+    }
+  });
 });
 
 describe('authorization-failed orders', () => {
@@ -639,16 +790,34 @@ describe('authorization-failed orders', () => {
     );
   });
 
-  it('never promises the card was not charged while only the client decided', () => {
-    expect(getHeadlessBuyFailureKind(authorizationFailed())).toBe('unknown');
+  // Onramper confirmed (2026-11-06, 2026-11-09) that a Coinbase commit error
+  // takes no charge.
+  it('says the card was not charged', () => {
+    expect(getHeadlessBuyFailureKind(authorizationFailed())).toBe('notCharged');
+    expect(getHeadlessBuyOrderSentenceId(authorizationFailed(), T0)).toBe(
+      ETranslations.buy_order_failed_not_charged__desc,
+    );
+  });
+
+  it('does not say so once anything showed a payment or left its outcome unknown', () => {
+    expect(
+      getHeadlessBuyFailureKind(authorizationFailed({ paymentSeen: true })),
+    ).toBe('unknown');
     expect(
       getHeadlessBuyFailureKind(
-        authorizationFailed({ statusReason: 'Card declined' }),
+        authorizationFailed({ paymentOutcomeUnknown: true }),
       ),
     ).toBe('unknown');
-    expect(getHeadlessBuyOrderSentenceId(authorizationFailed(), T0)).toBe(
-      ETranslations.buy_order_failed_unknown__desc,
-    );
+    // A timed-out order still knows nothing.
+    expect(
+      getHeadlessBuyFailureKind(
+        order({
+          submittedAt: T0,
+          status: EHeadlessBuyOrderStatus.Failed,
+          timedOut: true,
+        }),
+      ),
+    ).toBe('unknown');
   });
 
   it('is left alone by the time rules', () => {

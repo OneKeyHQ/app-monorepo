@@ -382,9 +382,10 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  // Set only for those who got here without agreeing on Get Started, such as
-  // a hardware wallet connected from device management. As on Get Started,
-  // the notice sits above Enter wallet and tapping it counts as agreeing.
+  // Set only for those who got here without agreeing on Get Started and whom
+  // the terms dialog never asked, such as a new user connecting a hardware
+  // wallet from device management. As on Get Started, the notice sits above
+  // Enter wallet and tapping it counts as agreeing.
   const [termsVersion, setTermsVersion] = useState<string>();
   useEffect(() => {
     void (async () => {

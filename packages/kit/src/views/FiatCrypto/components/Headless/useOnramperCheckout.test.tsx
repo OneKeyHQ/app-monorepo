@@ -3,7 +3,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 
-const mockStore = new Map<string, boolean>();
+const mockStore = new Map<string, string | boolean>();
 let mockStateListener: ((state: IOnramperState) => void) | undefined;
 let mockFailedListener: ((event: IOnramperEvent) => void) | undefined;
 const mockSignOut = jest.fn<Promise<void>, []>();
@@ -16,12 +16,27 @@ const mockGetCheckoutRequirements = jest.fn<
   []
 >();
 
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    getLocale: () => 'en-US',
+    // Message ids stand in for copy: these tests check which line is shown.
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
     syncStorage: {
-      getBoolean: (key: string) => mockStore.get(key),
-      set: (key: string, value: boolean) => {
+      getString: (key: string) => {
+        const value = mockStore.get(key);
+        return typeof value === 'string' ? value : undefined;
+      },
+      getBoolean: (key: string) => {
+        const value = mockStore.get(key);
+        return typeof value === 'boolean' ? value : undefined;
+      },
+      set: (key: string, value: string | boolean) => {
         mockStore.set(key, value);
       },
     },
@@ -185,9 +200,34 @@ describe('useOnramperCheckout OnramperID login state', () => {
   });
 
   it('starts from the login remembered on this install', async () => {
+    mockStore.set(KEY, '1');
+    const { result } = await renderCheckout();
+    expect(result.current.canSignOut).toBe(true);
+  });
+
+  it('still reads a login an earlier build remembered as a boolean', async () => {
     mockStore.set(KEY, true);
     const { result } = await renderCheckout();
     expect(result.current.canSignOut).toBe(true);
+  });
+
+  // The relaunch case: a stored boolean `false` came back as "" from the
+  // native mirror and read as unknown, which offered sign-out on any failure.
+  it('keeps a remembered sign-out across relaunches', async () => {
+    mockStore.set(KEY, '0');
+    mockGetCheckoutRequirements.mockRejectedValueOnce({
+      code: 'temporaryFailure',
+      message: 'down',
+    });
+    mockGetCheckoutRequirements.mockRejectedValueOnce({
+      code: 'temporaryFailure',
+      message: 'down',
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    await advance(QUOTE_RETRY_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.canSignOut).toBe(false);
   });
 
   it('follows the prepared checkout and remembers it', async () => {
@@ -198,7 +238,7 @@ describe('useOnramperCheckout OnramperID login state', () => {
 
     publishState({ kind: 'readyToCheckout' });
     expect(result.current.canSignOut).toBe(true);
-    expect(mockStore.get(KEY)).toBe(true);
+    expect(mockStore.get(KEY)).toBe('1');
 
     // Re-quoting and a failure say nothing about the login.
     publishState({ kind: 'checkoutPreparing' });
@@ -214,7 +254,7 @@ describe('useOnramperCheckout OnramperID login state', () => {
 
     publishState(LOGIN_FROM_NOTHING);
     expect(result.current.canSignOut).toBe(false);
-    expect(mockStore.get(KEY)).toBe(false);
+    expect(mockStore.get(KEY)).toBe('0');
   });
 
   // The checkout was prepared as a login from nothing, so that is all a
@@ -236,21 +276,20 @@ describe('useOnramperCheckout OnramperID login state', () => {
 
     publishState({ kind: 'finalizing' });
     expect(result.current.canSignOut).toBe(true);
-    expect(mockStore.get(KEY)).toBe(true);
+    expect(mockStore.get(KEY)).toBe('1');
 
     publishState({ kind: 'failed', errorCode: 'paymentFailed' });
     publishFailed({ errorCode: 'paymentFailed', message: 'declined' });
 
     expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
     expect(result.current.canSignOut).toBe(true);
-    expect(mockStore.get(KEY)).toBe(true);
+    expect(mockStore.get(KEY)).toBe('1');
   });
 
   it('stays signed out when the login made through the button is abandoned', async () => {
-    mockGetCheckoutRequirements.mockResolvedValueOnce({
-      button: 'button-1',
-      quote: QUOTE,
-    });
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
     const { result } = await renderCheckout({ amount: 50 });
     await advance(QUOTE_DEBOUNCE_MS);
     publishState(LOGIN_FROM_NOTHING);
@@ -259,24 +298,126 @@ describe('useOnramperCheckout OnramperID login state', () => {
     publishState({ kind: 'failed', errorCode: 'oidcFlowCancelled' });
     publishFailed({ errorCode: 'oidcFlowCancelled' });
 
-    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    // Closing the sign-in is not a failure: no error, a fresh checkout instead
+    // of the spent one.
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+    expect(result.current.nativeButton).toBeNull();
     expect(result.current.canSignOut).toBe(false);
-    expect(mockStore.get(KEY)).toBe(false);
+    expect(mockStore.get(KEY)).toBe('0');
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+  });
+
+  it('re-prepares once per visit after an expired quote, then shows the error if it comes back', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.nativeButton).toBe('button-1');
+
+    // Tapped after the intent expired: nothing for the user to decide.
+    publishFailed({ errorCode: 'intentInvalidated' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+
+    // The same failure on the fresh checkout: no more quiet re-prepares that
+    // would repeat on every tap — the error and Retry instead.
+    publishFailed({ errorCode: 'invalidStateTransition' });
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
+  });
+
+  it('shows a closed sign-in that comes after a transaction was created', async () => {
+    mockGetCheckoutRequirements.mockResolvedValueOnce({
+      button: 'button-1',
+      quote: QUOTE,
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    // The transaction may still need tracking: no quiet fresh button.
+    publishFailed({ errorCode: 'oidcFlowCancelled', transactionId: 'tx-1' });
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
+  });
+
+  it('shows the error when a self-healing failure comes after a transaction was created', async () => {
+    mockGetCheckoutRequirements.mockResolvedValueOnce({
+      button: 'button-1',
+      quote: QUOTE,
+    });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    // A payment may be under way: a fresh button with no word could be paid
+    // a second time.
+    publishFailed({
+      errorCode: 'invalidStateTransition',
+      transactionId: 'tx-1',
+    });
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
+  });
+
+  it('ignores later failures of the checkout it re-prepared', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockResolvedValueOnce({ button: 'button-2', quote: QUOTE });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    publishFailed({ errorCode: 'intentInvalidated' });
+    // The spent checkout fails again before the fresh one is prepared: no
+    // error flashes over the re-prepare.
+    publishFailed({ errorCode: 'intentInvalidated' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+    expect(result.current.errorMessage).toBeUndefined();
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.Ready);
+    expect(result.current.nativeButton).toBe('button-2');
+  });
+
+  it('shows the error when a self-healing failure repeats before any quote lands', async () => {
+    mockGetCheckoutRequirements
+      .mockResolvedValueOnce({ button: 'button-1', quote: QUOTE })
+      .mockRejectedValueOnce({ code: 'invalidState', message: 'busy' });
+    const { result } = await renderCheckout({ amount: 50 });
+    await advance(QUOTE_DEBOUNCE_MS);
+
+    publishFailed({ errorCode: 'invalidStateTransition' });
+    expect(result.current.actionState).toBe(EBuyActionState.Preparing);
+
+    await advance(REFRESH_DEFER_MS);
+    await advance(QUOTE_DEBOUNCE_MS);
+    expect(result.current.actionState).toBe(EBuyActionState.RetryableError);
+    expect(result.current.errorMessage).toBeDefined();
   });
 
   it('signs out once the SDK dropped the login', async () => {
-    mockStore.set(KEY, true);
+    mockStore.set(KEY, '1');
     const { result } = await renderCheckout();
 
     await act(() => result.current.signOut());
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(result.current.canSignOut).toBe(false);
-    expect(mockStore.get(KEY)).toBe(false);
+    expect(mockStore.get(KEY)).toBe('0');
   });
 
   it('keeps the login when the sign-out fails', async () => {
-    mockStore.set(KEY, true);
+    mockStore.set(KEY, '1');
     mockSignOut.mockRejectedValue(new Error('clientDestroyed'));
     const { result } = await renderCheckout();
 
@@ -285,7 +426,7 @@ describe('useOnramperCheckout OnramperID login state', () => {
     });
 
     expect(result.current.canSignOut).toBe(true);
-    expect(mockStore.get(KEY)).toBe(true);
+    expect(mockStore.get(KEY)).toBe('1');
   });
 });
 
@@ -307,7 +448,7 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(result.current.canSignOut).toBe(false);
-    expect(mockStore.get(KEY)).toBe(false);
+    expect(mockStore.get(KEY)).toBe('0');
     expect(result.current.actionState).toBe(EBuyActionState.WebFallback);
   });
 
@@ -347,7 +488,7 @@ describe('useOnramperCheckout sign-out with an unknown login', () => {
   });
 
   it('keeps sign-out hidden on a failure once the login is known to be gone', async () => {
-    mockStore.set(KEY, false);
+    mockStore.set(KEY, '0');
     mockIsMockClient = false;
     mockFetchOnramperSession.mockRejectedValue(new Error('mint failed'));
     const { result } = await renderCheckout({ amount: 50 });

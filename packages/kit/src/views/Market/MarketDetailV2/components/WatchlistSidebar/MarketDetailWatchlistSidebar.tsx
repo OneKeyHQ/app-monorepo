@@ -31,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
@@ -390,6 +391,7 @@ function MarketDetailWatchlistSidebarImpl({
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketDetailPage = useToDetailPage({
     replaceCurrentDetail: true,
+    from: EEnterWay.WatchlistSidebar,
   });
   const handleItemPress = useCallback(
     (item: IMarketToken) => {

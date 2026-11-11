@@ -1151,6 +1151,7 @@ export function buildXmrLocalWalletCapability(
         fromHeight = estimateXmrHeightDaysAgo({
           daysAgo: from.daysAgo,
           chainTip: tip,
+          now: Date.now(),
         });
       }
       if (dryRun) return { fromHeight };

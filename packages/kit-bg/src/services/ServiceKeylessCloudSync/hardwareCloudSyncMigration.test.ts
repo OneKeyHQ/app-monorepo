@@ -100,7 +100,7 @@ type IBody = {
   pwdHash?: string;
   lock?: { data: string };
   localData?: IServerSyncRecord[];
-  start?: number;
+  skip?: number;
   limit?: number;
 };
 const ok = <T>(data: T) => ({ data: { code: 0, message: 'ok', data } });
@@ -146,8 +146,10 @@ async function setup() {
         if (id === 'source' && changeSourceDuringDownload) space.nonce += 1;
         return ok({
           serverData: space.records.slice(
-            body.start ?? 0,
-            (body.start ?? 0) + (body.limit ?? 1000),
+            body.skip ?? 0,
+            body.limit === undefined
+              ? undefined
+              : (body.skip ?? 0) + body.limit,
           ),
         });
       }
@@ -463,7 +465,7 @@ test('a source upload during the target flush keeps the old selection retryable'
   );
 });
 
-test('the complete snapshot includes records after the first download page', async () => {
+test('an unbounded snapshot preserves more than 1000 records', async () => {
   const test = await setup();
   for (let index = 0; index < 1001; index += 1) {
     test.sourceSpace.records.push({

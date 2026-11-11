@@ -65,16 +65,19 @@ function makePsbt(
 }
 
 function setup(accountId = 'hd-fee-test') {
+  const account = {
+    id: accountId,
+    address: payment.address,
+    addressDetail: { normalizedAddress: payment.address },
+    path: "m/84'/1'/0'/0/0",
+    pub: '031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f',
+  };
   const openModal = jest.fn().mockResolvedValue({ psbtHex: makePsbt('valid') });
   const createBatch = jest.fn();
   const provider = new ProviderApiBtc({
     backgroundApi: {
       serviceAccount: {
-        getAccount: jest.fn().mockResolvedValue({
-          address: payment.address,
-          path: "m/84'/1'/0'/0/0",
-          pub: '031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f',
-        }),
+        getAccount: jest.fn().mockResolvedValue(account),
       },
       serviceNetwork: {
         getNetwork: jest.fn().mockResolvedValue({ code: 'tbtc' }),
@@ -88,6 +91,7 @@ function setup(accountId = 'hd-fee-test') {
     getAccountsInfo: {
       value: jest.fn().mockResolvedValue([
         {
+          account,
           accountInfo: {
             accountId,
             networkId: 'tbtc--0',

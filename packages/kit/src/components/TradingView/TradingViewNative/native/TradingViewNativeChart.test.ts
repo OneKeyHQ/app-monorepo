@@ -75,6 +75,7 @@ jest.mock('react-native', () => ({
   Image: { resolveAssetSource: () => ({ uri: 'test-font' }) },
 }));
 jest.mock('react-native-gesture-handler', () => ({
+  Gesture: { Simultaneous: jest.fn() },
   GestureDetector: ({ children }: PropsWithChildren) => children,
 }));
 jest.mock('@onekeyhq/components', () => ({
@@ -119,6 +120,14 @@ jest.mock('./useNativeChartDrawings', () => ({
 }));
 jest.mock('./useTradingViewNativeChartGestures', () => ({
   useTradingViewNativeChartGestures: () => null,
+}));
+jest.mock('./useTradingViewNativeNavigationVisibility', () => ({
+  useTradingViewNativeNavigationVisibility: () => ({
+    handleChartDragStart: jest.fn(),
+    handleControlPress: jest.fn(),
+    isVisible: false,
+    tapGesture: null,
+  }),
 }));
 jest.mock('./useTradingViewNativePriceScale', () => ({
   useTradingViewNativePriceScale: () => ({ priceAxisControlWidth: 0 }),

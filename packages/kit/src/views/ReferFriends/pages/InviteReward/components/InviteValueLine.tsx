@@ -34,6 +34,8 @@ import type {
   IInviteValueSummary,
 } from './getInviteValueLine';
 
+const RATE_HOVER_OPTIONS = { delay: { open: 250 } };
+
 function RateBreakdown({
   title,
   titleIcon,
@@ -175,7 +177,7 @@ function RatePopover({
   return (
     <Popover
       title={title}
-      hoverable
+      hoverable={RATE_HOVER_OPTIONS}
       placement="bottom-start"
       floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
       renderTrigger={trigger}

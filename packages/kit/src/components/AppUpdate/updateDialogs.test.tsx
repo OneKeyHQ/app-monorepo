@@ -11,15 +11,23 @@
 // yarn jest packages/kit/src/components/AppUpdate/updateDialogs.test.tsx
 
 jest.mock('@onekeyhq/components', () => {
+  const { forwardRef, useImperativeHandle } = jest.requireActual('react');
   const dialogShow = jest.fn();
+  const lottiePlay = jest.fn();
   (globalThis as any).__mockDialogShow = dialogShow;
+  (globalThis as any).__mockLottiePlay = lottiePlay;
   return {
     Dialog: { show: jest.fn() },
-    LottieView: () => null,
+    LottieView: forwardRef((_props: unknown, ref: unknown) => {
+      useImperativeHandle(ref, () => ({ play: lottiePlay }));
+      return null;
+    }),
     YStack: ({ children }: { children: unknown }) => children as JSX.Element,
     useInTabDialog: () => ({ show: dialogShow }),
   };
 });
+
+jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 
 jest.mock(
   '@onekeyhq/kit/assets/animations/update-notification-dark.json',
@@ -65,9 +73,16 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
 
 jest.mock('react-intl', () => ({}));
 
-import { UPDATE_DIALOG_INTERVAL, showUpdateDialogUI } from './updateDialogs';
+import { act, render } from '@testing-library/react';
+
+import {
+  LottieViewIcon,
+  UPDATE_DIALOG_INTERVAL,
+  showUpdateDialogUI,
+} from './updateDialogs';
 
 const dialogShow = (globalThis as any).__mockDialogShow as jest.Mock;
+const lottiePlay = (globalThis as any).__mockLottiePlay as jest.Mock;
 const updateLastDialogShownAt = (globalThis as any)
   .__mockUpdateLastDialogShownAt as jest.Mock;
 
@@ -92,6 +107,35 @@ beforeEach(() => {
 describe('UPDATE_DIALOG_INTERVAL', () => {
   test('is exactly 24 hours (1 day) — change requires explicit UX review', () => {
     expect(UPDATE_DIALOG_INTERVAL).toBe(86_400_000);
+  });
+});
+
+describe('LottieViewIcon', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    lottiePlay.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('plays when the animation finishes loading after the initial delay', async () => {
+    render(<LottieViewIcon themeVariant="light" />);
+
+    // The dynamic import is still pending while the delay elapses.
+    jest.advanceTimersByTime(1000);
+    expect(lottiePlay).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(lottiePlay).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(550);
+    });
+    expect(lottiePlay).toHaveBeenCalledTimes(1);
   });
 });
 

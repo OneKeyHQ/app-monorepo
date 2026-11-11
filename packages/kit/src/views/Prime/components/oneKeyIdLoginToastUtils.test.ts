@@ -4,7 +4,9 @@ import {
   OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import { OAuthLoginCancelError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getOneKeyIdAuthFailureServerParams,
@@ -241,6 +243,27 @@ describe('showOneKeyIdLoginFailedToast', () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
   });
+
+  test.each([90_012, '90012'])(
+    'routes the serialized ban %s through the shared toast with its View action',
+    (code) => {
+      const showToast = jest
+        .spyOn(errorToastUtils, 'showToastOfError')
+        .mockImplementation(() => undefined);
+      try {
+        showOneKeyIdLoginFailedToast({
+          error: { code, message: 'This account has been banned.' },
+          intl: appLocale.intl,
+        });
+        expect(showToast).toHaveBeenCalledWith(
+          expect.objectContaining({ code: 90_012, autoToast: true }),
+        );
+        expect(Toast.error).not.toHaveBeenCalled();
+      } finally {
+        showToast.mockRestore();
+      }
+    },
+  );
 
   test('shows the sanitized underlying error instead of a generic fallback', () => {
     const intl = {

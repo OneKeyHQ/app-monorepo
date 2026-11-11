@@ -3,7 +3,7 @@ import { LogToLocal } from '../../../base/decorators';
 import { NO_LOG_OUTPUT } from '../../../types';
 
 type ICardInfo = {
-  hasBackup: boolean;
+  hasBackup: boolean | null;
   isNewCard: boolean;
   serialNum: string;
   pinRetryCount: number;
@@ -52,7 +52,7 @@ export type ILiteCardDiagnostic = {
   errorCode?: number;
   eventCode?: number;
   hasCardInfo?: boolean;
-  hasBackup?: boolean;
+  hasBackup?: boolean | null;
   isNewCard?: boolean;
   overwrite?: boolean;
   hasDialogRef?: boolean;
@@ -121,7 +121,7 @@ function knownErrorCode(code?: number) {
   return typeof code === 'number' && errorCodes.has(code) ? code : undefined;
 }
 
-function booleanState(value?: boolean) {
+function booleanState(value?: boolean | null) {
   return typeof value === 'boolean' ? value : undefined;
 }
 

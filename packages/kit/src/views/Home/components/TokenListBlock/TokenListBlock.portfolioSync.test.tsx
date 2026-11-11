@@ -6,6 +6,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ICustomTokenItem,
   IFetchAccountTokensResp,
@@ -38,6 +39,7 @@ const mockUpdateSyncUi = jest.fn();
 const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
+const mockRunAllNetworks = jest.fn(async () => undefined);
 const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
 const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
@@ -123,6 +125,7 @@ let mockAllNetworkResult:
       }
     >
   | undefined;
+let mockVisibilityListener: ((visible: boolean) => void) | undefined;
 const mockUpdateAccountWorth = jest.fn();
 const mockUpdateTokenListState = jest.fn();
 const mockCommitAuthoritativeIngest = jest.fn();
@@ -189,7 +192,14 @@ jest.mock('@onekeyhq/components', () => ({
   Toast: { loading: mockPortfolioLoading, error: mockPortfolioError },
   Stack: () => null,
   Skeleton: { HeadingLg: () => null },
-  onVisibilityStateChange: () => () => undefined,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListener = listener;
+    return () => {
+      if (mockVisibilityListener === listener) {
+        mockVisibilityListener = undefined;
+      }
+    };
+  },
   useOnRouterChange: () => undefined,
 }));
 jest.mock('../../hooks/useHomeTab', () => ({
@@ -253,7 +263,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
   useAllNetworkRequests: (params: typeof mockAllNetworkParams) => {
     mockAllNetworkParams = params;
     return {
-      run: mockAsyncNoop,
+      run: mockRunAllNetworks,
       runAccountRequests: mockAsyncNoop,
       result: mockAllNetworkResult,
       isEmptyAccount: false,
@@ -522,6 +532,9 @@ describe('Home automatic Portfolio sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEpoch = 0;
+    mockVisibilityListener = undefined;
+    platformEnv.isExtensionUi = false;
+    platformEnv.isExtensionUiPopup = false;
     mockIndexedAccountReady = true;
     mockPublishRefreshedHeader = false;
     mockRefreshCategories.mockImplementation(async () => ({
@@ -551,6 +564,31 @@ describe('Home automatic Portfolio sync', () => {
     };
     mockAllNetworkResult = undefined;
     mockFetchTokens.mockResolvedValue(tokenResponse());
+  });
+
+  it('refreshes All Networks when a persistent extension window regains focus', async () => {
+    platformEnv.isExtensionUi = true;
+    mockNetwork = { id: 'onekeyall', isAllNetworks: true };
+
+    render(<TokenListBlock />);
+    await act(async () => {
+      mockVisibilityListener?.(true);
+    });
+
+    expect(mockRunAllNetworks).toHaveBeenCalledWith({
+      alwaysSetState: true,
+      skipAccountsCache: true,
+    });
+  });
+
+  it('does not subscribe the short-lived extension popup to focus refresh', () => {
+    platformEnv.isExtensionUi = true;
+    platformEnv.isExtensionUiPopup = true;
+
+    render(<TokenListBlock />);
+
+    expect(mockVisibilityListener).toBeUndefined();
+    expect(mockRunAllNetworks).not.toHaveBeenCalled();
   });
 
   it('does not query categories until a current spot response is available', async () => {

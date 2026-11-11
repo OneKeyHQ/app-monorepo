@@ -80,7 +80,8 @@ const LOCAL_TRANSACTION_ID_PREFIX = 'local-';
 
 // Checkout failures after which the record is kept and shown: the payment may
 // have gone through (`providerFailed`), or the user needs the failed order
-// (`authorizationFailed`). `cancelled` / `failed` drop a record nothing paid.
+// (`authorizationFailed`). `cancelled` / `failed` / `pageLoadFailed` drop a
+// record nothing paid.
 const RECORD_KEEPING_ABANDON_REASONS = new Set<IHeadlessBuyAbandonReason>([
   'providerFailed',
   'authorizationFailed',
@@ -622,13 +623,14 @@ class ServiceFiatCrypto extends ServiceBase {
     return change.to;
   }
 
-  // cancelled / failed before completion: nothing was paid, drop the hidden
-  // record. A visible (paid) order is never discarded by a checkout event,
-  // and neither is a hidden one whose Apple Pay sheet was already authorized
-  // or whose payment surface failed with the outcome unknown (SDK 1.3
-  // `providerFailed`): money may have moved, so that record is surfaced for
-  // the user to track and the next status lookup settles it. A failed payment
-  // authorization (`authorizationFailed`) surfaces the record as failed.
+  // cancelled / failed before completion, or a payment page that never
+  // loaded: nothing was paid, drop the hidden record. A visible (paid) order
+  // is never discarded by a checkout event, and neither is a hidden one whose
+  // Apple Pay sheet was already authorized or whose payment surface failed
+  // with the outcome unknown (SDK 1.3 `providerFailed`): money may have
+  // moved, so that record is surfaced for the user to track and the next
+  // status lookup settles it. A failed payment authorization
+  // (`authorizationFailed`) surfaces the record as failed.
   @backgroundMethod()
   public async discardHeadlessBuyOrder({
     transactionId,
