@@ -96,7 +96,10 @@ describe('WalletConnect local clock validation', () => {
     jest.restoreAllMocks();
   });
 
-  it.each([120_000, -120_000, 86_400_000, -172_800_000])(
+  it.each([
+    100_000, -100_000, 100_001, -100_001, 120_000, -120_000, 86_400_000,
+    -172_800_000,
+  ])(
     'reports a clock offset of %i ms before initializing the provider',
     async (offset) => {
       localTime += offset;
@@ -108,7 +111,7 @@ describe('WalletConnect local clock validation', () => {
     },
   );
 
-  it.each([0, 119_000, -119_000])(
+  it.each([0, 99_999, -99_999])(
     'continues for a clock offset within tolerance: %i ms',
     async (offset) => {
       localTime += offset;

@@ -508,8 +508,9 @@ export class WalletConnectDappSide {
     };
 
     try {
-      // Relay JWT validation allows two minutes of clock skew. Refresh the
-      // cloud-sync time source so sleep or a clock change cannot reuse old UTC.
+      // Keep a 20-second margin below the Relay's 120-second JWT allowance.
+      // Refresh the cloud-sync time source so sleep or a clock change cannot
+      // reuse old UTC, and apply the same limit to clocks in either direction.
       const timeCheckStartedAt = Date.now();
       const refreshed = await systemTimeUtils
         .refreshServerTime()
@@ -524,7 +525,7 @@ export class WalletConnectDappSide {
         timeCheckDuration >= 0 &&
         timeCheckDuration <= 15_000 &&
         serverTime !== undefined &&
-        Math.abs(localTime - serverTime) >= 120_000
+        Math.abs(localTime - serverTime) >= 100_000
       ) {
         throw new OneKeyError({
           key: ETranslations.global_network_doctor_action_check_datetime,
