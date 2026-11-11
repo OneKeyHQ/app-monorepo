@@ -36,7 +36,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
@@ -1011,8 +1011,7 @@ export function PrimeFeatureIntroContent({
           <Badge badgeSize="sm" flexShrink={0}>
             <Badge.Text>
               {intl.formatMessage({
-                id: ETranslationsMock.prime_app_only__title,
-                defaultMessage: 'App only',
+                id: ETranslations.prime_app_only__title,
               })}
             </Badge.Text>
           </Badge>
@@ -1084,13 +1083,11 @@ export function PrimeFeatureIntroContent({
   let footerStatusText: string | undefined;
   if (ctaKind === 'availableInApp') {
     footerStatusText = intl.formatMessage({
-      id: ETranslationsMock.prime_available_in_app__title,
-      defaultMessage: 'Available in App',
+      id: ETranslations.prime_available_in_app__title,
     });
   } else if (ctaKind === 'alwaysOn') {
     footerStatusText = intl.formatMessage({
-      id: ETranslationsMock.prime_always_on__title,
-      defaultMessage: 'Always on',
+      id: ETranslations.prime_always_on__title,
     });
   }
   const footerStatus = footerStatusText ? (

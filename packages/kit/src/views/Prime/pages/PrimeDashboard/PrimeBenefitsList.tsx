@@ -17,7 +17,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -81,8 +81,7 @@ function PrimeBenefitsBaseItem({
               <Badge ml="$2" badgeSize="sm" flexShrink={0}>
                 <Badge.Text>
                   {intl.formatMessage({
-                    id: ETranslationsMock.prime_app_only__title,
-                    defaultMessage: 'App only',
+                    id: ETranslations.prime_app_only__title,
                   })}
                 </Badge.Text>
               </Badge>
