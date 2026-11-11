@@ -836,17 +836,24 @@ export default function PrivacyNetworkSettings({
         title: intl.formatMessage({
           id: ETranslations.privacy_sync_start__title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.privacy_sync_resync__desc,
-        }),
         tone: 'warning',
+        boundedSheetLayout: true,
+        fixedHeaderFooterHeight: 600,
+        sheetDragArea: 'header',
         renderContent: (
-          <BirthdayDialogForm
-            networkId={entry.networkId}
-            formRef={formRef}
-            currentBirthdayHeight={entry.birthdayHeight}
-            earliestBirthday={earliestBirthday}
-          />
+          <YStack gap="$4">
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({
+                id: ETranslations.privacy_sync_resync__desc,
+              })}
+            </SizableText>
+            <BirthdayDialogForm
+              networkId={entry.networkId}
+              formRef={formRef}
+              currentBirthdayHeight={entry.birthdayHeight}
+              earliestBirthday={earliestBirthday}
+            />
+          </YStack>
         ),
         onConfirmText: intl.formatMessage({
           id: ETranslations.privacy_sync_resync__action,
