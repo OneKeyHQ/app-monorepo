@@ -76,6 +76,8 @@ jest.mock('@onekeyhq/components', () => {
     Image: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
+    // Jest maps components/src/utils/scale to this same mock.
+    s: (size: number) => size,
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
       HeadingLg: () => null,

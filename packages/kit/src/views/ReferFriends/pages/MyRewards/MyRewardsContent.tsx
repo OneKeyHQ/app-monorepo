@@ -27,6 +27,7 @@ import {
   useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -996,8 +997,9 @@ function DesktopRow({
 // Room for both value lines: the 20px amount, a 2px gap and the 16px unpaid
 // line. Every compact row reserves it, so a row keeps one height from its
 // skeleton to whatever loads (two lines, one, or a note) and the list below
-// never moves (OK-66978).
-const COMPACT_VALUE_MIN_HEIGHT = 38;
+// never moves (OK-66978). Scaled like the tokens those lines are built from,
+// so narrow Android screens do not get extra padding.
+const COMPACT_VALUE_MIN_HEIGHT = s(38);
 
 function CompactRow({
   row,
