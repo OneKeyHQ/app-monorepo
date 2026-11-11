@@ -1,5 +1,5 @@
 diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
-index 3c58b04..3a754ea 100644
+index 3c58b04..8d7a8c0 100644
 --- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
 +++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
 @@ -1,5 +1,6 @@
@@ -48,7 +48,7 @@ index 3c58b04..3a754ea 100644
    const isSystemDarkMode = useColorScheme() === 'dark';
  
    const [toastHeight, setToastHeight] = useState<number>(
-@@ -135,6 +142,14 @@ export const Toast: FC<Props> = ({
+@@ -135,6 +142,18 @@ export const Toast: FC<Props> = ({
    const opacity = useSharedValue(0);
    const position = useSharedValue(startY);
    const offsetY = useSharedValue(startY);
@@ -60,10 +60,14 @@ index 3c58b04..3a754ea 100644
 +  const swipeVisible = useSharedValue(toast.visible);
 +  const swipeEnabled = useSharedValue(toast.isSwipeable);
 +  const touchStart = useRef({ pageX: 0, pageY: 0, dragged: false });
++  const swipeInstance = useRef({
++    createdAt: toast.createdAt,
++    customToast: toast.customToast,
++  });
  
    const onPress = useCallback(() => {
      if (toast.onPress) {
-@@ -162,6 +177,19 @@ export const Toast: FC<Props> = ({
+@@ -162,6 +181,19 @@ export const Toast: FC<Props> = ({
      }
    }, [toast.position]);
  
@@ -83,7 +87,7 @@ index 3c58b04..3a754ea 100644
    const setPosition = useCallback(() => {
      let timingConfig: WithTimingConfig = { duration: 300 };
      let springConfig: WithSpringConfig = { stiffness: 80 };
-@@ -234,6 +262,64 @@ export const Toast: FC<Props> = ({
+@@ -234,6 +266,65 @@ export const Toast: FC<Props> = ({
    ]);
  
    const composedGesture = useMemo(() => {
@@ -92,6 +96,7 @@ index 3c58b04..3a754ea 100644
 +      const swipeSign = getSwipeDirection() === Directions.UP ? -1 : 1;
 +      const toastId = toast.id;
 +      return Gesture.Pan()
++        .maxPointers(1)
 +        .enabled(Boolean(toast.isSwipeable))
 +        .onBegin((e) => {
 +          swipeStartX.value = e.absoluteX ?? 0;
@@ -148,7 +153,7 @@ index 3c58b04..3a754ea 100644
      const panGesture = Gesture.Pan()
        .onUpdate((e) => {
          offsetY.value = e.translationY / 4 + position.value;
-@@ -264,6 +350,41 @@ export const Toast: FC<Props> = ({
+@@ -264,6 +355,54 @@ export const Toast: FC<Props> = ({
      toast.isSwipeable,
      toast.animationConfig,
      getSwipeDirection,
@@ -165,10 +170,20 @@ index 3c58b04..3a754ea 100644
 +    if (!USE_SWIPE_PAN) {
 +      return;
 +    }
++    const instanceChanged =
++      swipeInstance.current.createdAt !== toast.createdAt ||
++      swipeInstance.current.customToast !== toast.customToast;
++    swipeInstance.current = {
++      createdAt: toast.createdAt,
++      customToast: toast.customToast,
++    };
 +    const wasVisible = swipeVisible.value;
 +    swipeVisible.value = toast.visible;
 +    swipeEnabled.value = toast.isSwipeable;
-+    if (toast.visible && !wasVisible) {
++    if (
++      toast.visible &&
++      (!wasVisible || (instanceChanged && swipeDismissed.value))
++    ) {
 +      swipeDismissed.value = false;
 +      dragOffset.value = 0;
 +      dragStart.value = 0;
@@ -182,15 +197,18 @@ index 3c58b04..3a754ea 100644
 +  }, [
 +    toast.visible,
 +    toast.isSwipeable,
++    toast.createdAt,
++    toast.customToast,
 +    swipeVisible,
 +    swipeEnabled,
 +    swipeDismissed,
 +    dragOffset,
 +    dragStart,
++    swipeInstance,
    ]);
  
    useVisibilityChange(
-@@ -316,7 +437,9 @@ export const Toast: FC<Props> = ({
+@@ -316,7 +455,9 @@ export const Toast: FC<Props> = ({
        opacity: opacity.value,
        transform: [
          {
@@ -201,7 +219,7 @@ index 3c58b04..3a754ea 100644
          },
        ],
      };
-@@ -328,11 +451,28 @@ export const Toast: FC<Props> = ({
+@@ -328,11 +469,28 @@ export const Toast: FC<Props> = ({
      <GestureDetector key={toast.id} gesture={composedGesture}>
        <AnimatedPressable
          testID="toast-pressable"
@@ -231,7 +249,7 @@ index 3c58b04..3a754ea 100644
          style={[
            {
              backgroundColor: !toast.customToast
-@@ -343,7 +483,7 @@ export const Toast: FC<Props> = ({
+@@ -343,7 +501,7 @@ export const Toast: FC<Props> = ({
              borderRadius: 8,
              position: 'absolute',
              left: leftPosition,
