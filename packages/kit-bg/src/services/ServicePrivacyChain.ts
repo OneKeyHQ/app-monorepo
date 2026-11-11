@@ -181,6 +181,13 @@ export type ILocalWalletAccountListItem = {
   deriveLabel?: string;
 };
 
+// A network's accounts keeping local data, grouped as its account limit counts
+// them: accounts sharing a key (a software and a hardware wallet) share one
+// place and one scan, so one group stands for them all.
+export type ILocalWalletNetworkPlaces = {
+  groups: { accountIds: string[]; address?: string }[];
+};
+
 // Upper bound on the per-network head request inside a tick.
 const PRIVACY_CHAIN_TIP_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -3871,6 +3878,37 @@ class ServicePrivacyChain extends ServiceBase {
         });
       }
     }
+  }
+
+  // What a full network can delete from: only deleting local data frees a place.
+  @backgroundMethod()
+  async getLocalWalletNetworkPlaces({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<ILocalWalletNetworkPlaces> {
+    const holders =
+      await this.backgroundApi.simpleDb.privacyChainState.listNetworkDataHolders(
+        { networkId },
+      );
+    const accountIdsByIdentity = new Map<string, string[]>();
+    for (const { accountId, identity } of holders) {
+      accountIdsByIdentity.set(identity, [
+        ...(accountIdsByIdentity.get(identity) ?? []),
+        accountId,
+      ]);
+    }
+    const groups = await Promise.all(
+      Array.from(accountIdsByIdentity.values(), async (accountIds) => ({
+        accountIds,
+        address: (
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId: accountIds[0],
+          })
+        )?.address,
+      })),
+    );
+    return { groups };
   }
 
   // Asked before the birthday form, so a full network refuses before any input.
