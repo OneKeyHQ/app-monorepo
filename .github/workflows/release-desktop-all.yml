@@ -490,56 +490,15 @@ jobs:
     outputs:
       upstream_verified: ${{ steps.verify.outputs.upstream_verified }}
     steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
       - name: Verify upstream daily-build run
         id: verify
-        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UPSTREAM_RUN_ID: ${{ github.event.inputs.upstream_run_id }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "$UPSTREAM_RUN_ID" ]]; then
-            echo "upstream_verified=false" >> "$GITHUB_OUTPUT"
-            echo "No upstream_run_id input; Windows signing stays limited to release refs."
-            exit 0
-          fi
-          if [[ ! "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::upstream_run_id must be numeric"
-            exit 1
-          fi
-
-          run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}")
-          workflow_path=$(jq -r '.path' <<<"$run")
-          head_repo=$(jq -r '.head_repository.full_name // ""' <<<"$run")
-          head_branch=$(jq -r '.head_branch // ""' <<<"$run")
-          head_sha=$(jq -r '.head_sha' <<<"$run")
-
-          if [[ "$workflow_path" != ".github/workflows/daily-build.yml" ]]; then
-            echo "::error::Run ${UPSTREAM_RUN_ID} is not a daily-build run (${workflow_path})"
-            exit 1
-          fi
-          if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
-            echo "::error::Run ${UPSTREAM_RUN_ID} belongs to ${head_repo}, not ${GITHUB_REPOSITORY}"
-            exit 1
-          fi
-          if [[ "$head_branch" != "$GITHUB_REF_NAME" ]]; then
-            echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_branch}, but this dispatch packages ${GITHUB_REF_NAME}"
-            exit 1
-          fi
-          if [[ "$head_sha" != "$GITHUB_SHA" ]]; then
-            # Accept the verified run's commit as an ancestor of the packaged
-            # commit, so a push during the daily-build run cannot silently
-            # downgrade the artifacts to unsigned.
-            compare=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${head_sha}...${GITHUB_SHA}" --jq '.status')
-            if [[ "$compare" != "ahead" && "$compare" != "identical" ]]; then
-              echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_sha}, which is not an ancestor of ${GITHUB_SHA}"
-              exit 1
-            fi
-          fi
-
-          echo "upstream_verified=true" >> "$GITHUB_OUTPUT"
-          echo "Verified daily-build run ${UPSTREAM_RUN_ID} for ${GITHUB_REF_NAME}."
+        run: node .github/scripts/verify-daily-build-run.js
 
   # ═══════════════════════════════════════════════════
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
