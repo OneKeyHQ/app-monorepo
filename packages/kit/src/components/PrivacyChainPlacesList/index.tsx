@@ -27,16 +27,27 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
   const { gtMd } = useMedia();
   const [deletingAccountId, setDeletingAccountId] = useState<string>();
   const { result: rows, run } = usePromiseResult(async () => {
-    const [places, accounts] = await Promise.all([
+    const [places, accounts, deriveItems] = await Promise.all([
       backgroundApiProxy.servicePrivacyChain.getLocalWalletNetworkPlaces({
         networkId,
       }),
       backgroundApiProxy.servicePrivacyChain.listLocalWalletAccounts(),
+      backgroundApiProxy.serviceNetwork
+        .getDeriveInfoItemsOfNetwork({ networkId })
+        .catch(() => []),
     ]);
     const accountById = new Map(
       accounts.map((account) => [account.accountId, account]),
     );
-    return Promise.all(
+    // Sections follow the derivation order (the default first), as the
+    // account selector does; blocks within one follow the account list.
+    const deriveRankByLabel = new Map(
+      deriveItems.map((item, rank) => [item.label, rank]),
+    );
+    const listRankById = new Map(
+      accounts.map((account, rank) => [account.accountId, rank]),
+    );
+    const loaded = await Promise.all(
       places.groups.map(async ({ accountIds, address }) => {
         const state =
           await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
@@ -46,19 +57,30 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
           const account = accountById.get(accountId);
           return account ? [account] : [];
         });
+        // Accounts sharing a key share its derivation too.
+        const deriveLabel = listed[0]?.deriveLabel;
         return {
           accountId: accountIds[0],
           address,
-          owners: listed.map(
-            (account) => `${account.walletName} / ${account.accountName}`,
-          ),
-          // Accounts sharing a key share its derivation too.
-          deriveLabel: listed[0]?.deriveLabel,
-          // Accounts of a wallet not open now are not listed by name.
+          owners: listed.map((account) => ({
+            accountId: account.accountId,
+            label: `${account.walletName} / ${account.accountName}`,
+          })),
+          deriveLabel,
+          // Accounts of a wallet not open now are not listed by name, and
+          // go last.
           unlistedCount: accountIds.length - listed.length,
           paused: state.paused,
+          deriveRank:
+            deriveRankByLabel.get(deriveLabel ?? '') ?? Number.MAX_SAFE_INTEGER,
+          listRank:
+            listRankById.get(listed[0]?.accountId ?? '') ??
+            Number.MAX_SAFE_INTEGER,
         };
       }),
+    );
+    return loaded.toSorted(
+      (a, b) => a.deriveRank - b.deriveRank || a.listRank - b.listRank,
     );
   }, [networkId]);
 
@@ -100,7 +122,7 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
     id: ETranslations.privacy_delete_data__title,
   });
   type IRow = (typeof rows)[number];
-  // One section per derivation, in list order; a chain with one has no header.
+  // One section per derivation, in the order above; a chain with one has no header.
   const sections = new Map<string, IRow[]>();
   rows.forEach((row) => {
     const label = row.deriveLabel ?? '';
@@ -112,10 +134,13 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
       row.unlistedCount > 0
         ? [
             ...row.owners,
-            intl.formatMessage(
-              { id: ETranslations.privacy_slots_locked_wallets__msg },
-              { count: row.unlistedCount },
-            ),
+            {
+              accountId: 'unlisted',
+              label: intl.formatMessage(
+                { id: ETranslations.privacy_slots_locked_wallets__msg },
+                { count: row.unlistedCount },
+              ),
+            },
           ]
         : row.owners;
     return (
@@ -135,11 +160,11 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {row.address
               ? accountUtils.shortenAddress({ address: row.address })
-              : owners[0]}
+              : owners[0]?.label}
           </SizableText>
           {owners.map((owner) => (
-            <SizableText key={owner} size="$bodyMd" numberOfLines={1}>
-              {owner}
+            <SizableText key={owner.accountId} size="$bodyMd" numberOfLines={1}>
+              {owner.label}
             </SizableText>
           ))}
           <SizableText size="$bodySm" color="$textSubdued">

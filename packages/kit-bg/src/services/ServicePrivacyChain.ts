@@ -3901,14 +3901,24 @@ class ServicePrivacyChain extends ServiceBase {
     const groups = await Promise.all(
       Array.from(accountIdsByIdentity.values(), async (accountIds) => ({
         accountIds,
-        address: (
-          await this.backgroundApi.serviceAccount.getDBAccountSafe({
-            accountId: accountIds[0],
-          })
-        )?.address,
+        address: await this.findLocalWalletGroupAddress(accountIds),
       })),
     );
     return { groups };
+  }
+
+  // Accounts sharing a key share their address; the first one still in the
+  // account store gives it, as one removed but not yet cleaned up has none.
+  private async findLocalWalletGroupAddress(
+    accountIds: string[],
+  ): Promise<string | undefined> {
+    for (const accountId of accountIds) {
+      const address = // eslint-disable-next-line no-await-in-loop
+      (await this.backgroundApi.serviceAccount.getDBAccountSafe({ accountId }))
+        ?.address;
+      if (address) return address;
+    }
+    return undefined;
   }
 
   // Asked before the birthday form, so a full network refuses before any input.

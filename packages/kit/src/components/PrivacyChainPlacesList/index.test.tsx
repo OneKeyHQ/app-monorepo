@@ -9,6 +9,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // eslint-disable-next-line no-var, vars-on-top
 var mockGroups: { accountIds: string[]; address?: string }[] = [];
+// eslint-disable-next-line no-var, vars-on-top
+var mockAccounts: {
+  accountId: string;
+  accountName: string;
+  walletName: string;
+  deriveLabel?: string;
+}[] = [];
 const mockDelete = jest.fn(
   async (_params: { networkId: string; accountId: string }) => undefined,
 );
@@ -84,33 +91,16 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    servicePrivacyChain: {
-      getLocalWalletNetworkPlaces: async () => ({
-        used: mockGroups.length,
-        max: 5,
-        groups: mockGroups,
-      }),
-      listLocalWalletAccounts: async () => [
-        {
-          accountId: 'hd-1--0',
-          accountName: 'Account #1',
-          walletName: 'Wallet 1',
-          deriveLabel: 'BIP44',
-        },
-        {
-          accountId: 'hw-1--0',
-          accountName: 'Account #1',
-          walletName: 'Pro',
-          deriveLabel: 'BIP44',
-        },
-        // The same wallet and index on the other derivation: told apart by it.
-        {
-          accountId: 'hd-1--1',
-          accountName: 'Account #1',
-          walletName: 'Wallet 1',
-          deriveLabel: 'Cake Wallet',
-        },
+    serviceNetwork: {
+      // The chain's derivations, the default first.
+      getDeriveInfoItemsOfNetwork: async () => [
+        { label: 'BIP44' },
+        { label: 'Cake Wallet' },
       ],
+    },
+    servicePrivacyChain: {
+      getLocalWalletNetworkPlaces: async () => ({ groups: mockGroups }),
+      listLocalWalletAccounts: async () => mockAccounts,
       getLocalWalletAccountState: async ({
         accountId,
       }: {
@@ -135,6 +125,27 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 beforeEach(() => {
   mockDelete.mockClear();
   mockConfirm.mockClear();
+  mockAccounts = [
+    {
+      accountId: 'hd-1--0',
+      accountName: 'Account #1',
+      walletName: 'Wallet 1',
+      deriveLabel: 'BIP44',
+    },
+    {
+      accountId: 'hw-1--0',
+      accountName: 'Account #1',
+      walletName: 'Pro',
+      deriveLabel: 'BIP44',
+    },
+    // The same wallet and index on the other derivation: told apart by it.
+    {
+      accountId: 'hd-1--1',
+      accountName: 'Account #1',
+      walletName: 'Wallet 1',
+      deriveLabel: 'Cake Wallet',
+    },
+  ];
   mockGroups = [
     // The same key on a software and a hardware wallet: one place, one row.
     {
@@ -194,4 +205,72 @@ it('deletes a row’s data once confirmed and drops the row', async () => {
   });
   expect(screen.queryByTestId('privacy-chain-places-row-hd-1--1')).toBeNull();
   expect(screen.getByTestId('privacy-chain-places-row-hd-1--0')).toBeTruthy();
+});
+
+// The stored order is arbitrary: the default derivation comes first, as in the
+// account selector, and accounts of a wallet not open now come last.
+it('orders sections by derivation, whatever order the data is stored in', async () => {
+  mockGroups = [
+    { accountIds: ['hd-9--0'], address: '46R1sU9YLockedWalletAddressNSndB5' },
+    { accountIds: ['hd-1--1'], address: '43SMrTtLPausedAccountAddressK44756' },
+    {
+      accountIds: ['hd-1--0', 'hw-1--0'],
+      address: '44jKQv6ZSharedAddressOfBothWalletseDx1WR',
+    },
+  ];
+  render(<PrivacyChainPlacesList networkId="xmr--0" />);
+  await waitFor(() =>
+    expect(screen.getByTestId('privacy-chain-places-row-hd-9--0')).toBeTruthy(),
+  );
+
+  expect(
+    screen
+      .getAllByTestId(/^privacy-chain-places-section-/)
+      .map((section) => section.getAttribute('data-testid')),
+  ).toEqual([
+    'privacy-chain-places-section-BIP44',
+    'privacy-chain-places-section-Cake Wallet',
+    'privacy-chain-places-section-',
+  ]);
+});
+
+it('lists two accounts named alike under one key without clashing', async () => {
+  mockAccounts = [
+    {
+      accountId: 'hd-1--0',
+      accountName: 'Account #1',
+      walletName: 'Wallet',
+      deriveLabel: 'BIP44',
+    },
+    {
+      accountId: 'hw-1--0',
+      accountName: 'Account #1',
+      walletName: 'Wallet',
+      deriveLabel: 'BIP44',
+    },
+  ];
+  mockGroups = [
+    {
+      accountIds: ['hd-1--0', 'hw-1--0'],
+      address: '44jKQv6ZSharedAddressOfBothWalletseDx1WR',
+    },
+  ];
+  const consoleError = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => undefined);
+  render(<PrivacyChainPlacesList networkId="xmr--0" />);
+  await waitFor(() =>
+    expect(screen.getByTestId('privacy-chain-places-row-hd-1--0')).toBeTruthy(),
+  );
+
+  expect(
+    within(screen.getByTestId('privacy-chain-places-row-hd-1--0')).getAllByText(
+      'Wallet / Account #1',
+    ),
+  ).toHaveLength(2);
+  const keyClash = consoleError.mock.calls.some(([message]) =>
+    String(message).includes('same key'),
+  );
+  consoleError.mockRestore();
+  expect(keyClash).toBe(false);
 });

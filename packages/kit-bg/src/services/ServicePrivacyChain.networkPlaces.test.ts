@@ -13,6 +13,35 @@ type IPlacesService = {
   }) => Promise<import('./ServicePrivacyChain').ILocalWalletNetworkPlaces>;
 };
 
+it('takes a group’s address from an account still in the store', async () => {
+  const service = Object.assign(
+    Object.create(ServicePrivacyChain.prototype) as IPlacesService,
+    {
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: {
+            listNetworkDataHolders: async () => [
+              // Removed, not yet cleaned up: no account record left.
+              { accountId: 'hw-1--0', identity: 'key-a' },
+              { accountId: 'hd-1--0', identity: 'key-a' },
+            ],
+          },
+        },
+        serviceAccount: {
+          getDBAccountSafe: async ({ accountId }: { accountId: string }) =>
+            accountId === 'hw-1--0' ? null : { address: 'shared-address' },
+        },
+      },
+    },
+  );
+
+  await expect(
+    service.getLocalWalletNetworkPlaces({ networkId: 'xmr--0' }),
+  ).resolves.toEqual({
+    groups: [{ accountIds: ['hw-1--0', 'hd-1--0'], address: 'shared-address' }],
+  });
+});
+
 it('groups a network’s data holders by key, as its limit counts them', async () => {
   const service = Object.assign(
     Object.create(ServicePrivacyChain.prototype) as IPlacesService,
