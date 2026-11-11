@@ -20,6 +20,11 @@ export interface IBroadcastRecord {
   // bookkeeping (signature record, local history) ran, or the caller owns
   // that bookkeeping (direct send) and only ever replays the signed result.
   isSettled: boolean;
+  // Payloads signed earlier under this uuid that `signedTx` replaced while
+  // the chain had not settled them, oldest first. A replacement is only
+  // signed when the chain can execute at most one of the two, which does
+  // not say which one: any of these may still be the tx that lands.
+  supersededSignedTxs?: ISignedTxPro[];
 }
 
 export interface IBroadcastRecordsDb {

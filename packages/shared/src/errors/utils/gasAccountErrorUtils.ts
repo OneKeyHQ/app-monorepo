@@ -127,6 +127,34 @@ export function isGasAccountUnclassifiedServerError(error: unknown): boolean {
   );
 }
 
+// send-transaction codes the backend answers at quote admission, before the
+// execute step: the request was refused and the signed tx was handed to no
+// node. These are the codes the confirm page re-estimates on (Refresh) or
+// falls back to a user-paid send on (Fallback), so a retry may sign a new tx.
+// Execute and transport failures (40203 / 90200 / 90205 / 90219, and the
+// unclassified 400 above) are deliberately absent: their tx may be on chain.
+export const GAS_ACCOUNT_SUBMIT_REJECTED_CODES: readonly number[] = [
+  // Quote or its locked nonce is no longer valid.
+  40_201,
+  40_202,
+  40_209,
+  90_201,
+  GAS_ACCOUNT_ADMISSION_OVERLOADED_CODE,
+  // Sponsor path unavailable for this send.
+  40_212,
+  40_213,
+  40_216,
+  40_218,
+  40_219,
+  90_208,
+];
+
+export function isGasAccountSubmitRejectedCode(code: unknown): boolean {
+  return (
+    typeof code === 'number' && GAS_ACCOUNT_SUBMIT_REJECTED_CODES.includes(code)
+  );
+}
+
 // Which Gas Account request an error came from. estimate-fee and
 // send-transaction share the strategy table, but the same code means
 // different things per stage: at estimate time nothing was signed or
