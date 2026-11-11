@@ -156,11 +156,7 @@ function HighlightInfo({
             </XStack>
           ) : null}
           <SizableText size={wide ? '$bodySm' : '$bodyMd'} color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslationsMock.market_highlights_disclaimer__desc,
-              defaultMessage:
-                ETranslationsMock.market_highlights_disclaimer__desc,
-            })}
+            {intl.formatMessage({ id: ETranslations.market_news_disclaimer })}
           </SizableText>
         </YStack>
       }
