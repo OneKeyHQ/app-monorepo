@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 import type { ReactElement, ReactNode } from 'react';
+import { Children, isValidElement } from 'react';
 
 import PrivacyNetworkSettings from '.';
 
@@ -22,11 +23,29 @@ import type {
   ILocalWalletAccountState,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes/setting';
+
+function getBirthdayFormProps(content: ReactElement<{ children: ReactNode }>) {
+  const form = Children.toArray(content.props.children).find(
+    (
+      child,
+    ): child is ReactElement<{
+      formRef: { current: IBirthdayFormState };
+      earliestBirthday?: IEarliestBirthday;
+    }> =>
+      isValidElement<{ formRef?: { current: IBirthdayFormState } }>(child) &&
+      !!child.props.formRef,
+  );
+  if (!form) {
+    throw new OneKeyLocalError('Birthday form is missing from the dialog body');
+  }
+  return form.props;
+}
 
 // eslint-disable-next-line no-var, vars-on-top
 var mockAccounts: ILocalWalletAccountListItem[] = [];
@@ -1185,16 +1204,25 @@ describe('Privacy network settings for a temp wallet', () => {
         fireEvent.click(button);
       });
       const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
-        renderContent: ReactElement<{
-          formRef: { current: IBirthdayFormState };
-        }>;
+        renderContent: ReactElement<{ children: ReactNode }>;
+        description?: string;
+        boundedSheetLayout?: boolean;
+        fixedHeaderFooterHeight?: number;
+        sheetDragArea?: 'sheet' | 'header';
         onConfirm: (params: { preventClose: () => void }) => Promise<void>;
       };
-      expect(args.renderContent.props.formRef.current.date?.getTime()).toBe(
-        timestamp,
-      );
-      expect(args.renderContent.props.formRef.current.height).toBe('3500000');
-      args.renderContent.props.formRef.current.mode = mode;
+      expect(args.boundedSheetLayout).toBe(true);
+      expect(args.fixedHeaderFooterHeight).toBe(600);
+      expect(args.sheetDragArea).toBe('header');
+      expect(args.description).toBeUndefined();
+      const body = render(args.renderContent);
+      expect(
+        body.getByText(ETranslations.privacy_sync_resync__desc),
+      ).toBeTruthy();
+      const formProps = getBirthdayFormProps(args.renderContent);
+      expect(formProps.formRef.current.date?.getTime()).toBe(timestamp);
+      expect(formProps.formRef.current.height).toBe('3500000');
+      formProps.formRef.current.mode = mode;
       const birthday =
         mode === 'height'
           ? { birthdayHeight: 3_500_000, birthdayTimestamp: undefined }
@@ -1206,7 +1234,7 @@ describe('Privacy network settings for a temp wallet', () => {
       });
       expect(preventClose).not.toHaveBeenCalled();
       expect(readEnableBirthday).toHaveBeenLastCalledWith(
-        args.renderContent.props.formRef.current,
+        formProps.formRef.current,
         mockBirthdaySettings.earliestBirthday,
         'zec--0',
       );
@@ -1252,16 +1280,12 @@ describe('Privacy network settings for a temp wallet', () => {
         fireEvent.click(birthdayButton);
       });
       const args = Dialog.confirm.mock.calls.at(-1)?.[0] as {
-        renderContent: ReactElement<{
-          formRef: { current: IBirthdayFormState };
-          earliestBirthday?: IEarliestBirthday;
-        }>;
+        renderContent: ReactElement<{ children: ReactNode }>;
         onConfirm: (params: { preventClose: () => void }) => Promise<void>;
       };
-      expect(args.renderContent.props.earliestBirthday).toEqual(
-        earliestBirthday,
-      );
-      args.renderContent.props.formRef.current.fromEarliest = true;
+      const formProps = getBirthdayFormProps(args.renderContent);
+      expect(formProps.earliestBirthday).toEqual(earliestBirthday);
+      formProps.formRef.current.fromEarliest = true;
       const preventClose = jest.fn();
       await act(async () => {
         await args.onConfirm({ preventClose });
