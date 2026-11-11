@@ -105,6 +105,77 @@ it('cleans up safely before a wallet is selected', () => {
   expect(mockEnableRequest).toBeUndefined();
 });
 
+it('keeps first Monero creation explicit and continues after the created index is selected', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender, unmount } = renderHook(() =>
+    useHomeMoneroAccountCreation(),
+  );
+  expect(result.current.enableAfterCreate).toBe(true);
+  expect(mockSetEnableRequest).not.toHaveBeenCalled();
+  const onCreateDone = result.current.onCreateDone;
+  act(() => onCreateDone(undefined));
+  expect(mockEnableRequest).toBeUndefined();
+
+  // The existing creation flow selects the returned index before this callback.
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  act(() => onCreateDone(creationResult));
+  expect(mockEnableRequest).toEqual({
+    walletId: 'hd-1',
+    indexedAccountId: creationResult.indexedAccountId,
+    networkId: 'xmr--0',
+    accountId: createdAccount.id,
+  });
+  unmount();
+  expect(mockEnableRequest).toBeUndefined();
+});
+
+it.each([false, true])(
+  'drops first creation after another index is selected, even if creation later selects its own index (%s)',
+  (returnsToCreatedIndex) => {
+    mockActiveAccount.indexedAccount = undefined;
+    const { result, rerender } = renderHook(() =>
+      useHomeMoneroAccountCreation(),
+    );
+    const onCreateDone = result.current.onCreateDone;
+    mockActiveAccount.indexedAccount = { id: 'hd-1--1' };
+    rerender();
+    if (returnsToCreatedIndex) {
+      mockActiveAccount.indexedAccount = {
+        id: creationResult.indexedAccountId,
+      };
+      rerender();
+    }
+    act(() => onCreateDone(creationResult));
+    expect(mockEnableRequest).toBeUndefined();
+  },
+);
+
+it.each(['wallet', 'network'] as const)(
+  'drops first creation after leaving and returning to its %s',
+  (field) => {
+    mockActiveAccount.indexedAccount = undefined;
+    const { result, rerender } = renderHook(() =>
+      useHomeMoneroAccountCreation(),
+    );
+    const onCreateDone = result.current.onCreateDone;
+    if (field === 'wallet') {
+      mockActiveAccount.wallet = { id: 'hd-2', isTemp: false };
+    } else {
+      mockActiveAccount.network = { id: 'evm--1' };
+    }
+    rerender();
+    mockActiveAccount.wallet = { id: 'hd-1', isTemp: false };
+    mockActiveAccount.network = { id: 'xmr--0' };
+    mockActiveAccount.indexedAccount = {
+      id: creationResult.indexedAccountId,
+    };
+    rerender();
+    act(() => onCreateDone(creationResult));
+    expect(mockEnableRequest).toBeUndefined();
+  },
+);
+
 it('drops an in-flight creation handoff after switching the selected account', () => {
   const { result, rerender } = renderHook(() => useHomeMoneroAccountCreation());
   const oldCallback = result.current.onCreateDone;

@@ -19,7 +19,6 @@ export function useHomeMoneroAccountCreation() {
     walletId &&
     accountUtils.isHdWallet({ walletId }) &&
     !wallet?.isTemp &&
-    indexedAccountId &&
     networkId &&
     networkUtils.getNetworkImpl({ networkId }) === IMPL_XMR,
   );
@@ -29,6 +28,19 @@ export function useHomeMoneroAccountCreation() {
     [walletId, indexedAccountId, networkId],
   );
   const ownerRef = useRef(owner);
+  const initialOwnerRef = useRef<typeof owner | undefined>(undefined);
+  if (ownerRef.current !== owner) {
+    const previous = ownerRef.current;
+    // First creation selects its new index before onCreateDone. Allow only
+    // that one transition; any further selection invalidates the handoff.
+    initialOwnerRef.current =
+      previous.walletId === walletId &&
+      previous.networkId === networkId &&
+      !previous.indexedAccountId &&
+      indexedAccountId
+        ? previous
+        : undefined;
+  }
   ownerRef.current = owner;
   useLayoutEffect(() => {
     owner.mounted = true;
@@ -53,37 +65,33 @@ export function useHomeMoneroAccountCreation() {
     >
   >(
     (result) => {
+      const currentOwner = ownerRef.current;
       if (
         !enableAfterCreate ||
-        !owner.mounted ||
-        ownerRef.current !== owner ||
+        !currentOwner.mounted ||
+        (currentOwner !== owner && initialOwnerRef.current !== owner) ||
         !walletId ||
-        !indexedAccountId ||
         !networkId ||
         result?.walletId !== walletId ||
-        result.indexedAccountId !== indexedAccountId
+        !result.indexedAccountId ||
+        result.indexedAccountId !== currentOwner.indexedAccountId
       ) {
         return;
       }
       const createdAccount = result.accounts.find(
-        (account) => account.impl === IMPL_XMR,
+        (account) =>
+          account.impl === IMPL_XMR &&
+          account.indexedAccountId === result.indexedAccountId,
       );
       if (!createdAccount) return;
       setEnableRequest({
         walletId,
-        indexedAccountId,
+        indexedAccountId: result.indexedAccountId,
         networkId,
         accountId: createdAccount.id,
       });
     },
-    [
-      enableAfterCreate,
-      indexedAccountId,
-      networkId,
-      owner,
-      setEnableRequest,
-      walletId,
-    ],
+    [enableAfterCreate, networkId, owner, setEnableRequest, walletId],
   );
 
   return { enableAfterCreate, onCreateDone };

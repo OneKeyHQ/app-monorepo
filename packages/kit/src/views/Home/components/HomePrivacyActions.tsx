@@ -34,6 +34,8 @@ import { HomeTestIDs } from '../testIDs';
 import { RawActions } from './WalletActions/RawActions';
 import { WalletActionMore } from './WalletActions/WalletActionMore';
 
+import type { ILocalWalletPool } from '../../AssetDetails/pages/TokenDetails/useLocalWalletPool';
+
 export type IHomePrivacyActionsPresentation = {
   ownerKey: string;
   variant: 'privacy-loading' | 'privacy-enable' | 'standard';
@@ -74,46 +76,24 @@ function HomeMoneroEnableButton({
   return <Button {...props} testID={props.testID} onPress={onPress} />;
 }
 
-function HomeMoneroActions({
-  account,
-  networkId,
-  vaultSettings,
-  children,
-  onPresentationChange,
-  ...rest
-}: {
+type IHomeMoneroActionsProps = {
   account: INetworkAccount;
   networkId: string;
   vaultSettings: IVaultSettings | undefined;
   children: ReactNode;
 } & IXStackProps &
-  IHomePrivacyActionsPresentationProps) {
-  const intl = useIntl();
-  const isFocused = useIsFocused();
+  IHomePrivacyActionsPresentationProps;
+
+function usePublishHomePrivacyTokenStatus({
+  accountId,
+  networkId,
+  pool,
+}: {
+  accountId: string;
+  networkId: string;
+  pool: ILocalWalletPool;
+}) {
   const [, setHomePrivacyTokenStatus] = useHomePrivacyTokenStatusAtom();
-  const [enableRequest, setEnableRequest] = useHomeMoneroEnableRequestAtom();
-  const requestEnable =
-    enableRequest?.accountId === account.id &&
-    enableRequest.networkId === networkId;
-  const handleEnableRequest = useCallback(() => {
-    setEnableRequest((previous) =>
-      previous === enableRequest ? undefined : previous,
-    );
-  }, [enableRequest, setEnableRequest]);
-  const accountData = useMemo(
-    () => ({ account, vaultSettings }),
-    [account, vaultSettings],
-  );
-  const pool = useLocalWalletPool({
-    networkId,
-    accountId: account.id,
-    accountData,
-    isActive: isFocused,
-    poolId: resolveSelectedPoolId({
-      settings: vaultSettings?.localWallet,
-      selectedPoolId: undefined,
-    }),
-  });
   const tokenSyncStatus =
     pool.isReady &&
     pool.isWalletSupported === true &&
@@ -124,78 +104,99 @@ function HomeMoneroActions({
   useLayoutEffect(() => {
     setHomePrivacyTokenStatus((previous) => {
       if (tokenSyncStatus === undefined) {
-        return previous?.accountId === account.id &&
+        return previous?.accountId === accountId &&
           previous.networkId === networkId
           ? undefined
           : previous;
       }
       if (
-        previous?.accountId === account.id &&
+        previous?.accountId === accountId &&
         previous.networkId === networkId &&
         previous.status === tokenSyncStatus
       ) {
         return previous;
       }
-      return { accountId: account.id, networkId, status: tokenSyncStatus };
+      return { accountId, networkId, status: tokenSyncStatus };
     });
-  }, [account.id, networkId, setHomePrivacyTokenStatus, tokenSyncStatus]);
+  }, [accountId, networkId, setHomePrivacyTokenStatus, tokenSyncStatus]);
   useLayoutEffect(
     () => () => {
       // An old account must not clear the next account's published status.
       setHomePrivacyTokenStatus((previous) =>
-        previous?.accountId === account.id && previous.networkId === networkId
+        previous?.accountId === accountId && previous.networkId === networkId
           ? undefined
           : previous,
       );
     },
-    [account.id, networkId, setHomePrivacyTokenStatus],
+    [accountId, networkId, setHomePrivacyTokenStatus],
   );
+}
 
-  let variant: IHomePrivacyActionsPresentation['variant'] = 'privacy-enable';
-  if (!pool.isReady) {
-    variant = 'privacy-loading';
-  } else if (
+function getHomeMoneroActionsVariant(
+  pool: ILocalWalletPool,
+): IHomePrivacyActionsPresentation['variant'] {
+  if (!pool.isReady) return 'privacy-loading';
+  if (
     (pool.enabled && !pool.isSyncPaused) ||
     !pool.hasPooledBalance ||
     pool.state?.privacyDisabled ||
     pool.isUnsupportedWallet ||
     pool.isTempWallet
   ) {
-    variant = 'standard';
+    return 'standard';
   }
-  useLayoutEffect(() => {
-    onPresentationChange?.({
-      ownerKey: `${networkId}:${account.id}`,
-      variant,
-    });
-  }, [account.id, networkId, onPresentationChange, variant]);
+  return 'privacy-enable';
+}
+
+function useHomeMoneroEnableRequest({
+  accountId,
+  networkId,
+  variant,
+}: {
+  accountId: string;
+  networkId: string;
+  variant: IHomePrivacyActionsPresentation['variant'];
+}) {
+  const [enableRequest, setEnableRequest] = useHomeMoneroEnableRequestAtom();
+  const requestEnable =
+    enableRequest?.accountId === accountId &&
+    enableRequest.networkId === networkId;
+  const handleEnableRequest = useCallback(() => {
+    setEnableRequest((previous) =>
+      previous === enableRequest ? undefined : previous,
+    );
+  }, [enableRequest, setEnableRequest]);
   useEffect(() => {
     if (requestEnable && variant === 'standard') handleEnableRequest();
   }, [handleEnableRequest, requestEnable, variant]);
+  return { requestEnable, handleEnableRequest };
+}
 
-  if (variant === 'privacy-loading') {
-    return (
-      <RawActions.Placeholder
-        {...rest}
-        testID={HomeTestIDs.walletActionsLoading}
-      />
-    );
-  }
-
-  if (variant === 'standard') {
-    return <>{children}</>;
-  }
-
+function HomeMoneroEnableActions({
+  accountId,
+  networkId,
+  pool,
+  requestEnable,
+  handleEnableRequest,
+  ...rest
+}: IXStackProps & {
+  accountId: string;
+  networkId: string;
+  pool: ILocalWalletPool;
+  requestEnable: boolean;
+  handleEnableRequest: () => void;
+}) {
+  const intl = useIntl();
   return (
     <LocalWalletPoolStatus
       networkId={networkId}
-      accountId={account.id}
+      accountId={accountId}
       pool={pool}
       presentation="home"
       renderEnableTrigger={({ onPress, loading, disabled }) => (
         <RawActions {...rest} justifyContent="flex-start" gap="$2.5">
           <HomeMoneroEnableButton
-            requestEnable={isFocused && requestEnable && !pool.enabled}
+            requestEnable={requestEnable}
             onRequestHandled={handleEnableRequest}
             testID={HomeTestIDs.enableMoneroButton}
             flex={1}
@@ -211,6 +212,72 @@ function HomeMoneroActions({
           <WalletActionMore iconOnly />
         </RawActions>
       )}
+    />
+  );
+}
+
+function useHomeMoneroPool({
+  account,
+  networkId,
+  vaultSettings,
+}: Pick<IHomeMoneroActionsProps, 'account' | 'networkId' | 'vaultSettings'>) {
+  const isFocused = useIsFocused();
+  const accountData = useMemo(
+    () => ({ account, vaultSettings }),
+    [account, vaultSettings],
+  );
+  const pool = useLocalWalletPool({
+    networkId,
+    accountId: account.id,
+    accountData,
+    isActive: isFocused,
+    poolId: resolveSelectedPoolId({
+      settings: vaultSettings?.localWallet,
+      selectedPoolId: undefined,
+    }),
+  });
+  return { pool, isFocused };
+}
+
+function HomeMoneroActions({
+  account,
+  networkId,
+  vaultSettings,
+  children,
+  onPresentationChange,
+  ...rest
+}: IHomeMoneroActionsProps) {
+  const { pool, isFocused } = useHomeMoneroPool({
+    account,
+    networkId,
+    vaultSettings,
+  });
+  const variant = getHomeMoneroActionsVariant(pool);
+  const owner = { accountId: account.id, networkId };
+  usePublishHomePrivacyTokenStatus({ ...owner, pool });
+  const { requestEnable, handleEnableRequest } = useHomeMoneroEnableRequest({
+    ...owner,
+    variant,
+  });
+  useLayoutEffect(() => {
+    onPresentationChange?.({ ownerKey: `${networkId}:${account.id}`, variant });
+  }, [account.id, networkId, onPresentationChange, variant]);
+  if (variant === 'privacy-loading') {
+    return (
+      <RawActions.Placeholder
+        {...rest}
+        testID={HomeTestIDs.walletActionsLoading}
+      />
+    );
+  }
+  if (variant === 'standard') return <>{children}</>;
+  return (
+    <HomeMoneroEnableActions
+      {...rest}
+      {...owner}
+      pool={pool}
+      requestEnable={isFocused && requestEnable && !pool.enabled}
+      handleEnableRequest={handleEnableRequest}
     />
   );
 }

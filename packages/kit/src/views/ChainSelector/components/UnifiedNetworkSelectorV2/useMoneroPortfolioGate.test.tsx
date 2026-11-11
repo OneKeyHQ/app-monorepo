@@ -190,6 +190,59 @@ it('ignores a state response after the selected account changes', async () => {
   expect(mockOpenNetwork).not.toHaveBeenCalled();
 });
 
+it('does not read state after an obsolete support response', async () => {
+  let finishSupport:
+    | ((support: ILocalWalletAccountSupport) => void)
+    | undefined;
+  mockGetSupport.mockImplementationOnce(
+    () =>
+      new Promise<ILocalWalletAccountSupport>((resolve) => {
+        finishSupport = resolve;
+      }),
+  );
+  const { result, rerender } = renderGate();
+  let pending: Promise<boolean> | undefined;
+  await act(async () => {
+    pending = result.current(network);
+  });
+  await waitFor(() => expect(mockGetSupport).toHaveBeenCalled());
+  rerender({ ...owner, indexedAccountId: 'hd--wallet-1' });
+  await act(async () => {
+    finishSupport?.('supported');
+    expect(await pending).toBe(true);
+  });
+  expect(mockGetState).not.toHaveBeenCalled();
+  expect(mockShow).not.toHaveBeenCalled();
+});
+
+it('does not preserve or navigate if the owner changes while Go to closes the dialog', async () => {
+  const { result, rerender } = renderGate();
+  await act(async () => {
+    await result.current(network);
+  });
+  let finishClose: (() => void) | undefined;
+  const close = () =>
+    new Promise<void>((resolve) => {
+      finishClose = resolve;
+    });
+  let pending: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
+  await act(async () => {
+    pending = mockShow.mock.calls[0][0].onConfirm?.({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+      preventClose: jest.fn(),
+    });
+  });
+  rerender({ ...owner, indexedAccountId: 'hd--wallet-1' });
+  await act(async () => {
+    finishClose?.();
+    await pending;
+  });
+  expect(mockPreserveDraft).not.toHaveBeenCalled();
+  expect(mockOpenNetwork).not.toHaveBeenCalled();
+});
+
 it('does not offer activation when privacy is unavailable', async () => {
   mockGetState.mockResolvedValue({
     enabled: false,

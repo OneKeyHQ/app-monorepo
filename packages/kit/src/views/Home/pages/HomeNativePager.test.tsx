@@ -894,6 +894,12 @@ describe('HomePageView complete header authority', () => {
         },
         '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger':
           { useUnifiedNetworkSelectorTrigger: () => ({}) },
+        '../hooks/useHomeMoneroAccountCreation': {
+          useHomeMoneroAccountCreation: () => ({
+            enableAfterCreate: false,
+            onCreateDone: noop,
+          }),
+        },
         '../hooks/useHomeWalletTabSupport': {
           useHomeWalletTabSupport: () => ({
             isPerpsSupported: externalPerps,
@@ -987,6 +993,7 @@ describe('HomePageView complete header authority', () => {
         '../components/HomeSupportedWallet',
         '../components/NotBakcedUp',
         '../components/PullToRefresh',
+        '../hooks/useHomeMoneroAccountCreation',
         '../hooks/useHomeWalletTabSupport',
         '../testIDs',
         './DeFiContainer',
