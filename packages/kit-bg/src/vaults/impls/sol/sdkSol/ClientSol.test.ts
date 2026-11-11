@@ -125,20 +125,45 @@ describe('ClientSol.getMinimumBalanceForRentExemption', () => {
     expect(sendProxyRequest).toHaveBeenCalledTimes(2);
   });
 
-  it('does not keep a failed or malformed lookup', async () => {
+  it('does not keep a failed lookup', async () => {
     const { client, sendProxyRequest } = buildRentClient('sol--rent-failure');
     sendProxyRequest
       .mockRejectedValueOnce(new Error('rpc down'))
-      .mockResolvedValueOnce([undefined])
       .mockResolvedValueOnce([1_488_440]);
 
     await expect(client.getMinimumBalanceForRentExemption(165)).rejects.toThrow(
       'rpc down',
     );
-    await client.getMinimumBalanceForRentExemption(165);
     await expect(client.getMinimumBalanceForRentExemption(165)).resolves.toBe(
       1_488_440,
     );
-    expect(sendProxyRequest).toHaveBeenCalledTimes(3);
+    expect(sendProxyRequest).toHaveBeenCalledTimes(2);
   });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    ['nan', Number.NaN],
+    ['infinity', Number.POSITIVE_INFINITY],
+    ['negative', -1],
+    ['string', '1488440'],
+  ])(
+    'rejects a malformed rent (%s) instead of resolving or keeping it',
+    async (name, malformed) => {
+      const { client, sendProxyRequest } = buildRentClient(
+        `sol--rent-malformed-${name}`,
+      );
+      sendProxyRequest
+        .mockResolvedValueOnce([malformed])
+        .mockResolvedValueOnce([1_488_440]);
+
+      await expect(
+        client.getMinimumBalanceForRentExemption(165),
+      ).rejects.toThrow('Invalid Solana rent exemption response');
+      await expect(client.getMinimumBalanceForRentExemption(165)).resolves.toBe(
+        1_488_440,
+      );
+      expect(sendProxyRequest).toHaveBeenCalledTimes(2);
+    },
+  );
 });

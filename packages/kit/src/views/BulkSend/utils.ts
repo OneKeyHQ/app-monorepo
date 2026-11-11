@@ -743,10 +743,12 @@ export function normalizeGasEIP1559Presets(
   return presets.length > 3 ? presets.slice(0, 3) : presets;
 }
 
-// Solana rents at the pre-SIMD-0437 rate (6960 lamports/byte): a 165-byte token
-// account and a bare system account. Rent is read from the chain; these only
-// cover a failed lookup, where the old, higher rate errs on the safe side.
-const SOL_FALLBACK_TOKEN_ACCOUNT_RENT = '0.00203928';
+// Solana rents at the pre-SIMD-0437 rate (6960 lamports/byte): a token account
+// and a bare system account. Rent is read from the chain; these only cover a
+// failed lookup, where the old, higher rate errs on the safe side. The size of
+// a Token-2022 account is unknown by then, so the token account is priced at
+// the largest one a known mint can require (195 bytes; a legacy one is 165).
+const SOL_FALLBACK_TOKEN_ACCOUNT_RENT = '0.00224808';
 const SOL_FALLBACK_ACCOUNT_RESERVE = '0.00089088';
 
 function isPositiveAmount(value: string | undefined): value is string {

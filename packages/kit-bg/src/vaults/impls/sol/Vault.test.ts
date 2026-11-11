@@ -1191,8 +1191,8 @@ describe('SolVault token account rent (OK-66906)', () => {
 
       expect(decodedTx.extraInfo).toEqual({
         createTokenAccountFee: {
-          amount: '0.00203928',
-          amountValue: '2039280',
+          amount: '0.00224808',
+          amountValue: '2248080',
           symbol: 'SOL',
         },
       });

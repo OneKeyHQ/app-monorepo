@@ -2,6 +2,7 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { map, max } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IDasAsset, IDasAssetProof } from '../types';
 import type { AccountInfo, PublicKey } from '@solana/web3.js';
@@ -69,15 +70,12 @@ class ClientSol {
       rent,
       expiresAt: Date.now() + RENT_EXEMPTION_CACHE_TTL,
     });
-    const evict = () => {
+    // A failed or malformed lookup must not be served for the whole TTL.
+    void rent.catch(() => {
       if (rentExemptionCache.get(key)?.rent === rent) {
         rentExemptionCache.delete(key);
       }
-    };
-    // A failed or malformed lookup must not be served for the whole TTL.
-    rent.then((value) => {
-      if (!Number.isFinite(value)) evict();
-    }, evict);
+    });
     return rent;
   }
 
@@ -98,6 +96,11 @@ class ClientSol {
         ],
       });
 
+    // Reject a malformed rent here so callers take their failed-lookup path
+    // instead of computing with NaN.
+    if (!Number.isFinite(response) || response < 0) {
+      throw new OneKeyLocalError('Invalid Solana rent exemption response');
+    }
     return response;
   }
 

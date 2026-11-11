@@ -475,7 +475,7 @@ describe('getBulkSendSolanaAtaRent', () => {
         unsignedTxs: [{ solanaCreateTokenAccountRent: '0.00148844' }, {}],
         ataCount: 3,
       }),
-    ).toBe('0.00611784');
+    ).toBe('0.00674424');
   });
 
   it.each(['NaN', '', '-1'])(
@@ -486,14 +486,27 @@ describe('getBulkSendSolanaAtaRent', () => {
           unsignedTxs: [{ solanaCreateTokenAccountRent: rent }],
           ataCount: 1,
         }),
-      ).toBe('0.00203928');
+      ).toBe('0.00224808');
     },
   );
 
   it('falls back when there is no transaction to read the rent from', () => {
     expect(getBulkSendSolanaAtaRent({ unsignedTxs: [], ataCount: 2 })).toBe(
-      '0.00407856',
+      '0.00449616',
     );
+  });
+
+  // The size of a Token-2022 account is unknown once the lookup fails, so the
+  // fallback has to cover the largest one (195 bytes) at the legacy rate.
+  it('prices the fallback above the rent of the largest Token-2022 account at the legacy rate', () => {
+    const largestAccountRent = new BigNumber(128 + 195)
+      .times(6960)
+      .shiftedBy(-9);
+    expect(
+      new BigNumber(
+        getBulkSendSolanaAtaRent({ unsignedTxs: [{}], ataCount: 1 }) ?? 0,
+      ).gte(largestAccountRent),
+    ).toBe(true);
   });
 
   it.each([undefined, 0])(
