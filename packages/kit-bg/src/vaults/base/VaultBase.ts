@@ -79,7 +79,10 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -534,7 +537,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Override to recognize broadcast errors that prove the node never
   // accepted the payload (e.g. a preflight rejection), so a retry can sign
   // again at once instead of waiting for a chain verdict.
-  async isSignedTxRejectedByBroadcast(_error: unknown): Promise<boolean> {
+  async isSignedTxRejectedByBroadcast(
+    _error: unknown,
+    // The route this broadcast took, which the stored custom RPC setting
+    // alone does not tell.
+    _options?: { useDefaultRpc?: boolean },
+  ): Promise<boolean> {
     return false;
   }
 
@@ -553,10 +561,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // Shared verdict for chains whose signed tx id is known before broadcast
-  // and whose history API finds a tx by id: a tx the chain can show has
+  // and whose history API finds a tx by id: a tx the chain has executed has
   // reached it, whatever its execution result, so its nonce or inputs are
   // taken. Anything else, a failed lookup included, is no verdict at all,
   // because an unseen tx may still be in flight or in a private mempool.
+  // A pending answer is no proof either: a lookup that cannot find the tx
+  // may return a pending placeholder that echoes the requested id (custom
+  // networks always do).
   protected async checkSignedTxBroadcastStatusByTxDetails({
     signedTx,
     isAcceptedByNode,
@@ -577,7 +588,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         txid,
       });
     const onChainTx = txDetails?.data;
-    return onChainTx?.tx?.toLowerCase() === txid.toLowerCase()
+    const isExecuted =
+      onChainTx?.status === EOnChainHistoryTxStatus.Success ||
+      onChainTx?.status === EOnChainHistoryTxStatus.Failed;
+    return isExecuted && onChainTx?.tx?.toLowerCase() === txid.toLowerCase()
       ? ESignedTxBroadcastStatus.Broadcast
       : ESignedTxBroadcastStatus.Unknown;
   }

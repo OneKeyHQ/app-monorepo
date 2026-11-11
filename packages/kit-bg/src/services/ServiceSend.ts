@@ -1,6 +1,6 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
-import { cloneDeep, isNil, isNumber, max } from 'lodash';
+import { cloneDeep, isNil, isNumber, max, uniqBy } from 'lodash';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
@@ -462,6 +462,16 @@ class ServiceSend extends ServiceBase {
     if (!unsignedTx.uuid) {
       return;
     }
+    // A payload signed earlier under this uuid stays on record until the
+    // chain settles it. Replacing it here would forget a tx that may still
+    // land: the chain taking at most one of the two does not say which.
+    const previous = await this.broadcastRecords.getRecord(unsignedTx.uuid);
+    const supersededSignedTxs = uniqBy(
+      previous
+        ? [...(previous.supersededSignedTxs ?? []), previous.signedTx]
+        : [],
+      (tx) => tx.rawTx,
+    ).filter((tx) => tx.rawTx !== signedTx.rawTx);
     await this.broadcastRecords.upsertRecord({
       uuid: unsignedTx.uuid,
       networkId,
@@ -470,6 +480,7 @@ class ServiceSend extends ServiceBase {
       attemptedAt: Date.now(),
       isBroadcast: false,
       isSettled: false,
+      ...(supersededSignedTxs.length ? { supersededSignedTxs } : {}),
     });
   }
 
@@ -527,6 +538,8 @@ class ServiceSend extends ServiceBase {
   // `takeSignedTxToRebroadcast` settles against the tx about to be signed.
   // The vault decides from the chain; a lookup failure propagates on
   // purpose, because signing blindly here is the double send.
+  // Every payload signed under the uuid is asked about, not only the latest:
+  // a payload that a later signature replaced may be the one that landed.
   private async resolveBroadcastRecord({
     uuid,
     vault,
@@ -544,35 +557,84 @@ class ServiceSend extends ServiceBase {
     if (!record) {
       return undefined;
     }
-    const status = await vault.checkSignedTxBroadcastStatus({
-      signedTx: record.signedTx,
-      attemptedAt: record.attemptedAt,
-      isAcceptedByNode: record.isBroadcast,
-    });
-    if (status === ESignedTxBroadcastStatus.NotBroadcast) {
+    const hasSuperseded = Boolean(record.supersededSignedTxs?.length);
+    // Oldest first; the last one is the payload of the latest attempt.
+    const payloads = [...(record.supersededSignedTxs ?? []), record.signedTx];
+    const unsettled: ISignedTxPro[] = [];
+    for (const signedTx of payloads) {
+      const isLatest = signedTx === record.signedTx;
+      const status = await vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: record.attemptedAt,
+        isAcceptedByNode: isLatest && record.isBroadcast,
+      });
+      if (status === ESignedTxBroadcastStatus.Broadcast) {
+        // The chain shows this payload: it is the tx to replay, and the
+        // bookkeeping of a replaced payload does not stand in for its own.
+        const landed = {
+          ...record,
+          signedTx,
+          isBroadcast: true,
+          isSettled: isLatest && record.isSettled,
+          supersededSignedTxs: undefined,
+        };
+        if (isLatest && !hasSuperseded) {
+          if (!record.isBroadcast) {
+            await this.broadcastRecords.updateRecord(uuid, {
+              isBroadcast: true,
+            });
+          }
+        } else {
+          await this.broadcastRecords.updateRecord(uuid, {
+            signedTx,
+            isBroadcast: true,
+            isSettled: landed.isSettled,
+            supersededSignedTxs: undefined,
+          });
+        }
+        return landed;
+      }
+      if (status !== ESignedTxBroadcastStatus.NotBroadcast) {
+        unsettled.push(signedTx);
+      }
+    }
+    if (!unsettled.length) {
+      // The chain ruled every payload out, so it is safe to sign.
       await this.broadcastRecords.deleteRecord(uuid);
       return undefined;
     }
-    if (status === ESignedTxBroadcastStatus.Unknown) {
+    if (unsettled.length === payloads.length) {
       // No verdict: a tx the node accepted is replayed, and one that never
       // got a txid stays on record, because the node may hold it all the
       // same (the response was lost, or a custom RPC took it and only the
       // report to the server failed).
       return record;
     }
-    if (!record.isBroadcast) {
-      await this.broadcastRecords.updateRecord(uuid, { isBroadcast: true });
-    }
-    return { ...record, isBroadcast: true };
+    // Some payloads were ruled out. The newest one left stands for the
+    // record; it was accepted by a node only if it is the latest attempt.
+    const signedTx = unsettled[unsettled.length - 1];
+    const isLatestLeft = signedTx === record.signedTx;
+    const remaining = {
+      signedTx,
+      isBroadcast: isLatestLeft && record.isBroadcast,
+      isSettled: isLatestLeft && record.isSettled,
+      supersededSignedTxs:
+        unsettled.length > 1 ? unsettled.slice(0, -1) : undefined,
+    };
+    await this.broadcastRecords.updateRecord(uuid, remaining);
+    return { ...record, ...remaining };
   }
 
   // Settles an attempt that left the device without a verdict (OK-67090).
-  // Signing again is only safe when the chain cannot execute both the stored
-  // payload and the tx the caller holds now: then the record is dropped and
-  // undefined is returned, as before. Otherwise the stored payload is the
-  // one to send again. A caller that re-selected UTXOs or took a fresh nonce
-  // since the first attempt holds a tx that would pay a second time if the
-  // first one landed; the same bytes cannot.
+  // Signing again is only safe when the chain cannot execute both the tx
+  // the caller holds now and any payload still on record: then undefined is
+  // returned and the caller signs. Otherwise the latest stored payload is
+  // the one to send again. A caller that re-selected UTXOs or took a fresh
+  // nonce since the first attempt holds a tx that would pay a second time
+  // if an earlier one landed; the same bytes cannot.
+  // The record is kept either way. A signature that is cancelled or fails
+  // must not leave the earlier payload unaccounted for, and a completed one
+  // carries it along as a superseded payload (`rememberBroadcastAttempt`).
   private async takeSignedTxToRebroadcast({
     record,
     unsignedTx,
@@ -592,17 +654,26 @@ class ServiceSend extends ServiceBase {
     // the nonce themselves and keep signing again.
     canRebroadcast: boolean;
   }): Promise<ISignedTxPro | undefined> {
-    if (
-      !canRebroadcast ||
-      (await vault.isUnsignedTxConflictingWithSignedTx({
-        unsignedTx,
-        signedTx: record.signedTx,
-      }))
-    ) {
-      await this.broadcastRecords.deleteRecord(record.uuid);
+    if (!canRebroadcast) {
       return undefined;
     }
-    return record.signedTx;
+    // Every stored payload conflicts with the ones before it, so the latest
+    // one can be sent again without a second payment whichever of them the
+    // chain holds.
+    for (const signedTx of [
+      record.signedTx,
+      ...(record.supersededSignedTxs ?? []),
+    ]) {
+      if (
+        !(await vault.isUnsignedTxConflictingWithSignedTx({
+          unsignedTx,
+          signedTx,
+        }))
+      ) {
+        return record.signedTx;
+      }
+    }
+    return undefined;
   }
 
   @backgroundMethod()
@@ -616,16 +687,25 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   async buildDecodedTx(
-    params: ISendTxBaseParams & IBuildDecodedTxParams,
+    params: ISendTxBaseParams &
+      IBuildDecodedTxParams & {
+        // The send result this decode is recorded for. Callers that sign and
+        // send directly pass it so that a replayed payload is described as
+        // it is on the wire, not as the tx they rebuilt for the retry.
+        signedTx?: ISignedTxPro;
+      },
   ): Promise<IDecodedTx> {
     const {
       networkId,
       accountId,
-      unsignedTx,
       feeInfo,
       transferPayload,
       saveToLocalHistory,
+      signedTx,
     } = params;
+    const unsignedTx = signedTx?.isReplayedPayload
+      ? withSignedTxPayload(params.unsignedTx, signedTx)
+      : params.unsignedTx;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
@@ -1548,7 +1628,7 @@ class ServiceSend extends ServiceBase {
         vault: recordVault,
       });
       if (broadcastRecord?.isBroadcast) {
-        return broadcastRecord.signedTx;
+        return { ...broadcastRecord.signedTx, isReplayedPayload: true };
       }
       if (broadcastRecord) {
         hasEarlierAmbiguousAttempt = true;
@@ -1896,7 +1976,9 @@ class ServiceSend extends ServiceBase {
           });
           if (
             unsignedTx.uuid &&
-            !(await vault.isSignedTxRejectedByBroadcast(error))
+            !(await vault.isSignedTxRejectedByBroadcast(error, {
+              useDefaultRpc,
+            }))
           ) {
             hadAmbiguousBroadcastAttempt = true;
           }
@@ -2048,7 +2130,7 @@ class ServiceSend extends ServiceBase {
         if (
           unsignedTx.uuid &&
           !hadAmbiguousBroadcastAttempt &&
-          (await vault.isSignedTxRejectedByBroadcast(error))
+          (await vault.isSignedTxRejectedByBroadcast(error, { useDefaultRpc }))
         ) {
           await this.forgetBroadcastAttempt({ unsignedTx });
         }
@@ -2114,7 +2196,11 @@ class ServiceSend extends ServiceBase {
             isSettled: isSettledOnAccept,
           });
           diagnosticState.status = 'succeeded';
-          return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
+          return {
+            ...signedTx,
+            primeInfiniPayment: beforeBroadcastAction,
+            ...(signedTxToRebroadcast ? { isReplayedPayload: true } : {}),
+          };
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
       }
@@ -2137,7 +2223,10 @@ class ServiceSend extends ServiceBase {
           .catch(() => undefined);
       }
       diagnosticState.status = 'succeeded';
-      return broadcastedTx;
+      // Marked on the result only, never on the stored record.
+      return signedTxToRebroadcast
+        ? { ...broadcastedTx, isReplayedPayload: true }
+        : broadcastedTx;
     }
 
     diagnosticState.status = 'skipped';
@@ -2354,26 +2443,45 @@ class ServiceSend extends ServiceBase {
               current: i + 1,
             });
           }
+          const canRebroadcast =
+            !beforeBroadcastAction &&
+            !wcPayPreBroadcastRecord &&
+            !replaceTxInfo;
+          // The stored payload may be what spent the coins the refresh
+          // needs. No new tx can be built to judge against it then, so the
+          // stored payload is the one to send again.
+          let isRefreshFailed = false;
           if (!broadcastRecord && (i > 0 || hasEarlierBroadcast)) {
-            unsignedTx =
-              await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+            try {
+              unsignedTx =
+                await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+            } catch (error) {
+              if (!ambiguousRecord || !canRebroadcast) {
+                throw error;
+              }
+              isRefreshFailed = true;
+            }
           }
           // Judged against the refreshed tx, the one a new signature would
           // cover: a refresh that re-selected inputs after the stored payload
           // reached the network no longer conflicts with it.
-          const rebroadcastSignedTx = ambiguousRecord
-            ? await this.takeSignedTxToRebroadcast({
-                record: ambiguousRecord,
-                unsignedTx,
-                vault,
-                canRebroadcast:
-                  !beforeBroadcastAction &&
-                  !wcPayPreBroadcastRecord &&
-                  !replaceTxInfo,
-              })
-            : undefined;
-          if (rebroadcastSignedTx) {
-            unsignedTx = withSignedTxPayload(unsignedTx, rebroadcastSignedTx);
+          let rebroadcastSignedTx: ISignedTxPro | undefined;
+          if (ambiguousRecord) {
+            rebroadcastSignedTx = isRefreshFailed
+              ? ambiguousRecord.signedTx
+              : await this.takeSignedTxToRebroadcast({
+                  record: ambiguousRecord,
+                  unsignedTx,
+                  vault,
+                  canRebroadcast,
+                });
+          }
+          // Sent again or only replayed, the stored payload is the tx on
+          // the wire, and the caller may hold a tx rebuilt since.
+          const storedSignedTx =
+            rebroadcastSignedTx ?? broadcastRecord?.signedTx;
+          if (storedSignedTx) {
+            unsignedTx = withSignedTxPayload(unsignedTx, storedSignedTx);
           }
           const buildSignedTx = () =>
             signOnly && !beforeBroadcastAction && !replaceTxInfo

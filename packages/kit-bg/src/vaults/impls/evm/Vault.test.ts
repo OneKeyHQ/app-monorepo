@@ -4,6 +4,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
 import { JsonRPCResponseError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import { ESignedTxBroadcastStatus } from '../../types';
 
@@ -150,7 +151,10 @@ describe('EvmVault.checkSignedTxBroadcastStatus', () => {
 
   it('reports a tx the chain can show as broadcast', async () => {
     const { vault, fetchHistoryTxDetails } = buildVaultWithHistory({
-      data: { tx: txid.toUpperCase().replace('0X', '0x') },
+      data: {
+        tx: txid.toUpperCase().replace('0X', '0x'),
+        status: EOnChainHistoryTxStatus.Success,
+      },
     });
 
     await expect(check(vault)).resolves.toBe(
@@ -169,9 +173,37 @@ describe('EvmVault.checkSignedTxBroadcastStatus', () => {
     await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
   });
 
+  it('reports a tx that executed with an error as broadcast', async () => {
+    // it consumed its nonce all the same
+    const { vault } = buildVaultWithHistory({
+      data: { tx: txid, status: EOnChainHistoryTxStatus.Failed },
+    });
+    await expect(check(vault)).resolves.toBe(
+      ESignedTxBroadcastStatus.Broadcast,
+    );
+  });
+
+  // A custom network answers a lookup that found nothing with a pending
+  // placeholder that echoes the requested id. Read as proof, it would replay
+  // a tx that never left as sent.
+  it('gives no verdict for a pending answer that only echoes the tx id', async () => {
+    const { vault } = buildVaultWithHistory({
+      data: { tx: txid, status: EOnChainHistoryTxStatus.Pending },
+    });
+    await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
+  });
+
+  it('gives no verdict for an answer without an execution status', async () => {
+    const { vault } = buildVaultWithHistory({ data: { tx: txid } });
+    await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
+  });
+
   it('gives no verdict when the lookup answers about another tx', async () => {
     const { vault } = buildVaultWithHistory({
-      data: { tx: `0x${'cd'.repeat(32)}` },
+      data: {
+        tx: `0x${'cd'.repeat(32)}`,
+        status: EOnChainHistoryTxStatus.Success,
+      },
     });
     await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
   });
@@ -188,7 +220,7 @@ describe('EvmVault.checkSignedTxBroadcastStatus', () => {
     // such a tx is replayed either way; a batch of them must not cost one
     // request each
     const { vault, fetchHistoryTxDetails } = buildVaultWithHistory({
-      data: { tx: txid },
+      data: { tx: txid, status: EOnChainHistoryTxStatus.Success },
     });
     await expect(
       vault.checkSignedTxBroadcastStatus({
@@ -256,6 +288,27 @@ describe('EvmVault.isSignedTxRejectedByBroadcast', () => {
       vault.isSignedTxRejectedByBroadcast(
         serverError(SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED),
       ),
+    ).resolves.toBe(false);
+  });
+
+  // "Use the OneKey RPC this once" on the confirm page: the server did the
+  // broadcast although a custom RPC is still enabled, so its rejection is
+  // an evaluation of the tx.
+  it('holds for a server error when this send was routed to the default RPC', async () => {
+    const vault = buildVaultWithCustomRpc({
+      rpc: 'https://rpc.example.test',
+      enabled: true,
+    });
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(
+        serverError(SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED),
+        { useDefaultRpc: true },
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(serverError(50_000), {
+        useDefaultRpc: true,
+      }),
     ).resolves.toBe(false);
   });
 

@@ -8,6 +8,7 @@ two such txs cannot both confirm.
 */
 import type { IBtcInput } from '@onekeyhq/core/src/chains/btc/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import { ESignedTxBroadcastStatus } from '../../types';
 
@@ -89,7 +90,7 @@ describe('VaultBtc.checkSignedTxBroadcastStatus', () => {
 
   it('reports a tx the chain can show as broadcast', async () => {
     const { vault, fetchHistoryTxDetails } = buildVaultWithHistory({
-      data: { tx: 'txid-1' },
+      data: { tx: 'txid-1', status: EOnChainHistoryTxStatus.Success },
     });
 
     await expect(check(vault)).resolves.toBe(
@@ -104,6 +105,13 @@ describe('VaultBtc.checkSignedTxBroadcastStatus', () => {
 
   it('gives no verdict for a tx the lookup cannot find', async () => {
     const { vault } = buildVaultWithHistory(null);
+    await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
+  });
+
+  it('gives no verdict for a tx the lookup only reports as pending', async () => {
+    const { vault } = buildVaultWithHistory({
+      data: { tx: 'txid-1', status: EOnChainHistoryTxStatus.Pending },
+    });
     await expect(check(vault)).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
   });
 });

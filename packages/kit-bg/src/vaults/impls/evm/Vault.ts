@@ -1706,6 +1706,7 @@ export default class Vault extends VaultBase {
   // refused payload would be sent again in place of the corrected tx.
   override async isSignedTxRejectedByBroadcast(
     error: unknown,
+    options?: { useDefaultRpc?: boolean },
   ): Promise<boolean> {
     // The custom RPC node's own answer.
     if (error instanceof JsonRPCResponseError) {
@@ -1723,6 +1724,11 @@ export default class Vault extends VaultBase {
       );
     if (!isRejectedByServer) {
       return false;
+    }
+    // A send the user routed to the default RPC for this once is broadcast
+    // by the server, whatever the stored custom RPC setting says.
+    if (options?.useDefaultRpc) {
+      return true;
     }
     // With a custom RPC the server is only told about a tx the node already
     // took, so its answer says nothing about the broadcast.
