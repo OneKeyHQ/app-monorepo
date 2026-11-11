@@ -500,6 +500,22 @@ export class WalletConnectDappSide {
     let sessionDeleteHandler:
       | ((p: IWalletConnectEventSessionDeleteParams) => Promise<void>)
       | undefined;
+    let canDiagnoseClockError = false;
+
+    const detachProviderListeners = () => {
+      if (provider && displayUriHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.display_uri,
+          displayUriHandler,
+        );
+      }
+      if (provider && sessionDeleteHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.session_delete,
+          sessionDeleteHandler,
+        );
+      }
+    };
 
     const throwIfCancelled = () => {
       if (attempt.cancelError) {
@@ -508,33 +524,6 @@ export class WalletConnectDappSide {
     };
 
     try {
-      // Keep a 20-second margin below the Relay's 120-second JWT allowance.
-      // Refresh the cloud-sync time source so sleep or a clock change cannot
-      // reuse old UTC, and apply the same limit to clocks in either direction.
-      const timeCheckStartedAt = Date.now();
-      const refreshed = await systemTimeUtils
-        .refreshServerTime()
-        .catch(() => false);
-      throwIfCancelled();
-      const localTime = Date.now();
-      const timeCheckDuration = localTime - timeCheckStartedAt;
-      const serverTime = systemTimeUtils.getEstimatedServerTime();
-      // A failed or stale request cannot establish a system-time error.
-      if (
-        refreshed &&
-        timeCheckDuration >= 0 &&
-        timeCheckDuration <= 15_000 &&
-        serverTime !== undefined &&
-        Math.abs(localTime - serverTime) >= 100_000
-      ) {
-        throw new OneKeyError({
-          key: ETranslations.global_network_doctor_action_check_datetime,
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.global_network_doctor_action_check_datetime,
-          }),
-        });
-      }
-
       const chains =
         await this.backgroundApi.serviceWalletConnect.getAllChains();
       throwIfCancelled();
@@ -563,6 +552,7 @@ export class WalletConnectDappSide {
           updateDB: true,
         });
 
+      canDiagnoseClockError = true;
       provider = await createNewProvider();
       throwIfCancelled();
 
@@ -678,18 +668,52 @@ export class WalletConnectDappSide {
           'WalletConnect ERROR: Connect to wallet failed',
         );
       }
+      canDiagnoseClockError = false;
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
         session: provider.session,
         attemptId: attempt.attemptId,
       });
       return provider.session;
     } catch (error) {
-      console.error('connectToWallet error: ', error);
+      detachProviderListeners();
+      let connectionError = attempt.cancelError ?? error;
+      if (canDiagnoseClockError && !attempt.cancelError) {
+        // Diagnose SDK failures only; successful pairings remain usable with
+        // clock skew. Keep 20 seconds below the Relay's 120-second allowance.
+        const timeCheckStartedAt = Date.now();
+        const refreshed = await systemTimeUtils
+          .refreshServerTime()
+          .catch(() => false);
+        const localTime = Date.now();
+        const timeCheckDuration = localTime - timeCheckStartedAt;
+        const serverTime = refreshed
+          ? systemTimeUtils.getEstimatedServerTime()
+          : undefined;
+        // Cancellation or a newer attempt may take ownership during refresh.
+        connectionError = attempt.cancelError ?? error;
+        if (
+          !attempt.cancelError &&
+          this.activeConnectAttempt === attempt &&
+          refreshed &&
+          timeCheckDuration >= 0 &&
+          timeCheckDuration <= 15_000 &&
+          serverTime !== undefined &&
+          Math.abs(localTime - serverTime) >= 100_000
+        ) {
+          connectionError = new OneKeyError({
+            key: ETranslations.global_network_doctor_action_check_datetime,
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.global_network_doctor_action_check_datetime,
+            }),
+          });
+        }
+      }
+      console.error('connectToWallet error: ', connectionError);
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
-        error: errorUtils.toPlainErrorObject(error),
+        error: errorUtils.toPlainErrorObject(connectionError),
         attemptId: attempt.attemptId,
       });
-      throw error;
+      throw connectionError;
     } finally {
       attempt.rejectCancellation = undefined;
       const isCurrentAttempt = this.activeConnectAttempt === attempt;
@@ -699,18 +723,7 @@ export class WalletConnectDappSide {
       if (this.lastConnectToWalletProvider === provider) {
         this.lastConnectToWalletProvider = undefined;
       }
-      if (provider && displayUriHandler) {
-        provider.off(
-          EWalletConnectSessionEvents.display_uri,
-          displayUriHandler,
-        );
-      }
-      if (provider && sessionDeleteHandler) {
-        provider.off(
-          EWalletConnectSessionEvents.session_delete,
-          sessionDeleteHandler,
-        );
-      }
+      detachProviderListeners();
       // Only the attempt that still owns the modal may close it; a superseded
       // attempt settling late (e.g. proposal expiry minutes later) must not
       // tear down the newer attempt's modal and main-runtime payload store.
