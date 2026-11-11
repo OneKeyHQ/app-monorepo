@@ -4437,9 +4437,7 @@ function TokenListBlock({
         // Desktop / web table lists every token; no "show more".
         limit={tableLayout && !platformEnv.isNative ? undefined : 6}
         plainMode
-        // Desktop / web table rows have no column header; native tablets
-        // keep the sortable one.
-        withHeader={!!platformEnv.isNative}
+        withHeader
         withFooter
         withPrice
         inTabList
