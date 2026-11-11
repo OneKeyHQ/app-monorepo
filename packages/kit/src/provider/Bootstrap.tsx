@@ -34,6 +34,7 @@ import {
   EUpdateFileType,
   EUpdateStrategy,
   getUpdateFileType,
+  isUsableUpdateDownloadUrl,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   PERPS_CONFIG_FETCH_MAX_RETRIES,
@@ -183,7 +184,9 @@ const useDesktopEvents = platformEnv.isDesktop
           response.updateStrategy !== EUpdateStrategy.seamless &&
           response.status !== EAppUpdateStatus.manualInstall &&
           !response.storeUrl &&
-          response.downloadUrl?.startsWith('https://')
+          // A real HTTPS URL and the known desktop placeholder are the only
+          // usable download sources (desktop resolves installers via the feed).
+          isUsableUpdateDownloadUrl(response.downloadUrl)
         ) {
           if (response.status === EAppUpdateStatus.notify) {
             onUpdateAction();

@@ -133,7 +133,7 @@ function useFeaturedCta({
   const navigation = useAppNavigation();
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const { downloadPackage } = useDownloadPackage();
+  const { downloadPackage, downloadASC } = useDownloadPackage();
 
   // In preview mode the CTA is inert (see onCtaPress), so the real update
   // fields are intentionally absent — only `latestVersion` (the target) feeds
@@ -212,6 +212,20 @@ function useFeaturedCta({
       if (downloadUrl || jsBundle?.downloadUrl) {
         if (status === EAppUpdateStatus.notify) {
           void downloadPackage();
+        } else if (status === EAppUpdateStatus.downloadASCFailed) {
+          void downloadASC?.();
+        } else if (
+          status &&
+          [
+            EAppUpdateStatus.done,
+            EAppUpdateStatus.failed,
+            EAppUpdateStatus.updateIncomplete,
+            EAppUpdateStatus.downloadPackageFailed,
+            EAppUpdateStatus.verifyASCFailed,
+            EAppUpdateStatus.verifyPackageFailed,
+          ].includes(status)
+        ) {
+          void downloadPackage({ userInitiated: true });
         }
         const release = acquireDeferredGuideBlocker();
         try {
@@ -247,6 +261,7 @@ function useFeaturedCta({
     downloadUrl,
     jsBundle?.downloadUrl,
     status,
+    downloadASC,
     downloadPackage,
     navigation,
     closeDialog,

@@ -94,6 +94,49 @@ export type ILogUploadResponse = {
   durationMs: number;
 };
 
+export type ILogUploadPath =
+  | 'sni'
+  | 'upload_task'
+  | 'fetch_fallback'
+  | 'domain';
+
+// Prefix of the desktop main-process upload timeout error; error classes do
+// not survive IPC, so the renderer matches on this code.
+export const LOG_UPLOAD_TIMEOUT_ERROR_CODE = 'LOG_UPLOAD_TIMEOUT';
+
+export type ILogUploadViaIpTableResult =
+  | { route: 'sni'; httpStatus: number; body: string; ipHash: string }
+  | { route: 'skipped'; reason: string }
+  | { route: 'failed'; errorCode: string; errorMessage: string };
+
+export type ILogUploadAttemptLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  timeoutMs: number;
+  skipReason?: string;
+};
+
+export type ILogUploadResultLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  elapsedMs: number;
+  httpStatus?: number;
+  serverCode?: number;
+  sentBytes?: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export type ILogUploadFlowLog = {
+  attempt: number;
+  tokenReused: boolean;
+  retryable?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
 export enum ELogUploadStage {
   Collecting = 'collecting',
   Uploading = 'uploading',

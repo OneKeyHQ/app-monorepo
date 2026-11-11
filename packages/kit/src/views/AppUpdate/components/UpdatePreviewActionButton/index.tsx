@@ -36,7 +36,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const navigation = useAppNavigation();
 
-  const { downloadPackage } = useDownloadPackage();
+  const { downloadPackage, downloadASC } = useDownloadPackage();
 
   const updateFileType = getUpdateFileType({
     latestVersion: appUpdateInfo.data?.latestVersion,
@@ -65,8 +65,22 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         appUpdateInfo.data.downloadUrl ||
         appUpdateInfo.data.jsBundle?.downloadUrl
       ) {
-        if (appUpdateInfo.data.status === EAppUpdateStatus.notify) {
+        const currentStatus = appUpdateInfo.data.status;
+        if (currentStatus === EAppUpdateStatus.notify) {
           void downloadPackage();
+        } else if (currentStatus === EAppUpdateStatus.downloadASCFailed) {
+          void downloadASC?.();
+        } else if (
+          [
+            EAppUpdateStatus.done,
+            EAppUpdateStatus.failed,
+            EAppUpdateStatus.updateIncomplete,
+            EAppUpdateStatus.downloadPackageFailed,
+            EAppUpdateStatus.verifyASCFailed,
+            EAppUpdateStatus.verifyPackageFailed,
+          ].includes(currentStatus)
+        ) {
+          void downloadPackage({ userInitiated: true });
         }
         navigation.push(EAppUpdateRoutes.DownloadVerify, {
           isForceUpdate,
@@ -75,6 +89,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
     }
   }, [
     appUpdateInfo.data,
+    downloadASC,
     downloadPackage,
     isForceUpdate,
     navigation,

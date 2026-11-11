@@ -16,7 +16,10 @@ import {
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import {
+  ELogUploadStage,
+  LOG_UPLOAD_TIMEOUT_ERROR_CODE,
+} from '@onekeyhq/shared/src/logger/types';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import type {
   IDesktopMainProcessDevOnlyApiParams,
@@ -29,6 +32,10 @@ export const LOGGER_UPLOAD_ORIGINS = Object.freeze([
   'https://wallet.onekeycn.com',
   'https://wallet.onekeytest.com',
 ]);
+
+// Covers connect, body upload and response read, so a stalled route fails
+// over to manual export instead of hanging.
+export const LOGGER_UPLOAD_TIMEOUT_MS = 90_000;
 
 class DesktopApiDev {
   private loggerArchives = new Map<
@@ -137,6 +144,12 @@ class DesktopApiDev {
     const sha256Hex = createHash('sha256').update(fileBuffer).digest('hex');
 
     this.loggerArchives.set(zipPath, { sizeBytes, sha256: sha256Hex });
+    try {
+      const realZipPath = await fsPromises.realpath(zipPath);
+      this.loggerArchives.set(realZipPath, { sizeBytes, sha256: sha256Hex });
+    } catch {
+      // ignore realpath lookup errors
+    }
     return {
       filePath: zipPath,
       fileName: zipName,
@@ -146,13 +159,25 @@ class DesktopApiDev {
     };
   }
 
+  _isCollectedLoggerArchive(filePath: string, sizeBytes: number): boolean {
+    const archiveInfo = this.loggerArchives.get(filePath);
+    return Boolean(archiveInfo && archiveInfo.sizeBytes === sizeBytes);
+  }
+
   async uploadLoggerBundle(params: {
     uploadUrl: string;
     filePath: string;
     headers: Record<string, string>;
     sizeBytes?: number;
+    timeoutMs?: number;
   }): Promise<any> {
     const { uploadUrl, headers } = params;
+    const timeoutMs =
+      typeof params.timeoutMs === 'number' &&
+      Number.isFinite(params.timeoutMs) &&
+      params.timeoutMs > 0
+        ? Math.min(params.timeoutMs, LOGGER_UPLOAD_TIMEOUT_MS)
+        : LOGGER_UPLOAD_TIMEOUT_MS;
     let parsedUploadUrl: URL;
     try {
       parsedUploadUrl = new URL(uploadUrl);
@@ -280,6 +305,12 @@ class DesktopApiDev {
     };
     const body = readArchive();
     const abortController = new AbortController();
+    const startedAt = Date.now();
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, timeoutMs);
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
@@ -325,6 +356,8 @@ class DesktopApiDev {
       logger.info(
         '[client-log-upload] response status:',
         response.status,
+        'elapsedMs:',
+        Date.now() - startedAt,
         'cf-ray:',
         response.headers.get('cf-ray') ?? 'n/a',
         'cf-mitigated:',
@@ -334,8 +367,11 @@ class DesktopApiDev {
       );
       try {
         const parsed = JSON.parse(text) as Record<string, any>;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new OneKeyLocalError('Invalid JSON response');
+        }
         if (typeof parsed.code === 'number') {
-          if (parsed.code === 0) {
+          if (parsed.code === 0 && response.ok) {
             sendProgress({
               stage: ELogUploadStage.Success,
               progressPercent: 100,
@@ -345,14 +381,32 @@ class DesktopApiDev {
               stage: ELogUploadStage.Error,
               message:
                 (parsed?.data as { message?: string } | undefined)?.message ||
-                parsed.message,
+                parsed.message ||
+                `Upload failed (HTTP ${response.status})`,
             });
           }
-        } else {
+        } else if (response.ok && parsed.data) {
           sendProgress({
             stage: ELogUploadStage.Success,
             progressPercent: 100,
           });
+        } else {
+          const safeMessage =
+            typeof parsed.message === 'string' && parsed.message
+              ? parsed.message
+              : `Upload failed (HTTP ${response.status}, cf-ray=${
+                  response.headers.get('cf-ray') ?? 'n/a'
+                })`;
+          sendProgress({
+            stage: ELogUploadStage.Error,
+            message: safeMessage,
+          });
+        }
+        if (!response.ok) {
+          return {
+            ...parsed,
+            httpStatus: response.status,
+          };
         }
         return parsed;
       } catch (_error) {
@@ -371,7 +425,12 @@ class DesktopApiDev {
           message: safeMessage,
         };
       }
-    } catch (error) {
+    } catch (rawError) {
+      const error = timedOut
+        ? new OneKeyLocalError(
+            `${LOG_UPLOAD_TIMEOUT_ERROR_CODE}: Log upload timed out after ${timeoutMs}ms`,
+          )
+        : rawError;
       // undici reports every transport failure as a bare "fetch failed";
       // the actual reason only lives in `cause`, so log it for triage.
       const cause = (error as { cause?: { code?: unknown; message?: unknown } })
@@ -382,6 +441,7 @@ class DesktopApiDev {
         cause
           ? `cause=${String(cause.code ?? '')} ${String(cause.message ?? '')}`
           : '',
+        `elapsedMs=${Date.now() - startedAt}`,
       );
       sendProgress({
         stage: ELogUploadStage.Error,
@@ -393,6 +453,7 @@ class DesktopApiDev {
       // server replied before reading the body, error thrown before fetch).
       // Release the transport and the archive ourselves instead of leaving
       // an open fd and a stalled socket behind until the process exits.
+      clearTimeout(timeoutId);
       abortController.abort();
       archive.stream?.destroy();
     }

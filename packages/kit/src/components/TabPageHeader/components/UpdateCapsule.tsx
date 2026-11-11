@@ -20,7 +20,9 @@ import { useDownloadPackage } from '@onekeyhq/kit/src/components/AppUpdate';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   getAppUpdateProgressScope,
+  getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -111,8 +113,6 @@ type ICapsuleMode = 'download' | 'verify' | 'ready' | 'securityError' | 'error';
 
 function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
   if (data.status === EAppUpdateStatus.ready) return 'ready';
-  if (data.updateError?.code === EUpdateErrorCode.integrityFailed)
-    return 'securityError';
   if (
     data.status === EAppUpdateStatus.downloadASC ||
     data.status === EAppUpdateStatus.verifyASC ||
@@ -127,6 +127,13 @@ function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
     data.status === EAppUpdateStatus.downloadPackageFailed ||
     data.status === EAppUpdateStatus.updateIncomplete
   ) {
+    if (
+      (data.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        data.updateError?.code === EUpdateErrorCode.securityRejected) &&
+      getUpdateFileType(data) === EUpdateFileType.appShell
+    ) {
+      return 'securityError';
+    }
     return 'error';
   }
   return 'download';
@@ -330,8 +337,22 @@ export function UpdateCapsule({
     // interleaving points where a second click would otherwise pass the guard.
     retryInFlight.current = true;
     try {
-      // Keep the existing target gate: retrying must not bypass a blocked/
-      // ignored update target (e.g. downloadRetryExhausted freeze).
+      const isInvalidVerifyAscArtifact =
+        data.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        data.updateError?.code === EUpdateErrorCode.securityRejected ||
+        data.updateError?.code === EUpdateErrorCode.incompatible ||
+        data.updateError?.code === EUpdateErrorCode.packageMissing;
+      if (data.status !== EAppUpdateStatus.notify) {
+        const preserveArtifact =
+          data.status === EAppUpdateStatus.downloadASCFailed ||
+          (data.status === EAppUpdateStatus.verifyASCFailed &&
+            !isInvalidVerifyAscArtifact);
+        await backgroundApiProxy.serviceAppUpdate
+          .prepareUserUpdateRetry?.({ preserveArtifact })
+          .catch(() => undefined);
+      }
+      // Enforce hard target safety gates (https://, non-store, BOOT_FAILED)
+      // after clearing user-retryable freeze/exhaustion state.
       if (
         !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget())
       ) {
@@ -345,19 +366,29 @@ export function UpdateCapsule({
           await downloadASC();
           break;
         case EAppUpdateStatus.verifyASCFailed:
-          // ASC is on disk but verification failed; re-verify instead of
-          // re-downloading anything. integrityFailed never reaches here — it
-          // renders the securityError mode without a Retry button.
-          await verifyASC();
+          if (isInvalidVerifyAscArtifact) {
+            await downloadPackage({ userInitiated: true });
+          } else {
+            await verifyASC();
+          }
+          break;
+        case EAppUpdateStatus.notify:
+          await downloadPackage();
           break;
         default:
-          await downloadPackage();
+          await downloadPackage({ userInitiated: true });
           break;
       }
     } finally {
       retryInFlight.current = false;
     }
-  }, [data.status, downloadASC, downloadPackage, verifyASC]);
+  }, [
+    data.status,
+    data.updateError?.code,
+    downloadASC,
+    downloadPackage,
+    verifyASC,
+  ]);
 
   const startDownload = useCallback(async () => {
     setStarting(true);
