@@ -28,6 +28,7 @@ import {
   LogUploadError,
   isSniPreWriteUploadErrorCode,
   isSniTimeoutErrorCode,
+  markUploadErrorRequestNotSent,
   withLogUploadTimeout,
 } from './logUploadUtils';
 import { buildDefaultFileBaseName } from './utils';
@@ -203,20 +204,33 @@ export const uploadLogBundle = async ({
   digest: ILogDigest;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
-    throw new OneKeyLocalError('Upload token is required');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Upload token is required'),
+    );
   }
   if (!digest || !digest.bundle || digest.sizeBytes <= 0) {
-    throw new OneKeyLocalError('Log bundle is empty');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Log bundle is empty'),
+    );
   }
   if (digest.bundle.type !== 'file') {
-    throw new OneKeyLocalError('Desktop upload expects a file bundle');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Desktop upload expects a file bundle'),
+    );
   }
   const { filePath } = digest.bundle;
   const mimeType = digest.bundle.mimeType ?? LOG_ARCHIVE_MIME_TYPE;
 
-  const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
-    name: EServiceEndpointEnum.Wallet,
-  });
+  let endpointInfo: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceApp.getEndpointInfo>
+  >;
+  try {
+    endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
+      name: EServiceEndpointEnum.Wallet,
+    });
+  } catch (error) {
+    throw markUploadErrorRequestNotSent(error);
+  }
   const baseUrl = endpointInfo.endpoint.replace(/\/$/, '');
   const uploadUrl = `${baseUrl}/wallet/v1/client/log`;
   const hostname = getHostnameForLog(uploadUrl);
@@ -228,6 +242,7 @@ export const uploadLogBundle = async ({
 
   const startedAt = Date.now();
   let path: ILogUploadPath = 'sni';
+  let requestSent = false;
   const failWith = (
     error: unknown,
     httpStatus?: number,
@@ -247,6 +262,9 @@ export const uploadLogBundle = async ({
       stage: ELogUploadStage.Error,
       message: getErrorMessage(error),
     });
+    if (!requestSent) {
+      markUploadErrorRequestNotSent(error);
+    }
     throw error;
   };
 
@@ -261,17 +279,24 @@ export const uploadLogBundle = async ({
     });
     // The main-process transport enforces this timeout; the margin only
     // guards a lost IPC reply.
-    const sniResult: ILogUploadViaIpTableResult = await withLogUploadTimeout(
-      backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
-        uploadToken,
-        filePath,
-        mimeType,
-        sizeBytes: digest.sizeBytes,
-        timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-      }),
-      LOG_UPLOAD_TIMEOUT_MS + 5000,
-    );
+    let sniResult: ILogUploadViaIpTableResult;
+    try {
+      sniResult = await withLogUploadTimeout(
+        backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
+          uploadToken,
+          filePath,
+          mimeType,
+          sizeBytes: digest.sizeBytes,
+          timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+        }),
+        LOG_UPLOAD_TIMEOUT_MS + 5000,
+      );
+    } catch (error) {
+      requestSent = true;
+      throw error;
+    }
     if (sniResult.route === 'sni') {
+      requestSent = true;
       httpStatus = sniResult.httpStatus;
       try {
         payload = JSON.parse(sniResult.body) as IDesktopUploadPayload;
@@ -289,6 +314,7 @@ export const uploadLogBundle = async ({
       sniResult.route === 'failed' &&
       isSniTimeoutErrorCode(sniResult.errorCode)
     ) {
+      requestSent = true;
       // The whole budget is spent; a domain retry would double the wait.
       throw new LogUploadError({
         reason: 'timeout',
@@ -298,6 +324,7 @@ export const uploadLogBundle = async ({
       sniResult.route === 'failed' &&
       !isSniPreWriteUploadErrorCode(sniResult.errorCode)
     ) {
+      requestSent = true;
       // Once the archive may have been written to the SNI socket, do not
       // immediately replay a second POST over the domain or via outer retry.
       throw new LogUploadError({
@@ -324,6 +351,7 @@ export const uploadLogBundle = async ({
       headers.authorization = `Bearer ${uploadToken}`;
       headers['content-type'] = mimeType;
       headers['content-length'] = String(digest.sizeBytes);
+      requestSent = true;
       payload = await uploadViaDomain({
         uploadUrl,
         headers,

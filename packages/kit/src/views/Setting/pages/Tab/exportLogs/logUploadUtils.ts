@@ -117,7 +117,18 @@ export function isUploadTokenReusable(
  * keep the cached token reusable.
  */
 export function canReuseUploadTokenAfterError(error: unknown): boolean {
-  return error instanceof LogUploadError && error.requestSent === false;
+  return (
+    Boolean(error) &&
+    typeof error === 'object' &&
+    (error as { requestSent?: unknown }).requestSent === false
+  );
+}
+
+export function markUploadErrorRequestNotSent<T>(error: T): T {
+  if (error && typeof error === 'object') {
+    (error as { requestSent?: boolean }).requestSent = false;
+  }
+  return error;
 }
 
 export function invalidateUploadTokenCacheAfterError(

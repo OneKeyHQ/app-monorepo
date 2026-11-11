@@ -14,6 +14,7 @@ import {
   isSniPreWriteUploadErrorCode,
   isSniTimeoutErrorCode,
   isUploadTokenReusable,
+  markUploadErrorRequestNotSent,
   normalizeTokenExpiresAtMs,
   withLogUploadTimeout,
 } from './logUploadUtils';
@@ -87,6 +88,21 @@ describe('isUploadTokenReusable', () => {
       preSendError,
     );
     expect(isUploadTokenReusable(preserved, digest, NOW)).toBe(true);
+
+    const genericPreflightError = markUploadErrorRequestNotSent(
+      new Error('Endpoint lookup failed'),
+    );
+    expect(canReuseUploadTokenAfterError(genericPreflightError)).toBe(true);
+    expect(
+      isUploadTokenReusable(
+        invalidateUploadTokenCacheAfterError(
+          { ...cache },
+          genericPreflightError,
+        ),
+        digest,
+        NOW,
+      ),
+    ).toBe(true);
 
     const http502Error = new LogUploadError({
       reason: 'http',

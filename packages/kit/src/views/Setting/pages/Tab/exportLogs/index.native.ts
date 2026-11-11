@@ -29,6 +29,7 @@ import {
   LogUploadError,
   isSniPreWriteUploadErrorCode,
   isSniTimeoutErrorCode,
+  markUploadErrorRequestNotSent,
   withLogUploadTimeout,
 } from './logUploadUtils';
 import { buildDefaultFileBaseName } from './utils';
@@ -315,20 +316,33 @@ export const uploadLogBundle = async ({
   digest: ILogDigest;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
-    throw new OneKeyLocalError('Upload token is required');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Upload token is required'),
+    );
   }
   if (!digest || !digest.bundle || digest.sizeBytes <= 0) {
-    throw new OneKeyLocalError('Log bundle is empty');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Log bundle is empty'),
+    );
   }
   if (digest.bundle.type !== 'file') {
-    throw new OneKeyLocalError('Native upload expects a file bundle');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Native upload expects a file bundle'),
+    );
   }
   const { filePath } = digest.bundle;
   const mimeType = digest.bundle.mimeType ?? 'application/octet-stream';
 
-  const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
-    name: EServiceEndpointEnum.Wallet,
-  });
+  let endpointInfo: Awaited<
+    ReturnType<typeof backgroundApiProxy.serviceApp.getEndpointInfo>
+  >;
+  try {
+    endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
+      name: EServiceEndpointEnum.Wallet,
+    });
+  } catch (error) {
+    throw markUploadErrorRequestNotSent(error);
+  }
   const uploadUrl = `${endpointInfo.endpoint.replace(
     /\/$/,
     '',
@@ -343,6 +357,7 @@ export const uploadLogBundle = async ({
   const startedAt = Date.now();
   let path: ILogUploadPath = 'sni';
   let sentBytes = 0;
+  let requestSent = false;
   const logFailure = (
     error: unknown,
     httpStatus?: number,
@@ -373,6 +388,9 @@ export const uploadLogBundle = async ({
       stage: ELogUploadStage.Error,
       message: getErrorMessage(error),
     });
+    if (!requestSent) {
+      markUploadErrorRequestNotSent(error);
+    }
     throw error;
   };
 
@@ -386,17 +404,24 @@ export const uploadLogBundle = async ({
     });
     // The bg transport enforces this timeout; the extra margin only guards a
     // lost bridge reply.
-    const sniResult: ILogUploadViaIpTableResult = await withLogUploadTimeout(
-      backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
-        uploadToken,
-        filePath,
-        mimeType,
-        sizeBytes: digest.sizeBytes,
-        timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-      }),
-      LOG_UPLOAD_TIMEOUT_MS + 5000,
-    );
+    let sniResult: ILogUploadViaIpTableResult;
+    try {
+      sniResult = await withLogUploadTimeout(
+        backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
+          uploadToken,
+          filePath,
+          mimeType,
+          sizeBytes: digest.sizeBytes,
+          timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+        }),
+        LOG_UPLOAD_TIMEOUT_MS + 5000,
+      );
+    } catch (error) {
+      requestSent = true;
+      throw error;
+    }
     if (sniResult.route === 'sni') {
+      requestSent = true;
       emitUploadProgress(digest.sizeBytes, digest.sizeBytes);
       sentBytes = digest.sizeBytes;
       httpResult = {
@@ -408,6 +433,7 @@ export const uploadLogBundle = async ({
       sniResult.route === 'failed' &&
       isSniTimeoutErrorCode(sniResult.errorCode)
     ) {
+      requestSent = true;
       throw new LogUploadError({
         reason: 'timeout',
         message: `Log upload timed out after ${LOG_UPLOAD_TIMEOUT_MS}ms`,
@@ -416,6 +442,7 @@ export const uploadLogBundle = async ({
       sniResult.route === 'failed' &&
       !isSniPreWriteUploadErrorCode(sniResult.errorCode)
     ) {
+      requestSent = true;
       // Once the archive may have been written to the SNI socket, do not
       // immediately replay a second POST over the domain or via outer retry.
       throw new LogUploadError({
@@ -449,6 +476,7 @@ export const uploadLogBundle = async ({
       });
       delete headers['content-length'];
       delete headers['Content-Length'];
+      requestSent = true;
       httpResult = await uploadViaUploadTask({
         uploadUrl,
         headers,
