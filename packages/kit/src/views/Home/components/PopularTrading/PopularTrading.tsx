@@ -1138,12 +1138,27 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           marketVariantId: record.marketVariantId,
           marketTokenCategory,
         };
+        if (platformEnv.isNative) {
+          defaultLogger.market.navigation.homeTokenNavigation({
+            stage: 'detailDispatch',
+            symbol: record.symbol,
+            routeName,
+            hasRootNavigationRef: Boolean(rootNavigationRef.current),
+          });
+        }
         if (
           openOrReplaceMarketDetailRoute({
             routeName,
             params,
           })
         ) {
+          if (platformEnv.isNative) {
+            defaultLogger.market.navigation.homeTokenNavigation({
+              stage: 'detailDispatched',
+              symbol: record.symbol,
+              routeName,
+            });
+          }
           return;
         }
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -1153,6 +1168,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             params,
           },
         });
+        if (platformEnv.isNative) {
+          defaultLogger.market.navigation.homeTokenNavigation({
+            stage: 'detailDispatched',
+            symbol: record.symbol,
+            routeName,
+            hasRootNavigationRef: Boolean(rootNavigationRef.current),
+          });
+        }
       };
 
       if (platformEnv.isNative) {
@@ -1184,6 +1207,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Navigate to Market Detail page or Perps trading page
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      if (platformEnv.isNative) {
+        defaultLogger.market.navigation.homeTokenNavigation({
+          stage: 'rowPress',
+          symbol: record.symbol,
+        });
+      }
       navigationRequestIdRef.current += 1;
       const requestId = navigationRequestIdRef.current;
       if (platformEnv.isNative && (record.assetId || record.marketAsset)) {
@@ -1366,6 +1395,26 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             }}
             onRow={(record) => ({
               onPress: () => handleTokenPress(record),
+              onPressIn: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressIn',
+                  symbol: record.symbol,
+                });
+              },
+              onPressOut: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressOut',
+                  symbol: record.symbol,
+                });
+              },
+              onLongPress: platformEnv.isNative
+                ? () => {
+                    defaultLogger.market.navigation.homeTokenNavigation({
+                      stage: 'longPress',
+                      symbol: record.symbol,
+                    });
+                  }
+                : undefined,
             })}
           />
         </YStack>
