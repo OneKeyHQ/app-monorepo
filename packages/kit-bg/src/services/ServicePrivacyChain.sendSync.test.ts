@@ -116,6 +116,7 @@ function createService({
       listAccounts: async () => ({
         accounts: [{ accountId, runtimeKey: 'main', syncEnabled: true }],
       }),
+      getAccountState: async () => accountState,
       getChainTip: async () => 100,
       syncPolicy,
       syncGroup,
@@ -133,7 +134,10 @@ function createService({
           ensureLocalWalletRemoteConfigLoaded: async () => undefined,
         },
         simpleDb: {
-          privacyChainState: { getAccountEpoch: async () => undefined },
+          privacyChainState: {
+            getAccountEpoch: async () => undefined,
+            touchAccountSyncSlot: async () => undefined,
+          },
         },
         serviceAccount: {
           getDBAccountSafe: async () => ({ id: accountId }),
@@ -317,6 +321,38 @@ describe('sync before a private send', () => {
       canSend: false,
       status: 'chainPaused',
     });
+  });
+});
+
+it('preserves a refresh requested while the caught-up pass is publishing', async () => {
+  const { service, syncGroup } = createService();
+  const instance = service as unknown as InstanceType<
+    typeof ServicePrivacyChain
+  >;
+  let refreshResult:
+    | Awaited<ReturnType<typeof instance.refreshLocalWalletAccount>>
+    | undefined;
+  jest.spyOn(instance, 'publishSyncError').mockImplementationOnce(async () => {
+    // The pass has caught up, but its atom publication is still awaiting completion.
+    refreshResult =
+      await ServicePrivacyChain.prototype.refreshLocalWalletAccount.call(
+        instance,
+        { networkId, accountId },
+      );
+  });
+
+  await service.backgroundSyncTick();
+  expect(refreshResult).toMatchObject({
+    scanRequested: true,
+    afterSequence: 1,
+  });
+  expect(syncGroup).toHaveBeenCalledTimes(1);
+  expect(service.runtimeSyncState.has(stateKey)).toBe(false);
+
+  await service.backgroundSyncTick();
+  expect(syncGroup).toHaveBeenCalledTimes(2);
+  expect(service.runtimeSyncState.get(stateKey)).toMatchObject({
+    lastChainTip: 100,
   });
 });
 
