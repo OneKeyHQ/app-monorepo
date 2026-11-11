@@ -996,6 +996,11 @@ export default class Vault extends VaultBase {
     };
   }
 
+  /**
+   * 按 feeInfo 为 encodedTx 填入费用并返回副本；缺少报价时沿用原费率。
+   * 明确请求 type 2 且带 accessList 时，将 gasPrice 等额映射为 1559 费用，保持用户选择的单价上限。
+   * 普通交易仅在收到 1559 报价时同步 type/txType；特殊类型及 blob/authorization 字段不参与此转换。
+   */
   async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxEvm;
     feeInfo: IFeeInfoUnit;
@@ -1029,6 +1034,38 @@ export default class Vault extends VaultBase {
       );
       delete encodedTxWithFee.maxFeePerGas;
       delete encodedTxWithFee.maxPriorityFeePerGas;
+    }
+    const envelopeType = Number(
+      encodedTx.type === 'eip1559'
+        ? 2
+        : (encodedTx.type ?? encodedTx.txType ?? 0),
+    );
+    const isStandardEnvelope =
+      [0, 1, 2].includes(envelopeType) &&
+      [0, 1, 2].includes(encodedTx.txType ?? envelopeType) &&
+      !(
+        'authorizationList' in encodedTx ||
+        'blobVersionedHashes' in encodedTx ||
+        'blobs' in encodedTx ||
+        'maxFeePerBlobGas' in encodedTx
+      );
+    const requestsEip1559 =
+      !!feeInfo.gasEIP1559 ||
+      (envelopeType === 2 && (encodedTx.txType ?? 2) === 2);
+    if (encodedTxWithFee.accessList && isStandardEnvelope && requestsEip1559) {
+      // OneKey/Trezor 的 gasPrice 消息无法传递 accessList，必须保留服务端明确指定的 type 2 格式。
+      if (encodedTxWithFee.gasPrice) {
+        encodedTxWithFee.maxFeePerGas = encodedTxWithFee.gasPrice;
+        encodedTxWithFee.maxPriorityFeePerGas = encodedTxWithFee.gasPrice;
+        delete encodedTxWithFee.gasPrice;
+      }
+      if (
+        encodedTxWithFee.maxFeePerGas &&
+        encodedTxWithFee.maxPriorityFeePerGas
+      ) {
+        encodedTxWithFee.type = '0x2';
+        encodedTxWithFee.txType = 2;
+      }
     }
     return Promise.resolve(encodedTxWithFee);
   }
@@ -1480,6 +1517,10 @@ export default class Vault extends VaultBase {
     return super.baseGetPrivateKeyFromImported(params);
   }
 
+  /**
+   * 从 encodedTx 提取估算字段并保留 accessList，使固有 gas 与执行成本都参与估算。
+   * 未提供交易时原样返回 undefined；原生转账沿用避免余额不足的 value 调整，解析失败向上传播。
+   */
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
@@ -1488,7 +1529,8 @@ export default class Vault extends VaultBase {
     if (!encodedTx) {
       return { encodedTx };
     }
-    const { chainId, nonce, from, to, data, value } = encodedTx;
+    const { chainId, nonce, from, to, data, value, accessList, txType, type } =
+      encodedTx;
     let transferValue = value;
 
     const nativeTx = await parseToNativeTx({ encodedTx });
@@ -1508,6 +1550,9 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+        accessList,
+        txType,
+        type,
       },
     });
   }
@@ -1555,6 +1600,10 @@ export default class Vault extends VaultBase {
     );
   }
 
+  /**
+   * 根据 decodedTx 构建替换交易；加速保留原 accessList，取消清除列表以免继承订单承诺。
+   * nonce 缺失或原交易校验不一致时抛错，解密失败沿用原校验失败路径。
+   */
   override async buildReplaceEncodedTx({
     decodedTx,
     replaceType,
@@ -1602,12 +1651,18 @@ export default class Vault extends VaultBase {
       gasPrice: encodedTx.gasPrice,
       maxFeePerGas: encodedTx.maxFeePerGas,
       maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
+      accessList: encodedTxOrigin?.accessList ?? encodedTx.accessList,
+      txType: encodedTxOrigin?.txType ?? encodedTx.txType,
+      type: encodedTxOrigin?.type ?? encodedTx.type,
     };
 
     if (replaceType === EReplaceTxType.Cancel) {
       encodedTxEvm.to = encodedTxEvm.from;
       encodedTxEvm.value = '0x0';
       encodedTxEvm.data = '0x';
+      delete encodedTxEvm.accessList;
+      delete encodedTxEvm.txType;
+      delete encodedTxEvm.type;
     }
     if (replaceType === EReplaceTxType.SpeedUp) {
       if (

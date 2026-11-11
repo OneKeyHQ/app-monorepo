@@ -553,12 +553,17 @@ class EvmApiProvider extends BaseApiProvider {
     };
   }
 
+  /**
+   * 将 encodedTx 连同 accessList 序列化并交给 L1 费用 oracle，避免低估 rollup 数据发布费用。
+   * 缺省费用字段使用原占位值估算字节数；无效交易或 RPC 失败向调用方抛出。
+   */
   protected async getL1Fee(params: IServerGasFeeParams): Promise<IAmountUnit> {
     const encodedTx = params.encodedTx as IEncodedTxEvm;
     const unsignedTx = ethers.Transaction.from({
       // type: encodedTx.type,
       to: encodedTx.to,
       data: encodedTx.data,
+      accessList: encodedTx.accessList,
       value: encodedTx.value,
       gasLimit: encodedTx.gasLimit,
       nonce: Number(encodedTx.nonce ?? 1), // all >0 have the same effect
@@ -581,12 +586,16 @@ class EvmApiProvider extends BaseApiProvider {
     return new B(l1Fee.toString()).times(BASE_FEE_RATE).toFixed(0);
   }
 
+  /**
+   * 以 encodedTx 的调用参数和 accessList 请求 gas 估算，返回原估算值及沿用安全系数的 gasLimit。
+   * 不复用旧 gasLimit，防止列表新增成本被旧上限截断；RPC 失败保持向上传播。
+   */
   override async getGasLimit(
     params: IServerGasLimitParams,
   ): Promise<IServerGasLimitResponse> {
     const estimateGasLimitRes = await this.client.call<string>(
       'eth_estimateGas',
-      [pick(params.encodedTx, 'from', 'to', 'value', 'data')],
+      [pick(params.encodedTx, 'from', 'to', 'value', 'data', 'accessList')],
     );
 
     const estimateGasLimit = Number(estimateGasLimitRes);

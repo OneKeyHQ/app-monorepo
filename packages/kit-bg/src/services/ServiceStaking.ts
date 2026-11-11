@@ -170,6 +170,10 @@ const loadBorrowActionServiceUtils = () =>
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
+  private earnOrderSyncStarted = false;
+
+  private earnOrderSyncRunning = false;
+
   private _abortControllersByRequestId: Record<string, Set<AbortController>> =
     {};
 
@@ -2256,6 +2260,7 @@ class ServiceStaking extends ServiceBase {
     });
   }
 
+  /** 先保存传入订单再尝试关联，确保重启可重试；网络失败保留待同步，存储失败向上抛出。 */
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
     defaultLogger.staking.order.addOrder({
@@ -2264,16 +2269,9 @@ class ServiceStaking extends ServiceBase {
       stakingProtocol: order.stakingProtocol,
       stakingTags: order.stakingTags,
     });
-    await simpleDb.earnOrders.addOrder(order);
-    try {
-      await this.updateEarnOrderStatusToServer({
-        order: order as IEarnOrderItem,
-      });
-    } catch (_e) {
-      // ignore error, continue
-      defaultLogger.staking.order.updateOrderStatusError({
-        status: order.status,
-      });
+    const saved = await this.backgroundApi.simpleDb.earnOrders.addOrder(order);
+    if (saved) {
+      await this.updateEarnOrderStatusToServer({ order: saved });
     }
   }
 
@@ -2284,6 +2282,7 @@ class ServiceStaking extends ServiceBase {
     });
   }
 
+  /** 按交易回调保存真实终态并返回已更新订单；取消订单跳过，单笔失败不阻塞其余回调。 */
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
     const updatedOrders: {
@@ -2298,17 +2297,17 @@ class ServiceStaking extends ServiceBase {
         const shouldUpdate =
           Boolean(order) &&
           tx.status !== EDecodedTxStatus.Pending &&
-          order?.status !== tx.status;
+          order?.status !== tx.status &&
+          order?.status !== EDecodedTxStatus.Removed;
         if (order && shouldUpdate) {
-          const updatedOrder = {
-            ...order,
-            status: tx.status,
-          };
-          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
-          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
-            currentTxId: tx.txId,
-            status: tx.status,
-          });
+          const { order: updatedOrder, success } =
+            await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+              {
+                currentTxId: tx.txId,
+                status: tx.status,
+              },
+            );
+          if (!updatedOrder || !success) continue;
           defaultLogger.staking.order.updateOrderStatus({
             status: tx.status,
             stakingLabel: updatedOrder.stakingLabel,
@@ -2319,6 +2318,7 @@ class ServiceStaking extends ServiceBase {
             tx,
             order: updatedOrder,
           });
+          await this.updateEarnOrderStatusToServer({ order: updatedOrder });
         }
       } catch (_e) {
         // ignore error, continue loop
@@ -2331,30 +2331,101 @@ class ServiceStaking extends ServiceBase {
     return updatedOrders;
   }
 
+  /** 启动后台持久化队列并立即返回；重复启动忽略，失败后仍按周期重试。 */
+  @backgroundMethod()
+  async startEarnOrderSync(): Promise<void> {
+    if (this.earnOrderSyncStarted) return;
+    this.earnOrderSyncStarted = true;
+    const sync = async () => {
+      try {
+        await this.retryPendingEarnOrders();
+      } catch (_error) {
+        defaultLogger.staking.order.updateOrderStatusError({
+          status: EDecodedTxStatus.Pending,
+        });
+      } finally {
+        setTimeout(() => void sync(), 30_000);
+      }
+    };
+    void sync();
+  }
+
+  /** 串行重试待同步订单以限制请求并发；重入直接返回，单笔失败留待下一轮或重启处理。 */
+  @backgroundMethod()
+  async retryPendingEarnOrders(): Promise<void> {
+    if (this.earnOrderSyncRunning) return;
+    this.earnOrderSyncRunning = true;
+    try {
+      const orders =
+        await this.backgroundApi.simpleDb.earnOrders.getOrdersPendingSync();
+      for (const order of orders) {
+        try {
+          await this.updateEarnOrderStatusToServer({ order });
+        } catch (_error) {
+          defaultLogger.staking.order.updateOrderStatusError({
+            status: order.status,
+          });
+        }
+      }
+    } finally {
+      this.earnOrderSyncRunning = false;
+    }
+  }
+
+  /** 同步传入订单快照；明确成功才确认，永久拒绝停止重试，临时失败保留队列，存储错误向上抛出。 */
   @backgroundMethod()
   async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
-    const maxRetries = 3;
-    let lastError;
-
-    for (let i = 0; i < maxRetries; i += 1) {
-      try {
-        const client = await this.getClient(EServiceEndpointEnum.Earn);
-        await client.post('/earn/v1/orders', {
+    if (
+      order.serverSyncStatus === 'rejected' ||
+      order.serverSyncStatus === 'acknowledged'
+    )
+      return;
+    if (order.status === EDecodedTxStatus.Removed) {
+      await this.backgroundApi.simpleDb.earnOrders.setServerSyncResult({
+        order,
+        serverSyncStatus: 'rejected',
+      });
+      return;
+    }
+    let serverSyncStatus: 'acknowledged' | 'rejected';
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.post<{ data?: { retryable?: boolean } }>(
+        '/earn/v1/orders',
+        {
           orderId: order.orderId,
           networkId: order.networkId,
           txId: order.txId,
+        },
+      );
+      if (response.data?.data?.retryable) return;
+      serverSyncStatus = 'acknowledged';
+    } catch (error) {
+      const message =
+        error instanceof OneKeyServerApiError
+          ? (error.data?.message ?? error.message)
+          : undefined;
+      const permanentlyRejected =
+        error instanceof OneKeyServerApiError &&
+        (error.code === 70010 ||
+          (error.code === 70004 &&
+            (message === 'Order transaction mismatch' ||
+              message === 'Order network mismatch')));
+      if (!permanentlyRejected) {
+        defaultLogger.staking.order.updateOrderStatusError({
+          status: order.status,
         });
-        return; // Return early on success
-      } catch (error) {
-        lastError = error;
-        if (i === maxRetries - 1) break; // Exit loop on final retry
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s, 3s
+        return;
       }
+      serverSyncStatus = 'rejected';
     }
-
-    throw lastError instanceof Error ? lastError : new Error(String(lastError)); // Throw last error after all retries fail
+    await this.backgroundApi.simpleDb.earnOrders.setServerSyncResult({
+      order,
+      serverSyncStatus,
+    });
   }
 
+  /** 先按当前哈希保存替换结果再同步服务端；订单缺失跳过，存储失败向上抛出。 */
   @backgroundMethod()
   async updateOrderStatusByTxId(params: {
     currentTxId: string;
@@ -2374,6 +2445,7 @@ class ServiceStaking extends ServiceBase {
       stakingProtocol: result.order.stakingProtocol,
       stakingTags: result.order.stakingTags,
     });
+    await this.updateEarnOrderStatusToServer({ order: result.order });
   }
 
   @backgroundMethod()

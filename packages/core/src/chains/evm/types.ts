@@ -17,6 +17,7 @@ export type IEncodedTxEvm = {
   chainId?: string; // server require string
 
   // EIP-2930
+  type?: string | number;
   txType?: number;
   accessList?: {
     address: string;

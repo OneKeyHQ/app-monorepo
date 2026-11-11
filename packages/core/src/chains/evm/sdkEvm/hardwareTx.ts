@@ -8,6 +8,7 @@
 
 import { omit } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -74,6 +75,10 @@ export interface IBuildHardwareEvmTxInput {
   [key: string]: unknown;
 }
 
+/**
+ * 将 encodedTx 转成硬件 SDK 消息及同一份待签名交易；必需字段缺失时抛错。
+ * gasPrice 消息无法传递 accessList，因此拒绝带列表的该类交易，避免设备签名内容与本地组装结果不一致。
+ */
 export function buildHardwareEvmTransaction(
   encodedTx: IBuildHardwareEvmTxInput,
 ): {
@@ -111,6 +116,11 @@ export function buildHardwareEvmTransaction(
     txType = 1;
   }
   const isEip2930 = !isEip1559 && (txType === 1 || !!encodedTx.accessList);
+  if (isEip2930 && encodedTx.accessList) {
+    throw new OneKeyLocalError(
+      'Hardware access-list transactions require EIP-1559 fees',
+    );
+  }
 
   // Spread extras (e.g. `customData`) minus `from` to preserve the
   // pre-extraction kit-bg behavior.

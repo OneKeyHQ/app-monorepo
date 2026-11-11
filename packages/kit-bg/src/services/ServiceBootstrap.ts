@@ -198,9 +198,8 @@ class ServiceBootstrap extends ServiceBase {
   }
 
   /**
-   * Deferred init: everything not needed for immediate RPC availability.
-   * Runs after critical init completes. Individual failures are isolated
-   * so they don't block other deferred tasks.
+   * 关键初始化完成后启动含订单恢复在内的延迟任务，不阻塞 RPC 可用性。
+   * 受限运行模式直接返回；各任务的失败隔离，避免影响其余初始化。
    */
   public async initDeferred() {
     const deferredStart = Date.now();
@@ -248,6 +247,9 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
           this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
+        ),
+        timedDeferred('serviceStaking.startEarnOrderSync', () =>
+          this.backgroundApi.serviceStaking.startEarnOrderSync(),
         ),
         timedDeferred(
           'serviceKeylessCloudSync.startHardwareCloudKeySweep',
