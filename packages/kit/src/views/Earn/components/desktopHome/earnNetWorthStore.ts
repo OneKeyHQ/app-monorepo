@@ -11,6 +11,10 @@ type IHomeNetWorth = {
   /** The indexed account, or the account where there is none */
   accountKey: string;
   value: string;
+  /** The estimated earnings of a day, as the home states them under it */
+  earnings24h?: string;
+  /** What the total grows by in a day: the earnings less the loans' interest */
+  change24h?: number;
 };
 
 let current: IHomeNetWorth | undefined;
@@ -26,7 +30,12 @@ const subscribe = (listener: () => void) => {
 const getSnapshot = () => current;
 
 export function publishHomeNetWorth(next: IHomeNetWorth) {
-  if (current?.accountKey === next.accountKey && current.value === next.value) {
+  if (
+    current?.accountKey === next.accountKey &&
+    current.value === next.value &&
+    current.earnings24h === next.earnings24h &&
+    current.change24h === next.change24h
+  ) {
     return;
   }
   current = next;
@@ -38,4 +47,10 @@ export function useHomeNetWorth(accountKey: string) {
   return accountKey && entry?.accountKey === accountKey
     ? entry.value
     : undefined;
+}
+
+/** The home's figure with what it states under it, for the same account */
+export function useHomeNetWorthFigures(accountKey: string) {
+  const entry = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return accountKey && entry?.accountKey === accountKey ? entry : undefined;
 }

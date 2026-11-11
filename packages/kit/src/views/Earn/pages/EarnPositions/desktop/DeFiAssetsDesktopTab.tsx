@@ -42,6 +42,7 @@ function BasicDeFiAssetsDesktopTab({
   onManage,
   onRedeem,
   onWarmRedeem,
+  hidesTiles,
 }: {
   /** A share of the home's split: its protocols' cards, once they are in */
   focusRequest?: { protocols: string[]; at: number };
@@ -52,6 +53,8 @@ function BasicDeFiAssetsDesktopTab({
   protocolMap: Record<string, IProtocolSummary>;
   isLoading: boolean;
   pendingCountByProvider: Record<string, number>;
+  /** the overview as the bar alone */
+  hidesTiles?: boolean;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -136,6 +139,7 @@ function BasicDeFiAssetsDesktopTab({
         networkNames={networkNames}
         onPressProtocol={handlePressProtocol}
         onOpenSplitProtocols={handleOpenSplitProtocols}
+        hidesTiles={hidesTiles}
       />
       {placeholder}
       {protocols.length > 0 ? (

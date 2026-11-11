@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
 import { useReducedMotion } from 'react-native-reanimated';
@@ -28,7 +29,8 @@ export function UnderlineTabs<T extends string>({
   testID,
   bare = false,
 }: {
-  tabs: { key: T; label: string }[];
+  /** `figure`: what the tab holds, after its name (the wide layout's Rewards) */
+  tabs: { key: T; label: string; figure?: ReactNode }[];
   value: T;
   onChange: (key: T) => void;
   testID?: string;
@@ -89,15 +91,18 @@ export function UnderlineTabs<T extends string>({
             testID={testID ? `${testID}-${tab.key}` : undefined}
             {...buildKeyboardPressProps(select, 2)}
           >
-            <SizableText
-              size="$bodyLgMedium"
-              color={
-                focused || hoveredKey === tab.key ? '$text' : '$textSubdued'
-              }
-              numberOfLines={1}
-            >
-              {tab.label}
-            </SizableText>
+            <XStack ai="center" gap="$1.5">
+              <SizableText
+                size="$bodyLgMedium"
+                color={
+                  focused || hoveredKey === tab.key ? '$text' : '$textSubdued'
+                }
+                numberOfLines={1}
+              >
+                {tab.label}
+              </SizableText>
+              {tab.figure}
+            </XStack>
           </YStack>
         );
       })}

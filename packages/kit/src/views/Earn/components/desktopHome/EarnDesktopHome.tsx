@@ -443,9 +443,19 @@ export function EarnDesktopHome({
       publishHomeNetWorth({
         accountKey: netWorthAccountKey,
         value: totalFiatValue,
+        earnings24h,
+        change24h:
+          (new BigNumber(earnings24h).toNumber() || 0) - borrowInterest24h,
       });
     }
-  }, [hasNoWallet, isHeroLoading, netWorthAccountKey, totalFiatValue]);
+  }, [
+    borrowInterest24h,
+    earnings24h,
+    hasNoWallet,
+    isHeroLoading,
+    netWorthAccountKey,
+    totalFiatValue,
+  ]);
   const holdAccountKey = `${activeAccount.account?.id ?? ''}|${
     activeAccount.indexedAccount?.id ?? ''
   }`;

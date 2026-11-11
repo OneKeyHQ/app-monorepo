@@ -15,7 +15,6 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   Icon,
   IconButton,
-  PROPORTIONAL_NUMS,
   Popover,
   SizableText,
   XStack,
@@ -36,7 +35,6 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../../testIDs';
-import { getNumberColor } from '../../utils/getNumberColor';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
@@ -49,16 +47,17 @@ import {
 import { EarnDesktopRewardPillsSkeleton } from './EarnDesktopRewardPills';
 import { warmEarnPositions } from './earnDesktopWarm';
 import {
-  getTickingPlaces,
-  getTickingStepSeconds,
-  splitTickingValue,
-} from './earnTicking.utils';
-import { EarnTickingDigits } from './EarnTickingDigits';
+  EarnEarnings24hLine,
+  TEXT_BEFORE_ICON_SPACE,
+} from './EarnEarnings24hLine';
+import {
+  ASTERISK_DROP,
+  TickingTotalValue,
+  TotalValue,
+} from './EarnTickingTotal';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
-import type { LayoutChangeEvent } from 'react-native';
 
-const SECONDS_PER_DAY = 24 * 60 * 60;
 // The wallet home's balance size, with the same line height. A total too long
 // for the hero beside the banner takes the largest of these that fits, the way
 // a phone's auto-sizing label shrinks, and keeps the 48px line
@@ -80,14 +79,6 @@ const REFRESH_WIDTH = 12 + 36;
 // Growing back needs this much room, so a total ticking over the edge of a
 // size does not flip between two
 const GROW_SPARE_WIDTH = 8;
-const MIN_TICK_MS = 1000;
-const MAX_TICK_MS = 60_000;
-// How far a hidden amount's asterisks drop, as a share of their size
-const ASTERISK_DROP = 0.16;
-// A small tertiary icon button sits 5 px out of its place (its negative
-// margin), so its hover circle met the words before it. This much after the
-// words gives the circle the row's gap
-const TEXT_BEFORE_ICON_SPACE = 5;
 // The hero's gap between its rows ($6). The rewards row takes the one above
 // it into its own height, so the two ease in and out as one
 const HERO_GAP = 24;
@@ -101,177 +92,6 @@ const REWARDS_SETTLE_MS = REWARDS_EASE_MS + 100;
 // Whether an account had rewards to claim when its hero last loaded: while
 // it loads again, their row keeps its place unless they are known to be none
 const hadRewardsByAccount = new Map<string, boolean>();
-
-// The total keeps moving between refreshes at the estimated daily change's
-// per-second rate. It shows as many places as it takes for the last one to
-// be seen moving (the cents alone when they move often enough, or when no
-// place allowed would), and re-renders about when that place changes, between
-// once a second and once a minute. It stands still while hidden, loading or
-// off screen
-function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
-  const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
-  const places = getTickingPlaces(perSecond);
-  const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
-  const [now, setNow] = useState(() => Date.now());
-  if (anchor.total !== total) {
-    setAnchor({ total, at: Date.now() });
-  }
-  const tickMs =
-    perSecond > 0 && isRunning
-      ? Math.min(
-          MAX_TICK_MS,
-          Math.max(
-            MIN_TICK_MS,
-            getTickingStepSeconds(perSecond, places) * 1000,
-          ),
-        )
-      : 0;
-  useEffect(() => {
-    if (!tickMs) {
-      return undefined;
-    }
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), tickMs);
-    return () => clearInterval(timer);
-  }, [tickMs]);
-  const elapsedSeconds = Math.max(0, (now - anchor.at) / 1000);
-  return { value: total + perSecond * elapsedSeconds, places };
-}
-
-function TotalValue({
-  value,
-  amount,
-  digits,
-  currency,
-  fontSize,
-  isHidden,
-}: {
-  value: number;
-  // What is written in place of the value: the total cut at its cents, when
-  // the digits after them follow
-  amount?: string;
-  // The digits after the cents, on the total's baseline
-  digits?: ReactNode;
-  currency: string;
-  fontSize: number;
-  isHidden: boolean;
-}) {
-  const textProps = {
-    numberOfLines: 1,
-    fontSize,
-    lineHeight: fontSize,
-    fontWeight: 500,
-    fontVariant: PROPORTIONAL_NUMS,
-  } as const;
-  // The currency sign's side bearing, so the glyph, not its box, lines up
-  // with the label and the buttons. A shift rather than a margin, which would
-  // take the width from the number and cut it short
-  const x = -Math.round(fontSize / 21);
-  if (isHidden) {
-    // Asterisks sit at the cap height; lowered, they center on the line the
-    // digits fill
-    return (
-      <SizableText
-        {...textProps}
-        x={x}
-        y={Math.round(fontSize * ASTERISK_DROP)}
-      >
-        ****
-      </SizableText>
-    );
-  }
-  const formatted = (
-    <NumberSizeableTextWrapper
-      {...textProps}
-      splitDecimal
-      formatter="value"
-      formatterOptions={{ currency }}
-      // Beside the digits the amount is the part that gives way
-      {...(digits ? { flexShrink: 1, minWidth: 0 } : undefined)}
-    >
-      {amount ?? String(Math.abs(value))}
-    </NumberSizeableTextWrapper>
-  );
-  // The value formatter writes a negative as "< 0.01", so the sign goes in
-  // front of the formatted amount
-  return value < 0 || digits ? (
-    <XStack ai="baseline" minWidth={0} x={x}>
-      {value < 0 ? <SizableText {...textProps}>-</SizableText> : null}
-      {formatted}
-      {digits}
-    </XStack>
-  ) : (
-    <YStack minWidth={0} x={x}>
-      {formatted}
-    </YStack>
-  );
-}
-
-/**
- * The net worth as it grows: the total, and after its cents the smaller
- * digits that are seen to move. It holds the clock, so the hero around it is
- * not drawn again at every tick
- */
-function TickingTotalValue({
-  total,
-  change24h,
-  isRunning,
-  currency,
-  fontSize,
-  isHidden,
-  isStatic,
-  hidesDigits,
-  onDigitsWidth,
-}: {
-  total: number;
-  change24h: number;
-  isRunning: boolean;
-  currency: string;
-  fontSize: number;
-  isHidden: boolean;
-  // The copy that is only measured: no motion
-  isStatic?: boolean;
-  // No room for them at any size
-  hidesDigits?: boolean;
-  // How wide the digits are at this size; none, nothing
-  onDigitsWidth?: (width: number) => void;
-}) {
-  const { value, places } = useTickingTotal(total, change24h, isRunning);
-  const { cents, digits } =
-    hidesDigits || isHidden
-      ? { cents: '', digits: '' }
-      : splitTickingValue(value, places);
-  const hasDigits = digits.length > 0;
-  useEffect(() => {
-    if (!hasDigits) {
-      onDigitsWidth?.(0);
-    }
-  }, [hasDigits, onDigitsWidth]);
-  const handleDigitsLayout = useCallback(
-    (event: LayoutChangeEvent) =>
-      onDigitsWidth?.(Math.ceil(event.nativeEvent.layout.width)),
-    [onDigitsWidth],
-  );
-  return (
-    <TotalValue
-      value={value}
-      amount={hasDigits ? cents : undefined}
-      digits={
-        hasDigits ? (
-          <EarnTickingDigits
-            digits={digits}
-            fontSize={fontSize}
-            isStatic={isStatic}
-            onLayout={onDigitsWidth ? handleDigitsLayout : undefined}
-          />
-        ) : undefined
-      }
-      currency={currency}
-      fontSize={fontSize}
-      isHidden={isHidden}
-    />
-  );
-}
 
 /**
  * The rewards row's place under the totals. While the hero loads it keeps the
@@ -501,55 +321,11 @@ function BasicEarnDesktopHero({
     earningsRow = <SkeletonLine height={20} width={180} barHeight={14} />;
   } else if (hasPositions) {
     earningsRow = (
-      <XStack ai="center" gap="$1.5">
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyMdMedium"
-          formatter="value"
-          formatterOptions={{
-            currency,
-            showPlusMinusSigns: earnings !== 0,
-          }}
-          color={isHidden ? '$textSubdued' : getNumberColor(earnings24h)}
-          y={
-            isHidden
-              ? Math.round(getFontSize('$bodyMdMedium') * ASTERISK_DROP)
-              : undefined
-          }
-        >
-          {earnings24h}
-        </NumberSizeableTextWrapper>
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          mr={TEXT_BEFORE_ICON_SPACE}
-        >
-          {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
-        </SizableText>
-        <Popover
-          placement="bottom-start"
-          renderTrigger={
-            <IconButton
-              testID="earn-desktop-24h-earnings-info"
-              hotKey
-              aria-label={intl.formatMessage({ id: ETranslations.global_info })}
-              variant="tertiary"
-              size="small"
-              icon="InfoCircleOutline"
-              transition={reduceMotion ? undefined : 'quick'}
-              animateOnly={ANIMATE_ONLY_BG_COLOR}
-            />
-          }
-          title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
-          renderContent={
-            <SizableText px="$pagePadding" py="$4">
-              {intl.formatMessage({
-                id: ETranslations.earn_24h_earnings_tooltip,
-              })}
-            </SizableText>
-          }
-        />
-      </XStack>
+      <EarnEarnings24hLine
+        earnings24h={earnings24h}
+        currency={currency}
+        isHidden={isHidden}
+      />
     );
   }
 

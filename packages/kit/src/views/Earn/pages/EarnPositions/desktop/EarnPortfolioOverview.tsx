@@ -75,6 +75,7 @@ export function EarnPortfolioOverview({
   networkNames,
   onPressProtocol,
   onOpenSplitProtocols,
+  hidesTiles,
 }: {
   /** the protocol cards shown, after the network filter */
   protocols: IEarnProtocolView[];
@@ -86,6 +87,8 @@ export function EarnPortfolioOverview({
   onPressProtocol: (protocol: IDeFiProtocol) => void;
   /** a share of the bar: its protocol's cards across networks */
   onOpenSplitProtocols?: (protocolKeys: string[]) => void;
+  /** the bar alone: each protocol's value is in its card's header below */
+  hidesTiles?: boolean;
 }) {
   const media = useMedia();
   // The DeFi home's card colors, so the tiles read as the home's cards do
@@ -168,18 +171,20 @@ export function EarnPortfolioOverview({
     <ProviderJotaiContextDeFiList>
       <YStack px="$5" gap="$6" userSelect="none">
         <ProtocolSplit shares={shares} onOpenProtocols={onOpenSplitProtocols} />
-        <DeFiOverviewGrid
-          cols={cols}
-          protocols={shownProtocols}
-          protocolMap={protocolMap}
-          getNetWorth={getNetWorth}
-          onPressProtocol={onPressProtocol}
-          isAllNetworks
-          tileSurface={tileSurface}
-          collapsedRows={TILE_ROWS}
-          moreSpan={1}
-          renderNameAccessory={renderNameAccessory}
-        />
+        {hidesTiles ? null : (
+          <DeFiOverviewGrid
+            cols={cols}
+            protocols={shownProtocols}
+            protocolMap={protocolMap}
+            getNetWorth={getNetWorth}
+            onPressProtocol={onPressProtocol}
+            isAllNetworks
+            tileSurface={tileSurface}
+            collapsedRows={TILE_ROWS}
+            moreSpan={1}
+            renderNameAccessory={renderNameAccessory}
+          />
+        )}
       </YStack>
     </ProviderJotaiContextDeFiList>
   );
