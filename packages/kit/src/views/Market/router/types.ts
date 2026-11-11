@@ -39,6 +39,8 @@ export type IModalMarketParamList = {
     | {
         initialQuotes?: [string, IMarketHighlightQuote][];
         initialHighlights?: IMarketHighlightsPreview;
+        // Highlight tapped in the strip; the list opens scrolled to it.
+        initialHighlightId?: string;
       }
     | undefined;
   [EModalMarketRoutes.MobileTokenSelector]:

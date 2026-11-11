@@ -63,12 +63,14 @@ function CarouselItem({
   compact,
   itemProps,
   active,
+  onItemPress,
 }: {
   highlight: IMarketHighlight;
   quotes: Map<string, IMarketHighlightQuote> | undefined;
   compact: boolean;
   itemProps: IXStackProps;
   active: boolean;
+  onItemPress: (highlight: IMarketHighlight) => void;
 }) {
   const assets = highlight.assets.slice(0, compact ? 1 : 2);
   return (
@@ -81,6 +83,7 @@ function CarouselItem({
       alignItems="center"
       gap="$3"
       {...itemProps}
+      onPress={() => onItemPress(highlight)}
     >
       <SizableText
         flexShrink={1}
@@ -180,6 +183,7 @@ function HighlightCarousel({
   paused,
   height,
   itemProps,
+  onItemPress,
 }: {
   items: IMarketHighlight[];
   quotes: Map<string, IMarketHighlightQuote> | undefined;
@@ -187,6 +191,7 @@ function HighlightCarousel({
   paused: boolean;
   height: number;
   itemProps: IXStackProps;
+  onItemPress: (highlight: IMarketHighlight) => void;
 }) {
   const reducedMotion = useReducedMotion();
   const count = items.length;
@@ -268,6 +273,7 @@ function HighlightCarousel({
               compact={compact}
               itemProps={itemProps}
               active={rowIndex === activeIndex}
+              onItemPress={onItemPress}
             />
           </CarouselRow>
         ))}
@@ -335,17 +341,18 @@ export function MarketHighlightStrip({
       // target on touch devices.
       pressTimerRef.current = setTimeout(() => setPressing(false), 1500);
     },
-    onPress: () =>
-      navigation.pushModal(EModalRoutes.MarketModal, {
-        screen: EModalMarketRoutes.MarketHighlights,
-        params: {
-          initialQuotes: quotes ? [...quotes] : undefined,
-          initialHighlights: highlights
-            ? { locale, items: highlights }
-            : undefined,
-        },
-      }),
   };
+  const onItemPress = (pressed: IMarketHighlight) =>
+    navigation.pushModal(EModalRoutes.MarketModal, {
+      screen: EModalMarketRoutes.MarketHighlights,
+      params: {
+        initialQuotes: quotes ? [...quotes] : undefined,
+        initialHighlights: highlights
+          ? { locale, items: highlights }
+          : undefined,
+        initialHighlightId: pressed.highlightId,
+      },
+    });
 
   if (!highlight) {
     return (
@@ -383,6 +390,7 @@ export function MarketHighlightStrip({
           paused={hovered || pressing || focused}
           height={CAROUSEL_ROW_HEIGHT}
           itemProps={itemProps}
+          onItemPress={onItemPress}
         />
       </XStack>
     </YStack>

@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,6 +25,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IListViewRef } from '@onekeyhq/components';
 import { s } from '@onekeyhq/components/src/utils/scale';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -470,6 +478,11 @@ function HighlightCard({
   );
 }
 
+const LIST_EDGE_SPACING = 10;
+// When opened at a later highlight, leave the bottom of the previous card in
+// view (36px of card + the 12px gap) so it is clear there is more above.
+const PREVIOUS_CARD_PEEK = 48;
+
 function MarketHighlightsContent() {
   const route =
     useRoute<
@@ -499,6 +512,49 @@ function MarketHighlightsContent() {
     [items],
   );
   const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+
+  // Open the list at the highlight tapped in the strip, once.
+  const listRef = useRef<IListViewRef<IMarketHighlight> | null>(null);
+  const initialHighlightId = route.params?.initialHighlightId;
+  const initialIndex = useMemo(
+    () =>
+      initialHighlightId && items
+        ? items.findIndex((item) => item.highlightId === initialHighlightId)
+        : -1,
+    [initialHighlightId, items],
+  );
+  const didInitialScrollRef = useRef(false);
+  const scrollRetryRef = useRef(0);
+  const scrollToHighlight = useCallback((index: number) => {
+    listRef.current?.scrollToIndex({
+      index,
+      animated: false,
+      viewOffset: PREVIOUS_CARD_PEEK,
+    });
+  }, []);
+  useEffect(() => {
+    if (didInitialScrollRef.current || initialIndex < 1) return;
+    // Give the list a moment to lay out its rows before scrolling.
+    const timer = setTimeout(() => {
+      didInitialScrollRef.current = true;
+      scrollToHighlight(initialIndex);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [initialIndex, scrollToHighlight]);
+  const onScrollToIndexFailed = useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      // FlatList (web) can only scroll to measured rows: jump near the target
+      // so it renders, then retry.
+      if (scrollRetryRef.current >= 3) return;
+      scrollRetryRef.current += 1;
+      listRef.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: false,
+      });
+      setTimeout(() => scrollToHighlight(info.index), 100);
+    },
+    [scrollToHighlight],
+  );
   useEffect(() => {
     if (!quotes) return;
     prewarmMarketTokenImages(
@@ -571,11 +627,13 @@ function MarketHighlightsContent() {
         {items?.length ? (
           <YStack testID="market-highlights-list" flex={1} minHeight={0}>
             <ListView
+              ref={listRef}
               data={items}
               keyExtractor={(item) => item.highlightId}
               renderItem={renderItem}
-              ListHeaderComponent={<Stack height={10} />}
-              ListFooterComponent={<Stack height={10} />}
+              ListHeaderComponent={<Stack height={LIST_EDGE_SPACING} />}
+              ListFooterComponent={<Stack height={LIST_EDGE_SPACING} />}
+              onScrollToIndexFailed={onScrollToIndexFailed}
             />
           </YStack>
         ) : (
