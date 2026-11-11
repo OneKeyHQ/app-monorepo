@@ -28,14 +28,6 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
     return Promise.resolve('ZEC');
   }
 
-  override async getXpubRegex() {
-    return '^([x]pub)';
-  }
-
-  override async getXprvtRegex() {
-    return '^([x]prv)';
-  }
-
   override decodeAddress(address: string): string {
     return sdkZcash.decodeAddress(address);
   }

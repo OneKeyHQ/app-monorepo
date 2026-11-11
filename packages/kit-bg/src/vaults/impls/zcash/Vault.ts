@@ -33,6 +33,8 @@ import {
 import type {
   IFetchServerAccountDetailsParams,
   IFetchServerAccountDetailsResponse,
+  IXprvtValidation,
+  IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
   IMeasureRpcStatusParams,
@@ -74,7 +76,6 @@ import {
 import { clampZcashBirthdayHeight } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ZcashPrivacyMode } from './privacyMode';
 import * as zcashBalance from './vaultBalance';
@@ -119,13 +120,22 @@ export default class Vault extends VaultBtc {
     hd: KeyringHd,
     qr: undefined,
     hw: KeyringHardware,
-    imported: KeyringImported,
+    imported: undefined,
     watching: KeyringWatching,
     external: KeyringWatching,
   };
 
   override getBlockbookCoinName() {
     return 'Zcash';
+  }
+
+  // Zcash wallets come from a mnemonic or a device only; no xpub watching, no xprv import.
+  override validateXpub(_xpub: string): Promise<IXpubValidation> {
+    return Promise.resolve({ isValid: false });
+  }
+
+  override validateXprvt(_xprvt: string): Promise<IXprvtValidation> {
+    return Promise.resolve({ isValid: false });
   }
 
   override async validateAddress(address: string) {
@@ -350,7 +360,7 @@ export default class Vault extends VaultBtc {
     return zcashLifecycle.getLocalWalletCapability(this);
   }
 
-  // Only HD/hardware accounts derive a viewing key; imported/watch-only can send/watch transparent funds but never scan.
+  // Only HD/hardware accounts derive a viewing key; watch-only accounts see transparent funds but never scan.
   override supportsAccountWalletType({
     accountId,
   }: {
