@@ -5,6 +5,11 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import {
+  currencyPersistAtom,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { settingsAtomInitialValue } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -68,6 +73,33 @@ const mockResolveMarketPerpsInfoBySymbol: jest.MockedFunction<
   (params: { symbol: string }) => Promise<{ hlTicker: string } | undefined>
 > = jest.fn();
 const mockLogError = jest.fn();
+
+beforeEach(() => {
+  jest.spyOn(currencyPersistAtom, 'get').mockResolvedValue({
+    currencyMap: {
+      usd: {
+        id: 'usd',
+        name: 'US Dollar',
+        unit: '$',
+        value: '1',
+        type: ['fiat'],
+      },
+      cny: {
+        id: 'cny',
+        name: 'Chinese Yuan',
+        unit: '¥',
+        value: '7.1',
+        type: ['fiat'],
+      },
+    },
+  });
+  jest
+    .spyOn(settingsPersistAtom, 'get')
+    .mockResolvedValue(settingsAtomInitialValue);
+});
+
+afterEach(() => jest.restoreAllMocks());
+
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   let reject: (reason?: unknown) => void = () => undefined;
@@ -1088,63 +1120,74 @@ describe('marketV2 asset token detail actions', () => {
     jest.restoreAllMocks();
   });
 
-  it('loads DOGE through the asset detail API without calling token detail', async () => {
-    const { store, Wrapper } = createWrapper();
-    const { result } = renderHook(
-      () => {
-        const actions = useTokenDetailActions().current;
-        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
-        return { ...actions, fetchAssetTokenDetail };
-      },
-      {
-        wrapper: Wrapper,
-      },
-    );
+  it.each(['usd', 'cny'])(
+    'loads DOGE through the asset detail API with %s conversion without calling token detail',
+    async (currencyId) => {
+      jest.mocked(settingsPersistAtom.get).mockResolvedValueOnce({
+        ...settingsAtomInitialValue,
+        currencyInfo: {
+          id: currencyId,
+          symbol: currencyId === 'usd' ? '$' : '¥',
+        },
+      });
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(
+        () => {
+          const actions = useTokenDetailActions().current;
+          const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+          return { ...actions, fetchAssetTokenDetail };
+        },
+        {
+          wrapper: Wrapper,
+        },
+      );
 
-    act(() => {
-      result.current.prepareTokenDetailPreview({
+      act(() => {
+        result.current.prepareTokenDetailPreview({
+          address: '',
+          networkId: 'doge--0',
+          isNative: true,
+          name: 'Dogecoin',
+          symbol: 'DOGE',
+          decimals: 8,
+          selectedAt: 1_788_332_399_000,
+        });
+      });
+
+      await act(async () => {
+        await result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          variantId: 'doge-doge--0-1',
+          tokenAddress: '',
+          networkId: 'doge--0',
+        });
+      });
+
+      expect(mockFetchMarketAssetDetail.mock.calls).toEqual([
+        [
+          {
+            assetId: 'doge',
+            variantId: 'doge-doge--0-1',
+            currency: 'usd',
+          },
+        ],
+      ]);
+      expect(mockFetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
+      expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
+      expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+      expect(store.get(tokenDetailAtom())).toMatchObject({
         address: '',
         networkId: 'doge--0',
         isNative: true,
         name: 'Dogecoin',
         symbol: 'DOGE',
         decimals: 8,
-        selectedAt: 1_788_332_399_000,
+        price: '0.25',
+        priceConverted: currencyId === 'cny' ? '1.775' : undefined,
+        lastUpdated: 1_788_332_400_000,
       });
-    });
-
-    await act(async () => {
-      await result.current.fetchAssetTokenDetail({
-        assetId: 'doge',
-        variantId: 'doge-doge--0-1',
-        tokenAddress: '',
-        networkId: 'doge--0',
-      });
-    });
-
-    expect(mockFetchMarketAssetDetail.mock.calls).toEqual([
-      [
-        {
-          assetId: 'doge',
-          variantId: 'doge-doge--0-1',
-          currency: 'usd',
-        },
-      ],
-    ]);
-    expect(mockFetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
-    expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
-    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
-    expect(store.get(tokenDetailAtom())).toMatchObject({
-      address: '',
-      networkId: 'doge--0',
-      isNative: true,
-      name: 'Dogecoin',
-      symbol: 'DOGE',
-      decimals: 8,
-      price: '0.25',
-      lastUpdated: 1_788_332_400_000,
-    });
-  });
+    },
+  );
 
   it.each(['detail', 'decimals'] as const)(
     'preserves realtime prices while an asset %s request is delayed',

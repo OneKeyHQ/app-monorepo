@@ -19,7 +19,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { useAppUpdateForegroundEffects } from './AppUpdateForeground';
-import { isForceUpdateStrategy } from './updateStrategy';
+import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
 export const useAppChangeLog = () => {
@@ -136,8 +136,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     return result;
   }, []);
 
-  const { downloadPackage, installPackage, showUpdateInCompleteDialog } =
-    useDownloadPackage();
+  const {
+    downloadPackage,
+    downloadASC,
+    installPackage,
+    showUpdateInCompleteDialog,
+  } = useDownloadPackage();
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
@@ -194,13 +198,29 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       if (appUpdateInfo.status === EAppUpdateStatus.ready) {
         void installPackage(
           () => {},
-          () => showUpdateInCompleteDialog({}),
+          () => {
+            if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) {
+              showUpdateInCompleteDialog({});
+            }
+          },
           { userInitiated: true, installSource: 'legacy' },
         );
         return;
       }
       if (appUpdateInfo.status === EAppUpdateStatus.notify) {
         void downloadPackage();
+      } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASCFailed) {
+        void downloadASC();
+      } else if (
+        [
+          EAppUpdateStatus.done,
+          EAppUpdateStatus.failed,
+          EAppUpdateStatus.downloadPackageFailed,
+          EAppUpdateStatus.verifyASCFailed,
+          EAppUpdateStatus.verifyPackageFailed,
+        ].includes(appUpdateInfo.status)
+      ) {
+        void downloadPackage({ userInitiated: true });
       }
       toDownloadAndVerifyPage();
       return;
@@ -216,16 +236,30 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     if (appUpdateInfo.downloadUrl || appUpdateInfo.jsBundle?.downloadUrl) {
       if (appUpdateInfo.status === EAppUpdateStatus.notify) {
         void downloadPackage();
+      } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASCFailed) {
+        void downloadASC();
+      } else if (
+        [
+          EAppUpdateStatus.done,
+          EAppUpdateStatus.failed,
+          EAppUpdateStatus.downloadPackageFailed,
+          EAppUpdateStatus.verifyASCFailed,
+          EAppUpdateStatus.verifyPackageFailed,
+        ].includes(appUpdateInfo.status)
+      ) {
+        void downloadPackage({ userInitiated: true });
       }
       toDownloadAndVerifyPage();
     }
   }, [
     appUpdateInfo.status,
+    appUpdateInfo.updateStrategy,
     appUpdateInfo.latestVersion,
     appUpdateInfo.jsBundleVersion,
     appUpdateInfo.storeUrl,
     appUpdateInfo.downloadUrl,
     appUpdateInfo.jsBundle?.downloadUrl,
+    downloadASC,
     downloadPackage,
     installPackage,
     navigation,

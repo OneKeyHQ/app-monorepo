@@ -1566,3 +1566,153 @@ test.each([
     data: { updateError: dto },
   });
 });
+
+describe('install-stage IPC error step rebinding (missing file & SHA mismatch)', () => {
+  function simulateElectronIpcRoundtrip(err: unknown): unknown {
+    const { makeIpcSafeError, unwrapElectronIpcError } =
+      require('@onekeyhq/shared/src/errors/utils/electronIpcError') as typeof import('@onekeyhq/shared/src/errors/utils/electronIpcError');
+    const safeError = makeIpcSafeError(err, 'IPC error');
+    const ipcWrapped = new Error(
+      `Error invoking remote method 'desktopApi': ${safeError.message}`,
+    );
+    return unwrapElectronIpcError(ipcWrapped);
+  }
+
+  test('prepareMacInstall rebinds SHA mismatch and missing installer to install step across IPC', async () => {
+    const { getUpdateError } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/error') as typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/error');
+    const { api, file, params } = await preparePackage('darwin');
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    const signedParams = { ...params, skipGPGVerification: false };
+    jest
+      .spyOn(fs, 'realpathSync')
+      .mockReturnValue('/Applications/OneKey.app' as unknown as string);
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+
+    // 1. GPG/SHA-256 mismatch at install time -> INTEGRITY_FAILED rebound to 'install' step
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${'0'.repeat(64)}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    let caughtShaMismatch: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtShaMismatch = e;
+    }
+    expect(caughtShaMismatch).toBeDefined();
+    expect(
+      getUpdateError(
+        simulateElectronIpcRoundtrip(caughtShaMismatch),
+        'install',
+      ),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // 2. Bad GPG signature inside verifyFile -> INTEGRITY_FAILED rebound from 'verifyPackage' to 'install'
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(false) }],
+    });
+    let caughtBadSig: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtBadSig = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(caughtBadSig), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // 3. Installer deleted before prepareMacInstall -> PACKAGE_MISSING rebound from 'verifyPackage' to 'install'
+    fs.rmSync(file, { force: true });
+    let caughtMissing: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtMissing = e;
+    }
+    expect(caughtMissing).toBeDefined();
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(caughtMissing), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
+  });
+
+  test('prepareQuitInstall and manualInstallPackage rebind SHA mismatch and missing installer to install step across IPC', async () => {
+    const { getUpdateError } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/error') as typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/error');
+    const { api, file, params } = await preparePackage('win32');
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    const signedParams = { ...params, skipGPGVerification: false };
+    jest.spyOn(fs, 'accessSync').mockImplementation(() => undefined);
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${'f'.repeat(64)}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+
+    let quitErr: unknown;
+    try {
+      await api.prepareQuitInstall(signedParams);
+    } catch (e) {
+      quitErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(quitErr), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    let manualTamperErr: unknown;
+    try {
+      await api.manualInstallPackage(signedParams);
+    } catch (e) {
+      manualTamperErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(manualTamperErr), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // Delete installer on disk -> PACKAGE_MISSING preserved (not overwritten with INSTALL_FAILED)
+    fs.rmSync(file, { force: true });
+    let quitMissingErr: unknown;
+    try {
+      await api.prepareQuitInstall(signedParams);
+    } catch (e) {
+      quitMissingErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(quitMissingErr), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
+
+    let manualMissingErr: unknown;
+    try {
+      await api.manualInstallPackage(signedParams);
+    } catch (e) {
+      manualMissingErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(manualMissingErr), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
+  });
+});

@@ -25234,6 +25234,7 @@
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/MarketBannerItemSkeleton.tsx": 1865,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/MarketBannerList.tsx": 10545,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/index.tsx": 22744,
+    "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/marketBannerIndexConfig.ts": 22728,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/marketBannerLayout.ts": 4678,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/marketBannerListPlatformApi.ts": 21947,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketBanner/useMarketBannerList.ts": 10006,
