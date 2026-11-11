@@ -93,8 +93,9 @@ type IRecentActivityRow = {
   tokenUri?: string;
   // First letter of the token's symbol, shown when it has no usable logo.
   tokenLetter?: string;
-  // What a visual without a logo or letter shows, e.g. a contract call's
-  // document icon, as in the History tab.
+  // What a visual without a logo or letter shows: the History tab's action
+  // icon (an arrow for a send, a lock for an approval, a document for a
+  // contract call).
   fallbackIcon?: IKeyOfIcons;
   networkUri?: string;
   iconName?: IKeyOfIcons;
@@ -183,9 +184,8 @@ function RecentActivityWhen({ row }: { row: IRecentActivityRow }) {
   );
 }
 
-// A row without a token (a contract call, say) draws its icon in the History
-// table's colors, scaled to this column's smaller circle: a 20px icon in 32,
-// as 24 in 40 there.
+// A row leads with its action icon in the History table's colors, scaled to
+// this column's smaller circle: a 20px icon in 32, as 24 in 40 there.
 const ACTION_ICON_FRAME = {
   bg: '$gray2',
   borderWidth: '$px',
@@ -431,6 +431,13 @@ function RecentActivityList({
           ...buildArgs,
           tableLayout: false,
         });
+        // The History tab's row for the same transaction: this column takes
+        // its action icon, and an approval's allowance as it reads there
+        // ("Unlimited USDT", "100 USDT"; a revoke reports none).
+        const { row: historyTabRow } = buildHistoryActivityRow({
+          ...buildArgs,
+          tableLayout: true,
+        });
         let status: IRecentActivityRow['status'] = 'done';
         let when = formatDistanceToNowStrict(
           history.decodedTx.updatedAt ??
@@ -448,15 +455,9 @@ function RecentActivityList({
           status = 'failed';
           when = intl.formatMessage({ id: ETranslations.global_failed });
         }
-        // A two-sided action's primary amount is what arrived, and its
-        // second (receive) visual is that token.
-        // An approval reports its allowance the way the History table does
-        // ("Unlimited USDT", "100 USDT"); a revoke reports none.
+        // A two-sided action's primary amount is what arrived.
         const approval = row.amounts.some((amount) => amount.key === 'approval')
-          ? buildHistoryActivityRow({
-              ...buildArgs,
-              tableLayout: true,
-            }).row.amounts.find((amount) => amount.key === 'approval')
+          ? historyTabRow.amounts.find((amount) => amount.key === 'approval')
           : undefined;
         const primary =
           row.amounts.find((amount) => amount.key === 'primary') ?? approval;
@@ -477,7 +478,9 @@ function RecentActivityList({
               : undefined,
           status,
           when,
-          ...readLeadingVisual(row.secondaryLeading ?? row.leading),
+          // The action icon with its network badge, as in the History tab;
+          // the amount names the token.
+          ...readLeadingVisual(historyTabRow.leading),
         };
       }),
     [
