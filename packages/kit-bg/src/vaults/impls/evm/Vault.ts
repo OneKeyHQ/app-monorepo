@@ -22,6 +22,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitRejectedCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -1719,9 +1720,14 @@ export default class Vault extends VaultBase {
       | undefined;
     const isRejectedByServer =
       serverError?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
-      Object.values(SEND_TX_SERVER_ERROR_CODES).some(
+      (Object.values(SEND_TX_SERVER_ERROR_CODES).some(
         (code) => code === serverError.code,
-      );
+      ) ||
+        // A sponsored send refused at quote admission was never executed.
+        // Kept on record, its payload would be sent again in place of the
+        // tx the user corrected (a quote is bound to one nonce), and be
+        // refused every time.
+        isGasAccountSubmitRejectedCode(serverError.code));
     if (!isRejectedByServer) {
       return false;
     }

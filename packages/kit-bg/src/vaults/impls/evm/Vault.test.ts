@@ -4,6 +4,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
 import { JsonRPCResponseError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { GAS_ACCOUNT_SUBMIT_REJECTED_CODES } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import { ESignedTxBroadcastStatus } from '../../types';
@@ -326,6 +327,41 @@ describe('EvmVault.isSignedTxRejectedByBroadcast', () => {
       vault.isSignedTxRejectedByBroadcast(
         new JsonRPCResponseError('already known'),
       ),
+    ).resolves.toBe(false);
+  });
+
+  // A sponsor quote is bound to one nonce. A send the backend refused at
+  // admission (40209: the nonce no longer matches the quote) was never
+  // executed, so the tx the user corrected on the confirm page may be signed
+  // instead of the refused payload being sent again.
+  it.each(GAS_ACCOUNT_SUBMIT_REJECTED_CODES)(
+    'holds for a sponsored send refused at admission (%s)',
+    async (code) => {
+      const vault = buildVaultWithCustomRpc(undefined);
+      await expect(
+        vault.isSignedTxRejectedByBroadcast(serverError(code)),
+      ).resolves.toBe(true);
+    },
+  );
+
+  // Execute and transport failures: the tx may already be on chain.
+  it.each([40_203, 90_200, 90_205, 90_219, 400])(
+    'does not hold for a sponsored send whose result is unknown (%s)',
+    async (code) => {
+      const vault = buildVaultWithCustomRpc(undefined);
+      await expect(
+        vault.isSignedTxRejectedByBroadcast(serverError(code)),
+      ).resolves.toBe(false);
+    },
+  );
+
+  it('does not hold for an admission refusal when a custom RPC did the broadcast', async () => {
+    const vault = buildVaultWithCustomRpc({
+      rpc: 'https://rpc.example.test',
+      enabled: true,
+    });
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(serverError(40_209)),
     ).resolves.toBe(false);
   });
 });

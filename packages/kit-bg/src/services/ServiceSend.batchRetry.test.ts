@@ -1021,6 +1021,88 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
       expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
     });
 
+    // Both sends carry a sponsor quote, as the confirm page does after it
+    // re-estimated for the nonce the user corrected.
+    const sendSponsoredPayload = (service: ServiceSend, encodedTx: string) =>
+      service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [
+          { ...buildUnsignedTx('u0'), encodedTx } as IUnsignedTxPro,
+        ],
+        signOnly: false,
+        transferPayload: undefined,
+        gasAccountUiState: {
+          selectedPayer: 'gasAccount',
+          gasAccountQuote: { quoteId: `quote-${encodedTx}` },
+        },
+      } as unknown as Parameters<
+        ServiceSend['batchSignAndSendTransaction']
+      >[0]);
+
+    // Stands in for the EVM verdict: only an admission refusal (40209, the
+    // quote was bound to another nonce) proves the tx was never executed.
+    function refuseSponsoredSendOnce(
+      vault: ReturnType<typeof makeService>['vault'],
+      code: number,
+    ) {
+      vault.broadcastTransaction.mockImplementationOnce(async () => {
+        throw Object.assign(new Error(`sponsor error ${code}`), { code });
+      });
+      vault.isSignedTxRejectedByBroadcast.mockImplementation(
+        async (error: unknown) => (error as { code?: number }).code === 40_209,
+      );
+    }
+
+    // The refused payload stayed on record as an attempt with no verdict.
+    // The corrected tx does not exclude it (another nonce), so it was sent
+    // again in place of the corrected one, and refused for the same reason
+    // on every retry.
+    it('signs the corrected tx after the sponsor refused the first one at admission', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      signByPayload(vault);
+      conflictBySameNonce(vault);
+      refuseSponsoredSendOnce(vault, 40_209);
+
+      await expect(
+        sendSponsoredPayload(service, 'nonce-5/fee-1'),
+      ).rejects.toMatchObject({ code: 40_209 });
+      expect(store.records.has('u0')).toBe(false);
+
+      const result = await sendSponsoredPayload(service, 'nonce-6/fee-1');
+
+      expect(signedPayloads(vault)).toEqual(['nonce-5/fee-1', 'nonce-6/fee-1']);
+      expect(broadcastPayloads(vault)).toEqual([
+        'nonce-5/fee-1',
+        'nonce-6/fee-1',
+      ]);
+      expect(result[0].signedTx.encodedTx).toBe('nonce-6/fee-1');
+    });
+
+    // An execute failure may have reached the chain: the corrected nonce
+    // must not become a second payment next to the first one.
+    it('sends the stored payload again after a sponsored send whose result is unknown', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      signByPayload(vault);
+      conflictBySameNonce(vault);
+      refuseSponsoredSendOnce(vault, 90_205);
+
+      await expect(
+        sendSponsoredPayload(service, 'nonce-5/fee-1'),
+      ).rejects.toMatchObject({ code: 90_205 });
+      expect(store.records.get('u0')).toMatchObject({ isBroadcast: false });
+
+      await sendSponsoredPayload(service, 'nonce-6/fee-1');
+
+      expect(signedPayloads(vault)).toEqual(['nonce-5/fee-1']);
+      expect(broadcastPayloads(vault)).toEqual([
+        'nonce-5/fee-1',
+        'nonce-5/fee-1',
+      ]);
+    });
+
     // The stored payload may be what spent the coins a refresh needs. The
     // refresh then fails before anything is compared, and the chunk could
     // never be sent again although its signed tx is on record.
