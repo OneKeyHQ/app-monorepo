@@ -369,6 +369,7 @@ describe('native Intercom SDK integration', () => {
     // The SDK listens only once a session loaded it.
     expect(mockOnSupportReply).toBeUndefined();
 
+    mockAppState.currentState = 'active';
     await subject.initIntercom();
     expect(subject.getIntercomUnreadCount()).toBe(0);
     mockSdk.updateUser.mockClear();
@@ -392,9 +393,37 @@ describe('native Intercom SDK integration', () => {
     expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
       result: 'resynced',
     });
+    mockOnAppStateChange?.('background');
+  });
+
+  it('defers a support reply received in the background to the next foreground', async () => {
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'deferred-to-foreground',
+    });
+
+    mockUnreadCount = 2;
+    mockAppState.currentState = 'active';
+    mockOnAppStateChange?.('active');
+    await flushEvents();
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    expect(subject.getIntercomUnreadCount()).toBe(2);
+
+    // The pending resync runs once.
+    mockOnAppStateChange?.('background');
+    mockOnAppStateChange?.('active');
+    await flushEvents();
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    mockOnAppStateChange?.('background');
   });
 
   it('does not resync a support reply into a switched identity', async () => {
+    mockAppState.currentState = 'active';
     mockUserId = 'A';
     mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
     await subject.initIntercom();
@@ -409,6 +438,33 @@ describe('native Intercom SDK integration', () => {
     expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
       result: 'identity-changed',
     });
+    mockOnAppStateChange?.('background');
+  });
+
+  it('leaves a support reply to a session sync that is still running', async () => {
+    mockAppState.currentState = 'active';
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    // The next identity's JWT request hangs; the push must not wait on it.
+    mockUserId = 'B';
+    const jwt = deferred<{ token: string }>();
+    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
+    const switching = subject.initIntercom();
+    await flushEvents();
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'session-syncing',
+    });
+
+    jwt.resolve({ token: createToken('intercom-B') });
+    await switching;
+    // The finished sync ran its own resync.
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    mockOnAppStateChange?.('background');
   });
 
   it('preserves support access on older binaries or without SDK configuration', async () => {

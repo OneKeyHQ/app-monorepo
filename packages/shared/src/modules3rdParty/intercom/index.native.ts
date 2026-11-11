@@ -19,7 +19,10 @@ import {
 } from './utils';
 import { showIntercom as showWebIntercom } from './webView.native';
 
-import type { IIntercomUnreadTrigger } from '../../logger/scopes/notification/scenes/support';
+import type {
+  IIntercomUnreadTrigger,
+  ISupportReplyResyncResult,
+} from '../../logger/scopes/notification/scenes/support';
 
 type IIntercomSdk = typeof import('@intercom/intercom-react-native');
 type IUserId = string | null;
@@ -40,6 +43,8 @@ let unreadCount = 0;
 let currentTheme: IIntercomThemeMode = defaultColorScheme;
 let unreadPollTimer: ReturnType<typeof setInterval> | undefined;
 let messengerLocked = false;
+// A support reply received in the background resyncs on the next foreground.
+let supportReplyResyncPending = false;
 const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
 const unreadListeners = new Set<() => void>();
 
@@ -103,7 +108,10 @@ async function refreshUnreadCount(
     setUnreadCount(count);
     return;
   }
-  defaultLogger.notification.support.intercomUnreadDiscarded({ trigger });
+  // A poll that keeps missing the session would log every tick.
+  if (trigger !== 'poll') {
+    defaultLogger.notification.support.intercomUnreadDiscarded({ trigger });
+  }
 }
 
 async function isCurrentSession(userId: IUserId, generation: number) {
@@ -132,16 +140,12 @@ function requestUnreadRefresh(
 }
 
 function syncUnreadPolling(sdk: IIntercomSdk, active: boolean) {
-  if (active === !!unreadPollTimer) {
-    return;
-  }
-  defaultLogger.notification.support.intercomUnreadPollChanged({ active });
   if (!active) {
     clearInterval(unreadPollTimer);
     unreadPollTimer = undefined;
     return;
   }
-  unreadPollTimer = setInterval(
+  unreadPollTimer ??= setInterval(
     () => requestUnreadRefresh(sdk, 'poll'),
     UNREAD_POLL_INTERVAL_MS,
   );
@@ -171,27 +175,38 @@ async function resyncUnreadFromServer(
 // In the foreground the SDK only learns about a new reply from its realtime
 // socket and keeps a stale unread cache when that event never arrives
 // (OK-67112). The OneKey support-reply push still reaches bg, so main resyncs.
-async function resyncUnreadOnSupportReply(sdk: IIntercomSdk) {
-  // A session still syncing ends with its own resync.
-  await sessionPromise;
+async function resyncUnreadOnSupportReply(
+  sdk: IIntercomSdk,
+): Promise<ISupportReplyResyncResult> {
+  // Defer a background user update to the next foreground. Only an explicit
+  // 'background' defers: a state that never changes would never flush it.
+  if (AppState.currentState === 'background') {
+    supportReplyResyncPending = true;
+    return 'deferred-to-foreground';
+  }
+  supportReplyResyncPending = false;
+  // A session sync in flight ends with its own resync, so do not wait on it.
+  if (activeSessionGeneration !== sessionGeneration) {
+    return 'session-syncing';
+  }
   const userId = activeUserId;
   const generation = activeSessionGeneration;
   if (userId === undefined) {
-    defaultLogger.notification.support.supportReplyResync({
-      result: 'no-session',
-    });
-    return;
+    return 'no-session';
   }
   if (!(await isCurrentSession(userId, generation))) {
-    defaultLogger.notification.support.supportReplyResync({
-      result: 'identity-changed',
-    });
-    return;
+    return 'identity-changed';
   }
   await resyncUnreadFromServer(sdk, 'support-push');
-  defaultLogger.notification.support.supportReplyResync({
-    result: 'resynced',
-  });
+  return 'resynced';
+}
+
+function requestSupportReplyResync(sdk: IIntercomSdk) {
+  void resyncUnreadOnSupportReply(sdk)
+    .then((result) =>
+      defaultLogger.notification.support.supportReplyResync({ result }),
+    )
+    .catch((error: unknown) => logUnreadRefreshFailed('support-push', error));
 }
 
 async function loadSdk() {
@@ -215,21 +230,23 @@ async function loadSdk() {
       emitter.addListener(sdk.IntercomEvents.IntercomWindowDidHide, () =>
         requestUnreadRefresh(sdk, 'messenger-closed'),
       );
-      appEventBus.on(EAppEventBusNames.SupportReplyReceived, () => {
-        void resyncUnreadOnSupportReply(sdk).catch((error: unknown) =>
-          logUnreadRefreshFailed('support-push', error),
-        );
-      });
+      appEventBus.on(EAppEventBusNames.SupportReplyReceived, () =>
+        requestSupportReplyResync(sdk),
+      );
       AppState.addEventListener('change', (state) => {
         const active = state === 'active';
         if (active) {
-          requestUnreadRefresh(sdk, 'foreground');
+          if (supportReplyResyncPending) {
+            requestSupportReplyResync(sdk);
+          } else {
+            requestUnreadRefresh(sdk, 'foreground');
+          }
         }
         syncUnreadPolling(sdk, active);
       });
       syncUnreadPolling(sdk, AppState.currentState === 'active');
-      // A main runtime restarted in-process starts from AppState's initial
-      // value; without an active state the poll waits for the next change.
+      // Records whether the foreground poll started at load, e.g. after an
+      // in-process main runtime restart.
       defaultLogger.notification.support.intercomSdkLoaded({
         appState: AppState.currentState,
         pollActive: !!unreadPollTimer,

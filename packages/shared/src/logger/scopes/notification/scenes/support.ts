@@ -1,6 +1,8 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
+import type { INotificationPushMessageInfo } from '../../../../../types/notification';
+
 export type ISupportConversationIdSource =
   | 'extras.params'
   | 'data'
@@ -14,6 +16,13 @@ export type IIntercomUnreadTrigger =
   | 'poll'
   | 'session'
   | 'support-push';
+
+export type ISupportReplyResyncResult =
+  | 'resynced'
+  | 'deferred-to-foreground'
+  | 'session-syncing'
+  | 'no-session'
+  | 'identity-changed';
 
 export type ISupportOpenBranch =
   | 'native-conversation'
@@ -104,18 +113,14 @@ export class SupportScene extends BaseScene {
     pushSource,
     isDuplicate,
   }: {
-    pushSource: string | undefined;
+    pushSource: INotificationPushMessageInfo['pushSource'];
     isDuplicate: boolean;
   }) {
     return { pushSource, isDuplicate };
   }
 
   @LogToLocal({ level: 'info' })
-  supportReplyResync({
-    result,
-  }: {
-    result: 'resynced' | 'no-session' | 'identity-changed';
-  }) {
+  supportReplyResync({ result }: { result: ISupportReplyResyncResult }) {
     return { result };
   }
 
@@ -128,11 +133,6 @@ export class SupportScene extends BaseScene {
     pollActive: boolean;
   }) {
     return { appState, pollActive };
-  }
-
-  @LogToLocal({ level: 'info' })
-  intercomUnreadPollChanged({ active }: { active: boolean }) {
-    return { active };
   }
 
   // Logged only when the count changes, so the foreground poll stays quiet.
