@@ -35,7 +35,10 @@ import {
 import { useSafeAreaInsets } from '../../../hooks/useLayout';
 import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
-import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
+import {
+  ANDROID_TAB_BAR_STYLE,
+  isAndroidTabBarBlurEnabled,
+} from '../BottomTabs/tabBarOverlay';
 import {
   makeModalStackNavigatorOptions,
   makeTabScreenOptions,
@@ -359,6 +362,7 @@ export function TabStackNavigator<RouteName extends string>({
         disablePageAnimations
         sidebarAdaptable={false}
         androidTabBarStyle={ANDROID_TAB_BAR_STYLE}
+        androidBottomBlurEnabled={isAndroidTabBarBlurEnabled}
         tabBarHidden={hidden}
         tabBarActiveTintColor={theme.iconActive.val}
         tabBarInactiveTintColor={theme.iconSubdued.val}
