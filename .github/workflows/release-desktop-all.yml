@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: ''
+      upstream_run_id:
+        description: 'Run id of the upstream daily-build run. Verified against the GitHub API before Windows signing is enabled.'
+        required: false
+        type: string
+        default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
         description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
@@ -469,10 +474,78 @@ jobs:
           exit 0
 
   # ═══════════════════════════════════════════════════
+  # Windows signing provenance (ubuntu)
+  # ═══════════════════════════════════════════════════
+  # The AWS signing role trusts only the `windows-release-signing` environment.
+  # Release refs qualify by ref name. A daily-build dispatch instead passes its
+  # upstream run id, and this job verifies that id against the GitHub API: it
+  # must be a real `daily-build` run of this repository for the same branch, at
+  # or before the commit being packaged. Only then is the signing environment
+  # attached to package-win, so a caller cannot self-report signing rights.
+  windows-signing-source:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      upstream_verified: ${{ steps.verify.outputs.upstream_verified }}
+    steps:
+      - name: Verify upstream daily-build run
+        id: verify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_RUN_ID: ${{ github.event.inputs.upstream_run_id }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$UPSTREAM_RUN_ID" ]]; then
+            echo "upstream_verified=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream_run_id input; Windows signing stays limited to release refs."
+            exit 0
+          fi
+          if [[ ! "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::upstream_run_id must be numeric"
+            exit 1
+          fi
+
+          run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}")
+          workflow_path=$(jq -r '.path' <<<"$run")
+          head_repo=$(jq -r '.head_repository.full_name // ""' <<<"$run")
+          head_branch=$(jq -r '.head_branch // ""' <<<"$run")
+          head_sha=$(jq -r '.head_sha' <<<"$run")
+
+          if [[ "$workflow_path" != ".github/workflows/daily-build.yml" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} is not a daily-build run (${workflow_path})"
+            exit 1
+          fi
+          if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} belongs to ${head_repo}, not ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          if [[ "$head_branch" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_branch}, but this dispatch packages ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          if [[ "$head_sha" != "$GITHUB_SHA" ]]; then
+            # Accept the verified run's commit as an ancestor of the packaged
+            # commit, so a push during the daily-build run cannot silently
+            # downgrade the artifacts to unsigned.
+            compare=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${head_sha}...${GITHUB_SHA}" --jq '.status')
+            if [[ "$compare" != "ahead" && "$compare" != "identical" ]]; then
+              echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_sha}, which is not an ancestor of ${GITHUB_SHA}"
+              exit 1
+            fi
+          fi
+
+          echo "upstream_verified=true" >> "$GITHUB_OUTPUT"
+          echo "Verified daily-build run ${UPSTREAM_RUN_ID} for ${GITHUB_REF_NAME}."
+
+  # ═══════════════════════════════════════════════════
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
   # ═══════════════════════════════════════════════════
   package-win:
-    needs: [renderer, private-fonts]
+    needs: [renderer, private-fonts, windows-signing-source]
     permissions:
       contents: read
       id-token: write
@@ -482,15 +555,16 @@ jobs:
     # breaking every native module rebuild during `install-app-deps`.
     runs-on: windows-2022
     # The AWS signing role trusts only this environment's OIDC subject.
-    # Other branches run without an environment and stay unsigned.
-    environment: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) && 'windows-release-signing' || '' }}
+    # Release refs sign by ref name; a daily-build dispatch signs only after
+    # `windows-signing-source` verified its upstream run against the GitHub API.
+    environment: ${{ ((github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))) || needs.windows-signing-source.outputs.upstream_verified == 'true') && 'windows-release-signing' || '' }}
     strategy:
       matrix:
         node-version: [24.x]
     env:
       NODE_ENV: production
       YARN_ENABLE_GLOBAL_CACHE: true
-      WIN_HSM_SIGNING_ENABLED: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) }}
+      WIN_HSM_SIGNING_ENABLED: ${{ (github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))) || needs.windows-signing-source.outputs.upstream_verified == 'true' }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

@@ -356,18 +356,16 @@ describe('native Intercom SDK integration', () => {
     expect(subject.getIntercomUnreadCount()).toBe(0);
   });
 
-  it('opens the hosted page instead of the SDK while a support URL override is set', async () => {
-    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
-    await subject.showIntercom({ requestId: 'request-1' });
-    expect(mockWebIntercom).toHaveBeenCalledWith({ requestId: 'request-1' });
-    expect(mockSdk.present).not.toHaveBeenCalled();
-
-    mockSupportUrlOverride = undefined;
-    // Skip the duplicate-open cooldown left by the first presentation.
-    await subject.showIntercom({ requestId: 'request-2' });
-    expect(mockWebIntercom).toHaveBeenCalledTimes(1);
-    expect(mockSdk.present).toHaveBeenCalledTimes(1);
-  });
+  it.each(['ios', 'android'])(
+    'keeps %s support on the SDK while a support URL override is set',
+    async (platform) => {
+      mockPlatformEnv.isNativeAndroid = platform === 'android';
+      mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+      await subject.showIntercom({ requestId: 'request-1' });
+      expect(mockWebIntercom).not.toHaveBeenCalled();
+      expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps notification conversations on the SDK while a support URL override is set', async () => {
     mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
