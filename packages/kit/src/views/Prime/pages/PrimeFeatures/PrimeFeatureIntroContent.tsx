@@ -512,7 +512,11 @@ export function PrimeFeatureIntroContent({
   const featureActionSubmittingRef = useRef(false);
   const usePageFooter = mode === 'page';
   const useDialogFooter = mode === 'dialog';
-  const shouldShowExtensionPagination = platformEnv.isExtensionUiPopup && !gtMd;
+  // The side panel shares the popup's narrow layout, where arrows are the only
+  // mouse-friendly way to page.
+  const shouldShowExtensionPagination =
+    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
+    !gtMd;
   const shouldDelayVideoLoad = useDialogFooter && !gtMd;
   const [canLoadVideo, setCanLoadVideo] = useState(!shouldDelayVideoLoad);
 
