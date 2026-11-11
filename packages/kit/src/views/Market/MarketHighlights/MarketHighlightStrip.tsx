@@ -19,7 +19,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import type { IElement, IXStackProps } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
@@ -282,6 +282,23 @@ function HighlightCarousel({
     };
   }, [count, paused, position, reducedMotion]);
 
+  // On web, Tab focus into a row mid-slide makes the browser scroll this
+  // `overflow: hidden` box, and that offset would outlive the animation.
+  // `overflow: clip` is not scrollable; the scroll reset covers engines
+  // without `clip`.
+  const clipRef = useRef<IElement>(null);
+  useEffect(() => {
+    if (platformEnv.isNative) return;
+    const node = clipRef.current as HTMLElement | null;
+    if (!node?.style) return;
+    node.style.overflow = 'clip';
+    const resetScroll = () => {
+      if (node.scrollTop !== 0) node.scrollTop = 0;
+    };
+    node.addEventListener('scroll', resetScroll);
+    return () => node.removeEventListener('scroll', resetScroll);
+  }, []);
+
   const trackStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -position.value * height }],
   }));
@@ -289,7 +306,7 @@ function HighlightCarousel({
   const rows = count > 1 ? [...items, items[0]] : items;
 
   return (
-    <YStack flex={1} minWidth={0} h={height} overflow="hidden">
+    <YStack ref={clipRef} flex={1} minWidth={0} h={height} overflow="hidden">
       <Animated.View style={trackStyle}>
         {rows.map((item, rowIndex) => (
           <CarouselRow
