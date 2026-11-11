@@ -521,3 +521,38 @@ describe('activation telemetry', () => {
     ).not.toHaveBeenCalled();
   });
 });
+
+it.each(['publishSyncError', 'publishScanProgress'] as const)(
+  'retries the same tip after %s fails following a caught-up pass',
+  async (publication) => {
+    const start = 1_700_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(start);
+    const { service, syncGroup } = createService();
+    const instance = service as unknown as InstanceType<
+      typeof ServicePrivacyChain
+    >;
+    const progress = jest.spyOn(instance, 'publishScanProgress');
+    jest
+      .spyOn(instance, publication)
+      .mockRejectedValueOnce(new OneKeyLocalError('status publish failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+    now.mockReturnValue(start + 30_000);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ networkId, accountIds: [accountId] }),
+      new Map([[accountId, undefined]]),
+    );
+    expect(service.runtimeSyncState.get(stateKey)).toMatchObject({
+      lastChainTip: 100,
+    });
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+  },
+);

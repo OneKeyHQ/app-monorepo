@@ -2617,6 +2617,9 @@ class ServicePrivacyChain extends ServiceBase {
           }
         } catch (e) {
           retryNeeded = true;
+          // A pass can fail while publishing after its tip was recorded. Keep that tip eligible
+          // for the retry without overwriting any concurrent refresh invalidation.
+          this.runtimeSyncState.delete(candidate.runtimeStateKey);
           // The watchdog abandons the await, not the operation; the losing promise is quarantined
           // below.
           const isWatchdogTimeout = isLocalWalletRuntimeTimeoutError(e);
