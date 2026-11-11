@@ -4,7 +4,6 @@ import { Suspense, lazy, useCallback } from 'react';
 import { Popover } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
 import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
-import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 
 import type { IWebAccountPanelView } from './WebAccountPanelPopoverContent';
@@ -31,6 +30,12 @@ const FLOATING_PANEL_PROPS = {
 const LazyWebAccountPanelPopoverContent = lazy(
   () => import('./WebAccountPanelPopoverContent'),
 );
+
+const LazyPerpsReferralEntry = lazy(async () => {
+  const { PerpsReferralEntry } =
+    await import('@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction');
+  return { default: PerpsReferralEntry };
+});
 
 type IWebAccountPanelPopoverBaseProps = Omit<
   IWebAccountPanelPopoverProps,
@@ -81,24 +86,21 @@ function WebAccountPanelPopoverBase({
   );
 }
 
-// The Perps entry's referral opener must outlive the panel content (see
-// PerpsActivityCenterContent), so only this variant mounts one.
-function PerpsWebAccountPanelPopover(props: IWebAccountPanelPopoverBaseProps) {
-  const openReferralPage = useOpenReferralPage();
-  return (
-    <WebAccountPanelPopoverBase
-      {...props}
-      onOpenPerpsReferral={openReferralPage}
-    />
-  );
-}
-
 export function WebAccountPanelPopover({
   showPerpsActivityCenter = false,
   ...props
 }: IWebAccountPanelPopoverProps) {
   return showPerpsActivityCenter ? (
-    <PerpsWebAccountPanelPopover {...props} />
+    <Suspense fallback={props.renderTrigger}>
+      <LazyPerpsReferralEntry>
+        {(openReferralPage) => (
+          <WebAccountPanelPopoverBase
+            {...props}
+            onOpenPerpsReferral={openReferralPage}
+          />
+        )}
+      </LazyPerpsReferralEntry>
+    </Suspense>
   ) : (
     <WebAccountPanelPopoverBase {...props} />
   );

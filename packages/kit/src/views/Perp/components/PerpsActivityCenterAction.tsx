@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -20,6 +20,24 @@ function usePerpsActivityCampaigns() {
     () => perpConfigCommon?.activityCards ?? [],
     [perpConfigCommon?.activityCards],
   );
+}
+
+// The shared header loads this only for Perps, and the opener outlives the menu.
+export function PerpsReferralEntry({
+  children,
+}: {
+  children: (openReferralPage: IActivityHubOpenReferral) => ReactNode;
+}) {
+  const openReferralPage = useOpenReferralPage();
+  const openReferralPageRef = useRef(openReferralPage);
+  openReferralPageRef.current = openReferralPage;
+  // RawPopover uses the content callback as a component type. Theme changes
+  // must update the opener without remounting the account panel's subpage.
+  const handleOpenReferral = useCallback<IActivityHubOpenReferral>(
+    (...args) => openReferralPageRef.current(...args),
+    [],
+  );
+  return children(handleOpenReferral);
 }
 
 export function PerpsActivityCenterContent({
