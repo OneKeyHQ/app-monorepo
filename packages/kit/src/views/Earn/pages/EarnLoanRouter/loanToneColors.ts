@@ -16,6 +16,31 @@ const FILLS = {
   light: { success: '#2F9E68', caution: '#E5A320', critical: '#E5484D' },
 } as const;
 
+// The LTV bar's quiet greys, so the loan's color and the white thumb lead;
+// the legend behind the LTV label draws its sample bar from the same
+export const LOAN_BAR_SURFACES = {
+  dark: {
+    track: 'rgba(255, 255, 255, 0.13)',
+    locked: 'rgba(255, 255, 255, 0.05)',
+    used: 'rgba(255, 255, 255, 0.4)',
+    wall: 'rgba(255, 255, 255, 0.55)',
+    thumb: '#FFFFFF',
+    thumbShadow: '0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.5)',
+    // Around the thumb while it is held
+    halo: 'rgba(255, 255, 255, 0.16)',
+  },
+  light: {
+    track: 'rgba(0, 0, 0, 0.1)',
+    locked: 'rgba(0, 0, 0, 0.04)',
+    used: 'rgba(0, 0, 0, 0.3)',
+    wall: 'rgba(0, 0, 0, 0.45)',
+    thumb: '#FFFFFF',
+    thumbShadow:
+      '0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.18)',
+    halo: 'rgba(0, 0, 0, 0.08)',
+  },
+} as const;
+
 export function useLoanToneColors(): {
   text: Record<ILoanLtvTone, string>;
   fill: Record<ILoanLtvTone, string>;

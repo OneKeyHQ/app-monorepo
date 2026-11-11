@@ -23,7 +23,7 @@ import {
   snapLoanLtv,
   stepLoanLtv,
 } from './loanRouter.utils';
-import { useLoanToneColors } from './loanToneColors';
+import { LOAN_BAR_SURFACES, useLoanToneColors } from './loanToneColors';
 
 import type { ILoanLtvBarProps } from './loanLtvBar.types';
 
@@ -45,27 +45,7 @@ const REVEAL_MS = 150;
 // The thumb counts as at Max LTV this close to it
 const AT_CAP = 0.0005;
 
-// Quiet greys, so the loan's color and the white thumb lead
-const SURFACES = {
-  dark: {
-    track: 'rgba(255, 255, 255, 0.13)',
-    locked: 'rgba(255, 255, 255, 0.05)',
-    used: 'rgba(255, 255, 255, 0.4)',
-    wall: 'rgba(255, 255, 255, 0.55)',
-    thumbShadow: '0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.5)',
-    // Around the thumb while it is held
-    halo: 'rgba(255, 255, 255, 0.16)',
-  },
-  light: {
-    track: 'rgba(0, 0, 0, 0.1)',
-    locked: 'rgba(0, 0, 0, 0.04)',
-    used: 'rgba(0, 0, 0, 0.3)',
-    wall: 'rgba(0, 0, 0, 0.45)',
-    thumbShadow:
-      '0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.18)',
-    halo: 'rgba(0, 0, 0, 0.08)',
-  },
-} as const;
+const SURFACES = LOAN_BAR_SURFACES;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -495,7 +475,7 @@ export function LoanLtvBar({
               marginTop: -THUMB_SIZE / 2,
               marginLeft: -THUMB_SIZE / 2,
               borderRadius: '50%',
-              background: '#FFFFFF',
+              background: surfaces.thumb,
               // Held, the thumb grows and a soft ring shows around it
               boxShadow: `0 0 0 ${isDragging ? 6 : 0}px ${
                 surfaces.halo

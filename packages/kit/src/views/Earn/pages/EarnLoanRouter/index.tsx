@@ -68,7 +68,6 @@ import {
   EarnFormFooter,
 } from '../../../Staking/components/EarnFormFooter';
 import { useEarnRiskWarningGate } from '../../../Staking/components/EarnRiskWarningDialog';
-import { EarnTooltip } from '../../../Staking/components/ProtocolDetails/EarnTooltip';
 import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
@@ -114,6 +113,11 @@ import {
   listPayTokens,
 } from '../EarnRouter/earnRouter.utils';
 
+import {
+  LoanHealthLegend,
+  LoanLegendLabel,
+  LoanLtvLegend,
+} from './LoanLegends';
 import { LoanLtvBar } from './LoanLtvBar';
 import {
   LOAN_HEALTH_TEXT_COLOR,
@@ -500,13 +504,15 @@ const RESULT_FIGURE_HEIGHT = 36;
 function LoanResultCell({
   testID,
   label,
-  tooltip,
+  legend,
   isTrailing,
   children,
 }: {
   testID: string;
   label: string;
-  tooltip?: string;
+  // What the figure says, drawn behind the label: the label takes the
+  // dotted rule
+  legend?: ReactNode;
   // The right cell: its text ends at the boxes' right edge
   isTrailing?: boolean;
   children: ReactNode;
@@ -518,16 +524,18 @@ function LoanResultCell({
       ai={isTrailing ? 'flex-end' : 'flex-start'}
       minWidth={0}
     >
-      <XStack ai="center" gap="$1" minHeight="$5">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {label}
-        </SizableText>
-        {tooltip ? (
-          <EarnTooltip
-            title={label}
-            tooltip={{ type: 'text', data: { description: { text: tooltip } } }}
+      <XStack ai="center" minHeight="$5">
+        {legend ? (
+          <LoanLegendLabel
+            testID={`${testID}-label`}
+            label={label}
+            legend={legend}
           />
-        ) : null}
+        ) : (
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {label}
+          </SizableText>
+        )}
       </XStack>
       <XStack h={RESULT_FIGURE_HEIGHT} ai="center" gap="$1.5">
         {children}
@@ -1660,9 +1668,37 @@ function EarnLoanRouterPage() {
   const ltvBlock = (
     <YStack testID="earn-loan-ltv" px="$3.5" pt="$3" gap="$1">
       <XStack jc="space-between" ai="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {ltvLabel}
-        </SizableText>
+        {/* What the bar's parts stand for is drawn behind the label, not
+            written on the bar */}
+        <LoanLegendLabel
+          testID="earn-loan-ltv-label"
+          label={ltvLabel}
+          legend={
+            <LoanLtvLegend
+              tone={barTone}
+              borrowed={
+                barShown && !barShown.isPreview && barShown.used > 0
+                  ? formatLoanFiat(selectedFacts?.debtValue ?? 0, currency)
+                  : undefined
+              }
+              loan={
+                selectedLoanValue > 0
+                  ? formatLoanFiat(selectedLoanValue, currency)
+                  : undefined
+              }
+              maxLtv={
+                ltvBar?.cap !== undefined
+                  ? formatLoanLtv(ltvBar.cap)
+                  : undefined
+              }
+              liquidationLtv={
+                ltvBar?.liquidation !== undefined
+                  ? formatLoanLtv(ltvBar.liquidation)
+                  : undefined
+              }
+            />
+          }
+        />
         <LtvValue
           before={currentLtv}
           after={isClosed ? undefined : ltvBar?.value}
@@ -1829,10 +1865,7 @@ function EarnLoanRouterPage() {
         <LoanResultCell
           testID="earn-loan-health"
           label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
-          // The same for every loan: behind the label's (i)
-          tooltip={intl.formatMessage({
-            id: ETranslations.defi_liquidation_at_less_than_1_00,
-          })}
+          legend={<LoanHealthLegend />}
         >
           {isFiguresLoading ? (
             <Skeleton.Heading2Xl w={96} />
