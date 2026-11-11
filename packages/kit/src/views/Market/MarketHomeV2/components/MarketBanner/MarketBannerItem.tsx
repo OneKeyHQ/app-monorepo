@@ -34,6 +34,10 @@ import {
 import { MarketTestIDs } from '../../testIDs';
 
 import {
+  getMarketIndexDisplayConfig,
+  getMarketIndexTokens,
+} from './marketBannerIndexConfig';
+import {
   MARKET_BANNER_DESKTOP_WEB_ITEM_WIDTH,
   MARKET_BANNER_DESKTOP_WEB_LIST_MIN_HEIGHT,
   MARKET_BANNER_ITEM_WIDTH,
@@ -204,53 +208,6 @@ function normalizeMarketValue(value?: string | null) {
   return normalized && Number.isFinite(Number(normalized)) ? normalized : '--';
 }
 
-const MARKET_INDEX_LOGO_URLS = {
-  sp500: 'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
-  nasdaq: 'https://uni.onekey-asset.com/static/stock/nasdaq-composite.png',
-  dow30: 'https://uni.onekey-asset.com/static/stock/dow-30.png',
-} as const;
-
-const MARKET_INDEX_DISPLAY_CONFIG: Record<
-  string,
-  { labelId: ETranslations; order: number; logoUrl: string }
-> = {
-  GSPC: {
-    labelId: ETranslations.market_index_sp500__title,
-    order: 0,
-    logoUrl: MARKET_INDEX_LOGO_URLS.sp500,
-  },
-  SPX: {
-    labelId: ETranslations.market_index_sp500__title,
-    order: 0,
-    logoUrl: MARKET_INDEX_LOGO_URLS.sp500,
-  },
-  IXIC: {
-    labelId: ETranslations.market_index_nasdaq__title,
-    order: 1,
-    logoUrl: MARKET_INDEX_LOGO_URLS.nasdaq,
-  },
-  COMP: {
-    labelId: ETranslations.market_index_nasdaq__title,
-    order: 1,
-    logoUrl: MARKET_INDEX_LOGO_URLS.nasdaq,
-  },
-  DJI: {
-    labelId: ETranslations.market_index_dow30__title,
-    order: 2,
-    logoUrl: MARKET_INDEX_LOGO_URLS.dow30,
-  },
-  DJIA: {
-    labelId: ETranslations.market_index_dow30__title,
-    order: 2,
-    logoUrl: MARKET_INDEX_LOGO_URLS.dow30,
-  },
-};
-
-function getMarketIndexDisplayConfig(token: IMarketBannerTokenPreview) {
-  const symbol = token.symbol.trim().toUpperCase().replace(/^\^/, '');
-  return MARKET_INDEX_DISPLAY_CONFIG[symbol];
-}
-
 function BannerQuoteRow({
   token,
   isIndex,
@@ -288,6 +245,9 @@ function BannerQuoteRow({
         size="xs"
         tokenImageUri={indexConfig?.logoUrl || token.logo}
         fallbackIcon={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
+        // The banner owns its skeleton; a delayed icon overlay can cover an
+        // image that the browser has already painted.
+        placeholder={platformEnv.isNative ? undefined : null}
       />
       <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
         <SizableText size="$bodyMdMedium" width={80} numberOfLines={1}>
@@ -345,16 +305,7 @@ function MarketBannerItemComponent(props: IMarketBannerItemProps) {
   const tokens = useMemo(() => {
     const bannerTokens = item.tokens ?? [];
     if (isIndexBanner) {
-      return bannerTokens
-        .toSorted((left, right) => {
-          const leftOrder = getMarketIndexDisplayConfig(left)?.order;
-          const rightOrder = getMarketIndexDisplayConfig(right)?.order;
-          return (
-            (leftOrder ?? Number.MAX_SAFE_INTEGER) -
-            (rightOrder ?? Number.MAX_SAFE_INTEGER)
-          );
-        })
-        .slice(0, 3);
+      return getMarketIndexTokens(bannerTokens);
     }
     return platformEnv.isDesktop
       ? bannerTokens.slice(0, 3)

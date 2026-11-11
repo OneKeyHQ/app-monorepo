@@ -216,8 +216,14 @@ function TableRow<T>({
 
   // Track native press state for visual feedback (bg='$bgActive').
   const [nativePressed, setNativePressed] = useState(false);
-  const handleNativePressIn = useCallback(() => setNativePressed(true), []);
-  const handleNativePressOut = useCallback(() => setNativePressed(false), []);
+  const handleNativePressIn = useCallback(() => {
+    setNativePressed(true);
+    onRowEvents?.onPressIn?.();
+  }, [onRowEvents]);
+  const handleNativePressOut = useCallback(() => {
+    setNativePressed(false);
+    onRowEvents?.onPressOut?.();
+  }, [onRowEvents]);
 
   const content = (
     <XStack
