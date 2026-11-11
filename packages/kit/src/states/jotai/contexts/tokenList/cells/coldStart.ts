@@ -28,7 +28,7 @@
  * This module is the ONLY allowed write/read wiring; the apply/projection/pure
  * leaves are untouched (it consumes them).
  */
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import {
   fiatEqual,
@@ -778,8 +778,11 @@ export function useTokenListCellsColdStartHydrate(
   // by the per-owner replay in the producer instead.
   const hydratedStoreRef = useRef<IJotaiContextStore | undefined>(undefined);
 
-  useLayoutEffect(() => {
-    scheduleColdStartCleanupOnce();
+  // Hydrate synchronously before child `TokenListView` renders its first pass
+  // (`TokenListBlock` calls this hook before rendering `<TokenListView />` and
+  // does not subscribe to `listStructureAtom` itself). This avoids an empty
+  // `generation < 0` first render followed by a `useLayoutEffect` re-render.
+  const tryHydrateStore = useCallback(() => {
     if (!store || !deps || !ownerKey || !currencyId) {
       return;
     }
@@ -800,5 +803,12 @@ export function useTokenListCellsColdStartHydrate(
       currentCurrency: currencyId,
       ownerKey,
     });
-  }, [store, deps, ownerKey, currencyId]);
+  }, [currencyId, deps, ownerKey, store]);
+
+  tryHydrateStore();
+
+  useLayoutEffect(() => {
+    scheduleColdStartCleanupOnce();
+    tryHydrateStore();
+  }, [tryHydrateStore]);
 }

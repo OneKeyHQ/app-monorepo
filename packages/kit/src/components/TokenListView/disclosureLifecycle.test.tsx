@@ -11,6 +11,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 const mockFooterMount = jest.fn();
 const mockFooterUnmount = jest.fn();
 let mockNativeProps: Record<string, unknown> = {};
+let mockNativeRowsHistory: number[] = [];
+let mockListStructure: Record<string, unknown> = {
+  ownerKey: '',
+  generation: -1,
+  ownedAggregateTokenListMap: {},
+};
+let mockTokenListStore: unknown;
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -50,6 +57,7 @@ jest.mock('./NativeTokenSelectorList', () => {
   return {
     NativeTokenSelectorList: (props: Record<string, unknown>) => {
       mockNativeProps = props;
+      mockNativeRowsHistory.push(((props.rows as unknown[]) ?? []).length);
       return React.createElement(
         'div',
         null,
@@ -108,15 +116,13 @@ jest.mock('../../states/jotai/contexts/tokenList', () => ({
   useActiveAccountTokenListStateAtom: () => [
     { initialized: true, isRefreshing: false },
   ],
-  useListStructureAtom: () => [
-    { ownerKey: '', generation: -1, ownedAggregateTokenListMap: {} },
-  ],
+  useListStructureAtom: () => [mockListStructure],
   useSearchKeyAtom: () => [''],
   useSearchTokenListAtom: () => [{ tokens: [] }],
   useSearchTokenStateAtom: () => [{ isSearching: false }],
   useTokenListSortAtom: () => [{ sortType: 'default', sortDirection: 'desc' }],
   useTokenListStateAtom: () => [{ initialized: true, isRefreshing: false }],
-  useTokenListContextData: () => ({ store: undefined }),
+  useTokenListContextData: () => ({ store: mockTokenListStore }),
 }));
 
 const tokens = Array.from({ length: 8 }, (_, index) => ({
@@ -263,5 +269,53 @@ it('keeps the Web footer mounted through collapse and releases it on owner chang
   } finally {
     webEnv.isNative = true;
     webEnv.isWeb = false;
+  }
+});
+
+it('slices rows and renders Show more on the very first render pass for legacy and Home projection paths', () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
+  mockNativeRowsHistory = [];
+  const legacyView = render(renderList());
+  expect(mockNativeRowsHistory[0]).toBe(2);
+  expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy();
+  legacyView.unmount();
+
+  const tokenIds = tokens.map((token) => token.$key);
+  mockListStructure = {
+    ownerKey: 'account-a__evm--1',
+    generation: 0,
+    orderedIds: tokenIds,
+    smallBalanceIds: [],
+    nonZeroIds: tokenIds,
+    ownedAggregateTokenListMap: {},
+  };
+  mockTokenListStore = {
+    get: () => tokens[0],
+  };
+  mockNativeRowsHistory = [];
+  try {
+    const homeView = render(
+      <TokenListView
+        accountId="account-a"
+        networkId="evm--1"
+        indexedAccountId={undefined}
+        plainMode
+        limit={2}
+        withFooter
+        enableCellSeam
+        hostTokenList={{ tokens: [], smallBalanceTokens: [] }}
+        hostTokenListMap={{}}
+      />,
+    );
+    expect(mockNativeRowsHistory[0]).toBe(2);
+    expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy();
+    homeView.unmount();
+  } finally {
+    mockListStructure = {
+      ownerKey: '',
+      generation: -1,
+      ownedAggregateTokenListMap: {},
+    };
+    mockTokenListStore = undefined;
   }
 });
