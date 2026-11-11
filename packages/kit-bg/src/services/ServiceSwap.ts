@@ -1434,6 +1434,7 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
+    const quoteCurrency = headers['x-onekey-request-currency'];
     if (!this._activeQuoteEventRequestIds.has(quoteRequestId)) {
       return;
     }
@@ -1475,6 +1476,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           tokenPairs: { fromToken, toToken },
           accountId,
+          quoteCurrency,
           quoteRequestId,
         });
       };
@@ -1556,6 +1558,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteCurrency,
           quoteRequestId,
         });
       });

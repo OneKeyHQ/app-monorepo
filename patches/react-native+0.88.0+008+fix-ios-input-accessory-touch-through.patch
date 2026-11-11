@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/InputAccessoryView.js b/node_modules/react-native/Libraries/Components/TextInput/InputAccessoryView.js
+index 5ded8e7..beaaee2 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/InputAccessoryView.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/InputAccessoryView.js
+@@ -76,6 +76,10 @@ const InputAccessoryView: React.ComponentType<InputAccessoryViewProps> = (
+ const styles = StyleSheet.create({
+   container: {
+     position: 'absolute',
++    // The native host only anchors the accessory: its children are moved into
++    // the keyboard's input accessory view, while the host keeps a screen-wide
++    // frame in the layout and would otherwise swallow touches under it.
++    pointerEvents: 'box-none',
+   },
+   safeAreaView: {
+     flex: 1,
