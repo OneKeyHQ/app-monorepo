@@ -6503,4 +6503,95 @@ describe('update self-healing and startup self-check', () => {
     expect(res.latestVersion).toBe('2.0.0');
     expect(await service.canDownloadCurrentTarget()).toBe(true);
   });
+
+  test('stale reconcileAppShellPackage integrity failure on superseded bundle 10 does not invalidate or clear ready bundle 20', async () => {
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const sha10 = '1'.repeat(64);
+    const sha20 = '2'.repeat(64);
+    resetAtom({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '10',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-10.zip',
+        sha256: sha10,
+        signature: 'sig-10',
+      },
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '10',
+        downloadUrl: 'https://cdn.onekey.so/bundle-10.zip',
+        sha256: sha10,
+        signature: 'sig-10',
+      },
+    });
+
+    BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+    let rejectOldVerify: (err: unknown) => void = () => {};
+    BundleUpdate.verifyExtractedBundle.mockImplementationOnce(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectOldVerify = reject;
+        }),
+    );
+    BundleUpdate.clearDownload.mockClear();
+
+    const reconcilePromise = service.reconcileAppShellPackage();
+    // Flush microtasks so reconcileAppShellPackage reaches verifyExtractedBundle('1.0.0', '10')
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Remote switches to bundle 20 and advances it all the way to ready
+    jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+    jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+      version: '1.0.0',
+      jsBundleVersion: '20',
+      updateStrategy: EUpdateStrategy.manual,
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-20.zip',
+        sha256: sha20,
+        signature: 'sig-20',
+      },
+    });
+    await service.fetchAppUpdateInfo(true);
+    expect(await service.downloadPackage()).toBe(true);
+    await service.updateDownloadedEvent({
+      latestVersion: '1.0.0',
+      bundleVersion: '20',
+      downloadUrl: 'https://cdn.onekey.so/bundle-20.zip',
+      sha256: sha20,
+      signature: 'sig-20',
+    });
+    await service.downloadASC();
+    await service.verifyASC();
+    await service.verifyPackage();
+    await service.readyToInstall();
+    expect(atomValue.jsBundleVersion).toBe('20');
+    expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+
+    // Release the stale bundle 10 verification failure
+    rejectOldVerify(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    const reconciled = await reconcilePromise;
+
+    expect(BundleUpdate.clearDownload).not.toHaveBeenCalled();
+    expect(reconciled.jsBundleVersion).toBe('20');
+    expect(reconciled.status).toBe(EAppUpdateStatus.ready);
+    expect(reconciled.downloadedEvent).toMatchObject({
+      latestVersion: '1.0.0',
+      bundleVersion: '20',
+      sha256: sha20,
+    });
+    expect(reconciled.updateError).toBeUndefined();
+    expect(
+      reconciled.fullFlowRetryByTarget?.['recovery:1.0.0:20'],
+    ).toBeUndefined();
+  });
 });

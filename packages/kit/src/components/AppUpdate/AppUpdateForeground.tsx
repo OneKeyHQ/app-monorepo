@@ -472,6 +472,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             info =
               (await backgroundApiProxy.serviceAppUpdate.invalidateCorruptedReadyPackage?.(
                 classified,
+                info,
               )) ?? (await backgroundApiProxy.serviceAppUpdate.getUpdateInfo());
           } else {
             info = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -614,7 +615,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
                     installError.code === EUpdateErrorCode.incompatible
                   ) {
                     await backgroundApiProxy.serviceAppUpdate
-                      .invalidateCorruptedReadyPackage?.(installError)
+                      .invalidateCorruptedReadyPackage?.(installError, info)
                       .catch(() => undefined);
                   }
                 },

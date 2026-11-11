@@ -478,32 +478,42 @@ test('jsBundle integrity failure renders retry button instead of locking out to 
   expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
 });
 
-test('jsBundle verifyASCFailed with integrityFailed re-downloads cleanly instead of re-verifying corrupt ASC', async () => {
-  mockDownloadPackage.mockClear();
-  mockVerifyASC.mockClear();
-  const view = render(
-    <UpdateCapsule
-      showUpdate
-      onWhatsNew={() => {}}
-      data={{
-        latestVersion: '1.0.0',
-        jsBundleVersion: '25',
-        updateAt: 0,
-        updateStrategy: EUpdateStrategy.manual,
-        status: EAppUpdateStatus.verifyASCFailed,
-        updateError: {
-          code: EUpdateErrorCode.integrityFailed,
-          step: 'verifyASC',
-        },
-      }}
-    />,
-  );
-  await act(async () => {
-    fireEvent.click(view.getByTestId('header-update-retry'));
-  });
-  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
-  expect(mockVerifyASC).not.toHaveBeenCalled();
-});
+test.each([
+  EUpdateErrorCode.integrityFailed,
+  EUpdateErrorCode.securityRejected,
+])(
+  'jsBundle verifyASCFailed with %s clears artifact and re-downloads cleanly instead of re-verifying rejected bytes',
+  async (errorCode) => {
+    mockPrepareUserUpdateRetry.mockClear();
+    mockDownloadPackage.mockClear();
+    mockVerifyASC.mockClear();
+    const view = render(
+      <UpdateCapsule
+        showUpdate
+        onWhatsNew={() => {}}
+        data={{
+          latestVersion: '1.0.0',
+          jsBundleVersion: '25',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status: EAppUpdateStatus.verifyASCFailed,
+          updateError: {
+            code: errorCode,
+            step: 'verifyASC',
+          },
+        }}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+      preserveArtifact: false,
+    });
+    expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+    expect(mockVerifyASC).not.toHaveBeenCalled();
+  },
+);
 
 test('capsule retry calls prepareUserUpdateRetry before target gate so frozen/exhausted targets recover', async () => {
   let targetFrozen = true;

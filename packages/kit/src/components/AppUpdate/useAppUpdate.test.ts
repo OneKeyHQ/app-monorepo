@@ -4301,10 +4301,17 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       });
     });
 
-    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith({
-      code: EUpdateErrorCode.integrityFailed,
-      step: 'install',
-    });
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '12',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
     expect(mockToastError).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
 
@@ -4382,10 +4389,16 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       await result.current.manualInstallPackage();
     });
 
-    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith({
-      code: EUpdateErrorCode.integrityFailed,
-      step: 'install',
-    });
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.manualInstall,
+      }),
+    );
     expect(svc.resetToInComplete).not.toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
@@ -4434,10 +4447,16 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       await jest.runAllTimersAsync();
     });
 
-    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith({
-      code: EUpdateErrorCode.integrityFailed,
-      step: 'install',
-    });
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
     expect(svc.fetchAppUpdateInfo).toHaveBeenCalledWith(true);
   });
 
@@ -4469,10 +4488,17 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       await jest.runAllTimersAsync();
     });
 
-    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith({
-      code: EUpdateErrorCode.integrityFailed,
-      step: 'install',
-    });
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
   });
 
   test('onUpdateActionDirect triggers downloadPackage({ userInitiated: true }) when retrying from verifyPackageFailed', async () => {

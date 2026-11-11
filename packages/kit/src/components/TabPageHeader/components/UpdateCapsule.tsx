@@ -337,11 +337,16 @@ export function UpdateCapsule({
     // interleaving points where a second click would otherwise pass the guard.
     retryInFlight.current = true;
     try {
+      const isInvalidVerifyAscArtifact =
+        data.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        data.updateError?.code === EUpdateErrorCode.securityRejected ||
+        data.updateError?.code === EUpdateErrorCode.incompatible ||
+        data.updateError?.code === EUpdateErrorCode.packageMissing;
       if (data.status !== EAppUpdateStatus.notify) {
         const preserveArtifact =
           data.status === EAppUpdateStatus.downloadASCFailed ||
           (data.status === EAppUpdateStatus.verifyASCFailed &&
-            data.updateError?.code !== EUpdateErrorCode.integrityFailed);
+            !isInvalidVerifyAscArtifact);
         await backgroundApiProxy.serviceAppUpdate
           .prepareUserUpdateRetry?.({ preserveArtifact })
           .catch(() => undefined);
@@ -361,7 +366,7 @@ export function UpdateCapsule({
           await downloadASC();
           break;
         case EAppUpdateStatus.verifyASCFailed:
-          if (data.updateError?.code === EUpdateErrorCode.integrityFailed) {
+          if (isInvalidVerifyAscArtifact) {
             await downloadPackage({ userInitiated: true });
           } else {
             await verifyASC();

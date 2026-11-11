@@ -181,17 +181,23 @@ export const useDownloadPackage = () => {
   const recoverCorruptedReadyPackage = useCallback(
     async ({
       error,
+      expectedSnapshot,
     }: {
       error: IUpdateErrorDTO;
+      expectedSnapshot?: IAppUpdateInfo;
     }): Promise<EAppUpdateStatus | undefined> => {
       if (!isCorruptedPackageError(error)) {
         return undefined;
       }
       try {
-        const info =
-          await backgroundApiProxy.serviceAppUpdate.invalidateCorruptedReadyPackage?.(
-            error,
-          );
+        const info = expectedSnapshot
+          ? await backgroundApiProxy.serviceAppUpdate.invalidateCorruptedReadyPackage?.(
+              error,
+              expectedSnapshot,
+            )
+          : await backgroundApiProxy.serviceAppUpdate.invalidateCorruptedReadyPackage?.(
+              error,
+            );
         return info?.status === EAppUpdateStatus.verifyPackageFailed ||
           info?.status === EAppUpdateStatus.notify
           ? info.status
@@ -323,7 +329,10 @@ export const useDownloadPackage = () => {
           } else if (error.code === EUpdateErrorCode.packageMissing) {
             onFail();
           } else {
-            await recoverCorruptedReadyPackage({ error });
+            await recoverCorruptedReadyPackage({
+              error,
+              expectedSnapshot: data,
+            });
             if (showToastError) {
               Toast.error({
                 title: intl.formatMessage({
@@ -825,9 +834,11 @@ export const useDownloadPackage = () => {
     installPackageState = EInstallPackageState.installing;
     let lockUntilRestart = false;
     try {
+      const initialUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-      const fileType = await getFileTypeFromUpdateInfo();
+      const fileType = getUpdateFileType(initialUpdateInfo);
       try {
         defaultLogger.app.appUpdate.startManualInstallPackage(params);
         if (!params) {
@@ -875,7 +886,10 @@ export const useDownloadPackage = () => {
           }
           return;
         }
-        const corruptedStatus = await recoverCorruptedReadyPackage({ error });
+        const corruptedStatus = await recoverCorruptedReadyPackage({
+          error,
+          expectedSnapshot: initialUpdateInfo,
+        });
         if (corruptedStatus === EAppUpdateStatus.notify) {
           return;
         }
@@ -899,7 +913,6 @@ export const useDownloadPackage = () => {
       if (!lockUntilRestart) installPackageState = undefined;
     }
   }, [
-    getFileTypeFromUpdateInfo,
     intl,
     navigation,
     recoverAppShellPackage,
