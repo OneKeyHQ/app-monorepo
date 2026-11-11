@@ -105,6 +105,37 @@ function visitorResponse(id: string) {
   );
 }
 
+function installUnreadReply(replyId: () => string = () => 'admin-1') {
+  globalThis.fetch = async (url) =>
+    new Response(
+      JSON.stringify({
+        user: { id: 'shared', anonymous_id: 'shared' },
+        anonymous_session: 'shared-session',
+        session_expiry: 9_999_999_999,
+        unread_conversation_ids: ['42'],
+        ...(String(url).endsWith('/conversations')
+          ? {
+              conversations: [
+                {
+                  id: '42',
+                  read: false,
+                  conversation_parts: [
+                    {
+                      id: replyId(),
+                      created_at: 1_700_000_000,
+                      participant_is_admin: true,
+                      author: { name: 'Support' },
+                      body: [{ type: 'paragraph', text: 'Private reply' }],
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      }),
+    );
+}
+
 it('serializes first boot across independent extension windows and restores the same visitor', async () => {
   const locks = installSharedLocks();
   let finishFirst!: (response: Response) => void;
@@ -374,34 +405,7 @@ it('rejects a stale window identity before it can revoke the shared visitor', as
 it('deduplicates unread previews across extension windows and a cold restart while retaining the badge', async () => {
   installSharedLocks();
   let replyId = 'admin-1';
-  globalThis.fetch = async (url) =>
-    new Response(
-      JSON.stringify({
-        user: { id: 'shared', anonymous_id: 'shared' },
-        anonymous_session: 'shared-session',
-        session_expiry: 9_999_999_999,
-        unread_conversation_ids: ['42'],
-        ...(String(url).endsWith('/conversations')
-          ? {
-              conversations: [
-                {
-                  id: '42',
-                  read: false,
-                  conversation_parts: [
-                    {
-                      id: replyId,
-                      created_at: 1_700_000_000,
-                      participant_is_admin: true,
-                      author: { name: 'Support' },
-                      body: [{ type: 'paragraph', text: 'Private reply' }],
-                    },
-                  ],
-                },
-              ],
-            }
-          : {}),
-      }),
-    );
+  installUnreadReply(() => replyId);
   const firstWindow = await import('./messenger');
   await firstWindow.createIntercomMessengerSession(null);
   firstWindow.subscribeToIntercomNotifications(() => {});
@@ -433,4 +437,143 @@ it('deduplicates unread previews across extension windows and a cold restart whi
   expect(restarted.getIntercomNotification()?.id).toBe('42:admin-2');
   expect(Array.from(mockItems.values()).join()).not.toContain('Private reply');
   await restarted.setIntercomInAppMessageVisibility(false);
+});
+
+it.each(['lock', 'read'] as const)(
+  'does not consume a reply hidden while waiting for the notification %s',
+  async (phase) => {
+    installSharedLocks();
+    installUnreadReply();
+    const messenger = await import('./messenger');
+    await messenger.createIntercomMessengerSession(null);
+    messenger.subscribeToIntercomNotifications(() => {});
+    await messenger.startIntercomBackgroundPolling();
+    const key = `${subject.intercomVisitorStorageKey}-notifications`;
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let heldLock: Promise<void> | undefined;
+    if (phase === 'lock')
+      heldLock = subject.withVisitorSessionLock(key, () => waiting);
+    else
+      mockGet.mockImplementation(async (readKey) => {
+        if (readKey === key) await waiting;
+        return mockItems.get(readKey) ?? null;
+      });
+    await messenger.setIntercomInAppMessageVisibility(true);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await messenger.setIntercomInAppMessageVisibility(false);
+    release();
+    await heldLock;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(mockItems.has(key)).toBe(false);
+    expect(messenger.getIntercomNotification()).toBeUndefined();
+    expect(messenger.getIntercomUnreadCount()).toBe(1);
+    await messenger.setIntercomInAppMessageVisibility(true);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(messenger.getIntercomNotification()?.id).toBe('42:admin-1');
+    await messenger.setIntercomInAppMessageVisibility(false);
+  },
+);
+
+it('lets a visible window deliver a reply after the competing window hides during its metadata read', async () => {
+  installSharedLocks();
+  installUnreadReply();
+  const firstWindow = await import('./messenger');
+  await firstWindow.createIntercomMessengerSession(null);
+  firstWindow.subscribeToIntercomNotifications(() => {});
+  await firstWindow.startIntercomBackgroundPolling();
+  jest.resetModules();
+  const secondWindow = await import('./messenger');
+  secondWindow.subscribeToIntercomNotifications(() => {});
+  await secondWindow.startIntercomBackgroundPolling();
+  const key = `${subject.intercomVisitorStorageKey}-notifications`;
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mockGet.mockImplementation(async (readKey) => {
+    if (readKey === key) await waiting;
+    return mockItems.get(readKey) ?? null;
+  });
+  await firstWindow.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(mockGet).toHaveBeenCalledWith(key);
+  await firstWindow.setIntercomInAppMessageVisibility(false);
+  await secondWindow.setIntercomInAppMessageVisibility(true);
+  release();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(firstWindow.getIntercomNotification()).toBeUndefined();
+  expect(secondWindow.getIntercomNotification()?.id).toBe('42:admin-1');
+  expect(firstWindow.getIntercomUnreadCount()).toBe(1);
+  await secondWindow.setIntercomInAppMessageVisibility(false);
+});
+
+it('discards the old visibility generation when the same window returns before its metadata read completes', async () => {
+  installSharedLocks();
+  let replyId = 'admin-1';
+  installUnreadReply(() => replyId);
+  const messenger = await import('./messenger');
+  await messenger.createIntercomMessengerSession(null);
+  const delivered: string[] = [];
+  messenger.subscribeToIntercomNotifications(() => {
+    const message = messenger.getIntercomNotification();
+    if (message) delivered.push(message.id);
+  });
+  await messenger.startIntercomBackgroundPolling();
+  const key = `${subject.intercomVisitorStorageKey}-notifications`;
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mockGet.mockImplementation(async (readKey) => {
+    if (readKey === key) await waiting;
+    return mockItems.get(readKey) ?? null;
+  });
+  await messenger.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(mockGet).toHaveBeenCalledWith(key);
+  await messenger.setIntercomInAppMessageVisibility(false);
+  replyId = 'admin-2';
+  await messenger.setIntercomInAppMessageVisibility(true);
+  release();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(delivered).toEqual(['42:admin-2']);
+  await messenger.setIntercomInAppMessageVisibility(false);
+});
+
+it('hands a reply to the visible host before a delayed deduplication write and does not replay it after hiding', async () => {
+  installSharedLocks();
+  installUnreadReply();
+  const messenger = await import('./messenger');
+  await messenger.createIntercomMessengerSession(null);
+  const delivered: string[] = [];
+  messenger.subscribeToIntercomNotifications(() => {
+    const message = messenger.getIntercomNotification();
+    if (message) delivered.push(message.id);
+  });
+  await messenger.startIntercomBackgroundPolling();
+  const key = `${subject.intercomVisitorStorageKey}-notifications`;
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mockSet.mockImplementation(async (writtenKey, value) => {
+    if (writtenKey === key) await waiting;
+    mockItems.set(writtenKey, value);
+  });
+  await messenger.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(delivered).toEqual(['42:admin-1']);
+  expect(mockItems.has(key)).toBe(false);
+  await messenger.setIntercomInAppMessageVisibility(false);
+  release();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await messenger.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(messenger.getIntercomNotification()).toBeUndefined();
+  expect(delivered).toEqual(['42:admin-1']);
+  expect(messenger.getIntercomUnreadCount()).toBe(1);
+  await messenger.setIntercomInAppMessageVisibility(false);
 });

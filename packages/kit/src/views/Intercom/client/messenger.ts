@@ -37,6 +37,7 @@ let owner: string | null | undefined;
 let client: ReturnType<typeof createMessengerClient> | undefined;
 let revision = 0;
 let visible = false;
+let visibilityRevision = 0;
 let backgroundPollingReady = false;
 let unreadIds = new Set<string>();
 let unreadPolling: ReturnType<typeof createSupportPollingTask> | undefined;
@@ -114,9 +115,16 @@ async function updateMessageNotification(
   assertCurrent: () => Promise<void>,
 ) {
   if (!conversations.length) return;
+  const expectedVisibility = visibilityRevision;
+  const canDeliver = () =>
+    expectedVisibility === visibilityRevision &&
+    visible &&
+    !isLocked() &&
+    notificationListeners.size > 0;
   const key = `${storageKey}-notifications`;
   await withVisitorSessionLock(key, async () => {
     await assertCurrent();
+    if (!canDeliver()) return;
     const notifiedParts = new Map<
       string,
       { partId: string; createdAt: number }
@@ -142,7 +150,12 @@ async function updateMessageNotification(
       // Corrupt notification metadata must not block delivery of new replies.
     }
     let latest:
-      | { message: IIntercomNotification; createdAt: number }
+      | {
+          message: IIntercomNotification;
+          entryKey: string;
+          partId: string;
+          createdAt: number;
+        }
       | undefined;
     conversations.forEach((conversation) => {
       const part = conversation.parts
@@ -152,11 +165,13 @@ async function updateMessageNotification(
       const entryKey = JSON.stringify([userId, conversation.id]);
       const previous = notifiedParts.get(entryKey);
       if (previous && previous.createdAt > part.createdAt) return;
-      notifiedParts.delete(entryKey);
-      notifiedParts.set(entryKey, {
-        partId: part.id,
-        createdAt: part.createdAt,
-      });
+      if (conversation.read || !part.isAdmin) {
+        notifiedParts.delete(entryKey);
+        notifiedParts.set(entryKey, {
+          partId: part.id,
+          createdAt: part.createdAt,
+        });
+      }
       if (conversation.read) {
         if (notification?.conversationId === conversation.id)
           setNotification(undefined);
@@ -165,6 +180,8 @@ async function updateMessageNotification(
       if (!part.isAdmin || previous?.partId === part.id) return;
       if (!latest || part.createdAt > latest.createdAt) {
         latest = {
+          entryKey,
+          partId: part.id,
           createdAt: part.createdAt,
           message: {
             id: `${conversation.id}:${part.id}`,
@@ -180,6 +197,18 @@ async function updateMessageNotification(
         };
       }
     });
+    await assertCurrent();
+    if (!canDeliver()) return;
+    if (latest) {
+      // Deliver synchronously before the storage await. Hiding while a write
+      // is pending must only deduplicate a reply already handed to the host.
+      setNotification(latest.message);
+      notifiedParts.delete(latest.entryKey);
+      notifiedParts.set(latest.entryKey, {
+        partId: latest.partId,
+        createdAt: latest.createdAt,
+      });
+    }
     // Persist only bounded IDs/timestamps, never message text or credentials.
     // The shared lock deduplicates previews across extension windows and restarts.
     while (notifiedParts.size > 200) {
@@ -187,7 +216,6 @@ async function updateMessageNotification(
       if (first === undefined) break;
       notifiedParts.delete(first);
     }
-    await assertCurrent();
     await appStorage.setItem(
       key,
       JSON.stringify(
@@ -197,8 +225,6 @@ async function updateMessageNotification(
         })),
       ),
     );
-    await assertCurrent();
-    if (latest && visible && !isLocked()) setNotification(latest.message);
   });
 }
 
@@ -419,6 +445,7 @@ function stopUnreadPolling() {
 export async function setIntercomInAppMessageVisibility(value: boolean) {
   if (visible === value) return;
   visible = value;
+  visibilityRevision += 1;
   if (!visible) {
     stopUnreadPolling();
     setNotification(undefined);
