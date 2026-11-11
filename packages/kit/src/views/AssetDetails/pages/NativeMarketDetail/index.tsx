@@ -29,6 +29,8 @@ import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { PriceChangePercentage } from '../../../Market/components/PriceChangePercentage';
 import { TokenPriceChart } from '../../../Market/components/TokenPriceChart';
 
+const USD_PRICE_FORMATTER_OPTIONS = { currency: '$' };
+
 export function NativeMarketDetailContent({
   coinGeckoId,
   networkId,
@@ -102,7 +104,7 @@ export function NativeMarketDetailContent({
               <NumberSizeableText
                 size="$heading3xl"
                 formatter="price"
-                formatterOptions={{ currency: '$' }}
+                formatterOptions={USD_PRICE_FORMATTER_OPTIONS}
               >
                 {token.stats.currentPrice}
               </NumberSizeableText>
