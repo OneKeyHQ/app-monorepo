@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
+  NumberSizeableText,
   Page,
   ScrollView,
   SizableText,
@@ -14,7 +15,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,6 +52,8 @@ export function NativeMarketDetailContent({
         const response =
           await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
             coinGeckoId,
+            true,
+            USD_CURRENCY_ID,
           );
         lastTokenRef.current = response;
         return response;
@@ -97,9 +99,13 @@ export function NativeMarketDetailContent({
               <SizableText size="$headingMd" color="$textSubdued">
                 {token.name}
               </SizableText>
-              <Currency sourceCurrency={USD_CURRENCY_ID} size="$heading3xl">
+              <NumberSizeableText
+                size="$heading3xl"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+              >
                 {token.stats.currentPrice}
-              </Currency>
+              </NumberSizeableText>
               <PriceChangePercentage>
                 {token.stats.performance.priceChangePercentage24h}
               </PriceChangePercentage>
