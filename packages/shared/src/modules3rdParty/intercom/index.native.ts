@@ -50,6 +50,7 @@ const unreadListeners = new Set<() => void>();
 
 type IOneKeyIntercom = {
   initialized: boolean;
+  refreshUnreadCount?: (languageOverride: string) => Promise<void>;
   updateLockPolicy?: (
     locked: boolean,
     validFromMs: number,
@@ -160,15 +161,23 @@ function toSdkThemeMode(sdk: IIntercomSdk, theme: IIntercomThemeMode) {
   return theme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT;
 }
 
-// An updateUser response stores the server's unread conversations before it
-// resolves, so it doubles as an unread resync.
+// Support pushes must reach the server. Android first invalidates attribute
+// dedup; SDK unread events publish response changes alongside the local read.
 async function resyncUnreadFromServer(
   sdk: IIntercomSdk,
   trigger: IIntercomUnreadTrigger,
 ) {
-  await sdk.default.updateUser({
-    languageOverride: await getIntercomLanguageOverride(),
-  });
+  const languageOverride = await getIntercomLanguageOverride();
+  if (trigger === 'support-push' && platformEnv.isNativeAndroid) {
+    if (!nativeIntercom?.refreshUnreadCount) {
+      throw new OneKeyLocalError(
+        'Intercom unread refresh requires an updated Android binary',
+      );
+    }
+    await nativeIntercom.refreshUnreadCount(languageOverride);
+  } else {
+    await sdk.default.updateUser({ languageOverride });
+  }
   await refreshUnreadCount(sdk, trigger);
 }
 
@@ -206,7 +215,10 @@ function requestSupportReplyResync(sdk: IIntercomSdk) {
     .then((result) =>
       defaultLogger.notification.support.supportReplyResync({ result }),
     )
-    .catch((error: unknown) => logUnreadRefreshFailed('support-push', error));
+    .catch((error: unknown) => {
+      supportReplyResyncPending = true;
+      logUnreadRefreshFailed('support-push', error);
+    });
 }
 
 async function loadSdk() {
