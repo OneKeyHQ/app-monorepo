@@ -10,7 +10,9 @@ but only once send-transaction was issued: at estimate time nothing was sent.
 */
 import {
   EGasAccountRequestStage,
+  GAS_ACCOUNT_SUBMIT_REJECTED_CODES,
   getGasAccountRequestStage,
+  isGasAccountSubmitRejectedCode,
   markGasAccountRequestStage,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -110,6 +112,41 @@ describe('getGasAccountErrorEntryForError', () => {
       ),
     ).toBeUndefined();
   });
+});
+
+// The background decides from GAS_ACCOUNT_SUBMIT_REJECTED_CODES whether a
+// failed sponsored send may be signed again. It must name exactly the codes
+// this table lets the confirm page send again on; a result-unknown code
+// slipping in would allow a second tx next to one that may be on chain.
+describe('codes that prove a sponsored send was never executed', () => {
+  const resendStrategies = new Set([
+    EGasAccountErrorStrategy.Refresh,
+    EGasAccountErrorStrategy.Fallback,
+  ]);
+  const sortCodes = (codes: readonly number[]) =>
+    codes.toSorted((a, b) => a - b);
+
+  it('are the Refresh and Fallback entries of the table', () => {
+    const resendCodes = Object.entries(GAS_ACCOUNT_ERROR_TABLE)
+      .filter(([, entry]) => resendStrategies.has(entry.strategy))
+      .map(([code]) => Number(code));
+    expect(sortCodes(GAS_ACCOUNT_SUBMIT_REJECTED_CODES)).toEqual(
+      sortCodes(resendCodes),
+    );
+  });
+
+  it('include no result-unknown entry', () => {
+    for (const code of GAS_ACCOUNT_SUBMIT_REJECTED_CODES) {
+      expect(getGasAccountErrorEntry(code)?.resultUnknown).toBeUndefined();
+    }
+  });
+
+  it.each([40_203, 90_200, 90_205, 90_219, 400, undefined, '40209'])(
+    'does not take %s for a refusal',
+    (code) => {
+      expect(isGasAccountSubmitRejectedCode(code)).toBe(false);
+    },
+  );
 });
 
 describe('getGasAccountErrorMessageKey', () => {
