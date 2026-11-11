@@ -1155,55 +1155,6 @@ export function getLoanLtvBar({
 }
 
 /**
- * A market card's own LTV bar, from the card's figures: what is borrowed
- * there already, the limit and where the collateral is sold, and once a
- * loan is typed (or the bar moved) where the loan would sit. Before that
- * the cards compare the pair at a reference loan nobody asked for, so the
- * bar draws none
- */
-export type ILoanCardBar = {
-  used: number;
-  value?: number;
-  cap?: number;
-  liquidation?: number;
-};
-
-export function getLoanCardBar({
-  route,
-  facts,
-  metrics,
-  collateralAmount,
-  hasLoan,
-}: {
-  route: ILoanRoute;
-  facts?: ILoanRouteFacts;
-  metrics: ILoanRouteMetrics;
-  collateralAmount: string;
-  hasLoan: boolean;
-}): ILoanCardBar | undefined {
-  if (!facts) {
-    return undefined;
-  }
-  const { liquidationLtv } = route.collateral;
-  const { borrowFactor } = route.borrow;
-  const newCollateralValue = facts.collateralPrice
-    ? toNumber(collateralAmount) * facts.collateralPrice
-    : 0;
-  const collateral = facts.collateralValue + newCollateralValue;
-  const used = collateral > 0 ? facts.debtValue / collateral : 0;
-  const value = hasLoan ? metrics.ltv : undefined;
-  // The health factor is 1 where the LTV reaches this: the card's own two
-  // figures say where, a fresh market its reserve's
-  let liquidation: number | undefined;
-  if (metrics.healthFactor !== undefined && metrics.ltv) {
-    liquidation = metrics.healthFactor * metrics.ltv;
-  } else if (liquidationLtv > 0) {
-    liquidation = liquidationLtv / borrowFactor;
-  }
-  return { used, value, cap: metrics.maxLtv, liquidation };
-}
-
-/**
  * The loan for a share of the collateral's value, in the loan's units, as
  * round as the LTV allows
  */

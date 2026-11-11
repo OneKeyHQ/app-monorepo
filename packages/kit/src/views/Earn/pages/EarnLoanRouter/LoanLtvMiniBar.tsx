@@ -12,8 +12,9 @@ const toPercent = (share: number) => `${clamp(share) * 100}%` as const;
 /**
  * The LTV bar in small, to be read and not moved: what is borrowed already
  * in grey, the loan in the color of the health factor it leaves, the limit
- * as a tick, and where the collateral is sold in red. The hover legend draws
- * a sample with it, and each market card the loan as it would sit there
+ * as a tick, and where the collateral is sold in red. The hover legend
+ * behind the LTV label draws its sample with it. The market cards carried
+ * one each for a day and lost it (11-12): a card says its limit as a figure
  */
 export function LoanLtvMiniBar({
   used = 0,
@@ -24,8 +25,6 @@ export function LoanLtvMiniBar({
   height = 16,
   trackHeight = 6,
   thumbSize = 12,
-  isQuiet,
-  isDim,
 }: {
   // Shares of the bar's width: the debt already there, then with this loan
   used?: number;
@@ -37,11 +36,6 @@ export function LoanLtvMiniBar({
   height?: number;
   trackHeight?: number;
   thumbSize?: number;
-  // One of several on a page: the red steps back, as the form's own bar's
-  // does, so the loan's color leads
-  isQuiet?: boolean;
-  // A market that can't take the loan: the bar steps back with its card
-  isDim?: boolean;
 }) {
   const { fill } = useLoanToneColors();
   const surfaces =
@@ -50,7 +44,7 @@ export function LoanLtvMiniBar({
   const usedEnd =
     value === undefined ? clamp(used) : Math.min(clamp(used), clamp(value));
   return (
-    <Stack h={height} opacity={isDim ? 0.5 : 1} aria-hidden>
+    <Stack h={height} aria-hidden>
       <Stack
         position="absolute"
         left={0}
@@ -99,7 +93,6 @@ export function LoanLtvMiniBar({
             left={toPercent(liquidation)}
             right={0}
             backgroundColor={fill.critical}
-            opacity={isQuiet ? 0.55 : 1}
           />
         ) : null}
       </Stack>

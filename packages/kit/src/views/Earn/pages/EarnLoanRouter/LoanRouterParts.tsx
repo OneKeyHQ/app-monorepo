@@ -48,12 +48,9 @@ import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils'
 import { warmSwapNetworkParents } from '../EarnAssetSelect/earnAssetSelectNetworkParents';
 import { OfferMark } from '../EarnRouter/EarnOfferOptionCard';
 
-import { LoanLtvMiniBar } from './LoanLtvMiniBar';
-import { getLoanHealthTone } from './loanRouter.utils';
 import { useLoanToneColors } from './loanToneColors';
 
 import type {
-  ILoanCardBar,
   ILoanPayPath,
   ILoanRoute,
   ILoanRouteBlock,
@@ -404,8 +401,6 @@ export type ILoanRouteItem = {
   route: ILoanRoute;
   facts?: ILoanRouteFacts;
   metrics: ILoanRouteMetrics;
-  // The loan as it would sit in this market, drawn under the figures
-  bar?: ILoanCardBar;
   // A kind of token on a side: the card names its own pair
   pairLabel?: string;
   // Pay with doesn't pay with this collateral there: a swap buys it first,
@@ -427,8 +422,6 @@ const FIGURES_INDENT = '$12';
 // Past the pair's two logos instead, comparing a kind of token: 58 + 12
 const PAIR_FIGURES_INDENT = 70;
 const CHECK_SIZE = '$6';
-// The card's own LTV bar: a thin track in the room its dot takes
-const CARD_BAR_HEIGHT = 12;
 // The line under the figures that says why a market can't take the loan,
 // and the card's gap above it
 const REASON_LINE_HEIGHT = 16;
@@ -1050,28 +1043,14 @@ function RouteRow({
               ? formatLoanLtv(metrics.maxLtv)
               : '–'
           }
-          color={textColor}
+          // The plan asks for more than the market lends against this
+          // collateral: its limit is the figure that says so, in red. The
+          // check stays where it is; nothing picks another market (11-12)
+          color={block?.kind === 'maxLtv' ? '$textCritical' : textColor}
           // The market's own figures on their way
           isLoading={!item.facts}
         />
       </XStack>
-      {/* The LTV bar in small, the form's own: the same loan beside each
-          market's limit, so the markets compare at a glance. Its place is
-          kept while the figures load */}
-      <YStack testID={`earn-loan-route-bar-${route.key}`} pl={indent} pr="$9">
-        <LoanLtvMiniBar
-          used={item.bar?.used}
-          value={item.bar?.value}
-          cap={isLendingClosed(block) ? undefined : item.bar?.cap}
-          liquidation={item.bar?.liquidation}
-          tone={getLoanHealthTone(metrics.healthFactor)}
-          height={CARD_BAR_HEIGHT}
-          trackHeight={4}
-          thumbSize={8}
-          isQuiet
-          isDim={isBlocked}
-        />
-      </YStack>
       <RouteReasonLine
         text={block ? getLoanBlockText({ block, route, currency }) : undefined}
         isReserved={!isSettled}
