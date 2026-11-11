@@ -1,5 +1,5 @@
 diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
-index 3c58b04..8d7a8c0 100644
+index 3c58b04..a4be07a 100644
 --- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
 +++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
 @@ -1,5 +1,6 @@
@@ -35,7 +35,7 @@ index 3c58b04..8d7a8c0 100644
    defaultStyle?: {
      pressable?: ViewStyle;
      view?: ViewStyle;
-@@ -72,9 +77,11 @@ export const Toast: FC<Props> = ({
+@@ -72,9 +77,17 @@ export const Toast: FC<Props> = ({
    defaultStyle,
    keyboardVisible,
    keyboardHeight,
@@ -44,11 +44,43 @@ index 3c58b04..8d7a8c0 100644
    const insets = useSafeAreaInsets();
 -  const { width, height } = useWindowDimensions();
 +  const { width: windowWidth, height } = useWindowDimensions();
-+  const width = containerWidth || windowWidth;
++  const width =
++    containerWidth ||
++    windowWidth -
++      insets.left -
++      insets.right -
++      (extraInsets?.left ?? 0) -
++      (extraInsets?.right ?? 0);
    const isSystemDarkMode = useColorScheme() === 'dark';
  
    const [toastHeight, setToastHeight] = useState<number>(
-@@ -135,6 +142,18 @@ export const Toast: FC<Props> = ({
+@@ -95,15 +108,14 @@ export const Toast: FC<Props> = ({
+       toast.position === ToastPosition.TOP_LEFT ||
+       toast.position === ToastPosition.BOTTOM_LEFT
+     ) {
+-      leftPosition = insets.left + 16 + (extraInsets?.left ?? 0);
++      leftPosition = 16;
+     }
+ 
+     if (
+       toast.position === ToastPosition.TOP_RIGHT ||
+       toast.position === ToastPosition.BOTTOM_RIGHT
+     ) {
+-      leftPosition =
+-        width - toastWidth - insets.right - 16 - (extraInsets?.right ?? 0);
++      leftPosition = width - toastWidth - 16;
+     }
+ 
+     let startY = 0;
+@@ -127,7 +139,6 @@ export const Toast: FC<Props> = ({
+     toast.position,
+     toast.height,
+     insets,
+-    extraInsets,
+   ]);
+ 
+   const { startY, leftPosition } = getStartingPosition;
+@@ -135,6 +146,18 @@ export const Toast: FC<Props> = ({
    const opacity = useSharedValue(0);
    const position = useSharedValue(startY);
    const offsetY = useSharedValue(startY);
@@ -67,7 +99,7 @@ index 3c58b04..8d7a8c0 100644
  
    const onPress = useCallback(() => {
      if (toast.onPress) {
-@@ -162,6 +181,19 @@ export const Toast: FC<Props> = ({
+@@ -162,6 +185,19 @@ export const Toast: FC<Props> = ({
      }
    }, [toast.position]);
  
@@ -87,7 +119,7 @@ index 3c58b04..8d7a8c0 100644
    const setPosition = useCallback(() => {
      let timingConfig: WithTimingConfig = { duration: 300 };
      let springConfig: WithSpringConfig = { stiffness: 80 };
-@@ -234,6 +266,65 @@ export const Toast: FC<Props> = ({
+@@ -234,6 +270,65 @@ export const Toast: FC<Props> = ({
    ]);
  
    const composedGesture = useMemo(() => {
@@ -153,7 +185,7 @@ index 3c58b04..8d7a8c0 100644
      const panGesture = Gesture.Pan()
        .onUpdate((e) => {
          offsetY.value = e.translationY / 4 + position.value;
-@@ -264,6 +355,54 @@ export const Toast: FC<Props> = ({
+@@ -264,6 +359,54 @@ export const Toast: FC<Props> = ({
      toast.isSwipeable,
      toast.animationConfig,
      getSwipeDirection,
@@ -208,7 +240,7 @@ index 3c58b04..8d7a8c0 100644
    ]);
  
    useVisibilityChange(
-@@ -316,7 +455,9 @@ export const Toast: FC<Props> = ({
+@@ -316,7 +459,9 @@ export const Toast: FC<Props> = ({
        opacity: opacity.value,
        transform: [
          {
@@ -219,7 +251,7 @@ index 3c58b04..8d7a8c0 100644
          },
        ],
      };
-@@ -328,11 +469,28 @@ export const Toast: FC<Props> = ({
+@@ -328,11 +473,28 @@ export const Toast: FC<Props> = ({
      <GestureDetector key={toast.id} gesture={composedGesture}>
        <AnimatedPressable
          testID="toast-pressable"
@@ -249,7 +281,7 @@ index 3c58b04..8d7a8c0 100644
          style={[
            {
              backgroundColor: !toast.customToast
-@@ -343,7 +501,7 @@ export const Toast: FC<Props> = ({
+@@ -343,7 +505,7 @@ export const Toast: FC<Props> = ({
              borderRadius: 8,
              position: 'absolute',
              left: leftPosition,
