@@ -288,6 +288,9 @@ function BannerQuoteRow({
         size="xs"
         tokenImageUri={indexConfig?.logoUrl || token.logo}
         fallbackIcon={isIndex ? 'ChartColumnarOutline' : 'CryptoCoinOutline'}
+        // The banner owns its skeleton; a delayed icon overlay can cover an
+        // image that the browser has already painted.
+        placeholder={platformEnv.isNative ? undefined : null}
       />
       <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
         <SizableText size="$bodyMdMedium" width={80} numberOfLines={1}>
