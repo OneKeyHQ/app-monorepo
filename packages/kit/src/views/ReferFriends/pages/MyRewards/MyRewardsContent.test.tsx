@@ -80,7 +80,8 @@ jest.mock('@onekeyhq/components', () => {
     Skeleton: Object.assign(() => null, {
       HeadingLg: () => null,
       Heading3Xl: () => null,
-      BodyMd: () => null,
+      BodyMd: () => React.createElement('i', { 'data-skeleton': 'bodyMd' }),
+      BodySm: () => React.createElement('i', { 'data-skeleton': 'bodySm' }),
     }),
     Stack: Primitive,
     XStack: Primitive,
@@ -175,9 +176,19 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
 
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
-  ListItem: () => null,
-}));
+// Compact product rows render through ListItem; only their value matters here.
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    ListItem: ({
+      testID,
+      children,
+    }: {
+      testID?: string;
+      children?: ReactNode;
+    }) => React.createElement('div', { 'data-testid': testID }, children),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
@@ -995,6 +1006,18 @@ describe('MyRewardsContent', () => {
     expect(screen.getByTestId('my-rewards-module-perps').textContent).toContain(
       '51',
     );
+  });
+
+  it('keeps both value lines on compact rows while loading', async () => {
+    mockIsCompact = true;
+    mockEarnAccountResult = { result: undefined, isLoading: true };
+    await renderMyRewards();
+    const lines = Array.from(
+      screen
+        .getByTestId('my-rewards-module-perps')
+        .querySelectorAll('[data-skeleton]'),
+    ).map((node) => node.getAttribute('data-skeleton'));
+    expect(lines).toEqual(['bodyMd', 'bodySm']);
   });
 
   it('waits for saved accounts before showing the empty-wallet state', async () => {

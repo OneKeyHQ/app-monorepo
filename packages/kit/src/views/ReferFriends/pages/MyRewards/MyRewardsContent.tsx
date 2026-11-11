@@ -993,6 +993,15 @@ function DesktopRow({
   );
 }
 
+// The two lines of a loaded value (amount over the unpaid line), so a row does
+// not shrink while loading and pull the list below it up (OK-66978).
+const COMPACT_VALUE_SKELETON = (
+  <YStack ai="flex-end" gap="$0.5">
+    <Skeleton.BodyMd w={72} />
+    <Skeleton.BodySm w={56} />
+  </YStack>
+);
+
 function CompactRow({
   row,
   title,
@@ -1009,7 +1018,7 @@ function CompactRow({
   const copy = useMyRewardsCopy();
   const renderValue = () => {
     if (row.status === 'loading') {
-      return <Skeleton width={72} height={16} />;
+      return COMPACT_VALUE_SKELETON;
     }
     if (row.status === 'error') {
       return <SubduedNote>{copy.loadFailed}</SubduedNote>;
