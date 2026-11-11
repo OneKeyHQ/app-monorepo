@@ -235,9 +235,22 @@ export function MarketBannerLayout({
   active: boolean;
 }>) {
   const rootRef = useRef<IElement | null>(null);
+  const coverRef = useRef<IElement | null>(null);
   const bannerOffsetRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [painted, setPainted] = useState(false);
+
+  useLayoutEffect(() => {
+    const selector = `[data-testid="${MarketTestIDs.bannerScrollView}"]`;
+    const source = (
+      rootRef.current as HTMLElement | null
+    )?.querySelector<HTMLElement>(selector);
+    const cover = (
+      coverRef.current as HTMLElement | null
+    )?.querySelector<HTMLElement>(selector);
+    // The recovery cover must show the same cards before its first paint.
+    if (source && cover) cover.scrollLeft = source.scrollLeft;
+  }, [active, ready, painted]);
 
   useLayoutEffect(() => {
     if (!ready) {
@@ -311,6 +324,7 @@ export function MarketBannerLayout({
     <YStack flex={1} position="relative" overflow="hidden">
       {!painted ? (
         <YStack
+          ref={coverRef}
           position="absolute"
           top={bannerOffsetRef.current}
           left={0}

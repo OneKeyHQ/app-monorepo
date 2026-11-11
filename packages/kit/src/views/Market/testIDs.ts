@@ -19,6 +19,7 @@ export const MarketTestIDs = {
   bannerItem: 'market-banner-item',
   bannerItemSkeleton: 'market-banner-item-skeleton',
   bannerList: 'market-banner-list',
+  bannerScrollView: 'market-banner-scroll-view',
   bannerScrollLeft: 'market-banner-scroll-left',
   bannerScrollRight: 'market-banner-scroll-right',
   bannerTitle: 'market-banner-title',
