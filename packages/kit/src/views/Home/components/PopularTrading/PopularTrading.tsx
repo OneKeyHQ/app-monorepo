@@ -1333,10 +1333,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return (
       <YStack>
         <YStack
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0)
+          // Native virtualized lists cannot size their viewport from content.
+          height={
+            platformEnv.isNative
+              ? favoriteTokens.length * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+                (shouldUseTableLayout ? 32 : 0)
+              : undefined
           }
         >
           <RichTable<IFavoriteTokenDisplay>
@@ -1387,9 +1389,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               {intl.formatMessage({ id: ETranslations.global_view_more })}
             </Button>
           </XStack>
-        ) : (
-          <Stack height={50} />
-        )}
+        ) : null}
       </YStack>
     );
   }, [
@@ -1424,15 +1424,21 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const renderContent = useCallback(() => {
     let contentMinHeight: number | undefined;
-    if (shouldUseTableLayout) {
-      contentMinHeight =
-        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-        32 +
-        50;
-    } else if (hasUserFavorites && !showRecommendCards) {
-      contentMinHeight =
-        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-        50;
+    const isUserFavoritesList =
+      !selectedMarketCategoryId && hasUserFavorites && !showRecommendCards;
+    if (!isUserFavoritesList) {
+      if (shouldUseTableLayout) {
+        contentMinHeight =
+          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+          32 +
+          50;
+      } else if (hasUserFavorites && !showRecommendCards) {
+        contentMinHeight =
+          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+          50;
+      }
     }
 
     const listContent = (() => {
@@ -1534,9 +1540,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         </YStack>
         <YStack
           testID="home-market-content"
-          // Reserve three rows, the desktop header, and the bottom action band
-          // for table-based content. Mobile recommendation cards size to their
-          // two-row grid so the add button stays close to the cards.
+          // Categories and desktop recommendations reserve their content space;
+          // user favorites and mobile recommendation cards size to their rows.
           minHeight={contentMinHeight}
         >
           {listContent}

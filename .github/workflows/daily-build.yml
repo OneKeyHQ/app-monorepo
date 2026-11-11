@@ -107,6 +107,7 @@ jobs:
           gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/release-desktop-all.yml/dispatches" \
             -f "ref=${SOURCE_REF_NAME}" \
             -f "inputs[source_ref_name]=${SOURCE_REF_NAME}" \
+            -f "inputs[upstream_run_id]=${GITHUB_RUN_ID}" \
             -f "inputs[build_number]=${BUILD_NUMBER}" \
             -f "inputs[build_bundle_version]=${BUILD_BUNDLE_VERSION}" \
             -f "inputs[ONEKEY_ALLOW_SKIP_GPG_VERIFICATION]=${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" \

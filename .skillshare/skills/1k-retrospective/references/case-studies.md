@@ -1569,9 +1569,52 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
 **Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.
 
+## Case: Prime extension browser actions and pagination spacing (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Subscribed users saw browser-home actions without a usable embedded browser; hiding those actions initially moved the pagination dots by 2px.
+**Root Cause**: Shared benefits did not gate browser actions by extension capability. The reserved CTA slot omitted the Button's two transparent borders.
+**Fix**: Replace subscribed extension browser CTAs with noninteractive availability text, label only AI translation as app-only, preserve pagination, and reserve button content height plus both border widths. Keep unsubscribed CTAs and other-platform behavior unchanged.
+**Catchable by**: Sections 3 and 8: Compare actual pagination positions across CTA/no-CTA transitions in popup, narrow side panel, and full-screen; token height alone is not rendered border-box height.
+
+## Case: Prime extension media letterboxing and resize navigation (OK-61448)
+**Date**: 2026-11-10 | **Platforms**: Browser extension main UI only.
+**Symptom**: Narrow video introductions placed the title far below the visible media; resizing then selecting another benefit could leave the hero blank.
+**Root Cause**: A fixed 400px hero letterboxed 16:10 video on narrow screens. Swiper cached its initial height, and virtualized slide updates after resizing reset the scroll offset despite a successful requested scroll.
+**Fix**: Size extension video heroes from measured width, capped at 400px; refresh carousel geometry when dimensions change and retain the short extension carousel window. Keep icon heroes and all non-extension sizing unchanged.
+**Catchable by**: Section 8: Inspect rendered media-to-title spacing and test resize followed by pagination, including video/icon transitions, rather than checking only the active slide during resize.
+
 ## Case: Bitcoin dependency hardening broke BIP322 message verification
 **Date**: 2026-11-11 | **Platforms**: Shared Bitcoin message verification on supported clients.
 **Symptom**: Updating the bitcoinjs-lib dependency used by bip322-js from 6.1.7 to 6.1.10 rejected previously valid BIP322 signatures.
 **Root Cause**: BIP322 built its virtual `to_spend` transaction through PSBT extraction without UTXO metadata. The security update correctly requires that metadata when accounting for real PSBT inputs, while the BIP322 virtual transaction deliberately has a null prevout.
 **Fix**: Keep the parent-scoped 6.1.10 resolution and construct only the virtual transaction with `Transaction`, preserving its serialized bytes. Real PSBT fee accounting and extraction retain the hardened validation.
 **Catchable by**: Verify existing mainnet/testnet P2WPKH, P2SH-P2WPKH and P2TR signatures, invalid signatures, legacy ECDSA and exact virtual transaction bytes. Independently assert that inconsistent or missing real PSBT UTXO metadata is still rejected.
+
+
+## Case: Wallet Home favorites retained space for absent rows (OK-67010)
+**Date**: 2026-11-11 | **Platforms**: Wallet Home on mobile, desktop, web and extension.
+**Symptom**: One or two favorite tokens left excessive blank space below the Wallet Home Market list.
+**Root Cause**: Both the list wrapper and the section reserved three rows, and a missing View More action still left a 50px spacer.
+**Fix**: Remove the three-row reservation and unused footer spacer for loaded favorites. Let web tables size to content and bound native virtualized tables by the displayed row count, including the header only in table layout. Keep category and recommendation reservations unchanged.
+**Catchable by**: Sections 3, 4 and 6: Exercise one, two, three and more than three favorites in native and web list/table layouts; verify visible rows, trailing space and the View More threshold.
+
+## Case: Removing favorite-list spacing collapsed the native viewport
+**Date**: 2026-11-11 | **Platforms**: iOS and Android main UI runtimes. Native-resource ownership and background data flows are unchanged.
+**Symptom**: Loaded Wallet Home favorites could be clipped after removing the list wrapper's minimum height.
+**Root Cause**: Native RichTable delegates to a flex-based virtualized ListView with a two-point minimum. It needs a bounded parent viewport and cannot derive its height from its rows. The original DOM test mocked RichTable as content-sized text and missed this native constraint.
+**Fix**: Give only the native favorites wrapper an explicit height based on the displayed rows and optional table header. Extend regression coverage to native list/table layouts, including the three-row display limit, while preserving content sizing on web.
+**Catchable by**: Sections 3 and 6: Check the real platform-specific list implementation when removing height constraints; keep regression coverage for a usable native viewport as well as reduced blank space.
+
+## Case: Non-USD token quotes shifted the mobile chart (OK-67005)
+**Date**: 2026-11-11 | **Platforms**: iOS and Android main UI runtimes. Native-resource ownership and background data flows are unchanged.
+**Symptom**: The token detail chart moved when the full quote arrived after opening or switching a token with CNY selected.
+**Root Cause**: Preview data omitted priceConverted, so the converted-price row appeared only after the full detail response and increased the header height.
+**Fix**: Reserve the converted-price row through loading, preview and full-detail states on native clients using a non-USD currency. Preserve USD and non-native visibility behavior and cover the lifecycle and token-switch cases.
+**Catchable by**: Sections 4 and 6: Test loading, preview and full-response geometry separately with USD and non-USD currencies, including a token switch.
+
+## Case: First Android position-tab switch reset the collapsed header (OK-67015)
+**Date**: 2026-11-11 | **Platforms**: Android main UI runtime. Native-resource ownership and background data flows are unchanged.
+**Symptom**: The first switch from a partially scrolled Overview to My position reset the header, while subsequent switches preserved its position.
+**Root Cause**: The inactive position tab mounted on first focus, allowing scroll synchronization to run before its incoming list was ready. Warm-switch checks did not exercise this initial mount.
+**Fix**: Enable the existing per-tab eager-mount capability only for the Android position tab. Android 35 verification with an ordinary token and no positions preserved the header on the initial visit and a fresh re-entry; populated position lists and iOS manual regression remain unverified.
+**Catchable by**: Sections 3 and 8: Verify the first tab switch after a fresh detail mount at partial and full header collapse, then compare subsequent switches and a fresh re-entry.

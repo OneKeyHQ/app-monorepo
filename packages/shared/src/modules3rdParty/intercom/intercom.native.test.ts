@@ -257,7 +257,7 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.setThemeMode).toHaveBeenLastCalledWith('SYSTEM');
   });
 
-  it('applies in-app message visibility without eagerly loading the SDK', async () => {
+  it('never shows in-app messages and hides them without loading the SDK', async () => {
     // A fresh main runtime hides messages a previous runtime left enabled,
     // without starting an SDK session.
     await subject.setIntercomInAppMessageVisibility(true);
@@ -266,16 +266,28 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
     expect(mockSdk.isUserLoggedIn).not.toHaveBeenCalled();
 
+    // Re-enabling would re-present an unread reply the user swiped away
+    // (OK-67003), so main tabs, unlocks and new sessions all stay hidden.
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
     await subject.initIntercom();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-    await subject.setIntercomInAppMessageVisibility(false);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-
-    mockPlatformEnv.isNativeMainThread = false;
+    await subject.setIntercomInAppMessageVisibility(true);
+    await subject.setIntercomMessengerLocked(true);
+    await subject.setIntercomMessengerLocked(false);
+    await flushEvents();
+    mockUserId = 'B';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-B') });
+    await subject.initIntercom();
     await subject.setIntercomInAppMessageVisibility(true);
     expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
+      'VISIBLE',
+    );
+
+    mockSdk.setInAppMessageVisibility.mockClear();
+    mockPlatformEnv.isNativeMainThread = false;
+    await subject.setIntercomInAppMessageVisibility(true);
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
   });
 
   it('hides messages over a lock screen after a main runtime restart', async () => {
@@ -288,80 +300,6 @@ describe('native Intercom SDK integration', () => {
     mockSdk.setInAppMessageVisibility.mockClear();
     await subject.setIntercomInAppMessageVisibility(false);
     expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
-  });
-
-  it('keeps a restored previous account hidden until the current session is ready', async () => {
-    // The native SDK restored account A while the wallet now belongs to B.
-    mockLoggedInUser = { userId: 'intercom-A' };
-    mockUserId = 'B';
-    const jwt = deferred<{ token: string }>();
-    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
-    await subject.setIntercomInAppMessageVisibility(true);
-
-    const syncing = subject.initIntercom();
-    await flushEvents();
-    await subject.setIntercomInAppMessageVisibility(true);
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
-      'VISIBLE',
-    );
-
-    jwt.resolve({ token: createToken('intercom-B') });
-    await syncing;
-    expect(mockLoggedInUser).toEqual(
-      expect.objectContaining({ userId: 'intercom-B' }),
-    );
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-  });
-
-  it('keeps messages hidden when the current session cannot be established', async () => {
-    mockLoggedInUser = { userId: 'intercom-A' };
-    mockUserId = 'B';
-    mockGetCustomerJWT.mockRejectedValueOnce(new Error('jwt failed'));
-    await subject.setIntercomInAppMessageVisibility(true);
-    await expect(subject.initIntercom()).rejects.toThrow('jwt failed');
-    await subject.setIntercomInAppMessageVisibility(true);
-    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
-      'VISIBLE',
-    );
-  });
-
-  it('hides messages on account switch and lock before reapplying', async () => {
-    mockUserId = 'A';
-    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
-    await subject.setIntercomInAppMessageVisibility(true);
-    await subject.initIntercom();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-
-    await subject.setIntercomMessengerLocked(true);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-    await subject.setIntercomMessengerLocked(false);
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-
-    mockUserId = 'B';
-    const jwt = deferred<{ token: string }>();
-    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
-    const switching = subject.initIntercom();
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-    const goneCall =
-      mockSdk.setInAppMessageVisibility.mock.invocationCallOrder.at(-1) ?? 0;
-    expect(goneCall).toBeLessThan(
-      mockSdk.logout.mock.invocationCallOrder.at(-1) ?? 0,
-    );
-
-    jwt.resolve({ token: createToken('intercom-B') });
-    await switching;
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
   });
 
   it('refreshes unread count on foreground and Messenger close', async () => {
@@ -418,18 +356,16 @@ describe('native Intercom SDK integration', () => {
     expect(subject.getIntercomUnreadCount()).toBe(0);
   });
 
-  it('opens the hosted page instead of the SDK while a support URL override is set', async () => {
-    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
-    await subject.showIntercom({ requestId: 'request-1' });
-    expect(mockWebIntercom).toHaveBeenCalledWith({ requestId: 'request-1' });
-    expect(mockSdk.present).not.toHaveBeenCalled();
-
-    mockSupportUrlOverride = undefined;
-    // Skip the duplicate-open cooldown left by the first presentation.
-    await subject.showIntercom({ requestId: 'request-2' });
-    expect(mockWebIntercom).toHaveBeenCalledTimes(1);
-    expect(mockSdk.present).toHaveBeenCalledTimes(1);
-  });
+  it.each(['ios', 'android'])(
+    'keeps %s support on the SDK while a support URL override is set',
+    async (platform) => {
+      mockPlatformEnv.isNativeAndroid = platform === 'android';
+      mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+      await subject.showIntercom({ requestId: 'request-1' });
+      expect(mockWebIntercom).not.toHaveBeenCalled();
+      expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps notification conversations on the SDK while a support URL override is set', async () => {
     mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';

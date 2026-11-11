@@ -12,6 +12,7 @@ const mockApiGetCustomerJWT = jest.fn(async () => ({
   token: 'intercom-token',
 }));
 const EXTENSION_ORIGIN = 'chrome-extension://onekey-test';
+const mockPlatformEnv = { isExtension: false };
 let mockDevSettings: {
   enabled: boolean;
   settings?: { intercomSupportUrl?: string };
@@ -35,6 +36,10 @@ jest.mock('../../appGlobals', () => ({
   },
 }));
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('../../platformEnv', () => ({
+  __esModule: true,
+  default: mockPlatformEnv,
+}));
 jest.mock('../../utils/openUrlUtils', () => ({
   __esModule: true,
   openUrlExternal: (url: string) => mockOpenUrlExternal(url),
@@ -77,6 +82,7 @@ describe('fallback support URLs', () => {
     mockUserId = 'A';
     mockInstanceId = Promise.resolve('instance');
     mockDevSettings = { enabled: false };
+    mockPlatformEnv.isExtension = false;
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
       value: { open: mockWindowOpen },
@@ -118,6 +124,7 @@ describe('fallback support URLs', () => {
   });
 
   it('embeds extension support like mobile, with no JWT and no website jump', async () => {
+    mockPlatformEnv.isExtension = true;
     const { showIntercom } = await import('./index.ext');
     await showIntercom({ conversationId: 'conversation-1' });
     expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
@@ -147,35 +154,43 @@ describe('fallback support URLs', () => {
   describe('developer support URL override', () => {
     const previewUrl = 'https://intercom-preview.onekey.test/support/';
 
-    it.each([
-      ['WebView', './webView.native', 'injected-v1'],
-      ['extension', './index.ext', 'message-channel-v1'],
-    ])(
-      'opens the %s support page at the configured URL',
-      async (_name, modulePath, bridge) => {
-        mockDevSettings = {
-          enabled: true,
-          settings: { intercomSupportUrl: `${previewUrl}#stale` },
-        };
-        const { showIntercom } = (await import(
-          modulePath
-        )) as typeof import('./webView.native');
-        await showIntercom({ requestId: 'request-1' });
-        expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
-        const [url] = mockOpenUrlInApp.mock.calls[0];
-        expect(url.startsWith(`${previewUrl}?instanceId=instance`)).toBe(true);
-        expect(url).toContain('requestId=request-1');
-        expect(url).toContain(`#bridge=${bridge}`);
-        expect(url).not.toContain('stale');
-      },
-    );
+    it('opens the extension support page at the configured URL', async () => {
+      mockPlatformEnv.isExtension = true;
+      mockDevSettings = {
+        enabled: true,
+        settings: { intercomSupportUrl: `${previewUrl}#stale` },
+      };
+      const { showIntercom } = await import('./index.ext');
+      await showIntercom({ requestId: 'request-1' });
+      expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
+      const [url] = mockOpenUrlInApp.mock.calls[0];
+      expect(url.startsWith(`${previewUrl}?instanceId=instance`)).toBe(true);
+      expect(url).toContain('requestId=request-1');
+      expect(url).toContain('#bridge=message-channel-v1');
+      expect(url).not.toContain('stale');
+    });
+
+    it('ignores a saved override when opening the native WebView fallback', async () => {
+      mockDevSettings = {
+        enabled: true,
+        settings: { intercomSupportUrl: previewUrl },
+      };
+      const { showIntercom } = await import('./webView.native');
+      await showIntercom({ requestId: 'request-1' });
+      expect(mockOpenUrlInApp).toHaveBeenCalledTimes(1);
+      const [url] = mockOpenUrlInApp.mock.calls[0];
+      expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
+      expect(url).toContain('requestId=request-1');
+      expect(url).toContain('#bridge=injected-v1');
+    });
 
     it('ignores the override once developer mode is off', async () => {
+      mockPlatformEnv.isExtension = true;
       mockDevSettings = {
         enabled: false,
         settings: { intercomSupportUrl: previewUrl },
       };
-      const { showIntercom } = await import('./webView.native');
+      const { showIntercom } = await import('./index.ext');
       await showIntercom();
       const [url] = mockOpenUrlInApp.mock.calls[0];
       expect(url).toMatch(/^https:\/\/intercom\.onekey\.so\/\?/);
@@ -183,6 +198,7 @@ describe('fallback support URLs', () => {
   });
 
   it('does not open extension support when the account changes during metadata loading', async () => {
+    mockPlatformEnv.isExtension = true;
     const { showIntercom } = await import('./index.ext');
     const instanceId = deferred<string | undefined>();
     mockInstanceId = instanceId.promise;
