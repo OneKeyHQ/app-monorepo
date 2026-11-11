@@ -399,7 +399,7 @@ describe('DesktopApiSniRequest.uploadFile', () => {
     }) as unknown as typeof https.request);
 
     const error = await makeApi()
-      .uploadFile(baseConfig({ timeout: 50 }))
+      .uploadFile(baseConfig({ timeout: 200 }))
       .then(
         () => undefined,
         (e: unknown) => e,
@@ -411,18 +411,21 @@ describe('DesktopApiSniRequest.uploadFile', () => {
   });
 
   test('cancelRequest aborts an in-flight upload by requestId', async () => {
+    let notifyRequestStarted: (() => void) | undefined;
+    const requestStarted = new Promise<void>((resolve) => {
+      notifyRequestStarted = resolve;
+    });
     requestSpy.mockImplementation(((options: RequestOptions) => {
       const request = new FakeUploadRequest(options);
       requests.push(request);
+      notifyRequestStarted?.();
       return request;
     }) as unknown as typeof https.request);
     const api = makeApi();
 
     const upload = api.uploadFile(baseConfig({ requestId: 'upload-1' }));
     void upload.catch(() => undefined);
-    await new Promise((resolve) => {
-      setTimeout(resolve, 20);
-    });
+    await requestStarted;
     await expect(api.cancelRequest('upload-1')).resolves.toEqual({
       success: true,
     });
