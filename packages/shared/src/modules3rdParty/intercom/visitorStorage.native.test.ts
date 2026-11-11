@@ -144,3 +144,29 @@ it('deletes the active and legacy secure entries during explicit reset', async (
   expect(mockReferences.size).toBe(0);
   expect(mockSecrets.size).toBe(0);
 });
+
+it('changes native visitor ownership once and preserves the fresh Keychain entry on repeated sync', async () => {
+  const assertCurrent = jest.fn(async () => {});
+  await visitorStorage.syncIdentity(
+    intercomVisitorStorageKey,
+    'A',
+    assertCurrent,
+  );
+  await visitorStorage.syncIdentity(
+    intercomVisitorStorageKey,
+    null,
+    assertCurrent,
+  );
+  const fresh = await bindVisitorStorage(intercomVisitorStorageKey);
+  await fresh.set('fresh-private-visitor');
+  const reference = mockReferences.get(intercomVisitorStorageKey);
+  mockSecureRemove.mockClear();
+  await visitorStorage.syncIdentity(
+    intercomVisitorStorageKey,
+    null,
+    assertCurrent,
+  );
+  expect(mockReferences.get(intercomVisitorStorageKey)).toBe(reference);
+  expect(mockSecureRemove).not.toHaveBeenCalled();
+  await expect(fresh.get()).resolves.toBe('fresh-private-visitor');
+});

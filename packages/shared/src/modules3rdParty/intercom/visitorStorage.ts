@@ -37,6 +37,25 @@ function visitorValueKey(key: string, reference: string) {
 }
 
 export const visitorStorage = {
+  async syncIdentity(
+    key: string,
+    userId: string | null,
+    assertCurrent: () => Promise<void>,
+  ) {
+    await withVisitorSessionLock(key, async () => {
+      await assertCurrent();
+      const identityKey = `${key}-identity`;
+      const identity = JSON.stringify(userId);
+      const previous = await appStorage.getItem(identityKey);
+      if (previous === identity) return;
+      // All extension windows share this marker. A late logout observer must
+      // not revoke the fresh anonymous visitor created by the first observer.
+      if (previous !== null || userId !== null)
+        await visitorStorage.remove(key);
+      await assertCurrent();
+      await appStorage.setItem(identityKey, identity);
+    });
+  },
   async get(key: string) {
     const reference = await appStorage.getItem(key);
     const valueKey = reference && visitorValueKey(key, reference);

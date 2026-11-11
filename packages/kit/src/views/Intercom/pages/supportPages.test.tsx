@@ -11,6 +11,10 @@ import {
 } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { createMessengerApi } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerApi';
 import type {
   IIntercomImage,
@@ -205,7 +209,19 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: View,
     Spinner: () => <div>Loading</div>,
     Icon: () => null,
-    Image: () => null,
+    Image: ({
+      source,
+      cachePolicy,
+    }: {
+      source?: { uri: string };
+      cachePolicy?: string;
+    }) => (
+      <img
+        src={source?.uri}
+        data-cache-policy={cachePolicy}
+        alt="Support attachment"
+      />
+    ),
     Empty: ({
       buttonProps,
     }: {
@@ -459,8 +475,16 @@ it('creates a conversation and sends to it after the route params update', async
       client_assigned_uuid: expect.any(String),
     }),
   );
+  const composer = screen.getByTestId(
+    'support-message-input',
+  ) as HTMLTextAreaElement;
+  fireEvent.change(composer, { target: { value: 'Unsent next draft' } });
+  composer.focus();
   mockRoute.params = { userId: null, conversationId: '42' };
   view.rerender(<SupportScreen />);
+  expect(screen.getByTestId('support-message-input')).toBe(composer);
+  expect(composer.value).toBe('Unsent next draft');
+  expect(document.activeElement).toBe(composer);
   await enterMessage('Another message');
   await waitFor(() =>
     expect(mockRequest).toHaveBeenCalledWith(
@@ -585,10 +609,12 @@ it('removes the draft and conversation when the app locks', async () => {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 it('isolates reused route params from old drafts and delayed replies', async () => {
@@ -737,4 +763,200 @@ it('keeps loaded inbox pages when focus changes', async () => {
   view.rerender(<SupportScreen />);
   await waitFor(() => expect(pages).toBe(3));
   expect(screen.getByTestId('support-conversation-84')).toBeTruthy();
+});
+
+it.each(['cursor', 'page'])(
+  'retains the loaded inbox boundary when polling shifts the first %s page',
+  async (pagination) => {
+    mockRoute.name = 'IntercomMessages';
+    const original = mockRequest.getMockImplementation();
+    let firstPageStart = 1;
+    mockRequest.mockImplementation(async (path, parameters) => {
+      if (path !== 'conversations') return original?.(path, parameters);
+      let page = 1;
+      if (parameters?.page === 3 || parameters?.before === 960) page = 3;
+      else if (parameters?.page === 2 || parameters?.before === 980) page = 2;
+      const start = page === 1 ? firstPageStart : 21;
+      const conversations =
+        page === 3
+          ? []
+          : Array.from({ length: 20 }, (_, index) => ({
+              ...conversation,
+              id: String(start + index),
+              updated_at: 1000 - start - index,
+            }));
+      return pagination === 'page'
+        ? { conversations, pages: { page, total_pages: 3 } }
+        : {
+            conversation_page: {
+              conversations,
+              more_pages_available: page < 3,
+            },
+          };
+    });
+    render(<SupportScreen />);
+    await screen.findByTestId('support-conversation-20');
+    fireEvent.click(screen.getByTestId('support-load-more'));
+    await screen.findByTestId('support-conversation-40');
+    for (const start of [0, -1]) {
+      firstPageStart = start;
+      await act(() =>
+        appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {}),
+      );
+      await screen.findByTestId(`support-conversation-${start}`);
+      expect(screen.getAllByTestId('support-conversation-20')).toHaveLength(1);
+      expect(screen.getAllByTestId('support-conversation-19')).toHaveLength(1);
+      expect(screen.getAllByTestId('support-conversation-40')).toHaveLength(1);
+    }
+    fireEvent.click(screen.getByTestId('support-load-more'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('support-load-more')).toBeNull(),
+    );
+    expect(mockRequest).toHaveBeenLastCalledWith('conversations', {
+      per_page: 20,
+      ...(pagination === 'page' ? { page: 3 } : { before: 960 }),
+    });
+  },
+);
+
+it('reconciles a pending reply from polling and ignores the original request failing later', async () => {
+  mockRoute.params = { userId: null, conversationId: '42' };
+  const write = deferred<unknown>();
+  let sent: Record<string, unknown> | undefined;
+  mockRequest.mockImplementation(async (path, parameters) => {
+    if (path === 'conversations/42/reply') {
+      sent = parameters;
+      return write.promise;
+    }
+    if (path === 'conversations/42')
+      return {
+        ...conversation,
+        conversation_parts: [
+          part,
+          ...(sent
+            ? [
+                {
+                  ...part,
+                  id: 'accepted',
+                  client_assigned_uuid: sent.client_assigned_uuid,
+                  body: [{ type: 'paragraph', text: 'Accepted reply' }],
+                },
+              ]
+            : []),
+        ],
+      };
+    return {};
+  });
+  render(<SupportScreen />);
+  await enterMessage('Accepted reply');
+  await waitFor(() => expect(sent).toBeDefined());
+  expect(screen.getByTestId('support-pending-message')).toBeTruthy();
+  await act(() =>
+    appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {
+      conversationId: '42',
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByTestId('support-pending-message')).toBeNull(),
+  );
+  await act(async () => write.reject(new Error('response timeout')));
+  expect(screen.queryByTestId('support-retry-send')).toBeNull();
+  expect(screen.getAllByText('Accepted reply')).toHaveLength(1);
+  expect(
+    mockRequest.mock.calls.filter(([path]) => path.endsWith('/reply')),
+  ).toHaveLength(1);
+});
+
+it('recovers an accepted new conversation after losing its response without replaying the write', async () => {
+  const original = mockRequest.getMockImplementation();
+  let sent: Record<string, unknown> | undefined;
+  mockRequest.mockImplementation(async (path, parameters) => {
+    if (path === 'messages') {
+      sent = parameters;
+      throw new OneKeyLocalError('response lost');
+    }
+    if (path === 'conversations')
+      return {
+        conversations: [
+          {
+            ...conversation,
+            updated_at: Math.floor(Date.now() / 1000),
+            conversation_parts: [
+              { ...part, id: 'admin-latest', participant_is_admin: true },
+            ],
+          },
+        ],
+      };
+    if (path === 'conversations/42' && sent)
+      return {
+        ...conversation,
+        conversation_parts: [
+          {
+            ...part,
+            id: 'accepted',
+            client_assigned_uuid: sent.client_assigned_uuid,
+            body: [{ type: 'paragraph', text: 'Accepted creation' }],
+          },
+        ],
+      };
+    return original?.(path, parameters);
+  });
+  render(<SupportScreen />);
+  await enterMessage('Accepted creation');
+  await waitFor(() =>
+    expect(mockSetParams).toHaveBeenCalledWith({ conversationId: '42' }),
+  );
+  expect(screen.queryByTestId('support-pending-message')).toBeNull();
+  expect(screen.queryByTestId('support-retry-send')).toBeNull();
+  expect(screen.getAllByText('Accepted creation')).toHaveLength(1);
+  expect(
+    mockRequest.mock.calls.filter(([path]) => path === 'messages'),
+  ).toHaveLength(1);
+});
+
+it('disables native image caching for selected, pending and received attachments', async () => {
+  const picked = {
+    path: 'file:///private.jpg',
+    filename: 'private.jpg',
+    mime: 'image/jpeg',
+    size: 100,
+    width: 10,
+    height: 10,
+  };
+  jest.mocked(pickSupportImage).mockResolvedValueOnce(picked);
+  const upload = deferred<Awaited<ReturnType<typeof uploadIntercomImage>>>();
+  jest.mocked(uploadIntercomImage).mockReturnValueOnce(upload.promise);
+  const original = mockRequest.getMockImplementation();
+  mockRoute.params = { userId: null, conversationId: '42' };
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations/42'
+      ? {
+          ...conversation,
+          conversation_parts: [
+            {
+              ...part,
+              body: [
+                {
+                  type: 'image',
+                  url: 'https://downloads.intercomcdn.com/private.jpg',
+                },
+              ],
+            },
+          ],
+        }
+      : original?.(path, parameters),
+  );
+  const view = render(<SupportScreen />);
+  await screen.findByAltText('Support attachment');
+  fireEvent.click(screen.getByTestId('support-add-image'));
+  await screen.findByTestId('support-remove-image');
+  expect(screen.getAllByAltText('Support attachment')).toHaveLength(2);
+  for (const image of screen.getAllByAltText('Support attachment'))
+    expect(image.getAttribute('data-cache-policy')).toBe('none');
+  fireEvent.click(screen.getByTestId('support-send'));
+  await waitFor(() => expect(uploadIntercomImage).toHaveBeenCalled());
+  for (const image of screen.getAllByAltText('Support attachment'))
+    expect(image.getAttribute('data-cache-policy')).toBe('none');
+  view.unmount();
+  await act(async () => upload.reject(new Error('cancelled')));
 });

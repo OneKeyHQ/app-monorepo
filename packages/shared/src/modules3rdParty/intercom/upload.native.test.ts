@@ -100,7 +100,7 @@ it('uploads only the selected file to the signed destination without app auth he
   expect(expoFetch).toHaveBeenCalledWith(upload.upload_destination, {
     method: 'POST',
     body: expect.any(FormData),
-    signal: controller.signal,
+    signal: expect.any(AbortSignal),
     credentials: 'omit',
     redirect: 'error',
   });
@@ -180,4 +180,33 @@ it('fails a rejected redirect without returning or sending an attachment block',
     upload.upload_destination,
     expect.objectContaining({ redirect: 'error', credentials: 'omit' }),
   );
+});
+
+it('aborts a stalled native Expo upload at the deadline and removes the timer', async () => {
+  jest.useFakeTimers();
+  jest.spyOn(FormData.prototype, 'append').mockImplementation(() => {});
+  jest.mocked(expoFetch).mockImplementationOnce(
+    async (_input, options) =>
+      new Promise<Awaited<ReturnType<typeof expoFetch>>>((_resolve, reject) => {
+        options?.signal?.addEventListener(
+          'abort',
+          () => reject(new Error('native upload aborted')),
+          { once: true },
+        );
+      }),
+  );
+  const outcome = uploadIntercomImage(
+    createMessengerApi({
+      request: async () => upload,
+      assertCurrent: async () => {},
+    }),
+    image,
+    new AbortController().signal,
+  ).catch((error: unknown) => error);
+  await jest.advanceTimersByTimeAsync(60_000);
+  expect(await outcome).toEqual(new Error('native upload aborted'));
+  expect(expoFetch).toHaveBeenCalledTimes(1);
+  expect(jest.mocked(expoFetch).mock.calls[0][1]?.signal?.aborted).toBe(true);
+  expect(jest.getTimerCount()).toBe(0);
+  jest.useRealTimers();
 });

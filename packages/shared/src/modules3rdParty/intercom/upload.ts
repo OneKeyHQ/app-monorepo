@@ -49,16 +49,27 @@ export async function uploadIntercomImage(
   const form = new FormData();
   for (const [key, value] of Object.entries(fields)) form.append(key, value);
   appendSupportImage(form, image, name);
-  // The native transport serializes Expo Files and enforces redirect rejection.
-  const result = await streamingFetch(destination, {
-    method: 'POST',
-    body: form,
-    signal,
-    credentials: 'omit',
-    redirect: 'error',
-  });
-  await session.assertCurrent();
-  if (!result.ok) throw new OneKeyLocalError('Support image upload failed');
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal.addEventListener('abort', abort);
+  if (signal.aborted) abort();
+  const timeout = setTimeout(abort, 60_000);
+  try {
+    // The native transport serializes Expo Files and enforces aborts and
+    // redirect rejection. Never retry an upload without an explicit action.
+    const result = await streamingFetch(destination, {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+      credentials: 'omit',
+      redirect: 'error',
+    });
+    await session.assertCurrent();
+    if (!result.ok) throw new OneKeyLocalError('Support image upload failed');
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', abort);
+  }
   return {
     type: 'image',
     url: publicUrl,

@@ -43,3 +43,55 @@ it('uploads a browser image using multipart bytes without credentials or redirec
   expect(form.get('policy')).toBe('test-policy');
   expect(await (form.get('file') as Blob).text()).toBe('test image');
 });
+
+it.each(['timeout', 'cancel', 'already-cancelled'] as const)(
+  'aborts a stalled upload on %s without retrying and cleans its timer',
+  async (reason) => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const blob = new Blob(['test image'], { type: 'image/png' });
+    const fetchMock = jest.fn(
+      async (_url: string | URL | Request, options?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const abort = () => reject(new Error('upload aborted'));
+          if (options?.signal?.aborted) abort();
+          else
+            options?.signal?.addEventListener('abort', abort, { once: true });
+        }),
+    );
+    globalThis.fetch = fetchMock;
+    if (reason === 'already-cancelled') controller.abort();
+    const result = uploadIntercomImage(
+      {
+        getUploadMetadata: async () => ({
+          destination: 'https://uploads.intercomcdn.com/',
+          publicUrl: 'https://downloads.intercomcdn.com/test.png',
+          fields: {},
+        }),
+        assertCurrent: async () => {},
+      },
+      {
+        path: 'blob:test',
+        mime: 'image/png',
+        filename: 'test.png',
+        size: blob.size,
+        width: 1,
+        height: 1,
+        blob,
+      },
+      controller.signal,
+    );
+    const outcome = result.catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(0);
+    if (reason === 'timeout') {
+      await jest.advanceTimersByTimeAsync(59_999);
+      expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+    } else controller.abort();
+    expect(await outcome).toEqual(new Error('upload aborted'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+    jest.useRealTimers();
+  },
+);

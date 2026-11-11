@@ -42,6 +42,8 @@ import { useSupportAutoScroll } from '../hooks/useSupportAutoScroll';
 import { useSupportResource } from '../hooks/useSupportResource';
 import { cleanSupportImage, pickSupportImage } from '../utils/pickSupportImage';
 
+import type { ISupportSessionProps } from '../components/SupportSessionBoundary';
+
 type IOutgoing = {
   id: string;
   createdAt?: number;
@@ -52,16 +54,36 @@ type IOutgoing = {
   status: 'sending' | 'failed';
 };
 
+async function findCreatedConversation(
+  session: IIntercomMessengerSession,
+  outgoing: IOutgoing,
+) {
+  const inbox = await session.listConversations();
+  const matches = (conversation: IIntercomConversation) =>
+    conversation.parts.some((part) => part.clientId === outgoing.id);
+  for (const conversation of inbox.conversations) {
+    if (matches(conversation)) return conversation;
+    // The inbox may contain only the latest admin reply. Fetch recent threads
+    // to find the original client UUID without ever replaying the write.
+    if (conversation.updatedAt >= (outgoing.createdAt ?? 0)) {
+      const full = await session.getConversation(conversation.id);
+      if (matches(full)) return full;
+    }
+  }
+}
+
 function SupportConversationContent({
   session,
   active,
   route,
   sessionError,
+  onCreated,
 }: {
   session?: IIntercomMessengerSession;
   active: boolean;
   route: IIntercomSupportRoute;
   sessionError?: () => void;
+  onCreated: (id: string) => void;
 }) {
   const intl = useIntl();
   const navigation =
@@ -104,6 +126,29 @@ function SupportConversationContent({
   }, []);
   const current = resource.data?.conversation;
   const open = resource.data?.open;
+  const acceptConversation = useCallback(
+    (conversation: IIntercomConversation) => {
+      if (!alive.current) return;
+      setConfirmed(conversation.parts);
+      setConversationId(conversation.id);
+      setPending(undefined);
+      onCreated(conversation.id);
+      navigation.setParams({ conversationId: conversation.id });
+    },
+    [navigation, onCreated],
+  );
+  const recoverCreation = useCallback(async () => {
+    if (!session || !pending) return undefined;
+    return findCreatedConversation(session, pending);
+  }, [session, pending]);
+  const recovery = useSupportResource(
+    recoverCreation,
+    active && !conversationId && pending?.status === 'failed',
+    true,
+  );
+  useEffect(() => {
+    if (recovery.data) acceptConversation(recovery.data);
+  }, [recovery.data, acceptConversation]);
   const lastReceiptData = useRef<IIntercomConversation | undefined>(undefined);
   useEffect(() => {
     if (current === lastReceiptData.current) return;
@@ -124,6 +169,13 @@ function SupportConversationContent({
       (a, b) => a.createdAt - b.createdAt,
     );
   }, [current, open, confirmed]);
+  useEffect(() => {
+    setPending((previous) =>
+      previous && parts.some((part) => part.clientId === previous.id)
+        ? undefined
+        : previous,
+    );
+  }, [parts]);
   const canReply =
     active && (current?.canReply ?? open?.canWriteMessage ?? false);
   const header = current?.header ?? open?.header;
@@ -151,15 +203,30 @@ function SupportConversationContent({
     async (outgoing: IOutgoing) => {
       if (!session || sending.current || !active) return;
       sending.current = true;
-      setPending({ ...outgoing, status: 'sending' });
-      followLatest();
       let prepared: IOutgoing = {
         ...outgoing,
         createdAt: outgoing.createdAt ?? Math.floor(Date.now() / 1000),
       };
+      setPending({ ...prepared, status: 'sending' });
+      followLatest();
       try {
         await session.assertCurrent();
         if (!alive.current) return;
+        if (outgoing.status === 'failed') {
+          const accepted = conversationId
+            ? await session.getConversation(conversationId)
+            : await findCreatedConversation(session, outgoing);
+          if (accepted?.parts.some((part) => part.clientId === outgoing.id)) {
+            if (alive.current) {
+              if (conversationId) {
+                setConfirmed(accepted.parts);
+                setPending(undefined);
+              } else acceptConversation(accepted);
+            }
+            return;
+          }
+          if (!alive.current) return;
+        }
         let blocks =
           prepared.blocks ??
           (prepared.text.trim() ? intercomMessageBlocks(prepared.text) : []);
@@ -200,11 +267,7 @@ function SupportConversationContent({
             open,
             quickReplyId: prepared.quickReply?.replyId,
           });
-          if (alive.current) {
-            setConfirmed(conversation.parts);
-            setConversationId(conversation.id);
-            navigation.setParams({ conversationId: conversation.id });
-          }
+          acceptConversation(conversation);
         }
         if (alive.current) {
           setPending(undefined);
@@ -212,7 +275,16 @@ function SupportConversationContent({
           void refreshConversation();
         }
       } catch {
-        if (alive.current) setPending({ ...prepared, status: 'failed' });
+        if (alive.current) {
+          // A poll may already have acknowledged this UUID while the original
+          // request was timing out. Never resurrect its failed placeholder.
+          setPending((previous) =>
+            previous?.id === prepared.id
+              ? { ...prepared, status: 'failed' }
+              : previous,
+          );
+          void refreshConversation();
+        }
       } finally {
         sending.current = false;
       }
@@ -222,7 +294,7 @@ function SupportConversationContent({
       session,
       conversationId,
       open,
-      navigation,
+      acceptConversation,
       refreshConversation,
       followLatest,
     ],
@@ -307,6 +379,7 @@ function SupportConversationContent({
             {pending.image ? (
               <Image
                 source={{ uri: pending.image.path }}
+                cachePolicy="none"
                 width={160}
                 height={120}
                 resizeMode="contain"
@@ -465,6 +538,7 @@ function SupportConversationContent({
                   <XStack px="$3" pt="$3" gap="$3" alignItems="center">
                     <Image
                       source={{ uri: image.path }}
+                      cachePolicy="none"
                       width={64}
                       height={64}
                       resizeMode="contain"
@@ -548,15 +622,37 @@ function SupportConversationContent({
   );
 }
 
+function SupportConversationRoute(props: ISupportSessionProps) {
+  const [identity, setIdentity] = useState<{
+    routeId?: string;
+    createdId?: string;
+    key: number;
+  }>({ routeId: props.route.conversationId, key: 0 });
+  const onCreated = useCallback((id: string) => {
+    setIdentity((previous) => ({ ...previous, createdId: id }));
+  }, []);
+  if (identity.routeId !== props.route.conversationId) {
+    const promoted =
+      identity.createdId !== undefined &&
+      identity.createdId === props.route.conversationId;
+    setIdentity({
+      routeId: props.route.conversationId,
+      key: promoted ? identity.key : identity.key + 1,
+    });
+  }
+  return (
+    <SupportConversationContent
+      key={identity.key}
+      {...props}
+      onCreated={onCreated}
+    />
+  );
+}
+
 export default function SupportConversation() {
   return (
     <SupportSessionBoundary>
-      {(props) => (
-        <SupportConversationContent
-          key={props.route.conversationId ?? 'new'}
-          {...props}
-        />
-      )}
+      {(props) => <SupportConversationRoute {...props} />}
     </SupportSessionBoundary>
   );
 }

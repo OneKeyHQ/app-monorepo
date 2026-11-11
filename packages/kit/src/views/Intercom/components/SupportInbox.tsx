@@ -89,6 +89,23 @@ export function SupportInbox({
     setMoreFailed(false);
   }, [session]);
   useEffect(() => {
+    if (!inbox.data) return;
+    const firstPage = inbox.data;
+    setOlder((previous) => {
+      if (!previous) return previous;
+      const values = new Map<string, IIntercomConversation>();
+      for (const item of [
+        ...firstPage.conversations,
+        ...previous.conversations,
+      ]) {
+        if (!values.has(item.id)) values.set(item.id, item);
+      }
+      // Retain the loaded range when polling moves a row past page one.
+      // The pagination cursor still belongs to the last explicitly loaded page.
+      return { ...previous, conversations: Array.from(values.values()) };
+    });
+  }, [inbox.data]);
+  useEffect(() => {
     setMoreLoading(false);
     return () => {
       moreRevision.current += 1;
@@ -106,13 +123,13 @@ export function SupportInbox({
     try {
       const next = await session.listConversations(page);
       if (revision === moreRevision.current)
-        setOlder({
+        setOlder((previous) => ({
           ...next,
           conversations: [
-            ...(older?.conversations ?? []),
+            ...(previous?.conversations ?? inbox.data?.conversations ?? []),
             ...next.conversations,
           ],
-        });
+        }));
     } catch {
       if (revision === moreRevision.current) setMoreFailed(true);
     } finally {
@@ -130,7 +147,9 @@ export function SupportInbox({
     ]) {
       if (!values.has(item.id)) values.set(item.id, item);
     }
-    return Array.from(values.values());
+    return Array.from(values.values()).toSorted(
+      (a, b) => b.updatedAt - a.updatedAt,
+    );
   }, [inbox.data, older]);
   const refresh = useCallback(async () => {
     moreRevision.current += 1;

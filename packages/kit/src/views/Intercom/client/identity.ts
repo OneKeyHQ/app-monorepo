@@ -17,12 +17,25 @@ export async function getCurrentIntercomUserId(): Promise<string | null> {
   return user.onekeyUserId;
 }
 
+export async function assertIntercomIdentity(expectedUserId: string | null) {
+  // Only identity transitions need an authoritative read. Extension windows
+  // can receive the synchronized Prime atom at different times.
+  const user =
+    await appGlobals.$backgroundApiProxy.servicePrime.getLocalUserInfo();
+  if (
+    (user.isLoggedIn ? user.onekeyUserId : null) !== expectedUserId ||
+    (await getCurrentIntercomUserId()) !== expectedUserId
+  )
+    throw new OneKeyLocalError('Support session changed');
+}
+
 export async function getIntercomCredentials(expectedUserId: string) {
   const response =
     await appGlobals.$backgroundApiProxy.servicePrime.apiGetCustomerJWT();
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     return undefined;
   }
+  await assertIntercomIdentity(expectedUserId);
   const token = response?.token;
   const claims = token ? stringUtils.decodeJWT(token) : null;
   const userId =

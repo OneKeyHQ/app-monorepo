@@ -83,6 +83,7 @@ export function MessagePart({
               {block.type === 'image' && block.url ? (
                 <Image
                   source={{ uri: block.url }}
+                  cachePolicy="none"
                   width={220}
                   maxWidth="100%"
                   height={Math.min(

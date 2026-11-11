@@ -14,6 +14,17 @@ jest.mock('./lockState', () => ({
 }));
 let mockVisitor: string | null = null;
 let mockStorageEpoch = 0;
+let mockStorageIdentity: string | null | undefined;
+const mockNotificationStorage = new Map<string, string>();
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: {
+    getItem: async (key: string) => mockNotificationStorage.get(key) ?? null,
+    setItem: async (key: string, value: string) => {
+      mockNotificationStorage.set(key, value);
+    },
+  },
+}));
 const mockPresent = jest.fn((_route: unknown) => true);
 const mockNotify = jest.fn((_error: unknown): void => {});
 const mockCredentials = jest.fn(async (_user: string) => ({
@@ -32,6 +43,10 @@ jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
 }));
 jest.mock('./identity', () => ({
   getCurrentIntercomUserId: async () => mockUserId,
+  assertIntercomIdentity: async (expected: string | null) => {
+    if (expected !== mockUserId)
+      throw new OneKeyLocalError('Support session changed');
+  },
   getIntercomCredentials: (user: string) => mockCredentials(user),
   getInstanceId: async () => 'test-install',
   getIntercomLanguageOverride: async () => 'en',
@@ -58,6 +73,17 @@ jest.mock(
       };
     },
     visitorStorage: {
+      syncIdentity: async (
+        _key: string,
+        userId: string | null,
+        assertCurrent: () => Promise<void>,
+      ) => {
+        await assertCurrent();
+        if (mockStorageIdentity === userId) return;
+        if (mockStorageIdentity !== undefined || userId !== null)
+          await mockRemove();
+        mockStorageIdentity = userId;
+      },
       get: async () => mockVisitor,
       set: async (_key: string, value: string) => {
         mockVisitor = value;
@@ -104,6 +130,8 @@ beforeEach(async () => {
   mockPolicy = undefined;
   mockVisitor = null;
   mockStorageEpoch = 0;
+  mockStorageIdentity = undefined;
+  mockNotificationStorage.clear();
   mockRemove.mockImplementation(async () => {
     mockVisitor = null;
   });
@@ -166,6 +194,7 @@ describe('support message notifications', () => {
     });
   });
   async function show() {
+    await subject.startIntercomBackgroundPolling();
     await subject.setIntercomInAppMessageVisibility(true);
     await jest.advanceTimersByTimeAsync(0);
   }
@@ -416,6 +445,7 @@ it('rejects requests beyond the auto-lock deadline before the lock UI catches up
 
 it('does not create an anonymous visitor until support is explicitly opened', async () => {
   jest.useFakeTimers();
+  await subject.startIntercomBackgroundPolling();
   await subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(90_000);
   expect(mockFetch).not.toHaveBeenCalled();
@@ -433,6 +463,7 @@ it('does not remint an expired anonymous visitor during badge polling', async ()
     anonymousSession: 'expired',
     expiresAt: Date.now() - 1,
   } satisfies IIntercomVisitor);
+  await subject.startIntercomBackgroundPolling();
   await subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(60_000);
   expect(mockFetch).not.toHaveBeenCalled();
@@ -445,6 +476,7 @@ it('resumes one unread poll loop when the visible account changes', async () => 
     token: `test-${user}`,
     attributes: { userId: user },
   }));
+  await subject.startIntercomBackgroundPolling();
   await subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(0);
   mockFetch.mockClear();
@@ -475,6 +507,7 @@ it('resumes polling after an expired lock policy becomes valid without a boolean
     validFromMs: 0,
     lockAtMs: Date.now() + 10_000,
   });
+  await subject.startIntercomBackgroundPolling();
   await subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(0);
   await jest.advanceTimersByTimeAsync(30_000);
@@ -569,4 +602,34 @@ it('shares a failed identity cleanup with concurrent opens and retries cleanup b
   expect(mockRemove).toHaveBeenCalledTimes(previousRemoves + 1);
   const body = new URLSearchParams(String(mockFetch.mock.calls[0][1]?.body));
   expect(body.has('anonymous_session')).toBe(false);
+});
+
+it('keeps first-screen visibility, unlock, push and identity sync behind the startup polling gate', async () => {
+  jest.useFakeTimers();
+  mockUserId = 'A';
+  await subject.setIntercomInAppMessageVisibility(true);
+  await setLock(false);
+  subject.refreshIntercomNotifications('42');
+  await subject.initIntercom();
+  await jest.advanceTimersByTimeAsync(9999);
+  expect(mockCredentials).not.toHaveBeenCalled();
+  expect(mockFetch).not.toHaveBeenCalled();
+  await subject.startIntercomBackgroundPolling();
+  await jest.advanceTimersByTimeAsync(0);
+  expect(mockCredentials).toHaveBeenCalledTimes(1);
+  expect(
+    mockFetch.mock.calls.some(([url]) => url.endsWith('/conversations/unread')),
+  ).toBe(true);
+});
+
+it('allows an explicit support open before passive polling starts', async () => {
+  mockUserId = 'A';
+  await subject.setIntercomInAppMessageVisibility(true);
+  await subject.showIntercom();
+  expect(mockPresent).toHaveBeenCalledWith(
+    expect.objectContaining({ userId: 'A' }),
+  );
+  await subject.createIntercomMessengerSession('A');
+  expect(mockCredentials).toHaveBeenCalledTimes(1);
+  expect(mockFetch).toHaveBeenCalledTimes(1);
 });

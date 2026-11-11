@@ -20,7 +20,10 @@ import {
   willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import { initIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
+import {
+  initIntercom,
+  startIntercomBackgroundPolling,
+} from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   getDevSettingsNetworkThrottleEnabled,
@@ -641,37 +644,34 @@ const useLogVersionInfo = () => {
 };
 
 export const useIntercomInit = () => {
-  const isInitializedRef = useRef(false);
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
   const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
-    const syncIntercom = () => {
-      void initIntercom().catch(() => {
-        console.warn('Failed to initialize Intercom');
-      });
-    };
     const previousIdentity = previousIdentityRef.current;
     const identityChanged =
       previousIdentity.onekeyUserId !== onekeyUserId ||
       previousIdentity.isLoggedIn !== isLoggedIn;
     previousIdentityRef.current = { onekeyUserId, isLoggedIn };
-    // Only the initial sync is delayed. An entry can open support before the
-    // timer fires, so identity changes must retire that session immediately.
-    if (isInitializedRef.current || identityChanged) {
-      isInitializedRef.current = true;
-      syncIntercom();
-      return;
+    // Retire an explicitly opened session immediately without enabling passive
+    // network traffic before the startup delay has elapsed.
+    if (identityChanged) {
+      void initIntercom().catch(() => {
+        console.warn('Failed to synchronize Intercom identity');
+      });
     }
+  }, [onekeyUserId, isLoggedIn]);
+  useEffect(() => {
     const timer = setTimeout(
       () => {
-        isInitializedRef.current = true;
-        syncIntercom();
+        void startIntercomBackgroundPolling().catch(() => {
+          console.warn('Failed to initialize Intercom');
+        });
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
-  }, [onekeyUserId, isLoggedIn]);
+  }, []);
 };
 
 // Leaf component so prime-atom and theme updates skip the rest of Bootstrap.

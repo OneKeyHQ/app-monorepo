@@ -21,6 +21,20 @@ function isSecureReference(key: string, reference: string | null) {
 }
 
 export const visitorStorage = {
+  async syncIdentity(
+    key: string,
+    userId: string | null,
+    assertCurrent: () => Promise<void>,
+  ) {
+    await assertCurrent();
+    const identityKey = `${key}-identity`;
+    const identity = JSON.stringify(userId);
+    const previous = await appStorage.getItem(identityKey);
+    if (previous === identity) return;
+    if (previous !== null || userId !== null) await visitorStorage.remove(key);
+    await assertCurrent();
+    await appStorage.setItem(identityKey, identity);
+  },
   async get(key: string) {
     const reference = await appStorage.getItem(key);
     if (!reference || !isSecureReference(key, reference)) return null;

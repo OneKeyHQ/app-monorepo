@@ -13,9 +13,11 @@ import {
   visitorStorage,
   withVisitorSessionLock,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { getInstanceId } from '@onekeyhq/shared/src/utils/getInstanceId';
 
 import {
+  assertIntercomIdentity,
   getCurrentIntercomUserId,
   getIntercomCredentials,
   getIntercomLanguageOverride,
@@ -35,14 +37,14 @@ let owner: string | null | undefined;
 let client: ReturnType<typeof createMessengerClient> | undefined;
 let revision = 0;
 let visible = false;
+let backgroundPollingReady = false;
 let unreadIds = new Set<string>();
 let unreadPolling: ReturnType<typeof createSupportPollingTask> | undefined;
 let storageQueue: Promise<unknown> = Promise.resolve();
 let identityTransition: Promise<void> | undefined;
-let visitorCleanupRequired = false;
+let identitySyncRequired = false;
 const listeners = new Set<() => void>();
 const notificationListeners = new Set<() => void>();
-const notifiedParts = new Map<string, string>();
 let notification: IIntercomNotification | undefined;
 let pushedConversationId: string | undefined;
 const openGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
@@ -78,14 +80,13 @@ function setNotification(value: IIntercomNotification | undefined) {
   notificationListeners.forEach((listener) => listener());
 }
 
-function invalidate(clearNotifiedParts = true) {
+function invalidate() {
   revision += 1;
   client?.dispose();
   client = undefined;
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
-  if (clearNotifiedParts) notifiedParts.clear();
 }
 export const getIntercomUnreadCount = () => unreadIds.size;
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
@@ -107,43 +108,98 @@ export function dismissIntercomNotification(id: string) {
   if (notification?.id === id) setNotification(undefined);
 }
 
-function updateMessageNotification(conversations: IIntercomConversation[]) {
-  let latest: { message: IIntercomNotification; createdAt: number } | undefined;
-  conversations.forEach((conversation) => {
-    const part = conversation.parts.filter((item) => item.blocks.length).at(-1);
-    if (!part?.id) return;
-    const previous = notifiedParts.get(conversation.id);
-    notifiedParts.set(conversation.id, part.id);
-    if (conversation.read) {
-      if (notification?.conversationId === conversation.id)
-        setNotification(undefined);
-      return;
+async function updateMessageNotification(
+  conversations: IIntercomConversation[],
+  userId: string | null,
+  assertCurrent: () => Promise<void>,
+) {
+  if (!conversations.length) return;
+  const key = `${storageKey}-notifications`;
+  await withVisitorSessionLock(key, async () => {
+    await assertCurrent();
+    const notifiedParts = new Map<
+      string,
+      { partId: string; createdAt: number }
+    >();
+    const raw = await appStorage.getItem(key);
+    try {
+      const entries: unknown = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(entries)) {
+        for (const value of entries.slice(-200)) {
+          const entry = intercomRecord(value);
+          if (
+            typeof entry.key === 'string' &&
+            typeof entry.partId === 'string' &&
+            typeof entry.createdAt === 'number'
+          )
+            notifiedParts.set(entry.key, {
+              partId: entry.partId,
+              createdAt: entry.createdAt,
+            });
+        }
+      }
+    } catch {
+      // Corrupt notification metadata must not block delivery of new replies.
     }
-    if (!part.isAdmin || previous === part.id) return;
-    if (!latest || part.createdAt > latest.createdAt) {
-      latest = {
+    let latest:
+      | { message: IIntercomNotification; createdAt: number }
+      | undefined;
+    conversations.forEach((conversation) => {
+      const part = conversation.parts
+        .filter((item) => item.blocks.length)
+        .at(-1);
+      if (!part?.id) return;
+      const entryKey = JSON.stringify([userId, conversation.id]);
+      const previous = notifiedParts.get(entryKey);
+      if (previous && previous.createdAt > part.createdAt) return;
+      notifiedParts.delete(entryKey);
+      notifiedParts.set(entryKey, {
+        partId: part.id,
         createdAt: part.createdAt,
-        message: {
-          id: `${conversation.id}:${part.id}`,
-          conversationId: conversation.id,
-          author: part.author,
-          avatarUrl: part.avatar?.imageUrl,
-          message: part.blocks
-            .map((block) => block.text || block.items?.join('\n') || '')
-            .filter(Boolean)
-            .join('\n')
-            .slice(0, 240),
-        },
-      };
+      });
+      if (conversation.read) {
+        if (notification?.conversationId === conversation.id)
+          setNotification(undefined);
+        return;
+      }
+      if (!part.isAdmin || previous?.partId === part.id) return;
+      if (!latest || part.createdAt > latest.createdAt) {
+        latest = {
+          createdAt: part.createdAt,
+          message: {
+            id: `${conversation.id}:${part.id}`,
+            conversationId: conversation.id,
+            author: part.author,
+            avatarUrl: part.avatar?.imageUrl,
+            message: part.blocks
+              .map((block) => block.text || block.items?.join('\n') || '')
+              .filter(Boolean)
+              .join('\n')
+              .slice(0, 240),
+          },
+        };
+      }
+    });
+    // Persist only bounded IDs/timestamps, never message text or credentials.
+    // The shared lock deduplicates previews across extension windows and restarts.
+    while (notifiedParts.size > 200) {
+      const first = notifiedParts.keys().next().value;
+      if (first === undefined) break;
+      notifiedParts.delete(first);
     }
+    await assertCurrent();
+    await appStorage.setItem(
+      key,
+      JSON.stringify(
+        Array.from(notifiedParts, ([entryKey, value]) => ({
+          key: entryKey,
+          ...value,
+        })),
+      ),
+    );
+    await assertCurrent();
+    if (latest && visible && !isLocked()) setNotification(latest.message);
   });
-  // Retain only recent conversations; no message bodies survive dismissal.
-  while (notifiedParts.size > 200) {
-    const first = notifiedParts.keys().next().value;
-    if (first === undefined) break;
-    notifiedParts.delete(first);
-  }
-  if (latest) setNotification(latest.message);
 }
 
 export async function openIntercomNotification(id: string) {
@@ -193,17 +249,19 @@ export async function initIntercom(): Promise<void> {
     await identityTransition;
     return initIntercom();
   }
-  if (userId === owner && !visitorCleanupRequired) return;
-  const previous = owner;
+  if (userId === owner && !identitySyncRequired) return;
   invalidate();
   openGuard.setIdentity(userId);
-  visitorCleanupRequired ||= previous !== undefined || userId !== null;
+  identitySyncRequired = true;
   const transition = (async () => {
     // Never merge an anonymous conversation into a signed-in account, or keep
     // the previous visitor after a logout on a shared installation.
-    if (visitorCleanupRequired)
-      await storageOperation(() => visitorStorage.remove(storageKey));
-    visitorCleanupRequired = false;
+    await storageOperation(() =>
+      visitorStorage.syncIdentity(storageKey, userId, () =>
+        assertIntercomIdentity(userId),
+      ),
+    );
+    identitySyncRequired = false;
     owner = userId;
   })();
   identityTransition = transition;
@@ -332,13 +390,27 @@ async function pollUnread() {
       conversations = (await session.listConversations()).conversations;
     }
     await session.assertCurrent();
-    if (visible && !isLocked()) updateMessageNotification(conversations);
+    if (visible && !isLocked())
+      await updateMessageNotification(
+        conversations,
+        userId,
+        session.assertCurrent,
+      );
   }
 }
 function ensureUnreadPolling() {
-  if (!visible || isLocked() || unreadPolling) return;
+  if (!backgroundPollingReady || !visible || isLocked() || unreadPolling)
+    return;
   unreadPolling = createSupportPollingTask(pollUnread, 30_000);
   void unreadPolling.refresh();
+}
+export async function startIntercomBackgroundPolling() {
+  backgroundPollingReady = true;
+  try {
+    await initIntercom();
+  } finally {
+    ensureUnreadPolling();
+  }
 }
 function stopUnreadPolling() {
   unreadPolling?.stop();
@@ -356,7 +428,7 @@ export async function syncIntercomLockState() {
   await markIntercomLockReady();
   if (isLocked()) {
     stopUnreadPolling();
-    invalidate(false);
+    invalidate();
     openGuard.reset();
   } else ensureUnreadPolling();
 }

@@ -8,8 +8,10 @@ import { act, render } from '@testing-library/react';
 
 let mockUserId: string | null = 'A';
 const mockInit = jest.fn(async () => {});
+const mockStartPolling = jest.fn(async () => {});
 jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   initIntercom: () => mockInit(),
+  startIntercomBackgroundPolling: () => mockStartPolling(),
 }));
 
 // Bootstrap imports unrelated startup features; this suite mounts only its
@@ -160,23 +162,24 @@ describe('Intercom startup identity synchronization', () => {
     jest.useRealTimers();
   });
 
-  it('defers only the first unchanged identity sync and cancels it on unmount', async () => {
+  it('defers background polling for ten seconds and cancels it on unmount', async () => {
     const first = render(<SessionSync />);
     await act(async () => {
       await jest.advanceTimersByTimeAsync(9000);
     });
-    expect(mockInit).not.toHaveBeenCalled();
+    expect(mockStartPolling).not.toHaveBeenCalled();
     first.unmount();
     await act(async () => {
       await jest.advanceTimersByTimeAsync(1000);
     });
-    expect(mockInit).not.toHaveBeenCalled();
+    expect(mockStartPolling).not.toHaveBeenCalled();
 
     const second = render(<SessionSync />);
     await act(async () => {
       await jest.advanceTimersByTimeAsync(10_000);
     });
-    expect(mockInit).toHaveBeenCalledTimes(1);
+    expect(mockStartPolling).toHaveBeenCalledTimes(1);
+    expect(mockInit).not.toHaveBeenCalled();
     second.unmount();
   });
 
@@ -190,10 +193,12 @@ describe('Intercom startup identity synchronization', () => {
         await jest.advanceTimersByTimeAsync(0);
       });
       expect(mockInit).toHaveBeenCalledTimes(1);
+      expect(mockStartPolling).not.toHaveBeenCalled();
       await act(async () => {
         await jest.advanceTimersByTimeAsync(10_000);
       });
       expect(mockInit).toHaveBeenCalledTimes(1);
+      expect(mockStartPolling).toHaveBeenCalledTimes(1);
       screen.unmount();
     },
   );

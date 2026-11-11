@@ -1,5 +1,9 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const mockItems = new Map<string, string>();
 let mockSequence = 0;
+let mockUserId: string | null = null;
+let mockBackgroundUserId: string | null = null;
 const mockSet = jest.fn(async (key: string, value: string) => {
   mockItems.set(key, value);
 });
@@ -26,7 +30,11 @@ jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
   getInstanceId: async () => 'test-install',
 }));
 jest.mock('./identity', () => ({
-  getCurrentIntercomUserId: async () => null,
+  getCurrentIntercomUserId: async () => mockUserId,
+  assertIntercomIdentity: async (expected: string | null) => {
+    if (expected !== mockBackgroundUserId)
+      throw new OneKeyLocalError('Support session changed');
+  },
   getIntercomCredentials: async () => undefined,
   getInstanceId: async () => 'test-install',
   getIntercomLanguageOverride: async () => 'en',
@@ -56,6 +64,8 @@ beforeEach(async () => {
   jest.clearAllMocks();
   mockItems.clear();
   mockSequence = 0;
+  mockUserId = null;
+  mockBackgroundUserId = null;
   mockSet.mockImplementation(async (key, value) => {
     mockItems.set(key, value);
   });
@@ -120,7 +130,10 @@ it('serializes first boot across independent extension windows and restores the 
   const secondWindow = await import('./messenger');
   const second = secondWindow.createIntercomMessengerSession(null);
   await new Promise<void>((resolve) => setImmediate(resolve));
-  expect(locks).toHaveBeenCalledTimes(2);
+  expect(locks).toHaveBeenCalledWith(
+    subject.intercomVisitorStorageKey,
+    expect.any(Function),
+  );
   expect(fetch).toHaveBeenCalledTimes(1);
   finishFirst(visitorResponse('shared'));
   const [a, b] = await Promise.all([first, second]);
@@ -308,4 +321,116 @@ it('rejects a boot response after a shared clear and starts the next session wit
   const body = new URLSearchParams(String(nextFetch.mock.calls[0][1]?.body));
   expect(body.has('anonymous_session')).toBe(false);
   expect(await subject.visitorStorage.get(key)).toContain('test-new-session');
+});
+
+it('keeps the new anonymous visitor when another extension window processes the same logout later', async () => {
+  installSharedLocks();
+  mockUserId = 'A';
+  mockBackgroundUserId = 'A';
+  const firstWindow = await import('./messenger');
+  await firstWindow.initIntercom();
+  jest.resetModules();
+  const secondWindow = await import('./messenger');
+  await secondWindow.initIntercom();
+  globalThis.fetch = async () => visitorResponse('after-logout');
+  mockUserId = null;
+  mockBackgroundUserId = null;
+  const fresh = await firstWindow.createIntercomMessengerSession(null);
+  const stored = await subject.visitorStorage.get(
+    subject.intercomVisitorStorageKey,
+  );
+  await secondWindow.initIntercom();
+  expect(
+    await subject.visitorStorage.get(subject.intercomVisitorStorageKey),
+  ).toBe(stored);
+  await expect(fresh.assertCurrent()).resolves.toBeUndefined();
+  await secondWindow.createIntercomMessengerSession(null);
+  expect(
+    await subject.visitorStorage.get(subject.intercomVisitorStorageKey),
+  ).toBe(stored);
+});
+
+it('rejects a stale window identity before it can revoke the shared visitor', async () => {
+  installSharedLocks();
+  const currentWindow = await import('./messenger');
+  globalThis.fetch = async () => visitorResponse('current');
+  const fresh = await currentWindow.createIntercomMessengerSession(null);
+  const stored = await subject.visitorStorage.get(
+    subject.intercomVisitorStorageKey,
+  );
+  jest.resetModules();
+  const staleWindow = await import('./messenger');
+  mockUserId = 'A';
+  await expect(staleWindow.initIntercom()).rejects.toThrow(
+    'Support session changed',
+  );
+  expect(
+    await subject.visitorStorage.get(subject.intercomVisitorStorageKey),
+  ).toBe(stored);
+  mockUserId = null;
+  await expect(fresh.assertCurrent()).resolves.toBeUndefined();
+});
+
+it('deduplicates unread previews across extension windows and a cold restart while retaining the badge', async () => {
+  installSharedLocks();
+  let replyId = 'admin-1';
+  globalThis.fetch = async (url) =>
+    new Response(
+      JSON.stringify({
+        user: { id: 'shared', anonymous_id: 'shared' },
+        anonymous_session: 'shared-session',
+        session_expiry: 9_999_999_999,
+        unread_conversation_ids: ['42'],
+        ...(String(url).endsWith('/conversations')
+          ? {
+              conversations: [
+                {
+                  id: '42',
+                  read: false,
+                  conversation_parts: [
+                    {
+                      id: replyId,
+                      created_at: 1_700_000_000,
+                      participant_is_admin: true,
+                      author: { name: 'Support' },
+                      body: [{ type: 'paragraph', text: 'Private reply' }],
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      }),
+    );
+  const firstWindow = await import('./messenger');
+  await firstWindow.createIntercomMessengerSession(null);
+  firstWindow.subscribeToIntercomNotifications(() => {});
+  await firstWindow.startIntercomBackgroundPolling();
+  await firstWindow.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(firstWindow.getIntercomNotification()?.id).toBe('42:admin-1');
+  jest.resetModules();
+  const secondWindow = await import('./messenger');
+  secondWindow.subscribeToIntercomNotifications(() => {});
+  await secondWindow.startIntercomBackgroundPolling();
+  await secondWindow.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(secondWindow.getIntercomNotification()).toBeUndefined();
+  expect(secondWindow.getIntercomUnreadCount()).toBe(1);
+  await firstWindow.setIntercomInAppMessageVisibility(false);
+  await secondWindow.setIntercomInAppMessageVisibility(false);
+  jest.resetModules();
+  const restarted = await import('./messenger');
+  restarted.subscribeToIntercomNotifications(() => {});
+  await restarted.startIntercomBackgroundPolling();
+  await restarted.setIntercomInAppMessageVisibility(true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(restarted.getIntercomNotification()).toBeUndefined();
+  expect(restarted.getIntercomUnreadCount()).toBe(1);
+  replyId = 'admin-2';
+  restarted.refreshIntercomNotifications();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(restarted.getIntercomNotification()?.id).toBe('42:admin-2');
+  expect(Array.from(mockItems.values()).join()).not.toContain('Private reply');
+  await restarted.setIntercomInAppMessageVisibility(false);
 });
