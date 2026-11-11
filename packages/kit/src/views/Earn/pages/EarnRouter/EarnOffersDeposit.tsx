@@ -44,6 +44,10 @@ import {
   EarnFormSwitchingContext,
   EarnOutcomeCarryContext,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import {
+  endEarnOutcomePreview,
+  previewEarnOutcome,
+} from '../../../Staking/components/UniversalStake/earnOutcomePreviewStore';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { easeModalHeightChanges } from '../../../Staking/hooks/useFitModalHeight';
 import {
@@ -348,6 +352,33 @@ function EarnOfferRoutes({
   onHoverIn: (offer: IEarnDesktopHoldOffer) => void;
 }) {
   const intl = useIntl();
+  // The pointer on an offer that isn't the picked one: the window's result
+  // shows what the same amount would earn there, by the two rates. A fixed
+  // rate's result is another figure (what it pays at maturity), so it has
+  // no preview either way
+  const selectedOffer = offers.find((offer) => offer.key === selectedKey);
+  const handlePreview = useCallback(
+    (offer?: IEarnDesktopHoldOffer) => {
+      if (
+        !offer ||
+        !selectedOffer ||
+        offer.key === selectedOffer.key ||
+        offer.isFixedRate ||
+        selectedOffer.isFixedRate ||
+        !(selectedOffer.apr > 0)
+      ) {
+        endEarnOutcomePreview({ isNow: Boolean(offer) });
+        return;
+      }
+      previewEarnOutcome(offer.apr / selectedOffer.apr);
+    },
+    [selectedOffer],
+  );
+  // A pick makes the offer the picked one; leaving the window ends it too
+  useEffect(() => {
+    endEarnOutcomePreview({ isNow: true });
+    return () => endEarnOutcomePreview({ isNow: true });
+  }, [selectedKey]);
   return (
     <YStack gap="$3">
       <YStack
@@ -369,6 +400,7 @@ function EarnOfferRoutes({
             facts={renderFacts?.(offer, offer.key === selectedKey)}
             onSelect={onSelect}
             onHoverIn={onHoverIn}
+            onPreview={handlePreview}
           />
         ))}
       </YStack>
@@ -415,7 +447,7 @@ function EarnClassHint({
       <SizableText size="$bodyMd" color="$textSubdued" flex={1} minWidth={0}>
         {EARN_DESKTOP_DEMO_COPY.earnClassHint(label)}
       </SizableText>
-      <SizableText size="$bodyMdMedium" color="$textSuccess" flexShrink={0}>
+      <SizableText size="$bodyMdMedium" flexShrink={0}>
         {`${rate.toFixed(2)}%`}
       </SizableText>
       <Icon

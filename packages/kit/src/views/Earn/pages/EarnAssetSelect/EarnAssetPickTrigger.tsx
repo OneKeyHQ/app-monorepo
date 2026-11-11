@@ -173,7 +173,7 @@ export function EarnAssetPickTrigger({
           figure: figureOf(network.rate),
         }))}
         allFigure={figureOf(menuNetworks?.all.rate)}
-        figureColor={purpose === 'earn' ? '$textSuccess' : undefined}
+        figureColor={purpose === 'earn' ? '$text' : undefined}
         onSelect={(networkId) => onPickNetwork?.(networkId)}
       />
     );

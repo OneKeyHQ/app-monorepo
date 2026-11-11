@@ -129,8 +129,9 @@ function TokenOnProtocolImage({
 }
 
 // An offer as a choice, as the Swap page lists its routes: every option a
-// card in view, the one picked a lighter card with a check, no border, so a
-// pick only moves the check. The guide's vault step and the deposit modal's
+// card in view, the one picked a lighter card with the app's active border
+// and a check. Green stays with what is earned and with health, so a pick
+// is told by the card, not by a color (11-11). The guide's vault step and the deposit modal's
 // protocols share it. Name and rate as the deposit modal's rows write them,
 // TVL under the rate
 export function EarnOfferOptionCard({
@@ -139,6 +140,7 @@ export function EarnOfferOptionCard({
   isSelected = false,
   onSelect,
   onHoverIn,
+  onPreview,
   vaultFirst = false,
   token,
   payRoute,
@@ -153,6 +155,9 @@ export function EarnOfferOptionCard({
   onSelect?: (offer: IEarnDesktopHoldOffer) => void;
   // The pointer over it, to read its form ahead
   onHoverIn?: (offer: IEarnDesktopHoldOffer) => void;
+  // The pointer (or the keyboard's focus) on it and off it again: the
+  // window's result shows what this offer would earn meanwhile
+  onPreview?: (offer?: IEarnDesktopHoldOffer) => void;
   // The vault's own name first, the protocol under it (the guide names
   // vaults); a market or a fixed rate keeps the protocol first either way
   vaultFirst?: boolean;
@@ -170,10 +175,15 @@ export function EarnOfferOptionCard({
   testID?: string;
 }) {
   const handlePress = useCallback(() => onSelect?.(offer), [offer, onSelect]);
-  const handleHoverIn = useCallback(
-    () => onHoverIn?.(offer),
-    [offer, onHoverIn],
+  const handleHoverIn = useCallback(() => {
+    onHoverIn?.(offer);
+    onPreview?.(offer);
+  }, [offer, onHoverIn, onPreview]);
+  const handlePreviewIn = useCallback(
+    () => onPreview?.(offer),
+    [offer, onPreview],
   );
+  const handlePreviewOut = useCallback(() => onPreview?.(), [onPreview]);
   const isChoice = Boolean(onSelect);
   const intl = useIntl();
   const { logoURI, name, subtitle, aprElement, tvlText } = buildOfferRowProps(
@@ -199,8 +209,11 @@ export function EarnOfferOptionCard({
       role={isChoice ? 'radio' : undefined}
       aria-checked={isChoice ? isSelected : undefined}
       px="$4"
-      py={CARD_PY}
+      // The border's own width comes off the padding: every card one height
+      py={CARD_PY - 1}
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
+      borderWidth={1}
+      borderColor={isSelected ? '$borderActive' : '$transparent'}
       borderRadius="$3"
       borderCurve="continuous"
       userSelect={isChoice ? 'none' : undefined}
@@ -208,8 +221,12 @@ export function EarnOfferOptionCard({
       hoverStyle={isChoice && !isSelected ? { bg: '$bgHover' } : undefined}
       pressStyle={isChoice ? { bg: '$bgActive' } : undefined}
       onPress={isChoice ? handlePress : undefined}
-      onHoverIn={onHoverIn ? handleHoverIn : undefined}
+      onHoverIn={onHoverIn || onPreview ? handleHoverIn : undefined}
+      onHoverOut={onPreview ? handlePreviewOut : undefined}
       {...(isChoice ? buildKeyboardPressProps(handlePress, 2) : undefined)}
+      {...(onPreview
+        ? { onFocus: handlePreviewIn, onBlur: handlePreviewOut }
+        : undefined)}
     >
       <XStack
         ai="center"
@@ -326,7 +343,7 @@ export function EarnOfferOptionCard({
         {isChoice ? (
           <Icon
             name={isSelected ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'}
-            color={isSelected ? '$iconSuccess' : '$iconSubdued'}
+            color={isSelected ? '$icon' : '$iconSubdued'}
             size="$6"
             flexShrink={0}
           />

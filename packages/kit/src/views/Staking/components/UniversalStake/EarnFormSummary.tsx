@@ -12,9 +12,11 @@ import {
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Accordion,
+  AnimatePresence,
   HeightTransition,
   Icon,
   SizableText,
@@ -25,6 +27,7 @@ import {
 import type { IColorTokens, IElement } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -44,6 +47,11 @@ import {
 import { EarnFadingPlaceholder } from '../EarnFadingPlaceholder';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
+
+import {
+  scaleOutcomeFiat,
+  useEarnOutcomePreview,
+} from './earnOutcomePreviewStore';
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 const FADE_IN = { opacity: 0 } as const;
@@ -790,6 +798,10 @@ function sumOutcomeFiat(values: IEarnOutcomeValue[]): string | undefined {
 // stays put as the figures come and go
 const HERO_FIGURE_HEIGHT = 36;
 const HERO_PARTS_HEIGHT = 20;
+// How far the figure travels as an offer pointed at takes its place
+const HERO_TURN = 8;
+const HERO_TURN_IN = { opacity: 0, y: HERO_TURN } as const;
+const HERO_TURN_OUT = { opacity: 0, y: -HERO_TURN } as const;
 
 /**
  * The windows' result, as the home's Net Worth stands: its label over one
@@ -834,6 +846,25 @@ function EarnOutcomeHero({
   } else if (outcome.isCost) {
     color = '$textCritical';
   }
+  // The pointer on another offer: what the same amount would earn there, in
+  // the figure's place until the pointer leaves. Its tokens are the picked
+  // offer's, so their line steps out meanwhile
+  const reduceMotion = useReducedMotion();
+  const previewRatio = useEarnOutcomePreview();
+  const preview =
+    outcome.isEarning && total && previewRatio !== undefined
+      ? scaleOutcomeFiat(total, previewRatio)
+      : undefined;
+  const figureText = (
+    <SizableText
+      size="$heading3xl"
+      color={color}
+      fontVariant={TABULAR_NUMS}
+      numberOfLines={1}
+    >
+      {preview ?? figure}
+    </SizableText>
+  );
   return (
     <YStack testID={testID} gap="$0.5" py="$1">
       <RowLabel label={outcome.label} tooltip={outcome.tooltip} keepsOneLine />
@@ -844,17 +875,41 @@ function EarnOutcomeHero({
         animateOnly={ANIMATE_ONLY_OPACITY}
         enterStyle={fadesIn && hasValues ? FADE_IN : undefined}
       >
-        <XStack h={HERO_FIGURE_HEIGHT} ai="center">
-          <SizableText
-            size="$heading3xl"
-            color={color}
-            fontVariant={TABULAR_NUMS}
-            numberOfLines={1}
-          >
-            {figure}
-          </SizableText>
-        </XStack>
-        <XStack h={HERO_PARTS_HEIGHT} ai="center">
+        {reduceMotion ? (
+          <XStack h={HERO_FIGURE_HEIGHT} ai="center">
+            {figureText}
+          </XStack>
+        ) : (
+          // The offer's figure comes up as the picked one's leaves, and
+          // back; from one offer to the next it changes in place
+          <XStack h={HERO_FIGURE_HEIGHT}>
+            <AnimatePresence initial={false}>
+              <XStack
+                key={preview ? 'preview' : 'own'}
+                testID={preview && testID ? `${testID}-preview` : undefined}
+                position="absolute"
+                t={0}
+                b={0}
+                l={0}
+                r={0}
+                ai="center"
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+                enterStyle={HERO_TURN_IN}
+                exitStyle={HERO_TURN_OUT}
+              >
+                {figureText}
+              </XStack>
+            </AnimatePresence>
+          </XStack>
+        )}
+        <XStack
+          h={HERO_PARTS_HEIGHT}
+          ai="center"
+          opacity={preview ? 0 : 1}
+          transition={reduceMotion ? undefined : 'quick'}
+          animateOnly={ANIMATE_ONLY_OPACITY}
+        >
           <SizableText
             size="$bodyMd"
             color="$textSubdued"

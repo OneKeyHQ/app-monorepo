@@ -48,9 +48,12 @@ import { sortAssetSelectTokens } from '../EarnAssetSelect/earnAssetSelect.utils'
 import { warmSwapNetworkParents } from '../EarnAssetSelect/earnAssetSelectNetworkParents';
 import { OfferMark } from '../EarnRouter/EarnOfferOptionCard';
 
+import { LoanLtvMiniBar } from './LoanLtvMiniBar';
+import { getLoanHealthTone } from './loanRouter.utils';
 import { useLoanToneColors } from './loanToneColors';
 
 import type {
+  ILoanCardBar,
   ILoanPayPath,
   ILoanRoute,
   ILoanRouteBlock,
@@ -383,7 +386,7 @@ export function LoanTokenList({
               <NetworkLogos networks={option.networks} />
               {/* The check's place is kept, so the networks line up */}
               {isSelected ? (
-                <Icon name="CheckLargeOutline" size="$4" color="$iconSuccess" />
+                <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
               ) : (
                 <Stack w="$4" h="$4" flexShrink={0} />
               )}
@@ -401,6 +404,8 @@ export type ILoanRouteItem = {
   route: ILoanRoute;
   facts?: ILoanRouteFacts;
   metrics: ILoanRouteMetrics;
+  // The loan as it would sit in this market, drawn under the figures
+  bar?: ILoanCardBar;
   // A kind of token on a side: the card names its own pair
   pairLabel?: string;
   // Pay with doesn't pay with this collateral there: a swap buys it first,
@@ -422,6 +427,8 @@ const FIGURES_INDENT = '$12';
 // Past the pair's two logos instead, comparing a kind of token: 58 + 12
 const PAIR_FIGURES_INDENT = 70;
 const CHECK_SIZE = '$6';
+// The card's own LTV bar: a thin track in the room its dot takes
+const CARD_BAR_HEIGHT = 12;
 // The line under the figures that says why a market can't take the loan,
 // and the card's gap above it
 const REASON_LINE_HEIGHT = 16;
@@ -650,7 +657,7 @@ function RouteCheck({
   return (
     <Icon
       name={isSelected ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'}
-      color={isSelected ? '$iconSuccess' : '$iconSubdued'}
+      color={isSelected ? '$icon' : '$iconSubdued'}
       size={CHECK_SIZE}
       flexShrink={0}
     />
@@ -973,10 +980,14 @@ function RouteRow({
       testID={`earn-loan-route-${route.key}`}
       gap="$3"
       px="$4"
-      py="$3.5"
+      // The border's own width comes off the padding
+      py={13}
       // Nothing to pick where the market doesn't lend the token at all, and
       // nothing picked while the figures load
       bg={cardColor}
+      // The picked card as the Earn window's: the app's active border
+      borderWidth={1}
+      borderColor={isLit ? '$borderActive' : '$transparent'}
       // The logos' rings follow its color as it is hovered
       group
       borderRadius="$3"
@@ -1044,6 +1055,23 @@ function RouteRow({
           isLoading={!item.facts}
         />
       </XStack>
+      {/* The LTV bar in small, the form's own: the same loan beside each
+          market's limit, so the markets compare at a glance. Its place is
+          kept while the figures load */}
+      <YStack testID={`earn-loan-route-bar-${route.key}`} pl={indent} pr="$9">
+        <LoanLtvMiniBar
+          used={item.bar?.used}
+          value={item.bar?.value}
+          cap={isLendingClosed(block) ? undefined : item.bar?.cap}
+          liquidation={item.bar?.liquidation}
+          tone={getLoanHealthTone(metrics.healthFactor)}
+          height={CARD_BAR_HEIGHT}
+          trackHeight={4}
+          thumbSize={8}
+          isQuiet
+          isDim={isBlocked}
+        />
+      </YStack>
       <RouteReasonLine
         text={block ? getLoanBlockText({ block, route, currency }) : undefined}
         isReserved={!isSettled}

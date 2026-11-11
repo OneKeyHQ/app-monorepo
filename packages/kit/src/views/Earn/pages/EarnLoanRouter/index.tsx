@@ -124,6 +124,7 @@ import {
   LOAN_HEALTH_TEXT_COLOR,
   buildLoanRoutesForPicks,
   buildLoanSelectTokens,
+  getLoanCardBar,
   getLoanCardMetrics,
   getLoanDoneLine,
   getLoanForPositionLtv,
@@ -937,16 +938,24 @@ function EarnLoanRouterPage() {
       rankLoanRoutes(
         routes.map((item) => {
           const facts = byRoute.get(item.key);
+          const metrics = getLoanCardMetrics({
+            route: item,
+            facts,
+            collateralAmount: supplyAmountOf(item),
+            borrowAmount,
+            ltvStage,
+            isReference: isReferencePlan,
+          });
           return {
             route: item,
             facts,
-            metrics: getLoanCardMetrics({
+            metrics,
+            bar: getLoanCardBar({
               route: item,
               facts,
+              metrics,
               collateralAmount: supplyAmountOf(item),
-              borrowAmount,
-              ltvStage,
-              isReference: isReferencePlan,
+              hasLoan: !isReferencePlan,
             }),
           };
         }),

@@ -139,11 +139,7 @@ function RowFigure({
     );
   } else if (rate !== undefined) {
     figure = (
-      <SizableText
-        size="$bodyLgMedium"
-        color={purpose === 'earn' ? '$textSuccess' : undefined}
-        numberOfLines={1}
-      >
+      <SizableText size="$bodyLgMedium" numberOfLines={1}>
         {formatRate(rate)}
       </SizableText>
     );
@@ -178,7 +174,7 @@ function RowCheck({ isSelected }: { isSelected: boolean }) {
     <Icon
       name="CheckLargeOutline"
       size="$5"
-      color="$iconSuccess"
+      color="$iconActive"
       flexShrink={0}
     />
   ) : (

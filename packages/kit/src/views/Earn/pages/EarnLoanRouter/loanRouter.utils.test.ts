@@ -5,6 +5,7 @@ import {
   buildLoanRoutesForPicks,
   buildLoanSelectTokens,
   getLoanBorrowOptions,
+  getLoanCardBar,
   getLoanCardMetrics,
   getLoanDoneLine,
   getLoanForLtv,
@@ -914,6 +915,101 @@ describe('getLoanLtvBar', () => {
       liquidation: 0.78,
       isPreview: true,
     });
+  });
+});
+
+describe("a market card's own LTV bar (11-11)", () => {
+  const [core] = buildLoanRoutes({
+    markets: MARKETS,
+    collateralSymbol: 'WBTC',
+    borrowSymbol: 'USDC',
+  });
+  const position = facts({
+    weightedCollateral: 5.68,
+    debt: 2,
+    collateralValue: 7.02,
+    debtValue: 2,
+  });
+  // $1 of WBTC at 80,000
+  const collateralAmount = '0.0000125';
+
+  it("draws the loan where the form's bar has it", () => {
+    const metrics = getLoanRouteMetrics({
+      route: core,
+      facts: position,
+      collateralAmount,
+      borrowAmount: '0.5',
+    });
+    const bar = getLoanCardBar({
+      route: core,
+      facts: position,
+      metrics,
+      collateralAmount,
+      hasLoan: true,
+    });
+    const formBar = getLoanLtvBar({
+      route: core,
+      facts: position,
+      maxLtv: metrics.maxLtv,
+      newCollateralValue: 1,
+      loanValue: 0.5,
+      previewLtv: 0,
+    });
+    expect(bar?.used).toBeCloseTo(formBar.used, 6);
+    expect(bar?.value).toBeCloseTo(formBar.value, 6);
+    expect(bar?.liquidation).toBeCloseTo(formBar.liquidation ?? 0, 6);
+    expect(bar?.cap).toBe(metrics.maxLtv);
+  });
+
+  it('draws no loan until one is typed: the cards compare a reference loan', () => {
+    const metrics = getLoanCardMetrics({
+      route: core,
+      facts: position,
+      collateralAmount,
+      borrowAmount: '',
+      isReference: true,
+    });
+    const bar = getLoanCardBar({
+      route: core,
+      facts: position,
+      metrics,
+      collateralAmount,
+      hasLoan: false,
+    });
+    expect(bar?.value).toBeUndefined();
+    // What is borrowed there already stays: 2 / 8.02
+    expect(bar?.used).toBeCloseTo(0.2494, 3);
+  });
+
+  it("gives a fresh market its reserve's limits", () => {
+    const fresh = facts();
+    const metrics = getLoanCardMetrics({
+      route: core,
+      facts: fresh,
+      collateralAmount: '',
+      borrowAmount: '',
+      isReference: true,
+    });
+    expect(
+      getLoanCardBar({
+        route: core,
+        facts: fresh,
+        metrics,
+        collateralAmount: '',
+        hasLoan: false,
+      }),
+    ).toEqual({ used: 0, value: undefined, cap: 0.73, liquidation: 0.78 });
+  });
+
+  it('has nothing to draw before the market answers', () => {
+    expect(
+      getLoanCardBar({
+        route: core,
+        metrics: {},
+        collateralAmount,
+        hasLoan: true,
+      }),
+    ).toBeUndefined();
   });
 });
 

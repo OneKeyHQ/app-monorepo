@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DottedUnderlineText } from '../../../Staking/components/ProtocolDetails/DottedUnderline';
 
+import { LoanLtvMiniBar } from './LoanLtvMiniBar';
 import { LOAN_BAR_SURFACES, useLoanToneColors } from './loanToneColors';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
@@ -134,10 +135,9 @@ const Swatch = ({ color }: { color: string }) => (
 // The sample bar's parts, as shares of its width: wide enough each to be
 // told apart, whatever the position's own figures are
 const SAMPLE = { used: 0.26, value: 0.46, cap: 0.62, liquidation: 0.8 };
+// The health scale's height, and the room it stands in: the sample bar's
 const SAMPLE_TRACK_HEIGHT = 6;
-const SAMPLE_THUMB = 12;
 const SAMPLE_HEIGHT = 16;
-const toPercent = (share: number) => `${share * 100}%` as const;
 
 /**
  * What the LTV bar's parts stand for: the bar in small with every part in
@@ -163,79 +163,15 @@ export function LoanLtvLegend({
   const surfaces =
     LOAN_BAR_SURFACES[useThemeVariant() === 'light' ? 'light' : 'dark'];
   const hasBorrowed = Boolean(borrowed);
-  const usedEnd = hasBorrowed ? SAMPLE.used : 0;
-  const bandTop = (SAMPLE_HEIGHT - SAMPLE_TRACK_HEIGHT) / 2;
   return (
     <YStack w={LEGEND_WIDTH} gap="$3">
-      <Stack h={SAMPLE_HEIGHT} aria-hidden>
-        <Stack
-          position="absolute"
-          left={0}
-          right={0}
-          top={bandTop}
-          h={SAMPLE_TRACK_HEIGHT}
-          borderRadius="$full"
-          overflow="hidden"
-          backgroundColor={surfaces.track}
-        >
-          <Stack
-            position="absolute"
-            top={0}
-            bottom={0}
-            left={toPercent(SAMPLE.cap)}
-            right={0}
-            backgroundColor={surfaces.locked}
-          />
-          {hasBorrowed ? (
-            <Stack
-              position="absolute"
-              top={0}
-              bottom={0}
-              left={0}
-              w={toPercent(usedEnd)}
-              backgroundColor={surfaces.used}
-            />
-          ) : null}
-          <Stack
-            position="absolute"
-            top={0}
-            bottom={0}
-            left={toPercent(usedEnd)}
-            w={toPercent(SAMPLE.value - usedEnd)}
-            backgroundColor={fill[tone]}
-          />
-          <Stack
-            position="absolute"
-            top={0}
-            bottom={0}
-            left={toPercent(SAMPLE.liquidation)}
-            right={0}
-            backgroundColor={fill.critical}
-          />
-        </Stack>
-        <Stack
-          position="absolute"
-          top={1}
-          bottom={1}
-          left={toPercent(SAMPLE.cap)}
-          w={2}
-          ml={-1}
-          borderRadius="$full"
-          backgroundColor={surfaces.wall}
-        />
-        <Stack
-          position="absolute"
-          top={(SAMPLE_HEIGHT - SAMPLE_THUMB) / 2}
-          left={toPercent(SAMPLE.value)}
-          w={SAMPLE_THUMB}
-          h={SAMPLE_THUMB}
-          ml={-SAMPLE_THUMB / 2}
-          borderRadius="$full"
-          backgroundColor={surfaces.thumb}
-          borderWidth={0.5}
-          borderColor="$borderSubdued"
-        />
-      </Stack>
+      <LoanLtvMiniBar
+        used={hasBorrowed ? SAMPLE.used : 0}
+        value={SAMPLE.value}
+        cap={SAMPLE.cap}
+        liquidation={SAMPLE.liquidation}
+        tone={tone}
+      />
       <YStack gap="$1">
         {hasBorrowed ? (
           <LegendRow
