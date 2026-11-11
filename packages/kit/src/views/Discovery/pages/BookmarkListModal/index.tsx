@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,12 +9,9 @@ import {
   Empty,
   Page,
   Toast,
-  XStack,
+  useTheme,
 } from '@onekeyhq/components';
-import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView';
-import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -29,11 +27,18 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 
-import { DiscoveryIcon } from '../../components/DiscoveryIcon';
+import { useHomeNativeListTheme } from '../../../Home/hooks/useHomeNativeListTheme';
+import { buildBrowserSiteRow } from '../../components/browserSiteNativeRow';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
+import type {
+  NativeListSnapshot,
+  ReorderEvent,
+  RowActionEvent,
+  RowModel,
+} from '@onekeyfe/react-native-native-list';
 
 function BookmarkListModal() {
   const navigation = useAppNavigation();
@@ -138,16 +143,12 @@ function BookmarkListModal() {
 
   const removeBookmarkFlagRef = useRef(false);
   const [isEditing, setIsEditing] = useState(false);
-  const deleteCell = useCallback(
-    async (getIndex: () => number | undefined) => {
-      const index = getIndex();
-      if (index === undefined) {
-        return;
-      }
-      await removeBrowserBookmark(dataSource[index].url);
+  const deleteBookmark = useCallback(
+    async (item: IBrowserBookmark) => {
+      await removeBrowserBookmark(item.url);
       removeBookmarkFlagRef.current = true;
     },
-    [removeBrowserBookmark, dataSource],
+    [removeBrowserBookmark],
   );
   // Auto goBack when no bookmark
   useEffect(() => {
@@ -157,18 +158,22 @@ function BookmarkListModal() {
     }
   }, [result?.length, navigation]);
 
-  const onSortBookmarks = useCallback(
-    async (params: IDragEndParamsWithItem<IBrowserBookmark>) => {
-      const { data, dragItem, prevItem, nextItem } = params;
-
+  const onReorder = useCallback(
+    async (event: ReorderEvent) => {
+      const fromIndex = dataSource.findIndex((item) => item.url === event.key);
+      if (fromIndex < 0) return;
+      const data = [...dataSource];
+      const [dragItem] = data.splice(fromIndex, 1);
+      const toIndex = Math.max(0, Math.min(event.toIndex, data.length));
+      data.splice(toIndex, 0, dragItem);
       setDataSource(data);
       await sortBrowserBookmark({
         target: dragItem,
-        prev: prevItem,
-        next: nextItem,
+        prev: data[toIndex - 1],
+        next: data[toIndex + 1],
       });
     },
-    [sortBrowserBookmark],
+    [dataSource, sortBrowserBookmark],
   );
 
   const handleItemPress = useCallback(
@@ -185,8 +190,6 @@ function BookmarkListModal() {
     },
     [handleWebSite],
   );
-
-  const CELL_HEIGHT = 60;
 
   const headerRight = useCallback(
     () => (
@@ -209,6 +212,78 @@ function BookmarkListModal() {
     [isEditing, intl],
   );
 
+  const theme = useHomeNativeListTheme();
+  const colors = useTheme();
+  const generationRef = useRef(0);
+  const snapshot = useMemo<NativeListSnapshot>(() => {
+    generationRef.current += 1;
+    const rows: RowModel[] = dataSource.map((item) =>
+      buildBrowserSiteRow({
+        key: item.url,
+        title: item.title,
+        url: item.url,
+        logo: item.logo,
+        theme,
+        borderColor: colors.borderSubdued.val,
+        editing: isEditing,
+        testID: `search-modal-${item.url.toLowerCase()}`,
+        leadingAction: {
+          kind: 'icon',
+          name: 'MinusCircleSolid',
+          tintColor: colors.iconCritical.val,
+          actionKey: 'remove',
+          accessibilityLabel: intl.formatMessage({
+            id: ETranslations.global_remove,
+          }),
+        },
+        trailing: [
+          {
+            kind: 'icon',
+            name: 'PencilOutline',
+            actionKey: 'rename',
+            testID: 'action-list-item-rename',
+            accessibilityLabel: intl.formatMessage({
+              id: ETranslations.explore_rename,
+            }),
+          },
+          { kind: 'drag' },
+        ],
+      }),
+    );
+    return {
+      schemaVersion: 1,
+      generation: generationRef.current,
+      layout: { kind: 'linear', contentPaddingHorizontal: 8 },
+      capabilities: {
+        // cspell:ignore reorderable
+        reorderable: isEditing,
+        reorderActivation: 'handle',
+      },
+      theme,
+      rows,
+    };
+  }, [dataSource, isEditing, theme, colors, intl]);
+
+  const onRowAction = useCallback(
+    (event: RowActionEvent) => {
+      const item = dataSource.find((bookmark) => bookmark.url === event.rowKey);
+      if (!item) return;
+      if (event.actionKey === 'press') {
+        if (!isEditing) handleItemPress(item);
+      } else if (event.actionKey === 'rename') {
+        onRename(item);
+      } else if (event.actionKey === 'remove') {
+        void deleteBookmark(item);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.explore_removed_success,
+          }),
+        });
+      }
+    },
+    [dataSource, isEditing, handleItemPress, onRename, deleteBookmark, intl],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -218,92 +293,25 @@ function BookmarkListModal() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <SortableListView
-          data={dataSource}
-          enabled={isEditing}
-          keyExtractor={(item) => item.url}
-          getItemLayout={(_, index) => ({
-            length: CELL_HEIGHT,
-            offset: index * CELL_HEIGHT,
-            index,
-          })}
-          onDragEnd={onSortBookmarks}
-          ListEmptyComponent={
-            <Empty
-              py="$32"
-              my="$4"
-              icon="BookmarkOutline"
-              title={intl.formatMessage({
-                id: ETranslations.explore_no_bookmark,
-              })}
-            />
-          }
-          renderItem={({ item, getIndex, drag, dragProps }) => (
-            <ListItem
-              h={CELL_HEIGHT}
-              testID={`search-modal-${item.url.toLowerCase()}`}
-              {...(!isEditing && {
-                onPress: () => handleItemPress(item),
-              })}
-            >
-              {isEditing ? (
-                <ListItem.IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.global_remove,
-                  })}
-                  key="remove"
-                  icon="MinusCircleSolid"
-                  iconProps={{
-                    color: '$iconCritical',
-                  }}
-                  onPress={() => {
-                    void deleteCell(getIndex);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.explore_removed_success,
-                      }),
-                    });
-                  }}
-                  testID="action-list-item-rename"
-                />
-              ) : null}
-              <ListItem.Avatar
-                avatar={<DiscoveryIcon size="$10" uri={item.logo} />}
-              />
-              <ListItem.Text
-                primary={item.title}
-                primaryTextProps={{
-                  numberOfLines: 1,
-                }}
-                secondary={item.url}
-                secondaryTextProps={{
-                  numberOfLines: 1,
-                }}
-                flex={1}
-              />
-              {isEditing ? (
-                <XStack gap="$6">
-                  <ListItem.IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.explore_rename,
-                    })}
-                    key="rename"
-                    icon="PencilOutline"
-                    onPress={() => onRename(item)}
-                    testID="action-list-item-rename"
-                  />
-                  <ListItem.IconButton
-                    key="darg"
-                    cursor="move"
-                    icon="DragOutline"
-                    onPressIn={drag}
-                    dataSet={dragProps}
-                  />
-                </XStack>
-              ) : null}
-            </ListItem>
-          )}
-        />
+        {result && dataSource.length === 0 ? (
+          <Empty
+            py="$32"
+            my="$4"
+            icon="BookmarkOutline"
+            title={intl.formatMessage({
+              id: ETranslations.explore_no_bookmark,
+            })}
+          />
+        ) : (
+          <NativeList
+            style={{ flex: 1 }}
+            snapshot={snapshot}
+            onRowAction={onRowAction}
+            onReorder={(event) => {
+              void onReorder(event);
+            }}
+          />
+        )}
       </Page.Body>
     </Page>
   );
