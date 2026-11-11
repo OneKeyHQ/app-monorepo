@@ -33,7 +33,15 @@ export function useEarnRewards(filterState: IFilterState) {
       ? undefined
       : filterState.timeRange;
 
+  // Only the latest request may commit, so a slow response for an earlier
+  // filter cannot overwrite the current one.
+  const requestIdRef = useRef(0);
+
   const onRefresh = useCallback(async () => {
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
+    const isLatest = () =>
+      isMountedRef.current && requestId === requestIdRef.current;
     setIsLoading(true);
     const [salesResult, totalResult] = await Promise.allSettled([
       backgroundApiProxy.serviceReferralCode.getEarnReward(
@@ -74,15 +82,18 @@ export function useEarnRewards(filterState: IFilterState) {
         return;
       }
       items.forEach((item) => {
-        const key = buildAccountNetworkKey(
-          item.accountAddress,
-          item.items[0].networkId,
-        );
+        // A record with no vault rows would throw here and leave the page on
+        // the loading overlay.
+        const networkId = item.items[0]?.networkId;
+        if (!networkId) {
+          return;
+        }
+        const key = buildAccountNetworkKey(item.accountAddress, networkId);
         if (!seenAccounts.has(key)) {
           seenAccounts.add(key);
           accounts.push({
             accountAddress: item.accountAddress,
-            networkId: item.items[0].networkId,
+            networkId,
           });
         }
       });
@@ -95,30 +106,40 @@ export function useEarnRewards(filterState: IFilterState) {
     if (totalResult.status === 'fulfilled' && totalResult.value.items) {
       processItems(totalResult.value.items);
     }
-    const response =
-      await backgroundApiProxy.serviceReferralCode.getPositions(accounts);
-
-    const newVaultAmount = {} as IVaultAmount;
-    for (const item of response.list) {
-      const keys = item.key.split(EARN_VAULT_KEY_SEPARATOR);
-      const lastIndex = keys.length - 1;
-      if (keys[lastIndex].length) {
-        keys[lastIndex] = keys[lastIndex].toLowerCase();
+    // Deposited amounts only decorate the reward rows. A positions timeout or
+    // error must not hold the page on the loading overlay or drop the reward
+    // records that already loaded (OK-67014).
+    let newVaultAmount: IVaultAmount | undefined;
+    if (accounts.length) {
+      try {
+        const response =
+          await backgroundApiProxy.serviceReferralCode.getPositions(accounts);
+        newVaultAmount = {} as IVaultAmount;
+        for (const item of response.list) {
+          const keys = item.key.split(EARN_VAULT_KEY_SEPARATOR);
+          const lastIndex = keys.length - 1;
+          if (keys[lastIndex].length) {
+            keys[lastIndex] = keys[lastIndex].toLowerCase();
+          }
+          if (!newVaultAmount[item.accountAddress]) {
+            newVaultAmount[item.accountAddress] = {};
+          }
+          newVaultAmount[item.accountAddress][
+            keys.join(EARN_VAULT_KEY_SEPARATOR)
+          ] = item.deposited;
+        }
+      } catch {
+        newVaultAmount = undefined;
       }
-      if (!newVaultAmount[item.accountAddress]) {
-        newVaultAmount[item.accountAddress] = {};
-      }
-      newVaultAmount[item.accountAddress][keys.join(EARN_VAULT_KEY_SEPARATOR)] =
-        item.deposited;
     }
-    if (!isMountedRef.current) {
+    if (!isLatest()) {
       return;
     }
     setVaultAmount(newVaultAmount);
     setAmountPending(pending);
     setLists(listBundles);
     setTimeout(() => {
-      if (isMountedRef.current) {
+      if (isLatest()) {
         setIsLoading(false);
       }
     }, 80);

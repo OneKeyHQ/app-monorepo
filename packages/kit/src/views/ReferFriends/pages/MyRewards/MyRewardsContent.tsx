@@ -1191,7 +1191,20 @@ function MyRewardsContentBody({
       }
     },
     [accountId, hasAccount, indexedAccountId],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      // An account seen before paints its address at once, so its cached
+      // overview shows without a skeleton flash on every switch (OK-66978).
+      // No undefinedResultIfReRun: it would clear that cached address as soon
+      // as the revalidation starts. The swrKey change already drops the
+      // previous account's result, and the identity check below covers the
+      // rest.
+      swrKey: hasAccount
+        ? swrKeys.referralPerksEarnAccount({ accountId, indexedAccountId })
+        : undefined,
+      // A lookup failure also resolves to null; only a real address is kept.
+      swrShouldPersist: (result) => Boolean(result?.earnAccount),
+    },
   );
   // The previous account's result can still be in state on the first render
   // after a switch. Treat that as loading, not as this account's address.

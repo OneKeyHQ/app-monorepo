@@ -1225,6 +1225,24 @@ export const swrKeys = {
   // instead of the product-list skeleton collapsing into the empty card.
   referralPerksOverview: ({ walletAddress }: { walletAddress: string }) =>
     [NS.referralPerksOverview, 'v1', walletAddress.toLowerCase()].join(':'),
+  // Perks tab EVM address per active account (OK-66978). Switching back to an
+  // account paints its overview at once instead of blanking the figures while
+  // the address resolves. Lives in the earnAccount namespace so account
+  // removals and account-data updates drop it with the other earn addresses.
+  referralPerksEarnAccount: ({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }) =>
+    [
+      NS.earnAccount,
+      'referralPerks',
+      'v1',
+      accountId ?? '',
+      indexedAccountId ?? '',
+    ].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per

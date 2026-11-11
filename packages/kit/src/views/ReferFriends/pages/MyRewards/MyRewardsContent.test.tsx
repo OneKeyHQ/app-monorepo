@@ -23,6 +23,13 @@ let mockEarnAccountResult: {
 let mockEarnAccountIdentity:
   | { accountId?: string; indexedAccountId?: string }
   | undefined;
+let mockEarnAccountOptions:
+  | {
+      swrKey?: string;
+      swrShouldPersist?: (result: unknown) => boolean;
+      undefinedResultIfReRun?: boolean;
+    }
+  | undefined;
 type IMockOverview = Record<
   'perps' | 'swap' | 'earn',
   { status: 'success'; data: unknown } | { status: 'error' }
@@ -98,8 +105,13 @@ jest.mock('@onekeyhq/components', () => {
 // overview runs its real fetcher, so the component sees the object it
 // fetched, after a cached one when the test seeds one.
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
+  usePromiseResult: (
+    fn: () => Promise<unknown>,
+    deps: unknown[],
+    options?: typeof mockEarnAccountOptions,
+  ) => {
     if (deps.length !== 1) {
+      mockEarnAccountOptions = options;
       const raw = mockEarnAccountResult.isLoading
         ? undefined
         : mockEarnAccountResult.result;
@@ -309,6 +321,7 @@ describe('MyRewardsContent', () => {
       indexedAccount: { id: 'hd-1--0' },
     };
     mockEarnAccountIdentity = undefined;
+    mockEarnAccountOptions = undefined;
     mockEarnAccountResult = {
       result: { accountId: 'evm-account', accountAddress: '0xabc' },
       isLoading: false,
@@ -990,6 +1003,38 @@ describe('MyRewardsContent', () => {
       screen.getByTestId('my-rewards-module-perps').textContent,
     ).not.toContain('4');
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches each account address so switching back paints without a skeleton', async () => {
+    const view = await renderMyRewards();
+    expect(mockEarnAccountOptions?.swrKey).toBe(
+      'earnAccount:referralPerks:v1:hd-1--account:hd-1--0',
+    );
+    // Clearing on rerun would wipe the cached address the swrKey just painted.
+    expect(mockEarnAccountOptions?.undefinedResultIfReRun).toBeFalsy();
+    expect(
+      mockEarnAccountOptions?.swrShouldPersist?.({
+        accountId: 'hd-1--account',
+        indexedAccountId: 'hd-1--0',
+        earnAccount: null,
+      }),
+    ).toBe(false);
+    expect(
+      mockEarnAccountOptions?.swrShouldPersist?.({
+        accountId: 'hd-1--account',
+        indexedAccountId: 'hd-1--0',
+        earnAccount: { accountAddress: '0xabc' },
+      }),
+    ).toBe(true);
+
+    mockActiveAccount = {
+      account: { id: 'hd-2' },
+      indexedAccount: { id: 'hd-2--0' },
+    };
+    await rerenderMyRewards(view);
+    expect(mockEarnAccountOptions?.swrKey).toBe(
+      'earnAccount:referralPerks:v1:hd-2:hd-2--0',
+    );
   });
 
   it('waits for saved accounts before showing the empty-wallet state', async () => {
