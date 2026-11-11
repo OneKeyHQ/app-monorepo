@@ -1080,6 +1080,108 @@ it('recovers an accepted new conversation after losing its response without repl
   ).toHaveLength(1);
 });
 
+it.each(['cursor', 'page'] as const)(
+  'recovers an accepted creation beyond the first inbox page using %s pagination',
+  async (pagination) => {
+    const original = mockRequest.getMockImplementation();
+    let sent: Record<string, unknown> | undefined;
+    const updatedAt = Math.floor(Date.now() / 1000) + 10;
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      ...conversation,
+      id: String(100 + index),
+      updated_at: updatedAt,
+    }));
+    mockRequest.mockImplementation(async (path, parameters) => {
+      if (path === 'messages') {
+        sent = parameters;
+        throw new OneKeyLocalError('response lost');
+      }
+      if (path === 'conversations') {
+        const second =
+          pagination === 'page'
+            ? parameters?.page === 2
+            : parameters?.before === updatedAt;
+        return {
+          conversations: second
+            ? [{ ...conversation, updated_at: updatedAt - 1 }]
+            : firstPage,
+          ...(pagination === 'page'
+            ? { pages: { page: second ? 2 : 1, total_pages: 2 } }
+            : { conversation_page: { more_pages_available: !second } }),
+        };
+      }
+      if (path === 'conversations/42' && sent)
+        return {
+          ...conversation,
+          conversation_parts: [
+            { ...part, client_assigned_uuid: sent.client_assigned_uuid },
+          ],
+        };
+      if (/^conversations\/1\d\d$/.test(path))
+        return { ...conversation, id: path.split('/')[1] };
+      return original?.(path, parameters);
+    });
+    render(<SupportScreen />);
+    await enterMessage('Accepted after page one');
+    await waitFor(() =>
+      expect(mockSetParams).toHaveBeenCalledWith({ conversationId: '42' }),
+    );
+    expect(mockRequest).toHaveBeenCalledWith(
+      'conversations',
+      pagination === 'page'
+        ? { per_page: 20, page: 2 }
+        : { per_page: 20, before: updatedAt },
+    );
+    expect(screen.queryByTestId('support-retry-send')).toBeNull();
+    expect(
+      mockRequest.mock.calls.filter(([path]) => path === 'messages'),
+    ).toHaveLength(1);
+  },
+);
+
+it.each(['repeated cursor', 'missing cursor', 'failed page'])(
+  'does not replay an uncertain creation when recovery encounters a %s',
+  async (failure) => {
+    const original = mockRequest.getMockImplementation();
+    let failedScans = 0;
+    mockRequest.mockImplementation(async (path, parameters) => {
+      if (path === 'messages') throw new OneKeyLocalError('response lost');
+      if (path === 'conversations') {
+        if (failure === 'missing cursor') {
+          failedScans += 1;
+          return {
+            conversations: [],
+            conversation_page: { more_pages_available: true },
+          };
+        }
+        if (parameters?.page === 2) {
+          failedScans += 1;
+          if (failure === 'failed page')
+            throw new OneKeyLocalError('page unavailable');
+        }
+        return {
+          conversations: [
+            { ...conversation, updated_at: Math.floor(Date.now() / 1000) },
+          ],
+          pages: { page: 1, total_pages: 3 },
+        };
+      }
+      return original?.(path, parameters);
+    });
+    render(<SupportScreen />);
+    await enterMessage('Uncertain creation');
+    await waitFor(() => expect(failedScans).toBeGreaterThan(0));
+    const attempts = failedScans;
+    fireEvent.click(screen.getByTestId('support-retry-send'));
+    await waitFor(() => expect(failedScans).toBeGreaterThan(attempts));
+    await screen.findByTestId('support-retry-send');
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(
+      mockRequest.mock.calls.filter(([path]) => path === 'messages'),
+    ).toHaveLength(1);
+  },
+);
+
 it('disables native image caching for selected, pending and received attachments', async () => {
   const picked = {
     path: 'file:///private.jpg',

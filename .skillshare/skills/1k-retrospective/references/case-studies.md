@@ -1681,3 +1681,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The form treated a resolved polling refresh as a successful read even though the scheduler absorbs read errors. Reusing a poll started before the POST was also insufficient confirmation.
 **Fix**: Add a fresh-read result that waits for an older poll before starting the post-write read. Release a submitted draft only after a valid snapshot; retain it after failed reads and release it when polling recovers, without overwriting newer edits. Test the production POST/failed-GET/reconfirm flow and inactive-screen cancellation.
 **Catchable by**: Sections 4 and 5: Separate mutation success, request completion and authoritative read success; cached display data is not confirmation of a write.
+
+## Case: Uncertain support creation recovery searched only the first inbox page
+**Date**: 2026-11-12 | **Platforms**: iOS, Android and extension main UI runtimes; Web and desktop single runtimes.
+**Symptom**: After a lost creation response, a conversation that had moved beyond the first twenty inbox rows could be missed and an explicit Retry could create a second conversation.
+**Root Cause**: Client-ID reconciliation inspected only the first inbox response, treating an incomplete history search as absence of the accepted write.
+**Fix**: Follow cursor/page pagination through the relevant timestamp range and inspect candidate conversations for the original client ID. Reject incomplete pagination, repeated cursors and failed page reads instead of authorizing another creation; inspect candidates with unknown timestamps as well.
+**Catchable by**: Sections 4 and 5: Move an accepted write to page two before recovery, and interrupt pagination with missing/repeated cursors or read failures; assert that the mutation is not replayed.

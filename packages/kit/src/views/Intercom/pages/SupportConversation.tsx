@@ -58,17 +58,41 @@ async function findCreatedConversation(
   session: IIntercomMessengerSession,
   outgoing: IOutgoing,
 ) {
-  const inbox = await session.listConversations();
   const matches = (conversation: IIntercomConversation) =>
     conversation.parts.some((part) => part.clientId === outgoing.id);
-  for (const conversation of inbox.conversations) {
-    if (matches(conversation)) return conversation;
-    // The inbox may contain only the latest admin reply. Fetch recent threads
-    // to find the original client UUID without ever replaying the write.
-    if (conversation.updatedAt >= (outgoing.createdAt ?? 0)) {
-      const full = await session.getConversation(conversation.id);
-      if (matches(full)) return full;
+  let inbox = await session.listConversations();
+  const visited = new Set<string>();
+  for (;;) {
+    for (const conversation of inbox.conversations) {
+      if (matches(conversation)) return conversation;
+      // The inbox may contain only the latest admin reply. Fetch recent threads
+      // to find the original client UUID without ever replaying the write.
+      if (
+        !conversation.updatedAt ||
+        conversation.updatedAt >= (outgoing.createdAt ?? 0)
+      ) {
+        const full = await session.getConversation(conversation.id);
+        if (matches(full)) return full;
+      }
     }
+    if (
+      !inbox.hasMore ||
+      (inbox.conversations.length > 0 &&
+        inbox.conversations.every(
+          (conversation) =>
+            conversation.updatedAt > 0 &&
+            conversation.updatedAt < (outgoing.createdAt ?? 0),
+        ))
+    )
+      return undefined;
+    let cursor: string | undefined;
+    if (inbox.nextPage !== undefined) cursor = `page:${inbox.nextPage}`;
+    else if (inbox.before !== undefined) cursor = `before:${inbox.before}`;
+    // An incomplete or looping scan must never authorize another creation.
+    if (!cursor || visited.has(cursor))
+      throw new OneKeyLocalError('Support conversation recovery is incomplete');
+    visited.add(cursor);
+    inbox = await session.listConversations(inbox);
   }
 }
 
