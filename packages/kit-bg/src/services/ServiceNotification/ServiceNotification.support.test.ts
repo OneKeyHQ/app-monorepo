@@ -5,11 +5,20 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import {
+  isSupportReplyPushMessage,
+  parseNotificationPayload,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   ENotificationCommand,
   ENotificationPushMessageMode,
+  type INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
+
+import {
+  notificationsAtom,
+  notificationsDevSettingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceNotification from './ServiceNotification';
 
@@ -258,5 +267,81 @@ describe('support notification delivery across startup', () => {
       ),
     ).toBe(false);
     expect(fallback).toHaveBeenCalledTimes(1);
+  });
+
+  // Shape of the support reply push in the OK-67112 logs.
+  function createSupportReplyPush(
+    extras: Partial<NonNullable<INotificationPushMessageInfo['extras']>> = {},
+  ): INotificationPushMessageInfo {
+    return {
+      title: 'Support replied',
+      content: 'You have a new support reply.',
+      pushSource: 'jpush',
+      extras: {
+        msgId: 'support:1:2',
+        mode: '6',
+        payload: JSON.stringify({
+          action: ENotificationCommand.openSupportConversation,
+          data: {},
+        }),
+        params: { msgId: 'support:1:2' },
+        ...extras,
+      } as INotificationPushMessageInfo['extras'],
+    };
+  }
+
+  it('recognizes support reply pushes by their command payload', () => {
+    expect(isSupportReplyPushMessage(createSupportReplyPush())).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.command }),
+      ),
+    ).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.page }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({
+          payload: JSON.stringify({ action: 'openHardwareSalesOrder' }),
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(createSupportReplyPush({ payload: '{' })),
+    ).toBe(false);
+    expect(isSupportReplyPushMessage(undefined)).toBe(false);
+  });
+
+  it('asks the foreground to resync Intercom unread state on a support reply', async () => {
+    // Persisted atoms never hydrate in this suite.
+    jest
+      .spyOn(notificationsDevSettingsPersistAtom, 'get')
+      .mockResolvedValue({ showMessagePushSource: false });
+    jest.spyOn(notificationsAtom, 'set').mockResolvedValue(undefined);
+    jest.spyOn(service, 'ackNotificationMessage').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
+      .mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+
+    await service.onNotificationReceived(createSupportReplyPush());
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.SupportReplyReceived,
+      undefined,
+    );
+
+    emit.mockClear();
+    await service.onNotificationReceived(
+      createSupportReplyPush({
+        payload: JSON.stringify({ action: 'openHardwareSalesOrder' }),
+      }),
+    );
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.SupportReplyReceived,
+      undefined,
+    );
   });
 });

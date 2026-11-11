@@ -601,6 +601,29 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+export function isSupportReplyPushMessage(
+  messageInfo: INotificationPushMessageInfo | undefined,
+): boolean {
+  const extras = messageInfo?.extras;
+  if (
+    normalizeNotificationMode(extras?.mode) !==
+    ENotificationPushMessageMode.command
+  ) {
+    return false;
+  }
+  try {
+    const payload = JSON.parse(extras?.payload || '{}') as {
+      action?: unknown;
+    };
+    return (
+      typeof payload?.action === 'string' &&
+      payload.action.trim() === ENotificationCommand.openSupportConversation
+    );
+  } catch {
+    return false;
+  }
+}
+
 function toSupportConversationId(value: unknown): string | undefined {
   if (typeof value === 'string') {
     return value.trim() || undefined;

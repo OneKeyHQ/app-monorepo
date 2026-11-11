@@ -19,6 +19,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  isSupportReplyPushMessage,
   takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -243,6 +244,12 @@ export default class ServiceNotification extends ServiceBase {
           );
         }
       }
+    }
+
+    // In the foreground the native Intercom SDK only hears about replies over
+    // its realtime socket; this push lets main resync the unread dots (OK-67112).
+    if (isSupportReplyPushMessage(messageInfo)) {
+      appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
     }
 
     this.addShowedNotificationId(msgId);

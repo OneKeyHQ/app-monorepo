@@ -24,6 +24,9 @@ export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
+// The extension opens support on the website, so it has no unread state.
+export const refreshIntercomUnreadCount = async () => {};
+
 export const setIntercomTheme = async (
   _theme: 'light' | 'dark',
   _followSystem?: boolean,

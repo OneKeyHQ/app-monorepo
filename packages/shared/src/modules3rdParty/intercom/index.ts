@@ -57,6 +57,10 @@ export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   };
 };
 
+// The Messenger web SDK reports unread changes through onUnreadCountChange;
+// the push-driven resync only targets the native SDK cache.
+export const refreshIntercomUnreadCount = async () => {};
+
 const loadIntercomSdk = () => {
   intercomSdkPromise ||= import('@intercom/messenger-js-sdk');
   return intercomSdkPromise;

@@ -338,6 +338,46 @@ describe('native Intercom SDK integration', () => {
     }
   });
 
+  it('resyncs the unread count from the server on a support reply push', async () => {
+    // Without a session there is nothing to resync, so the SDK stays unloaded.
+    await subject.refreshIntercomUnreadCount();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+    expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
+
+    await subject.initIntercom();
+    expect(subject.getIntercomUnreadCount()).toBe(0);
+    mockSdk.updateUser.mockClear();
+    // The realtime event never reached the SDK; only a server response
+    // updates its unread cache (OK-67112).
+    mockSdk.updateUser.mockImplementationOnce(async () => {
+      mockUnreadCount = 1;
+      return true;
+    });
+    await subject.refreshIntercomUnreadCount();
+    expect(mockSdk.updateUser).toHaveBeenCalledWith({
+      languageOverride: 'zh-CN',
+    });
+    expect(subject.getIntercomUnreadCount()).toBe(1);
+
+    mockSdk.updateUser.mockClear();
+    mockPlatformEnv.isNativeMainThread = false;
+    await subject.refreshIntercomUnreadCount();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('does not resync a support reply into a switched identity', async () => {
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    // The wallet switched accounts before the push arrived; the new session
+    // has not been established yet.
+    mockUserId = 'B';
+    await subject.refreshIntercomUnreadCount();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+  });
+
   it('preserves support access on older binaries or without SDK configuration', async () => {
     mockNativeModules.OneKeyIntercom.initialized = false;
     await subject.initIntercom();

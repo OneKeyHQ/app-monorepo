@@ -352,6 +352,34 @@ async function syncCurrentSession(userId: IUserId) {
   }
 }
 
+// In the foreground the SDK only learns about a new reply from its realtime
+// socket, and nothing updates its unread cache when that event never arrives
+// (OK-67112). OneKey push still delivers support replies, so it asks the SDK to
+// resync: an updateUser response stores the server's unread conversations
+// before it resolves.
+export async function refreshIntercomUnreadCount() {
+  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+    return;
+  }
+  const session = sessionPromise;
+  // Without a session there is no unread state to show; initIntercom reads
+  // the count once it establishes one.
+  if (!session) {
+    return;
+  }
+  await session;
+  const sdk = await loadSdk();
+  const userId = activeUserId;
+  const generation = activeSessionGeneration;
+  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+    return;
+  }
+  await sdk.default.updateUser({
+    languageOverride: await getIntercomLanguageOverride(),
+  });
+  await refreshUnreadCount(sdk);
+}
+
 export async function initIntercom() {
   if (!platformEnv.isNativeMainThread) {
     return;
