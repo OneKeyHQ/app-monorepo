@@ -603,10 +603,10 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // Funds a send from a hardware account must first verify on its device, for
-  // the send page to explain before the device asks; undefined when none.
+  // Funds a send must first verify, on the device or by unlocking, for the send
+  // page to explain before either asks; undefined when none.
   @backgroundMethod()
-  async getLocalWalletDeviceVerifyAmount({
+  async getLocalWalletVerifyAmount({
     networkId,
     accountId,
   }: {
@@ -614,7 +614,10 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<string | undefined> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    if (!(await vault.localWalletHasDeviceWork())) return undefined;
+    const needsVerify =
+      (await vault.localWalletHasDeviceWork()) ||
+      (await vault.localWalletHasPasswordWork());
+    if (!needsVerify) return undefined;
     const balance = await this.getLocalWalletAccountBalance({
       networkId,
       accountId,
@@ -634,8 +637,8 @@ class ServicePrivacyChain extends ServiceBase {
     await this.confirmLocalWalletFunds(params);
   }
 
-  // Passive check on entering a send: scanning accounts only; failures are logged, never toasted.
-  // The device is not asked here: the send page explains and asks once the user sends.
+  // Passive check on entering a send: scanning accounts only, with a cached password only; failures
+  // are logged, never toasted. Nothing asks here: the send page explains and asks once the user sends.
   @backgroundMethod()
   async maybeVerifyLocalWalletOnSend(params: {
     networkId: string;
@@ -644,7 +647,13 @@ class ServicePrivacyChain extends ServiceBase {
     try {
       const state = await this.getLocalWalletAccountState(params);
       if (!state.enabled) return;
-      await this.confirmLocalWalletFunds({ ...params, withDevice: false });
+      const changed = await this.doLocalWalletPasswordWork({
+        networkId: params.networkId,
+        accountIds: [params.accountId],
+      });
+      if (changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
         networkId: params.networkId,
@@ -656,16 +665,13 @@ class ServicePrivacyChain extends ServiceBase {
   private async confirmLocalWalletFunds({
     networkId,
     accountId,
-    withDevice = true,
   }: {
     networkId: string;
     accountId: string;
-    withDevice?: boolean;
   }): Promise<void> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     // A hardware account confirms the same funds with its device instead.
     if (await vault.localWalletHasDeviceWork()) {
-      if (!withDevice) return;
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
