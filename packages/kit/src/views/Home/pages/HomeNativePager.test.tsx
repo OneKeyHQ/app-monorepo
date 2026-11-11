@@ -1724,6 +1724,61 @@ describe('HomePageView complete header authority', () => {
     expect(mockNativeEvents.topOverlayHeightHint).toBe(161);
   });
 
+  it.each(['pager', 'outer'] as const)(
+    'measures the wide iPad %s header against its host width',
+    (slot) => {
+      Object.assign(parentPlatform, {
+        isNativeAndroid: false,
+        isNativeIOS: true,
+        isNativeIOS26Plus: slot === 'pager',
+      });
+      smallScreen = false;
+      mockWindowDimensions.width = 1440;
+      const screen = renderParent();
+      if (slot === 'pager') {
+        act(() =>
+          mockNativeEvents.onScrollEdgeCapability?.({
+            nativeEvent: { available: true },
+          }),
+        );
+        expect(mockNativeEvents.topOverlay).toBeDefined();
+      }
+
+      const hostWidth = slot === 'pager' ? 1440 : HOME_PAGE_CONTENT_MAX_WIDTH;
+      const measure = fixedMeasurements.at(-1)!;
+      act(() => measure(0, 0, 1000, 999));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      act(() => measure(0, 0, hostWidth, 190));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(170);
+
+      const layoutEvent = (width: number, height: number) =>
+        ({
+          nativeEvent: { layout: { x: 0, y: 0, width, height } },
+        }) as LayoutChangeEvent;
+      act(() => onFixedLayout?.(layoutEvent(1000, 999)));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(170);
+      act(() => onFixedLayout?.(layoutEvent(hostWidth, 210.2)));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+      act(() => measure(0, 0, hostWidth, 190));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+
+      const previousLayout = onFixedLayout;
+      locale = 'de-DE';
+      rerenderParent(screen);
+      act(() => {
+        previousLayout?.(layoutEvent(hostWidth, 999));
+        measure(0, 0, hostWidth, 999);
+      });
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      expect([...cache.values()]).not.toContain(979);
+      act(() => fixedMeasurements.at(-1)?.(0, 0, hostWidth, 210.2));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+      screen.unmount();
+      renderParent();
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+    },
+  );
+
   it('retains separate ordinary and watch-only heights through both switch directions', () => {
     const screen = renderParent();
     measureFull(292);
