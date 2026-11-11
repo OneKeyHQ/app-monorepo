@@ -6235,6 +6235,8 @@ describe('update self-healing and startup self-check', () => {
     const prepared = await service.prepareUserUpdateRetry();
 
     expect(AppUpdate.clearPackage).toHaveBeenCalledTimes(1);
+    expect(prepared.errorText).toBeUndefined();
+    expect(prepared.updateError).toBeUndefined();
     expect(prepared.blockedDownloadUrl).toBeUndefined();
     expect(prepared.downloadRetryExhausted).toBe(false);
     expect(prepared.freezeUntil).toBeUndefined();

@@ -1132,20 +1132,23 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async prepareUserUpdateRetry(): Promise<IAppUpdateInfo> {
+  public async prepareUserUpdateRetry(options?: {
+    preserveArtifact?: boolean;
+  }): Promise<IAppUpdateInfo> {
     clearTimeout(failedRecoveryTimerId);
     const before = await appUpdatePersistAtom.get();
     const fileType = getUpdateFileType(before);
     const isJsBundle = fileType === EUpdateFileType.jsBundle;
 
     const shouldCleanLocalArtifact =
-      before.updateError?.code === EUpdateErrorCode.integrityFailed ||
-      before.updateError?.code === EUpdateErrorCode.securityRejected ||
-      before.updateError?.code === EUpdateErrorCode.incompatible ||
-      before.status === EAppUpdateStatus.verifyASCFailed ||
-      before.status === EAppUpdateStatus.verifyPackageFailed ||
-      before.status === EAppUpdateStatus.updateIncomplete ||
-      before.status === EAppUpdateStatus.failed;
+      !options?.preserveArtifact &&
+      (before.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        before.updateError?.code === EUpdateErrorCode.securityRejected ||
+        before.updateError?.code === EUpdateErrorCode.incompatible ||
+        before.status === EAppUpdateStatus.verifyASCFailed ||
+        before.status === EAppUpdateStatus.verifyPackageFailed ||
+        before.status === EAppUpdateStatus.updateIncomplete ||
+        before.status === EAppUpdateStatus.failed);
 
     if (shouldCleanLocalArtifact) {
       if (isJsBundle) {
@@ -1215,6 +1218,8 @@ class ServiceAppUpdate extends ServiceBase {
       return {
         ...prev,
         status: nextStatus,
+        errorText: undefined,
+        updateError: undefined,
         blockedDownloadUrl: undefined,
         downloadRetryExhausted: false,
         freezeUntil: undefined,
@@ -1231,9 +1236,10 @@ class ServiceAppUpdate extends ServiceBase {
     });
 
     if (
-      (!before.downloadUrl && !before.jsBundle?.downloadUrl) ||
-      before.updateError?.code === EUpdateErrorCode.integrityFailed ||
-      before.updateError?.code === EUpdateErrorCode.httpError
+      !options?.preserveArtifact &&
+      ((!before.downloadUrl && !before.jsBundle?.downloadUrl) ||
+        before.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        before.updateError?.code === EUpdateErrorCode.httpError)
     ) {
       await this.fetchAppUpdateInfo(true).catch(() => undefined);
     }
@@ -1747,6 +1753,8 @@ class ServiceAppUpdate extends ServiceBase {
     );
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText: undefined,
+      updateError: undefined,
       downloadedEvent: undefined,
       downloadRetryExhausted: false,
       status: EAppUpdateStatus.downloadPackage,
@@ -2285,6 +2293,8 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText: undefined,
+      updateError: undefined,
       status: EAppUpdateStatus.verifyPackage,
     }));
     // Entering verification means the package download has completed;
@@ -2311,6 +2321,8 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText: undefined,
+      updateError: undefined,
       status: EAppUpdateStatus.verifyASC,
     }));
     // Entering verification means the package download has completed;
@@ -2341,6 +2353,8 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText: undefined,
+      updateError: undefined,
       status: EAppUpdateStatus.downloadASC,
     }));
   }

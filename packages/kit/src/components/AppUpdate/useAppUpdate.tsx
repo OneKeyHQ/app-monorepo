@@ -19,7 +19,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { useAppUpdateForegroundEffects } from './AppUpdateForeground';
-import { isForceUpdateStrategy } from './updateStrategy';
+import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
 export const useAppChangeLog = () => {
@@ -198,7 +198,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       if (appUpdateInfo.status === EAppUpdateStatus.ready) {
         void installPackage(
           () => {},
-          () => showUpdateInCompleteDialog({}),
+          () => {
+            if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) {
+              showUpdateInCompleteDialog({});
+            }
+          },
           { userInitiated: true, installSource: 'legacy' },
         );
         return;
@@ -249,6 +253,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     }
   }, [
     appUpdateInfo.status,
+    appUpdateInfo.updateStrategy,
     appUpdateInfo.latestVersion,
     appUpdateInfo.jsBundleVersion,
     appUpdateInfo.storeUrl,

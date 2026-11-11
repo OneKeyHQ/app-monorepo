@@ -17,6 +17,9 @@ const mockDownloadASC = jest.fn();
 const mockVerifyASC = jest.fn();
 const mockCanDownload = jest.fn(async () => true);
 const mockCanRestart = jest.fn(async () => true);
+const mockPrepareUserUpdateRetry = jest.fn(
+  async (_opts?: { preserveArtifact?: boolean }) => ({}),
+);
 const mockStartBanner = jest.fn();
 let mockRouteFocused = true;
 let mockBanner: { version: string; expiresAt?: number } | undefined;
@@ -54,6 +57,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Icon: () => null,
     Spinner: () => null,
+    Divider: Container,
     Toast: { error: jest.fn() },
     XStack: Container,
     YStack: Container,
@@ -86,6 +90,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAppUpdate: {
       canDownloadCurrentTarget: () => mockCanDownload(),
       canRestartForUpdate: () => mockCanRestart(),
+      prepareUserUpdateRetry: (opts?: { preserveArtifact?: boolean }) =>
+        mockPrepareUserUpdateRetry(opts),
     },
   },
 }));
@@ -497,4 +503,122 @@ test('jsBundle verifyASCFailed with integrityFailed re-downloads cleanly instead
   });
   expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
   expect(mockVerifyASC).not.toHaveBeenCalled();
+});
+
+test('capsule retry calls prepareUserUpdateRetry before target gate so frozen/exhausted targets recover', async () => {
+  let targetFrozen = true;
+  mockPrepareUserUpdateRetry.mockImplementationOnce(async () => {
+    targetFrozen = false;
+    return {};
+  });
+  mockCanDownload.mockImplementationOnce(async () => !targetFrozen);
+  mockDownloadPackage.mockClear();
+
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadPackageFailed,
+        downloadRetryExhausted: true,
+        updateError: {
+          code: EUpdateErrorCode.networkError,
+          step: 'download',
+        },
+      }}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+    preserveArtifact: false,
+  });
+  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+});
+
+test('capsule downloadASCFailed retry preserves artifact when clearing user retry freeze', async () => {
+  mockPrepareUserUpdateRetry.mockClear();
+  mockDownloadASC.mockClear();
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadASCFailed,
+        updateError: {
+          code: EUpdateErrorCode.networkError,
+          step: 'downloadASC',
+        },
+      }}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+    preserveArtifact: true,
+  });
+  expect(mockDownloadASC).toHaveBeenCalledTimes(1);
+});
+
+test('install-time integrityFailed marks receipt Contents as Changed instead of Unchanged', () => {
+  const { UpdateVerifyReceipt: RealReceipt } = jest.requireActual(
+    './UpdateVerifyReceipt',
+  ) as typeof import('./UpdateVerifyReceipt');
+  const view = render(
+    <RealReceipt
+      percent={100}
+      reducedMotion
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyPackageFailed,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'install',
+        },
+      }}
+    />,
+  );
+  expect(
+    view.getByText(ETranslations.app_update_contents_changed__msg),
+  ).toBeTruthy();
+  expect(
+    view.queryByText(ETranslations.app_update_contents_unchanged__msg),
+  ).toBeNull();
+});
+
+test('stale integrityFailed error does not lock active download into securityError mode', () => {
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadPackage,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        },
+      }}
+    />,
+  );
+  expect(view.queryByTestId('header-update-github')).toBeNull();
+  expect(
+    view.queryByText(ETranslations.app_update_cant_continue__msg),
+  ).toBeNull();
 });

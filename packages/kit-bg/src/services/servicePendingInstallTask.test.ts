@@ -1555,7 +1555,7 @@ describe('servicePendingInstallTask', () => {
     expect(appUpdateState.downloadedEvent).toBeUndefined();
   });
 
-  test('tampered extracted OTA bundle (SHA mismatch) on startup transitions ready atom to verifyPackageFailed and clears staging download', async () => {
+  test('tampered extracted OTA bundle (SHA mismatch) on startup transitions manual ready atom to verifyPackageFailed and clears staging download', async () => {
     const service = createService();
     const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
@@ -1572,7 +1572,7 @@ describe('servicePendingInstallTask', () => {
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       status: EAppUpdateStatus.ready,
-      updateStrategy: EUpdateStrategy.silent,
+      updateStrategy: EUpdateStrategy.manual,
       downloadedEvent: {
         latestVersion: '1.0.0',
         bundleVersion: '2',
@@ -1591,6 +1591,80 @@ describe('servicePendingInstallTask', () => {
     expect(appUpdateState.updateError).toMatchObject({
       code: EUpdateErrorCode.integrityFailed,
     });
+  });
+
+  test('tampered extracted OTA bundle on startup silently resets silent strategy to notify and triggers background re-download within retry budget', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValue(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+    appEventBus.emit.mockClear();
+
+    // First corrupt startup: silently resets ready -> notify and emits StartAutoDownloadUpdate
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    });
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).toHaveBeenCalledTimes(1);
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.updateError).toBeUndefined();
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      { decision: 'jsBundlePackageRecovery' },
+    );
+
+    // Exhaust MAX_FULL_FLOW_RETRY (2): third failure stops looping and freezes target
+    appUpdateState = {
+      ...appUpdateState,
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    };
+    pendingTaskValue = makeSwitchTask({ revision: 2 });
+    await service.processPendingInstallTask();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.notify);
+
+    appEventBus.emit.mockClear();
+    appUpdateState = {
+      ...appUpdateState,
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+      },
+    };
+    pendingTaskValue = makeSwitchTask({ revision: 3 });
+    await service.processPendingInstallTask();
+
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.verifyPackageFailed);
+    expect(appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.StartAutoDownloadUpdate,
+      expect.anything(),
+    );
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
   });
 
   test('shouldSkipTargetByControl allows mandatory force updates through freezeUntil while keeping BOOT_FAILED blocked', async () => {
@@ -1628,5 +1702,54 @@ describe('servicePendingInstallTask', () => {
         isForceUpdate: true,
       }),
     ).toBe(true);
+  });
+
+  test('stale pending task failure does not clear artifacts when persisted update has advanced to a newer target', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.clearDownload.mockClear();
+
+    // Case A: packageMissing on stale v2 while v3 is downloading
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      status: EAppUpdateStatus.downloadPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    pendingTaskValue = makeSwitchTask({ targetBundleVersion: '2' });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).not.toHaveBeenCalled();
+    expect(appUpdateState.jsBundleVersion).toBe('3');
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.downloadPackage);
+
+    // Case B: integrityFailed on stale v2 while v3 is ready
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
+    );
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    pendingTaskValue = makeSwitchTask({
+      targetBundleVersion: '2',
+      revision: 2,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.clearDownload).not.toHaveBeenCalled();
+    expect(appUpdateState.jsBundleVersion).toBe('3');
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
 });

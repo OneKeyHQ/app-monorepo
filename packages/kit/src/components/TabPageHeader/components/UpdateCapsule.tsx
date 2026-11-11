@@ -114,12 +114,6 @@ type ICapsuleMode = 'download' | 'verify' | 'ready' | 'securityError' | 'error';
 function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
   if (data.status === EAppUpdateStatus.ready) return 'ready';
   if (
-    data.updateError?.code === EUpdateErrorCode.integrityFailed &&
-    getUpdateFileType(data) === EUpdateFileType.appShell
-  ) {
-    return 'securityError';
-  }
-  if (
     data.status === EAppUpdateStatus.downloadASC ||
     data.status === EAppUpdateStatus.verifyASC ||
     data.status === EAppUpdateStatus.verifyPackage
@@ -133,6 +127,13 @@ function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
     data.status === EAppUpdateStatus.downloadPackageFailed ||
     data.status === EAppUpdateStatus.updateIncomplete
   ) {
+    if (
+      (data.updateError?.code === EUpdateErrorCode.integrityFailed ||
+        data.updateError?.code === EUpdateErrorCode.securityRejected) &&
+      getUpdateFileType(data) === EUpdateFileType.appShell
+    ) {
+      return 'securityError';
+    }
     return 'error';
   }
   return 'download';
@@ -336,8 +337,17 @@ export function UpdateCapsule({
     // interleaving points where a second click would otherwise pass the guard.
     retryInFlight.current = true;
     try {
-      // Keep the existing target gate: retrying must not bypass a blocked/
-      // ignored update target (e.g. downloadRetryExhausted freeze).
+      if (data.status !== EAppUpdateStatus.notify) {
+        const preserveArtifact =
+          data.status === EAppUpdateStatus.downloadASCFailed ||
+          (data.status === EAppUpdateStatus.verifyASCFailed &&
+            data.updateError?.code !== EUpdateErrorCode.integrityFailed);
+        await backgroundApiProxy.serviceAppUpdate
+          .prepareUserUpdateRetry?.({ preserveArtifact })
+          .catch(() => undefined);
+      }
+      // Enforce hard target safety gates (https://, non-store, BOOT_FAILED)
+      // after clearing user-retryable freeze/exhaustion state.
       if (
         !(await backgroundApiProxy.serviceAppUpdate.canDownloadCurrentTarget())
       ) {

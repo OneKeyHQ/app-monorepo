@@ -1185,9 +1185,6 @@ class ServicePendingInstallTask {
       const fullFlowTrigger = isAppPackageInvalid
         ? 'app_package_missing'
         : 'bundle_missing';
-      if (isJsBundleInvalid) {
-        await BundleUpdate.clearDownload?.().catch(() => undefined);
-      }
       let didInvalidateAppPackage = !isAppPackageInvalid;
       let didInvalidateJsBundle = false;
       let jsBundleAlreadyInvalidated = false;
@@ -1242,6 +1239,9 @@ class ServicePendingInstallTask {
             readyAt: undefined,
           };
         });
+        if (didInvalidateJsBundle) {
+          await BundleUpdate.clearDownload?.().catch(() => undefined);
+        }
       }
       if (!didInvalidateAppPackage || jsBundleAlreadyInvalidated) {
         await this.clearPendingTaskWithLog({
@@ -1338,10 +1338,94 @@ class ServicePendingInstallTask {
         error.code === EUpdateErrorCode.securityRejected ||
         error.code === EUpdateErrorCode.incompatible;
       if (shouldDropCorruptArtifact) {
-        if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
-          await BundleUpdate.clearDownload?.().catch(() => undefined);
-        } else if (task.type === EPendingInstallTaskType.appInstall) {
-          await AppUpdate.clearPackage?.().catch(() => undefined);
+        const persisted = await appUpdatePersistAtom.get();
+        if (persisted.status === EAppUpdateStatus.ready) {
+          if (
+            task.type === EPendingInstallTaskType.jsBundleSwitch &&
+            persisted.latestVersion === task.targetAppVersion &&
+            persisted.jsBundleVersion === task.targetBundleVersion
+          ) {
+            await BundleUpdate.clearDownload?.().catch(() => undefined);
+          } else if (
+            task.type === EPendingInstallTaskType.appInstall &&
+            persisted.latestVersion === task.targetAppVersion &&
+            getUpdateFileType(persisted) === EUpdateFileType.appShell
+          ) {
+            await AppUpdate.clearPackage?.().catch(() => undefined);
+          }
+        }
+      }
+      const canAutoRecoverCorruptJsBundle =
+        task.type === EPendingInstallTaskType.jsBundleSwitch &&
+        task.status !== EPendingInstallTaskStatus.appliedWaitingVerify &&
+        (error.code === EUpdateErrorCode.integrityFailed ||
+          error.code === EUpdateErrorCode.securityRejected);
+      if (canAutoRecoverCorruptJsBundle) {
+        const snapshot = await appUpdatePersistAtom.get();
+        const matchesAutoReadyTarget =
+          snapshot.latestVersion === task.targetAppVersion &&
+          (!snapshot.jsBundleVersion ||
+            snapshot.jsBundleVersion === task.targetBundleVersion) &&
+          snapshot.status === EAppUpdateStatus.ready &&
+          isAutoUpdateStrategy(snapshot.updateStrategy);
+        if (matchesAutoReadyTarget) {
+          const fullFlowRetryCount =
+            await this.incrementFullFlowRetry(targetKey);
+          defaultLogger.app.appUpdate.fullFlowRetryTriggered(
+            {
+              traceId,
+              requestSeq: requestSeq ?? null,
+              taskId: task.taskId,
+              revision: task.revision,
+              action: task.action,
+              trigger: 'js_bundle_corrupt',
+              fullFlowRetryCount,
+              target: targetKey,
+            },
+            'warn',
+          );
+          if (fullFlowRetryCount <= MAX_FULL_FLOW_RETRY) {
+            await this.clearPendingTaskWithLog({
+              traceId,
+              requestSeq,
+              task,
+              clearReason: 'full_flow_retry_fallback_to_refetch',
+              level: 'warn',
+            });
+            let resetToNotify = false;
+            await appUpdatePersistAtom.set((current) => {
+              if (
+                current.latestVersion !== task.targetAppVersion ||
+                (current.jsBundleVersion &&
+                  current.jsBundleVersion !== task.targetBundleVersion) ||
+                current.status !== EAppUpdateStatus.ready ||
+                !isAutoUpdateStrategy(current.updateStrategy)
+              ) {
+                return current;
+              }
+              resetToNotify = true;
+              return {
+                ...current,
+                status: EAppUpdateStatus.notify,
+                errorText: undefined,
+                updateError: undefined,
+                downloadedEvent: undefined,
+                readyAt: undefined,
+              };
+            });
+            if (resetToNotify) {
+              appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+                decision: 'jsBundlePackageRecovery',
+              });
+              return false;
+            }
+          } else {
+            await this.freezeAndIgnoreTarget(
+              targetKey,
+              TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED,
+              traceId,
+            );
+          }
         }
       }
       await this.clearPendingTaskWithLog({

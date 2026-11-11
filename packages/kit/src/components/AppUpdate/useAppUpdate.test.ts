@@ -567,19 +567,34 @@ describe('Utility functions', () => {
       }
     });
 
-    test('silent strategy returns true only when status is ready', () => {
+    test('silent strategy only surfaces at ready so background retries and self-healing stay imperceptible', () => {
       expect(
         isShowAppUpdateUIWhenUpdating({
           updateStrategy: EUpdateStrategy.silent,
           updateStatus: EAppUpdateStatus.ready,
         }),
       ).toBe(true);
-      expect(
-        isShowAppUpdateUIWhenUpdating({
-          updateStrategy: EUpdateStrategy.silent,
-          updateStatus: EAppUpdateStatus.downloadPackage,
-        }),
-      ).toBe(false);
+      for (const hiddenStatus of [
+        EAppUpdateStatus.notify,
+        EAppUpdateStatus.downloadPackage,
+        EAppUpdateStatus.downloadPackageFailed,
+        EAppUpdateStatus.downloadASC,
+        EAppUpdateStatus.downloadASCFailed,
+        EAppUpdateStatus.verifyASC,
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackage,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.updateIncomplete,
+        EAppUpdateStatus.manualInstall,
+        EAppUpdateStatus.failed,
+      ]) {
+        expect(
+          isShowAppUpdateUIWhenUpdating({
+            updateStrategy: EUpdateStrategy.silent,
+            updateStatus: hiddenStatus,
+          }),
+        ).toBe(false);
+      }
     });
   });
 });
@@ -4290,7 +4305,7 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       code: EUpdateErrorCode.integrityFailed,
       step: 'install',
     });
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockToastError).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
 
     // Lock must be released so subsequent install attempt succeeds
@@ -4481,5 +4496,63 @@ describe('install-time self-healing & cold-start self-check recovery', () => {
       'AppUpdateModal',
       expect.objectContaining({ screen: 'DownloadVerify' }),
     );
+  });
+
+  test('onUpdateActionDirect on silent ready jsBundle with missing local package silently self-heals without Toast or UpdateIncompleteDialog', async () => {
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '12',
+        downloadUrl: 'https://cdn.onekey.so/bundle-12.zip',
+      },
+    });
+    svc.reconcileAppShellPackage.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      status: EAppUpdateStatus.notify,
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    bundleUpd.installBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      }),
+    );
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    await act(async () => {
+      result.current.onUpdateActionDirect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  test('Desktop cold-start updateIncomplete with silent strategy does not pop UpdateIncompleteDialog', async () => {
+    mockPlatformEnv.isDesktop = true;
+    setAtom({
+      status: EAppUpdateStatus.updateIncomplete,
+      updateStrategy: EUpdateStrategy.silent,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+    });
+    svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 });

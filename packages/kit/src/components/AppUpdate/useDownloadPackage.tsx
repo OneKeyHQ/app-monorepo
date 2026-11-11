@@ -311,7 +311,7 @@ export const useDownloadPackage = () => {
           if (recoveredStatus) {
             if (recoveredStatus === EAppUpdateStatus.updateIncomplete) {
               onFail();
-            } else if (options?.userInitiated) {
+            } else if (showToastError && options?.userInitiated) {
               Toast.error({
                 title: intl.formatMessage({
                   id:
@@ -324,7 +324,7 @@ export const useDownloadPackage = () => {
             onFail();
           } else {
             await recoverCorruptedReadyPackage({ error });
-            if (showToastError || Boolean(options?.userInitiated)) {
+            if (showToastError) {
               Toast.error({
                 title: intl.formatMessage({
                   id:

@@ -554,9 +554,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
       const shouldShowIncompleteRecovery =
-        getUpdateFileType(info) === EUpdateFileType.jsBundle
-          ? !isAutoUpdateStrategy(info.updateStrategy)
-          : platformEnv.isDesktop;
+        !isAutoUpdateStrategy(info.updateStrategy) &&
+        (getUpdateFileType(info) === EUpdateFileType.jsBundle ||
+          Boolean(platformEnv.isDesktop));
       if (
         info.status === EAppUpdateStatus.updateIncomplete &&
         !forceUpdate &&
