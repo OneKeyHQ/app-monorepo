@@ -97,18 +97,17 @@ export class SupportScene extends BaseScene {
   }) {
     return { conversationId, selectedBranch, nativeSdkReady };
   }
-  // OK-67112: temporary unread-dot diagnostics; counts and states only.
+  // OK-67112: temporary unread-dot diagnostics. Counts and states only:
+  // no message, conversation or user identifiers, and no error text.
   @LogToLocal({ level: 'info' })
   supportReplyPushReceived({
-    msgId,
     pushSource,
     isDuplicate,
   }: {
-    msgId: string | undefined;
     pushSource: string | undefined;
     isDuplicate: boolean;
   }) {
-    return { msgId, pushSource, isDuplicate };
+    return { pushSource, isDuplicate };
   }
 
   @LogToLocal({ level: 'info' })
@@ -158,11 +157,11 @@ export class SupportScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   intercomUnreadRefreshFailed({
     trigger,
-    errorMessage,
+    errorName,
   }: {
     trigger: IIntercomUnreadTrigger;
-    errorMessage: string | undefined;
+    errorName: string | undefined;
   }) {
-    return { trigger, errorMessage };
+    return { trigger, errorName };
   }
 }

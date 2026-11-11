@@ -118,7 +118,7 @@ function logUnreadRefreshFailed(
   console.warn('Failed to refresh Intercom unread count');
   defaultLogger.notification.support.intercomUnreadRefreshFailed({
     trigger,
-    errorMessage: (error as Error | undefined)?.message,
+    errorName: (error as Error | undefined)?.name,
   });
 }
 

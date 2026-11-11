@@ -251,7 +251,6 @@ export default class ServiceNotification extends ServiceBase {
     if (platformEnv.isNative && isSupportReplyPushMessage(messageInfo)) {
       const isDuplicate = !!msgId && this.showedNotificationIds.includes(msgId);
       defaultLogger.notification.support.supportReplyPushReceived({
-        msgId,
         pushSource: messageInfo.pushSource,
         isDuplicate,
       });
