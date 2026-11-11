@@ -8,6 +8,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   Icon,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -303,12 +304,9 @@ function RecentActivityItem({
         : undefined)}
     >
       <RecentActivityIcon row={row} />
-      {/* With an amount, the action keeps up to half the row and the amount
-          takes the rest, so a long amount truncates first. */}
-      <YStack
-        minWidth={0}
-        {...(row.amount ? { flexShrink: 0, maxWidth: '50%' } : { flex: 1 })}
-      >
+      {/* The action truncates first: the amount keeps its width, up to 60% of
+          the row, so the action still shows a few words. */}
+      <YStack flex={1} minWidth={0}>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {row.title}
         </SizableText>
@@ -326,8 +324,8 @@ function RecentActivityItem({
           size="$bodyLgMedium"
           color={row.amount.positive ? '$textSuccess' : '$text'}
           numberOfLines={1}
-          flex={1}
-          minWidth={0}
+          flexShrink={0}
+          maxWidth="60%"
           textAlign="right"
         >
           {row.amount.segments
@@ -416,10 +414,9 @@ function RecentActivityList({
       data.map((history) => {
         const { networkId } = history.decodedTx;
         const vault = vaults?.[networkId];
-        const { row } = buildHistoryActivityRow({
+        const buildArgs = {
           history,
           intl,
-          tableLayout: false,
           isUTXO: vault?.isUtxo,
           localWallet: vault?.localWallet,
           hideValue: settingsValue.hideValue,
@@ -429,6 +426,10 @@ function RecentActivityList({
             logoURI: networkUtils.getLocalNetworkInfo(networkId)?.logoURI,
           },
           tokenFallbackTheme,
+        };
+        const { row } = buildHistoryActivityRow({
+          ...buildArgs,
+          tableLayout: false,
         });
         let status: IRecentActivityRow['status'] = 'done';
         let when = formatDistanceToNowStrict(
@@ -449,7 +450,16 @@ function RecentActivityList({
         }
         // A two-sided action's primary amount is what arrived, and its
         // second (receive) visual is that token.
-        const primary = row.amounts.find((amount) => amount.key === 'primary');
+        // An approval reports its allowance the way the History table does
+        // ("Unlimited USDT", "100 USDT"); a revoke reports none.
+        const approval = row.amounts.some((amount) => amount.key === 'approval')
+          ? buildHistoryActivityRow({
+              ...buildArgs,
+              tableLayout: true,
+            }).row.amounts.find((amount) => amount.key === 'approval')
+          : undefined;
+        const primary =
+          row.amounts.find((amount) => amount.key === 'primary') ?? approval;
         return {
           history,
           title:
@@ -495,9 +505,50 @@ function RecentActivityList({
   );
 }
 
-const renderRecentActivityList = (props: ITxHistoryCompactListProps) => (
-  <RecentActivityList {...props} />
-);
+// Placeholder rows on the loaded rows' plate and line heights, so nothing
+// moves when the transactions arrive.
+function RecentActivityLoading() {
+  return (
+    <YStack>
+      {[0, 1, 2].map((key) => (
+        <XStack key={key} h={60} mx="$2" px="$3" gap="$3" alignItems="center">
+          <Skeleton w="$8" h="$8" radius="round" />
+          <YStack flex={1} minWidth={0}>
+            <Skeleton.BodyLg />
+            <Skeleton.BodyMd />
+          </YStack>
+          <Skeleton.BodyLg w={64} />
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+// No activity yet: a line on the rows' plate instead of the History tab's
+// illustration, which stands taller than the column's rows.
+function RecentActivityEmpty() {
+  const intl = useIntl();
+  return (
+    <YStack mx="$2" px="$3" py="$2.5">
+      <SizableText size="$bodyLgMedium">
+        {intl.formatMessage({
+          id: ETranslations.wallet_transaction_history_empty_message,
+        })}
+      </SizableText>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.wallet_transactions_empty_desc,
+        })}
+      </SizableText>
+    </YStack>
+  );
+}
+
+const renderRecentActivityList = (props: ITxHistoryCompactListProps) => {
+  if (props.status === 'loading') return <RecentActivityLoading />;
+  if (props.status === 'empty') return <RecentActivityEmpty />;
+  return <RecentActivityList {...props} />;
+};
 
 const RecentHistory = memo(() => {
   const intl = useIntl();

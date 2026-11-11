@@ -89,6 +89,9 @@ const getTokenRefreshAccountKey = (account: ITokenRefreshAccount) =>
   `${account.accountId}::${account.networkId}`;
 
 export type ITxHistoryCompactListProps = {
+  // `loading` until the first page arrives, `empty` when it had nothing;
+  // `data` is empty in both.
+  status: 'loading' | 'empty' | 'ready';
   data: IAccountHistoryTx[];
   onPressHistory: (history: IAccountHistoryTx) => void;
 };
@@ -101,8 +104,8 @@ function TxHistoryListContainer(
         limit?: number;
         emptyTitle?: string;
         emptyDescription?: string;
-        // Draws loaded rows itself (the desktop Recent activity column); the
-        // regular list still covers loading and empty states.
+        // Draws the list itself, loading and empty states included (the
+        // desktop Recent activity column), so all three share its row shape.
         renderCompactList?: (props: ITxHistoryCompactListProps) => ReactNode;
       }
     | undefined,
@@ -920,12 +923,15 @@ function TxHistoryListContainer(
     [],
   );
 
-  if (
-    renderCompactList &&
-    historyState.initialized &&
-    displayedHistoryData.length > 0
-  ) {
+  if (renderCompactList) {
+    let status: ITxHistoryCompactListProps['status'] = 'ready';
+    if (!historyState.initialized) {
+      status = 'loading';
+    } else if (displayedHistoryData.length === 0) {
+      status = 'empty';
+    }
     return renderCompactList({
+      status,
       data: displayedHistoryData,
       onPressHistory: handleHistoryItemPress,
     });
