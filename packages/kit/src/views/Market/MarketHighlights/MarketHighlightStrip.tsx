@@ -56,6 +56,23 @@ const CAROUSEL_TRANSITION_MS = 600;
 // Rows only travel the height of the content (28px asset chips) instead of
 // the full strip, so the slide stays tight around the text.
 const CAROUSEL_ROW_HEIGHT = 28;
+// Keeps a long symbol from squeezing out the highlight title.
+const ASSET_SYMBOL_MAX_WIDTH = 84;
+
+// On web, true only for keyboard focus (`:focus-visible`), so a mouse click
+// that also focuses the button does not count. Native has no such state.
+function isKeyboardFocused(target: unknown): boolean {
+  const element = target as
+    | { matches?: (selector: string) => boolean }
+    | null
+    | undefined;
+  if (typeof element?.matches !== 'function') return true;
+  try {
+    return element.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
 
 function CarouselItem({
   highlight,
@@ -83,7 +100,15 @@ function CarouselItem({
       alignItems="center"
       gap="$3"
       {...itemProps}
-      onPress={() => onItemPress(highlight)}
+      onPress={(event) => {
+        // Drop the focus a mouse click leaves behind, so closing the modal
+        // does not restore it onto the item and keep the carousel paused.
+        const target = event?.currentTarget as unknown as {
+          blur?: () => void;
+        } | null;
+        if (!isKeyboardFocused(target)) target?.blur?.();
+        onItemPress(highlight);
+      }}
     >
       <SizableText
         flexShrink={1}
@@ -109,7 +134,11 @@ function CarouselItem({
             >
               <Token size="xxs" tokenImageUri={quote?.logoUrl} />
               <XStack alignItems="center" gap="$2">
-                <SizableText size="$headingSm" numberOfLines={1}>
+                <SizableText
+                  size="$headingSm"
+                  numberOfLines={1}
+                  maxWidth={ASSET_SYMBOL_MAX_WIDTH}
+                >
                   {asset.symbol}
                 </SizableText>
                 {maxLeverage && maxLeverage > 0 ? (
@@ -330,7 +359,9 @@ export function MarketHighlightStrip({
   const itemProps: IXStackProps = {
     onHoverIn: () => setHovered(true),
     onHoverOut: () => setHovered(false),
-    onFocus: () => setFocused(true),
+    onFocus: (event) => {
+      if (isKeyboardFocused(event?.target)) setFocused(true);
+    },
     onBlur: () => setFocused(false),
     onPressIn: () => {
       clearTimeout(pressTimerRef.current);
