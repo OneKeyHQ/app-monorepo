@@ -919,8 +919,9 @@ export function NativeTokenSelectorList({
                 weight: columnWeights.price,
               };
               // Desktop and web end the row on the holdings, value over
-              // amount (amount alone while there is no value); their Swap
-              // shows on hover only (web index.css). Native tablets keep
+              // amount (amount alone while there is no value); web index.css
+              // shows their Swap on hover only and sets the price, the second
+              // cell, in regular weight. Native tablets keep
               // balance | price | Swap.
               const [holdingsPrimary, holdingsSecondary] =
                 !platformEnv.isNative && valueText.text

@@ -148,14 +148,11 @@ export const {
   isProcessing: false,
 });
 
-// The order a token list opens in: by value, highest first.
-export const TOKEN_LIST_DEFAULT_SORT = {
-  sortType: ETokenListSortType.Value,
-  sortDirection: 'desc',
-} as const;
-
 export const { atom: tokenListSortAtom, use: useTokenListSortAtom } =
   contextAtom<{
     sortType: ETokenListSortType;
     sortDirection: 'desc' | 'asc';
-  }>({ ...TOKEN_LIST_DEFAULT_SORT });
+  }>({
+    sortType: ETokenListSortType.Value,
+    sortDirection: 'desc',
+  });

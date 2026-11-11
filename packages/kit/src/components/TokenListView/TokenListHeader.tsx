@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,11 +12,9 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
-  TOKEN_LIST_DEFAULT_SORT,
   useTokenListActions,
   useTokenListSortAtom,
 } from '../../states/jotai/contexts/tokenList';
@@ -42,27 +40,14 @@ const SWAP_BUTTON_HORIZONTAL_INSET = 11;
 function SortButton({
   label,
   iconName,
-  hintIconName,
   onPress,
 }: {
   label: string;
-  // The order this column is sorted in, while the user has sorted by it.
   iconName?: IKeyOfIcons;
-  // The order this column is or would start in, shown only on hover.
-  hintIconName?: IKeyOfIcons;
   onPress?: IXStackProps['onPress'];
 }) {
-  // Tracked here rather than with a Tamagui group: a group makes the button a
-  // size container on web, which collapses its width under the label.
-  const [hovered, setHovered] = useState(false);
-  const shownIconName = iconName ?? hintIconName;
-  let iconOpacity = 0;
-  if (iconName) iconOpacity = 1;
-  else if (hovered) iconOpacity = 0.6;
   return (
     <XStack
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
       role="button"
       alignItems="center"
       py="$1"
@@ -93,28 +78,13 @@ function SortButton({
       >
         {label}
       </SizableText>
-      {shownIconName ? (
-        // Centered on the button's midline, which the uppercase label shares;
-        // a fixed top offset left it about 2px low on web.
-        <Stack
-          position="absolute"
-          right="$-3.5"
-          top={0}
-          bottom={0}
-          justifyContent="center"
-          opacity={iconOpacity}
-        >
-          <Icon name={shownIconName} color="$iconSubdued" size="$4.5" />
+      {iconName ? (
+        <Stack position="absolute" right="$-3.5" top={5}>
+          <Icon name={iconName} color="$iconSubdued" size="$4.5" />
         </Stack>
       ) : null}
     </XStack>
   );
-}
-
-function getSortIconName(direction: 'asc' | 'desc'): IKeyOfIcons {
-  return direction === 'desc'
-    ? 'ChevronDownSmallOutline'
-    : 'ChevronTopSmallOutline';
 }
 
 function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
@@ -123,22 +93,13 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
   const { updateTokenListSort } = useTokenListActions().current;
 
-  // An arrow only ever shows a column's order. The column the user sorted by
-  // keeps it; the opening order (value, highest first) shows it on hover only,
-  // as do the other columns, which a press starts high to low.
-  const sortIcons = useCallback(
-    (
-      type: ETokenListSortType,
-    ): { iconName?: IKeyOfIcons; hintIconName?: IKeyOfIcons } => {
-      if (sortType !== type) {
-        return { hintIconName: getSortIconName('desc') };
+  const renderSortButton = useCallback(
+    (type: ETokenListSortType) => {
+      if (sortType === type) {
+        return sortDirection === 'desc'
+          ? 'ChevronDownSmallOutline'
+          : 'ChevronTopSmallOutline';
       }
-      const isDefaultSort =
-        sortType === TOKEN_LIST_DEFAULT_SORT.sortType &&
-        sortDirection === TOKEN_LIST_DEFAULT_SORT.sortDirection;
-      return isDefaultSort
-        ? { hintIconName: getSortIconName(sortDirection) }
-        : { iconName: getSortIconName(sortDirection) };
     },
     [sortDirection, sortType],
   );
@@ -153,47 +114,6 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
   // edge while the column itself keeps the row's cell width.
   const assetLabelInset = -(leadingWidth + cellGap);
   const columnWeights = getTokenTableColumnWeights(withSwapAction);
-  // Web rows read asset | price | balance with no Swap spacer (see
-  // NativeTokenSelectorList); native tablets keep asset | balance | price.
-  const holdingsLast = !platformEnv.isNative;
-  const balanceHeader = (
-    <Stack
-      key="balance"
-      flexGrow={columnWeights.balance}
-      flexBasis={0}
-      alignItems="flex-end"
-    >
-      <SortButton
-        label={intl.formatMessage({ id: ETranslations.global_balance })}
-        {...sortIcons(ETokenListSortType.Value)}
-        onPress={() => {
-          updateTokenListSort({
-            sortType: ETokenListSortType.Value,
-            sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-          });
-        }}
-      />
-    </Stack>
-  );
-  const priceHeader = (
-    <Stack
-      key="price"
-      flexGrow={columnWeights.price}
-      flexBasis={0}
-      alignItems="flex-end"
-    >
-      <SortButton
-        label={intl.formatMessage({ id: ETranslations.global_price })}
-        {...sortIcons(ETokenListSortType.Price)}
-        onPress={() => {
-          updateTokenListSort({
-            sortType: ETokenListSortType.Price,
-            sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-          });
-        }}
-      />
-    </Stack>
-  );
 
   return (
     <ListItem
@@ -212,7 +132,7 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
           <Stack ml={assetLabelInset}>
             <SortButton
               label={intl.formatMessage({ id: ETranslations.global_asset })}
-              {...sortIcons(ETokenListSortType.Name)}
+              iconName={renderSortButton(ETokenListSortType.Name)}
               onPress={() => {
                 updateTokenListSort({
                   sortType: ETokenListSortType.Name,
@@ -222,10 +142,39 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
             />
           </Stack>
         </Stack>
-        {holdingsLast
-          ? [priceHeader, balanceHeader]
-          : [balanceHeader, priceHeader]}
-        {columnWeights.swapSpacer && !holdingsLast ? (
+        <Stack
+          flexGrow={columnWeights.balance}
+          flexBasis={0}
+          alignItems="flex-end"
+        >
+          <SortButton
+            label={intl.formatMessage({ id: ETranslations.global_balance })}
+            iconName={renderSortButton(ETokenListSortType.Value)}
+            onPress={() => {
+              updateTokenListSort({
+                sortType: ETokenListSortType.Value,
+                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+              });
+            }}
+          />
+        </Stack>
+        <Stack
+          flexGrow={columnWeights.price}
+          flexBasis={0}
+          alignItems="flex-end"
+        >
+          <SortButton
+            label={intl.formatMessage({ id: ETranslations.global_price })}
+            iconName={renderSortButton(ETokenListSortType.Price)}
+            onPress={() => {
+              updateTokenListSort({
+                sortType: ETokenListSortType.Price,
+                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+              });
+            }}
+          />
+        </Stack>
+        {columnWeights.swapSpacer ? (
           <Stack flexGrow={columnWeights.swapSpacer} flexBasis={0} />
         ) : null}
       </XStack>

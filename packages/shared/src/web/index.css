@@ -362,6 +362,19 @@ textarea {
   }
 }
 
+/* The same rows read asset | price | holdings (NativeTokenSelectorList). The
+   price, the second cell, is in regular weight so the medium weight stays on
+   the symbol and the holdings. A data row takes one weight for every column
+   and the package sets it inline, hence !important. Remove once the package
+   takes a weight per column. */
+.ok-native-list-item[data-testid^='home-token-item-']
+  .ok-native-list-data
+  > .ok-native-list-data-cell:nth-child(2 of .ok-native-list-data-cell)
+  [data-nl-slot='columns'] {
+  font-weight: 400 !important;
+  font-family: var(--nl-font-regular) !important;
+}
+
 /* 
   Add break-all class to handle word breaking in web platform,
   since react-native doesn't support wordBreak property directly.
