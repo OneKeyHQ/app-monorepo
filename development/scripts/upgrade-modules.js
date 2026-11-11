@@ -7,19 +7,25 @@ const path = require('path');
 const newVersion = process.argv[2];
 if (!newVersion) {
   console.error('Usage: yarn onekeyhq:modules:upgrade <version>');
-  console.error('Example: yarn onekeyhq:modules:upgrade 3.0.12');
+  console.error('Example: yarn onekeyhq:modules:upgrade 6.7.0-44');
   process.exit(1);
 }
 
 const ROOT = path.resolve(__dirname, '../..');
 const files = [
   path.join(ROOT, 'package.json'),
-  path.join(ROOT, 'packages/components/package.json'),
-  path.join(ROOT, 'apps/mobile/package.json'),
+  ...['apps', 'packages'].flatMap((directory) =>
+    fs
+      .readdirSync(path.join(ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(ROOT, directory, entry.name, 'package.json'))
+      .filter((file) => fs.existsSync(file)),
+  ),
 ];
 
-// Match @onekeyfe/react-native-* versions like "3.0.11" or "npm:@onekeyfe/...@3.0.11"
-const VERSION_RE = /3\.0\.\d+/;
+// Match legacy 3.0 releases and numeric SDK prereleases, including npm aliases.
+// Independently versioned stable packages such as ble-utils stay unchanged.
+const VERSION_RE = /(?:3\.0\.\d+|\d+\.\d+\.\d+-\d+)$/;
 
 const isAppModulesRef = (name, value) => {
   if (name.startsWith('@onekeyfe/react-native-')) return true;
