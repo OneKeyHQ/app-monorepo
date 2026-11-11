@@ -960,3 +960,31 @@ it('disables native image caching for selected, pending and received attachments
   view.unmount();
   await act(async () => upload.reject(new Error('cancelled')));
 });
+
+it('keeps the acknowledged composer editable while the first conversation refresh is pending', async () => {
+  const refresh = deferred<unknown>();
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations/42'
+      ? refresh.promise
+      : original?.(path, parameters),
+  );
+  const view = render(<SupportScreen />);
+  await enterMessage('Hello support');
+  await waitFor(() =>
+    expect(mockSetParams).toHaveBeenCalledWith({ conversationId: '42' }),
+  );
+  const input = screen.getByTestId(
+    'support-message-input',
+  ) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(false);
+  input.focus();
+  fireEvent.change(input, { target: { value: 'Next draft during refresh' } });
+  mockRoute.params = { userId: null, conversationId: '42' };
+  view.rerender(<SupportScreen />);
+  expect(screen.getByTestId('support-message-input')).toBe(input);
+  expect(input.disabled).toBe(false);
+  expect(document.activeElement).toBe(input);
+  await act(async () => refresh.resolve(conversation));
+  expect(input.value).toBe('Next draft during refresh');
+});

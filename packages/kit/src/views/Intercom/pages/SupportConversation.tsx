@@ -107,6 +107,8 @@ function SupportConversationContent({
   const [image, setImage] = useState<IPickedImage>();
   const [pending, setPending] = useState<IOutgoing>();
   const [confirmed, setConfirmed] = useState<IIntercomPart[]>([]);
+  const [createdConversation, setCreatedConversation] =
+    useState<IIntercomConversation>();
   const [actionFailed, setActionFailed] = useState(false);
   const sending = useRef(false);
   const alive = useRef(true);
@@ -124,11 +126,16 @@ function SupportConversationContent({
         void cleanSupportImage(path).catch(() => undefined);
     };
   }, []);
-  const current = resource.data?.conversation;
+  const current =
+    resource.data?.conversation ??
+    (createdConversation?.id === conversationId
+      ? createdConversation
+      : undefined);
   const open = resource.data?.open;
   const acceptConversation = useCallback(
     (conversation: IIntercomConversation) => {
       if (!alive.current) return;
+      setCreatedConversation(conversation);
       setConfirmed(conversation.parts);
       setConversationId(conversation.id);
       setPending(undefined);
