@@ -20,16 +20,7 @@ let mockEarnAccountResult: {
   result?: { accountId: string; accountAddress: string } | null;
   isLoading: boolean;
 };
-let mockEarnAccountIdentity:
-  | { accountId?: string; indexedAccountId?: string }
-  | undefined;
-let mockEarnAccountOptions:
-  | {
-      swrKey?: string;
-      swrShouldPersist?: (result: unknown) => boolean;
-      undefinedResultIfReRun?: boolean;
-    }
-  | undefined;
+const mockUseEarnAccount = jest.fn();
 type IMockOverview = Record<
   'perps' | 'swap' | 'earn',
   { status: 'success'; data: unknown } | { status: 'error' }
@@ -100,42 +91,23 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-// The account resolver depends on account ids; the overview only on the
-// resolved address, so the dependency count tells the two calls apart. The
-// overview runs its real fetcher, so the component sees the object it
+// The overview runs its real fetcher, so the component sees the object it
 // fetched, after a cached one when the test seeds one.
+jest.mock('@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount', () => ({
+  useEarnAccount: (params: unknown) => {
+    mockUseEarnAccount(params);
+    return {
+      earnAccount: mockEarnAccountResult.result ?? undefined,
+      isLoading: mockEarnAccountResult.isLoading,
+    };
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (
-    fn: () => Promise<unknown>,
-    deps: unknown[],
-    options?: typeof mockEarnAccountOptions,
-  ) => {
-    if (deps.length !== 1) {
-      mockEarnAccountOptions = options;
-      const raw = mockEarnAccountResult.isLoading
-        ? undefined
-        : mockEarnAccountResult.result;
-      return {
-        isLoading: mockEarnAccountResult.isLoading,
-        run: jest.fn(),
-        result:
-          raw === undefined
-            ? undefined
-            : {
-                accountId:
-                  mockEarnAccountIdentity?.accountId ??
-                  mockActiveAccount.account?.id,
-                indexedAccountId:
-                  mockEarnAccountIdentity?.indexedAccountId ??
-                  mockActiveAccount.indexedAccount?.id,
-                earnAccount: raw,
-              },
-      };
-    }
+  usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
     const React = jest.requireActual<typeof import('react')>('react');
     const address = mockEarnAccountResult.result?.accountAddress;
     const fetchedResult = mockOverviewResult.result;
-    // Hook order is stable: this branch always runs second in a render.
     // oxlint-disable-next-line react-hooks/rules-of-hooks
     const [fetched, setFetched] = React.useState<unknown>(undefined);
     // oxlint-disable-next-line react-hooks/rules-of-hooks
@@ -289,6 +261,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+
 import { ReferFriendsTestIDs } from '../../testIDs';
 
 import { MyRewardsContent } from './MyRewardsContent';
@@ -320,8 +294,7 @@ describe('MyRewardsContent', () => {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
     };
-    mockEarnAccountIdentity = undefined;
-    mockEarnAccountOptions = undefined;
+    mockUseEarnAccount.mockReset();
     mockEarnAccountResult = {
       result: { accountId: 'evm-account', accountAddress: '0xabc' },
       isLoading: false,
@@ -993,10 +966,7 @@ describe('MyRewardsContent', () => {
       account: { id: 'hd-2' },
       indexedAccount: { id: 'hd-2--0' },
     };
-    mockEarnAccountIdentity = {
-      accountId: 'hd-1--account',
-      indexedAccountId: 'hd-1--0',
-    };
+    mockEarnAccountResult = { result: undefined, isLoading: true };
     await rerenderMyRewards(view);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
     expect(
@@ -1005,35 +975,25 @@ describe('MyRewardsContent', () => {
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
   });
 
-  it('caches each account address so switching back paints without a skeleton', async () => {
-    const view = await renderMyRewards();
-    expect(mockEarnAccountOptions?.swrKey).toBe(
-      'earnAccount:referralPerks:v1:hd-1--account:hd-1--0',
-    );
-    // Clearing on rerun would wipe the cached address the swrKey just painted.
-    expect(mockEarnAccountOptions?.undefinedResultIfReRun).toBeFalsy();
-    expect(
-      mockEarnAccountOptions?.swrShouldPersist?.({
-        accountId: 'hd-1--account',
-        indexedAccountId: 'hd-1--0',
-        earnAccount: null,
-      }),
-    ).toBe(false);
-    expect(
-      mockEarnAccountOptions?.swrShouldPersist?.({
-        accountId: 'hd-1--account',
-        indexedAccountId: 'hd-1--0',
-        earnAccount: { accountAddress: '0xabc' },
-      }),
-    ).toBe(true);
+  it('resolves the address of the account it shows, by both ids', async () => {
+    await renderMyRewards();
+    expect(mockUseEarnAccount).toHaveBeenLastCalledWith({
+      networkId: getNetworkIdsMap().eth,
+      accountId: 'hd-1--account',
+      indexedAccountId: 'hd-1--0',
+    });
+  });
 
-    mockActiveAccount = {
-      account: { id: 'hd-2' },
-      indexedAccount: { id: 'hd-2--0' },
+  it('keeps a cached address on screen while it revalidates', async () => {
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-account', accountAddress: '0xabc' },
+      isLoading: true,
     };
-    await rerenderMyRewards(view);
-    expect(mockEarnAccountOptions?.swrKey).toBe(
-      'earnAccount:referralPerks:v1:hd-2:hd-2--0',
+    await renderMyRewards();
+    expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
+    // Total 5, unpaid 1: the loaded row, not its skeleton.
+    expect(screen.getByTestId('my-rewards-module-perps').textContent).toContain(
+      '51',
     );
   });
 

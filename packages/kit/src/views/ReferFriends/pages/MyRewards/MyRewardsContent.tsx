@@ -37,6 +37,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { EarnInviteeRewardContent } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent';
 import { InviteeRewardContent as PerpsInviteeRewardContent } from '@onekeyhq/kit/src/views/Perp/components/InviteeReward/InviteeRewardContent';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -1162,58 +1163,26 @@ function MyRewardsContentBody({
   const hasAccount = Boolean(accountId || indexedAccountId);
 
   // Perps, Swap and Earn rewards are all keyed by the account's EVM address
-  // (Perps uses the master address, not the agent wallet).
-  const { result: earnAccountResult } = usePromiseResult(
-    async () => {
-      if (!hasAccount) {
-        return null;
-      }
-      try {
-        const resolved = await backgroundApiProxy.serviceStaking.getEarnAccount(
-          {
-            accountId: accountId ?? '',
-            indexedAccountId,
-            networkId: getNetworkIdsMap().eth,
-            btcOnlyTaproot: true,
-          },
-        );
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: resolved?.accountAddress ? resolved : null,
-        };
-      } catch {
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: null,
-        };
-      }
-    },
-    [accountId, hasAccount, indexedAccountId],
-    {
-      watchLoading: true,
-      // An account seen before paints its address at once, so its cached
-      // overview shows without a skeleton flash on every switch (OK-66978).
-      // No undefinedResultIfReRun: it would clear that cached address as soon
-      // as the revalidation starts. The swrKey change already drops the
-      // previous account's result, and the identity check below covers the
-      // rest.
-      swrKey: hasAccount
-        ? swrKeys.referralPerksEarnAccount({ accountId, indexedAccountId })
-        : undefined,
-      // A lookup failure also resolves to null; only a real address is kept.
-      swrShouldPersist: (result) => Boolean(result?.earnAccount),
-    },
-  );
-  // The previous account's result can still be in state on the first render
-  // after a switch. Treat that as loading, not as this account's address.
-  const earnAccount =
-    earnAccountResult &&
-    earnAccountResult.accountId === accountId &&
-    earnAccountResult.indexedAccountId === indexedAccountId
-      ? earnAccountResult.earnAccount
-      : undefined;
+  // (Perps uses the master address, not the agent wallet). useEarnAccount
+  // caches it per account, so switching back to an account paints its cached
+  // overview without blanking the figures first (OK-66978).
+  const { earnAccount: resolvedEarnAccount, isLoading: isEarnAccountLoading } =
+    useEarnAccount({
+      networkId: getNetworkIdsMap().eth,
+      // Pass both ids so the hook resolves the account shown in the header,
+      // not the selector's newer pick while the switch is still landing.
+      accountId,
+      indexedAccountId,
+    });
+  // undefined while resolving, null when the account has no EVM address.
+  let earnAccount: typeof resolvedEarnAccount | null | undefined = null;
+  if (hasAccount) {
+    if (resolvedEarnAccount?.accountAddress) {
+      earnAccount = resolvedEarnAccount;
+    } else if (isEarnAccountLoading) {
+      earnAccount = undefined;
+    }
+  }
 
   const walletAddress = earnAccount?.accountAddress;
   // Started here, beside the overview, so an empty Perks tab does not wait on

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IFilterState } from '@onekeyhq/kit/src/views/ReferFriends/components/FilterButton';
-import type { IEarnRewardResponse } from '@onekeyhq/shared/src/referralCode/type';
+import type { IEarnPositionsResponse } from '@onekeyhq/shared/src/referralCode/type';
 
 import { EARN_VAULT_KEY_SEPARATOR } from '../components/RewardAccountList';
 
@@ -13,159 +14,109 @@ import type {
   IVaultAmount,
 } from '../components/RewardAccountList';
 
-export function useEarnRewards(filterState: IFilterState) {
-  const [lists, setLists] = useState<(ISectionData[] | undefined)[]>([]);
-  const [amountPending, setAmountPending] = useState<string | undefined>();
-  const [vaultAmount, setVaultAmount] = useState<IVaultAmount | undefined>();
-  const [isLoading, setIsLoading] = useState(true);
-  const isMountedRef = useRef(true);
+type IRewardAccount = { accountAddress: string; networkId: string };
 
-  const buildAccountNetworkKey = useCallback(
-    (accountAddress: string, networkId: string) =>
-      `${accountAddress}-${networkId}`,
-    [],
-  );
+const EMPTY_LISTS: (ISectionData[] | undefined)[] = [];
 
-  // Get the effective timeRange for API calls
-  // When using custom date range (startTime/endTime), don't pass timeRange
-  const effectiveTimeRange =
-    filterState.startTime && filterState.endTime
-      ? undefined
-      : filterState.timeRange;
-
-  // Only the latest request may commit, so a slow response for an earlier
-  // filter cannot overwrite the current one.
-  const requestIdRef = useRef(0);
-
-  const onRefresh = useCallback(async () => {
-    requestIdRef.current += 1;
-    const requestId = requestIdRef.current;
-    const isLatest = () =>
-      isMountedRef.current && requestId === requestIdRef.current;
-    setIsLoading(true);
-    const [salesResult, totalResult] = await Promise.allSettled([
-      backgroundApiProxy.serviceReferralCode.getEarnReward(
-        undefined,
-        true,
-        effectiveTimeRange,
-        filterState.inviteCode,
-        filterState.startTime,
-        filterState.endTime,
-      ),
-      backgroundApiProxy.serviceReferralCode.getEarnReward(
-        undefined,
-        undefined,
-        effectiveTimeRange,
-        filterState.inviteCode,
-        filterState.startTime,
-        filterState.endTime,
-      ),
-    ]);
-    const listBundles: (ISectionData[] | undefined)[] = [];
-    let pending = '0';
-    if (salesResult.status === 'fulfilled') {
-      const data = salesResult.value;
-      listBundles[0] = data.items?.length ? data.items : [];
-      pending = BigNumber(data.fiatValue).toFixed() || '0';
-    }
-    if (totalResult.status === 'fulfilled') {
-      const data = totalResult.value;
-      listBundles[1] = data.items?.length ? data.items : [];
-    }
-    const accounts: {
-      accountAddress: string;
-      networkId: string;
-    }[] = [];
-    const seenAccounts = new Set<string>();
-    const processItems = (items: IEarnRewardResponse['items']) => {
-      if (!items || !items.length) {
+function collectRewardAccounts(lists: (ISectionData[] | undefined)[]) {
+  const accounts: IRewardAccount[] = [];
+  const seen = new Set<string>();
+  lists.forEach((items) =>
+    items?.forEach(({ accountAddress, items: vaults }) => {
+      // A record with no vault rows has no network to look positions up on.
+      const networkId = vaults[0]?.networkId;
+      const key = `${accountAddress}-${networkId ?? ''}`;
+      if (!networkId || seen.has(key)) {
         return;
       }
-      items.forEach((item) => {
-        // A record with no vault rows would throw here and leave the page on
-        // the loading overlay.
-        const networkId = item.items[0]?.networkId;
-        if (!networkId) {
-          return;
-        }
-        const key = buildAccountNetworkKey(item.accountAddress, networkId);
-        if (!seenAccounts.has(key)) {
-          seenAccounts.add(key);
-          accounts.push({
-            accountAddress: item.accountAddress,
-            networkId,
-          });
-        }
-      });
-    };
+      seen.add(key);
+      accounts.push({ accountAddress, networkId });
+    }),
+  );
+  return accounts;
+}
 
-    if (salesResult.status === 'fulfilled' && salesResult.value.items) {
-      processItems(salesResult.value.items);
+function toVaultAmount(list: IEarnPositionsResponse['list']) {
+  const vaultAmount: IVaultAmount = {};
+  for (const item of list) {
+    const keys = item.key.split(EARN_VAULT_KEY_SEPARATOR);
+    const lastIndex = keys.length - 1;
+    if (keys[lastIndex].length) {
+      keys[lastIndex] = keys[lastIndex].toLowerCase();
     }
+    vaultAmount[item.accountAddress] ??= {};
+    vaultAmount[item.accountAddress][keys.join(EARN_VAULT_KEY_SEPARATOR)] =
+      item.deposited;
+  }
+  return vaultAmount;
+}
 
-    if (totalResult.status === 'fulfilled' && totalResult.value.items) {
-      processItems(totalResult.value.items);
-    }
-    // Deposited amounts only decorate the reward rows. A positions timeout or
-    // error must not hold the page on the loading overlay or drop the reward
-    // records that already loaded (OK-67014).
-    let newVaultAmount: IVaultAmount | undefined;
-    if (accounts.length) {
-      try {
-        const response =
-          await backgroundApiProxy.serviceReferralCode.getPositions(accounts);
-        newVaultAmount = {} as IVaultAmount;
-        for (const item of response.list) {
-          const keys = item.key.split(EARN_VAULT_KEY_SEPARATOR);
-          const lastIndex = keys.length - 1;
-          if (keys[lastIndex].length) {
-            keys[lastIndex] = keys[lastIndex].toLowerCase();
-          }
-          if (!newVaultAmount[item.accountAddress]) {
-            newVaultAmount[item.accountAddress] = {};
-          }
-          newVaultAmount[item.accountAddress][
-            keys.join(EARN_VAULT_KEY_SEPARATOR)
-          ] = item.deposited;
-        }
-      } catch {
-        newVaultAmount = undefined;
+export function useEarnRewards(filterState: IFilterState) {
+  const { inviteCode, startTime, endTime } = filterState;
+  // When using custom date range (startTime/endTime), don't pass timeRange
+  const effectiveTimeRange =
+    startTime && endTime ? undefined : filterState.timeRange;
+
+  const {
+    result: rewards,
+    isLoading,
+    run,
+  } = usePromiseResult(
+    async () => {
+      const fetchRewards = (available?: boolean) =>
+        backgroundApiProxy.serviceReferralCode.getEarnReward(
+          undefined,
+          available,
+          effectiveTimeRange,
+          inviteCode,
+          startTime,
+          endTime,
+        );
+      const [salesResult, totalResult] = await Promise.allSettled([
+        fetchRewards(true),
+        fetchRewards(),
+      ]);
+      const lists: (ISectionData[] | undefined)[] = [];
+      let amountPending = '0';
+      if (salesResult.status === 'fulfilled') {
+        lists[0] = salesResult.value.items ?? [];
+        amountPending = BigNumber(salesResult.value.fiatValue).toFixed() || '0';
       }
-    }
-    if (!isLatest()) {
-      return;
-    }
-    setVaultAmount(newVaultAmount);
-    setAmountPending(pending);
-    setLists(listBundles);
-    setTimeout(() => {
-      if (isLatest()) {
-        setIsLoading(false);
+      if (totalResult.status === 'fulfilled') {
+        lists[1] = totalResult.value.items ?? [];
       }
-    }, 80);
-  }, [
-    buildAccountNetworkKey,
-    effectiveTimeRange,
-    filterState.inviteCode,
-    filterState.startTime,
-    filterState.endTime,
-  ]);
+      return { lists, amountPending, accounts: collectRewardAccounts(lists) };
+    },
+    [effectiveTimeRange, inviteCode, startTime, endTime],
+    // Keep the overlay up briefly so it does not drop before the list paints.
+    { watchLoading: true, loadingDelay: 80 },
+  );
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    void onRefresh();
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [onRefresh]);
+  // Deposited amounts only decorate the reward rows, so they load on their
+  // own: a slow, hung or failed positions request never holds the records
+  // behind the loading overlay (OK-67014).
+  const accounts = rewards?.accounts;
+  const { result: vaultAmount } = usePromiseResult(async () => {
+    if (!accounts?.length) {
+      return undefined;
+    }
+    try {
+      const response =
+        await backgroundApiProxy.serviceReferralCode.getPositions(accounts);
+      return toVaultAmount(response.list);
+    } catch {
+      return undefined;
+    }
+  }, [accounts]);
 
-  const refresh = useCallback(() => onRefresh(), [onRefresh]);
+  const refresh = useCallback(() => run(), [run]);
 
   return {
-    lists,
-    amountPending,
+    lists: rewards?.lists ?? EMPTY_LISTS,
+    amountPending: rewards?.amountPending,
     vaultAmount,
-    isLoading,
+    // usePromiseResult reports undefined until its first run starts.
+    isLoading: isLoading ?? true,
     refresh,
   };
 }
