@@ -4,6 +4,7 @@ import { Linking } from 'react-native';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  OneKeyError,
   OneKeyLocalError,
   OneKeyWalletConnectModalCloseError,
 } from '@onekeyhq/shared/src/errors';
@@ -12,8 +13,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import {
   DAPP_SIDE_SINGLE_WALLET_MODE,
   WALLET_CONNECT_CLIENT_META,
@@ -504,6 +508,32 @@ export class WalletConnectDappSide {
     };
 
     try {
+      // Relay JWT validation allows two minutes of clock skew. Refresh the
+      // cloud-sync time source so sleep or a clock change cannot reuse old UTC.
+      const timeCheckStartedAt = Date.now();
+      const refreshed = await systemTimeUtils
+        .refreshServerTime()
+        .catch(() => false);
+      throwIfCancelled();
+      const localTime = Date.now();
+      const timeCheckDuration = localTime - timeCheckStartedAt;
+      const serverTime = systemTimeUtils.getEstimatedServerTime();
+      // A failed or stale request cannot establish a system-time error.
+      if (
+        refreshed &&
+        timeCheckDuration >= 0 &&
+        timeCheckDuration <= 15_000 &&
+        serverTime !== undefined &&
+        Math.abs(localTime - serverTime) >= 120_000
+      ) {
+        throw new OneKeyError({
+          key: ETranslations.global_network_doctor_action_check_datetime,
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.global_network_doctor_action_check_datetime,
+          }),
+        });
+      }
+
       const chains =
         await this.backgroundApi.serviceWalletConnect.getAllChains();
       throwIfCancelled();
