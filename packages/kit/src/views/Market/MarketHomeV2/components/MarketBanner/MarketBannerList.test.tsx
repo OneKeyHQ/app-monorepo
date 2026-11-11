@@ -1,13 +1,17 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 
-import { MarketBannerList, MarketBannerProvider } from './MarketBannerList';
+import {
+  MarketBannerLayout,
+  MarketBannerList,
+  MarketBannerProvider,
+} from './MarketBannerList';
 
 import type { useMarketBannerList } from './useMarketBannerList';
 
@@ -49,29 +53,44 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
 }));
-jest.mock('@onekeyhq/components', () => ({
-  s: (value: number) => value,
-  ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  ScrollView: ({
-    children,
-    opacity,
-    h,
-  }: PropsWithChildren<{ opacity?: number; h?: number }>) => (
-    <div
-      data-testid="mobile-banner-container"
-      data-height={h}
-      aria-hidden={opacity === 0 ? true : undefined}
-    >
-      {children}
-    </div>
-  ),
-  XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
-    <div data-testid="reserved-space" data-padding-top={pt}>
-      {children}
-    </div>
-  ),
-  useMedia: () => ({ md: mockIsSmallScreen }),
-}));
+jest.mock('@onekeyhq/components', () => {
+  const { forwardRef } = jest.requireActual<typeof import('react')>('react');
+  return {
+    s: (value: number) => value,
+    ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
+    ScrollView: ({
+      children,
+      opacity,
+      h,
+    }: PropsWithChildren<{ opacity?: number; h?: number }>) => (
+      <div
+        data-testid="mobile-banner-container"
+        data-height={h}
+        aria-hidden={opacity === 0 ? true : undefined}
+      >
+        {children}
+      </div>
+    ),
+    XStack: ({ children, pt }: PropsWithChildren<{ pt?: string }>) => (
+      <div data-testid="reserved-space" data-padding-top={pt}>
+        {children}
+      </div>
+    ),
+    YStack: forwardRef<
+      HTMLDivElement,
+      PropsWithChildren<{
+        opacity?: number;
+        top?: number;
+        'aria-hidden'?: boolean;
+      }>
+    >(({ children, opacity, top, 'aria-hidden': ariaHidden }, ref) => (
+      <div ref={ref} style={{ opacity, top }} aria-hidden={ariaHidden}>
+        {children}
+      </div>
+    )),
+    useMedia: () => ({ md: mockIsSmallScreen }),
+  };
+});
 
 function Page() {
   return (
@@ -92,6 +111,10 @@ const populated = (id = 'banner') => ({
 beforeEach(() => {
   mockIsSmallScreen = true;
   platformEnv.isNative = true;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 it('keeps native tablet banner padding aligned with the fixed header height', () => {
@@ -145,6 +168,128 @@ it('keeps the desktop scroll host when initial placeholders become cards', () =>
   expect(screen.getByTestId('desktop-web-scroller')).toBe(host);
   expect(screen.queryByTestId('skeleton')).toBeNull();
   expect(screen.getByTestId('banner')).toBeTruthy();
+});
+
+it('keeps the banner visible until pager insets are ready on first entry and refocus', async () => {
+  const frameApi: {
+    requestAnimationFrame: (callback: FrameRequestCallback) => number;
+    cancelAnimationFrame: (id: number) => void;
+  } = globalThis;
+  const frames = new Map<number, FrameRequestCallback>();
+  let frameId = 0;
+  jest
+    .spyOn(frameApi, 'requestAnimationFrame')
+    .mockImplementation((callback: FrameRequestCallback) => {
+      frameId += 1;
+      frames.set(frameId, callback);
+      return frameId;
+    });
+  jest
+    .spyOn(frameApi, 'cancelAnimationFrame')
+    .mockImplementation((id: number) => {
+      frames.delete(id);
+    });
+  const paintFrame = () => {
+    const pending = [...frames.values()];
+    frames.clear();
+    act(() => pending.forEach((callback) => callback(0)));
+  };
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = {
+    ...populated(),
+    bannerList: [],
+    isLoading: true,
+    isFetched: false,
+  };
+  const stackMethods = {
+    measure: jest.fn(),
+    measureInWindow: jest.fn(),
+    measureLayout: jest.fn(),
+  };
+  const header = Object.assign(document.createElement('div'), stackMethods);
+  const stickyHeader = Object.assign(
+    document.createElement('div'),
+    stackMethods,
+  );
+  const headerRect = {
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 400,
+    bottom: 224,
+    width: 400,
+    height: 224,
+    toJSON: jest.fn(),
+  };
+  const measureHeader = jest
+    .spyOn(header, 'getBoundingClientRect')
+    .mockReturnValue(headerRect);
+  jest
+    .spyOn(stickyHeader, 'getBoundingClientRect')
+    .mockReturnValue({ ...headerRect, height: 108, bottom: 108 });
+  const page = (active: boolean) => (
+    <MarketBannerProvider>
+      <MarketBannerLayout
+        headerRef={{ current: header }}
+        stickyHeaderRef={{ current: stickyHeader }}
+        active={active}
+      >
+        <div data-testid="pager" data-collapsible-pager-active="true">
+          Table
+        </div>
+      </MarketBannerLayout>
+    </MarketBannerProvider>
+  );
+  const { rerender } = render(page(true));
+  const pager = screen.getByTestId('pager');
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+  expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+  await act(async () => {
+    pager.style.setProperty('--ok-collapsible-pager-header-inset', '224px');
+    pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '0px');
+  });
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+  expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+  await act(async () => {
+    pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '108px');
+  });
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+  expect(pager.closest('[aria-hidden="true"]')).toBeNull();
+  paintFrame();
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+  paintFrame();
+  expect(screen.queryByTestId('skeleton')).toBeNull();
+
+  mockState = populated();
+  measureHeader.mockReturnValue({ ...headerRect, top: -224 });
+  rerender(page(false));
+  pager.style.removeProperty('--ok-collapsible-pager-header-inset');
+  pager.style.removeProperty('--ok-collapsible-pager-sticky-inset');
+  rerender(page(true));
+  expect(screen.queryByTestId('skeleton')).toBeNull();
+  expect(screen.getByTestId('banner')).toBeTruthy();
+  expect(
+    screen
+      .getByTestId('banner')
+      .closest('[aria-hidden="true"]')
+      ?.getAttribute('style'),
+  ).toContain('top: -224px');
+  expect(pager.closest('[aria-hidden="true"]')).toBeTruthy();
+
+  await act(async () => {
+    pager.style.setProperty('--ok-collapsible-pager-header-inset', '224px');
+    pager.style.setProperty('--ok-collapsible-pager-sticky-inset', '108px');
+  });
+  expect(pager.closest('[aria-hidden="true"]')).toBeNull();
+  expect(screen.getByTestId('banner')).toBeTruthy();
+  paintFrame();
+  expect(screen.getByTestId('banner')).toBeTruthy();
+  paintFrame();
+  expect(screen.queryByTestId('banner')).toBeNull();
 });
 
 it('does not insert a banner after the native page has started without one', () => {

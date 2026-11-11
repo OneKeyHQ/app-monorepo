@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EMarketBannerType,
@@ -87,6 +88,7 @@ const makeBanner = (
 });
 
 beforeEach(() => {
+  jest.mocked(preloadImages).mockReset().mockResolvedValue(true);
   (platformEnv as { isDesktop: boolean }).isDesktop = false;
   mockEnabled = false;
   mockLiveResult = undefined;
@@ -929,6 +931,49 @@ describe('desktop banner quote updates', () => {
     });
     expect(symbols(result.current.bannerList[0])).toEqual(['D', 'B', 'A']);
   });
+
+  it.each([false, true])(
+    'keeps cached rows while incoming logos load and ignores superseded images (%s)',
+    async (superseded) => {
+      const initial = stock('banner', [preview('A', '1')]);
+      mockResult = [initial];
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      const pendingImage = deferred<boolean>();
+      jest
+        .mocked(preloadImages)
+        .mockImplementation((sources) =>
+          sources.some((source) => source.uri === 'remote.png')
+            ? pendingImage.promise
+            : Promise.resolve(true),
+        );
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockResolvedValue([asset('B', '2', '200')]);
+      mockResult = [{ ...initial }];
+      rerender();
+      const hydration = mockHydrate();
+      await waitFor(() =>
+        expect(preloadImages).toHaveBeenCalledWith([
+          { uri: 'remote.png', resizeWidth: 20 },
+        ]),
+      );
+      expect(symbols(result.current.bannerList[0])).toEqual(['A']);
+      expect(result.current.isLoading).toBe(false);
+      if (superseded) {
+        mockLocale = 'zh-CN';
+        mockResultScope = 'zh-CN:false';
+        mockResult = [stock('banner', [preview('C', '3')])];
+        rerender();
+      }
+      await act(async () => {
+        pendingImage.resolve(true);
+        await hydration;
+      });
+      expect(symbols(result.current.bannerList[0])).toEqual([
+        superseded ? 'C' : 'B',
+      ]);
+    },
+  );
 
   it.each([false, true])(
     'ignores a slow card result after a new response (locale change=%s)',

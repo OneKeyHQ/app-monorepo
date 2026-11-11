@@ -1,15 +1,25 @@
-import type { ReactNode } from 'react';
-import { createContext, memo, useContext, useState } from 'react';
+import type { PropsWithChildren, ReactNode, RefObject } from 'react';
+import {
+  createContext,
+  memo,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
+import type { IElement } from '@onekeyhq/components';
 import {
   ScrollGuard,
   ScrollView,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../../marketDesktopLayoutConstants';
 import { getMarketMobileBannerHeaderHeight } from '../../layouts/mobileLayoutUtils';
 import { MarketTestIDs } from '../../testIDs';
 
@@ -213,3 +223,118 @@ export const MarketBannerList = memo(function MarketBannerList() {
   const { scope } = useMarketBannerState();
   return <MarketBannerListComponent key={scope} />;
 });
+
+export function MarketBannerLayout({
+  children,
+  headerRef,
+  stickyHeaderRef,
+  active,
+}: PropsWithChildren<{
+  headerRef: RefObject<IElement | null>;
+  stickyHeaderRef: RefObject<IElement | null>;
+  active: boolean;
+}>) {
+  const rootRef = useRef<IElement | null>(null);
+  const bannerOffsetRef = useRef(0);
+  const [ready, setReady] = useState(false);
+  const [painted, setPainted] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!ready) {
+      setPainted(false);
+      return;
+    }
+    // The scroll timeline needs a visible paint after its insets are applied.
+    // Keep the banner cover until that paint has happened beneath it.
+    let revealFrame = 0;
+    const paintFrame = requestAnimationFrame(() => {
+      revealFrame = requestAnimationFrame(() => setPainted(true));
+    });
+    return () => {
+      cancelAnimationFrame(paintFrame);
+      cancelAnimationFrame(revealFrame);
+    };
+  }, [ready]);
+
+  useLayoutEffect(() => {
+    if (!active) {
+      setReady(false);
+      return;
+    }
+    const root = rootRef.current as HTMLElement | null;
+    if (!root) return;
+    if (ready) {
+      const header = headerRef.current as HTMLElement | null;
+      return () => {
+        if (header) {
+          bannerOffsetRef.current =
+            header.getBoundingClientRect().top -
+            root.getBoundingClientRect().top;
+        }
+      };
+    }
+
+    // The pager removes its insets on blur. Keep the banner (or its initial
+    // skeleton) visible until those measured insets are ready on every focus.
+    const checkLayout = () => {
+      const owner = root.querySelector<HTMLElement>(
+        '[data-collapsible-pager-active="true"]',
+      );
+      const header = headerRef.current as HTMLElement | null;
+      const stickyHeader = stickyHeaderRef.current as HTMLElement | null;
+      if (
+        owner &&
+        header &&
+        stickyHeader &&
+        Number.parseFloat(
+          owner.style.getPropertyValue('--ok-collapsible-pager-header-inset'),
+        ) === header.getBoundingClientRect().height &&
+        Number.parseFloat(
+          owner.style.getPropertyValue('--ok-collapsible-pager-sticky-inset'),
+        ) === stickyHeader.getBoundingClientRect().height
+      ) {
+        setReady(true);
+      }
+    };
+    const observer = new MutationObserver(checkLayout);
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'data-collapsible-pager-active'],
+    });
+    checkLayout();
+    return () => observer.disconnect();
+  }, [active, ready, headerRef, stickyHeaderRef]);
+
+  return (
+    <YStack flex={1} position="relative" overflow="hidden">
+      {!painted ? (
+        <YStack
+          position="absolute"
+          top={bannerOffsetRef.current}
+          left={0}
+          right={0}
+          zIndex={1}
+          pointerEvents="none"
+          bg="$bgApp"
+          aria-hidden
+        >
+          <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
+            <MarketBannerList />
+          </YStack>
+        </YStack>
+      ) : null}
+      <YStack
+        ref={rootRef}
+        flex={1}
+        zIndex={0}
+        opacity={ready ? 1 : 0}
+        pointerEvents={ready ? 'auto' : 'none'}
+        aria-hidden={!ready}
+      >
+        {children}
+      </YStack>
+    </YStack>
+  );
+}

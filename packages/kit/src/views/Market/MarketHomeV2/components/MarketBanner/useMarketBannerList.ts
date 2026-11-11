@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import pLimit from 'p-limit';
+
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { getTokenImageResizeWidth } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
@@ -158,7 +160,7 @@ async function hydrateMarketBannerQuote(
 export async function hydrateMarketBannerQuotes(
   banners: IMarketBannerItem[],
   previous?: IMarketBannerItem[],
-  onHydrated?: (banner: IMarketBannerItem) => void,
+  onHydrated?: (banner: IMarketBannerItem) => void | Promise<void>,
 ): Promise<IMarketBannerItem[]> {
   const previousById = new Map(previous?.map((banner) => [banner._id, banner]));
   return Promise.all(
@@ -167,7 +169,7 @@ export async function hydrateMarketBannerQuotes(
         banner,
         previousById.get(banner._id),
       );
-      onHydrated?.(hydrated);
+      await onHydrated?.(hydrated);
       return hydrated;
     }),
   );
@@ -291,6 +293,21 @@ export function useMarketBannerList(): {
     source: IMarketBannerItem[];
     banners: IMarketBannerItem[];
   }>();
+  const preloadBannerImages = useMemo(() => {
+    const limit = pLimit(4);
+    return (uris: string[]) =>
+      Promise.all(
+        [...new Set(uris)]
+          .filter(Boolean)
+          .map((uri) =>
+            limit(() =>
+              preloadImages([
+                { uri, resizeWidth: getTokenImageResizeWidth('xs') },
+              ]),
+            ),
+          ),
+      );
+  }, []);
   const hydrationSequenceRef = useRef(0);
   useEffect(
     () => () => {
@@ -310,7 +327,7 @@ export function useMarketBannerList(): {
       const previews = new Map(source.map((banner) => [banner._id, banner]));
       // Publish each desktop card as it settles, independently of slow peers.
       const onHydrated = platformEnv.isDesktop
-        ? (hydrated: IMarketBannerItem) => {
+        ? async (hydrated: IMarketBannerItem) => {
             if (
               currentScopeRef.current !== requestScope ||
               bannerListRef.current !== source ||
@@ -349,6 +366,30 @@ export function useMarketBannerList(): {
                     : getMarketBannerTopTokens(hydrated.tokens),
               };
             }
+            if (
+              source.slice(0, 4).some((banner) => banner._id === updated._id)
+            ) {
+              const displayed = committedResultRef.current?.bannerList?.find(
+                (banner) => banner._id === updated._id,
+              );
+              const displayedLogos = new Set(
+                displayed?.tokens?.map((token) => token.logo),
+              );
+              // Warm incoming rows before replacing cached rows so their
+              // images paint on mount instead of flashing a loading skeleton.
+              await preloadBannerImages(
+                (updated.tokens ?? [])
+                  .slice(0, 3)
+                  .map((token) => token.logo)
+                  .filter((uri) => !displayedLogos.has(uri)),
+              );
+            }
+            if (
+              currentScopeRef.current !== requestScope ||
+              bannerListRef.current !== source ||
+              hydrationSequenceRef.current !== sequence
+            )
+              return;
             setDesktopQuotes((previous) => ({
               scope: requestScope,
               source,
@@ -376,7 +417,7 @@ export function useMarketBannerList(): {
         ),
       };
     },
-    [bannerList, enableMockMarketBanner, requestScope],
+    [bannerList, enableMockMarketBanner, requestScope, preloadBannerImages],
     { checkIsFocused: !platformEnv.isWeb },
   );
   const normalizedBanners = useMemo(() => {
@@ -469,32 +510,14 @@ export function useMarketBannerList(): {
     if (!platformEnv.isDesktop || !bannerList) return undefined;
     // Warm the first four cards only, without competing with Wallet startup
     // for every off-screen logo. Match the quote row's optimized rendition.
-    const uris = [
-      ...new Set(
-        bannerList.slice(0, 4).flatMap((banner) =>
-          getMarketBannerTopTokens(banner.tokens)
-            .map((token) => token.logo)
-            .filter(Boolean),
+    void preloadBannerImages(
+      bannerList
+        .slice(0, 4)
+        .flatMap((banner) =>
+          getMarketBannerTopTokens(banner.tokens).map((token) => token.logo),
         ),
-      ),
-    ];
-    let cancelled = false;
-    const preload = async () => {
-      for (let index = 0; index < uris.length; index += 4) {
-        if (cancelled) return;
-        await preloadImages(
-          uris.slice(index, index + 4).map((uri) => ({
-            uri,
-            resizeWidth: getTokenImageResizeWidth('xs'),
-          })),
-        );
-      }
-    };
-    void preload();
-    return () => {
-      cancelled = true;
-    };
-  }, [bannerList]);
+    );
+  }, [bannerList, preloadBannerImages]);
 
   return {
     scope,
