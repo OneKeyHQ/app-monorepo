@@ -1265,14 +1265,14 @@ function BaseHomePageView({
 
   const tabPageHeight = headerGeometry.fixedHeight;
   const handleTabPageLayout = useCallback(
-    (event: LayoutChangeEvent, expectedWidth = contentWidth) => {
+    (event: LayoutChangeEvent) => {
       const current = activeMeasurementRef.current;
       const { width, height } = event.nativeEvent.layout;
       if (
         current?.identity !== measurementIdentity ||
         current.generation !== measurementGeneration ||
         !Number.isFinite(width) ||
-        Math.abs(width - expectedWidth) > 1 ||
+        Math.abs(width - contentWidth) > 1 ||
         !Number.isFinite(height) ||
         height <= 20
       )
@@ -1286,15 +1286,6 @@ function BaseHomePageView({
       contentWidth,
       updateHeaderHeight,
     ],
-  );
-  const handlePagerHeaderLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      // The pager overlay fills the pager, including the content's side gutters.
-      if (typeof availableWidth === 'number') {
-        handleTabPageLayout(event, availableWidth);
-      }
-    },
-    [availableWidth, handleTabPageLayout],
   );
   const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
     nativeFixedHeaderRef.current = node;
@@ -1500,7 +1491,7 @@ function BaseHomePageView({
                   bg="transparent"
                   pt="$5"
                   width="100%"
-                  onLayout={handlePagerHeaderLayout}
+                  onLayout={handleTabPageLayout}
                 >
                   <TabPageHeader
                     sceneName={sceneName}
@@ -1584,7 +1575,7 @@ function BaseHomePageView({
     measurementGeneration,
     topEdgeActive,
     tabPageHeight,
-    handlePagerHeaderLayout,
+    handleTabPageLayout,
     handlePagerHeaderHostRef,
     sceneName,
   ]);
@@ -1777,10 +1768,6 @@ function BaseHomePageView({
 
   const showIos26PagerOverlay =
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
-  const fixedHeaderWidth =
-    showIos26PagerOverlay && typeof availableWidth === 'number'
-      ? availableWidth
-      : contentWidth;
 
   useLayoutEffect(() => {
     const node = nativeFixedHeaderRef.current;
@@ -1791,7 +1778,7 @@ function BaseHomePageView({
         current?.identity === measurementIdentity &&
         current.generation === measurementGeneration &&
         !current.fixedLayoutReceived &&
-        Math.abs(width - fixedHeaderWidth) <= 1
+        Math.abs(width - contentWidth) <= 1
       ) {
         updateHeaderHeight('fixed', height - 20);
       }
@@ -1799,7 +1786,7 @@ function BaseHomePageView({
   }, [
     measurementIdentity,
     measurementGeneration,
-    fixedHeaderWidth,
+    contentWidth,
     ready,
     showIos26PagerOverlay,
     updateHeaderHeight,

@@ -683,6 +683,7 @@ it.each([
 
 describe('HomePageView complete header authority', () => {
   let HomePage: typeof import('./HomePageView').HomePageView;
+  let PageContentContainer: typeof import('@onekeyhq/components/src/layouts/Page/PageContentContainer').PageContentContainer;
   const measurements: ((
     x: number,
     y: number,
@@ -758,7 +759,9 @@ describe('HomePageView complete header authority', () => {
           useSafeAreaInsets: () => ({ top: 24, left: 0, right: 0, bottom: 0 }),
           Page: Object.assign(host('Page'), {
             Body: host('Page.Body'),
-            Container: host('Page.Container'),
+            Container: (
+              props: React.ComponentProps<typeof PageContentContainer>,
+            ) => React.createElement(PageContentContainer, props),
           }),
           Keyboard: { AwareScrollView: awareScrollView },
           Icon: Object.assign(host('Icon'), { prefetch: noop }),
@@ -1018,6 +1021,14 @@ describe('HomePageView complete header authority', () => {
         >('../components/PullToRefresh');
         return refreshModule;
       });
+      jest.doMock('../../../../../components/src/primitives', () => ({
+        Stack: components.Stack,
+      }));
+      PageContentContainer = jest.requireActual<
+        typeof import('@onekeyhq/components/src/layouts/Page/PageContentContainer')
+      >(
+        '../../../../../components/src/layouts/Page/PageContentContainer',
+      ).PageContentContainer;
       HomePage =
         jest.requireActual<typeof import('./HomePageView')>(
           './HomePageView',
@@ -1724,16 +1735,21 @@ describe('HomePageView complete header authority', () => {
     expect(mockNativeEvents.topOverlayHeightHint).toBe(161);
   });
 
-  it.each(['pager', 'outer'] as const)(
-    'measures the wide iPad %s header against its host width',
-    (slot) => {
+  it.each([
+    ['pager', 1024],
+    ['pager', 1440],
+    ['outer', 1024],
+    ['outer', 1440],
+  ] as const)(
+    'measures the iPad %s header at %ipt against its constrained host width',
+    (slot, viewportWidth) => {
       Object.assign(parentPlatform, {
         isNativeAndroid: false,
         isNativeIOS: true,
         isNativeIOS26Plus: slot === 'pager',
       });
       smallScreen = false;
-      mockWindowDimensions.width = 1440;
+      mockWindowDimensions.width = viewportWidth;
       const screen = renderParent();
       if (slot === 'pager') {
         act(() =>
@@ -1744,7 +1760,19 @@ describe('HomePageView complete header authority', () => {
         expect(mockNativeEvents.topOverlay).toBeDefined();
       }
 
-      const hostWidth = slot === 'pager' ? 1440 : HOME_PAGE_CONTENT_MAX_WIDTH;
+      const container = screen.UNSAFE_getByType(PageContentContainer);
+      const containerElement: React.ReactElement<{
+        $gtMd: { maxWidth: number };
+      }> = PageContentContainer(
+        container.props as React.ComponentProps<typeof PageContentContainer>,
+      );
+      expect(containerElement.props.$gtMd.maxWidth).toBe(
+        HOME_PAGE_CONTENT_MAX_WIDTH,
+      );
+      const hostWidth = Math.min(
+        viewportWidth,
+        containerElement.props.$gtMd.maxWidth,
+      );
       const measure = fixedMeasurements.at(-1)!;
       act(() => measure(0, 0, 1000, 999));
       expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
