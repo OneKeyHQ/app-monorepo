@@ -147,6 +147,12 @@ interface IBasicDialogProps {
    */
   boundedSheetLayout?: boolean;
   /**
+   * Native bounded-layout opt-in: keep the header and footer outside the
+   * scrolling body. The preferred total height is capped to the usable
+   * viewport, so content changes do not resize the surrounding sheet.
+   */
+  fixedHeaderFooterHeight?: number;
+  /**
    * Binds the dialog to the page it was opened from: it renders in that
    * page's root-route overlay host and hides while the page is covered.
    * Set by `useInPageDialog`.
