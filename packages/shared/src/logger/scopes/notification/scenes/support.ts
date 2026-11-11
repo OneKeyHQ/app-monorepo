@@ -26,9 +26,11 @@ export type ISupportReplyResyncResult =
 
 export type ISupportOpenBranch =
   | 'native-conversation'
+  | 'native-messages'
   | 'native-home'
   | 'native-webview-fallback'
   | 'web-conversation'
+  | 'web-messages'
   | 'web-home'
   | 'extension-webview';
 

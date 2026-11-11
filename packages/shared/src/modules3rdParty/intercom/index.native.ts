@@ -497,13 +497,6 @@ async function openIntercom(
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
     );
   }
-  defaultLogger.notification.support.supportReplyBranch({
-    conversationId: params?.conversationId,
-    selectedBranch: params?.conversationId
-      ? 'native-conversation'
-      : 'native-home',
-    nativeSdkReady,
-  });
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
@@ -544,6 +537,17 @@ async function openIntercom(
   if (messengerLocked) {
     return false;
   }
+  const hasUnreadConversations = unreadCount > 0;
+  const defaultBranch = hasUnreadConversations
+    ? 'native-messages'
+    : 'native-home';
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId
+      ? 'native-conversation'
+      : defaultBranch,
+    nativeSdkReady,
+  });
   if (params?.conversationId) {
     return (
       (await sdk.default.presentContent(
@@ -552,6 +556,9 @@ async function openIntercom(
         ),
       )) !== false
     );
+  }
+  if (hasUnreadConversations) {
+    return (await sdk.default.presentSpace(sdk.Space.messages)) !== false;
   }
   return (await sdk.default.present()) !== false;
 }

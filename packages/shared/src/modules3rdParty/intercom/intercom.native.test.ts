@@ -67,6 +67,7 @@ const mockSdk = {
   logEvent: jest.fn(async () => true),
   getUnreadConversationCount: jest.fn(async () => mockUnreadCount),
   present: jest.fn(async () => true),
+  presentSpace: jest.fn(async (_space: string) => true),
   presentContent: jest.fn(async (_content: { id: string }) => true),
   bootstrapEventListeners: jest.fn(() => () => {}),
 };
@@ -76,6 +77,7 @@ jest.mock('@intercom/intercom-react-native', () => ({
   default: mockSdk,
   ThemeMode: { DARK: 'DARK', LIGHT: 'LIGHT', SYSTEM: 'SYSTEM' },
   Visibility: { GONE: 'GONE', VISIBLE: 'VISIBLE' },
+  Space: { messages: 'MESSAGES' },
   IntercomEvents: {
     IntercomUnreadCountDidChange: 'unread-changed',
     IntercomWindowDidHide: 'window-hidden',
@@ -644,6 +646,34 @@ describe('native Intercom SDK integration', () => {
     mockPlatformEnv.isNativeMainThread = false;
     await subject.setIntercomMessengerLocked(true, policy);
     expect(mockUpdateLockPolicy).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])(
+    'opens the message list when there are %i unread conversations',
+    async (count) => {
+      mockUnreadCount = count;
+      await subject.showIntercom();
+      expect(mockSdk.presentSpace).toHaveBeenCalledWith('MESSAGES');
+      expect(mockSdk.present).not.toHaveBeenCalled();
+      expect(mockSdk.presentContent).not.toHaveBeenCalled();
+      expect(subject.getIntercomUnreadCount()).toBe(count);
+    },
+  );
+
+  it('keeps an explicit conversation ahead of the unread message list', async () => {
+    mockUnreadCount = 2;
+    await subject.showIntercom({ conversationId: 'conversation-1' });
+    expect(mockSdk.presentContent).toHaveBeenCalledWith({
+      id: 'conversation-1',
+    });
+    expect(mockSdk.presentSpace).not.toHaveBeenCalled();
+    expect(mockSdk.present).not.toHaveBeenCalled();
+  });
+
+  it('opens the default messenger when there are no unread conversations', async () => {
+    await subject.showIntercom();
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    expect(mockSdk.presentSpace).not.toHaveBeenCalled();
   });
 
   it('retries an initialization cancelled by a transient account change', async () => {
