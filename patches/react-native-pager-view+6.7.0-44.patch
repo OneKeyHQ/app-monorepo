@@ -1,0 +1,148 @@
+diff --git a/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js b/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
+index df9f506..a0658a4 100644
+--- a/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
++++ b/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
+@@ -123,3 +123,6 @@ export class CollapsiblePagerView extends React.PureComponent {
+     }
+-    this.scheduleScrollConfiguration();
++    // OneKey patch: reserve chrome and content insets before the first paint.
++    // this.scheduleScrollConfiguration();
++    this.measureChrome();
++    this.configureActiveScrollElement();
+     this.syncFallbackHeader();
+@@ -177,3 +180,6 @@ export class CollapsiblePagerView extends React.PureComponent {
+     }
+-    this.scheduleScrollConfiguration();
++    // OneKey patch: reserve chrome and content insets before the first paint.
++    // this.scheduleScrollConfiguration();
++    this.measureChrome();
++    this.configureActiveScrollElement();
+     this.syncFallbackHeader();
+@@ -242,21 +248,26 @@ export class CollapsiblePagerView extends React.PureComponent {
+     if (this.disposed || this.chromeMeasureFrame !== null || typeof requestAnimationFrame !== "function") return;
+-    this.chromeMeasureFrame = requestAnimationFrame(() => {
+-      this.chromeMeasureFrame = null;
+-      const header = this.headerContent;
+-      const sticky = this.stickyContent;
+-      const nextHeader = header?.isConnected ? Math.max(0, header.getBoundingClientRect().height) : 0;
+-      const nextSticky = sticky?.isConnected ? Math.max(0, sticky.getBoundingClientRect().height) : 0;
+-      const headerChanged = this.measuredHeaderHeight !== nextHeader || this.headerMeasured !== Boolean(header?.isConnected);
+-      const stickyChanged = this.measuredStickyHeight !== nextSticky || this.stickyMeasured !== Boolean(sticky?.isConnected);
+-      this.measuredHeaderHeight = nextHeader;
+-      this.measuredStickyHeight = nextSticky;
+-      this.headerMeasured = Boolean(header?.isConnected);
+-      this.stickyMeasured = Boolean(sticky?.isConnected);
+-      this.syncToolbar();
+-      this.syncTabColors();
+-      if (headerChanged || stickyChanged) {
+-        this.forceUpdate();
+-        this.scheduleScrollConfiguration();
+-      }
+-    });
++    this.chromeMeasureFrame = requestAnimationFrame(this.measureChrome);
++  };
++
++  measureChrome = () => {
++    if (this.chromeMeasureFrame !== null) cancelAnimationFrame(this.chromeMeasureFrame);
++    this.chromeMeasureFrame = null;
++    const header = this.headerContent;
++    const sticky = this.stickyContent;
++    const nextHeader = header?.isConnected ? Math.max(0, header.getBoundingClientRect().height) : 0;
++    const nextSticky = sticky?.isConnected ? Math.max(0, sticky.getBoundingClientRect().height) : 0;
++    const headerChanged = this.measuredHeaderHeight !== nextHeader || this.headerMeasured !== Boolean(header?.isConnected);
++    const stickyChanged = this.measuredStickyHeight !== nextSticky || this.stickyMeasured !== Boolean(sticky?.isConnected);
++    this.measuredHeaderHeight = nextHeader;
++    this.measuredStickyHeight = nextSticky;
++    this.headerMeasured = Boolean(header?.isConnected);
++    this.stickyMeasured = Boolean(sticky?.isConnected);
++    this.syncToolbar();
++    this.syncTabColors();
++    if (headerChanged || stickyChanged) {
++      this.forceUpdate();
++      // OneKey patch: apply resized chrome insets in the same frame.
++      // this.scheduleScrollConfiguration();
++      this.configureActiveScrollElement();
++    }
+   };
+diff --git a/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx b/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
+index 9cda403..2ed5b12 100644
+--- a/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
++++ b/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
+@@ -305,3 +305,6 @@ export class CollapsiblePagerView extends React.PureComponent<
+     }
+-    this.scheduleScrollConfiguration();
++    // OneKey patch: reserve chrome and content insets before the first paint.
++    // this.scheduleScrollConfiguration();
++    this.measureChrome();
++    this.configureActiveScrollElement();
+     this.syncFallbackHeader();
+@@ -377,3 +380,6 @@ export class CollapsiblePagerView extends React.PureComponent<
+     }
+-    this.scheduleScrollConfiguration();
++    // OneKey patch: reserve chrome and content insets before the first paint.
++    // this.scheduleScrollConfiguration();
++    this.measureChrome();
++    this.configureActiveScrollElement();
+     this.syncFallbackHeader();
+@@ -448,29 +454,34 @@ export class CollapsiblePagerView extends React.PureComponent<
+       return;
+-    this.chromeMeasureFrame = requestAnimationFrame(() => {
+-      this.chromeMeasureFrame = null;
+-      const header = this.headerContent;
+-      const sticky = this.stickyContent;
+-      const nextHeader = header?.isConnected
+-        ? Math.max(0, header.getBoundingClientRect().height)
+-        : 0;
+-      const nextSticky = sticky?.isConnected
+-        ? Math.max(0, sticky.getBoundingClientRect().height)
+-        : 0;
+-      const headerChanged =
+-        this.measuredHeaderHeight !== nextHeader ||
+-        this.headerMeasured !== Boolean(header?.isConnected);
+-      const stickyChanged =
+-        this.measuredStickyHeight !== nextSticky ||
+-        this.stickyMeasured !== Boolean(sticky?.isConnected);
+-      this.measuredHeaderHeight = nextHeader;
+-      this.measuredStickyHeight = nextSticky;
+-      this.headerMeasured = Boolean(header?.isConnected);
+-      this.stickyMeasured = Boolean(sticky?.isConnected);
+-      this.syncToolbar();
+-      this.syncTabColors();
+-      if (headerChanged || stickyChanged) {
+-        this.forceUpdate();
+-        this.scheduleScrollConfiguration();
+-      }
+-    });
++    this.chromeMeasureFrame = requestAnimationFrame(this.measureChrome);
++  };
++
++  private measureChrome = () => {
++    if (this.chromeMeasureFrame !== null) cancelAnimationFrame(this.chromeMeasureFrame);
++    this.chromeMeasureFrame = null;
++    const header = this.headerContent;
++    const sticky = this.stickyContent;
++    const nextHeader = header?.isConnected
++      ? Math.max(0, header.getBoundingClientRect().height)
++      : 0;
++    const nextSticky = sticky?.isConnected
++      ? Math.max(0, sticky.getBoundingClientRect().height)
++      : 0;
++    const headerChanged =
++      this.measuredHeaderHeight !== nextHeader ||
++      this.headerMeasured !== Boolean(header?.isConnected);
++    const stickyChanged =
++      this.measuredStickyHeight !== nextSticky ||
++      this.stickyMeasured !== Boolean(sticky?.isConnected);
++    this.measuredHeaderHeight = nextHeader;
++    this.measuredStickyHeight = nextSticky;
++    this.headerMeasured = Boolean(header?.isConnected);
++    this.stickyMeasured = Boolean(sticky?.isConnected);
++    this.syncToolbar();
++    this.syncTabColors();
++    if (headerChanged || stickyChanged) {
++      this.forceUpdate();
++      // OneKey patch: apply resized chrome insets in the same frame.
++      // this.scheduleScrollConfiguration();
++      this.configureActiveScrollElement();
++    }
+   };

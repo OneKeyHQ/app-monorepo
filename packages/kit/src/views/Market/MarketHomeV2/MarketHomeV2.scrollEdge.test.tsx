@@ -3,6 +3,8 @@ import type { PropsWithChildren } from 'react';
 
 import { act, isInaccessible, render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
 
 let mockBannerLoading = true;
@@ -87,6 +89,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  isDesktop: false,
   get isNative() {
     return mockIsNative;
   },
@@ -198,6 +201,7 @@ jest.mock('./utils', () => ({
 }));
 
 beforeEach(() => {
+  platformEnv.isDesktop = false;
   mockIsNative = true;
   mockIsFocused = true;
   mockRootRoutersLength = 1;
@@ -209,6 +213,7 @@ it.each([false, true])(
   'keeps desktop Market visible under search (mounted under a modal: %s)',
   async (mountedUnderModal) => {
     mockIsNative = false;
+    platformEnv.isDesktop = true;
     mockBannerLoading = false;
     mockCategoryLoading = false;
     mockIsFocused = !mountedUnderModal;
@@ -236,6 +241,7 @@ it.each([false, true])(
 
 it('still freezes desktop Market when navigating away and restores it on return', async () => {
   mockIsNative = false;
+  platformEnv.isDesktop = true;
   mockBannerLoading = false;
   mockCategoryLoading = false;
   const screen = render(<MarketHomeV2 />);

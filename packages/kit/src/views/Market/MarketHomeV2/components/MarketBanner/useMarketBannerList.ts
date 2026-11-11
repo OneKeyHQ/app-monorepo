@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { getTokenImageResizeWidth } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -240,9 +242,14 @@ export function useMarketBannerList(): {
     [enableMockMarketBanner, locale, requestScope, scope], // Used to trigger refetch when dev setting changes
     {
       checkIsFocused: !platformEnv.isWeb,
-      swrKey: platformEnv.isNative
-        ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
+      // Preload once on desktop; subsequent polling still follows tab focus.
+      overrideIsFocused: platformEnv.isDesktop
+        ? (focused) => focused || settledScope !== requestScope
         : undefined,
+      swrKey:
+        platformEnv.isNative || platformEnv.isDesktop
+          ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
+          : undefined,
       // Persist the rendered snapshot below, never overwrite it with raw previews.
       swrShouldPersist: () => false,
       watchLoading: true,
@@ -252,11 +259,12 @@ export function useMarketBannerList(): {
     },
   );
 
-  // Native SWR replays arrays from a locale/mode-specific key. Network
+  // SWR replays arrays from a locale/mode-specific key. Network
   // results carry their producing scope because hooks without a cache key retain old data.
   let bannerList: IMarketBannerItem[] | undefined;
   if (Array.isArray(scopedResult)) {
-    if (platformEnv.isNative) bannerList = scopedResult;
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      bannerList = scopedResult;
   } else if (scopedResult?.scope === scope) {
     bannerList = scopedResult.banners;
   }
@@ -439,12 +447,13 @@ export function useMarketBannerList(): {
         requestScope,
         bannerList: normalizedBanners,
       };
-      if (platformEnv.isNative) {
+      if (platformEnv.isNative || platformEnv.isDesktop) {
         swrCacheUtils.set(
           swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner)),
           normalizedBanners,
         );
       }
+      if (platformEnv.isDesktop) setSettledScope(requestScope);
     } else if (committedResultRef.current?.requestScope === requestScope) {
       committedResultRef.current = undefined;
     }
@@ -455,6 +464,37 @@ export function useMarketBannerList(): {
     locale,
     enableMockMarketBanner,
   ]);
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop || !bannerList) return undefined;
+    // Warm the first four cards only, without competing with Wallet startup
+    // for every off-screen logo. Match the quote row's optimized rendition.
+    const uris = [
+      ...new Set(
+        bannerList.slice(0, 4).flatMap((banner) =>
+          getMarketBannerTopTokens(banner.tokens)
+            .map((token) => token.logo)
+            .filter(Boolean),
+        ),
+      ),
+    ];
+    let cancelled = false;
+    const preload = async () => {
+      for (let index = 0; index < uris.length; index += 4) {
+        if (cancelled) return;
+        await preloadImages(
+          uris.slice(index, index + 4).map((uri) => ({
+            uri,
+            resizeWidth: getTokenImageResizeWidth('xs'),
+          })),
+        );
+      }
+    };
+    void preload();
+    return () => {
+      cancelled = true;
+    };
+  }, [bannerList]);
 
   return {
     scope,

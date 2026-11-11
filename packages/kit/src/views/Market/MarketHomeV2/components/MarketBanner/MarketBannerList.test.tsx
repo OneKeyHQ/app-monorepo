@@ -126,6 +126,27 @@ it('divides desktop web banners only when every card has token previews', () => 
   ).toEqual(['false', 'false']);
 });
 
+it('keeps the desktop scroll host when initial placeholders become cards', () => {
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = {
+    bannerList: [],
+    isLoading: true,
+    isFetched: false,
+    scope: 'en-US:false',
+  };
+  const { rerender } = render(<Page />);
+  const host = screen.getByTestId('desktop-web-scroller');
+  expect(screen.getAllByTestId('skeleton')).toHaveLength(7);
+
+  mockState = populated();
+  rerender(<Page />);
+
+  expect(screen.getByTestId('desktop-web-scroller')).toBe(host);
+  expect(screen.queryByTestId('skeleton')).toBeNull();
+  expect(screen.getByTestId('banner')).toBeTruthy();
+});
+
 it('does not insert a banner after the native page has started without one', () => {
   mockState = {
     bannerList: [],

@@ -412,18 +412,31 @@ function MarketHomeLayoutContent({
 }
 
 function BaseMarketHomeLayout({
+  freeze,
   externalTopOverlayTag,
   externalTopOverlayHeight,
 }: {
+  freeze: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
 }) {
+  const content = (
+    <MarketHomeLayoutContent
+      externalTopOverlayTag={externalTopOverlayTag}
+      externalTopOverlayHeight={externalTopOverlayHeight}
+    />
+  );
+  if (!platformEnv.isDesktop) {
+    return (
+      <DelayedFreeze freeze={freeze}>
+        <MarketBannerProvider>{content}</MarketBannerProvider>
+      </DelayedFreeze>
+    );
+  }
+  // Keep only the small header data owner active during tab preloading.
   return (
     <MarketBannerProvider>
-      <MarketHomeLayoutContent
-        externalTopOverlayTag={externalTopOverlayTag}
-        externalTopOverlayHeight={externalTopOverlayHeight}
-      />
+      <DelayedFreeze freeze={freeze}>{content}</DelayedFreeze>
     </MarketBannerProvider>
   );
 }
@@ -533,14 +546,11 @@ function BaseMarketHome() {
         />
       )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze
+        <BaseMarketHomeLayout
           freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
-        >
-          <BaseMarketHomeLayout
-            externalTopOverlayTag={headerReady ? headerTag : undefined}
-            externalTopOverlayHeight={headerReady ? headerHeight : undefined}
-          />
-        </DelayedFreeze>
+          externalTopOverlayTag={headerReady ? headerTag : undefined}
+          externalTopOverlayHeight={headerReady ? headerHeight : undefined}
+        />
       </Page.Body>
     </Page>
   );

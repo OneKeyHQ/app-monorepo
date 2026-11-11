@@ -25,6 +25,12 @@ let mockRequest: () => Promise<unknown>;
 let mockHydrate: () => Promise<unknown>;
 let mockEnabled = false;
 let mockLiveResult: unknown;
+jest.mock('@onekeyhq/components/src/primitives/Image/preload', () => ({
+  preloadImages: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('@onekeyhq/kit/src/components/Token/tokenSize', () => ({
+  getTokenImageResizeWidth: () => 20,
+}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false, isWeb: true, isDesktop: false },

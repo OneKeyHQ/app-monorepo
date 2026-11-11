@@ -157,11 +157,12 @@ function MarketBannerListComponent() {
   // Only show skeleton on initial load (before first fetch completes).
   // Skip skeleton on re-fetch to avoid header height flicker when
   // navigating back with no banners.
-  if (isLoading && !isFetched) {
+  const showSkeleton = isLoading && !isFetched;
+  if (showSkeleton && (isSmallScreen || platformEnv.isNative)) {
     return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
   }
 
-  const hidden = bannerList.length === 0;
+  const hidden = !showSkeleton && bannerList.length === 0;
   if (hidden && !platformEnv.isNative) return null;
   // Preserve the actual card dimensions (including tablet layouts) if a
   // reconnect removes the banners, without retaining interactive stale links.
@@ -169,16 +170,22 @@ function MarketBannerListComponent() {
   // One legacy banner pulls the whole row back to the filled layout: the
   // scroller and the cards have to agree, or 272px transparent cards sit
   // beside variable-width filled ones.
-  const isDividedList = visibleBannerList.every((item) => Boolean(item.tokens));
-  const bannerItems = visibleBannerList.map((item) => (
-    <MarketBannerItem
-      key={item._id}
-      item={item}
-      isSmallScreen={isSmallScreen}
-      onPress={toMarketBannerDetail}
-      divided={isDividedList}
-    />
-  ));
+  const isDividedList =
+    showSkeleton || visibleBannerList.every((item) => Boolean(item.tokens));
+  // Keep the desktop scroll host mounted as placeholders become real cards.
+  const bannerItems = showSkeleton
+    ? Array.from({ length: 7 }, (_, index) => (
+        <MarketBannerItemSkeleton key={index} isSmallScreen={false} />
+      ))
+    : visibleBannerList.map((item) => (
+        <MarketBannerItem
+          key={item._id}
+          item={item}
+          isSmallScreen={isSmallScreen}
+          onPress={toMarketBannerDetail}
+          divided={isDividedList}
+        />
+      ));
 
   if (isSmallScreen) {
     return (
