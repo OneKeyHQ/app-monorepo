@@ -65,6 +65,7 @@ import PortfolioContentV2 from './PortfolioContentV2';
 import { useMoneroPortfolioGate } from './useMoneroPortfolioGate';
 import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 
+import type { IMoneroPortfolioOwnerGuard } from './useMoneroPortfolioGate';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
@@ -593,15 +594,6 @@ function UnifiedNetworkSelectorV2() {
     [navigation],
   );
 
-  const isSameEnabledNetworks = useMemo(() => {
-    return (
-      enabledNetworks.length === originalEnabledNetworks.length &&
-      enabledNetworks.every((network) =>
-        originalEnabledNetworks.find((item) => item.id === network.id),
-      )
-    );
-  }, [enabledNetworks, originalEnabledNetworks]);
-
   const preserveMoneroPortfolioDraft = useCallback(() => {
     saveMoneroPortfolioDraft(
       { walletId, accountId, indexedAccountId },
@@ -609,39 +601,34 @@ function UnifiedNetworkSelectorV2() {
     );
   }, [accountId, indexedAccountId, networksState, walletId]);
 
-  const checkMoneroPortfolioGate = useMoneroPortfolioGate({
-    walletId,
-    accountId,
-    indexedAccountId,
-    activeNetworkId: networkId,
-    onOpenNetwork: handleNetworkPressItem,
-    onBeforeOpenNetwork: preserveMoneroPortfolioDraft,
-  });
-
-  // Portfolio tab done handler
-  const handlePortfolioDone = useCallback(async () => {
-    setIsCreatingEnabledAddresses(true);
-    try {
-      const moneroNetwork = enabledNetworks.find(
-        (network) => network.id === getNetworkIdsMap().xmr,
-      );
-      if (moneroNetwork && (await checkMoneroPortfolioGate(moneroNetwork))) {
-        return;
-      }
+  const commitPortfolioSelection = useCallback(
+    async ({
+      selection,
+      selectedNetworks,
+      isCurrentOwner = () => true,
+      forceSave = false,
+    }: {
+      selection: typeof networksState;
+      selectedNetworks: typeof enabledNetworks;
+      isCurrentOwner?: IMoneroPortfolioOwnerGuard;
+      forceSave?: boolean;
+    }) => {
+      if (!isCurrentOwner()) return;
       if (!isOthersWallet) {
         // 1. Find networks missing addresses
         const networksWithoutAccount = await findNetworksWithoutAccount({
           accountId: accountId ?? '',
           indexedAccountId,
-          enabledNetworks,
+          enabledNetworks: selectedNetworks,
         });
+        if (!isCurrentOwner()) return;
 
         setEnabledNetworksWithoutAccount(networksWithoutAccount);
 
         // 2. Create missing addresses if any
         if (networksWithoutAccount.length > 0) {
-          await createAddress({
-            num: 0,
+          const created = await createAddress({
+            num,
             account: {
               walletId,
               networkId: getNetworkIdsMap().onekeyall,
@@ -650,17 +637,53 @@ function UnifiedNetworkSelectorV2() {
             },
             customNetworks: networksWithoutAccount,
           });
+          if (!indexedAccountId) {
+            if (
+              created?.walletId !== walletId ||
+              !created.indexedAccountId ||
+              !isCurrentOwner(created)
+            )
+              return;
+            let selectedCreatedIndex = false;
+            await actions.current.updateSelectedAccount({
+              num,
+              reason: 'completeMoneroPortfolioCreation',
+              shouldCommit: isCurrentOwner,
+              builder: (previous) => {
+                if (
+                  previous.walletId !== walletId ||
+                  previous.networkId !== networkId ||
+                  (previous.indexedAccountId &&
+                    previous.indexedAccountId !== created.indexedAccountId)
+                )
+                  return previous;
+                selectedCreatedIndex = true;
+                return {
+                  ...previous,
+                  indexedAccountId: created.indexedAccountId,
+                };
+              },
+            });
+            if (!selectedCreatedIndex) return;
+          }
+          if (!isCurrentOwner()) return;
         }
       } else {
         setEnabledNetworksWithoutAccount([]);
       }
 
       // 3. Save network state only when selection changed
-      if (!isSameEnabledNetworks) {
+      const isSameEnabledNetworks =
+        selectedNetworks.length === originalEnabledNetworks.length &&
+        selectedNetworks.every((network) =>
+          originalEnabledNetworks.some((item) => item.id === network.id),
+        );
+      if (forceSave || !isSameEnabledNetworks) {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: networksState.enabledNetworks,
-          disabledNetworks: networksState.disabledNetworks,
+          enabledNetworks: selection.enabledNetworks,
+          disabledNetworks: selection.disabledNetworks,
         });
+        if (!isCurrentOwner()) return;
 
         // Write the new state into the SWR cache from here, so the next cold
         // open paints it instead of the state this save replaced. It has to be
@@ -694,26 +717,95 @@ function UnifiedNetworkSelectorV2() {
       resetChainSelectorModal();
 
       void onNetworksChanged?.();
+    },
+    [
+      accountId,
+      actions,
+      createAddress,
+      findNetworksWithoutAccount,
+      indexedAccountId,
+      isOthersWallet,
+      networkId,
+      num,
+      onNetworksChanged,
+      originalEnabledNetworks,
+      refreshNetworkMeta,
+      walletId,
+    ],
+  );
+
+  const handleSkipMonero = useCallback(
+    async (
+      network: IServerNetwork,
+      isCurrentOwner: IMoneroPortfolioOwnerGuard,
+    ) => {
+      if (!isCurrentOwner()) return;
+      const selection = {
+        enabledNetworks: {
+          ...networksState.enabledNetworks,
+          [network.id]: false,
+        },
+        disabledNetworks: {
+          ...networksState.disabledNetworks,
+          [network.id]: true,
+        },
+      };
+      const selectedNetworks = enabledNetworks.filter(
+        (item) => item.id !== network.id,
+      );
+      updateNetworksSelection(selection);
+      // Keep the selector's existing rule: an empty portfolio cannot be applied.
+      if (selectedNetworks.length === 0) return;
+      setIsCreatingEnabledAddresses(true);
+      try {
+        await commitPortfolioSelection({
+          selection,
+          selectedNetworks,
+          isCurrentOwner,
+          forceSave: true,
+        });
+      } finally {
+        setIsCreatingEnabledAddresses(false);
+      }
+    },
+    [
+      commitPortfolioSelection,
+      enabledNetworks,
+      networksState,
+      updateNetworksSelection,
+    ],
+  );
+
+  const checkMoneroPortfolioGate = useMoneroPortfolioGate({
+    walletId,
+    accountId,
+    indexedAccountId,
+    activeNetworkId: networkId,
+    onOpenNetwork: handleNetworkPressItem,
+    onBeforeOpenNetwork: preserveMoneroPortfolioDraft,
+    onSkipNetwork: handleSkipMonero,
+  });
+
+  const handlePortfolioDone = useCallback(async () => {
+    setIsCreatingEnabledAddresses(true);
+    try {
+      const moneroNetwork = enabledNetworks.find(
+        (network) => network.id === getNetworkIdsMap().xmr,
+      );
+      if (moneroNetwork && (await checkMoneroPortfolioGate(moneroNetwork)))
+        return;
+      await commitPortfolioSelection({
+        selection: networksState,
+        selectedNetworks: enabledNetworks,
+      });
     } finally {
       setIsCreatingEnabledAddresses(false);
     }
   }, [
-    accountId,
-    actions,
     checkMoneroPortfolioGate,
-    createAddress,
+    commitPortfolioSelection,
     enabledNetworks,
-    findNetworksWithoutAccount,
-    indexedAccountId,
-    networkId,
-    networksState.disabledNetworks,
-    networksState.enabledNetworks,
-    num,
-    onNetworksChanged,
-    refreshNetworkMeta,
-    walletId,
-    isSameEnabledNetworks,
-    isOthersWallet,
+    networksState,
   ]);
 
   // Header title renderer

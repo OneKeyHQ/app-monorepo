@@ -10,7 +10,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
 import {
   useHomeMoneroEnableRequestAtom,
@@ -194,23 +194,30 @@ function HomeMoneroEnableActions({
       pool={pool}
       presentation="home"
       renderEnableTrigger={({ onPress, loading, disabled }) => (
-        <RawActions {...rest} justifyContent="flex-start" gap="$2.5">
-          <HomeMoneroEnableButton
-            requestEnable={requestEnable}
-            onRequestHandled={handleEnableRequest}
-            testID={HomeTestIDs.enableMoneroButton}
-            flex={1}
-            size="large"
-            variant="primary"
-            loading={loading}
-            disabled={disabled}
-            onPress={onPress}
-            $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_enable })}
-          </HomeMoneroEnableButton>
-          <WalletActionMore iconOnly />
-        </RawActions>
+        <YStack {...rest} gap="$3">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.monero_enable_home__desc,
+            })}
+          </SizableText>
+          <RawActions justifyContent="flex-start" gap="$2.5">
+            <HomeMoneroEnableButton
+              requestEnable={requestEnable}
+              onRequestHandled={handleEnableRequest}
+              testID={HomeTestIDs.enableMoneroButton}
+              flex={1}
+              size="large"
+              variant="primary"
+              loading={loading}
+              disabled={disabled}
+              onPress={onPress}
+              $gtSm={{ flex: 0, alignSelf: 'flex-start', minWidth: 200 }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_enable })}
+            </HomeMoneroEnableButton>
+            <WalletActionMore iconOnly />
+          </RawActions>
+        </YStack>
       )}
     />
   );

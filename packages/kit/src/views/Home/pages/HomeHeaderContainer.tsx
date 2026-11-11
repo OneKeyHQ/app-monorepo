@@ -102,12 +102,14 @@ export function useHomeHeaderLayout() {
   let variant = isWalletNotBackedUp
     ? 'backup:plain'
     : `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
-  // Enable and loading rows have different heights from the standard Add Money block.
+  // Zero-balance Enable and Add Money share the description-and-button layout.
+  // Keep that measurement when activation completes instead of resetting the header.
   if (
     !isWalletNotBackedUp &&
     platformEnv.isNative &&
     isMonero &&
-    privacyActionsVariant !== 'standard'
+    privacyActionsVariant !== 'standard' &&
+    !(privacyActionsVariant === 'privacy-enable' && homeBalanceState === 'zero')
   ) {
     variant = `${variant}:${privacyActionsVariant}`;
   }

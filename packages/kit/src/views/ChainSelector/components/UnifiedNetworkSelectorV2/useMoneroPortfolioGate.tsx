@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 import { Dialog, SizableText, YStack } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 type IMoneroGateAccount = {
@@ -14,6 +14,84 @@ type IMoneroGateAccount = {
   indexedAccountId: string | undefined;
   activeNetworkId: string | undefined;
 };
+
+type IMoneroAvailability = {
+  enabled: boolean;
+  unavailableDescription?: ETranslations;
+};
+
+export type IMoneroPortfolioOwnerGuard = (createdAccount?: {
+  walletId: string | undefined;
+  indexedAccountId: string | undefined;
+}) => boolean;
+
+type IMoneroPortfolioOwner = IMoneroGateAccount & {
+  walletId: string;
+  mounted: boolean;
+  checking: boolean;
+};
+
+function createPortfolioOwnerGuard(
+  owner: IMoneroPortfolioOwner,
+  ownerRef: { current: IMoneroPortfolioOwner },
+  firstIndexOwnerRef: { current: IMoneroPortfolioOwner | undefined },
+): IMoneroPortfolioOwnerGuard {
+  let createdIndex: string | undefined;
+  return (createdAccount) => {
+    const current = ownerRef.current;
+    if (createdAccount && !owner.indexedAccountId) {
+      if (
+        createdAccount.walletId !== owner.walletId ||
+        !createdAccount.indexedAccountId
+      )
+        return false;
+      createdIndex = createdAccount.indexedAccountId;
+    }
+    if (current === owner) return owner.mounted;
+    return Boolean(
+      current.mounted &&
+      firstIndexOwnerRef.current === owner &&
+      createdIndex &&
+      current.indexedAccountId === createdIndex,
+    );
+  };
+}
+
+async function readMoneroWalletAvailability(
+  { walletId, networkId }: { walletId: string; networkId: string },
+  isCurrentOwner: () => boolean,
+): Promise<IMoneroAvailability | undefined> {
+  const wallet = await backgroundApiProxy.serviceAccount.getWalletSafe({
+    walletId,
+    withoutRefill: true,
+  });
+  if (!isCurrentOwner()) return undefined;
+  if (!wallet || !accountUtils.isHdWallet({ walletId: wallet.id })) {
+    return {
+      enabled: false,
+      unavailableDescription:
+        ETranslations.privacy_balance_wallet_not_supported__desc,
+    };
+  }
+  if (wallet.isTemp) {
+    return {
+      enabled: false,
+      unavailableDescription:
+        ETranslations.privacy_temp_wallet_unavailable__desc,
+    };
+  }
+  await backgroundApiProxy.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+  if (!isCurrentOwner()) return undefined;
+  const networks =
+    await backgroundApiProxy.servicePrivacyChain.getLocalWalletNetworkIds();
+  if (!isCurrentOwner()) return undefined;
+  return {
+    enabled: false,
+    unavailableDescription: networks.includes(networkId)
+      ? undefined
+      : ETranslations.global_not_available,
+  };
+}
 
 async function resolveMoneroAccountId(
   { accountId, indexedAccountId, activeNetworkId }: IMoneroGateAccount,
@@ -37,9 +115,7 @@ async function resolveMoneroAccountId(
 async function readMoneroAvailability(
   params: { networkId: string; accountId: string },
   isCurrentOwner: () => boolean,
-): Promise<
-  { enabled: boolean; unavailableDescription?: ETranslations } | undefined
-> {
+): Promise<IMoneroAvailability | undefined> {
   const support =
     await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
       params,
@@ -77,13 +153,15 @@ function MoneroPortfolioPromptContent({
   const intl = useIntl();
   return (
     <YStack gap="$2">
-      <SizableText size="$bodyLgMedium">{networkName}</SizableText>
+      {unavailableDescription ? (
+        <SizableText size="$bodyLgMedium">{networkName}</SizableText>
+      ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({
-          id:
-            unavailableDescription ??
-            ETranslations.privacy_enable_account__desc,
-        })}
+        {unavailableDescription
+          ? intl.formatMessage({ id: unavailableDescription })
+          : intl.formatMessage({
+              id: ETranslations.monero_enable_for_portfolio__desc,
+            })}
       </SizableText>
     </YStack>
   );
@@ -96,6 +174,7 @@ export function useMoneroPortfolioGate({
   activeNetworkId,
   onOpenNetwork,
   onBeforeOpenNetwork,
+  onSkipNetwork,
 }: {
   walletId: string;
   accountId: string | undefined;
@@ -103,20 +182,37 @@ export function useMoneroPortfolioGate({
   activeNetworkId: string | undefined;
   onOpenNetwork: (network: IServerNetwork) => Promise<void>;
   onBeforeOpenNetwork: () => void;
+  onSkipNetwork: (
+    network: IServerNetwork,
+    isCurrentOwner: IMoneroPortfolioOwnerGuard,
+  ) => Promise<void>;
 }) {
   const intl = useIntl();
+  // Once an index exists, its identity owns every network account resolved under it.
+  const ownerAccountId = indexedAccountId ? undefined : accountId;
   const owner = useMemo(
     () => ({
       mounted: true,
       checking: false,
       walletId,
-      accountId,
+      accountId: ownerAccountId,
       indexedAccountId,
       activeNetworkId,
     }),
-    [walletId, accountId, indexedAccountId, activeNetworkId],
+    [walletId, ownerAccountId, indexedAccountId, activeNetworkId],
   );
   const ownerRef = useRef(owner);
+  const firstIndexOwnerRef = useRef<typeof owner | undefined>(undefined);
+  if (ownerRef.current !== owner) {
+    const previous = ownerRef.current;
+    firstIndexOwnerRef.current =
+      previous.walletId === walletId &&
+      previous.activeNetworkId === activeNetworkId &&
+      !previous.indexedAccountId &&
+      indexedAccountId
+        ? previous
+        : undefined;
+  }
   ownerRef.current = owner;
   const dialogRef = useRef<IDialogInstance | undefined>(undefined);
 
@@ -134,15 +230,16 @@ export function useMoneroPortfolioGate({
     (
       network: IServerNetwork,
       unavailableDescription: ETranslations | undefined,
-      isCurrentOwner: () => boolean,
+      isCurrentOwner: IMoneroPortfolioOwnerGuard,
     ) => {
       const canOpenNetwork = !unavailableDescription;
+      let actionStarted = false;
       const dialog = Dialog.show({
-        title: intl.formatMessage({
-          id: unavailableDescription
-            ? ETranslations.global_not_available
-            : ETranslations.privacy_enable_account__title,
-        }),
+        title: unavailableDescription
+          ? intl.formatMessage({ id: ETranslations.global_not_available })
+          : intl.formatMessage({
+              id: ETranslations.monero_enable_for_portfolio__title,
+            }),
         renderContent: (
           <MoneroPortfolioPromptContent
             networkName={network.name}
@@ -150,14 +247,26 @@ export function useMoneroPortfolioGate({
           />
         ),
         showCancelButton: canOpenNetwork,
-        onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
-        onConfirmText: intl.formatMessage({
-          id: canOpenNetwork
-            ? ETranslations.global_go_to
-            : ETranslations.global_got_it,
+        onCancelText: intl.formatMessage({
+          id: ETranslations.monero_skip__action,
         }),
+        onCancel: async (close) => {
+          if (!canOpenNetwork || !isCurrentOwner() || actionStarted) return;
+          actionStarted = true;
+          await close();
+          if (isCurrentOwner()) {
+            // Match Done: hardware recovery errors need the global rejection handler.
+            await onSkipNetwork(network, isCurrentOwner);
+          }
+        },
+        onConfirmText: canOpenNetwork
+          ? intl.formatMessage({
+              id: ETranslations.privacy_go_to_enable__action,
+            })
+          : intl.formatMessage({ id: ETranslations.global_got_it }),
         onConfirm: async ({ close }) => {
-          if (!isCurrentOwner()) return;
+          if (!isCurrentOwner() || actionStarted) return;
+          actionStarted = true;
           await close();
           if (canOpenNetwork && isCurrentOwner()) {
             onBeforeOpenNetwork();
@@ -170,12 +279,16 @@ export function useMoneroPortfolioGate({
       });
       dialogRef.current = dialog;
     },
-    [intl, onBeforeOpenNetwork, onOpenNetwork],
+    [intl, onBeforeOpenNetwork, onOpenNetwork, onSkipNetwork],
   );
 
   return useCallback(
     async (network: IServerNetwork): Promise<boolean> => {
-      const isCurrentOwner = () => owner.mounted && ownerRef.current === owner;
+      const isCurrentOwner = createPortfolioOwnerGuard(
+        owner,
+        ownerRef,
+        firstIndexOwnerRef,
+      );
       if (!isCurrentOwner() || owner.checking || dialogRef.current?.isExist()) {
         return true;
       }
@@ -183,13 +296,16 @@ export function useMoneroPortfolioGate({
       try {
         const moneroAccountId = await resolveMoneroAccountId(owner, network.id);
         if (!isCurrentOwner()) return true;
-        if (!moneroAccountId) {
-          throw new OneKeyLocalError('Monero account identity is unavailable');
-        }
-        const availability = await readMoneroAvailability(
-          { networkId: network.id, accountId: moneroAccountId },
-          isCurrentOwner,
-        );
+        // An empty HD wallet has no account identity until its explicit Home Enable action.
+        const availability = moneroAccountId
+          ? await readMoneroAvailability(
+              { networkId: network.id, accountId: moneroAccountId },
+              isCurrentOwner,
+            )
+          : await readMoneroWalletAvailability(
+              { walletId: owner.walletId, networkId: network.id },
+              isCurrentOwner,
+            );
         if (!availability || !isCurrentOwner()) return true;
         if (availability.enabled) return false;
         showPrompt(

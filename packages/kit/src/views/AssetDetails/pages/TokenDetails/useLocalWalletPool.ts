@@ -721,12 +721,13 @@ export function useLocalWalletPool({
   const pauseSync = useCallback(
     () =>
       runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
+        await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount({
           networkId,
+          accountId,
         });
         refreshRef.current();
       }),
-    [networkId, runBusy],
+    [accountId, networkId, runBusy],
   );
   const isReady = (() => {
     // A privacy chain whose settings are still loading is not "no pools" yet.

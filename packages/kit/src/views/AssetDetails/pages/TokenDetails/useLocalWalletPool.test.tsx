@@ -62,6 +62,7 @@ const mockRefreshAccount = jest.fn<
 >();
 const mockPageOpened = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockDisableAccount = jest.fn<Promise<void>, [IAccountParams]>();
 const mockPauseScan = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
@@ -103,6 +104,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
         mockEnableAccount(params),
+      disableLocalWalletAccount: (params: IAccountParams) =>
+        mockDisableAccount(params),
       pauseLocalWalletScan: (params: { networkId: string }) =>
         mockPauseScan(params),
       // jest hoists this factory above the `var` declarations below.
@@ -209,6 +212,7 @@ jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
 }));
 
 import {
+  getLocalWalletSyncAction,
   preloadLocalWalletPool,
   resetLocalWalletPoolLastSeen,
   resolveSelectedPoolId,
@@ -265,6 +269,8 @@ beforeEach(() => {
     sessionId: 'refresh-session',
   });
   mockPageOpened.mockReset().mockResolvedValue(undefined);
+  mockEnableAccount.mockReset().mockResolvedValue(undefined);
+  mockDisableAccount.mockReset().mockResolvedValue(undefined);
   mockPauseScan.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
@@ -721,11 +727,11 @@ describe('useLocalWalletPool enable failure', () => {
 
 describe('useLocalWalletPool pause', () => {
   it.each([false, true])(
-    'uses the existing network pause and clears the control busy state (failure: %s)',
+    'pauses only the selected account and clears the control busy state (failure: %s)',
     async (fails) => {
       let resolvePause: (() => void) | undefined;
       let rejectPause: ((error: Error) => void) | undefined;
-      mockPauseScan.mockImplementation(
+      mockDisableAccount.mockImplementation(
         () =>
           new Promise<void>((resolve, reject) => {
             resolvePause = resolve;
@@ -740,9 +746,11 @@ describe('useLocalWalletPool pause', () => {
       act(() => {
         pending = result.current.pauseSync();
       });
-      expect(mockPauseScan).toHaveBeenCalledWith({
+      expect(mockDisableAccount).toHaveBeenCalledWith({
         networkId: props.networkId,
+        accountId: props.accountId,
       });
+      expect(mockPauseScan).not.toHaveBeenCalled();
       expect(result.current.actionBusy).toBe(true);
       await act(async () => {
         if (fails) {
@@ -757,6 +765,46 @@ describe('useLocalWalletPool pause', () => {
       expect(result.current.actionBusy).toBe(false);
     },
   );
+
+  it('keeps another account active and resumes without changing the sync start', async () => {
+    setPublishedScanState({});
+    const pausedAccounts = new Set<string>();
+    mockGetState.mockImplementation(async ({ accountId }) => ({
+      enabled: !pausedAccounts.has(accountId),
+      paused: pausedAccounts.has(accountId),
+    }));
+    mockDisableAccount.mockImplementation(async ({ accountId }) => {
+      pausedAccounts.add(accountId);
+    });
+    mockEnableAccount.mockImplementation(async ({ accountId }) => {
+      pausedAccounts.delete(accountId);
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    const { result: otherAccount } = renderHook(useLocalWalletPool, {
+      initialProps: { ...props, accountId: 'account-b' },
+    });
+    await flushReads();
+
+    await act(async () => result.current.pauseSync());
+    await flushReads();
+    expect(result.current.syncStatus).toBe('accountPaused');
+    expect(result.current.balance?.pools[0].totalParsed).toBe('1');
+    expect(otherAccount.current.state).toEqual({
+      enabled: true,
+      paused: false,
+    });
+    expect(otherAccount.current.isSyncPaused).toBe(false);
+    expect(mockPauseScan).not.toHaveBeenCalled();
+
+    await act(async () => getLocalWalletSyncAction(result.current)());
+    await flushReads();
+    expect(mockEnableAccount).toHaveBeenCalledWith({
+      networkId: props.networkId,
+      accountId: props.accountId,
+    });
+    expect(result.current.isSyncPaused).toBe(false);
+    expect(pausedAccounts.size).toBe(0);
+  });
 });
 
 describe('useLocalWalletPool retained-page lifecycle', () => {

@@ -121,6 +121,10 @@ jest.mock('./WalletActions/RawActions', () => ({
   ),
 }));
 jest.mock('@onekeyhq/components', () => ({
+  YStack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SizableText: ({ children }: { children: ReactNode }) => (
+    <span>{children}</span>
+  ),
   Button: ({ children, testID }: { children: ReactNode; testID: string }) => (
     <button type="button" data-testid={testID}>
       {children}

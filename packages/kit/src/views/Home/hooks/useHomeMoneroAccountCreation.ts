@@ -1,12 +1,25 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import type { ComponentProps } from 'react';
 
 import type { LazyAccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/LazyAccountSelectorCreateAddressButton';
 import { useHomeMoneroEnableRequestAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import type { IHomeMoneroEnableRequest } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
+import {
+  captureEmptyMoneroPortfolioDraft,
+  handoffEmptyMoneroPortfolioDraft,
+  subscribeMoneroPortfolioDraft,
+} from '../../ChainSelector/components/UnifiedNetworkSelectorV2/moneroPortfolioDraft';
 
 export function useHomeMoneroAccountCreation() {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -27,12 +40,32 @@ export function useHomeMoneroAccountCreation() {
     () => ({ walletId, indexedAccountId, networkId, mounted: true }),
     [walletId, indexedAccountId, networkId],
   );
+  const getEmptyPortfolioDraft = useCallback(
+    () =>
+      enableAfterCreate && walletId && !indexedAccountId
+        ? captureEmptyMoneroPortfolioDraft(walletId)
+        : undefined,
+    [enableAfterCreate, indexedAccountId, walletId],
+  );
+  const emptyPortfolioDraft = useSyncExternalStore(
+    subscribeMoneroPortfolioDraft,
+    getEmptyPortfolioDraft,
+    getEmptyPortfolioDraft,
+  );
   const ownerRef = useRef(owner);
   const initialOwnerRef = useRef<typeof owner | undefined>(undefined);
+  const pendingCreationRef = useRef<
+    | {
+        owner: typeof owner;
+        emptyPortfolioDraft: typeof emptyPortfolioDraft;
+        request: IHomeMoneroEnableRequest;
+      }
+    | undefined
+  >(undefined);
   if (ownerRef.current !== owner) {
     const previous = ownerRef.current;
-    // First creation selects its new index before onCreateDone. Allow only
-    // that one transition; any further selection invalidates the handoff.
+    // Active-account hydration may precede or follow onCreateDone. Allow only
+    // the first index transition; any further selection invalidates the handoff.
     initialOwnerRef.current =
       previous.walletId === walletId &&
       previous.networkId === networkId &&
@@ -46,6 +79,9 @@ export function useHomeMoneroAccountCreation() {
     owner.mounted = true;
     return () => {
       owner.mounted = false;
+      if (ownerRef.current === owner) {
+        pendingCreationRef.current = undefined;
+      }
       setEnableRequest((previous) =>
         previous &&
         previous.walletId === owner.walletId &&
@@ -56,6 +92,38 @@ export function useHomeMoneroAccountCreation() {
       );
     };
   }, [owner, setEnableRequest]);
+
+  const applyPendingCreation = useCallback(() => {
+    const pending = pendingCreationRef.current;
+    if (!pending) return;
+    const currentOwner = ownerRef.current;
+    if (
+      !currentOwner.mounted ||
+      (currentOwner !== pending.owner &&
+        initialOwnerRef.current !== pending.owner)
+    ) {
+      pendingCreationRef.current = undefined;
+      return;
+    }
+    if (currentOwner === pending.owner && !currentOwner.indexedAccountId) {
+      return;
+    }
+    pendingCreationRef.current = undefined;
+    if (currentOwner.indexedAccountId !== pending.request.indexedAccountId) {
+      return;
+    }
+    if (!pending.owner.indexedAccountId) {
+      handoffEmptyMoneroPortfolioDraft({
+        source: pending.emptyPortfolioDraft,
+        walletId: pending.request.walletId,
+        indexedAccountId: pending.request.indexedAccountId,
+      });
+    }
+    setEnableRequest(pending.request);
+  }, [setEnableRequest]);
+  useLayoutEffect(() => {
+    applyPendingCreation();
+  }, [applyPendingCreation, owner]);
 
   const onCreateDone = useCallback<
     NonNullable<
@@ -74,7 +142,8 @@ export function useHomeMoneroAccountCreation() {
         !networkId ||
         result?.walletId !== walletId ||
         !result.indexedAccountId ||
-        result.indexedAccountId !== currentOwner.indexedAccountId
+        (currentOwner.indexedAccountId &&
+          result.indexedAccountId !== currentOwner.indexedAccountId)
       ) {
         return;
       }
@@ -84,14 +153,26 @@ export function useHomeMoneroAccountCreation() {
           account.indexedAccountId === result.indexedAccountId,
       );
       if (!createdAccount) return;
-      setEnableRequest({
-        walletId,
-        indexedAccountId: result.indexedAccountId,
-        networkId,
-        accountId: createdAccount.id,
-      });
+      pendingCreationRef.current = {
+        owner,
+        emptyPortfolioDraft,
+        request: {
+          walletId,
+          indexedAccountId: result.indexedAccountId,
+          networkId,
+          accountId: createdAccount.id,
+        },
+      };
+      applyPendingCreation();
     },
-    [enableAfterCreate, networkId, owner, setEnableRequest, walletId],
+    [
+      applyPendingCreation,
+      emptyPortfolioDraft,
+      enableAfterCreate,
+      networkId,
+      owner,
+      walletId,
+    ],
   );
 
   return { enableAfterCreate, onCreateDone };

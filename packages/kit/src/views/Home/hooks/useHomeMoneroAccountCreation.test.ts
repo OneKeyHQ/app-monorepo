@@ -4,6 +4,12 @@ import { act, renderHook } from '@testing-library/react';
 import type { IHomeMoneroEnableRequest } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
+import {
+  clearMoneroPortfolioDraft,
+  readMoneroPortfolioDraft,
+  saveMoneroPortfolioDraft,
+} from '../../ChainSelector/components/UnifiedNetworkSelectorV2/moneroPortfolioDraft';
+
 import { useHomeMoneroAccountCreation } from './useHomeMoneroAccountCreation';
 
 const mockActiveAccount: {
@@ -78,6 +84,90 @@ beforeEach(() => {
   mockSetEnableRequest.mockClear();
 });
 
+const emptyDraftOwner = {
+  walletId: 'hd-1',
+  indexedAccountId: undefined,
+  accountId: undefined,
+};
+const portfolioDraft = {
+  enabledNetworks: { 'xmr--0': true, 'evm--1': true },
+  disabledNetworks: {},
+};
+afterEach(() => {
+  clearMoneroPortfolioDraft(emptyDraftOwner);
+  clearMoneroPortfolioDraft({
+    ...emptyDraftOwner,
+    indexedAccountId: creationResult.indexedAccountId,
+  });
+});
+
+it('hands a draft saved while already on empty Monero Home to the created index only', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender } = renderHook(() => useHomeMoneroAccountCreation());
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  const onCreateDone = result.current.onCreateDone;
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  act(() => onCreateDone(creationResult));
+  expect(
+    readMoneroPortfolioDraft({
+      ...emptyDraftOwner,
+      indexedAccountId: creationResult.indexedAccountId,
+    }),
+  ).toEqual(portfolioDraft);
+  expect(
+    readMoneroPortfolioDraft({
+      ...emptyDraftOwner,
+      indexedAccountId: 'hd-1--1',
+    }),
+  ).toBeUndefined();
+});
+
+it('does not hand off a replacement draft saved during first-account creation', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender } = renderHook(() => useHomeMoneroAccountCreation());
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  const onCreateDone = result.current.onCreateDone;
+  act(() =>
+    saveMoneroPortfolioDraft(emptyDraftOwner, {
+      ...portfolioDraft,
+      disabledNetworks: { 'btc--0': true },
+    }),
+  );
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  act(() => onCreateDone(creationResult));
+  expect(
+    readMoneroPortfolioDraft({
+      ...emptyDraftOwner,
+      indexedAccountId: creationResult.indexedAccountId,
+    }),
+  ).toBeUndefined();
+  expect(readMoneroPortfolioDraft(emptyDraftOwner)?.disabledNetworks).toEqual({
+    'btc--0': true,
+  });
+});
+
+it('does not migrate an empty draft after leaving and returning during creation', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender } = renderHook(() => useHomeMoneroAccountCreation());
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  const onCreateDone = result.current.onCreateDone;
+  mockActiveAccount.wallet = { id: 'hd-2', isTemp: false };
+  rerender();
+  mockActiveAccount.wallet = { id: 'hd-1', isTemp: false };
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  act(() => onCreateDone(creationResult));
+  expect(
+    readMoneroPortfolioDraft({
+      ...emptyDraftOwner,
+      indexedAccountId: creationResult.indexedAccountId,
+    }),
+  ).toBeUndefined();
+  expect(readMoneroPortfolioDraft(emptyDraftOwner)).toEqual(portfolioDraft);
+});
+
 it('records only a successful Monero address result for this wallet and index', () => {
   const { result } = renderHook(() => useHomeMoneroAccountCreation());
   expect(result.current.enableAfterCreate).toBe(true);
@@ -119,6 +209,7 @@ it('keeps first Monero creation explicit and continues after the created index i
   // The existing creation flow selects the returned index before this callback.
   mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
   rerender();
+  expect(mockEnableRequest).toBeUndefined();
   act(() => onCreateDone(creationResult));
   expect(mockEnableRequest).toEqual({
     walletId: 'hd-1',
@@ -128,6 +219,94 @@ it('keeps first Monero creation explicit and continues after the created index i
   });
   unmount();
   expect(mockEnableRequest).toBeUndefined();
+});
+
+it('waits for the created index when completion precedes active-account hydration', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender, unmount } = renderHook(() =>
+    useHomeMoneroAccountCreation(),
+  );
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  act(() => result.current.onCreateDone(creationResult));
+  rerender();
+  expect(mockEnableRequest).toBeUndefined();
+  expect(readMoneroPortfolioDraft(emptyDraftOwner)).toEqual(portfolioDraft);
+
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  expect(mockEnableRequest).toEqual({
+    walletId: 'hd-1',
+    indexedAccountId: creationResult.indexedAccountId,
+    networkId: 'xmr--0',
+    accountId: createdAccount.id,
+  });
+  expect(
+    readMoneroPortfolioDraft({
+      ...emptyDraftOwner,
+      indexedAccountId: creationResult.indexedAccountId,
+    }),
+  ).toEqual(portfolioDraft);
+  unmount();
+  expect(mockEnableRequest).toBeUndefined();
+});
+
+it.each(['wallet', 'network', 'index'] as const)(
+  'drops completion waiting for hydration after leaving and returning to its %s',
+  (field) => {
+    mockActiveAccount.indexedAccount = undefined;
+    const { result, rerender } = renderHook(() =>
+      useHomeMoneroAccountCreation(),
+    );
+    act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+    const onCreateDone = result.current.onCreateDone;
+    act(() => onCreateDone(creationResult));
+    if (field === 'wallet') {
+      mockActiveAccount.wallet = { id: 'hd-2', isTemp: false };
+    } else if (field === 'network') {
+      mockActiveAccount.network = { id: 'evm--1' };
+    } else {
+      mockActiveAccount.indexedAccount = { id: 'hd-1--1' };
+    }
+    rerender();
+    expect(mockEnableRequest).toBeUndefined();
+    mockActiveAccount.wallet = { id: 'hd-1', isTemp: false };
+    mockActiveAccount.network = { id: 'xmr--0' };
+    mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+    rerender();
+    act(() => onCreateDone(creationResult));
+    expect(mockEnableRequest).toBeUndefined();
+    expect(readMoneroPortfolioDraft(emptyDraftOwner)).toEqual(portfolioDraft);
+  },
+);
+
+it('does not migrate a replacement draft while waiting for active-account hydration', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, rerender } = renderHook(() => useHomeMoneroAccountCreation());
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  act(() => result.current.onCreateDone(creationResult));
+  const replacementDraft = {
+    ...portfolioDraft,
+    disabledNetworks: { 'btc--0': true },
+  };
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, replacementDraft));
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  rerender();
+  expect(mockEnableRequest?.accountId).toBe(createdAccount.id);
+  expect(readMoneroPortfolioDraft(emptyDraftOwner)).toEqual(replacementDraft);
+});
+
+it('drops completion waiting for hydration on unmount and ignores its late callback', () => {
+  mockActiveAccount.indexedAccount = undefined;
+  const { result, unmount } = renderHook(() => useHomeMoneroAccountCreation());
+  act(() => saveMoneroPortfolioDraft(emptyDraftOwner, portfolioDraft));
+  const onCreateDone = result.current.onCreateDone;
+  act(() => onCreateDone(creationResult));
+  unmount();
+  mockActiveAccount.indexedAccount = { id: creationResult.indexedAccountId };
+  renderHook(() => useHomeMoneroAccountCreation());
+  act(() => onCreateDone(creationResult));
+  expect(mockEnableRequest).toBeUndefined();
+  expect(readMoneroPortfolioDraft(emptyDraftOwner)).toEqual(portfolioDraft);
 });
 
 it.each([false, true])(
