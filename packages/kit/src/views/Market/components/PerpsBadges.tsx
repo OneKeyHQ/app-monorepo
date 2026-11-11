@@ -416,8 +416,10 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   [EUSMarketStatusVariant.PreMarket]: {
     icon: 'SunriseOutline',
     titleId: ETranslations.trading_hours_pre_market,
-    bg: '$bgCaution',
-    color: '$textCaution',
+    // Pre/post-market each get their own hue so neither reads as the
+    // caution-colored "Awaiting open" chip; the trading-hours panel mirrors it.
+    bg: '$lime3',
+    color: '$lime11',
   },
   [EUSMarketStatusVariant.Open]: {
     icon: 'SunOutline',
@@ -428,8 +430,8 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   [EUSMarketStatusVariant.PostMarket]: {
     icon: 'SunDownOutline',
     titleId: ETranslations.trading_hours_post_market,
-    bg: '$bgCaution',
-    color: '$textCaution',
+    bg: '$cyan3',
+    color: '$cyan11',
   },
   [EUSMarketStatusVariant.Overnight]: {
     icon: 'MoonOutline',
@@ -972,7 +974,7 @@ const StockMarketStatusBadge = memo(
       <Suspense
         fallback={
           <Stack
-            cursor="pointer"
+            cursor="default"
             onPress={(event) => {
               event.stopPropagation();
               setPendingStockKey(stockKey);
