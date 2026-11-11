@@ -205,9 +205,7 @@ function showCexDepositUnsupportedDialog({
           exchangeLabel={fallbackExchangeLabel}
           body={formatCexDepositWarningMessage(
             intl,
-            facts.exchangeName && facts.tokenSymbol && facts.networkName
-              ? cexDepositWarningMessages.dialogDescription
-              : cexDepositWarningMessages.dialogDescriptionWithoutDetails,
+            cexDepositWarningMessages.dialogDescription,
             values,
           )}
         />

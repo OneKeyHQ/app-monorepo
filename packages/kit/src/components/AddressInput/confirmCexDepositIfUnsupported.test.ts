@@ -232,7 +232,7 @@ describe('confirmCexDepositIfUnsupported', () => {
         assetLabel: ETranslations.global_asset,
         exchangeName: 'Binance',
         exchangeLabel: ETranslations.exchange__title,
-        body: "DAI deposits on Ethereum may be unavailable at Binance. Check Binance's deposit page first. If you send anyway, your funds could be lost.",
+        body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       },
     });
     expect(options).toMatchObject({
@@ -263,7 +263,7 @@ describe('confirmCexDepositIfUnsupported', () => {
         ETranslations.global_network,
         'DAI',
         'Ethereum',
-        "DAI deposits on Ethereum may be unavailable at Binance. Check Binance's deposit page first. If you send anyway, your funds could be lost.",
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       ]),
     );
     expect(sendCexDepositWarningShow).toHaveBeenCalledWith(warningContext);
@@ -326,10 +326,47 @@ describe('confirmCexDepositIfUnsupported', () => {
         expect(contentText).toContain(value);
       }
       expect(contentText).toContain(
-        "This deposit may be unavailable at the exchange. Check the exchange's deposit page first. If you send anyway, your funds could be lost.",
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       );
     },
   );
+
+  it('keeps the full exchange name in the title without repeating it in the body', () => {
+    const exchange = 'Coinbase International Digital Asset Exchange';
+    void showUnsupportedWarning({
+      cexSupportedInfo: { cexLabel: exchange, depositEnable: false },
+      exchangeDisplayName: exchange,
+      tokenSymbol: 'USDT0',
+      networkName: 'Arbitrum One',
+    });
+    const options = mockedDialogShow.mock.calls[0][0];
+
+    expect(options.title).toBe(`${exchange} may not accept this deposit`);
+    expect(options.renderContent).toMatchObject({
+      props: {
+        exchangeName: exchange,
+        tokenSymbol: 'USDT0',
+        networkName: 'Arbitrum One',
+        body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      },
+    });
+  });
+
+  it('keeps the same risk copy when all details are missing', () => {
+    void showUnsupportedWarning({
+      cexSupportedInfo: { depositEnable: false },
+      tokenSymbol: undefined,
+      networkName: undefined,
+    });
+    const options = mockedDialogShow.mock.calls[0][0];
+
+    expect(options.title).toBe('This exchange may not accept this deposit');
+    expect(getDialogContentText(options.renderContent as ReactElement)).toEqual(
+      [
+        'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
+      ],
+    );
+  });
 
   it('resolves false only after one cancel close teardown completes', async () => {
     const resultPromise = showUnsupportedWarning();

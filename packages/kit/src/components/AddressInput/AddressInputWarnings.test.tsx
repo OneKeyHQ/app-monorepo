@@ -109,7 +109,8 @@ describe('AddressInputWarnings', () => {
       type: 'warning',
       icon: 'ErrorOutline',
       title: 'Binance may not accept DAI on Ethereum',
-      description: "Check Binance's supported deposit networks before sending.",
+      description:
+        'Check supported networks for your asset on the exchange’s deposit page.',
     });
   });
 
@@ -122,7 +123,7 @@ describe('AddressInputWarnings', () => {
       icon: 'ErrorOutline',
       title: 'This exchange may not accept DAI on Ethereum',
       description:
-        "Check the exchange's supported deposit networks before sending.",
+        'Check supported networks for your asset on the exchange’s deposit page.',
     });
   });
 
@@ -138,7 +139,8 @@ describe('AddressInputWarnings', () => {
       type: 'warning',
       icon: 'ErrorOutline',
       title: 'Binance may not accept this deposit',
-      description: "Check Binance's supported deposit networks before sending.",
+      description:
+        'Check supported networks for your asset on the exchange’s deposit page.',
     });
   });
 
@@ -156,7 +158,7 @@ describe('AddressInputWarnings', () => {
       icon: 'ErrorOutline',
       title: 'This exchange may not accept this deposit',
       description:
-        "Check the exchange's supported deposit networks before sending.",
+        'Check supported networks for your asset on the exchange’s deposit page.',
     });
   });
 

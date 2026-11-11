@@ -20,12 +20,7 @@ export const cexDepositWarningMessages = {
   inlineDescription: {
     id: 'cex_deposit_inline__desc',
     defaultMessage:
-      "Check {exchange}'s supported deposit networks before sending.",
-  },
-  inlineDescriptionWithoutExchange: {
-    id: 'cex_deposit_inline_unknown_exchange__desc',
-    defaultMessage:
-      "Check the exchange's supported deposit networks before sending.",
+      'Check supported networks for your asset on the exchange’s deposit page.',
   },
   dialogTitle: {
     id: 'cex_deposit_unsupported__title',
@@ -38,12 +33,7 @@ export const cexDepositWarningMessages = {
   dialogDescription: {
     id: 'cex_deposit_unsupported__desc',
     defaultMessage:
-      "{token} deposits on {network} may be unavailable at {exchange}. Check {exchange}'s deposit page first. If you send anyway, your funds could be lost.",
-  },
-  dialogDescriptionWithoutDetails: {
-    id: 'cex_deposit_unsupported_unknown_details__desc',
-    defaultMessage:
-      "This deposit may be unavailable at the exchange. Check the exchange's deposit page first. If you send anyway, your funds could be lost.",
+      'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
   },
 };
 

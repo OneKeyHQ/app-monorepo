@@ -127,9 +127,7 @@ export function AddressInputWarnings({
           title={formatCexDepositWarningMessage(intl, title, values)}
           description={formatCexDepositWarningMessage(
             intl,
-            facts.exchangeName
-              ? cexDepositWarningMessages.inlineDescription
-              : cexDepositWarningMessages.inlineDescriptionWithoutExchange,
+            cexDepositWarningMessages.inlineDescription,
             values,
           )}
         />
