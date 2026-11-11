@@ -1,6 +1,7 @@
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IStakingFlowConfig } from '@onekeyhq/shared/types/earn';
-import { EClaimType } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EClaimType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnClaimType,
   IEarnStakeType,
@@ -164,6 +165,57 @@ const defaultWithdrawUiPolicy: IEarnWithdrawUiPolicy = {
 
 export class EarnProtocol {
   constructor(readonly providerName = '') {}
+
+  resolveApproveSpenderAddress({
+    protocolVault,
+    backendApproveTarget,
+  }: {
+    protocolVault?: string;
+    backendApproveTarget?: string;
+  }): string {
+    return earnUtils.shouldSendEarnProtocolVault({
+      providerName: this.providerName,
+    })
+      ? (protocolVault ?? backendApproveTarget ?? '')
+      : (backendApproveTarget ?? '');
+  }
+
+  resolveApproveType({
+    networkId,
+    tokenIsNative,
+    approveSpenderAddress,
+    backendApproveType,
+  }: {
+    networkId: string;
+    tokenIsNative?: boolean;
+    approveSpenderAddress?: string;
+    backendApproveType?: EApproveType;
+  }): EApproveType | undefined {
+    if (
+      tokenIsNative ||
+      !approveSpenderAddress ||
+      !networkUtils.isEvmNetwork({ networkId })
+    ) {
+      return undefined;
+    }
+    return backendApproveType ?? EApproveType.Legacy;
+  }
+
+  resolvePermitSpenderAddress(_params: {
+    networkId: string;
+  }): string | undefined {
+    return undefined;
+  }
+
+  resolveAllowanceSpenderAddress({
+    approveSpenderAddress,
+  }: {
+    networkId: string;
+    approveType?: EApproveType;
+    approveSpenderAddress?: string;
+  }): string {
+    return approveSpenderAddress ?? '';
+  }
 
   protected resolveProviderWithdraw(
     _params: IEarnWithdrawParams,

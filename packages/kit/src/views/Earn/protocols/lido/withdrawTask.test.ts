@@ -8,21 +8,21 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { createEarnWithdrawApprovalTask } from '../tasks/earnWithdrawApprovalTask';
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
+import { createEarnWithdrawApprovalTask } from '../../tasks/earnWithdrawApprovalTask';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
 
-import { getLidoWithdrawSteps } from './lidoWithdrawPlan';
+import { getLidoWithdrawSteps } from './withdrawPlan';
 import {
   createLidoWithdrawFragment,
   createLidoWithdrawTask,
-} from './lidoWithdrawTask';
+} from './withdrawTask';
 
 import type {
   ILidoWithdrawContext,
   ILidoWithdrawPermit,
   ILidoWithdrawPrepared,
-} from './lidoWithdrawTask';
+} from './withdrawTask';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -32,7 +32,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 const mockRecordLateOrder = jest.fn(
   async (_params: unknown) => 'synced' as const,
 );
-jest.mock('../tasks/lateEarnOrderRecorder', () => ({
+jest.mock('../../tasks/lateEarnOrderRecorder', () => ({
   createLateEarnOrderRecorder: () => mockRecordLateOrder,
 }));
 

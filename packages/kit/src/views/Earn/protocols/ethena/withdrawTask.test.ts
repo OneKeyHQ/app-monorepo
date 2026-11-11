@@ -9,19 +9,19 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { createEarnWithdrawApprovalTask } from '../tasks/earnWithdrawApprovalTask';
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
-import { createLateEarnOrderRecorder } from '../tasks/lateEarnOrderRecorder';
+import { createEarnWithdrawApprovalTask } from '../../tasks/earnWithdrawApprovalTask';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
+import { createLateEarnOrderRecorder } from '../../tasks/lateEarnOrderRecorder';
 
-import { getEthenaWithdrawSteps } from './ethenaWithdrawPlan';
+import { getEthenaWithdrawSteps } from './withdrawPlan';
 import {
   createEthenaWithdrawAdapters,
   createEthenaWithdrawFragment,
   runEthenaWithdrawTask,
-} from './ethenaWithdrawTask';
+} from './withdrawTask';
 
-jest.mock('../tasks/lateEarnOrderRecorder', () => ({
+jest.mock('../../tasks/lateEarnOrderRecorder', () => ({
   createLateEarnOrderRecorder: jest.fn(() => jest.fn(async () => 'synced')),
 }));
 
@@ -58,122 +58,177 @@ describe('Ethena withdrawal workflow plan', () => {
     ).toBe(true);
   });
 
-  it('runs approval, swap, settlement and withdrawal under one controller', async () => {
+  it.each(['swap-tx', ''])(
+    'runs approval, swap, settlement and withdrawal with swap txid %p',
+    async (swapTxid) => {
+      type INavigateParams = Parameters<
+        ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']
+      >[0];
+      const confirmations: INavigateParams[] = [];
+      const prepare = jest.fn(async () => ({
+        encodedTx: {
+          from: '0xowner',
+          to: '0xtarget',
+          value: '0x0',
+          data: '0x',
+        },
+      }));
+      const submitted = jest.fn(
+        async (_stage: 'swap' | 'unstake') => undefined,
+      );
+      const waitForSwap = jest.fn(async () => true);
+      const fragment = createEthenaWithdrawFragment({
+        identity,
+        resumeUnstake: false,
+        prepare,
+        navigate: async (params) => {
+          confirmations.push(params);
+        },
+        onSubmitted: submitted,
+        waitForSwap,
+        onUnknownSwap: jest.fn(),
+        onSwapSend: jest.fn(),
+        onObserverError: jest.fn(),
+      });
+      const task = createEarnWorkflowTask({
+        taskId: 'shared-withdraw',
+        identity,
+        steps: [
+          { id: 'approve', kind: 'approve', lateSubmitted: 'unknown' },
+          { id: 'allowance', kind: 'wait' },
+          ...fragment.steps,
+        ],
+      });
+      const controller = createEarnWorkflowTaskController<
+        typeof identity,
+        { swapTxid?: string },
+        { encodedTx: IEncodedTx; stakeInfo?: IStakingInfo }
+      >({
+        task,
+        initialContext: {},
+        isCurrent: () => true,
+        expiredMessage: 'expired',
+        onAsyncError: jest.fn(),
+        getAdapter: (step, context) => {
+          if (step.id === 'approve')
+            return {
+              kind: 'transaction',
+              handoffOnSubmit: false,
+              adapter: {
+                prepare: async () => ({
+                  type: 'confirm',
+                  prepared: {
+                    encodedTx: {
+                      from: '0xowner',
+                      to: '0xspender',
+                      value: '0x0',
+                      data: '0x',
+                    },
+                  },
+                }),
+                confirm: async ({ onBeforeSend, onSubmitted }) => {
+                  onBeforeSend();
+                  onSubmitted('approval-tx');
+                  return { type: 'submitted' };
+                },
+                waitForFinalStatus: async () => 'success',
+                verify: async () => true,
+              },
+            };
+          if (step.id === 'allowance')
+            return {
+              kind: 'wait',
+              run: async () => ({ type: 'completed', context }),
+            };
+          return fragment.getAdapter(step, context);
+        },
+      });
+      const submittedTx = (txid: string): ISendTxOnSuccessData[] => [
+        {
+          signedTx: { txid, rawTx: '0x', encodedTx: null },
+          decodedTx: {
+            accountId: identity.accountId,
+            networkId: identity.networkId,
+            txid,
+            status: EDecodedTxStatus.Pending,
+            owner: identity.accountAddress,
+            signer: identity.accountAddress,
+            nonce: 0,
+            actions: [],
+            extraInfo: null,
+          },
+        },
+      ];
+      await controller.run();
+      await waitFor(() => expect(confirmations).toHaveLength(1));
+      await confirmations[0].onBeforeSend?.();
+      await Promise.resolve(
+        confirmations[0].onSuccess?.(submittedTx(swapTxid)),
+      );
+      await waitFor(() => expect(confirmations).toHaveLength(2));
+      expect(waitForSwap).toHaveBeenCalledWith(swapTxid || undefined);
+      await confirmations[1].onBeforeSend?.();
+      await Promise.resolve(
+        confirmations[1].onSuccess?.(submittedTx('unstake-tx')),
+      );
+      await expect(fragment.result).resolves.toBe(true);
+      expect(submitted.mock.calls.map(([stage]) => stage)).toEqual([
+        'swap',
+        'unstake',
+      ]);
+      expect(controller.getTask().taskId).toBe('shared-withdraw');
+      expect(controller.getTask().steps.map(({ id }) => id)).toEqual([
+        'approve',
+        'allowance',
+        'swap',
+        'settlement',
+        'unstake',
+      ]);
+    },
+  );
+
+  it('does not continue an empty-txid swap after cancellation', async () => {
     type INavigateParams = Parameters<
       ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']
     >[0];
     const confirmations: INavigateParams[] = [];
-    const prepare = jest.fn(async () => ({
-      encodedTx: { from: '0xowner', to: '0xtarget', value: '0x0', data: '0x' },
-    }));
-    const submitted = jest.fn(async (_stage: 'swap' | 'unstake') => undefined);
+    let finishSubmitted: () => void = () => undefined;
+    const submitted = new Promise<void>((resolve) => {
+      finishSubmitted = resolve;
+    });
+    const abort = new AbortController();
     const waitForSwap = jest.fn(async () => true);
-    const fragment = createEthenaWithdrawFragment({
+    const result = runEthenaWithdrawTask({
+      taskId: 'cancelled-withdraw',
       identity,
       resumeUnstake: false,
-      prepare,
+      signal: abort.signal,
+      prepare: async () => ({
+        encodedTx: {
+          from: '0xowner',
+          to: '0xtarget',
+          value: '0x0',
+          data: '0x',
+        },
+      }),
       navigate: async (params) => {
         confirmations.push(params);
       },
-      onSubmitted: submitted,
+      onSubmitted: async () => submitted,
       waitForSwap,
-      onMissingSwapTxid: jest.fn(),
       onUnknownSwap: jest.fn(),
       onSwapSend: jest.fn(),
       onObserverError: jest.fn(),
     });
-    const task = createEarnWorkflowTask({
-      taskId: 'shared-withdraw',
-      identity,
-      steps: [
-        { id: 'approve', kind: 'approve', lateSubmitted: 'unknown' },
-        { id: 'allowance', kind: 'wait' },
-        ...fragment.steps,
-      ],
-    });
-    const controller = createEarnWorkflowTaskController<
-      typeof identity,
-      { swapTxid?: string },
-      { encodedTx: IEncodedTx; stakeInfo?: IStakingInfo }
-    >({
-      task,
-      initialContext: {},
-      isCurrent: () => true,
-      expiredMessage: 'expired',
-      onAsyncError: jest.fn(),
-      getAdapter: (step, context) => {
-        if (step.id === 'approve')
-          return {
-            kind: 'transaction',
-            handoffOnSubmit: false,
-            adapter: {
-              prepare: async () => ({
-                type: 'confirm',
-                prepared: {
-                  encodedTx: {
-                    from: '0xowner',
-                    to: '0xspender',
-                    value: '0x0',
-                    data: '0x',
-                  },
-                },
-              }),
-              confirm: async ({ onBeforeSend, onSubmitted }) => {
-                onBeforeSend();
-                onSubmitted('approval-tx');
-                return { type: 'submitted' };
-              },
-              waitForFinalStatus: async () => 'success',
-              verify: async () => true,
-            },
-          };
-        if (step.id === 'allowance')
-          return {
-            kind: 'wait',
-            run: async () => ({ type: 'completed', context }),
-          };
-        return fragment.getAdapter(step, context);
-      },
-    });
-    const submittedTx = (txid: string): ISendTxOnSuccessData[] => [
-      {
-        signedTx: { txid, rawTx: '0x', encodedTx: null },
-        decodedTx: {
-          accountId: identity.accountId,
-          networkId: identity.networkId,
-          txid,
-          status: EDecodedTxStatus.Pending,
-          owner: identity.accountAddress,
-          signer: identity.accountAddress,
-          nonce: 0,
-          actions: [],
-          extraInfo: null,
-        },
-      },
-    ];
-    await controller.run();
     await waitFor(() => expect(confirmations).toHaveLength(1));
     await confirmations[0].onBeforeSend?.();
-    await Promise.resolve(confirmations[0].onSuccess?.(submittedTx('swap-tx')));
-    await waitFor(() => expect(confirmations).toHaveLength(2));
-    expect(waitForSwap).toHaveBeenCalledWith('swap-tx');
-    await confirmations[1].onBeforeSend?.();
-    await Promise.resolve(
-      confirmations[1].onSuccess?.(submittedTx('unstake-tx')),
-    );
-    await expect(fragment.result).resolves.toBe(true);
-    expect(submitted.mock.calls.map(([stage]) => stage)).toEqual([
-      'swap',
-      'unstake',
-    ]);
-    expect(controller.getTask().taskId).toBe('shared-withdraw');
-    expect(controller.getTask().steps.map(({ id }) => id)).toEqual([
-      'approve',
-      'allowance',
-      'swap',
-      'settlement',
-      'unstake',
-    ]);
+    const callback = confirmations[0].onSuccess?.([]);
+    abort.abort();
+    finishSubmitted();
+    await Promise.resolve(callback);
+    await expect(result).resolves.toBe(false);
+    expect(waitForSwap).not.toHaveBeenCalled();
+    expect(confirmations).toHaveLength(1);
   });
 
   it('retries a safe pre-send failure and completes the real approval workflow', async () => {
@@ -204,7 +259,6 @@ describe('Ethena withdrawal workflow plan', () => {
       onFail,
       onSubmitted: async () => undefined,
       waitForSwap: async () => true,
-      onMissingSwapTxid: jest.fn(),
       onUnknownSwap: jest.fn(),
       onSwapSend: jest.fn(),
       onObserverError: jest.fn(),
@@ -322,7 +376,6 @@ describe('Ethena withdrawal workflow plan', () => {
         verifyBeforeSend: handoff ? async () => undefined : undefined,
         onSubmitted: jest.fn(),
         waitForSwap: jest.fn(async () => true),
-        onMissingSwapTxid: jest.fn(),
         onUnknownSwap: jest.fn(),
         onSwapSend: jest.fn(),
         onObserverError: jest.fn(),
@@ -358,7 +411,6 @@ describe('Ethena withdrawal workflow plan', () => {
       },
       onSubmitted: jest.fn(),
       waitForSwap: jest.fn(async () => true),
-      onMissingSwapTxid: jest.fn(),
       onUnknownSwap,
       onSwapSend: jest.fn(),
       onObserverError: jest.fn(),
@@ -449,7 +501,6 @@ describe('Ethena withdrawal workflow plan', () => {
       navigate: async () => undefined,
       onSubmitted: async () => undefined,
       waitForSwap: async () => true,
-      onMissingSwapTxid: jest.fn(),
       onUnknownSwap: jest.fn(),
       onSwapSend: jest.fn(),
       onObserverError: jest.fn(),

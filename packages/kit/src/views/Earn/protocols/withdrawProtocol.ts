@@ -1,9 +1,9 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
-import { ethenaWithdrawPlan } from './ethenaWithdrawPlan';
-import { lidoWithdrawPlan } from './lidoWithdrawPlan';
-import { stakefishWithdrawPlan } from './stakefishWithdrawPlan';
+import { ethenaWithdrawPlan } from './ethena/withdrawPlan';
+import { lidoWithdrawPlan } from './lido/withdrawPlan';
+import { stakefishWithdrawPlan } from './stakefish/withdrawPlan';
 
 import type { IEarnWorkflowStepPlan } from '../tasks/earnWorkflowTaskState';
 

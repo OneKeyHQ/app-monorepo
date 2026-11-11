@@ -1,22 +1,22 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
 
-import { createEarnWithdrawApprovalTask } from '../tasks/earnWithdrawApprovalTask';
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
+import { createEarnWithdrawApprovalTask } from '../../tasks/earnWithdrawApprovalTask';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
 
 import {
   createStakefishWithdrawFragment,
   runStakefishWithdrawTask,
-} from './stakefishWithdrawTask';
+} from './withdrawTask';
 
 import type {
   IStakefishWithdrawContext,
   IStakefishWithdrawPrepared,
-} from './stakefishWithdrawTask';
+} from './withdrawTask';
 
 const mockRecordLate = jest.fn(async () => 'synced');
-jest.mock('../tasks/lateEarnOrderRecorder', () => ({
+jest.mock('../../tasks/lateEarnOrderRecorder', () => ({
   createLateEarnOrderRecorder: () => mockRecordLate,
 }));
 

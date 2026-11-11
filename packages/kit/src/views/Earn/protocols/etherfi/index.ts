@@ -1,9 +1,11 @@
 import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EtherFiLiquidReferContract } from '@onekeyhq/shared/src/consts/addresses';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IEarnStakeType } from '@onekeyhq/shared/types/staking';
 
-import { EarnProtocol, resolveEthStakeType } from './EarnProtocol';
+import { EarnProtocol, resolveEthStakeType } from '../EarnProtocol';
 
 import type {
   IEarnConfirmationRetryParams,
@@ -13,7 +15,7 @@ import type {
   IEarnStakeRequestSymbolParams,
   IEarnStakeTypeParams,
   IEarnWithdrawUiPolicy,
-} from './EarnProtocol';
+} from '../EarnProtocol';
 
 const stakeAssetPolicy: IEarnStakeAssetPolicy = {
   selection: 'wrapped',
@@ -38,6 +40,34 @@ const withdrawUiPolicy: IEarnWithdrawUiPolicy = {
 };
 
 export class EtherFiEarnProtocol extends EarnProtocol {
+  override resolveApproveSpenderAddress({
+    backendApproveTarget,
+  }: {
+    protocolVault?: string;
+    backendApproveTarget?: string;
+  }): string {
+    return backendApproveTarget ?? '';
+  }
+
+  override resolveApproveType(
+    params: Parameters<EarnProtocol['resolveApproveType']>[0],
+  ): EApproveType | undefined {
+    return super.resolveApproveType({
+      ...params,
+      backendApproveType: EApproveType.Legacy,
+    });
+  }
+
+  override resolvePermitSpenderAddress({
+    networkId,
+  }: {
+    networkId: string;
+  }): string | undefined {
+    return networkId === getNetworkIdsMap().eth
+      ? EtherFiLiquidReferContract
+      : undefined;
+  }
+
   override getLegacyApprovalGuardPolicy(): 'etherfi' | 'none' {
     return 'etherfi';
   }

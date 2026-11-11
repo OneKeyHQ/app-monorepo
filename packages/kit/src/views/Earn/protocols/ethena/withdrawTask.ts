@@ -3,16 +3,16 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { createEarnConfirmationTaskAdapter } from '../tasks/confirmationTaskAdapter';
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
-import { createLateEarnOrderRecorder } from '../tasks/lateEarnOrderRecorder';
+import { createEarnConfirmationTaskAdapter } from '../../tasks/confirmationTaskAdapter';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
+import { createLateEarnOrderRecorder } from '../../tasks/lateEarnOrderRecorder';
 
-import { getEthenaWithdrawSteps } from './ethenaWithdrawPlan';
+import { getEthenaWithdrawSteps } from './withdrawPlan';
 
-import type { IEarnWithdrawTransaction } from './withdrawProtocol';
-import type { IEarnTaskScope } from '../tasks/earnTaskPlan';
-import type { IEarnWorkflowTaskStep } from '../tasks/earnWorkflowTaskState';
+import type { IEarnTaskScope } from '../../tasks/earnTaskPlan';
+import type { IEarnWorkflowTaskStep } from '../../tasks/earnWorkflowTaskState';
+import type { IEarnWithdrawTransaction } from '../withdrawProtocol';
 
 type ITransactionStep = Exclude<
   IEarnWorkflowTaskStep,
@@ -37,7 +37,6 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
   isExpectedCancellation,
   onSubmitted,
   waitForSwap,
-  onMissingSwapTxid,
   onUnknownSwap,
   onSwapSend,
   onFail,
@@ -56,8 +55,6 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
       return {
         kind: 'wait',
         run: async ({ context }) => {
-          if (!context.swapTxid)
-            throw new OneKeyLocalError('Swap transaction is missing');
           if (!(await waitForSwap(context.swapTxid))) {
             resolveResult(false);
             return { type: 'unknown' };
@@ -164,15 +161,6 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
         try {
           await onSubmitted(stage, data, prepared.stakeInfo);
           if (stage === 'unstake') resolveResult(true);
-          else if (
-            !(
-              data[0]?.signedTx?.txid?.trim() ||
-              data[0]?.decodedTx?.txid?.trim()
-            )
-          ) {
-            onMissingSwapTxid();
-            resolveResult(true);
-          }
         } catch (error) {
           rejectResult(error);
           throw error;
@@ -206,6 +194,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
       kind: 'transaction',
       adapter: confirmation.adapter,
       handoffOnSubmit: true,
+      ...(stage === 'swap' ? { continueAfterMissingTxid: 'settlement' } : {}),
       submittedContext: (context, txid) => ({ ...context, swapTxid: txid }),
     };
   };
@@ -228,8 +217,7 @@ type IEthenaWithdrawTaskParams<TIdentity extends IEarnTaskScope> = {
     data: ISendTxOnSuccessData[],
     stakeInfo?: IStakingInfo,
   ) => Promise<void>;
-  waitForSwap: (txid: string) => Promise<boolean>;
-  onMissingSwapTxid: () => void;
+  waitForSwap: (txid?: string) => Promise<boolean>;
   onUnknownSwap: () => void;
   onSwapSend: () => void;
   onFail?: (error: Error) => void;
@@ -249,7 +237,6 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
   isExpectedCancellation,
   onSubmitted,
   waitForSwap,
-  onMissingSwapTxid,
   onUnknownSwap,
   onSwapSend,
   onFail,
@@ -272,7 +259,6 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
     isExpectedCancellation,
     onSubmitted,
     waitForSwap,
-    onMissingSwapTxid,
     onUnknownSwap,
     onSwapSend,
     onFail,

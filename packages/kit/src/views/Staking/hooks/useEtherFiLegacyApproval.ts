@@ -22,6 +22,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import { createEtherFiLegacyRevokeTask } from './etherFiLegacyRevokeTask';
+
 import type { IEarnActionGuardVerificationOptions } from './useEarnActionGuard';
 
 const LIQUID_USD = '0x08c6f91e2b681faf5e17227f2a44c307b3c1364c';
@@ -825,6 +827,14 @@ export function useEtherFiLegacyApproval({
       current() &&
       visibilityRef.current.active &&
       visibilityRef.current.generation === visibilityGeneration;
+    const task = createEtherFiLegacyRevokeTask({
+      accountId,
+      accountAddress,
+      networkId,
+      vault,
+      tokenAddress: LIQUID_USD,
+      spenderAddress: OLD_ATOMIC_QUEUE,
+    });
     let sendStarted = false;
     let sendSucceeded = false;
     let attemptResolved = true;
@@ -832,127 +842,158 @@ export function useEtherFiLegacyApproval({
     revokeSendStartedRef.current = false;
     setStatus({ scope, status: 'submitting' });
     try {
-      const clear = await read();
-      const pendingTx = await findPendingQueueApproval();
-      if (!current()) return;
-      if (pendingTx) observeOtherIncreases(pendingTx.otherIncreases);
-      if (pendingTx) {
-        pendingTxIdRef.current = pendingTx.txid;
-        pendingIsCancelRef.current = pendingTx.isCancel;
-        pendingMayIncreaseRef.current = pendingTx.mayIncrease;
-        setStatus({ scope, status: 'pending' });
-        void monitorTx(pendingTx.txid, id, controller);
-        return;
-      }
-      if (otherIncreasesRef.current.size) {
-        setStatus({ scope, status: 'pending' });
-        return;
-      }
-      if (!canSend()) {
-        setStatus({ scope, status: 'unknown' });
-        return;
-      }
-      if (clear) {
-        if (unobservedIncreaseRef.current) {
-          setStatus({ scope, status: 'pending' });
-          return;
-        }
-        setStatus({ scope, status: 'clear' });
-        onClearedRef.current?.();
-        return;
-      }
-      const [account, detail] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccount({ accountId, networkId }),
-        backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-          networkId,
-          tokenAddress: LIQUID_USD,
-        }),
-      ]);
-      if (!current()) return;
-      if (!canSend()) {
-        setStatus({ scope, status: 'unknown' });
-        return;
-      }
-      if (
-        !accountAddress ||
-        account.address.toLowerCase() !== accountAddress.toLowerCase()
-      )
-        throw new OneKeyLocalError('Legacy approval account changed');
-      const token = detail?.info;
-      if (
-        !token ||
-        token.address.toLowerCase() !== LIQUID_USD ||
-        token.isNative
-      )
-        throw new OneKeyLocalError('Invalid liquidUSD token');
-      await navigationToTxConfirm({
-        isNavigationCurrent: canSend,
-        onBeforeSend: async () => {
-          if (!canSend())
-            throw new OneKeyLocalError('Legacy approval confirmation expired');
-          const currentAccount =
-            await backgroundApiProxy.serviceAccount.getAccount({
+      await task.run({
+        prepare: async () => {
+          const clear = await read();
+          const pendingTx = await findPendingQueueApproval();
+          if (!current()) return { type: 'cancel' as const };
+          if (pendingTx) observeOtherIncreases(pendingTx.otherIncreases);
+          if (pendingTx) {
+            pendingTxIdRef.current = pendingTx.txid;
+            pendingIsCancelRef.current = pendingTx.isCancel;
+            pendingMayIncreaseRef.current = pendingTx.mayIncrease;
+            setStatus({ scope, status: 'pending' });
+            void monitorTx(pendingTx.txid, id, controller);
+            return { type: 'skip' as const };
+          }
+          if (otherIncreasesRef.current.size) {
+            setStatus({ scope, status: 'pending' });
+            return { type: 'skip' as const };
+          }
+          if (!canSend()) {
+            setStatus({ scope, status: 'unknown' });
+            return { type: 'cancel' as const };
+          }
+          if (clear) {
+            if (unobservedIncreaseRef.current) {
+              setStatus({ scope, status: 'pending' });
+              return { type: 'skip' as const };
+            }
+            setStatus({ scope, status: 'clear' });
+            onClearedRef.current?.();
+            return { type: 'skip' as const };
+          }
+          const [account, detail] = await Promise.all([
+            backgroundApiProxy.serviceAccount.getAccount({
               accountId,
               networkId,
-            });
+            }),
+            backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+              networkId,
+              tokenAddress: LIQUID_USD,
+            }),
+          ]);
+          if (!current()) return { type: 'cancel' as const };
+          if (!canSend()) {
+            setStatus({ scope, status: 'unknown' });
+            return { type: 'cancel' as const };
+          }
           if (
-            !canSend() ||
-            currentAccount.address.toLowerCase() !==
-              accountAddress.toLowerCase()
+            !accountAddress ||
+            account.address.toLowerCase() !== accountAddress.toLowerCase()
           )
             throw new OneKeyLocalError('Legacy approval account changed');
-          sendStarted = true;
-          if (!attemptResolved) hasUncertainAttempt = true;
-          attemptResolved = false;
-          revokeSendStartedRef.current = true;
-          setStatus({ scope, status: 'submitting' });
+          const token = detail?.info;
+          if (
+            !token ||
+            token.address.toLowerCase() !== LIQUID_USD ||
+            token.isNative
+          )
+            throw new OneKeyLocalError('Invalid liquidUSD token');
+          return {
+            type: 'confirm' as const,
+            prepared: {
+              account,
+              token,
+              expectedAccountAddress: accountAddress,
+            },
+          };
         },
-        approvesInfo: [
-          {
-            owner: account.address,
-            spender: OLD_ATOMIC_QUEUE,
-            amount: '0',
-            isMax: false,
-            tokenInfo: token,
-          },
-        ],
-        onCancel: () => {
-          if (current() && statusRef.current.status === 'submitting')
-            setStatus({ scope, status: sendStarted ? 'pending' : 'required' });
-        },
-        onFail: (error) => {
-          if (current() && !sendSucceeded) {
-            const rejectedOnDevice = isHardwareErrorByCode({
-              error: error as IOneKeyError,
-              code: HardwareErrorCode.ActionCancelled,
-            });
-            if (!attemptResolved && !rejectedOnDevice)
-              hasUncertainAttempt = true;
-            attemptResolved = true;
-            setStatus({
-              scope,
-              status: hasUncertainAttempt ? 'pending' : 'unknown',
-            });
+        navigate: async (prepared) => {
+          if (!prepared)
+            throw new OneKeyLocalError('Legacy approval preparation missing');
+          const { account, token, expectedAccountAddress } = prepared;
+          await navigationToTxConfirm({
+            isNavigationCurrent: canSend,
+            onBeforeSend: async () => {
+              if (!canSend())
+                throw new OneKeyLocalError(
+                  'Legacy approval confirmation expired',
+                );
+              const currentAccount =
+                await backgroundApiProxy.serviceAccount.getAccount({
+                  accountId,
+                  networkId,
+                });
+              if (
+                !canSend() ||
+                currentAccount.address.toLowerCase() !==
+                  expectedAccountAddress.toLowerCase()
+              )
+                throw new OneKeyLocalError('Legacy approval account changed');
+              task.beginSend();
+              sendStarted = true;
+              if (!attemptResolved) hasUncertainAttempt = true;
+              attemptResolved = false;
+              revokeSendStartedRef.current = true;
+              setStatus({ scope, status: 'submitting' });
+            },
+            approvesInfo: [
+              {
+                owner: account.address,
+                spender: OLD_ATOMIC_QUEUE,
+                amount: '0',
+                isMax: false,
+                tokenInfo: token,
+              },
+            ],
+            onCancel: () => {
+              task.cancel();
+              if (current() && statusRef.current.status === 'submitting')
+                setStatus({
+                  scope,
+                  status: sendStarted ? 'pending' : 'required',
+                });
+            },
+            onFail: (error) => {
+              if (current() && !sendSucceeded) {
+                const rejectedOnDevice = isHardwareErrorByCode({
+                  error: error as IOneKeyError,
+                  code: HardwareErrorCode.ActionCancelled,
+                });
+                task.fail(rejectedOnDevice === true);
+                if (!attemptResolved && !rejectedOnDevice)
+                  hasUncertainAttempt = true;
+                attemptResolved = true;
+                setStatus({
+                  scope,
+                  status: hasUncertainAttempt ? 'pending' : 'unknown',
+                });
+              }
+            },
+            onSuccess: (data) => {
+              if (!current()) return;
+              sendSucceeded = true;
+              setStatus({ scope, status: 'pending' });
+              const txid =
+                data[0]?.signedTx?.txid?.trim() ||
+                data[0]?.decodedTx?.txid?.trim();
+              task.submit(txid ?? '');
+              if (!txid) return;
+              pendingTxIdRef.current = txid;
+              pendingIsCancelRef.current = false;
+              pendingMayIncreaseRef.current = false;
+              void monitorTx(txid, id, controller);
+            },
+          });
+          const getStatus = (): IStatus => statusRef.current.status;
+          if (current() && !canSend() && getStatus() === 'submitting') {
+            setStatus({ scope, status: 'unknown' });
           }
         },
-        onSuccess: (data) => {
-          if (!current()) return;
-          sendSucceeded = true;
-          setStatus({ scope, status: 'pending' });
-          const txid =
-            data[0]?.signedTx?.txid?.trim() || data[0]?.decodedTx?.txid?.trim();
-          if (!txid) return;
-          pendingTxIdRef.current = txid;
-          pendingIsCancelRef.current = false;
-          pendingMayIncreaseRef.current = false;
-          void monitorTx(txid, id, controller);
-        },
       });
-      const getStatus = (): IStatus => statusRef.current.status;
-      if (current() && !canSend() && getStatus() === 'submitting') {
-        setStatus({ scope, status: 'unknown' });
-      }
     } catch {
+      task.fail(false);
       if (current())
         setStatus({ scope, status: sendStarted ? 'pending' : 'unknown' });
     }
@@ -968,6 +1009,7 @@ export function useEtherFiLegacyApproval({
     read,
     scope,
     setStatus,
+    vault,
   ]);
 
   const verifyBeforeAction = useCallback(

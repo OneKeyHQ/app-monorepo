@@ -301,16 +301,16 @@ function BasicStakePage() {
       ));
   const approveSpenderAddress = useMemo(
     () =>
-      earnUtils.resolveEarnApproveSpenderAddress({
-        providerName: protocolInfo?.provider || '',
+      getEarnProtocol(
+        protocolInfo?.provider || '',
+      ).resolveApproveSpenderAddress({
         protocolVault: protocolInfo?.vault,
         backendApproveTarget: stakeApprove?.approveTarget,
       }),
     [protocolInfo?.provider, protocolInfo?.vault, stakeApprove?.approveTarget],
   );
   const effectiveApproveType = useMemo(() => {
-    return earnUtils.resolveEarnApproveType({
-      providerName: protocolInfo?.provider || '',
+    return getEarnProtocol(protocolInfo?.provider || '').resolveApproveType({
       networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
@@ -345,8 +345,9 @@ function BasicStakePage() {
         await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
           accountId,
           networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          spenderAddress: getEarnProtocol(
             providerName,
+          ).resolveAllowanceSpenderAddress({
             networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
@@ -559,13 +560,13 @@ function BasicStakePage() {
               accountId,
               networkId,
               providerName,
-              approveSpenderAddress:
-                earnUtils.resolveEarnAllowanceSpenderAddress({
-                  providerName,
-                  networkId,
-                  approveType,
-                  approveSpenderAddress,
-                }),
+              approveSpenderAddress: getEarnProtocol(
+                providerName,
+              ).resolveAllowanceSpenderAddress({
+                networkId,
+                approveType,
+                approveSpenderAddress,
+              }),
               tokenAddress: effectiveStakeTokenInfo?.token.address || '',
               amount,
               expectedSignature: permitSignature,

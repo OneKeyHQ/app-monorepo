@@ -802,8 +802,9 @@ export function UniversalStake({
       // Check permit cache first
       const permitCache = getPermitCache({
         providerName,
-        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+        approveSpenderAddress: getEarnProtocol(
           providerName,
+        ).resolveAllowanceSpenderAddress({
           networkId: approveTarget.networkId,
           approveType,
           approveSpenderAddress: approveTarget.spenderAddress,
@@ -3224,13 +3225,13 @@ export function UniversalStake({
             }
             const cacheKey = {
               providerName,
-              approveSpenderAddress:
-                earnUtils.resolveEarnAllowanceSpenderAddress({
-                  providerName,
-                  networkId: approveTarget.networkId,
-                  approveType,
-                  approveSpenderAddress: approveTarget.spenderAddress,
-                }),
+              approveSpenderAddress: getEarnProtocol(
+                providerName,
+              ).resolveAllowanceSpenderAddress({
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              }),
               accountId: approveTarget.accountId,
               networkId: approveTarget.networkId,
               tokenAddress: tokenInfo?.token?.address ?? '',

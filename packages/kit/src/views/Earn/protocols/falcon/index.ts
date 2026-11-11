@@ -1,8 +1,8 @@
 import type { IProtocolInfo } from '@onekeyhq/shared/types/staking';
 
-import { EarnProtocol } from './EarnProtocol';
+import { EarnProtocol } from '../EarnProtocol';
 
-import type { IEarnDetailsPortfolioPresentation } from './EarnProtocol';
+import type { IEarnDetailsPortfolioPresentation } from '../EarnProtocol';
 
 const detailsPortfolioPresentation: IEarnDetailsPortfolioPresentation = {
   activePositions: 'split-falcon',

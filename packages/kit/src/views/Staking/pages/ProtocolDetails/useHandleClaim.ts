@@ -13,6 +13,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EClaimType } from '@onekeyhq/shared/types/staking';
 
+import { useCommittedEarnScopeGuard } from '../../hooks/useCommittedEarnScopeGuard';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 
 export const useHandleClaim = ({
@@ -23,6 +24,9 @@ export const useHandleClaim = ({
   networkId: string;
 }) => {
   const appNavigation = useAppNavigation();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([accountId, networkId]),
+  );
   const handleUniversalClaim = useUniversalClaim({
     networkId,
     accountId: accountId ?? '',
@@ -56,6 +60,8 @@ export const useHandleClaim = ({
       portfolioRewardSymbol?: string;
     }) => {
       if (!accountId) return;
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return;
       const provider = protocolInfo?.provider || '';
       const earnProtocol = getEarnProtocol(provider);
       const vault = protocolInfo?.vault || '';
@@ -77,6 +83,7 @@ export const useHandleClaim = ({
           symbol,
           provider,
         });
+      if (!isCurrent()) return;
       if (!stakingConfig) {
         throw new OneKeyLocalError('Staking config not found');
       }
@@ -183,6 +190,6 @@ export const useHandleClaim = ({
         onSuccess,
       });
     },
-    [accountId, networkId, handleUniversalClaim, appNavigation],
+    [accountId, networkId, handleUniversalClaim, appNavigation, scope],
   );
 };

@@ -29,7 +29,6 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   type EApproveType,
   EInternalDappEnum,
@@ -38,7 +37,6 @@ import {
   type IEarnPermit2ApproveSignData,
   type IEarnStakeType,
   type IEarnWithdrawType,
-  type IStakeTxResponse,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -76,9 +74,9 @@ import { isValidWrappedStakeToken } from '../utils/utils';
 import { useCommittedEarnScopeGuard } from './useCommittedEarnScopeGuard';
 import { useEarnSignMessageWithoutVerify } from './useEarnSignMessageWithoutVerify';
 
-import type { createEthenaWithdrawFragment } from '../../Earn/protocols/ethenaWithdrawTask';
-import type { createLidoWithdrawFragment } from '../../Earn/protocols/lidoWithdrawTask';
-import type { createStakefishWithdrawFragment } from '../../Earn/protocols/stakefishWithdrawTask';
+import type { createEthenaWithdrawFragment } from '../../Earn/protocols/ethena/withdrawTask';
+import type { createLidoWithdrawFragment } from '../../Earn/protocols/lido/withdrawTask';
+import type { createStakefishWithdrawFragment } from '../../Earn/protocols/stakefish/withdrawTask';
 import type {
   ISingleWithdrawPrepared,
   IUniversalWithdrawContext,
@@ -1783,7 +1781,6 @@ export function useUniversalWithdraw({
       }
       if (isActionCurrent && !isActionCurrent()) return false;
 
-      let stakeTx: IStakeTxResponse | undefined;
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -1964,7 +1961,10 @@ export function useUniversalWithdraw({
         throw new OneKeyLocalError('Unsupported withdrawal approval workflow');
       }
 
-      if (withdrawProtocol.kind === 'babylon') {
+      if (
+        withdrawProtocol.kind === 'babylon' ||
+        withdrawProtocol.kind === 'signOnly'
+      ) {
         const task = withdrawProtocol.createTask({
           taskId: generateUUID(),
           accountId,
@@ -2733,52 +2733,7 @@ export function useUniversalWithdraw({
         return result === 'finished' && (isActionCurrent?.() ?? true);
       }
 
-      if (stakingConfig?.unstakeWithSignMessage) {
-        const account = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
-        if (isActionCurrent && !isActionCurrent()) return false;
-        const { message, deadline } =
-          await backgroundApiProxy.serviceStaking.buildLidoEthPermitMessageData(
-            {
-              accountId,
-              networkId,
-              amount,
-            },
-          );
-        if (isActionCurrent && !isActionCurrent()) return false;
-
-        const signHash =
-          (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-            accountId,
-            networkId,
-            request: { origin: 'https://lido.fi/', scope: 'ethereum' },
-            unsignedMessage: {
-              type: EMessageTypesEth.TYPED_DATA_V4,
-              message,
-              payload: [account.address, message],
-            },
-            walletInternalSign: true,
-          })) as string;
-
-        if (isActionCurrent && !isActionCurrent()) return false;
-
-        stakeTx =
-          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-            amount,
-            networkId,
-            accountId,
-            symbol,
-            provider,
-            inputTokenAddress,
-            outputTokenAddress,
-            effectiveApy,
-            withdrawType,
-            signature: signHash,
-            deadline,
-          });
-      } else if (withdrawProtocol.kind === 'ethena') {
+      if (withdrawProtocol.kind === 'ethena') {
         const ethenaAccountAddress = workflowHandoff
           ? await getTaskAccountAddress({ accountId, networkId })
           : undefined;
@@ -2943,49 +2898,48 @@ export function useUniversalWithdraw({
           },
           waitForSwap: async (txid) => {
             onStepChange?.(2);
-            const status = await waitForTxFinalStatus({
-              accountId,
-              networkId,
-              txid,
-              signal,
-            });
-            if (signal?.aborted || !(isActionCurrent?.() ?? true)) {
-              if (status === EOnChainHistoryTxStatus.Failed) {
+            if (txid) {
+              const status = await waitForTxFinalStatus({
+                accountId,
+                networkId,
+                txid,
+                signal,
+              });
+              if (signal?.aborted || !(isActionCurrent?.() ?? true)) {
+                if (status === EOnChainHistoryTxStatus.Failed) {
+                  unknownEthenaSwapsRef.current.delete(ethenaScope);
+                }
+                return false;
+              }
+              if (
+                status === EOnChainHistoryTxStatus.Failed ||
+                (status === EOnChainHistoryTxStatus.Success &&
+                  !signal?.aborted &&
+                  (isActionCurrent?.() ?? true))
+              ) {
                 unknownEthenaSwapsRef.current.delete(ethenaScope);
               }
-              return false;
-            }
-            if (
-              status === EOnChainHistoryTxStatus.Failed ||
-              (status === EOnChainHistoryTxStatus.Success &&
-                !signal?.aborted &&
-                (isActionCurrent?.() ?? true))
-            ) {
+              if (status !== EOnChainHistoryTxStatus.Success) {
+                if (status !== EOnChainHistoryTxStatus.Failed) {
+                  unknownEthenaSwapsRef.current.add(ethenaScope);
+                }
+                if (!signal?.aborted) {
+                  Toast.error({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_failed,
+                    }),
+                  });
+                }
+                return false;
+              }
+            } else {
               unknownEthenaSwapsRef.current.delete(ethenaScope);
-            }
-            if (status !== EOnChainHistoryTxStatus.Success) {
-              if (status !== EOnChainHistoryTxStatus.Failed) {
-                unknownEthenaSwapsRef.current.add(ethenaScope);
-              }
-              if (!signal?.aborted) {
-                Toast.error({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_failed,
-                  }),
-                });
-              }
-              return false;
             }
             if (signal?.aborted) return false;
             onEthenaCooldownUnstakeReady?.();
             // Allow the first confirmation modal to close before opening another.
             await timerUtils.wait(150);
             return !signal?.aborted;
-          },
-          onMissingSwapTxid: () => {
-            unknownEthenaSwapsRef.current.add(ethenaScope);
-            if (!signal?.aborted && (isActionCurrent?.() ?? true))
-              showUnknownEthenaSwap();
           },
           onUnknownSwap: () => unknownEthenaSwapsRef.current.add(ethenaScope),
           onSwapSend: () => {
@@ -3045,138 +2999,8 @@ export function useUniversalWithdraw({
           taskId: generateUUID(),
           ...ethenaParams,
         });
-      } else {
-        stakeTx =
-          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-            amount,
-            identity,
-            networkId,
-            accountId,
-            symbol,
-            provider,
-            inputTokenAddress,
-            outputTokenAddress,
-            protocolVault,
-            withdrawAll,
-            signature: withdrawSignature,
-            message: withdrawMessage,
-            slippage,
-            effectiveApy,
-            withdrawType,
-          });
       }
-
-      if (isActionCurrent && !isActionCurrent()) return false;
-      // Handle Stakefish validator exit broadcast (no on-chain tx needed)
-      if (
-        typeof stakeTx.tx === 'object' &&
-        stakeTx.tx !== null &&
-        'exitBroadcasted' in stakeTx.tx &&
-        stakeTx.tx.exitBroadcasted === true
-      ) {
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          }),
-        });
-        if ((isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ?? true)
-          onSuccess?.([]);
-        return true;
-      }
-
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-          networkId,
-          accountId,
-          tx: stakeTx.tx,
-          internalDappType: EInternalDappEnum.Staking,
-          stakingAction: EInternalStakingAction.Withdraw,
-        });
-      if (isActionCurrent && !isActionCurrent()) return false;
-      let useFeeInTx;
-      let feeInfoEditable;
-      if (
-        networkUtils.isBTCNetwork(networkId) &&
-        (encodedTx as IEncodedTxBtc).fee
-      ) {
-        useFeeInTx = true;
-        feeInfoEditable = false;
-      }
-
-      const stakeInfoWithOrderId = createStakeInfoWithOrderId({
-        stakingInfo,
-        orderId: stakeTx.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx,
-        isNavigationCurrent: isActionCurrent,
-        onBeforeSend: isSendCurrent
-          ? () => {
-              if (!isSendCurrent()) {
-                throw new OneKeyLocalError(
-                  intl.formatMessage({
-                    id: ETranslations.privacy_error_review_expired__msg,
-                  }),
-                );
-              }
-            }
-          : undefined,
-        stakingInfo: stakeInfoWithOrderId,
-        signOnly: stakingConfig?.withdrawSignOnly,
-        useFeeInTx,
-        feeInfoEditable,
-        onSuccess: async (data) => {
-          if (!stakingConfig?.withdrawSignOnly) {
-            if (!isSendCurrent && !isResultCurrent) {
-              await handleStakeSuccess({
-                data,
-                stakeInfo: stakeInfoWithOrderId,
-                networkId,
-                onSuccess: (submitted) => {
-                  if (isActionCurrent?.() ?? true) onSuccess?.(submitted);
-                },
-              });
-              return;
-            }
-            try {
-              await handleStakeSuccess({
-                data,
-                stakeInfo: stakeInfoWithOrderId,
-                networkId,
-              });
-            } catch (error) {
-              errorToastUtils.showToastOfError(error);
-            }
-            if (
-              (isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ??
-              true
-            ) {
-              onSuccess?.(data);
-            }
-          } else {
-            const psbtHex = data[0].signedTx.finalizedPsbtHex;
-            if (psbtHex && identity) {
-              await backgroundApiProxy.serviceStaking.unstakePush({
-                txId: identity,
-                networkId,
-                accountId,
-                symbol,
-                provider,
-                unstakeTxHex: psbtHex,
-              });
-              if (
-                (isResultCurrent ?? isSendCurrent ?? isActionCurrent)?.() ??
-                true
-              )
-                onSuccess?.(data);
-            }
-          }
-        },
-        onFail,
-      });
-
-      return isActionCurrent?.() ?? true;
+      throw new OneKeyLocalError('Unsupported withdrawal workflow');
     },
     [
       accountId,

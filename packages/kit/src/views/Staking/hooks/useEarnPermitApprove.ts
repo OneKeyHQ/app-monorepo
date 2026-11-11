@@ -3,13 +3,13 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import {
   isTaskAccountAddress,
   isTaskAccountCurrent,
 } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
@@ -72,8 +72,9 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
-      const expectedSpender = earnUtils.resolveEarnPermitSpenderAddress({
+      const expectedSpender = getEarnProtocol(
         providerName,
+      ).resolvePermitSpenderAddress({
         networkId,
       });
       const spender = permit2Data.message?.spender;

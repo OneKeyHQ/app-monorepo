@@ -5,7 +5,6 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
@@ -1424,7 +1423,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('stops an Ethena swap without a transaction id and blocks replay on this mounted scope', async () => {
+  it('continues the Ethena unstake without waiting when the swap has no transaction id', async () => {
     const data = submittedData();
     data[0].signedTx.txid = '';
     data[0].decodedTx.txid = '';
@@ -1443,22 +1442,15 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
       onEthenaCooldownUnstakeReady,
     };
     await expect(result.current(ethena)).resolves.toBe(true);
-    expect(mockBuildUnstake).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
     expect(mockWaitFinality).not.toHaveBeenCalled();
-    expect(onEthenaCooldownUnstakeReady).not.toHaveBeenCalled();
-    expect(mockToastError).toHaveBeenCalledWith({
-      title:
-        ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
-    });
-    await expect(result.current(ethena)).resolves.toBe(false);
-    expect(mockBuildUnstake).toHaveBeenCalledTimes(1);
+    expect(onEthenaCooldownUnstakeReady).toHaveBeenCalledTimes(1);
   });
 
   it('scopes the in-memory unknown lock to the withdrawal identity and tokens', async () => {
     const data = submittedData();
-    data[0].signedTx.txid = '';
-    data[0].decodedTx.txid = '';
+    mockWaitFinality.mockResolvedValueOnce(undefined);
     mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
       await onSuccess?.(data);
     });
@@ -1475,7 +1467,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
       identity: 'request-a',
       useEthenaCooldown: true,
     };
-    await expect(result.current(ethena)).resolves.toBe(true);
+    await expect(result.current(ethena)).resolves.toBe(false);
     await expect(
       result.current({ ...ethena, identity: 'request-b' }),
     ).resolves.toBe(false);
@@ -1500,8 +1492,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
 
   it('keeps unknown Ethena swaps scoped to their account and does not restore the latch on remount', async () => {
     const data = submittedData();
-    data[0].signedTx.txid = '';
-    data[0].decodedTx.txid = '';
+    mockWaitFinality.mockResolvedValueOnce(undefined);
     mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {
       await onSuccess?.(data);
     });
@@ -1517,7 +1508,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
         useUniversalWithdraw({ accountId, networkId: account.networkId }),
       { initialProps: { accountId: account.accountId } },
     );
-    await expect(result.current(ethena)).resolves.toBe(true);
+    await expect(result.current(ethena)).resolves.toBe(false);
     rerender({ accountId: 'account-2' });
     await expect(result.current(ethena)).resolves.toBe(false);
     expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
@@ -2373,7 +2364,7 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     },
   );
 
-  it('keeps the existing sign-only flow when both configuration flags are set', async () => {
+  it('routes to sign-only when both configuration flags are set', async () => {
     mockGetConfig.mockResolvedValue({
       unstakeWithSignMessage: true,
       withdrawSignOnly: true,

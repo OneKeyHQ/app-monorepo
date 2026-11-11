@@ -2489,6 +2489,11 @@ export interface IEarnRegisterSignMessageResponse {
   toast?: IEarnToast;
 }
 
+export interface IEarnVerifyRegisterSignMessageResponse {
+  result: boolean;
+  toast?: IEarnToast;
+}
+
 export interface IVerifyRegisterSignMessageParams extends IBuildRegisterSignMessageParams {
   signature: string;
   message: string;

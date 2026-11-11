@@ -287,7 +287,14 @@ const ProtocolDetailsPage = () => {
     ],
   );
 
-  const falconUSDfRegister = useEarnSignMessage();
+  const falconUSDfRegister = useEarnSignMessage({
+    accountId: earnAccount?.accountId,
+    networkId: earnAccount?.networkId,
+    accountAddress: earnAccount?.accountAddress,
+    provider: result?.provider.name,
+    symbol: result?.token.info.symbol,
+    ownerKey: JSON.stringify([accountId, indexedAccountId, networkId]),
+  });
   const shouldRegisterBeforeStake = useMemo(
     () =>
       getEarnProtocol(result?.provider.name ?? '').requiresStakeRegistration({

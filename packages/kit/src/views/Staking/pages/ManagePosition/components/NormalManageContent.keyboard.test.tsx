@@ -113,9 +113,6 @@ jest.mock('@onekeyhq/kit/src/components/SlippageSettingDialog', () => ({
   __esModule: true,
   default: () => null,
 }));
-jest.mock('../../../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: () => false,
-}));
 jest.mock('../../../hooks/useQuoteCountdown', () => ({
   useQuoteCountdown: () => ({ isExpired: false, reset: () => {} }),
 }));

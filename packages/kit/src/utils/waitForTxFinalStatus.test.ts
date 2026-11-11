@@ -39,3 +39,45 @@ it('passes an expected address to each status lookup and preserves legacy calls'
     txid: 'tx',
   });
 });
+
+it('removes the abort listener after each polling delay', async () => {
+  jest.useFakeTimers();
+  try {
+    const controller = new AbortController();
+    const removeListener = jest.spyOn(controller.signal, 'removeEventListener');
+    mockFetch.mockReset().mockResolvedValue(undefined);
+    const result = waitForTxFinalStatus({
+      accountId: 'account',
+      networkId: 'evm--1',
+      txid: 'tx',
+      signal: controller.signal,
+      maxAttempts: 2,
+      intervalMs: 10,
+    });
+    await jest.advanceTimersByTimeAsync(10);
+    await expect(result).resolves.toBeUndefined();
+    expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function));
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('ignores a final status that arrives after cancellation', async () => {
+  const controller = new AbortController();
+  let finishFetch: (value: unknown) => void = () => undefined;
+  mockFetch.mockReset().mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishFetch = resolve;
+      }),
+  );
+  const result = waitForTxFinalStatus({
+    accountId: 'account',
+    networkId: 'evm--1',
+    txid: 'tx',
+    signal: controller.signal,
+  });
+  controller.abort();
+  finishFetch({ data: { status: EOnChainHistoryTxStatus.Success } });
+  await expect(result).resolves.toBeUndefined();
+});

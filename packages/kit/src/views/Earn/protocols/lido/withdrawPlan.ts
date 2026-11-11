@@ -1,4 +1,4 @@
-import type { IEarnWorkflowStepPlan } from '../tasks/earnWorkflowTaskState';
+import type { IEarnWorkflowStepPlan } from '../../tasks/earnWorkflowTaskState';
 
 export function getLidoWithdrawSteps(): readonly IEarnWorkflowStepPlan[] {
   return [

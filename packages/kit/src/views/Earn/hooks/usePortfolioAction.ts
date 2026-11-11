@@ -105,7 +105,14 @@ export const usePortfolioAction = ({
     accountId: earnAccountId,
     networkId,
   });
-  const signMessage = useEarnSignMessage();
+  const signMessage = useEarnSignMessage({
+    accountId: earnAccountId,
+    networkId,
+    accountAddress: earnAccount?.accountAddress,
+    provider,
+    symbol,
+    ownerKey: accountScope,
+  });
 
   const handleListaCheckAction = useCallback(
     async (
@@ -116,7 +123,7 @@ export const usePortfolioAction = ({
     ) => {
       setLoading(true);
       try {
-        await signMessage({
+        const registered = await signMessage({
           accountId: earnAccountId,
           networkId,
           provider,
@@ -124,7 +131,7 @@ export const usePortfolioAction = ({
           request: { origin: 'https://lista.org/', scope: 'ethereum' },
         });
 
-        void onSuccess?.();
+        if (registered) void onSuccess?.();
       } finally {
         setLoading(false);
       }

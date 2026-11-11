@@ -56,9 +56,6 @@ jest.mock('../hooks/useEarnWithdrawAssets', () => ({
     retry: jest.fn(),
   }),
 }));
-jest.mock('../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: () => false,
-}));
 jest.mock('../hooks/useBorrowApiParams', () => ({
   useBorrowApiParams: () => ({ isBorrow: false, borrowApiParams: {} }),
 }));

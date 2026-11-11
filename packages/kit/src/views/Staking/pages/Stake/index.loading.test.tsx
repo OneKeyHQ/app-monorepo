@@ -123,8 +123,7 @@ jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
       providerName.toLowerCase() === 'etherfi',
     isNativeProvider: ({ providerName }: { providerName: string }) =>
       providerName.toLowerCase() === 'native',
-    resolveEarnApproveSpenderAddress: () => '',
-    resolveEarnApproveType: () => undefined,
+    shouldSendEarnProtocolVault: () => false,
   },
 }));
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({

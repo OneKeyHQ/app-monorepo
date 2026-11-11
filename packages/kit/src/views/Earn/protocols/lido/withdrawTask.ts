@@ -12,16 +12,16 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { createEarnConfirmationTaskAdapter } from '../tasks/confirmationTaskAdapter';
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
-import { createLateEarnOrderRecorder } from '../tasks/lateEarnOrderRecorder';
+import { createEarnConfirmationTaskAdapter } from '../../tasks/confirmationTaskAdapter';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
+import { createLateEarnOrderRecorder } from '../../tasks/lateEarnOrderRecorder';
 
-import { getLidoWithdrawSteps } from './lidoWithdrawPlan';
+import { getLidoWithdrawSteps } from './withdrawPlan';
 
-import type { IEarnWithdrawTransaction } from './withdrawProtocol';
-import type { IEarnTaskScope } from '../tasks/earnTaskPlan';
-import type { IEarnWorkflowTaskStep } from '../tasks/earnWorkflowTaskState';
+import type { IEarnTaskScope } from '../../tasks/earnTaskPlan';
+import type { IEarnWorkflowTaskStep } from '../../tasks/earnWorkflowTaskState';
+import type { IEarnWithdrawTransaction } from '../withdrawProtocol';
 
 type ITransactionStep = Exclude<
   IEarnWorkflowTaskStep,

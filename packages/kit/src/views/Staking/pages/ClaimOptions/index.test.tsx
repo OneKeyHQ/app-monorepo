@@ -114,3 +114,24 @@ test('retains a Babylon claim fact after its options page unmounts', async () =>
   );
   expect(mockPop).not.toHaveBeenCalled();
 });
+
+test('does not wait for the Babylon remote record after local tracking', async () => {
+  mockClaim.mockReset().mockResolvedValue();
+  mockAddTracking.mockReset().mockResolvedValue();
+  mockRecord.mockReset().mockImplementation(() => new Promise(() => {}));
+  const screen = render(<ClaimOptions />);
+  fireEvent.click(screen.getByRole('button', { name: 'Select' }));
+  await waitFor(() => expect(mockClaim).toHaveBeenCalledTimes(1));
+  const params = mockClaim.mock.calls[0][0] as {
+    onSubmitted: (
+      txid: string,
+      accountAddress: string,
+      accountPublicKey: string,
+    ) => Promise<void>;
+  };
+
+  await expect(
+    params.onSubmitted('broadcast-tx', 'original-address', '02abcd'),
+  ).resolves.toBeUndefined();
+  expect(mockRecord).toHaveBeenCalledTimes(1);
+});

@@ -1,6 +1,6 @@
-import { EarnProtocol } from './EarnProtocol';
+import { EarnProtocol } from '../EarnProtocol';
 
-import type { IEarnDetailsPortfolioPresentation } from './EarnProtocol';
+import type { IEarnDetailsPortfolioPresentation } from '../EarnProtocol';
 
 export class EverstakeEarnProtocol extends EarnProtocol {
   override getDetailsPortfolioPresentation({

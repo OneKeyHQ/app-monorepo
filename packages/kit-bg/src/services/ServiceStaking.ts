@@ -81,6 +81,7 @@ import type {
   IEarnSummary,
   IEarnSummaryV2,
   IEarnUnbondingDelegationList,
+  IEarnVerifyRegisterSignMessageResponse,
   IEarnWithdrawType,
   IGetPortfolioParams,
   IRecommendAsset,
@@ -786,7 +787,7 @@ class ServiceStaking extends ServiceBase {
       ]) as IVerifyRegisterSignMessageParams;
     }
     const resp = await client.post<{
-      data: IEarnRegisterSignMessageResponse;
+      data: IEarnVerifyRegisterSignMessageResponse;
     }>(`/earn/v1/verify-sig`, verifyParams);
     return resp.data.data;
   }

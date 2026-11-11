@@ -1,13 +1,15 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PendleRouterContract } from '@onekeyhq/shared/src/consts/addresses';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 
-import { EarnProtocol } from './EarnProtocol';
+import { EarnProtocol } from '../EarnProtocol';
 
 import type {
   IEarnApyHistoryPresentation,
   IEarnStakeAssetPolicy,
   IEarnStakePresentation,
   IEarnWithdrawUiPolicy,
-} from './EarnProtocol';
+} from '../EarnProtocol';
 
 const apyHistoryPresentation: IEarnApyHistoryPresentation = {
   source: 'underlying',
@@ -33,6 +35,19 @@ const withdrawUiPolicy: IEarnWithdrawUiPolicy = {
 };
 
 export class PendleEarnProtocol extends EarnProtocol {
+  override resolveApproveSpenderAddress(): string {
+    return PendleRouterContract;
+  }
+
+  override resolveApproveType(
+    params: Parameters<EarnProtocol['resolveApproveType']>[0],
+  ): EApproveType | undefined {
+    return super.resolveApproveType({
+      ...params,
+      backendApproveType: EApproveType.Legacy,
+    });
+  }
+
   override getApyHistoryPresentation(): IEarnApyHistoryPresentation {
     return apyHistoryPresentation;
   }

@@ -466,8 +466,9 @@ const StakeSectionContent = ({
       });
     }
 
-    return earnUtils.resolveEarnApproveSpenderAddress({
-      providerName: protocolInfo?.provider || '',
+    return getEarnProtocol(
+      protocolInfo?.provider || '',
+    ).resolveApproveSpenderAddress({
       protocolVault: protocolInfo?.vault,
       backendApproveTarget: stakeApprove?.approveTarget,
     });
@@ -479,8 +480,7 @@ const StakeSectionContent = ({
     stakeApprove?.approveTarget,
   ]);
   const effectiveApproveType = useMemo(() => {
-    return earnUtils.resolveEarnApproveType({
-      providerName: protocolInfo?.provider || '',
+    return getEarnProtocol(protocolInfo?.provider || '').resolveApproveType({
       networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
@@ -675,8 +675,9 @@ const StakeSectionContent = ({
           await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
             accountId,
             networkId,
-            spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            spenderAddress: getEarnProtocol(
               providerName,
+            ).resolveAllowanceSpenderAddress({
               networkId,
               approveType: initialAllowanceTarget.approveType,
               approveSpenderAddress: initialAllowanceTarget.spenderAddress,
@@ -836,13 +837,13 @@ const StakeSectionContent = ({
               accountId,
               networkId,
               providerName,
-              approveSpenderAddress:
-                earnUtils.resolveEarnAllowanceSpenderAddress({
-                  providerName,
-                  networkId,
-                  approveType,
-                  approveSpenderAddress,
-                }),
+              approveSpenderAddress: getEarnProtocol(
+                providerName,
+              ).resolveAllowanceSpenderAddress({
+                networkId,
+                approveType,
+                approveSpenderAddress,
+              }),
               tokenAddress: effectiveStakeTokenInfo?.token.address || '',
               amount,
               expectedSignature: permitSignature,

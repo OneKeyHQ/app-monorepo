@@ -424,8 +424,7 @@ export const WithdrawSection = ({
       return protocolInfo?.withdrawApprove?.approveTarget ?? '';
     }
 
-    return earnUtils.resolveEarnApproveSpenderAddress({
-      providerName,
+    return getEarnProtocol(providerName).resolveApproveSpenderAddress({
       protocolVault: protocolInfo?.vault,
       backendApproveTarget: effectiveBorrowApproveInfo?.approveTarget,
     });
@@ -444,8 +443,9 @@ export const WithdrawSection = ({
     ? EApproveType.Legacy
     : effectiveBorrowApproveInfo?.approveType;
   const effectiveApproveType = useMemo(() => {
-    const resolvedApproveType = earnUtils.resolveEarnApproveType({
+    const resolvedApproveType = getEarnProtocol(
       providerName,
+    ).resolveApproveType({
       networkId,
       tokenIsNative: approvalToken?.isNative,
       approveSpenderAddress,
@@ -488,8 +488,9 @@ export const WithdrawSection = ({
         await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
           accountId,
           networkId,
-          spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          spenderAddress: getEarnProtocol(
             providerName,
+          ).resolveAllowanceSpenderAddress({
             networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,

@@ -110,6 +110,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceStaking: {
       getEarnAssetsList: (...args: unknown[]) => mockGetEarnAssetsList(...args),
+      fetchTokenAllowance: async () => ({ allowanceParsed: '0' }),
     },
     serviceToken: {
       fetchTokensDetails: (...args: unknown[]) =>
@@ -168,10 +169,7 @@ jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
       providerName.toLowerCase() === 'pendle',
     getEarnProviderName: ({ providerName }: { providerName: string }) =>
       providerName,
-    resolveEarnApproveSpenderAddress: () => '',
-    resolveEarnApproveType: () => undefined,
     shouldSendEarnProtocolVault: () => true,
-    resolveEarnAllowanceSpenderAddress: () => '0xspender',
   },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => {
@@ -188,10 +186,6 @@ jest.mock('../../../hooks/useBorrowApiParams', () => ({
 }));
 jest.mock('../../../hooks/useEtherFiStakeApproval', () => ({
   useEtherFiStakeApproval: (params: unknown) => mockStakeApproval(params),
-}));
-jest.mock('../../../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: (provider: string) =>
-    provider.toLowerCase() === 'pendle',
 }));
 jest.mock('../../../hooks/useUniversalHooks', () => ({
   useUniversalStake: () => mockHandleStake,

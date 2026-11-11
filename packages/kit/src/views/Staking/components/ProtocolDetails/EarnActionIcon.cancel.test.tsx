@@ -4,12 +4,16 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import {
+  EClaimType,
   EStakingActionType,
   type IEarnCancelWithdrawalActionIcon,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+
+import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnActionIcon } from './EarnActionIcon';
 
@@ -249,4 +253,83 @@ describe('EarnActionIcon cancel withdrawal', () => {
     expect(mockWithdraw).not.toHaveBeenCalled();
     expect(onActionSuccess).not.toHaveBeenCalled();
   });
+});
+
+it('releases claim loading after ten seconds while preparation is pending', async () => {
+  jest.useFakeTimers();
+  try {
+    let finish: () => void = () => undefined;
+    const claim = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    jest.mocked(useHandleClaim).mockReturnValue(claim);
+    const screen = render(
+      <EarnActionIcon
+        actionIcon={{
+          type: EClaimType.Claim,
+          text: { text: 'Claim' },
+          disabled: false,
+        }}
+        protocolInfo={protocolInfo}
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Claim' });
+    fireEvent.click(button);
+    act(() => {
+      jest.advanceTimersByTime(11_000);
+    });
+    expect(button.hasAttribute('disabled')).toBe(false);
+    expect(claim).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish();
+    });
+    expect(button.hasAttribute('disabled')).toBe(false);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('keeps the new account claim locked when an old account request finishes', async () => {
+  const finish: Array<() => void> = [];
+  const claim = jest.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish.push(resolve);
+      }),
+  );
+  jest.mocked(useHandleClaim).mockReturnValue(claim);
+  const earnAccount = protocolInfo.earnAccount;
+  if (!earnAccount) throw new OneKeyLocalError('Test account is missing');
+  const action = {
+    type: EClaimType.Claim,
+    text: { text: 'Claim' },
+    disabled: false,
+  };
+  const screen = render(
+    <EarnActionIcon actionIcon={action} protocolInfo={protocolInfo} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Claim' }));
+  screen.rerender(
+    <EarnActionIcon
+      actionIcon={action}
+      protocolInfo={{
+        ...protocolInfo,
+        earnAccount: { ...earnAccount, accountId: 'account-2' },
+      }}
+    />,
+  );
+  const button = screen.getByRole('button', { name: 'Claim' });
+  expect(button.hasAttribute('disabled')).toBe(false);
+  fireEvent.click(button);
+  await act(async () => {
+    finish[0]?.();
+  });
+  expect(button.hasAttribute('disabled')).toBe(true);
+  await act(async () => {
+    finish[1]?.();
+  });
+  expect(button.hasAttribute('disabled')).toBe(false);
 });

@@ -96,9 +96,6 @@ jest.mock('../../../hooks/useBorrowApiParams', () => ({
 jest.mock('../../../hooks/useEarnWithdrawAssets', () => ({
   useEarnWithdrawAssets: () => ({ assets: [], status: 'idle' }),
 }));
-jest.mock('../../../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: () => false,
-}));
 jest.mock('../../../hooks/useUniversalHooks', () => ({
   useUniversalWithdraw: () => jest.fn(),
 }));

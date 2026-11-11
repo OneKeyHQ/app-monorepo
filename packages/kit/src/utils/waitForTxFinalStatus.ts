@@ -40,11 +40,10 @@ export async function waitForTxFinalStatus({
         });
       txStatus = txDetailsResp?.data?.status;
     } catch (_error) {
-      if (signal?.aborted) {
-        return undefined;
-      }
+      // A failed lookup remains pending until the polling limit.
     }
 
+    if (signal?.aborted) return undefined;
     if (
       txStatus === EOnChainHistoryTxStatus.Success ||
       txStatus === EOnChainHistoryTxStatus.Failed
@@ -54,15 +53,15 @@ export async function waitForTxFinalStatus({
 
     if (attempt < maxAttempts - 1) {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, intervalMs);
-        signal?.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
+        const timer: { value?: ReturnType<typeof setTimeout> } = {};
+        const finish = () => {
+          if (timer.value !== undefined) clearTimeout(timer.value);
+          signal?.removeEventListener('abort', finish);
+          resolve();
+        };
+        timer.value = setTimeout(finish, intervalMs);
+        signal?.addEventListener('abort', finish, { once: true });
+        if (signal?.aborted) finish();
       });
     }
   }

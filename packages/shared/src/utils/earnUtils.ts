@@ -1,13 +1,4 @@
 import { EEarnProviderEnum } from '../../types/earn';
-import { EApproveType } from '../../types/staking';
-import { getNetworkIdsMap } from '../config/networkIds';
-import {
-  EtherFiLiquidReferContract,
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-  PendleRouterContract,
-} from '../consts/addresses';
 
 import networkUtils from './networkUtils';
 
@@ -105,123 +96,6 @@ const shouldSendEarnProtocolVault = ({
     isVaultBasedProvider({ providerName }) || isNativeProvider({ providerName })
   );
 };
-
-const providerApproveSpenderOverrides: Partial<
-  Record<EEarnProviderEnum, string>
-> = {
-  [EEarnProviderEnum.Pendle]: PendleRouterContract,
-};
-
-const providerApproveTypeOverrides: Partial<
-  Record<EEarnProviderEnum, EApproveType>
-> = {
-  [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
-};
-
-function resolveEarnApproveSpenderAddress({
-  providerName,
-  protocolVault,
-  backendApproveTarget,
-}: {
-  providerName: string;
-  protocolVault?: string;
-  backendApproveTarget?: string;
-}) {
-  // The EtherFi receipt vault identifies the position but cannot spend deposits.
-  if (isEtherFiProvider({ providerName })) {
-    return backendApproveTarget ?? '';
-  }
-  const providerKey = getEarnProviderEnumKey(providerName);
-  if (providerKey && providerApproveSpenderOverrides[providerKey]) {
-    return providerApproveSpenderOverrides[providerKey];
-  }
-  return shouldSendEarnProtocolVault({ providerName })
-    ? (protocolVault ?? backendApproveTarget ?? '')
-    : (backendApproveTarget ?? '');
-}
-
-function resolveEarnApproveType({
-  providerName,
-  networkId,
-  tokenIsNative,
-  approveSpenderAddress,
-  backendApproveType,
-}: {
-  providerName: string;
-  networkId: string;
-  tokenIsNative?: boolean;
-  approveSpenderAddress?: string;
-  backendApproveType?: EApproveType;
-}) {
-  if (tokenIsNative || !approveSpenderAddress) {
-    return undefined;
-  }
-  // ERC20 approve only applies to EVM networks
-  if (!networkUtils.isEvmNetwork({ networkId })) {
-    return undefined;
-  }
-  if (isEtherFiProvider({ providerName })) {
-    return EApproveType.Legacy;
-  }
-  const providerKey = getEarnProviderEnumKey(providerName);
-  if (providerKey && providerApproveTypeOverrides[providerKey]) {
-    return providerApproveTypeOverrides[providerKey];
-  }
-  return backendApproveType ?? EApproveType.Legacy;
-}
-
-/** Returns a known Permit spender; unsupported provider/network pairs fail closed. */
-export function resolveEarnPermitSpenderAddress({
-  providerName,
-  networkId,
-}: {
-  providerName: string;
-  networkId: string;
-}): string | undefined {
-  if (isEtherFiProvider({ providerName })) {
-    return networkId === getNetworkIdsMap().eth
-      ? EtherFiLiquidReferContract
-      : undefined;
-  }
-  if (!isMorphoProvider({ providerName })) {
-    return undefined;
-  }
-  if (networkId === getNetworkIdsMap().eth) {
-    return MorphoBundlerContract;
-  }
-  if (networkId === getNetworkIdsMap().base) {
-    return MorphoBaseBundlerContract;
-  }
-  if (networkId === getNetworkIdsMap().katana) {
-    return MorphoKatanaBundlerContract;
-  }
-  return undefined;
-}
-
-function resolveEarnAllowanceSpenderAddress({
-  providerName,
-  networkId,
-  approveType,
-  approveSpenderAddress,
-}: {
-  providerName: string;
-  networkId: string;
-  approveType?: EApproveType;
-  approveSpenderAddress?: string;
-}) {
-  if (!approveSpenderAddress) {
-    return '';
-  }
-  // Morpho historically exposes its vault as approveTarget, while Permit uses
-  // a bundler. Other providers already expose their actual deposit spender.
-  if (
-    approveType === EApproveType.Permit &&
-    isMorphoProvider({ providerName })
-  ) {
-    return resolveEarnPermitSpenderAddress({ providerName, networkId }) ?? '';
-  }
-  return approveSpenderAddress;
-}
 
 const isValidatorProvider = ({ providerName }: { providerName: string }) => {
   return (
@@ -405,10 +279,6 @@ export default {
   isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
   isValidatorProvider,
-  resolveEarnApproveSpenderAddress,
-  resolveEarnApproveType,
-  resolveEarnPermitSpenderAddress,
-  resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   getDisplaySymbol,
   matchesSymbolKeyword,

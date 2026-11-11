@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import {
   getTaskAccountAddress,
   isTaskAccountAddress,
@@ -368,13 +369,15 @@ export const useHandleStake = () => {
         return;
       }
 
-      const approveSpenderAddress = earnUtils.resolveEarnApproveSpenderAddress({
-        providerName: protocolInfo?.provider || '',
+      const approveSpenderAddress = getEarnProtocol(
+        protocolInfo?.provider || '',
+      ).resolveApproveSpenderAddress({
         protocolVault: protocolInfo?.vault,
         backendApproveTarget: protocolInfo?.approve?.approveTarget,
       });
-      const effectiveApproveType = earnUtils.resolveEarnApproveType({
-        providerName: protocolInfo?.provider || '',
+      const effectiveApproveType = getEarnProtocol(
+        protocolInfo?.provider || '',
+      ).resolveApproveType({
         networkId,
         tokenIsNative: tokenInfo?.token?.isNative,
         approveSpenderAddress,
@@ -389,8 +392,9 @@ export const useHandleStake = () => {
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
               accountId,
               networkId,
-              spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
-                providerName: protocolInfo?.provider || '',
+              spenderAddress: getEarnProtocol(
+                protocolInfo?.provider || '',
+              ).resolveAllowanceSpenderAddress({
                 networkId,
                 approveType: effectiveApproveType,
                 approveSpenderAddress,

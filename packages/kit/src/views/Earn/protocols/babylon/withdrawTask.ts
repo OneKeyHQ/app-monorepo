@@ -12,14 +12,14 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { createEarnWorkflowTaskController } from '../tasks/earnWorkflowTaskController';
-import { createEarnWorkflowTask } from '../tasks/earnWorkflowTaskState';
+import { createEarnWorkflowTaskController } from '../../tasks/earnWorkflowTaskController';
+import { createEarnWorkflowTask } from '../../tasks/earnWorkflowTaskState';
 
-import type { IEarnTaskScope } from '../tasks/earnTaskPlan';
+import type { IEarnTaskScope } from '../../tasks/earnTaskPlan';
 import type {
   IEarnWorkflowStepPlan,
   IEarnWorkflowTaskStep,
-} from '../tasks/earnWorkflowTaskState';
+} from '../../tasks/earnWorkflowTaskState';
 
 type IBabylonEncodeServices = {
   buildInternalTx: (params: {

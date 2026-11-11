@@ -4,7 +4,7 @@ import {
   type IEarnStakeType,
 } from '@onekeyhq/shared/types/staking';
 
-import { EarnProtocol, resolveEthStakeType } from './EarnProtocol';
+import { EarnProtocol, resolveEthStakeType } from '../EarnProtocol';
 
 import type {
   IEarnConfirmationRetryParams,
@@ -12,7 +12,7 @@ import type {
   IEarnStakeAssetPolicy,
   IEarnStakeRequestSymbolParams,
   IEarnStakeTypeParams,
-} from './EarnProtocol';
+} from '../EarnProtocol';
 
 const stakeAssetPolicy: IEarnStakeAssetPolicy = {
   selection: 'wrapped',

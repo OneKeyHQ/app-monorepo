@@ -69,6 +69,7 @@ type ITransactionAdapter<TIdentity, TContext, TPrepared> = {
   >;
   handoffOnSubmit: boolean;
   allowanceCheckAfterMissingTxid?: string;
+  continueAfterMissingTxid?: string;
   submittedContext?: (context: TContext, txid: string) => TContext;
 };
 type IAdapter<TIdentity, TContext, TPrepared, TFactEvent> =
@@ -97,7 +98,7 @@ type IAdapter<TIdentity, TContext, TPrepared, TFactEvent> =
       prepare: (context: IContext<TIdentity, TContext>) => Promise<TContext>;
       execute: (
         context: IContext<TIdentity, TContext>,
-      ) => Promise<IResult<TContext>>;
+      ) => Promise<IResult<TContext> | { type: 'rejected'; error: Error }>;
     };
 
 /** Owns one in-memory task and lease. Execution context is never published. */
@@ -338,7 +339,9 @@ export function createEarnWorkflowTaskController<
             runCurrent() &&
             current?.id === params.step.id &&
             current.attemptId === params.attemptId &&
-            current.kind === 'approve' &&
+            (current.kind === 'approve' ||
+              (current.kind === 'swap' &&
+                Boolean(adapter.continueAfterMissingTxid))) &&
             current.status.type === 'unknown' &&
             !current.status.txid &&
             !current.status.chainConfirmed &&
@@ -379,15 +382,29 @@ export function createEarnWorkflowTaskController<
             !current.status.txidConflict
               ? adapter.allowanceCheckAfterMissingTxid
               : undefined;
+          const continueAfterMissingTxid =
+            submittedWithoutTxid &&
+            !submitted &&
+            current?.id === params.step.id &&
+            current.attemptId === params.attemptId &&
+            current.kind === 'swap' &&
+            current.status.type === 'unknown' &&
+            !current.status.txid &&
+            !current.status.chainConfirmed &&
+            !current.status.txidConflict
+              ? adapter.continueAfterMissingTxid
+              : undefined;
           if (
             !apply(params.step.id, params.attemptId, {
               kind: 'confirmationCallbackSucceeded',
               handoff: submitted && adapter.handoffOnSubmit,
               ...(allowanceCheckStepId ? { allowanceCheckStepId } : undefined),
+              ...(continueAfterMissingTxid ? { continueAfterMissingTxid } : {}),
             })
           )
             return;
-          if (!submitted && !allowanceCheckStepId) return;
+          if (!submitted && !allowanceCheckStepId && !continueAfterMissingTxid)
+            return;
           scheduleResume(runOwner);
         },
       });
@@ -807,6 +824,7 @@ export function createEarnWorkflowTaskController<
             let result:
               | IResult<TContext>
               | { type: 'continued' }
+              | { type: 'rejected'; error: Error }
               | { type: 'skipped'; context: TContext }
               | { type: 'pending'; context: TContext; fact: TFactEvent };
             if (adapter.kind === 'external') {
@@ -864,6 +882,13 @@ export function createEarnWorkflowTaskController<
                   activeContinuation.restoreContext?.();
                 finishContinuation(step.id, attemptId);
               }
+              if (adapter.kind === 'external' && result.type === 'rejected') {
+                apply(step.id, attemptId, {
+                  kind: 'external',
+                  action: 'rejected',
+                });
+                failContinuation(step.id, attemptId, result.error);
+              }
               return;
             }
             if (result.type === 'continued') {
@@ -916,6 +941,16 @@ export function createEarnWorkflowTaskController<
                 );
               context = result.context;
               apply(step.id, attemptId, { kind: 'sign', action: 'skip' });
+            } else if (result.type === 'rejected') {
+              if (adapter.kind !== 'external')
+                throw new OneKeyLocalError(
+                  'Invalid rejected Earn workflow result',
+                );
+              apply(step.id, attemptId, {
+                kind: 'external',
+                action: 'rejected',
+              });
+              throw result.error;
             } else if (result.type === 'completed') {
               context = result.context;
               if (adapter.kind === 'external')

@@ -1,5 +1,5 @@
-import { EarnProtocol } from './EarnProtocol';
-import { withdrawProtocolPlans } from './withdrawProtocol';
+import { EarnProtocol } from '../EarnProtocol';
+import { withdrawProtocolPlans } from '../withdrawProtocol';
 
 import type {
   IEarnStakePresentation,
@@ -7,7 +7,7 @@ import type {
   IEarnValidatorStakeParams,
   IEarnWithdrawParams,
   IEarnWithdrawPlan,
-} from './EarnProtocol';
+} from '../EarnProtocol';
 
 export class StakefishEarnProtocol extends EarnProtocol {
   protected override resolveProviderWithdraw({

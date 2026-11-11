@@ -14,21 +14,21 @@ import {
   type ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
-import { createEarnWithdrawApprovalTask } from '../tasks/earnWithdrawApprovalTask';
+import { createEarnWithdrawApprovalTask } from '../../tasks/earnWithdrawApprovalTask';
 
 import {
   createBabylonWithdrawFragment,
   createBabylonWithdrawTask,
   getBabylonWithdrawSteps,
   prepareBabylonConfirmation,
-} from './babylonWithdrawTask';
+} from './withdrawTask';
 
 import type {
   IBabylonWithdrawContext,
   IBabylonWithdrawFact,
   IBabylonWithdrawFacts,
   IBabylonWithdrawFragmentParams,
-} from './babylonWithdrawTask';
+} from './withdrawTask';
 
 type INavigateParams = Parameters<
   ReturnType<typeof useSignatureConfirm>['navigationToTxConfirm']

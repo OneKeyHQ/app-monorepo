@@ -1,11 +1,11 @@
-import { EarnProtocol } from './EarnProtocol';
-import { withdrawProtocolPlans } from './withdrawProtocol';
+import { EarnProtocol } from '../EarnProtocol';
+import { withdrawProtocolPlans } from '../withdrawProtocol';
 
 import type {
   IEarnStakePresentation,
   IEarnWithdrawParams,
   IEarnWithdrawPlan,
-} from './EarnProtocol';
+} from '../EarnProtocol';
 
 export class BabylonEarnProtocol extends EarnProtocol {
   override getOrderTrackingPolicy(): 'babylon' | 'standard' {

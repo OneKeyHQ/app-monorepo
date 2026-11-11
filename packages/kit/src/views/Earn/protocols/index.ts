@@ -1,16 +1,16 @@
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
-import { BabylonEarnProtocol } from './BabylonEarnProtocol';
+import { BabylonEarnProtocol } from './babylon';
 import { EarnProtocol } from './EarnProtocol';
-import { EthenaEarnProtocol } from './EthenaEarnProtocol';
-import { EtherFiEarnProtocol } from './EtherFiEarnProtocol';
-import { EverstakeEarnProtocol } from './EverstakeEarnProtocol';
-import { FalconEarnProtocol } from './FalconEarnProtocol';
-import { LidoEarnProtocol } from './LidoEarnProtocol';
-import { MorphoEarnProtocol } from './MorphoEarnProtocol';
-import { NativeEarnProtocol } from './NativeEarnProtocol';
-import { PendleEarnProtocol } from './PendleEarnProtocol';
-import { StakefishEarnProtocol } from './StakefishEarnProtocol';
+import { EthenaEarnProtocol } from './ethena';
+import { EtherFiEarnProtocol } from './etherfi';
+import { EverstakeEarnProtocol } from './everstake';
+import { FalconEarnProtocol } from './falcon';
+import { LidoEarnProtocol } from './lido';
+import { MorphoEarnProtocol } from './morpho';
+import { NativeEarnProtocol } from './native';
+import { PendleEarnProtocol } from './pendle';
+import { StakefishEarnProtocol } from './stakefish';
 
 export {
   BabylonEarnProtocol,

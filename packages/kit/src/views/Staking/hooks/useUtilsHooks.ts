@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EOnChainHistoryTxStatus,
@@ -219,8 +219,9 @@ export function useTrackTokenAllowance({
         networkId,
         accountId,
         tokenAddress,
-        spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+        spenderAddress: getEarnProtocol(
           providerName,
+        ).resolveAllowanceSpenderAddress({
           networkId,
           approveType,
           approveSpenderAddress: spenderAddress,

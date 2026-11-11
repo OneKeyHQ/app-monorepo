@@ -71,6 +71,7 @@ type IExternalAction =
   | 'invoke'
   | 'accepted'
   | 'acceptedAfterInvalidation'
+  | 'rejected'
   | 'cancel'
   | 'fail'
   | 'resolvedNotApplied';
@@ -101,6 +102,7 @@ export type IEarnWorkflowTaskEvent = {
         kind: 'confirmationCallbackSucceeded';
         handoff: boolean;
         allowanceCheckStepId?: string;
+        continueAfterMissingTxid?: string;
       }
     | { kind: 'sign'; action: ISignAction }
     | { kind: 'external'; action: IExternalAction }
@@ -222,6 +224,11 @@ function nextExternalStep(
     (step.status.type === 'executing' || step.status.type === 'unknown')
   )
     return { step: { ...step, status: { type: 'completed' } }, advance: true };
+  if (
+    action === 'rejected' &&
+    (step.status.type === 'executing' || step.status.type === 'unknown')
+  )
+    return { step: { ...step, status: { type: 'failed' } }, advance: false };
   // Only an authoritative provider result may establish that the action was not applied.
   if (action === 'resolvedNotApplied' && step.status.type === 'unknown')
     return { step: { ...step, status: { type: 'failed' } }, advance: false };
@@ -394,6 +401,23 @@ export function reduceEarnWorkflowTask<TIdentity extends IEarnTaskScope>(
           current.status.txidConflict ||
           next?.kind !== 'wait' ||
           next.id !== event.payload.allowanceCheckStepId
+        )
+          return task;
+        transition = {
+          step: { ...current, confirmationCallback: undefined },
+          advance: true,
+        };
+      } else if (event.payload.continueAfterMissingTxid) {
+        const next = task.steps[task.currentStepIndex + 1];
+        if (
+          event.payload.handoff ||
+          current.kind !== 'swap' ||
+          current.status.type !== 'unknown' ||
+          current.status.txid ||
+          current.status.chainConfirmed ||
+          current.status.txidConflict ||
+          next?.kind !== 'wait' ||
+          next.id !== event.payload.continueAfterMissingTxid
         )
           return task;
         transition = {

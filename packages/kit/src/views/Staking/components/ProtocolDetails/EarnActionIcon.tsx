@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -44,6 +44,7 @@ import type {
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
+import { useCommittedEarnScopeGuard } from '../../hooks/useCommittedEarnScopeGuard';
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
@@ -385,7 +386,13 @@ function BasicListaCheckActionIcon({
   onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const signMessage = useEarnSignMessage();
+  const signMessage = useEarnSignMessage({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId: protocolInfo?.earnAccount?.networkId,
+    accountAddress: protocolInfo?.earnAccount?.accountAddress,
+    provider: protocolInfo?.provider,
+    symbol: token?.symbol,
+  });
 
   const handlePress = useCallback(async () => {
     if (!protocolInfo) {
@@ -400,7 +407,9 @@ function BasicListaCheckActionIcon({
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
     })
-      .then(() => onSuccess?.())
+      .then((registered) => {
+        if (registered) onSuccess?.();
+      })
       .finally(() => setLoading(false));
   }, [protocolInfo, signMessage, token, onSuccess]);
 
@@ -442,12 +451,26 @@ function BasicClaimWithKycActionIcon({
   trigger?: IActionTrigger;
 }) {
   const [loading, setLoading] = useState(false);
+  const runningRef = useRef(false);
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      protocolInfo?.earnAccount?.accountId,
+      tokenInfo?.networkId,
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+      protocolInfo?.symbol,
+      tokenInfo?.indexedAccountId,
+    ]),
+  );
   const handleClaimAction = useHandleClaimAction({
     protocolInfo,
     tokenInfo,
   });
 
   const handlePress = useCallback(async () => {
+    if (runningRef.current) return;
+    const isCurrent = scope.capture();
+    if (!isCurrent()) return;
     if (!tokenInfo || !protocolInfo) {
       // If we don't have the necessary info, show dialog with current data
       showClaimWithKycDialog({
@@ -456,6 +479,7 @@ function BasicClaimWithKycActionIcon({
       return;
     }
 
+    runningRef.current = true;
     setLoading(true);
     try {
       // Get fresh data from API
@@ -468,6 +492,7 @@ function BasicClaimWithKycActionIcon({
           provider: protocolInfo.provider,
           vault: protocolInfo.vault,
         });
+      if (!isCurrent()) return;
 
       // Find the updated action in portfolios
       // Search in portfolios.items[].buttons
@@ -506,15 +531,17 @@ function BasicClaimWithKycActionIcon({
         });
       }
     } catch (error) {
+      if (!isCurrent()) return;
       // If API call fails, show dialog with current data
       console.error('Failed to fetch latest claimWithKyc data:', error);
       showClaimWithKycDialog({
         actionData: actionIcon,
       });
     } finally {
+      runningRef.current = false;
       setLoading(false);
     }
-  }, [actionIcon, protocolInfo, tokenInfo, handleClaimAction]);
+  }, [actionIcon, protocolInfo, tokenInfo, handleClaimAction, scope]);
 
   if (trigger) {
     return trigger({
@@ -709,6 +736,14 @@ function BasicEarnActionIcon({
     case 'claimAirdrop':
       return (
         <ClaimActionIcon
+          key={JSON.stringify([
+            protocolInfo?.earnAccount?.accountId,
+            tokenInfo?.networkId,
+            protocolInfo?.provider,
+            protocolInfo?.vault,
+            token?.address,
+            actionIcon.type,
+          ])}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
           token={token}
@@ -721,6 +756,15 @@ function BasicEarnActionIcon({
       const claimWithKycAction = actionIcon as IEarnClaimWithKycActionIcon;
       return (
         <ClaimWithKycActionIcon
+          key={JSON.stringify([
+            protocolInfo?.earnAccount?.accountId,
+            tokenInfo?.networkId,
+            protocolInfo?.provider,
+            protocolInfo?.vault,
+            protocolInfo?.symbol,
+            tokenInfo?.indexedAccountId,
+            actionIcon.type,
+          ])}
           actionIcon={claimWithKycAction}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}

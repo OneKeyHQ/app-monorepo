@@ -1,4 +1,4 @@
-import { EarnProtocol } from './EarnProtocol';
+import { EarnProtocol } from '../EarnProtocol';
 
 export class LidoEarnProtocol extends EarnProtocol {
   override getWithdrawFeePolicy() {

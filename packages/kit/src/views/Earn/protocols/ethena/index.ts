@@ -1,7 +1,7 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { EarnProtocol } from './EarnProtocol';
+import { EarnProtocol } from '../EarnProtocol';
 
 export class EthenaEarnProtocol extends EarnProtocol {
   override getKycAccountScanPolicy(): {

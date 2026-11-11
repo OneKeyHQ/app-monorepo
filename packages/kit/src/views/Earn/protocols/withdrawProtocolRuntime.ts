@@ -1,21 +1,21 @@
-import { createBabylonWithdrawTask } from './babylonWithdrawTask';
+import { createBabylonWithdrawTask } from './babylon/withdrawTask';
 import {
   createEthenaWithdrawFragment,
   runEthenaWithdrawTask,
-} from './ethenaWithdrawTask';
+} from './ethena/withdrawTask';
 import {
   createLidoWithdrawFragment,
   createLidoWithdrawTask,
-} from './lidoWithdrawTask';
+} from './lido/withdrawTask';
 import {
   createStakefishWithdrawFragment,
   runStakefishWithdrawTask,
-} from './stakefishWithdrawTask';
+} from './stakefish/withdrawTask';
 import { withdrawProtocolPlans } from './withdrawProtocol';
 
-import type { IEthenaWithdrawContext } from './ethenaWithdrawTask';
-import type { ILidoWithdrawContext } from './lidoWithdrawTask';
-import type { IStakefishWithdrawContext } from './stakefishWithdrawTask';
+import type { IEthenaWithdrawContext } from './ethena/withdrawTask';
+import type { ILidoWithdrawContext } from './lido/withdrawTask';
+import type { IStakefishWithdrawContext } from './stakefish/withdrawTask';
 import type { IEarnWithdrawTransaction } from './withdrawProtocol';
 
 export type IUniversalWithdrawContext = ILidoWithdrawContext &
@@ -53,5 +53,8 @@ export const withdrawProtocolRuntime = {
     ...withdrawProtocolPlans.babylon,
     createTask: createBabylonWithdrawTask,
   },
-  signOnly: withdrawProtocolPlans.signOnly,
+  signOnly: {
+    ...withdrawProtocolPlans.signOnly,
+    createTask: createBabylonWithdrawTask,
+  },
 } as const;
