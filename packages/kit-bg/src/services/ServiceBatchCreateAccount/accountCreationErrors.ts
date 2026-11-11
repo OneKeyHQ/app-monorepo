@@ -71,6 +71,7 @@ export function shouldAbortAccountCreation(error: unknown): boolean {
     code: [
       HardwareErrorCode.DeviceNotSupportMethod,
       HardwareErrorCode.ForbiddenKeyPath,
+      HardwareErrorCode.DeviceNotSupportPath,
       ThirdPartyHwErrorCode.MethodNotSupported,
       ThirdPartyHwErrorCode.ChainNotSupported,
       ThirdPartyHwErrorCode.DevicePathForbidden,
