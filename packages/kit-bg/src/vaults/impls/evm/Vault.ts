@@ -14,11 +14,15 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
+import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  JsonRPCResponseError,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitRejectedCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -115,6 +119,7 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -1680,6 +1685,91 @@ export default class Vault extends VaultBase {
     const recoveredTxid = ethers.utils.keccak256(signedTx.rawTx);
 
     return recoveredTxid.toLowerCase() === txid.toLowerCase();
+  }
+
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
+  // A first attempt the node evaluated and refused never left this device
+  // in any useful sense, so the retry may sign the tx as the confirm page
+  // now holds it (it takes a fresh nonce on every submit). Without this the
+  // refused payload would be sent again in place of the corrected tx.
+  override async isSignedTxRejectedByBroadcast(
+    error: unknown,
+    options?: { useDefaultRpc?: boolean },
+  ): Promise<boolean> {
+    // The custom RPC node's own answer.
+    if (error instanceof JsonRPCResponseError) {
+      return this.backgroundApi.serviceSend.isReplaceTxNonceAlreadyUsedRpcError(
+        error,
+      );
+    }
+    const serverError = error as
+      | { className?: string; code?: number }
+      | undefined;
+    const isRejectedByServer =
+      serverError?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+      (Object.values(SEND_TX_SERVER_ERROR_CODES).some(
+        (code) => code === serverError.code,
+      ) ||
+        // A sponsored send refused at quote admission was never executed.
+        // Kept on record, its payload would be sent again in place of the
+        // tx the user corrected (a quote is bound to one nonce), and be
+        // refused every time.
+        isGasAccountSubmitRejectedCode(serverError.code));
+    if (!isRejectedByServer) {
+      return false;
+    }
+    // A send the user routed to the default RPC for this once is broadcast
+    // by the server, whatever the stored custom RPC setting says.
+    if (options?.useDefaultRpc) {
+      return true;
+    }
+    // With a custom RPC the server is only told about a tx the node already
+    // took, so its answer says nothing about the broadcast.
+    const customRpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+    return !(customRpcInfo?.rpc && customRpcInfo?.enabled);
+  }
+
+  // Same sender and same nonce: the chain executes at most one of the two.
+  // Read from the signed bytes, which are what a node may be holding. A
+  // payload that cannot be parsed proves nothing, so it is sent again
+  // rather than replaced by a new signature.
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm | null;
+    const nonce = new BigNumber(encodedTx?.nonce ?? unsignedTx.nonce ?? NaN);
+    if (!encodedTx?.from || !nonce.isInteger()) {
+      return false;
+    }
+    try {
+      const signed = ethers.utils.parseTransaction(signedTx.rawTx);
+      return (
+        signed.from?.toLowerCase() === encodedTx.from.toLowerCase() &&
+        nonce.isEqualTo(signed.nonce)
+      );
+    } catch {
+      return false;
+    }
   }
 
   // RPC Client
