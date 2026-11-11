@@ -916,8 +916,10 @@ function DesktopBannerStrip({
                     role="button"
                     aria-label={`${i + 1} / ${count}`}
                     aria-current={i === index ? 'true' : undefined}
-                    focusable
-                    tabIndex={0}
+                    // Not a tab stop each: the focused card switches banners
+                    // with the arrow keys.
+                    focusable={false}
+                    tabIndex={-1}
                     onKeyDown={(event: {
                       key: string;
                       preventDefault: () => void;

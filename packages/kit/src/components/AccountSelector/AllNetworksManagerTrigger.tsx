@@ -20,6 +20,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
@@ -475,6 +476,8 @@ function AllNetworksManagerTrigger({
   }
   return (
     <Tooltip
+      // Same shortcut hint as the copy button beside it (desktop only).
+      shortcutKey={EShortcutEvents.NetworkSelector}
       renderContent={tooltipText}
       placement="bottom"
       renderTrigger={trigger}
