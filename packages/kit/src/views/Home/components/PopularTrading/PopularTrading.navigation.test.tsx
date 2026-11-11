@@ -39,11 +39,13 @@ jest.mock('@onekeyhq/components', () => {
   const Stack = ({
     children,
     minHeight,
+    height,
     testID,
     onPress,
     disabled,
   }: PropsWithChildren<{
     minHeight?: number;
+    height?: number;
     testID?: string;
     onPress?: () => void;
     disabled?: boolean;
@@ -52,14 +54,14 @@ jest.mock('@onekeyhq/components', () => {
       <button
         type="button"
         data-testid={testID}
-        style={{ minHeight }}
+        style={{ minHeight, height }}
         onClick={onPress}
         disabled={disabled}
       >
         {children}
       </button>
     ) : (
-      <div data-testid={testID} style={{ minHeight }}>
+      <div data-testid={testID} style={{ minHeight, height }}>
         {children}
       </div>
     );
@@ -308,6 +310,44 @@ it('does not reserve table height for mobile recommendation cards', async () => 
   ).toBe(false);
   view.unmount();
 });
+
+it.each(
+  [1, 2, 3, 4].flatMap((count) => [
+    { count, tableLayout: true },
+    { count, tableLayout: false },
+  ]),
+)(
+  'sizes $count favorites to their content in table layout $tableLayout',
+  async ({ count, tableLayout }) => {
+    mockShowFavorites = true;
+    getWatchList.mockResolvedValue({
+      data: Array.from({ length: count }, (_, index) => ({
+        assetId: `asset-${index}`,
+        chainId: '',
+        contractAddress: '',
+      })),
+    });
+    render(<PopularTrading tableLayout={tableLayout} />);
+    await act(async () => mockRefreshFavorites());
+
+    const list = screen.getByTestId('favorite-list');
+    expect(list.textContent).toBe(
+      Array.from(
+        { length: Math.min(count, 3) },
+        (_, index) => `asset-${index}`,
+      ).join(', '),
+    );
+    expect(list.closest('[style*="min-height"]')).toBeNull();
+    expect(
+      screen
+        .getByTestId('home-market-content')
+        .querySelector('[style*="height: 50px"]'),
+    ).toBeNull();
+    expect(
+      Boolean(screen.queryByTestId('home-show-view-more-button-btn')),
+    ).toBe(count > 3);
+  },
+);
 
 it('keeps the current view until recommendations are ready after clearing favorites', async () => {
   mockShowFavorites = true;
