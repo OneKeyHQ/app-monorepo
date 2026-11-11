@@ -21817,6 +21817,7 @@
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncDeviceName.ts": 10552,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncLog.ts": 17913,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncMigration.ts": 18252,
+    "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncRecovery.ts": 17880,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSdk.ts": 16428,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSession.ts": 14401,
     "packages/kit-bg/src/services/ServiceKeylessCloudSync/hardwareCloudSyncSoftwareKey.ts": 14062,

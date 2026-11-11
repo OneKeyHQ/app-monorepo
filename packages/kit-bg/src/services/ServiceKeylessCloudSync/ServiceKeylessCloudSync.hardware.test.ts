@@ -25,6 +25,7 @@ import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
 import * as hardwareMigration from './hardwareCloudSyncMigration';
 import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncSdk';
@@ -1246,6 +1247,135 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(mockStored).toBe(credential);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
+
+  test('same-source re-signing recovers locally readable hardware records missing from server key history', async () => {
+    const { service, backgroundApi } = setup([
+      {
+        pwdHash: 'hw-dek-unlisted-old-version',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawKey: 'public-test-wallet-key',
+        rawData: JSON.stringify({
+          rawKey: 'public-test-wallet-key',
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          payload: { name: 'B edited after A' },
+        }),
+        dataTime: 200,
+      },
+    ]);
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = undefined;
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(
+        withSignIn({
+          credential: {
+            ...credential,
+            pwdHash: 'hw-dek-current',
+            signingPrivateKey: '',
+            signingPublicKey: '',
+          },
+          source,
+        }),
+      );
+    const { items } =
+      await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+    const build = jest
+      .spyOn(cloudSyncItemBuilder, 'buildSyncItemFromRawDataJson')
+      .mockImplementationOnce(async () => ({
+        ...items[0],
+        data: 'public-test-current-ciphertext',
+        pwdHash: 'hw-dek-current',
+      }));
+    const write = jest
+      .spyOn(localDb, 'updateSyncItem')
+      .mockImplementationOnce(async ({ updater }) => {
+        await updater(items[0]);
+      });
+    try {
+      await expect(
+        service.enableHardwareCloudSync({ connectId }),
+      ).resolves.toBeUndefined();
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+      expect(items[0]).toMatchObject({
+        pwdHash: 'hw-dek-current',
+        dataTime: 200,
+        serverUploaded: false,
+      });
+      expect(
+        backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+      ).toHaveBeenCalledWith(expect.objectContaining({ onlyAddMissing: true }));
+      expect(
+        backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+      ).toHaveBeenCalled();
+    } finally {
+      build.mockRestore();
+      write.mockRestore();
+    }
+  });
+
+  test.each([true, false])(
+    'an opaque historical hardware record reconnects only with known history=%s',
+    async (knownHistory) => {
+      const { service, backgroundApi } = setup([
+        {
+          pwdHash: 'hw-dek-old',
+          data: 'public-test-downloaded-ciphertext',
+          rawData: '',
+          serverUploaded: true,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      const currentCredential = {
+        ...credential,
+        pwdHash: 'hw-dek-current',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: 'public-test-current-key',
+        dekId: 'public-test-dek',
+        pwdHash: currentCredential.pwdHash,
+        generation: 4,
+        previousPwdHashes: knownHistory ? ['hw-dek-old'] : [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({ credential: currentCredential, source }),
+        );
+      const before = structuredClone(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      );
+      if (knownHistory) {
+        await service.enableHardwareCloudSync({ connectId });
+        expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+        expect(
+          backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ onlyAddMissing: true }),
+        );
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalled();
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toMatchObject({
+          reason: expect.stringContaining('Local hardware sync record'),
+        });
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      ).toEqual(before);
+    },
+  );
 
   test('rejects cancelled and failed hardware results before persisting anything', async () => {
     const { service } = setup();
