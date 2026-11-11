@@ -143,6 +143,11 @@ jest.mock('../hooks/useShowPortfolio', () => ({
   useShowPortfolio: () => ({ showPortfolio: mockShowPortfolio }),
 }));
 
+const mockOpenReferralPage = jest.fn();
+jest.mock('@onekeyhq/kit/src/hooks/useReferFriends', () => ({
+  useOpenReferralPage: () => mockOpenReferralPage,
+}));
+
 jest.mock('./PerpSettingsDialog', () => ({
   PerpSettingsPopover: (props: { renderTrigger: ReactNode }) => {
     mockPerpSettingsPopover(props);
@@ -184,6 +189,20 @@ describe('PerpSettingsButton', () => {
       expect(mockPerpSettingsPopover).not.toHaveBeenCalled();
     },
   );
+
+  // The dialog content unmounts before the referral page opens, and the
+  // referral entry cancels itself when its owner unmounts (OK-67127).
+  it('passes the page-owned referral opener to the mobile dialog', () => {
+    mockIsNative = true;
+    const view = render(<PerpSettingsButton showActivityCenterEntry />);
+
+    fireEvent.click(view.getByRole('button', { name: 'settings' }));
+
+    expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ onOpenReferral: mockOpenReferralPage }),
+    );
+    expect(mockOpenReferralPage).not.toHaveBeenCalled();
+  });
 
   it('always shows layout settings in the mobile menu', () => {
     const view = render(<PerpSettingsButton />);

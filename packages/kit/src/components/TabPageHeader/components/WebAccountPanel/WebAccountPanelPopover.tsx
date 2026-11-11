@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback } from 'react';
 
 import { Popover } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorProvider';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 
 import type { IWebAccountPanelView } from './WebAccountPanelPopoverContent';
@@ -37,6 +38,9 @@ export function WebAccountPanelPopover({
   showPerpsActivityCenter = false,
 }: IWebAccountPanelPopoverProps) {
   const { config } = useAccountSelectorContextData();
+  // The panel content unmounts before the referral page opens, so the opener
+  // is resolved here in the page tree.
+  const openReferralPage = useOpenReferralPage();
   // Popover renders `renderContent` as a component (<RenderContent/> in
   // RawPopover), so React keys the whole panel subtree by this function's
   // identity. Memoizing keeps the identity stable while the header re-renders.
@@ -53,11 +57,12 @@ export function WebAccountPanelPopover({
               connected={connected}
               showPerpsActivityCenter={showPerpsActivityCenter}
               closePopover={closePopover}
+              onOpenReferral={openReferralPage}
             />
           </Suspense>
         </AccountSelectorProviderMirror>
       ) : null,
-    [config, initialView, connected, showPerpsActivityCenter],
+    [config, initialView, connected, showPerpsActivityCenter, openReferralPage],
   );
   return (
     <Popover

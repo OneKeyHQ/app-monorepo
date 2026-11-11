@@ -4,6 +4,7 @@ import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
 
 import { AnimatePresence, Stack, YStack } from '@onekeyhq/components';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { PerpsActivityCenterContent } from '@onekeyhq/kit/src/views/Perp/components/PerpsActivityCenterAction';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,11 +51,13 @@ export default function WebAccountPanelPopoverContent({
   connected,
   showPerpsActivityCenter,
   closePopover,
+  onOpenReferral,
 }: {
   initialView: IWebAccountPanelView;
   connected: boolean;
   showPerpsActivityCenter: boolean;
   closePopover: () => void;
+  onOpenReferral: IActivityHubOpenReferral;
 }) {
   const intl = useIntl();
   const backLabel = intl.formatMessage({ id: ETranslations.global_back });
@@ -160,6 +163,7 @@ export default function WebAccountPanelPopoverContent({
             showTitle={false}
             menuLayout
             menuPopoverLayout
+            onOpenReferral={onOpenReferral}
           />
         </YStack>
       );
@@ -181,6 +185,7 @@ export default function WebAccountPanelPopoverContent({
     connected,
     backLabel,
     showPerpsActivityCenter,
+    onOpenReferral,
   ]);
 
   const presenceCustom = useMemo(() => ({ going }), [going]);
