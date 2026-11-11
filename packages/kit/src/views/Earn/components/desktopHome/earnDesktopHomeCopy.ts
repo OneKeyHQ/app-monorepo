@@ -1,8 +1,10 @@
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 // Demo copy the app has no translation key for yet. Before this layout ships
 // these go through the 1k-i18n flow; every other string uses an existing key.
 const PENDLE_RATE_ROW_TITLES = ['Effective Fixed APY', 'Market Reference APY'];
 
-export const EARN_DESKTOP_DEMO_COPY = {
+const EN = {
   withdrawals: 'Withdrawals',
   // A lending market's Earn details page names its first section as a
   // vault's page does (the server's word there)
@@ -167,3 +169,138 @@ export const EARN_DESKTOP_DEMO_COPY = {
   assetSelectAllOfKind: (kind: string) => `All ${kind}`,
   assetSelectNoEarnAnywhere: 'This token has no Earn options',
 };
+
+type IEarnDesktopDemoCopy = typeof EN;
+
+// The same copy in Simplified Chinese, in the app's own words for each term
+// (认购, 存入, 借币, 赎回, 兑换, 跨链, 授权, 金库, 持仓). Pendle's rows stay
+// as they are: they stand in for the server's words until its answer is in
+const ZH_CN: IEarnDesktopDemoCopy = {
+  withdrawals: '赎回',
+  intro: '介绍',
+  aYear: '每年',
+  more: (count: number) => `其他 ${count} 个`,
+  payWith: '支付方式',
+  youDeposit: '认购',
+  youSupply: '存入',
+  swapAnd: (action: string) => `兑换并${action}`,
+  bridgeAnd: (action: string) => `跨链并${action}`,
+  approveAnd: (action: string) => `授权并${action}`,
+  estAnnualRewards: '预估年收益',
+  alsoBacksLoan: (market?: string) =>
+    market ? `同时担保你在 ${market} 的借款` : '同时担保你的借款',
+  atMaturityYouGet: EN.atMaturityYouGet,
+  pendleRowTitles: EN.pendleRowTitles,
+  pendleSellRowTitles: EN.pendleSellRowTitles,
+  pendleSellDetailTitles: EN.pendleSellDetailTitles,
+  pendleSellNote: EN.pendleSellNote,
+  pendleRateRowTitles: EN.pendleRateRowTitles,
+  earnMoreOn: (symbol: string) => `${symbol} 有更高的收益`,
+  paysRate: (protocol: string, rate: string) => `${protocol} 的收益是 ${rate}`,
+  depositedTo: (amount: string, target: string) => `${amount} 存入 ${target}`,
+  withdrewFrom: (amount: string, target: string) =>
+    `从 ${target} 赎回 ${amount}`,
+  readyToEarn: '可生息资产',
+  readyToEarnInfo:
+    '“持币生息”下各代币的价值，以及按每行显示的利率估算的一年收益。利率会变动。',
+  inYourWallet: '钱包中',
+  showMore: (count: number) => `再显示 ${count} 个`,
+  loanNetApyHeader: (ltv: string) => `净 APY (${ltv} LTV)`,
+  networkPairs: '组合',
+  loanNetApyInfo: (ltv: string) =>
+    `抵押品一年的收益减去借款一年的成本，再除以你在该市场的净值。按借出抵押品价值的一半（${ltv} LTV）计算，所以每一行比较的是同一笔借款。借不出这么多的组合不会列出。`,
+  guideTitle: '4 步开始赚币',
+  guideSteps: [
+    '添加 ETH 支付网络费用',
+    '选择金库',
+    '认购 USDC',
+    '在“我的投资组合”查看',
+  ],
+  guideActions: ['添加 ETH', '选择金库', '认购', '我的投资组合'],
+  guideGasTitle: '在 Base 上添加 ETH',
+  guideGasBody: (amount: string) =>
+    `网络费用用 ETH 支付，不能用 USDC。添加约 ${amount} ETH，够这次认购和之后的一次赎回。`,
+  guideGasWaiting: '等待 ETH 到账',
+  guideGasReceived: 'ETH 已到账',
+  guideConnect: '连接钱包以获取你的 Base 地址。',
+  guideVaultTitle: '选择金库',
+  guideVaultBody:
+    '金库把你的 USDC 借给借款人，并把利息付给你。这些金库在 Base 上，网络费用只要几美分。',
+  guideUseVault: '使用这个金库',
+  guideDepositTitle: '认购 USDC',
+  guideWithdrawNote:
+    '可随时在“我的投资组合”赎回：你的 USDC 和赚到的收益会回到这个钱包，除非那一刻金库的资金已全部借出。',
+  guideDoneTitle: '已开始赚币',
+  guideDoneBody: '你的认购已在“我的投资组合”中，所在的行有“赎回”。',
+  guideGoToPortfolio: '我的投资组合',
+  supplyAndBorrow: '存入并借币',
+  swapSupplyAndBorrow: '兑换、存入并借币',
+  loanLtv: 'LTV',
+  loanCurrentLtv: '当前 LTV',
+  loanMaxShort: (ltv: string) => `最高 ${ltv}`,
+  loanPosition: '我的持仓',
+  yourLoans: '我的借款',
+  loanPoolInfo:
+    '你在这里存入的所有抵押品共同担保这里的每一笔借款。健康系数低于 1 时，其中任何一项都可能被卖出。',
+  loanLiquidationPrice: '清算价格',
+  loanBelowNow: (percent: string) => `比现价低 ${percent}`,
+  loanNoAccount: (network: string) => `此账户无法使用 ${network}`,
+  noFundsOnNetwork: (network: string) => `${network} 上没有资金`,
+  onNetwork: (network: string) => `在 ${network}`,
+  bonus: '奖励',
+  endsIn: '剩余',
+  days: (days: number) => `${days} 天`,
+  maturity: '到期日',
+  fixedRateEarlySale: '到期前卖出按市场价成交。',
+  loanNotLent: (symbol: string, eMode?: string) =>
+    eMode
+      ? `你在这里的 E-Mode（${eMode}）不能借 ${symbol}`
+      : `这个市场不向此账户借出 ${symbol}`,
+  loanLiquidity: (amount: string) => `只剩 ${amount} 可借`,
+  loanMaxLtv: (ltv: string, wouldBe?: string) =>
+    wouldBe
+      ? `这里的 LTV 会是 ${wouldBe}，最高 ${ltv}`
+      : `这里的最高 LTV 是 ${ltv}`,
+  loanNoMarket: (collateral: string, borrow: string) =>
+    `没有市场接受用 ${collateral} 抵押借 ${borrow}`,
+  loanLanding: '存入已发送，确认后继续借币。',
+  loanSupplyLanding: '存入已发送，等待确认。',
+  loanSupplied: (amount: string, market: string) =>
+    `${amount} 已存入 ${market}，可随时借币。`,
+  classMembers: (shown: string[], rest: number) =>
+    rest > 0
+      ? `${shown.join('、')} 等 ${shown.length + rest} 个`
+      : shown.join('、'),
+  assetSelectNoEarn: (network: string) =>
+    `这个代币在 ${network} 上没有赚币选项`,
+  assetSelectNoLoan: '这里没有市场接受这个代币',
+  earnClassHint: (kind: string) => `比较全部${kind}`,
+  loanDone: (borrowed: string, market: string, supplied?: string) =>
+    supplied
+      ? `已在 ${market} 存入 ${supplied} 并借出 ${borrowed}`
+      : `已在 ${market} 借出 ${borrowed}`,
+  loanSupplyDone: (supplied: string, market: string) =>
+    `已向 ${market} 存入 ${supplied}`,
+  loanAssetOn: (symbol: string, market: string) => `${market} 的 ${symbol}`,
+  loanBridgeSupplyAndBorrow: '跨链、存入并借币',
+  assetSelectAllOfKind: (kind: string) => `全部${kind}`,
+  assetSelectNoEarnAnywhere: '这个代币没有赚币选项',
+};
+
+const COPY_BY_LOCALE: Partial<Record<string, IEarnDesktopDemoCopy>> = {
+  'zh-CN': ZH_CN,
+};
+
+// Each string is read where it is drawn, in the language the app is in then
+function followLocale(): IEarnDesktopDemoCopy {
+  const copy = {} as IEarnDesktopDemoCopy;
+  (Object.keys(EN) as (keyof IEarnDesktopDemoCopy)[]).forEach((key) => {
+    Object.defineProperty(copy, key, {
+      enumerable: true,
+      get: () => (COPY_BY_LOCALE[appLocale.getLocale()] ?? EN)[key],
+    });
+  });
+  return copy;
+}
+
+export const EARN_DESKTOP_DEMO_COPY = followLocale();
