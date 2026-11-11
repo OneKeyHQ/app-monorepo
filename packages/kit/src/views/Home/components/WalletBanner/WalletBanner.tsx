@@ -555,7 +555,8 @@ const STRIP_EXIT_MS = 200;
 const STRIP_PRESS_SCALE = 0.995;
 const STRIP_CARD_PROPS: IYStackProps = {
   bg: '$bg',
-  borderRadius: '$5',
+  // The page panel's radius: a card inside it is never rounder than it.
+  borderRadius: '$4',
   outlineWidth: 0,
   my: '$0',
   boxShadow: STRIP_SHADOW,
