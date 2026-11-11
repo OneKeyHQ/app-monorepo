@@ -14,7 +14,6 @@ import {
   Stack,
   Switch,
   XStack,
-  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -195,12 +194,8 @@ function TokenListSettingsContent({
 }
 
 function TokenListSettings({
-  flushCircle = false,
   nativeToolbar,
 }: {
-  // Wide desktop: drop the tertiary overhang so the circle ends at the page
-  // edge, on one line with "More" in the balance row.
-  flushCircle?: boolean;
   nativeToolbar?: IHomeNativeToolbar;
 }) {
   const intl = useIntl();
@@ -267,13 +262,9 @@ function TokenListSettings({
             title={intl.formatMessage({
               id: ETranslations.global_filter,
             })}
-            aria-label={intl.formatMessage({
-              id: ETranslations.global_filter,
-            })}
             variant="tertiary"
             icon="SliderHorOutline"
             bg={showLpTokensOnly ? '$bgStrong' : 'transparent'}
-            {...(flushCircle ? { mx: '$0' } : undefined)}
           />
         )
       }
@@ -517,63 +508,6 @@ function TxHistorySettings({
   );
 }
 
-// Wide desktop / web: Dust sweep is a quiet text button in the Spot tab row
-// (38 high like the filter, no fill until hovered) instead of a pill in the
-// token title row, so it reads as an action rather than another tab.
-function TokenListDustSweepTabAction() {
-  const intl = useIntl();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
-  const handlePress = useCallback(() => {
-    void openDustSweep('tokenListHeader');
-  }, [openDustSweep]);
-  if (!canDustSweep) {
-    return null;
-  }
-  return (
-    <>
-      <Button
-        testID="token-list-header-dust-sweep"
-        variant="tertiary"
-        size="small"
-        icon="BroomOutline"
-        h={38}
-        my="$0"
-        mx="$0"
-        py="$0"
-        px={10}
-        onPress={handlePress}
-      >
-        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
-      </Button>
-      {/* 6 + 1 + 7 before the filter button: the label ends on the balance
-          row's last action label, and the line sits midway between the label
-          and the filter glyph (10px into its button). x 0 undoes Separator's
-          -0.5px shift. */}
-      <Divider vertical h="$4" x={0} ml={6} mr={7} />
-    </>
-  );
-}
-
-function TokenListTabActions({
-  nativeToolbar,
-}: {
-  nativeToolbar?: IHomeNativeToolbar;
-}) {
-  const { gtMd } = useMedia();
-  const isRouteFocused = useRouteIsFocused();
-  if (platformEnv.isNative || !gtMd) {
-    return <TokenListSettings nativeToolbar={nativeToolbar} />;
-  }
-  return (
-    <XStack alignItems="center">
-      <DustSweepEntryCapabilitiesProvider isFocused={isRouteFocused}>
-        <TokenListDustSweepTabAction />
-      </DustSweepEntryCapabilitiesProvider>
-      <TokenListSettings flushCircle />
-    </XStack>
-  );
-}
-
 function BasicTabHeaderSettings({
   focusedTab,
   nativeToolbar,
@@ -608,7 +542,7 @@ function BasicTabHeaderSettings({
     }
     switch (focusedTab) {
       case portfolioName:
-        return <TokenListTabActions nativeToolbar={nativeToolbar} />;
+        return <TokenListSettings nativeToolbar={nativeToolbar} />;
       case historyName:
         return <TxHistorySettings nativeToolbar={nativeToolbar} />;
       default:
@@ -619,3 +553,48 @@ function BasicTabHeaderSettings({
 }
 
 export const TabHeaderSettings = memo(BasicTabHeaderSettings);
+
+function TabRowDustSweepButton() {
+  const intl = useIntl();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const handlePress = useCallback(() => {
+    void openDustSweep('tokenListHeader');
+  }, [openDustSweep]);
+  if (!canDustSweep) {
+    return null;
+  }
+  return (
+    <>
+      <Button
+        testID="token-list-header-dust-sweep"
+        variant="tertiary"
+        size="small"
+        icon="BroomOutline"
+        h={38}
+        my="$0"
+        mx="$0"
+        py="$0"
+        px={10}
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+      </Button>
+      {/* 6 + 1 + 7 before the filter button: the label ends where the
+          balance row's last action label does. x 0 undoes Separator's -0.5px
+          shift. */}
+      <Divider vertical h="$4" x={0} ml={6} mr={7} />
+    </>
+  );
+}
+
+// Wide web Spot tab: Dust sweep is a quiet text button in the tab row, left of
+// the tab bar's filter button (the tab bar itself only draws icon buttons).
+// It reads as an action rather than another tab.
+export function TabRowDustSweep() {
+  const isRouteFocused = useRouteIsFocused();
+  return (
+    <DustSweepEntryCapabilitiesProvider isFocused={isRouteFocused}>
+      <TabRowDustSweepButton />
+    </DustSweepEntryCapabilitiesProvider>
+  );
+}

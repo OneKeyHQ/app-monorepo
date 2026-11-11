@@ -115,10 +115,6 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useIsDeFiEnabled', () => ({
-  useIsDeFiEnabled: () => false,
-}));
-
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
 }));
@@ -137,6 +133,10 @@ jest.mock(
     }),
   }),
 );
+
+jest.mock('@onekeyhq/kit/src/hooks/useIsDeFiEnabled', () => ({
+  useIsDeFiEnabled: () => false,
+}));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [

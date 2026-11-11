@@ -24,6 +24,7 @@ import {
   ScrollView,
   Spinner,
   Stack,
+  XStack,
   YStack,
   useMedia,
   useNetInfo,
@@ -118,7 +119,7 @@ import { debugHomeVisual } from './homeVisualTrace';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
-import { TabHeaderSettings } from './TabHeaderSettings';
+import { TabHeaderSettings, TabRowDustSweep } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
@@ -133,6 +134,19 @@ import type {
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
+// The tab bar's filter button. The inset is to its icon; with pill tabs on web
+// the button itself ends at the content edge instead, under the balance row's
+// round "More" button.
+const TAB_TOOLBAR_BUTTON_SIZE = s(24) + 2 * s(6) + 2;
+const TAB_TOOLBAR_CONTENT_WIDTH = s(24);
+const TAB_TOOLBAR_TRAILING_INSET = s(20);
+const TAB_TOOLBAR_FLUSH_TRAILING_INSET =
+  TAB_TOOLBAR_TRAILING_INSET +
+  (TAB_TOOLBAR_BUTTON_SIZE - TAB_TOOLBAR_CONTENT_WIDTH) / 2;
+// Where the flush filter button starts, from the tab bar's trailing edge.
+const TAB_TOOLBAR_LEADING_EDGE =
+  TAB_TOOLBAR_TRAILING_INSET + TAB_TOOLBAR_BUTTON_SIZE;
 const PerpsContainer = lazy(async () => {
   debugPerpsChain('import.start');
   const module = await import('./PerpsContainer');
@@ -1073,10 +1087,13 @@ function BaseHomePageView({
         selectedBackgroundColor: nativeTabsTheme.bgStrong.val,
         hoverBackgroundColor: nativeTabsTheme.bgHover.val,
         pressedBackgroundColor: nativeTabsTheme.bgActive.val,
-        size: s(24) + 2 * s(6) + 2,
+        size: TAB_TOOLBAR_BUTTON_SIZE,
         iconSize: s(24),
-        contentWidth: s(24),
-        trailingInset: s(20),
+        contentWidth: TAB_TOOLBAR_CONTENT_WIDTH,
+        trailingInset:
+          !platformEnv.isNative && !isSmallScreen
+            ? TAB_TOOLBAR_FLUSH_TRAILING_INSET
+            : TAB_TOOLBAR_TRAILING_INSET,
       };
     }
     return {
@@ -1113,9 +1130,16 @@ function BaseHomePageView({
             fontSize: fs(16),
             fontFamily: tabFontFamily,
             backgroundColor: nativeTabsTheme.bgApp.val,
-            activeTextColor: nativeTabsTheme.textInverse.val,
+            // Web: the selected pill is a light gray chip with the regular
+            // label color, so the balance stays the page's darkest element.
+            // Native tablets keep the inverse pill.
+            activeTextColor: platformEnv.isNative
+              ? nativeTabsTheme.textInverse.val
+              : nativeTabsTheme.text.val,
             inactiveTextColor: nativeTabsTheme.text.val,
-            indicatorColor: nativeTabsTheme.bgPrimary.val,
+            indicatorColor: platformEnv.isNative
+              ? nativeTabsTheme.bgPrimary.val
+              : nativeTabsTheme.bgActive.val,
             itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
             itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
             contentMaxWidth: HOME_PAGE_CONTENT_MAX_WIDTH,
@@ -1204,6 +1228,21 @@ function BaseHomePageView({
               zIndex: 1,
             }}
           />
+          {/* Pill tabs on Spot: Dust sweep sits in the tab row, ending at the
+              filter button. This zero-height node starts at the tab bar's
+              bottom, so the slot spans the bar above it. */}
+          {!isSmallScreen && activeTabId === EHomeWalletTab.Portfolio ? (
+            <XStack
+              position="absolute"
+              bottom="100%"
+              right={TAB_TOOLBAR_LEADING_EDGE}
+              height={nativeTabBar.style?.height ?? 0}
+              alignItems="center"
+              zIndex={1}
+            >
+              <TabRowDustSweep />
+            </XStack>
+          ) : null}
         </Stack>
         {settings}
       </YStack>
@@ -1213,6 +1252,7 @@ function BaseHomePageView({
     nativeTabBar,
     activeTabId,
     homeScrollOwnerKey,
+    isSmallScreen,
     portalRefCallback,
     stickyHostRefCallback,
     tabConfigs,

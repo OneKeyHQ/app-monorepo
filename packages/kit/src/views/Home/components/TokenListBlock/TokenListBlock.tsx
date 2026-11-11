@@ -4563,8 +4563,8 @@ function TokenListBlock({
             id: ETranslations.global_universal_search_tabs_tokens,
           })}
           subTitle={renderSubTitle()}
-          // Wide desktop / web: Dust sweep sits in the tab row instead (see
-          // TabHeaderSettings); native tablets keep it here.
+          // Wide web: Dust sweep sits in the tab row instead (HomePageView);
+          // narrow web and native tablets keep it here.
           headerActions={
             tableLayout && !platformEnv.isNative ? undefined : (
               <TokenListDustSweepAction showLabel={tableLayout} />
