@@ -80,6 +80,13 @@ export async function preloadLocalWalletPool({
 type ILocalWalletReadScope = {
   accountScope: { networkId: string; accountId: string; revision: number };
 };
+type ILocalWalletRefreshRequest = {
+  scope: ILocalWalletReadScope;
+  afterSequence?: number;
+  sessionId?: string;
+  observedSessionId?: string;
+  promise: Promise<void>;
+};
 
 // Which pool the token page is showing. A single-balance chain (Monero) has one pool and no
 // tabs to select it, so it defaults to its default-private pool instead.
@@ -119,6 +126,9 @@ export function useLocalWalletPool({
   const intl = useIntl();
   const [, setPoolDisplay] = usePrivacyChainPoolDisplayAtom();
   const [busy, setBusy] = useState(false);
+  const [pendingRefresh, setPendingRefresh] =
+    useState<ILocalWalletRefreshRequest>();
+  const refreshRequestRef = useRef<ILocalWalletRefreshRequest>(undefined);
   const [revision, setRevision] = useState(0);
   const [attemptedBalanceScope, setAttemptedBalanceScope] =
     useState<ILocalWalletReadScope>();
@@ -351,11 +361,15 @@ export function useLocalWalletPool({
         (value): IPrivacyChainScanState => {
           const key = `${networkId}:${accountId}`;
           const progress = value.progress[key];
+          const completion = value.completedScanByAccount?.[key];
           const syncError = value.syncErrorByNetworkId[networkId];
           const ofNetwork = (ids: string[]) =>
             ids.filter((id) => id === networkId);
           return {
             progress: progress ? { [key]: progress } : {},
+            completedScanByAccount: completion
+              ? { [key]: completion }
+              : undefined,
             boostingNetworkIds: ofNetwork(value.boostingNetworkIds),
             dataBlockedNetworkIds: ofNetwork(value.dataBlockedNetworkIds),
             pausedNetworkIds: ofNetwork(value.pausedNetworkIds),
@@ -366,6 +380,7 @@ export function useLocalWalletPool({
               value.storageUnsupportedNetworkIds,
             ),
             syncErrorByNetworkId: syncError ? { [networkId]: syncError } : {},
+            scanAllowed: value.scanAllowed,
           };
         },
         isEqual,
@@ -374,6 +389,8 @@ export function useLocalWalletPool({
   );
   const scan = useAtomValue(scanAtom);
   const publishedProgress = scan.progress[`${networkId}:${accountId}`];
+  const scanCompletion =
+    scan.completedScanByAccount?.[`${networkId}:${accountId}`];
   const { result: progressResult, run: refreshSyncProgress } = usePromiseResult(
     async () => {
       if (!canRead) return null;
@@ -473,6 +490,57 @@ export function useLocalWalletPool({
   const hasSyncError =
     syncStatus === 'error' || syncStatus === 'storageUnsupported';
   const isPreparing = syncStatus === 'preparing' || syncStatus === 'enabling';
+  const finishRefresh = useCallback((request: ILocalWalletRefreshRequest) => {
+    if (refreshRequestRef.current !== request) return;
+    refreshRequestRef.current = undefined;
+    setPendingRefresh(undefined);
+  }, []);
+  useEffect(() => {
+    if (!pendingRefresh) return;
+    const hasCompleted =
+      pendingRefresh.afterSequence !== undefined &&
+      scanCompletion !== undefined &&
+      scanCompletion.sessionId === pendingRefresh.sessionId &&
+      scanCompletion.sequence > pendingRefresh.afterSequence;
+    const backgroundRestarted =
+      pendingRefresh.sessionId !== undefined &&
+      scanCompletion !== undefined &&
+      scanCompletion.sessionId !== pendingRefresh.sessionId &&
+      scanCompletion.sessionId !== pendingRefresh.observedSessionId;
+    const stopped =
+      !isActive ||
+      pendingRefresh.scope !== readScope ||
+      isSyncPaused ||
+      hasSyncError ||
+      syncStatus === 'waitingWifi' ||
+      syncStatus === 'off' ||
+      syncStatus === 'unavailable' ||
+      backgroundRestarted ||
+      (pendingRefresh.afterSequence !== undefined &&
+        scan.scanAllowed === false);
+    if (hasCompleted || stopped) {
+      finishRefresh(pendingRefresh);
+      if (hasCompleted && pendingRefresh.scope === readScope) {
+        refreshRef.current();
+      }
+    }
+  }, [
+    finishRefresh,
+    hasSyncError,
+    isActive,
+    isSyncPaused,
+    pendingRefresh,
+    scanCompletion,
+    readScope,
+    scan.scanAllowed,
+    syncStatus,
+  ]);
+  useEffect(
+    () => () => {
+      refreshRequestRef.current = undefined;
+    },
+    [],
+  );
 
   const poolBalance: ILocalWalletPoolBalance | undefined = useMemo(
     () => balance?.pools.find((item) => item.key === pool?.key),
@@ -589,17 +657,54 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
-  const refreshBalanceNow = useCallback(
-    () =>
-      runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.refreshLocalWalletAccount({
-          networkId,
-          accountId,
-        });
+  const refreshBalanceNow = useCallback(() => {
+    const existing = refreshRequestRef.current;
+    if (existing?.scope === readScope) return existing.promise;
+    const request: ILocalWalletRefreshRequest = {
+      scope: readScope,
+      observedSessionId: scanCompletion?.sessionId,
+      promise: Promise.resolve(),
+    };
+    refreshRequestRef.current = request;
+    setPendingRefresh(request);
+    request.promise = (async () => {
+      try {
+        const result =
+          await backgroundApiProxy.servicePrivacyChain.refreshLocalWalletAccount(
+            { networkId, accountId },
+          );
+        if (refreshRequestRef.current !== request) return;
         refreshRef.current();
-      }),
-    [accountId, networkId, runBusy],
-  );
+        if (
+          !result?.scanRequested ||
+          result.afterSequence === undefined ||
+          !result.sessionId
+        ) {
+          finishRefresh(request);
+          return;
+        }
+        // Scheduling is not completion: the bridged atom publishes a newer sequence only
+        // after a caught-up pass for this account is still valid for its current epoch.
+        const pending = {
+          ...request,
+          afterSequence: result.afterSequence,
+          sessionId: result.sessionId,
+        };
+        refreshRequestRef.current = pending;
+        setPendingRefresh(pending);
+      } catch (error) {
+        finishRefresh(request);
+        throw error;
+      }
+    })();
+    return request.promise;
+  }, [
+    accountId,
+    finishRefresh,
+    networkId,
+    readScope,
+    scanCompletion?.sessionId,
+  ]);
   // A Sync the user pressed: Preparing at once, a pass even at an unchanged tip, a chain pause lifted.
   const startSync = useCallback(
     () =>
@@ -647,7 +752,7 @@ export function useLocalWalletPool({
     isNetworkPaused: syncStatus === 'chainPaused',
     hasSyncError,
     hasAttemptedBalance,
-    busy,
+    busy: busy || pendingRefresh?.scope === readScope,
     accountName: account?.name,
     isTempWallet: accountSupport === 'tempWallet',
     refresh,

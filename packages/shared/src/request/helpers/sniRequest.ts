@@ -2,6 +2,7 @@ import type {
   ISniRequestConfig,
   ISniRequestOptions,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '../types/ipTable';
 
 /**
@@ -14,6 +15,21 @@ export async function sniRequest(
   _options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
   return null; // Web/Extension don't support SNI direct connection
+}
+
+/**
+ * SNI file upload is native-only.
+ * @returns null to indicate SNI upload is not supported on this platform
+ */
+export async function sniUploadFile(
+  _config: ISniUploadFileConfig,
+  _options?: ISniRequestOptions,
+): Promise<ISniResponse | null> {
+  return null;
+}
+
+export function isSniUploadFileSupported(): boolean {
+  return false;
 }
 
 /**
