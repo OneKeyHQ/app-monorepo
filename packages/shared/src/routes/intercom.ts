@@ -1,4 +1,8 @@
-import type { IIntercomSupportRoute } from '../modules3rdParty/intercom/messengerTypes';
+export type IIntercomSupportRoute = {
+  userId: string | null;
+  requestId?: string;
+  conversationId?: string;
+};
 
 export enum EIntercomRoutes {
   Home = 'IntercomHome',

@@ -7,7 +7,7 @@ import { DeviceStageContainer } from '.';
 import { act, render } from '@testing-library/react';
 
 import type { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 let mockNative = false;
@@ -66,7 +66,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/logger/solanaTxDiagnostics', () => ({
   logSolanaTxDiagnostic: jest.fn(),
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(async () => {}),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

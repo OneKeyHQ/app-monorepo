@@ -14,12 +14,6 @@ import {
   rootNavigationRef,
   useOnRouterChange,
 } from '@onekeyhq/components';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   dismissIntercomNotification,
   getIntercomNotification,
@@ -27,13 +21,18 @@ import {
   refreshIntercomNotifications,
   setIntercomInAppMessageVisibility,
   subscribeToIntercomNotifications,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom';
+} from '@onekeyhq/kit/src/views/Intercom/client';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
 
-import { SupportUi } from './SupportUi';
 import {
   type IIntercomNavigationState,
   shouldShowIntercomInAppMessages,
@@ -128,5 +127,5 @@ export function IntercomNotificationContainer() {
     };
   }, [intl, notification, visible]);
 
-  return <SupportUi />;
+  return null;
 }

@@ -8,9 +8,8 @@ import { act, render } from '@testing-library/react';
 
 let mockUserId: string | null = 'A';
 const mockInit = jest.fn(async () => {});
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   initIntercom: () => mockInit(),
-  setIntercomTheme: async () => {},
 }));
 
 // Bootstrap imports unrelated startup features; this suite mounts only its
@@ -147,10 +146,10 @@ describe('Intercom startup identity synchronization', () => {
       '@onekeyhq/shared/src/modules3rdParty/intercom/openFailure',
       () => ({ notifyIntercomOpenFailed: jest.fn() }),
     );
-    jest.doMock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+    jest.doMock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
       ...jest.requireActual<
-        typeof import('@onekeyhq/shared/src/modules3rdParty/intercom/utils')
-      >('@onekeyhq/shared/src/modules3rdParty/intercom/utils'),
+        typeof import('@onekeyhq/shared/src/utils/getInstanceId')
+      >('@onekeyhq/shared/src/utils/getInstanceId'),
       getInstanceId: async () => 'test-instance',
       getIntercomLanguageOverride: async () => 'en',
     }));

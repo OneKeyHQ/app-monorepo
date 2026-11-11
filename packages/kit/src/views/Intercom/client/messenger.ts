@@ -1,43 +1,42 @@
-import { OneKeyLocalError } from '../../errors';
-
-import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
-import { createMessengerClient } from './messengerClient';
-import {
-  intercomRecord,
-  parseIntercomConversation,
-  parseIntercomInbox,
-} from './messengerModels';
-import { notifyIntercomOpenFailed } from './openFailure';
-import { presentIntercomSupportUi } from './supportUi';
-import {
-  createIntercomOpenGuard,
-  getInstanceId,
-  getIntercomLanguageOverride,
-} from './utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createMessengerClient } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
+import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
+import { intercomRecord } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerModels';
+import type {
+  IIntercomConversation,
+  IIntercomNotification,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
+import { notifyIntercomOpenFailed } from '@onekeyhq/shared/src/modules3rdParty/intercom/openFailure';
 import {
   bindVisitorStorage,
   intercomVisitorStorageKey as storageKey,
   visitorStorage,
   withVisitorSessionLock,
-} from './visitorStorage';
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
+import { getInstanceId } from '@onekeyhq/shared/src/utils/getInstanceId';
 
-import type { IIntercomVisitor } from './messengerClient';
-import type {
-  IIntercomConversation,
-  IIntercomNotification,
-} from './messengerTypes';
-import type { IIntercomLockPolicy, IShowIntercomParams } from './utils';
+import {
+  getCurrentIntercomUserId,
+  getIntercomCredentials,
+  getIntercomLanguageOverride,
+} from './identity';
+import {
+  isIntercomLocked as isLocked,
+  markIntercomLockReady,
+} from './lockState';
+import { createIntercomOpenGuard } from './openGuard';
+import { createSupportPollingTask } from './polling';
+import { presentIntercomSupportUi } from './supportUi';
+
+import type { IShowIntercomParams } from './openGuard';
 
 const appId = process.env.INTERCOM_APP_ID || 'vbbj4ssb';
 let owner: string | null | undefined;
 let client: ReturnType<typeof createMessengerClient> | undefined;
 let revision = 0;
-let locked = false;
-let lockPolicy: IIntercomLockPolicy | undefined;
 let visible = false;
-let polling = false;
 let unreadIds = new Set<string>();
-let timer: ReturnType<typeof setTimeout> | undefined;
+let unreadPolling: ReturnType<typeof createSupportPollingTask> | undefined;
 let storageQueue: Promise<unknown> = Promise.resolve();
 let identityTransition: Promise<void> | undefined;
 let visitorCleanupRequired = false;
@@ -46,17 +45,7 @@ const notificationListeners = new Set<() => void>();
 const notifiedParts = new Map<string, string>();
 let notification: IIntercomNotification | undefined;
 let pushedConversationId: string | undefined;
-let refreshQueued = false;
 const openGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
-
-function isLocked() {
-  return (
-    locked ||
-    (!!lockPolicy &&
-      (Date.now() < lockPolicy.validFromMs ||
-        Date.now() >= lockPolicy.lockAtMs))
-  );
-}
 
 function setUnread(ids: string[]) {
   unreadIds = new Set(ids);
@@ -93,12 +82,9 @@ function invalidate(clearNotifiedParts = true) {
   revision += 1;
   client?.dispose();
   client = undefined;
-  clearTimeout(timer);
-  timer = undefined;
   setUnread([]);
   setNotification(undefined);
   pushedConversationId = undefined;
-  refreshQueued = false;
   if (clearNotifiedParts) notifiedParts.clear();
 }
 export const getIntercomUnreadCount = () => unreadIds.size;
@@ -195,8 +181,10 @@ export function refreshIntercomNotifications(conversationId?: string) {
   if (isLocked()) return;
   if (conversationId && /^\d+$/.test(conversationId))
     pushedConversationId = conversationId;
-  if (polling) refreshQueued = true;
-  else void pollUnread();
+  if (visible) {
+    ensureUnreadPolling();
+    unreadPolling?.push();
+  }
 }
 
 export async function initIntercom(): Promise<void> {
@@ -224,7 +212,10 @@ export async function initIntercom(): Promise<void> {
   } finally {
     if (identityTransition === transition) identityTransition = undefined;
   }
-  if (visible && !isLocked()) void pollUnread();
+  if (visible && !isLocked()) {
+    ensureUnreadPolling();
+    void unreadPolling?.refresh();
+  }
 }
 
 export async function createIntercomMessengerSession(
@@ -290,6 +281,12 @@ export async function createIntercomMessengerSession(
           await assertCurrent();
           await (await visitorBinding)?.set(JSON.stringify(visitor));
         }),
+      onRead: (id) => {
+        if (generation !== revision || isLocked()) return;
+        if (unreadIds.has(id))
+          setUnread([...unreadIds].filter((value) => value !== id));
+        if (notification?.conversationId === id) setNotification(undefined);
+      },
       onUnread: (ids) => {
         if (generation === revision && !isLocked()) setUnread(ids);
       },
@@ -307,97 +304,61 @@ export async function createIntercomMessengerSession(
       )
       .catch(() => undefined);
   }
-  return {
-    assertCurrent: active.assertCurrent,
-    request: async (path: string, parameters?: Record<string, unknown>) => {
-      const result = await active.request(path, parameters);
-      const read = /^conversations\/(\d+)\/read$/.exec(path);
-      if (read && unreadIds.has(read[1]))
-        setUnread([...unreadIds].filter((id) => id !== read[1]));
-      if (read && notification?.conversationId === read[1])
-        setNotification(undefined);
-      return result;
-    },
-  };
+  return active.api;
 }
 
 async function pollUnread() {
-  clearTimeout(timer);
-  if (!visible || isLocked() || polling) return;
-  polling = true;
-  refreshQueued = false;
+  if (!visible || isLocked()) {
+    stopUnreadPolling();
+    return;
+  }
   const conversationId = pushedConversationId;
   pushedConversationId = undefined;
-  try {
-    const userId = await getCurrentIntercomUserId();
-    // Background badges may restore a visitor, but only an explicit support
-    // open may create an anonymous identity for someone who has never used it.
-    if (
-      userId === null &&
-      !parseVisitor(
-        await storageOperation(() => visitorStorage.get(storageKey)),
-      )
-    )
-      return;
-    const session = await createIntercomMessengerSession(userId);
-    await session.request('conversations/unread');
-    if (visible && !isLocked() && notificationListeners.size) {
-      let conversations: IIntercomConversation[] = [];
-      if (conversationId) {
-        conversations = [
-          parseIntercomConversation(
-            await session.request(`conversations/${conversationId}`),
-          ),
-        ];
-      } else if (unreadIds.size) {
-        conversations = parseIntercomInbox(
-          await session.request('conversations', { per_page: 20 }),
-        ).conversations;
-      }
-      await session.assertCurrent();
-      if (visible && !isLocked()) updateMessageNotification(conversations);
+  const userId = await getCurrentIntercomUserId();
+  // Background badges may restore a visitor, but only an explicit support
+  // open may create an anonymous identity for someone who has never used it.
+  if (
+    userId === null &&
+    !parseVisitor(await storageOperation(() => visitorStorage.get(storageKey)))
+  )
+    return;
+  const session = await createIntercomMessengerSession(userId);
+  await session.refreshUnread();
+  if (visible && !isLocked() && notificationListeners.size) {
+    let conversations: IIntercomConversation[] = [];
+    if (conversationId) {
+      conversations = [await session.getConversation(conversationId)];
+    } else if (unreadIds.size) {
+      conversations = (await session.listConversations()).conversations;
     }
-  } catch {
-    // Retry on the next foreground tick; never show background error toasts.
-  } finally {
-    polling = false;
-    if (visible && !isLocked())
-      timer = setTimeout(
-        () => {
-          void pollUnread();
-        },
-        refreshQueued ? 0 : 30_000,
-      );
+    await session.assertCurrent();
+    if (visible && !isLocked()) updateMessageNotification(conversations);
   }
+}
+function ensureUnreadPolling() {
+  if (!visible || isLocked() || unreadPolling) return;
+  unreadPolling = createSupportPollingTask(pollUnread, 30_000);
+  void unreadPolling.refresh();
+}
+function stopUnreadPolling() {
+  unreadPolling?.stop();
+  unreadPolling = undefined;
 }
 export async function setIntercomInAppMessageVisibility(value: boolean) {
   if (visible === value) return;
   visible = value;
-  clearTimeout(timer);
-  if (!visible) setNotification(undefined);
-  if (visible && !isLocked()) void pollUnread();
+  if (!visible) {
+    stopUnreadPolling();
+    setNotification(undefined);
+  } else ensureUnreadPolling();
 }
-export async function setIntercomMessengerLocked(
-  value: boolean,
-  policy?: IIntercomLockPolicy,
-) {
-  const wasLocked = isLocked();
-  lockPolicy = policy;
-  if (locked === value) {
-    if (wasLocked && !isLocked() && visible) void pollUnread();
-    return;
-  }
-  locked = value;
-  if (locked) {
+export async function syncIntercomLockState() {
+  await markIntercomLockReady();
+  if (isLocked()) {
+    stopUnreadPolling();
     invalidate(false);
     openGuard.reset();
-  } else if (visible) void pollUnread();
-}
-export async function setIntercomTheme(
-  _theme: 'light' | 'dark',
-  _followSystem?: boolean,
-) {
-  // Shared RN components inherit the app theme directly.
+  } else ensureUnreadPolling();
 }
 export async function showIntercom(params?: IShowIntercomParams) {
   try {
@@ -423,7 +384,4 @@ export async function showIntercom(params?: IShowIntercomParams) {
   } catch (error) {
     notifyIntercomOpenFailed(error);
   }
-}
-export async function update() {
-  await initIntercom();
 }

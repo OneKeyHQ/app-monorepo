@@ -1,4 +1,5 @@
 import { createMessengerClient } from './messengerClient';
+import { parseIntercomOpen } from './messengerModels';
 
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
 jest.mock('../../utils/miscUtils', () => ({
@@ -7,13 +8,16 @@ jest.mock('../../utils/miscUtils', () => ({
 const originalFetch = globalThis.fetch;
 const fetchMock = jest.fn(
   async (_url: string, _options?: RequestInit) =>
-    new Response(JSON.stringify({ user: { id: 'A' } })),
+    new Response(JSON.stringify({ user: { id: 'A' }, id: '42', cards: [] })),
 );
 beforeEach(() => {
   fetchMock
     .mockReset()
     .mockImplementation(
-      async () => new Response(JSON.stringify({ user: { id: 'A' } })),
+      async () =>
+        new Response(
+          JSON.stringify({ user: { id: 'A' }, id: '42', cards: [] }),
+        ),
     );
   globalThis.fetch = fetchMock as typeof fetch;
 });
@@ -34,9 +38,12 @@ it('coalesces concurrent initialization and encodes a stable message id for retr
   const api = client();
   await Promise.all([api.boot(), api.boot()]);
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  await api.request('messages', {
-    client_assigned_uuid: 'message-id',
-    blocks: [{ type: 'paragraph', text: 'test' }],
+  await api.api.createConversation({
+    open: parseIntercomOpen({ new_conversation: { cta: { text: 'Send' } } }),
+    message: {
+      clientId: 'message-id',
+      blocks: [{ type: 'paragraph', text: 'test' }],
+    },
   });
   const body = new URLSearchParams(String(fetchMock.mock.calls[1][1]?.body));
   expect(body.get('Idempotency-Key')).toBe('message-id');
@@ -50,17 +57,20 @@ it('never automatically retries an unacknowledged send', async () => {
   await api.boot();
   fetchMock.mockRejectedValueOnce(new Error('offline'));
   await expect(
-    api.request('messages', { client_assigned_uuid: 'message-id' }),
+    api.api.createConversation({
+      open: parseIntercomOpen({ new_conversation: { cta: { text: 'Send' } } }),
+      message: { clientId: 'message-id', blocks: [] },
+    }),
   ).rejects.toThrow('offline');
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 it.each(['https://example.com', '../messages', 'conversations/../1', 'admins'])(
-  'rejects paths outside the end-user contract: %s',
+  'rejects ids outside the conversation contract: %s',
   async (path) => {
     const api = client();
     await api.boot();
-    await expect(api.request(path)).rejects.toThrow(
-      'Unsupported support operation',
+    await expect(api.api.getConversation(path)).rejects.toThrow(
+      'Invalid support conversation',
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   },
@@ -80,10 +90,16 @@ it('refreshes authentication on an explicit retry after expiry without replaying
   await api.boot();
   fetchMock.mockResolvedValueOnce(new Response('{}', { status: 401 }));
   await expect(
-    api.request('messages', { client_assigned_uuid: 'stable-id' }),
+    api.api.createConversation({
+      open: parseIntercomOpen({ new_conversation: { cta: { text: 'Send' } } }),
+      message: { clientId: 'stable-id', blocks: [] },
+    }),
   ).rejects.toThrow('(401)');
   expect(fetchMock).toHaveBeenCalledTimes(2);
-  await api.request('messages', { client_assigned_uuid: 'stable-id' });
+  await api.api.createConversation({
+    open: parseIntercomOpen({ new_conversation: { cta: { text: 'Send' } } }),
+    message: { clientId: 'stable-id', blocks: [] },
+  });
   expect(fetchMock.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
     '/messenger/web/ping',
     '/messenger/web/messages',
@@ -148,7 +164,7 @@ it('drops an expired anonymous session from memory and storage before refreshing
       }),
     ),
   );
-  await api.request('home');
+  await api.api.getHome();
   const ping = new URLSearchParams(String(fetchMock.mock.calls[1][1]?.body));
   expect(ping.has('anonymous_session')).toBe(false);
   expect(JSON.parse(ping.get('user_data') || '{}')).toEqual({

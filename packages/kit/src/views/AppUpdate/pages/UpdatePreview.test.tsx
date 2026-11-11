@@ -88,7 +88,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isExtension: false },
 }));
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => {
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => {
   const showIntercom = jest.fn(() => Promise.resolve());
   (globalThis as any).__showIntercom = showIntercom;
   return { showIntercom };

@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '../../errors';
 import { generateUUID } from '../../utils/miscUtils';
 
+import { createMessengerApi } from './messengerApi';
 import { intercomRecord } from './messengerModels';
 
 export type IIntercomVisitor = {
@@ -16,11 +17,12 @@ type IClientOptions = {
   loadVisitor: () => Promise<IIntercomVisitor | undefined>;
   saveVisitor: (visitor: IIntercomVisitor) => Promise<void>;
   onUnread: (ids: string[]) => void;
+  onRead?: (id: string) => void;
   withBootLock?: (initialize: () => Promise<void>) => Promise<void>;
 };
 
 // This undocumented end-user Messenger protocol is separate from the admin
-// REST API. Keep protocol changes isolated here and in messengerModels. Never
+// REST API. Keep protocol changes isolated here, in messengerApi and messengerModels. Never
 // send an admin access token here or replay a mutation automatically on failure.
 export function createMessengerClient(options: IClientOptions) {
   let disposed = false;
@@ -193,20 +195,24 @@ export function createMessengerClient(options: IClientOptions) {
         throw error;
       }
     },
-    request: async (
-      path: string,
-      parameters?: Record<string, unknown>,
-    ): Promise<unknown> => {
-      await boot();
-      const data = await post(path, parameters);
-      return path === 'new_conversation_content'
-        ? {
-            ...intercomRecord(data),
-            inbound_conversations_disabled: inboundDisabled,
-            messenger_configuration: messengerConfiguration,
-          }
-        : data;
-    },
+    api: createMessengerApi({
+      assertCurrent,
+      onRead: options.onRead,
+      request: async (
+        path: string,
+        parameters?: Record<string, unknown>,
+      ): Promise<unknown> => {
+        await boot();
+        const data = await post(path, parameters);
+        return path === 'new_conversation_content'
+          ? {
+              ...intercomRecord(data),
+              inbound_conversations_disabled: inboundDisabled,
+              messenger_configuration: messengerConfiguration,
+            }
+          : data;
+      },
+    }),
     dispose() {
       disposed = true;
       identity = undefined;

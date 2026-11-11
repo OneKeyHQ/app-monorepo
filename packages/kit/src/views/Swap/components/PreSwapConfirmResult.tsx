@@ -15,9 +15,9 @@ import {
 } from '@onekeyhq/components';
 import type { ILottieViewHandle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';

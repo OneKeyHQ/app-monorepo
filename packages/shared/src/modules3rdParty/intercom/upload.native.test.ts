@@ -2,6 +2,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 
 import { OneKeyLocalError } from '../../errors';
 
+import { createMessengerApi } from './messengerApi';
 import { uploadIntercomImage } from './upload';
 
 import type { IIntercomMessengerSession } from './messengerTypes';
@@ -63,7 +64,10 @@ afterEach(() => {
 it('uploads only the selected file to the signed destination without app auth headers', async () => {
   const request = jest.fn(async () => upload);
   const assertCurrent = jest.fn(async () => {});
-  const session: IIntercomMessengerSession = { request, assertCurrent };
+  const session: IIntercomMessengerSession = createMessengerApi({
+    request,
+    assertCurrent,
+  });
   const append = jest
     .spyOn(FormData.prototype, 'append')
     .mockImplementation(() => {});
@@ -105,12 +109,12 @@ it('uploads only the selected file to the signed destination without app auth he
 });
 
 it('does not upload a file after the support session changes', async () => {
-  const session: IIntercomMessengerSession = {
+  const session: IIntercomMessengerSession = createMessengerApi({
     request: async () => upload,
     assertCurrent: async () => {
       throw new OneKeyLocalError('Session changed');
     },
-  };
+  });
   await expect(
     uploadIntercomImage(session, image, new AbortController().signal),
   ).rejects.toThrow('Session changed');
@@ -119,10 +123,10 @@ it('does not upload a file after the support session changes', async () => {
 
 it('rejects an oversized image before requesting upload credentials', async () => {
   const request = jest.fn();
-  const session: IIntercomMessengerSession = {
+  const session: IIntercomMessengerSession = createMessengerApi({
     request,
     assertCurrent: async () => {},
-  };
+  });
   await expect(
     uploadIntercomImage(
       session,
@@ -144,13 +148,13 @@ it.each([
 ])(
   'rejects an untrusted upload destination before reading or sending the file: %s',
   async (destination) => {
-    const session: IIntercomMessengerSession = {
+    const session: IIntercomMessengerSession = createMessengerApi({
       request: async () => ({
         ...upload,
         upload_destination: destination,
       }),
       assertCurrent: async () => {},
-    };
+    });
     const append = jest.spyOn(FormData.prototype, 'append');
     await expect(
       uploadIntercomImage(session, image, new AbortController().signal),
@@ -161,10 +165,10 @@ it.each([
 );
 
 it('fails a rejected redirect without returning or sending an attachment block', async () => {
-  const session: IIntercomMessengerSession = {
+  const session: IIntercomMessengerSession = createMessengerApi({
     request: async () => upload,
     assertCurrent: async () => {},
-  };
+  });
   jest
     .mocked(expoFetch)
     .mockRejectedValueOnce(new TypeError('Redirect is not allowed'));

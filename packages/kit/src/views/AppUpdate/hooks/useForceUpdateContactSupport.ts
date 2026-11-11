@@ -10,9 +10,9 @@ import {
 import * as ReactNavigationCore from '@react-navigation/core';
 import { AppState } from 'react-native';
 
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { isForceUpdateStrategy } from '../../../components/AppUpdate';
@@ -181,7 +181,7 @@ export function useForceUpdateContactSupport({
       isForceUpdateStrategy(updateInfo?.updateStrategy);
   const isForceUpdate = enabled ? resolvedForceUpdate : false;
 
-  // Re-fetch when returning from the support WebViewModal (navigation focus),
+  // Re-fetch when returning from the support modal (navigation focus),
   // resuming the app from background (AppState 'active'), or regaining window focus.
   useEffect(() => {
     if (!enabled || !isForceUpdate) {
@@ -226,10 +226,8 @@ export function useForceUpdateContactSupport({
     };
   }, [enabled, isForceUpdate, navigation, refreshUpdateInfo]);
 
-  // After the user clicks "Contact Support", poll periodically while still
-  // locked so that on Desktop/Web (where Intercom opens as an in-page widget
-  // without changing app/window focus) the force-update lock is lifted
-  // automatically once support adds their instanceId to forceUpdateWhitelist.
+  // Continue checking the whitelist while the support modal covers this page
+  // so support can release the update lock without an app/window focus change.
   useEffect(() => {
     if (!enabled || !isForceUpdate || !hasContactedSupport) {
       return undefined;

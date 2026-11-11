@@ -1,3 +1,4 @@
+import { createMessengerApi } from './messengerApi';
 import { uploadIntercomImage } from './upload';
 
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
@@ -15,7 +16,7 @@ it('uploads a browser image using multipart bytes without credentials or redirec
   globalThis.fetch = fetchMock;
   const blob = new Blob(['test image'], { type: 'image/png' });
   const result = await uploadIntercomImage(
-    {
+    createMessengerApi({
       request: async () => ({
         upload_destination: 'https://uploads.intercomcdn.com/',
         public_url: 'https://downloads.intercomcdn.com/image.png',
@@ -23,7 +24,7 @@ it('uploads a browser image using multipart bytes without credentials or redirec
         key: 'image.png',
       }),
       assertCurrent: async () => {},
-    },
+    }),
     {
       path: 'blob:test-image',
       filename: 'image.png',

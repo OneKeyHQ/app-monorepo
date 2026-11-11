@@ -226,7 +226,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     hardware: { sdkLog: { log: jest.fn() } },
   },
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({}));
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({}));
 jest.mock('../../../components/ListItem', () => ({}));
 jest.mock('../../../hooks/useUserWalletProfile', () => ({
   useUserWalletProfile: () => ({}),

@@ -19,24 +19,22 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  parseIntercomArticleSearch,
-  parseIntercomHome,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerModels';
 import type {
   IIntercomArticleLink,
   IIntercomMessengerSession,
-  IIntercomSupportRoute,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { EIntercomRoutes } from '@onekeyhq/shared/src/routes/intercom';
-import type { IIntercomParamList } from '@onekeyhq/shared/src/routes/intercom';
+import type {
+  IIntercomParamList,
+  IIntercomSupportRoute,
+} from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { SupportNavigation } from '../components/SupportNavigation';
+import { SupportSessionBoundary } from '../components/SupportSessionBoundary';
 import { useSupportResource } from '../hooks/useSupportResource';
 
-import { SupportNavigation } from './SupportNavigation';
-
-export function SupportHelp({
+function SupportHelpContent({
   session,
   active,
   route,
@@ -59,14 +57,12 @@ export function SupportHelp({
   }, [input]);
   const loadHome = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
-    return parseIntercomHome(await session.request('home'));
+    return session.getHome();
   }, [session]);
   const home = useSupportResource(loadHome, active);
   const loadSearch = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
-    return parseIntercomArticleSearch(
-      await session.request('articles/search', { phrase }),
-    );
+    return session.searchArticles(phrase);
   }, [session, phrase]);
   const search = useSupportResource(loadSearch, active && !!phrase);
   const isSearching = !!input.trim();
@@ -173,5 +169,13 @@ export function SupportHelp({
         />
       </Page.Footer>
     </Page>
+  );
+}
+
+export default function SupportHelp() {
+  return (
+    <SupportSessionBoundary>
+      {(props) => <SupportHelpContent {...props} />}
+    </SupportSessionBoundary>
   );
 }

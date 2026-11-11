@@ -20,6 +20,7 @@ import {
   willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { initIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   getDevSettingsNetworkThrottleEnabled,
@@ -28,7 +29,6 @@ import {
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -57,10 +57,6 @@ import {
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import {
-  initIntercom,
-  setIntercomTheme,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
@@ -106,7 +102,6 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
-import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
@@ -644,17 +639,8 @@ const useLogVersionInfo = () => {
 
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
-  const theme = useThemeVariant();
-  const [{ theme: themeSetting }] = useSettingsPersistAtom();
-  const followSystemTheme = themeSetting === 'system';
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
   const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
-
-  useEffect(() => {
-    void setIntercomTheme(theme, followSystemTheme).catch(() => {
-      console.warn('Failed to update Intercom theme');
-    });
-  }, [theme, followSystemTheme]);
 
   useEffect(() => {
     const syncIntercom = () => {

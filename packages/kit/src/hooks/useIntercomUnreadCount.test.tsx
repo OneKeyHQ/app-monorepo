@@ -7,7 +7,7 @@ import { useIntercomUnreadCount } from './useIntercomUnreadCount';
 let mockUnread = 0;
 const mockListeners = new Set<() => void>();
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   getIntercomUnreadCount: () => mockUnread,
   subscribeToIntercomUnreadCount: (listener: () => void) => {
     mockListeners.add(listener);

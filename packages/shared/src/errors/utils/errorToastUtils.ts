@@ -5,7 +5,7 @@ import { isPlainObject } from 'lodash';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
-import { getInstanceId } from '../../modules3rdParty/intercom/utils';
+import { getInstanceId } from '../../utils/getInstanceId';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,

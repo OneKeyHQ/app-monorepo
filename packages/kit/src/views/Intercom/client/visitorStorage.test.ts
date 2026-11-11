@@ -5,14 +5,14 @@ const mockSet = jest.fn(async (key: string, value: string) => {
 });
 const mockGet = jest.fn(async (key: string) => mockItems.get(key) ?? null);
 
-jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
-jest.mock('../../utils/miscUtils', () => ({
+jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({
   generateUUID: () => {
     mockSequence += 1;
     return `test-browser-${mockSequence}`;
   },
 }));
-jest.mock('../../storage/appStorage', () => ({
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
   default: {
     getItem: (key: string) => mockGet(key),
@@ -22,16 +22,23 @@ jest.mock('../../storage/appStorage', () => ({
     },
   },
 }));
+jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
+  getInstanceId: async () => 'test-install',
+}));
 jest.mock('./identity', () => ({
   getCurrentIntercomUserId: async () => null,
   getIntercomCredentials: async () => undefined,
-}));
-jest.mock('./utils', () => ({
-  ...jest.requireActual<typeof import('./utils')>('./utils'),
+  getInstanceId: async () => 'test-install',
   getIntercomLanguageOverride: async () => 'en',
 }));
+jest.mock('./lockState', () => ({
+  isIntercomLocked: () => false,
+  markIntercomLockReady: () => {},
+}));
 jest.mock('./supportUi', () => ({ presentIntercomSupportUi: jest.fn() }));
-jest.mock('./openFailure', () => ({ notifyIntercomOpenFailed: jest.fn() }));
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/openFailure', () => ({
+  notifyIntercomOpenFailed: jest.fn(),
+}));
 
 const legacyVisitor = JSON.stringify({
   anonymousId: 'test-old-visitor',
@@ -43,7 +50,7 @@ const originalNavigator = Object.getOwnPropertyDescriptor(
   globalThis,
   'navigator',
 );
-let subject: typeof import('./visitorStorage');
+let subject: typeof import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
 beforeEach(async () => {
   jest.resetModules();
   jest.clearAllMocks();
@@ -53,7 +60,8 @@ beforeEach(async () => {
     mockItems.set(key, value);
   });
   mockGet.mockImplementation(async (key) => mockItems.get(key) ?? null);
-  subject = await import('./visitorStorage');
+  subject =
+    await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
 });
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -79,6 +87,7 @@ function installSharedLocks() {
 function visitorResponse(id: string) {
   return new Response(
     JSON.stringify({
+      cards: [],
       user: { id, anonymous_id: id },
       anonymous_session: `${id}-session`,
       session_expiry: 9_999_999_999,
@@ -116,7 +125,7 @@ it('serializes first boot across independent extension windows and restores the 
   finishFirst(visitorResponse('shared'));
   const [a, b] = await Promise.all([first, second]);
   expect(creations).toBe(1);
-  await Promise.all([a.request('home'), b.request('home')]);
+  await Promise.all([a.getHome(), b.getHome()]);
   jest.resetModules();
   const reopened = await import('./messenger');
   await reopened.createIntercomMessengerSession(null);
@@ -179,7 +188,8 @@ it('restores a scoped visitor after a normal browser reload', async () => {
   await binding.set(legacyVisitor);
   expect(mockItems.get(key)).toMatch(/-ref-test-browser-/);
   jest.resetModules();
-  const reloaded = await import('./visitorStorage');
+  const reloaded =
+    await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
   await expect(reloaded.visitorStorage.get(key)).resolves.toBe(legacyVisitor);
   await expect((await reloaded.bindVisitorStorage(key)).get()).resolves.toBe(
     legacyVisitor,
@@ -197,7 +207,8 @@ it('keeps legacy visitors compatible without rewriting their immutable root refe
     false,
   );
   jest.resetModules();
-  const otherWindow = await import('./visitorStorage');
+  const otherWindow =
+    await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
   await expect(otherWindow.visitorStorage.get(key)).resolves.toBe(
     'updated-visitor',
   );
@@ -225,7 +236,8 @@ it.each([false, true])(
     // Simulate bg.clear while a separate extension UI JS heap holds a client.
     mockItems.clear();
     jest.resetModules();
-    const otherWindow = await import('./visitorStorage');
+    const otherWindow =
+      await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
     const fresh = await otherWindow.bindVisitorStorage(key);
     await fresh.set('new-visitor');
     release();

@@ -1,8 +1,17 @@
-import { OneKeyLocalError } from '../../errors';
-
-import type { IIntercomVisitor } from './messengerClient';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IIntercomVisitor } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerClient';
 
 let mockUserId: string | null = null;
+let mockLocked = false;
+let mockPolicy: { validFromMs: number; lockAtMs: number } | undefined;
+jest.mock('./lockState', () => ({
+  markIntercomLockReady: () => {},
+  isIntercomLocked: () =>
+    mockLocked ||
+    (!!mockPolicy &&
+      (Date.now() < mockPolicy.validFromMs ||
+        Date.now() >= mockPolicy.lockAtMs)),
+}));
 let mockVisitor: string | null = null;
 let mockStorageEpoch = 0;
 const mockPresent = jest.fn((_route: unknown) => true);
@@ -14,47 +23,53 @@ const mockCredentials = jest.fn(async (_user: string) => ({
 const mockRemove = jest.fn(async () => {
   mockVisitor = null;
 });
-jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
-jest.mock('../../utils/miscUtils', () => ({ generateUUID: () => 'test-uuid' }));
+jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/shared/src/utils/miscUtils', () => ({
+  generateUUID: () => 'test-uuid',
+}));
+jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
+  getInstanceId: async () => 'test-install',
+}));
 jest.mock('./identity', () => ({
   getCurrentIntercomUserId: async () => mockUserId,
   getIntercomCredentials: (user: string) => mockCredentials(user),
-}));
-jest.mock('./utils', () => ({
-  ...jest.requireActual<typeof import('./utils')>('./utils'),
+  getInstanceId: async () => 'test-install',
   getIntercomLanguageOverride: async () => 'en',
 }));
-jest.mock('./visitorStorage', () => ({
-  intercomVisitorStorageKey: 'test-visitor-key',
-  withVisitorSessionLock: async (
-    _key: string,
-    operation: () => Promise<void>,
-  ) => operation(),
-  bindVisitorStorage: async () => {
-    const epoch = mockStorageEpoch;
-    return {
-      assertCurrent: async () => {
-        if (epoch !== mockStorageEpoch)
-          throw new OneKeyLocalError('Support visitor installation changed');
-      },
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage',
+  () => ({
+    intercomVisitorStorageKey: 'test-visitor-key',
+    withVisitorSessionLock: async (
+      _key: string,
+      operation: () => Promise<void>,
+    ) => operation(),
+    bindVisitorStorage: async () => {
+      const epoch = mockStorageEpoch;
+      return {
+        assertCurrent: async () => {
+          if (epoch !== mockStorageEpoch)
+            throw new OneKeyLocalError('Support visitor installation changed');
+        },
+        get: async () => mockVisitor,
+        set: async (value: string) => {
+          mockVisitor = value;
+        },
+      };
+    },
+    visitorStorage: {
       get: async () => mockVisitor,
-      set: async (value: string) => {
+      set: async (_key: string, value: string) => {
         mockVisitor = value;
       },
-    };
-  },
-  visitorStorage: {
-    get: async () => mockVisitor,
-    set: async (_key: string, value: string) => {
-      mockVisitor = value;
+      remove: () => mockRemove(),
     },
-    remove: () => mockRemove(),
-  },
-}));
+  }),
+);
 jest.mock('./supportUi', () => ({
   presentIntercomSupportUi: (route: unknown) => mockPresent(route),
 }));
-jest.mock('./openFailure', () => ({
+jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/openFailure', () => ({
   notifyIntercomOpenFailed: (error: unknown) => mockNotify(error),
 }));
 
@@ -67,13 +82,26 @@ const boot = {
 };
 const mockFetch = jest.fn(
   async (_url: string, _options?: RequestInit) =>
-    new Response(JSON.stringify(boot), { status: 200 }),
+    new Response(JSON.stringify({ ...boot, conversations: [] }), {
+      status: 200,
+    }),
 );
 let subject: typeof import('./messenger');
+async function setLock(
+  locked: boolean,
+  policy?: { validFromMs: number; lockAtMs: number },
+) {
+  mockLocked = locked;
+  mockPolicy = policy;
+  await subject.syncIntercomLockState();
+}
+
 beforeEach(async () => {
   jest.resetModules();
   jest.clearAllMocks();
   mockUserId = null;
+  mockLocked = false;
+  mockPolicy = undefined;
   mockVisitor = null;
   mockStorageEpoch = 0;
   mockRemove.mockImplementation(async () => {
@@ -85,14 +113,17 @@ beforeEach(async () => {
     attributes: { userId: 'test' },
   }));
   mockFetch.mockImplementation(
-    async () => new Response(JSON.stringify(boot), { status: 200 }),
+    async () =>
+      new Response(JSON.stringify({ ...boot, conversations: [] }), {
+        status: 200,
+      }),
   );
   globalThis.fetch = mockFetch as typeof fetch;
   subject = await import('./messenger');
 });
 afterEach(async () => {
   await subject.setIntercomInAppMessageVisibility(false);
-  await subject.setIntercomMessengerLocked(true);
+  await setLock(true);
   globalThis.fetch = originalFetch;
   jest.useRealTimers();
 });
@@ -175,17 +206,17 @@ describe('support message notifications', () => {
   it('dismisses the preview after a read acknowledgement', async () => {
     await show();
     const session = await subject.createIntercomMessengerSession('A');
-    await session.request('conversations/42/read');
+    await session.markRead('42');
     expect(subject.getIntercomNotification()).toBeUndefined();
     expect(subject.getIntercomUnreadCount()).toBe(0);
   });
   it('hides private content on lock without replaying the same reply after unlock', async () => {
     await show();
-    await subject.setIntercomMessengerLocked(true);
+    await setLock(true);
     expect(subject.getIntercomNotification()).toBeUndefined();
     await subject.openIntercomNotification('42:reply-1');
     expect(mockPresent).not.toHaveBeenCalled();
-    await subject.setIntercomMessengerLocked(false);
+    await setLock(false);
     await jest.advanceTimersByTimeAsync(0);
     expect(subject.getIntercomNotification()).toBeUndefined();
     conversations = [conversation('reply-2')];
@@ -211,7 +242,7 @@ describe('support message notifications', () => {
     subject.refreshIntercomNotifications('42');
     await jest.advanceTimersByTimeAsync(0);
     await subject.setIntercomInAppMessageVisibility(false);
-    resolve(new Response(JSON.stringify(boot)));
+    resolve(new Response(JSON.stringify({ ...boot, conversations: [] })));
     await jest.advanceTimersByTimeAsync(0);
     expect(subject.getIntercomNotification()).toBeUndefined();
     await subject.openIntercomNotification('42:reply-1');
@@ -235,7 +266,7 @@ describe('support message notifications', () => {
     await jest.advanceTimersByTimeAsync(0);
     subject.refreshIntercomNotifications('42');
     subject.refreshIntercomNotifications('42');
-    resolve(new Response(JSON.stringify(boot)));
+    resolve(new Response(JSON.stringify({ ...boot, conversations: [] })));
     await jest.advanceTimersByTimeAsync(1);
     expect(countUnread()).toBe(before + 2);
   });
@@ -301,7 +332,7 @@ it.each(['B', null])(
     mockUserId = nextUser;
     await subject.initIntercom();
     expect(subject.getIntercomUnreadCount()).toBe(0);
-    await expect(session.request('conversations')).rejects.toThrow(
+    await expect(session.listConversations()).rejects.toThrow(
       'Support session changed',
     );
     expect(mockRemove).toHaveBeenCalled();
@@ -346,20 +377,20 @@ it('aborts in-flight requests on lock and rejects late responses', async () => {
         resolve = done;
       }),
   );
-  const pending = session.request('conversations');
+  const pending = session.listConversations();
   await new Promise<void>((done) => setImmediate(done));
   const signal = mockFetch.mock.calls.at(-1)?.[1]?.signal;
-  await subject.setIntercomMessengerLocked(true);
+  await setLock(true);
   expect(signal?.aborted).toBe(true);
   resolve(new Response(JSON.stringify({ conversations: [] })));
   await expect(pending).rejects.toThrow('Support session changed');
   expect(subject.getIntercomUnreadCount()).toBe(0);
 });
 it('does not present while locked and reports a navigator that is not ready', async () => {
-  await subject.setIntercomMessengerLocked(true);
+  await setLock(true);
   await subject.showIntercom();
   expect(mockPresent).not.toHaveBeenCalled();
-  await subject.setIntercomMessengerLocked(false);
+  await setLock(false);
   mockPresent.mockReturnValue(false);
   await subject.showIntercom();
   expect(mockNotify).toHaveBeenCalledWith(expect.any(Error));
@@ -367,17 +398,17 @@ it('does not present while locked and reports a navigator that is not ready', as
 it('marks only the acknowledged conversation read', async () => {
   const session = await subject.createIntercomMessengerSession(null);
   mockFetch.mockResolvedValueOnce(new Response('{}'));
-  await session.request('conversations/42/read');
+  await session.markRead('42');
   expect(subject.getIntercomUnreadCount()).toBe(0);
 });
 
 it('rejects requests beyond the auto-lock deadline before the lock UI catches up', async () => {
   const session = await subject.createIntercomMessengerSession(null);
-  await subject.setIntercomMessengerLocked(false, {
+  await setLock(false, {
     validFromMs: 0,
     lockAtMs: Date.now() - 1,
   });
-  await expect(session.request('conversations')).rejects.toThrow(
+  await expect(session.listConversations()).rejects.toThrow(
     'Support session changed',
   );
   expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -440,7 +471,7 @@ it('resumes one unread poll loop when the visible account changes', async () => 
 it('resumes polling after an expired lock policy becomes valid without a boolean lock change', async () => {
   jest.useFakeTimers();
   await subject.createIntercomMessengerSession(null);
-  await subject.setIntercomMessengerLocked(false, {
+  await setLock(false, {
     validFromMs: 0,
     lockAtMs: Date.now() + 10_000,
   });
@@ -448,7 +479,7 @@ it('resumes polling after an expired lock policy becomes valid without a boolean
   await jest.advanceTimersByTimeAsync(0);
   await jest.advanceTimersByTimeAsync(30_000);
   mockFetch.mockClear();
-  await subject.setIntercomMessengerLocked(false, {
+  await setLock(false, {
     validFromMs: 0,
     lockAtMs: Date.now() + 60_000,
   });
@@ -463,7 +494,7 @@ it('revokes an in-memory visitor after the shared storage reference is reset', a
   const old = await subject.createIntercomMessengerSession(null);
   mockStorageEpoch += 1;
   mockVisitor = null;
-  await expect(old.request('conversations')).rejects.toThrow(
+  await expect(old.listConversations()).rejects.toThrow(
     'Support visitor installation changed',
   );
   expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -501,7 +532,7 @@ it('binds a new anonymous client only after the previous identity storage remova
   release();
   await updating;
   const session = await opening;
-  await expect(session.request('conversations')).resolves.toBeDefined();
+  await expect(session.listConversations()).resolves.toBeDefined();
 });
 
 it('shares a failed identity cleanup with concurrent opens and retries cleanup before booting', async () => {

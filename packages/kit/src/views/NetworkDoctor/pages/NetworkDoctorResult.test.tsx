@@ -93,7 +93,7 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
   ETranslations: new Proxy({}, { get: (_target, key) => key }),
 }));
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(),
 }));
 

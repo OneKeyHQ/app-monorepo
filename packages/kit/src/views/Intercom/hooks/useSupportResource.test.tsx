@@ -58,8 +58,8 @@ it('does not overlap slow polling requests and stops polling when disabled', asy
       ({ enabled }) => useSupportResource(load, enabled, true),
       { initialProps: { enabled: true } },
     );
-    act(() => {
-      jest.advanceTimersByTime(60_000);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
     });
     expect(load).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -124,7 +124,7 @@ it('refreshes an active conversation immediately after a push and coalesces in-f
   const { result, unmount } = renderHook(() =>
     useSupportResource(load, true, true),
   );
-  act(() => {
+  await act(async () => {
     for (let i = 0; i < 3; i += 1)
       appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {
         conversationId: '42',

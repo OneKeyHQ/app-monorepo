@@ -152,7 +152,6 @@ export interface IDevSettings {
   // Override the hosted support (Intercom) page URL on extension, iOS and
   // Android. Only honored while dev mode is enabled; the session bridge then
   // trusts this URL's origin instead of the production one.
-  intercomSupportUrl?: string;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

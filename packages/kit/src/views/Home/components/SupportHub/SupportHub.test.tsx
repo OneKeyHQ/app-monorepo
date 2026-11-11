@@ -137,7 +137,7 @@ jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
   ONEKEY_SIFU_URL: 'https://onekey.so/sifu',
 }));
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   getIntercomUnreadCount: () => 0,
   subscribeToIntercomUnreadCount: () => () => undefined,
   showIntercom: jest.fn(),

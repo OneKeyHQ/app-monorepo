@@ -1,7 +1,6 @@
 import { OneKeyLocalError } from '../../errors';
 import { streamingFetch } from '../../utils/streamingFetch';
 
-import { intercomHttpUrl, intercomRecord } from './messengerModels';
 import { appendSupportImage } from './uploadFile';
 
 import type {
@@ -20,7 +19,10 @@ const uploadOrigins = new Set([
 ]);
 
 export async function uploadIntercomImage(
-  session: IIntercomMessengerSession,
+  session: Pick<
+    IIntercomMessengerSession,
+    'getUploadMetadata' | 'assertCurrent'
+  >,
   image: IIntercomImage,
   signal: AbortSignal,
 ): Promise<IIntercomBlock> {
@@ -33,43 +35,19 @@ export async function uploadIntercomImage(
     throw new OneKeyLocalError('Support image must be smaller than 20 MB');
   }
   const name = image.filename || image.path.split('/').pop() || 'image';
-  const response = intercomRecord(
-    await session.request('uploads', {
-      upload: {
-        original_filename: name,
-        content_type: image.mime,
-        size_in_bytes: image.size,
-        width: image.width,
-        height: image.height,
-      },
-      include_metadata: true,
-    }),
-  );
-  const destination = intercomHttpUrl(response.upload_destination);
-  const publicUrl = intercomHttpUrl(response.public_url);
-  if (
-    !destination ||
-    !uploadOrigins.has(new URL(destination).origin) ||
-    !publicUrl ||
-    typeof response.policy !== 'string'
-  ) {
+  const { destination, publicUrl, fields } = await session.getUploadMetadata({
+    filename: name,
+    mime: image.mime,
+    size: image.size,
+    width: image.width,
+    height: image.height,
+  });
+  if (!uploadOrigins.has(new URL(destination).origin)) {
     throw new OneKeyLocalError('Invalid support upload destination');
   }
   await session.assertCurrent();
   const form = new FormData();
-  for (const [key, value] of Object.entries({
-    key: response.key,
-    acl: response.acl,
-    'Content-Type': response.content_type,
-    AWSAccessKeyId: response.aws_access_key,
-    policy: response.policy,
-    signature: response.signature,
-    success_action_status: response.success_action_status,
-    'x-amz-meta-safe_app_id': intercomRecord(response.metadata).safe_app_id,
-  })) {
-    if (typeof value === 'string' || typeof value === 'number')
-      form.append(key, String(value));
-  }
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
   appendSupportImage(form, image, name);
   // The native transport serializes Expo Files and enforces redirect rejection.
   const result = await streamingFetch(destination, {

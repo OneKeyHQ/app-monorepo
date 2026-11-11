@@ -1,9 +1,3 @@
-export type IIntercomSupportRoute = {
-  userId: string | null;
-  requestId?: string;
-  conversationId?: string;
-};
-
 export type IIntercomNotification = {
   id: string;
   conversationId: string;
@@ -120,11 +114,49 @@ export type IIntercomOpen = {
   createParams: Record<string, string | number>;
 };
 
+export type IIntercomOutgoingMessage = {
+  clientId: string;
+  createdAt?: number;
+  blocks: IIntercomBlock[];
+};
+
 export type IIntercomMessengerSession = {
-  request: (
-    path: string,
-    parameters?: Record<string, unknown>,
-  ) => Promise<unknown>;
+  listConversations: (
+    cursor?: Pick<IIntercomInbox, 'nextPage' | 'before'>,
+  ) => Promise<IIntercomInbox>;
+  getConversation: (id: string) => Promise<IIntercomConversation>;
+  getHome: () => Promise<IIntercomHome>;
+  getOpen: () => Promise<IIntercomOpen>;
+  reply: (
+    id: string,
+    message: IIntercomOutgoingMessage,
+  ) => Promise<IIntercomPart>;
+  quickReply: (
+    id: string,
+    reply: { clientId: string; partId: string; replyId: string; text: string },
+  ) => Promise<IIntercomPart>;
+  createConversation: (params: {
+    message: IIntercomOutgoingMessage;
+    open: IIntercomOpen;
+    quickReplyId?: string;
+  }) => Promise<IIntercomConversation>;
+  submitForm: (
+    id: string,
+    field: { partId: string; identifier: string; value: string },
+  ) => Promise<void>;
+  markRead: (id: string) => Promise<void>;
+  refreshUnread: () => Promise<void>;
+  searchArticles: (phrase: string) => Promise<IIntercomArticleLink[]>;
+  getUploadMetadata: (
+    image: Pick<
+      IIntercomImage,
+      'filename' | 'mime' | 'size' | 'width' | 'height'
+    >,
+  ) => Promise<{
+    destination: string;
+    publicUrl: string;
+    fields: Record<string, string>;
+  }>;
   assertCurrent: () => Promise<void>;
 };
 

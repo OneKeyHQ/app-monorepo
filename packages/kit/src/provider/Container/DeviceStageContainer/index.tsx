@@ -18,6 +18,7 @@ import type { IDeviceStageWaitEnd } from '@onekeyhq/components/src/composite/Dev
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useDevSettingsPersistAtom,
   useDeviceStageAtom,
@@ -37,7 +38,6 @@ import {
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';

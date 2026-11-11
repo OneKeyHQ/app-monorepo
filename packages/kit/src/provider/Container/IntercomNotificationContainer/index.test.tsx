@@ -1,20 +1,18 @@
-/**
- * @jest-environment jsdom
- */
+/** @jest-environment jsdom */
 
 import { IntercomNotificationContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
 import type { IToastNotificationProps } from '@onekeyhq/components';
+import { presentIntercomSupportUi } from '@onekeyhq/kit/src/views/Intercom/client/supportUi';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IIntercomNotification } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
-import { presentIntercomSupportUi } from '@onekeyhq/shared/src/modules3rdParty/intercom/supportUi';
-import type { IIntercomLockPolicy } from '@onekeyhq/shared/src/modules3rdParty/intercom/utils';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { IntercomNotificationContainer as ExtensionContainer } from './index.ext';
@@ -24,6 +22,12 @@ import { IntercomLockGuard as ExtensionLockGuard } from './IntercomLockGuard.ext
 
 import type { IIntercomNavigationState } from './visibility';
 
+jest.mock('@react-navigation/native', () => ({
+  StackActions: jest.requireActual<typeof import('@react-navigation/routers')>(
+    '@react-navigation/routers',
+  ).StackActions,
+}));
+
 let mockIsLocked = false;
 let mockState: IIntercomNavigationState | undefined;
 let mockRouterChange:
@@ -32,11 +36,11 @@ let mockRouterChange:
 let mockReady: (() => void) | undefined;
 const mockRemoveReady = jest.fn();
 const mockNavigate = jest.fn();
+const mockDispatch = jest.fn<void, [unknown]>();
+let mockModalScreen: EModalRoutes | undefined;
 let mockLockDuration = 5;
 let mockLastActivity = 1234;
-const mockSetLocked = jest.fn(
-  async (_locked: boolean, _policy?: IIntercomLockPolicy) => {},
-);
+const mockSetLocked = jest.fn<void, []>();
 const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
 let mockNotification: IIntercomNotification | undefined;
 const mockNotificationListeners = new Set<() => void>();
@@ -74,7 +78,17 @@ jest.mock('@onekeyhq/components', () => ({
       navigate: (params: unknown) => {
         mockNavigate(params);
       },
-      getRootState: () => mockState,
+      dispatch: (action: unknown) => mockDispatch(action),
+      getRootState: () => ({
+        index: 0,
+        ...mockState,
+        routes: mockState?.routes.map((route) => ({
+          ...route,
+          ...(route.name === ERootRoutes.Modal && mockModalScreen
+            ? { state: { index: 0, routes: [{ name: mockModalScreen }] } }
+            : {}),
+        })),
+      }),
       addListener: (_event: string, callback: () => void) => {
         mockReady = callback;
         return mockRemoveReady;
@@ -108,11 +122,10 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'standard' } }),
   },
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   setIntercomInAppMessageVisibility: (visible: boolean) =>
     mockSetVisibility(visible),
-  setIntercomMessengerLocked: (locked: boolean, policy?: IIntercomLockPolicy) =>
-    mockSetLocked(locked, policy),
+  syncIntercomLockState: async () => mockSetLocked(),
   getIntercomNotification: () => mockNotification,
   subscribeToIntercomNotifications: (listener: () => void) => {
     mockNotificationListeners.add(listener);
@@ -131,6 +144,7 @@ describe('Intercom notification visibility integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsLocked = false;
+    mockModalScreen = undefined;
     mockLockDuration = 5;
     mockLastActivity = 1234;
     mockState = main;
@@ -145,21 +159,63 @@ describe('Intercom notification visibility integration', () => {
     ['native', NativeContainer],
     ['extension', ExtensionContainer],
   ])(
-    'registers and cleans up the support presenter on %s',
+    'opens support without a presenter registration on %s',
     (_platform, Container) => {
       const screen = render(<Container />);
       expect(presentIntercomSupportUi({ userId: null })).toBe(true);
-      expect(mockNavigate).toHaveBeenCalledWith(
+      expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          params: expect.objectContaining({
-            params: expect.objectContaining({ params: { userId: '' } }),
+          type: 'PUSH',
+          payload: expect.objectContaining({
+            name: ERootRoutes.Modal,
+            params: expect.objectContaining({
+              params: expect.objectContaining({ params: { userId: null } }),
+            }),
           }),
         }),
       );
       screen.unmount();
-      expect(presentIntercomSupportUi({ userId: null })).toBeUndefined();
+      mockState = undefined;
+      expect(presentIntercomSupportUi({ userId: null })).toBe(false);
     },
   );
+
+  it('pushes support above the existing force-update modal', () => {
+    mockState = {
+      index: 1,
+      routes: [{ name: ERootRoutes.Main }, { name: ERootRoutes.Modal }],
+    };
+    mockModalScreen = EModalRoutes.AppUpdateModal;
+    render(<IntercomNotificationContainer />);
+    expect(presentIntercomSupportUi({ userId: null })).toBe(true);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'PUSH' }),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('reuses the active support modal for a different conversation', () => {
+    mockState = {
+      index: 1,
+      routes: [{ name: ERootRoutes.Main }, { name: ERootRoutes.Modal }],
+    };
+    mockModalScreen = EModalRoutes.IntercomModal;
+    render(<IntercomNotificationContainer />);
+    expect(
+      presentIntercomSupportUi({ userId: null, conversationId: '42' }),
+    ).toBe(true);
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: ERootRoutes.Modal,
+        params: expect.objectContaining({
+          params: expect.objectContaining({
+            params: { userId: null, conversationId: '42' },
+          }),
+        }),
+      }),
+    );
+  });
 
   it('waits for navigation readiness before allowing messages', () => {
     mockState = undefined;
@@ -258,32 +314,21 @@ describe('Intercom notification visibility integration', () => {
   });
 
   it.each([IntercomLockGuard, ExtensionLockGuard])(
-    'forwards the wallet lock state to the Messenger guard (%#)',
+    'resynchronizes the guard from source atoms without copying their values (%#)',
     (Guard) => {
       const screen = render(<Guard />);
-      expect(mockSetLocked).toHaveBeenLastCalledWith(false, {
-        validFromMs: 1234,
-        lockAtMs: 1234 + 5 * 60_000,
-      });
+      expect(mockSetLocked).toHaveBeenCalledTimes(1);
       mockIsLocked = true;
       screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-        validFromMs: 1234,
-        lockAtMs: 1234 + 5 * 60_000,
-      });
+      expect(mockSetLocked).toHaveBeenCalledTimes(2);
       mockLastActivity = 5678;
       mockLockDuration = 30;
       screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-        validFromMs: 5678,
-        lockAtMs: 5678 + 30 * 60_000,
-      });
+      expect(mockSetLocked).toHaveBeenCalledTimes(3);
       mockLockDuration = Number(ELockDuration.Never);
       screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenLastCalledWith(true, {
-        validFromMs: 0,
-        lockAtMs: Number.MAX_VALUE,
-      });
+      expect(mockSetLocked).toHaveBeenCalledTimes(4);
+      expect(mockSetLocked).toHaveBeenLastCalledWith();
     },
   );
 });

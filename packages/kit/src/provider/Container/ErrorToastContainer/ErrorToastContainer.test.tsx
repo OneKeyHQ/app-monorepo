@@ -57,7 +57,7 @@ jest.mock(
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
   () => ({}),
 );
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({}));
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({}));
 
 jest.mock('react-intl', () => {

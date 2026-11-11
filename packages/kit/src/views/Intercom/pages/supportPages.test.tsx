@@ -11,17 +11,21 @@ import {
 } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createMessengerApi } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerApi';
 import type {
   IIntercomImage,
   IIntercomMessengerSession,
-  IIntercomSupportRoute,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { uploadIntercomImage } from '@onekeyhq/shared/src/modules3rdParty/intercom/upload';
+import type { IIntercomSupportRoute } from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { cleanSupportImage, pickSupportImage } from '../utils/pickSupportImage';
 
-import SupportScreen from './SupportScreen';
+import SupportConversation from './SupportConversation';
+import SupportHelp from './SupportHelp';
+import SupportHome from './SupportHome';
+import SupportMessages from './SupportMessages';
 
 let mockLocked = false;
 let mockFailSend = false;
@@ -36,13 +40,13 @@ const mockNavigation = {
   replace: jest.fn(),
 };
 const mockRequest = jest.fn<
-  ReturnType<IIntercomMessengerSession['request']>,
-  Parameters<IIntercomMessengerSession['request']>
+  Promise<unknown>,
+  [string, Record<string, unknown>?]
 >();
-const mockSession: IIntercomMessengerSession = {
+const mockSession: IIntercomMessengerSession = createMessengerApi({
   request: mockRequest,
   assertCurrent: async () => {},
-};
+});
 const mockRoute: {
   name: string;
   key: string;
@@ -52,9 +56,17 @@ const mockRoute: {
   key: 'chat',
   params: { userId: null },
 };
+// Exercise the independent router pages with the same route fixtures.
+function SupportScreen() {
+  if (mockRoute.name === 'IntercomHome') return <SupportHome />;
+  if (mockRoute.name === 'IntercomMessages') return <SupportMessages />;
+  if (mockRoute.name === 'IntercomHelp') return <SupportHelp />;
+  return <SupportConversation />;
+}
+
 const mockCreateSession = jest.fn(async () => mockSession);
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   createIntercomMessengerSession: () => mockCreateSession(),
   showIntercom: jest.fn(),
 }));

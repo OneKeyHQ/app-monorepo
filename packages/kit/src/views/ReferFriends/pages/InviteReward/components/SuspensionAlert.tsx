@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { Alert, YStack } from '@onekeyhq/components';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 
 type ISuspensionAlertProps = {
   suspensionNotice?: string;
