@@ -76,13 +76,10 @@ export async function sniRequest(
   }
 }
 
-const DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE =
-  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.uploadFile\(\)|DESKTOP_API_CALL:\s*disallowed method "uploadFile"/;
-
 /**
  * Upload a local file over the pinned-IP/SNI transport in the main process.
- * Returns null when the desktop API is unavailable or predates `uploadFile`,
- * so callers keep the domain upload path.
+ * Returns null when the desktop API is unavailable, so callers keep the
+ * domain upload path.
  */
 export async function sniUploadFile(
   config: ISniUploadFileConfig,
@@ -104,30 +101,14 @@ export async function sniUploadFile(
     return null;
   }
 
-  try {
-    return await executeSniRequestWithAbort<ISniUploadFileConfig, ISniResponse>(
-      config,
-      options,
-      (requestConfig) => sniRequestProxy.uploadFile(requestConfig),
-      (requestId) => sniRequestProxy.cancelRequest(requestId),
-    );
-  } catch (error) {
-    if (DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE.test(getErrorMessage(error))) {
-      logAdapterCapability('warn', {
-        adapter: 'desktop',
-        capability: 'upload_file',
-        available: false,
-        decision: 'null',
-        hostname: config.hostname,
-        ipHash: hashForLog(config.ip),
-        errorMessage: getErrorMessage(error),
-      });
-      return null;
-    }
-    // Unlike request(), upload failures are surfaced so the caller can tell
-    // a timeout (no domain retry) from other failures.
-    throw error;
-  }
+  // Unlike request(), upload failures are surfaced so the caller can tell
+  // a timeout (no domain retry) from other failures.
+  return executeSniRequestWithAbort<ISniUploadFileConfig, ISniResponse>(
+    config,
+    options,
+    (requestConfig) => sniRequestProxy.uploadFile(requestConfig),
+    (requestId) => sniRequestProxy.cancelRequest(requestId),
+  );
 }
 
 export function isSniUploadFileSupported(): boolean {
