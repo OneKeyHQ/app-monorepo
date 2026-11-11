@@ -45,7 +45,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketWatchListDataV2,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -411,6 +414,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const [watchListItems, setWatchListItems] = useState<
     IMarketWatchListItemV2[]
   >([]);
+  const watchListItemsRef = useRef<IMarketWatchListItemV2[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     FAVORITES_CATEGORY_ID,
   );
@@ -537,21 +541,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   }, [categoryTokens, favoriteTokens, recommendedDisplayTokens]);
 
   const isTokenInWatchList = useCallback(
-    (record: IFavoriteTokenDisplay) => {
+    (record: IFavoriteTokenDisplay, items = watchListItems) => {
       if (record.assetId || record.stockId) {
-        return watchListItems.some(
+        return items.some(
           (item) =>
             getMarketWatchlistKey(item) === getMarketWatchlistKey(record),
         );
       }
 
       if (record.perpsCoin) {
-        return watchListItems.some(
-          (item) => item.perpsCoin === record.perpsCoin,
-        );
+        return items.some((item) => item.perpsCoin === record.perpsCoin);
       }
 
-      return watchListItems.some((item) =>
+      return items.some((item) =>
         equalTokenNoCaseSensitive({
           token1: {
             networkId: record.chainId,
@@ -573,7 +575,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       if (pendingWatchlistKeysRef.current.has(key)) return;
       pendingWatchlistKeysRef.current.add(key);
       displayTokenCacheRef.current.set(key, record);
-      const checked = isTokenInWatchList(record);
+      const checked = isTokenInWatchList(record, watchListItemsRef.current);
 
       try {
         const firstSortIndex =
@@ -710,16 +712,52 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     });
   }, [intl, shouldUseTableLayout]);
 
-  const { isLoading, run: refreshData } = usePromiseResult(
-    async () => {
-      favoriteRefreshIdRef.current += 1;
-      const refreshId = favoriteRefreshIdRef.current;
-      // Get user's favorites from local storage (synced via Prime Cloud Sync)
-      const watchList =
-        await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
-      if (refreshId !== favoriteRefreshIdRef.current) return;
-      setWatchListItems(watchList.data);
+  const refreshMembership = useCallback(async () => {
+    favoriteRefreshIdRef.current += 1;
+    const refreshId = favoriteRefreshIdRef.current;
+    const watchList =
+      await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+    if (refreshId !== favoriteRefreshIdRef.current) return undefined;
 
+    const previousItems = watchListItemsRef.current;
+    const membershipChanged =
+      previousItems.length !== watchList.data.length ||
+      watchList.data.some(
+        (item, index) =>
+          getMarketWatchlistKey(item) !==
+          getMarketWatchlistKey(previousItems[index]),
+      );
+    watchListItemsRef.current = watchList.data;
+    setWatchListItems(watchList.data);
+
+    // Only membership changes may replace the current view with cached rows.
+    // Quote polling must preserve recommendation choices when no quote is available.
+    if (membershipChanged && watchList.data.length > 0) {
+      const cachedTokens = watchList.data
+        .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT)
+        .map((item) =>
+          displayTokenCacheRef.current.get(getMarketWatchlistKey(item)),
+        )
+        .filter((item): item is IFavoriteTokenDisplay => Boolean(item));
+      if (cachedTokens.length > 0) {
+        setFavoriteTokens(cachedTokens);
+        setHasUserFavorites(true);
+        setShowRecommendCards(false);
+        setTotalFavoritesCount(watchList.data.length);
+        initializedRef.current = true;
+      }
+    }
+    return { watchList, refreshId };
+  }, []);
+
+  const refreshFavoriteQuotes = useCallback(
+    async ({
+      watchList,
+      refreshId,
+    }: {
+      watchList: IMarketWatchListDataV2;
+      refreshId: number;
+    }) => {
       // Check if user has any favorites
       const userHasFavorites = watchList.data.length > 0;
 
@@ -727,20 +765,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         // Use user's favorites (up to 3 for display)
         const userDisplayCount = 3;
         const targetItems = watchList.data.slice(0, userDisplayCount);
-
-        // Membership changes use existing quotes before waiting for the network.
-        const cachedTokens = targetItems
-          .map((item) =>
-            displayTokenCacheRef.current.get(getMarketWatchlistKey(item)),
-          )
-          .filter((item): item is IFavoriteTokenDisplay => Boolean(item));
-        if (cachedTokens.length > 0) {
-          setFavoriteTokens(cachedTokens);
-          setHasUserFavorites(true);
-          setShowRecommendCards(false);
-          setTotalFavoritesCount(watchList.data.length);
-          initializedRef.current = true;
-        }
 
         // Split into spot and perps items
         const spotTargets = targetItems.filter(
@@ -919,6 +943,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       initializedRef.current = true;
     },
     [loadRecommendations, recommendedDisplayTokens],
+  );
+
+  const { isLoading, run: refreshData } = usePromiseResult(
+    async () => {
+      const snapshot = await refreshMembership();
+      if (snapshot) await refreshFavoriteQuotes(snapshot);
+    },
+    [refreshMembership, refreshFavoriteQuotes],
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
@@ -927,7 +959,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       revalidateOnReconnect: true,
     },
   );
-  refreshDataRef.current = refreshData;
+  refreshDataRef.current = async () => {
+    try {
+      const snapshot = await refreshMembership();
+      if (snapshot) {
+        void refreshFavoriteQuotes(snapshot).catch(
+          errorToastUtils.toastIfErrorDisable,
+        );
+      }
+    } catch (error) {
+      // A saved mutation must not be reported as failed because revalidation failed.
+      errorToastUtils.toastIfErrorDisable(error);
+    }
+  };
 
   const isMarketConfigInitialLoading =
     isMarketBasicConfigLoading !== false &&
@@ -1090,7 +1134,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        await refreshData();
+        await refreshDataRef.current();
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
@@ -1101,7 +1145,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         pendingWatchlistKeysRef.current.delete(key);
       }
     },
-    [intl, refreshData],
+    [intl],
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 

@@ -27,6 +27,7 @@ const mockRecord: IFavoriteTokenDisplay = {
   marketCap: 1,
   volume24h: 1,
 };
+let mockCategoryRecord = mockRecord;
 let mockShowFavorites = false;
 let mockRecommendationResult: IFavoriteTokenDisplay[] | undefined;
 let mockRefreshFavorites: () => Promise<void>;
@@ -116,7 +117,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceApp: { openExtensionMarketTokenDetail: jest.fn() },
     serviceMarket: { fetchMarketAssetDetail: jest.fn() },
+    serviceHyperliquid: { getTokenSearchAliases: jest.fn() },
     serviceMarketV2: {
+      fetchMarketPerpsTokenList: jest.fn(),
+      syncToPerpsAtom: jest.fn(),
       getMarketWatchListV2: jest.fn(),
       fetchMarketBasicConfig: jest.fn(),
       fetchMarketListingWatchlistQuote: jest.fn(),
@@ -220,7 +224,7 @@ jest.mock('./metricColumns', () => ({
 }));
 jest.mock('./useHomeMarketCategoryTokens', () => ({
   useHomeMarketCategoryTokens: () => ({
-    categoryTokens: [mockRecord],
+    categoryTokens: [mockCategoryRecord],
     isCategoryLoading: false,
   }),
 }));
@@ -253,7 +257,10 @@ jest.mock('./MarketCategoryTokenList', () => ({
       <button type="button" onClick={() => onTokenPress(mockRecord)}>
         Open token
       </button>
-      <button type="button" onClick={() => void onStarPress(mockRecord)}>
+      <button
+        type="button"
+        onClick={() => void onStarPress(mockCategoryRecord)}
+      >
         Toggle favorite
       </button>
     </>
@@ -288,8 +295,14 @@ const removeWatchList = jest.spyOn(
   backgroundApiProxy.serviceMarketV2,
   'removeMarketWatchListV2',
 );
+const fetchPerps = jest.spyOn(
+  backgroundApiProxy.serviceMarketV2,
+  'fetchMarketPerpsTokenList',
+);
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCategoryRecord = mockRecord;
+  fetchPerps.mockReset().mockResolvedValue({ tokens: [], updatedAt: 0 });
   jest.replaceProperty(platformEnv, 'isNative', false);
   jest.replaceProperty(platformEnv, 'isExtensionUiPopup', true);
   mockShowFavorites = false;
@@ -785,14 +798,92 @@ it('keeps a token pending until its membership refresh settles before allowing a
       data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
     });
   });
-  await act(async () =>
-    quote.resolve({ symbol: 'BTC', name: 'Bitcoin', logoUrl: '' }),
-  );
   getWatchList.mockResolvedValue({ data: [] });
   await act(async () =>
     fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
   );
   expect(removeWatchList).toHaveBeenCalledTimes(1);
   expect(addWatchList).toHaveBeenCalledTimes(1);
+  await act(async () =>
+    quote.resolve({ symbol: 'BTC', name: 'Bitcoin', logoUrl: '' }),
+  );
   expect(Toast.error).not.toHaveBeenCalled();
+});
+
+describe.each(['spot', 'perps'])('%s favorite error handling', (kind) => {
+  beforeEach(() => {
+    if (kind === 'perps') {
+      mockCategoryRecord = {
+        ...mockRecord,
+        assetId: undefined,
+        perpsCoin: 'BTC',
+      };
+    }
+  });
+
+  it('does not report a saved favorite as failed when membership revalidation rejects', async () => {
+    const error = Object.assign(new Error('readback failed'), {
+      autoToast: true,
+    });
+    getWatchList.mockRejectedValueOnce(error);
+    render(<PopularTrading tableLayout />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
+    );
+    expect(addWatchList).toHaveBeenCalledTimes(1);
+    expect(Toast.error).not.toHaveBeenCalled();
+    expect(error.autoToast).toBe(false);
+  });
+
+  it('still reports an actual favorite write failure', async () => {
+    addWatchList.mockRejectedValueOnce(new Error('write failed'));
+    render(<PopularTrading tableLayout />);
+    await act(async () =>
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
+    );
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('preserves recommendation deselections while polling an unchanged cached favorite with no quote', async () => {
+  mockShowFavorites = true;
+  mockCategoryRecord = { ...mockRecord, assetId: undefined, perpsCoin: 'BTC' };
+  mockRecommendationResult = [
+    { ...mockRecord, assetId: 'ethereum', symbol: 'ETH', name: 'Ethereum' },
+    { ...mockRecord, assetId: 'solana', symbol: 'SOL', name: 'Solana' },
+  ];
+  getWatchList.mockResolvedValue({
+    data: [{ chainId: '', contractAddress: '', perpsCoin: 'BTC' }],
+  });
+  render(<PopularTrading tableLayout />);
+  await act(async () => mockRefreshFavorites());
+  fireEvent.click(screen.getByText('Ethereum'));
+  expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+
+  const quote =
+    Promise.withResolvers<
+      Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList
+        >
+      >
+    >();
+  fetchPerps.mockReturnValueOnce(quote.promise);
+  let refresh: Promise<void>;
+  await act(async () => {
+    refresh = mockRefreshFavorites();
+  });
+  expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+  await act(async () => {
+    quote.resolve({ tokens: [], updatedAt: 0 });
+    await refresh;
+  });
+  expect(screen.getAllByTestId('recommend-selected')).toHaveLength(1);
+  await act(async () =>
+    fireEvent.click(screen.getByTestId('home-header-actions-btn')),
+  );
+  expect(addWatchList).toHaveBeenCalledWith({
+    callerName: 'PopularTrading',
+    watchList: [expect.objectContaining({ assetId: 'solana' })],
+  });
 });
