@@ -196,12 +196,14 @@ function mergeBannerQuotes(
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
     const cached = quotes.get(banner._id);
-    // Keep hydrated quote rows across list polls so preview membership does
-    // not flash. Overlay the latest preview logos onto those rows.
+    // Desktop publishes refreshed artwork only after the bounded preload.
+    // Other platforms overlay the latest preview artwork immediately.
     if (canReuseBannerQuotes(banner, cached)) {
       return {
         ...banner,
-        tokens: applyPreviewLogos(cached.tokens, banner.tokens),
+        tokens: platformEnv.isDesktop
+          ? cached.tokens
+          : applyPreviewLogos(cached.tokens, banner.tokens),
       };
     }
     return banner;
@@ -312,22 +314,27 @@ export function useMarketBannerList(): {
     return (uris: string[]) => {
       // Include time spent queued so stalled artwork cannot hold up quotes.
       const deadline = Date.now() + 1000;
-      return Promise.all(
-        [...new Set(uris)].filter(Boolean).map((uri) =>
-          limit(() => {
-            const timeout = deadline - Date.now();
-            if (timeout <= 0) return false;
-            return createTimeoutPromise({
-              asyncFunc: () =>
-                preloadImages([
+      const loaded = new Set<string>();
+      return createTimeoutPromise({
+        asyncFunc: async () => {
+          await Promise.all(
+            [...new Set(uris)].filter(Boolean).map((uri) =>
+              limit(async () => {
+                if (Date.now() >= deadline) return;
+                // Keep the slot until the actual request settles, even if
+                // the caller has already stopped waiting for artwork.
+                const success = await preloadImages([
                   { uri, resizeWidth: getTokenImageResizeWidth('xs') },
-                ]).catch(() => false),
-              timeout,
-              timeoutResult: false,
-            });
-          }),
-        ),
-      );
+                ]).catch(() => false);
+                if (success) loaded.add(uri);
+              }),
+            ),
+          );
+          return loaded;
+        },
+        timeout: 1000,
+        timeoutResult: loaded,
+      });
     };
   }, []);
   const hydrationSequenceRef = useRef(0);
@@ -399,11 +406,36 @@ export function useMarketBannerList(): {
               );
               // Warm incoming rows before replacing cached rows so their
               // images paint on mount instead of flashing a loading skeleton.
-              await preloadBannerImages(
+              const loadedLogos = await preloadBannerImages(
                 getMarketBannerLogoUris(updated).filter(
                   (uri) => !displayedLogos.has(uri),
                 ),
               );
+              const tokens = updated.tokens;
+              const previousTokens = displayed?.tokens;
+              if (
+                tokens &&
+                previousTokens &&
+                !isMarketIndexQuoteBanner(updated)
+              ) {
+                updated = {
+                  ...updated,
+                  tokens: tokens.map((token) => {
+                    const previous = findMatchingMarketBannerToken(
+                      token,
+                      tokens,
+                      previousTokens,
+                    );
+                    // A failed or timed-out artwork refresh must not blank
+                    // an existing token's icon or hold back its quote.
+                    return previous?.logo &&
+                      !displayedLogos.has(token.logo) &&
+                      !loadedLogos.has(token.logo)
+                      ? { ...token, logo: previous.logo }
+                      : token;
+                  }),
+                };
+              }
             }
             if (
               currentScopeRef.current !== requestScope ||
