@@ -28,6 +28,7 @@ import {
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IConvertDeviceErrorOptions } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IAppEventBusPayload,
   ILinuxUdevGuideReason,
@@ -882,6 +883,13 @@ class ServiceHardware extends ServiceBase {
         name: label,
         shouldCheckDuplicate: false,
       });
+      try {
+        await this.backgroundApi.serviceKeylessCloudSync.syncHardwareCloudSyncDeviceLabel(
+          { walletId, label },
+        );
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
     },
     {
       maxAge: 600,
