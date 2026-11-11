@@ -619,6 +619,9 @@ export function PerpOrderBook({
   initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
+  // Let the Android pager measure the horizontal book at its intrinsic height.
+  const isAndroidHorizontalOrderBook =
+    platformEnv.isNativeAndroid && !gtMd && entry === 'perpMobileMarket';
   const actionsRef = useHyperliquidActions();
   const l2BookSnapshotRequestKeyRef = useRef<string | undefined>(undefined);
   const layoutRectsRef = useRef<
@@ -1186,7 +1189,7 @@ export function PerpOrderBook({
       <>
         {dataBridge}
         <YStack
-          flex={1}
+          flex={isAndroidHorizontalOrderBook ? undefined : 1}
           bg="$bgApp"
           onLayout={(event) =>
             handleTraceLayout('mobileHorizontalLoading', event)
@@ -1229,7 +1232,7 @@ export function PerpOrderBook({
 
   const content = (
     <YStack
-      flex={1}
+      flex={isAndroidHorizontalOrderBook ? undefined : 1}
       bg="$bgApp"
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
