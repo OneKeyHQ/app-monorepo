@@ -10,7 +10,7 @@ import {
 import type { ReactElement, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, StyleSheet } from 'react-native';
+import { type LayoutChangeEvent, Platform, StyleSheet } from 'react-native';
 
 import {
   Button,
@@ -620,8 +620,10 @@ export function PerpOrderBook({
 }) {
   const { gtMd } = useMedia();
   // Let the Android pager measure the horizontal book at its intrinsic height.
-  const isAndroidHorizontalOrderBook =
-    platformEnv.isNativeAndroid && !gtMd && entry === 'perpMobileMarket';
+  const orderBookFlex = Platform.select({
+    android: !gtMd && entry === 'perpMobileMarket' ? undefined : 1,
+    default: 1,
+  });
   const actionsRef = useHyperliquidActions();
   const l2BookSnapshotRequestKeyRef = useRef<string | undefined>(undefined);
   const layoutRectsRef = useRef<
@@ -1189,7 +1191,7 @@ export function PerpOrderBook({
       <>
         {dataBridge}
         <YStack
-          flex={isAndroidHorizontalOrderBook ? undefined : 1}
+          flex={orderBookFlex}
           bg="$bgApp"
           onLayout={(event) =>
             handleTraceLayout('mobileHorizontalLoading', event)
@@ -1232,7 +1234,7 @@ export function PerpOrderBook({
 
   const content = (
     <YStack
-      flex={isAndroidHorizontalOrderBook ? undefined : 1}
+      flex={orderBookFlex}
       bg="$bgApp"
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
