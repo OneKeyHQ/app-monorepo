@@ -1488,12 +1488,58 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
 **Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
 
+
+## Case: Cloud sync device names depended on cached hardware labels
+**Date**: 2026-11-10 | **Platforms**: Desktop/web (single JS runtime); mobile/extension hardware work stays in bg and the existing persisted-atom bridge updates main UI. SDK and native resource ownership are unchanged.
+**Symptom**: Cloud sync could show a custom label such as fido88 instead of the Bluetooth name Neo 1797, and a saved label fallback could become stale after a rename.
+**Root Cause**: Cloud copied the label-first device display name from an SDK runtime snapshot, while V2 label reads use the settings scope. Its saved display metadata was not updated by existing wallet label changes.
+**Fix**: Prefer the canonical Bluetooth name, retain label/model fallbacks, and read settings only when no Bluetooth name is available. Reuse label updates only after matching the standard wallet identity, and refresh display metadata after a Cloud key reset. A saved Bluetooth name skips label lookups and extra hardware reads.
+**Catchable by**: Sections 4 and 6: Exercise both label and Bluetooth name together, all empty Bluetooth-name variants, stale cached labels, unrelated wallet identities, and assertions on hardware-call counts.
+
+## Case: Optional Cloud label refresh blocked hardware signing
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background flow; desktop/web use one JS runtime, while mobile/extension use isolated bg and main runtimes. No native-resource or JS heap ownership changes.
+**Symptom**: A device without a Bluetooth name could no longer enable or reset Cloud sync if the new settings read failed, even though its standard-wallet runtime state and cached label were already valid.
+**Root Cause**: A display-only enrichment call was awaited as a required prerequisite to signing, and its error escaped the validated standard-wallet flow.
+**Fix**: Keep the validated runtime snapshot when a recoverable settings refresh fails, log the sanitized failure, and preserve operation/lease cancellation and explicit hardware or PIN cancellation. The existing live identity checks still gate signing.
+**Catchable by**: Sections 4, 5 and 6: Fail optional metadata reads after required validation succeeds; verify signing can proceed with the known name, while cancellation still stops before any signature.
+
+
+## Case: Cloud key reset reported failure after committing a new key
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing UI metadata broadcasts. Native resource ownership is unchanged.
+**Symptom**: Saving a refreshed device name could reject after a successful key rotation, report a failed reset, and skip generation recording, session revocation and forced synchronization.
+**Root Cause**: The display-name persistence await sat between committing the new key and required reset finalization, allowing an optional storage failure to interrupt security-relevant cleanup.
+**Fix**: Finish generation recording, session revocation, synchronization and timestamp updates first. Persist the display name afterward as best effort and log a sanitized failure without rejecting the completed reset.
+**Catchable by**: Sections 4, 5 and 6: Inject an optional persistence failure after the irreversible operation and assert the committed key, recorded generation, revoked sessions and completed sync independently of display metadata.
+
 ## Case: Privacy account actions interfered with unrelated rows (OK-66891, OK-66892)
 **Date**: 2026-11-10 | **Platforms**: iOS, Android and extension main UI runtime; desktop/web single JS runtime. Background scanning, native resource ownership and shared account admission are unchanged.
 **Symptom**: An account action disabled unrelated rows, while deleting local data displayed loading on Pause. The first per-account guard also let a duplicate confirmation finish before the original request, allowing the dialog footer to close early.
 **Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
 **Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
 **Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
+
+
+## Case: Devices sharing a recovery phrase could replace each other's Cloud name
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing persisted metadata delivered to main. SDK/native resource ownership is unchanged.
+**Symptom**: Renaming another physical device restored from the same recovery phrase could replace the selected Cloud device's name, and an unrelated Bluetooth name could disable future label refreshes.
+**Root Cause**: The Cloud credential ID identifies the standard wallet rather than the physical device, so matching only that ID admitted metadata from other devices using the same wallet.
+**Fix**: Keep a local hash of the physical device's normalized serial number when Cloud signing reads it. Reuse another flow's label only when both wallet and physical bindings match, and recheck the binding during the atom update. Keep unbound legacy sources unchanged until a Cloud signing operation identifies their device; no extra hardware reads are added.
+**Catchable by**: Sections 4, 5 and 6: Test two devices with the same wallet fingerprint but different serial numbers, missing physical identity, legacy metadata and a physical-source change during an async label lookup.
+
+
+## Case: A failed post-reset sync left the committed Cloud device name stale
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg and main. No SDK/native resource ownership changes.
+**Symptom**: After the data key was committed, a forced-sync error skipped the device-name refresh. The selected Cloud device kept its previous name and physical binding despite successful hardware signing.
+**Root Cause**: Making metadata persistence best effort prevented storage errors from failing the reset, but placing it only after successful synchronization still skipped it on the failure path.
+**Fix**: Remember the freshly signed source only after the data-key commit succeeds, then attempt its metadata update in finalization regardless of later synchronization failure. Keep metadata errors non-fatal and preserve the original synchronization error.
+**Catchable by**: Sections 4, 5 and 6: Fail the network step after key commit and assert the new key remains stored, the source name and physical binding refresh, and the original network error is still reported.
+
+## Case: Cloud device name helper missing from the native module registry
+**Date**: 2026-11-10 | **Platforms**: iOS, Android
+**Symptom**: Native startup graph CI failed while allocating the new hardware Cloud device name helper.
+**Root Cause**: The helper entered the background bundle graph without a stable module ID registration.
+**Fix**: Register the helper with the existing module ID update command and validate the strict registry lookup.
+**Catchable by**: Section 4: register new files consumed by native bundles before pushing.
 
 ## Case: Lite card backup listed Bot Wallets (OK-66802)
 **Date**: 2026-11-10 | **Platforms**: Lite card wallet selection and shared Prime Transfer filtering on supported clients.
