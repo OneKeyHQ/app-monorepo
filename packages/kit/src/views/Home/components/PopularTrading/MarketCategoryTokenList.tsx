@@ -16,7 +16,6 @@ import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { RichTable } from '../RichTable';
 
@@ -161,14 +160,6 @@ function MarketCategoryTokenList({
                   symbol: record.symbol,
                 });
               },
-              onLongPress: platformEnv.isNative
-                ? () => {
-                    defaultLogger.market.navigation.homeTokenNavigation({
-                      stage: 'longPress',
-                      symbol: record.symbol,
-                    });
-                  }
-                : undefined,
             })}
           />
         )}

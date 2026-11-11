@@ -36,7 +36,6 @@ export class MarketNavigationScene extends BaseScene {
     stage:
       | 'pressIn'
       | 'pressOut'
-      | 'longPress'
       | 'rowPress'
       | 'detailDispatch'
       | 'detailDispatched'

@@ -1407,14 +1407,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   symbol: record.symbol,
                 });
               },
-              onLongPress: platformEnv.isNative
-                ? () => {
-                    defaultLogger.market.navigation.homeTokenNavigation({
-                      stage: 'longPress',
-                      symbol: record.symbol,
-                    });
-                  }
-                : undefined,
             })}
           />
         </YStack>
