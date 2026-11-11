@@ -116,6 +116,7 @@ function createService({
       listAccounts: async () => ({
         accounts: [{ accountId, runtimeKey: 'main', syncEnabled: true }],
       }),
+      getAccountState: async () => accountState,
       getChainTip: async () => 100,
       syncPolicy,
       syncGroup,
@@ -133,7 +134,10 @@ function createService({
           ensureLocalWalletRemoteConfigLoaded: async () => undefined,
         },
         simpleDb: {
-          privacyChainState: { getAccountEpoch: async () => undefined },
+          privacyChainState: {
+            getAccountEpoch: async () => undefined,
+            touchAccountSyncSlot: async () => undefined,
+          },
         },
         serviceAccount: {
           getDBAccountSafe: async () => ({ id: accountId }),
@@ -320,6 +324,38 @@ describe('sync before a private send', () => {
   });
 });
 
+it('preserves a refresh requested while the caught-up pass is publishing', async () => {
+  const { service, syncGroup } = createService();
+  const instance = service as unknown as InstanceType<
+    typeof ServicePrivacyChain
+  >;
+  let refreshResult:
+    | Awaited<ReturnType<typeof instance.refreshLocalWalletAccount>>
+    | undefined;
+  jest.spyOn(instance, 'publishSyncError').mockImplementationOnce(async () => {
+    // The pass has caught up, but its atom publication is still awaiting completion.
+    refreshResult =
+      await ServicePrivacyChain.prototype.refreshLocalWalletAccount.call(
+        instance,
+        { networkId, accountId },
+      );
+  });
+
+  await service.backgroundSyncTick();
+  expect(refreshResult).toMatchObject({
+    scanRequested: true,
+    afterSequence: 1,
+  });
+  expect(syncGroup).toHaveBeenCalledTimes(1);
+  expect(service.runtimeSyncState.has(stateKey)).toBe(false);
+
+  await service.backgroundSyncTick();
+  expect(syncGroup).toHaveBeenCalledTimes(2);
+  expect(service.runtimeSyncState.get(stateKey)).toMatchObject({
+    lastChainTip: 100,
+  });
+});
+
 describe('syncs after a private broadcast', () => {
   it('syncs at once, then at the policy interval, then stops', async () => {
     const start = 1_700_000_000_000;
@@ -485,3 +521,38 @@ describe('activation telemetry', () => {
     ).not.toHaveBeenCalled();
   });
 });
+
+it.each(['publishSyncError', 'publishScanProgress'] as const)(
+  'retries the same tip after %s fails following a caught-up pass',
+  async (publication) => {
+    const start = 1_700_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(start);
+    const { service, syncGroup } = createService();
+    const instance = service as unknown as InstanceType<
+      typeof ServicePrivacyChain
+    >;
+    const progress = jest.spyOn(instance, 'publishScanProgress');
+    jest
+      .spyOn(instance, publication)
+      .mockRejectedValueOnce(new OneKeyLocalError('status publish failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+    now.mockReturnValue(start + 30_000);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ networkId, accountIds: [accountId] }),
+      new Map([[accountId, undefined]]),
+    );
+    expect(service.runtimeSyncState.get(stateKey)).toMatchObject({
+      lastChainTip: 100,
+    });
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+  },
+);

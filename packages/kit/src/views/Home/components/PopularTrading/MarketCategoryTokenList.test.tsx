@@ -3,10 +3,25 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import type { ITableProps } from '@onekeyhq/components';
+
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 
 import type { IFavoriteTokenDisplay } from './types';
 
+type IHomeTokenNavigationEvent = { stage: string; symbol?: string };
+const mockHomeTokenNavigation = jest.fn<void, [IHomeTokenNavigationEvent]>();
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    market: {
+      navigation: {
+        homeTokenNavigation: (params: IHomeTokenNavigationEvent) => {
+          mockHomeTokenNavigation(params);
+        },
+      },
+    },
+  },
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -52,14 +67,16 @@ jest.mock('./metricColumns', () => ({
     renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
   }) => [{ render: renderStarButton }],
 }));
-const mockRichTableProps = jest.fn();
+type IMockRichTableProps = {
+  dataSource: IFavoriteTokenDisplay[];
+  columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
+  rowProps?: { minHeight?: number };
+  headerRowProps?: { minHeight?: number };
+  onRow?: ITableProps<IFavoriteTokenDisplay>['onRow'];
+};
+const mockRichTableProps = jest.fn<void, [IMockRichTableProps]>();
 jest.mock('../RichTable', () => ({
-  RichTable: (props: {
-    dataSource: IFavoriteTokenDisplay[];
-    columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
-    rowProps?: { minHeight?: number };
-    headerRowProps?: { minHeight?: number };
-  }) => {
+  RichTable: (props: IMockRichTableProps) => {
     mockRichTableProps(props);
     return (
       <div data-testid="category-table">
@@ -70,6 +87,44 @@ jest.mock('../RichTable', () => ({
     );
   },
 }));
+
+it('logs press notifications without registering a business long press or navigating early', () => {
+  const token: IFavoriteTokenDisplay = {
+    chainId: 'btc--0',
+    contractAddress: '',
+    isNative: true,
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    logoUrl: '',
+    price: 1,
+    priceChange24h: 0,
+    marketCap: 1,
+    volume24h: 1,
+  };
+  const onTokenPress = jest.fn();
+  render(
+    <MarketCategoryTokenList
+      tokens={[token]}
+      isLoading={false}
+      isTokenInWatchList={() => false}
+      onStarPress={jest.fn()}
+      onTokenPress={onTokenPress}
+      onViewMore={jest.fn()}
+    />,
+  );
+  const row = mockRichTableProps.mock.calls.at(-1)?.[0].onRow?.(token, 0);
+  expect(row?.onLongPress).toBeUndefined();
+  row?.onPressIn?.();
+  row?.onPressOut?.();
+  expect(mockHomeTokenNavigation.mock.calls.map(([params]) => params)).toEqual([
+    { stage: 'pressIn', symbol: 'BTC' },
+    { stage: 'pressOut', symbol: 'BTC' },
+  ]);
+  expect(onTokenPress).not.toHaveBeenCalled();
+  row?.onPress?.();
+  expect(onTokenPress).toHaveBeenCalledTimes(1);
+  expect(onTokenPress).toHaveBeenCalledWith(token);
+});
 
 it.each([true, false])(
   'renders and toggles Home Top Coins with stable rows in table layout %p',
