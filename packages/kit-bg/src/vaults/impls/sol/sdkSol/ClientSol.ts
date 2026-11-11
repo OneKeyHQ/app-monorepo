@@ -32,6 +32,15 @@ export enum ERpcMethods {
 
 export const MIN_PRIORITY_FEE = 1_000_000;
 
+// Rent is a chain parameter that only changes when a feature gate activates at
+// an epoch boundary (SIMD-0437 lowers it in steps), so a short shared cache
+// keeps repeated lookups off the RPC without pinning a stale value for long.
+const RENT_EXEMPTION_CACHE_TTL = 10 * 60 * 1000;
+const rentExemptionCache = new Map<
+  string,
+  { rent: Promise<number>; expiresAt: number }
+>();
+
 class ClientSol {
   private networkId: string;
 
@@ -49,6 +58,32 @@ class ClientSol {
   }
 
   async getMinimumBalanceForRentExemption(dataLength: number): Promise<number> {
+    const key = `${this.networkId}:${dataLength}`;
+    const cached = rentExemptionCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.rent;
+    }
+
+    const rent = this.fetchMinimumBalanceForRentExemption(dataLength);
+    rentExemptionCache.set(key, {
+      rent,
+      expiresAt: Date.now() + RENT_EXEMPTION_CACHE_TTL,
+    });
+    const evict = () => {
+      if (rentExemptionCache.get(key)?.rent === rent) {
+        rentExemptionCache.delete(key);
+      }
+    };
+    // A failed or malformed lookup must not be served for the whole TTL.
+    rent.then((value) => {
+      if (!Number.isFinite(value)) evict();
+    }, evict);
+    return rent;
+  }
+
+  private async fetchMinimumBalanceForRentExemption(
+    dataLength: number,
+  ): Promise<number> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<number>({
         networkId: this.networkId,

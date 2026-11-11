@@ -42,6 +42,9 @@ export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 export const BASE_FEE = 5000; // lamports
 export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 
+// Fallback only: token account rent is read from the chain. This is the rent
+// of a 165-byte account at the pre-SIMD-0437 rate (6960 lamports/byte), which
+// the reductions can only reset to, so a failed lookup errs on the high side.
 export const CREATE_TOKEN_ACCOUNT_RENT = '0.00203928'; // sol
 
 export function isTxOverSize(encodedTx: string): boolean {
