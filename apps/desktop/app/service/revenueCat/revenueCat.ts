@@ -104,6 +104,7 @@ function validateRequest(
     case 'logOut':
     case 'getAppUserId':
     case 'getOfferings':
+    case 'getStorefront':
       break;
     default:
       throw new OneKeyLocalError('Unsupported RevenueCat method');

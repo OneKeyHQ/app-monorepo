@@ -15,6 +15,7 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: { page: { notificationItemClicked: jest.fn() } },
+    notification: { support: { supportReplyClicked: jest.fn() } },
   },
 }));
 

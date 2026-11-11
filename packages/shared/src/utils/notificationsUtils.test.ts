@@ -30,6 +30,7 @@ import notificationsUtils, {
 import timerUtils from './timerUtils';
 
 const mockLog = jest.fn<void, unknown[]>();
+const mockSupportReplyClicked = jest.fn<void, [unknown]>();
 
 describe('support push classification without navigation', () => {
   it.each([
@@ -56,7 +57,7 @@ describe('support push classification without navigation', () => {
     JSON.stringify({ action: 'unrelated' }),
     JSON.stringify({
       action: 'openSupportConversation',
-      data: { conversationId: 42 },
+      data: { conversationId: { id: 42 } },
     }),
   ])('ignores malformed or unrelated command %s', (payload) => {
     expect(
@@ -65,6 +66,41 @@ describe('support push classification without navigation', () => {
       }),
     ).toBeUndefined();
   });
+  it.each([undefined, null, '', '   '])(
+    'keeps the top-level numeric id when higher-priority fields are %p',
+    (conversationId) => {
+      expect(
+        getSupportConversationFromNotification({
+          extras: {
+            mode: 'command',
+            payload: JSON.stringify({
+              action: ' openSupportConversation ',
+              data: { conversationId },
+              conversationId: 42,
+            }),
+            params: { conversationId },
+          },
+        }),
+      ).toEqual({ conversationId: '42' });
+    },
+  );
+  it.each([false, {}, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects an invalid higher-priority id %p without falling back',
+    (conversationId) => {
+      expect(
+        getSupportConversationFromNotification({
+          extras: {
+            mode: 'command',
+            payload: JSON.stringify({
+              action: 'openSupportConversation',
+              data: { conversationId: '42' },
+            }),
+            params: { conversationId },
+          },
+        }),
+      ).toBeUndefined();
+    },
+  );
   it('recognizes a support inbox notification without a conversation id', () => {
     expect(
       getSupportConversationFromNotification({
@@ -82,6 +118,12 @@ jest.mock('../logger/logger', () => ({
     app: {
       error: { log: (...args: unknown[]) => mockLog(...args) },
       page: { notificationItemClicked: jest.fn() },
+    },
+    notification: {
+      support: {
+        supportReplyClicked: (params: unknown) =>
+          mockSupportReplyClicked(params),
+      },
     },
   },
 }));
@@ -419,6 +461,57 @@ describe('legacy notification clicks from native background', () => {
     platformEnv.isExtensionBackground = originalIsExtensionBackground;
     platformEnv.isDesktop = originalIsDesktop;
     platformEnv.isWeb = originalIsWeb;
+  });
+
+  it('logs the clicked notification mode and payload presence before routing', async () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeBackgroundThread = false;
+    platformEnv.isDesktop = true;
+    appGlobals.$navigationRef = {
+      current: { getState: jest.fn(() => ({ routes: [] })) },
+    } as never;
+    mockSupportReplyClicked.mockClear();
+
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-message-center',
+      message: undefined,
+      mode: ENotificationPushMessageMode.openInApp,
+      payload: 'https://onekey.so/',
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: ENotificationPushMessageMode.openInApp,
+      hasPayload: true,
+      isFromNotificationClick: false,
+    });
+
+    mockSupportReplyClicked.mockClear();
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-system-push',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: ENotificationPushMessageMode.command,
+      payload: JSON.stringify({ action: 'unknownAction' }),
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: ENotificationPushMessageMode.command,
+      hasPayload: true,
+      isFromNotificationClick: true,
+    });
+
+    // JPush extras deliver mode as a string.
+    mockSupportReplyClicked.mockClear();
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'support-system-push-string-mode',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: '4' as never,
+      payload: 'https://onekey.so/',
+    });
+    expect(mockSupportReplyClicked).toHaveBeenCalledWith({
+      mode: '4',
+      hasPayload: true,
+      isFromNotificationClick: true,
+    });
   });
 
   it('keeps foreground legacy clicks on the explicit pushModal path', async () => {

@@ -390,7 +390,13 @@ export function TranslatePopoverContent({
   }
 
   return (
-    <YStack gap="$5" p="$5">
+    <YStack
+      testID="discovery-translate-content"
+      gap="$5"
+      px="$5"
+      pb="$5"
+      pt={isNative ? '$2' : '$5'}
+    >
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size={titleSize}>
           {intl.formatMessage({
@@ -415,7 +421,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            // The Prime badge sits inline after the label.
+            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -425,7 +431,7 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {showPrimeBadge ? (
+            {!isNative && showPrimeBadge ? (
               <Badge
                 testID="discovery-translate-prime-badge"
                 badgeSize="sm"
@@ -656,10 +662,6 @@ export function usePageTranslation(tabId: string) {
                 if (!isOriginalPageStillActive) {
                   return;
                 }
-                if (userRef.current?.isOneKeyIdBanned) {
-                  showAccountBanned();
-                  return;
-                }
 
                 setSettings((prev) => ({
                   ...prev,
@@ -701,17 +703,8 @@ export function usePageTranslation(tabId: string) {
         restoreOriginal();
         setIsTranslated(false);
       }
-    } else if (user?.isOneKeyIdBanned && translatingRef.current) {
-      restoreOriginal();
-      handleAccountBanned();
     }
-  }, [
-    user?.onekeyUserId,
-    user?.isOneKeyIdBanned,
-    restoreOriginal,
-    translatingRef,
-    handleAccountBanned,
-  ]);
+  }, [user?.onekeyUserId, restoreOriginal, translatingRef]);
 
   const logToggle = useCallback(
     (action: 'enable' | 'disable') => {
@@ -736,10 +729,6 @@ export function usePageTranslation(tabId: string) {
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
   const ensureTranslateAccess = useCallback(async () => {
-    if (userRef.current?.isOneKeyIdBanned) {
-      showAccountBanned();
-      return false;
-    }
     if (isPrimeSubscriptionActive) {
       return true;
     }
@@ -759,11 +748,6 @@ export function usePageTranslation(tabId: string) {
         userIdAtPress !== userRef.current?.onekeyUserId
       ) {
         attempt.finish('contextChanged');
-        return false;
-      }
-      if (userRef.current?.isOneKeyIdBanned) {
-        attempt.finish('failed');
-        showAccountBanned();
         return false;
       }
       if (loggedIn) {

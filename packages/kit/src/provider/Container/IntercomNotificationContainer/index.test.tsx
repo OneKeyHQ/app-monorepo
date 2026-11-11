@@ -52,6 +52,11 @@ const mockToast = jest.fn((_props: IToastNotificationProps) => ({
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    notification: { support: { supportReplyBranch: jest.fn() } },
+  },
+}));
 jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: (listener: (visible: boolean) => void) => {

@@ -1,3 +1,5 @@
+import { defaultLogger } from '../../logger/logger';
+
 import type { IIntercomSupportRoute } from './messengerTypes';
 
 type IPresenter = (route: IIntercomSupportRoute) => boolean;
@@ -12,5 +14,12 @@ export function registerIntercomSupportUi(handler: IPresenter) {
 }
 
 export function presentIntercomSupportUi(route: IIntercomSupportRoute) {
-  return presenter?.(route);
+  const presented = presenter?.(route);
+  if (presented) {
+    defaultLogger.notification.support.supportReplyBranch({
+      conversationId: route.conversationId,
+      selectedBranch: route.conversationId ? 'rn-conversation' : 'rn-home',
+    });
+  }
+  return presented;
 }

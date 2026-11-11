@@ -1068,9 +1068,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const shortCode = record.chainId
         ? networkUtils.getNetworkShortCode({ networkId: record.chainId })
         : '';
-      const marketTokenCategory = record.assetId
-        ? MARKET_TOP_COINS_CATEGORY_ID
-        : selectedMarketCategoryId;
+      const marketTokenCategory =
+        record.assetId || record.marketAsset
+          ? MARKET_TOP_COINS_CATEGORY_ID
+          : selectedMarketCategoryId;
 
       if (
         platformEnv.isExtensionUiPopup ||
@@ -1110,15 +1111,30 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         const routeName = record.stockId
           ? ETabMarketRoutes.MarketStockDetail
           : ETabMarketRoutes.MarketDetailV2;
+        const pendingMarketAssetId =
+          platformEnv.isNative && !record.stockId
+            ? (record.assetId ?? record.marketAsset?.assetId)
+            : undefined;
         const params = {
           stockId: record.stockId,
           stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
           stockPreviewName: record.stockId ? record.name : undefined,
           stockPreviewSymbol: record.stockId ? record.symbol : undefined,
           tokenAddress: record.contractAddress,
-          network: shortCode || record.chainId,
+          network: pendingMarketAssetId
+            ? record.chainId
+            : shortCode || record.chainId,
           isNative: record.isNative,
-          marketTokenId: record.marketTokenId,
+          marketTokenId: pendingMarketAssetId ?? record.marketTokenId,
+          pendingMarketAsset: pendingMarketAssetId
+            ? {
+                symbol: record.symbol || pendingMarketAssetId,
+                name: record.name,
+                logoUrl: record.logoUrl,
+                price: record.price,
+                change24h: record.priceChange24h,
+              }
+            : undefined,
           marketVariantId: record.marketVariantId,
           marketTokenCategory,
         };
@@ -1170,6 +1186,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     (record: IFavoriteTokenDisplay) => {
       navigationRequestIdRef.current += 1;
       const requestId = navigationRequestIdRef.current;
+      if (platformEnv.isNative && (record.assetId || record.marketAsset)) {
+        navigateToMarketTokenDetail(record, requestId);
+        return;
+      }
       if (record.assetId) {
         void backgroundApiProxy.serviceMarket
           .fetchMarketAssetDetail({
@@ -1403,6 +1423,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const renderContent = useCallback(() => {
+    let contentMinHeight: number | undefined;
+    if (shouldUseTableLayout) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        32 +
+        50;
+    } else if (hasUserFavorites && !showRecommendCards) {
+      contentMinHeight =
+        HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+        50;
+    }
+
     const listContent = (() => {
       if (selectedMarketCategoryId) {
         return (
@@ -1473,15 +1505,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            <YStack
-              minHeight={
-                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              }
-            >
-              {renderEmptyStateCards()}
-            </YStack>
+            {renderEmptyStateCards()}
             <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
@@ -1511,13 +1535,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         <YStack
           testID="home-market-content"
           // Reserve three rows, the desktop header, and the bottom action band
-          // across categories, loading, empty states, and recommendation cards.
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0) +
-            50
-          }
+          // for table-based content. Mobile recommendation cards size to their
+          // two-row grid so the add button stays close to the cards.
+          minHeight={contentMinHeight}
         >
           {listContent}
         </YStack>

@@ -1,5 +1,6 @@
 // cspell:ignore stagenet
-import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
+import { privacyChainNodeRequest } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 // Genesis block hashes; the Monero runtime checks nodes against the same table.
 export const XMR_MAINNET_GENESIS_HASH =
@@ -25,7 +26,7 @@ export function normalizeXmrNodeBase(nodeBase: string): string {
 
 const XMR_NODE_DIRECT_TIMEOUT_MS = 10_000;
 
-// Null when the node answers with an error status; a failed connection or a timeout throws.
+// Null when the node answers with an error status; a failed connection, a timeout or an oversized reply throws.
 async function postXmrNode(url: string, body = ''): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(
@@ -33,7 +34,7 @@ async function postXmrNode(url: string, body = ''): Promise<string | null> {
     XMR_NODE_DIRECT_TIMEOUT_MS,
   );
   try {
-    const response = await privacyChainNodeFetch(url, {
+    const response = await privacyChainNodeRequest(url, {
       method: 'POST',
       ...(body
         ? { body, headers: { 'content-type': 'application/json' } }
@@ -43,11 +44,9 @@ async function postXmrNode(url: string, body = ''): Promise<string | null> {
     if (!response.ok) {
       return null;
     }
-    return await response.text();
+    return bufferUtils.bytesToUtf8(response.bytes);
   } finally {
     clearTimeout(timer);
-    // An unread body holds a desktop host stream until it is cancelled.
-    controller.abort();
   }
 }
 
@@ -63,10 +62,14 @@ export async function fetchXmrNodeHeightDirect({
     return null;
   }
   try {
-    const body = JSON.parse(text) as { height?: unknown };
-    return typeof body.height === 'number' && body.height > 0
-      ? body.height - 1
-      : null;
+    const { height } = JSON.parse(text) as { height?: unknown };
+    // JSON can still carry an infinite (1e400) or fractional height.
+    const isBlockCount =
+      typeof height === 'number' && Number.isSafeInteger(height) && height > 0;
+    if (!isBlockCount) {
+      return null;
+    }
+    return height - 1;
   } catch {
     return null;
   }

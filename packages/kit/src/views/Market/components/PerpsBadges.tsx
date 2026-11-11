@@ -457,30 +457,6 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
   },
 };
 
-export function USStockMarketStatusIcon() {
-  const intl = useIntl();
-  const status = useUSMarketStatus();
-  if (!status || status.unavailable) return null;
-  const variant = resolveUSMarketStatusVariant({
-    isUSListing: true,
-    isOpen: status.open,
-    status,
-  });
-  if (!variant) return null;
-  const chip = STOCK_MARKET_STATUS_CHIPS[variant];
-  return (
-    <Icon
-      testID="us-stock-market-status-icon"
-      name={chip.icon}
-      size="$4"
-      color={chip.color}
-      accessibilityLabel={
-        chip.titleId ? intl.formatMessage({ id: chip.titleId }) : chip.title
-      }
-    />
-  );
-}
-
 /**
  * Market status chip for tokenized stocks of every issuer (see OK-58043).
  * The chip describes the underlying market only; it does not determine
@@ -505,6 +481,7 @@ const StockIsOpenBadge = memo(
     variant: displayVariant = 'badge',
     inlineSize = 'md',
     showLastUpdate = true,
+    availableWidth: containerWidth,
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
@@ -514,6 +491,7 @@ const StockIsOpenBadge = memo(
     /** Off for the token price: that quote trades around the clock, so its
      *  own timestamp is always now. */
     showLastUpdate?: boolean;
+    availableWidth?: number;
   }) => {
     const intl = useIntl();
     const { isUSListing, isOpen, isPaused, description } = stock;
@@ -627,7 +605,7 @@ const StockIsOpenBadge = memo(
     const showNextOpen =
       hasMeasuredOptionalSegment &&
       shouldShowOptionalSegment({
-        availableWidth,
+        availableWidth: containerWidth ?? availableWidth,
         contentWidth,
         // The icon box plus the row's own `$1` gap before the text stack.
         reservedWidth: iconWidth ? iconWidth + INLINE_STATUS_ROW_GAP : 0,
@@ -742,6 +720,13 @@ const StockMarketStatusBadge = memo(
         ? `${stock.source ?? ''}:${stock.stockId ?? stock.title ?? stock.subtitle}`
         : undefined;
     const [pendingStockKey, setPendingStockKey] = useState<string>();
+    const [availableWidth, setAvailableWidth] = useState(0);
+    const handleLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        setAvailableWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
     useEffect(() => {
       setPendingStockKey(undefined);
     }, [stockKey]);
@@ -758,12 +743,13 @@ const StockMarketStatusBadge = memo(
         variant={variant}
         inlineSize={inlineSize}
         showLastUpdate={showLastUpdate}
+        availableWidth={variant === 'inline' ? availableWidth : undefined}
       />
     );
     if (stock.isUSListing === false) {
       return trigger;
     }
-    return (
+    const interactiveTrigger = (
       <Suspense
         fallback={
           <Stack
@@ -784,6 +770,14 @@ const StockMarketStatusBadge = memo(
           onDefaultOpenConsumed={handleDefaultOpenConsumed}
         />
       </Suspense>
+    );
+    // Measure the full row without making its empty space interactive.
+    return variant === 'inline' ? (
+      <Stack onLayout={handleLayout}>
+        <Stack alignSelf="flex-start">{interactiveTrigger}</Stack>
+      </Stack>
+    ) : (
+      interactiveTrigger
     );
   },
 );
