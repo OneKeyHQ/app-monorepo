@@ -188,6 +188,17 @@ const SWAP_SETTINGS_DIALOG_TOP_SAFE_GAP = 16;
 const SWAP_SETTINGS_DIALOG_CHROME_HEIGHT = 220;
 const SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT = 120;
 
+// A filled hairline avoids iOS dropping a zero-height, one-sided border.
+const swapSettingsDividerProps = platformEnv.isNativeIOS
+  ? ({
+      height: StyleSheet.hairlineWidth,
+      bg: '$borderSubdued',
+      borderBottomWidth: 0,
+      flex: 0,
+      y: 0,
+    } as const)
+  : undefined;
+
 const swapSlippageTransition = {
   duration: 150,
 } as const;
@@ -527,7 +538,7 @@ const SwapSettingsDialogContent = ({
                 {slippageContent}
               </SwapSlippageHeightTransition>
             )}
-            <Divider />
+            <Divider {...swapSettingsDividerProps} />
           </>
         ) : null}
         {showSmartModeSetting ? (
@@ -613,7 +624,7 @@ const SwapSettingsDialogContent = ({
         ) : null}
         {activityHubAction ? (
           <>
-            <Divider />
+            <Divider {...swapSettingsDividerProps} />
             <SwapActivityHubSettingsItem
               onOpenReferral={activityHubAction.onOpenReferral}
             />
