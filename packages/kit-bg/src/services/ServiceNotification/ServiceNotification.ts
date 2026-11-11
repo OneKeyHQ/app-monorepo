@@ -19,6 +19,7 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  getSupportConversationFromNotification,
   takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -218,6 +219,13 @@ export default class ServiceNotification extends ServiceBase {
       remotePushMessageInfo: messageInfo,
     });
 
+    const support = getSupportConversationFromNotification(messageInfo);
+    if (support && (!msgId || !this.showedNotificationIds.includes(msgId))) {
+      // Send only an invalidation hint across runtimes. The foreground must
+      // fetch any message preview with its current authenticated session.
+      appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, support);
+    }
+
     if (messageInfo.pushSource === 'jpush') {
       // jpush will show notification automatically
     }
@@ -236,7 +244,7 @@ export default class ServiceNotification extends ServiceBase {
           remotePushMessageInfo: messageInfo,
         };
         await this.showNotification(notificationParams);
-        if (!platformEnv.isNativeIOS) {
+        if (!platformEnv.isNativeIOS && !support) {
           appEventBus.emit(
             EAppEventBusNames.ShowInAppPushNotification,
             notificationParams,

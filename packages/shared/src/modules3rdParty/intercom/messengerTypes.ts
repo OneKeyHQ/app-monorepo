@@ -4,6 +4,14 @@ export type IIntercomSupportRoute = {
   conversationId?: string;
 };
 
+export type IIntercomNotification = {
+  id: string;
+  conversationId: string;
+  author: string;
+  message: string;
+  avatarUrl?: string;
+};
+
 export type IIntercomBlock = {
   type: string;
   text?: string;

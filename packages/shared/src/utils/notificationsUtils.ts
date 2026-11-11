@@ -601,6 +601,54 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+function parseSupportConversationCommand(
+  action: unknown,
+  data: Record<string, unknown>,
+): { conversationId?: string } | undefined {
+  if (action !== ENotificationCommand.openSupportConversation) return;
+  const { conversationId } = data;
+  if (
+    conversationId !== undefined &&
+    conversationId !== null &&
+    typeof conversationId !== 'string'
+  )
+    return;
+  return {
+    conversationId:
+      typeof conversationId === 'string'
+        ? conversationId.trim() || undefined
+        : undefined,
+  };
+}
+
+export function getSupportConversationFromNotification({
+  extras,
+}: {
+  extras?: {
+    mode?: ENotificationPushMessageMode | string | number;
+    payload?: string;
+    params?: Record<string, unknown>;
+  };
+}) {
+  if (
+    extras?.mode === undefined ||
+    normalizeNotificationMode(extras.mode) !==
+      ENotificationPushMessageMode.command
+  )
+    return;
+  try {
+    const command: unknown = JSON.parse(extras.payload || '{}');
+    if (!command || typeof command !== 'object') return;
+    const { action, data } = command as Record<string, unknown>;
+    return parseSupportConversationCommand(action, {
+      ...(data && typeof data === 'object' ? data : {}),
+      ...extras.params,
+    });
+  } catch {
+    // Receiving a malformed push must not interrupt other notifications.
+  }
+}
+
 export function parseNotificationPayload(
   mode: ENotificationPushMessageMode | string | number,
   payload: string | undefined,
@@ -778,12 +826,8 @@ export function parseNotificationPayload(
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
         if (action === ENotificationCommand.openSupportConversation) {
-          const { conversationId } = mergedData;
-          if (
-            conversationId !== undefined &&
-            conversationId !== null &&
-            typeof conversationId !== 'string'
-          ) {
+          const support = parseSupportConversationCommand(action, mergedData);
+          if (!support) {
             fallbackHandler();
             return false;
           }
@@ -792,10 +836,7 @@ export function parseNotificationPayload(
               sourceNodeId: platformEnv.isExtensionUi
                 ? appEventBus.nodeId
                 : undefined,
-              conversationId:
-                typeof conversationId === 'string'
-                  ? conversationId.trim() || undefined
-                  : undefined,
+              ...support,
             })
             .catch(fallbackHandler);
           return true;

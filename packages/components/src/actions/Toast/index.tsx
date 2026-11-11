@@ -342,6 +342,7 @@ function ToastNotificationContent({
   onClose,
   onPress,
   actions,
+  actionsAlign = 'right',
   nativeStorageRecoveryTestSessionId,
   onRequestClose,
 }: IToastNotificationProps & { onRequestClose?: () => void | Promise<void> }) {
@@ -407,9 +408,14 @@ function ToastNotificationContent({
         >
           {message}
         </SizableText>
-        {platformEnv.isNative &&
-        getNativeStorageRecoveryToastTarget(title, message) ? (
-          <XStack gap="$2" justifyContent="flex-end" paddingTop="$3">
+        {actions ||
+        (platformEnv.isNative &&
+          getNativeStorageRecoveryToastTarget(title, message)) ? (
+          <XStack
+            gap="$2"
+            justifyContent={actionsAlign === 'left' ? 'flex-start' : 'flex-end'}
+            paddingTop="$3"
+          >
             <NativeStorageRecoveryToastActions
               title={title}
               message={message}

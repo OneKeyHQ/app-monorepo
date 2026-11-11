@@ -2,6 +2,11 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import { useSupportResource } from './useSupportResource';
 
 function deferred<T>() {
@@ -109,4 +114,52 @@ it('clears retained data when the loader identity changes while inactive', async
   rerender({ load: second, enabled: true });
   await act(async () => {});
   expect(result.current.data).toBe('new account');
+});
+
+it('refreshes an active conversation immediately after a push and coalesces in-flight hints', async () => {
+  const pending = deferred<string>();
+  const load = jest
+    .fn(async () => 'fresh')
+    .mockImplementationOnce(() => pending.promise);
+  const { result, unmount } = renderHook(() =>
+    useSupportResource(load, true, true),
+  );
+  act(() => {
+    for (let i = 0; i < 3; i += 1)
+      appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {
+        conversationId: '42',
+      });
+  });
+  expect(load).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve('old response'));
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(result.current.data).toBe('fresh');
+  await act(async () => {
+    appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {});
+  });
+  expect(load).toHaveBeenCalledTimes(3);
+  unmount();
+  appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {});
+  expect(load).toHaveBeenCalledTimes(3);
+});
+
+it('drops a queued push on identity changes and ignores hints on inactive screens', async () => {
+  const pending = deferred<string>();
+  const oldLoad = jest.fn(() => pending.promise);
+  const newLoad = jest.fn(async () => 'new account');
+  const { result, rerender } = renderHook(
+    ({ load, enabled }) => useSupportResource(load, enabled, true),
+    { initialProps: { load: oldLoad, enabled: true } },
+  );
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {});
+  });
+  await act(async () => rerender({ load: newLoad, enabled: true }));
+  await act(async () => pending.resolve('old account'));
+  expect(result.current.data).toBe('new account');
+  expect(oldLoad).toHaveBeenCalledTimes(1);
+  expect(newLoad).toHaveBeenCalledTimes(1);
+  rerender({ load: newLoad, enabled: false });
+  appEventBus.emit(EAppEventBusNames.SupportConversationUpdated, {});
+  expect(newLoad).toHaveBeenCalledTimes(1);
 });

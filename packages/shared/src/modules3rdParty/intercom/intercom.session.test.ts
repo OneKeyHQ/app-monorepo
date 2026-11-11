@@ -97,6 +97,158 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 
+describe('support message notifications', () => {
+  function conversation(partId = 'reply-1', read = false, isAdmin = true) {
+    return {
+      id: '42',
+      read,
+      conversation_parts: [
+        {
+          id: partId,
+          created_at: 1_700_000_000,
+          participant_is_admin: isAdmin,
+          author: { name: 'OneKey Support' },
+          body: [
+            { type: 'paragraph', text: '<p>Test reply &amp; preview</p>' },
+          ],
+        },
+      ],
+    };
+  }
+  let conversations: ReturnType<typeof conversation>[];
+  const changed = jest.fn();
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockUserId = 'A';
+    conversations = [conversation()];
+    subject.subscribeToIntercomNotifications(changed);
+    mockFetch.mockImplementation(async (url) => {
+      const unread_conversation_ids = conversations
+        .filter((item) => !item.read)
+        .map((item) => item.id);
+      let payload: unknown = { ...boot, unread_conversation_ids };
+      if (url.endsWith('/conversations'))
+        payload = { conversations, unread_conversation_ids };
+      if (url.endsWith('/conversations/42'))
+        payload = { ...conversations[0], unread_conversation_ids };
+      return new Response(JSON.stringify(payload));
+    });
+  });
+  async function show() {
+    await subject.setIntercomInAppMessageVisibility(true);
+    await jest.advanceTimersByTimeAsync(0);
+  }
+  it('shows an authenticated admin preview once per reply and opens the matching conversation', async () => {
+    await show();
+    expect(subject.getIntercomNotification()).toEqual({
+      id: '42:reply-1',
+      conversationId: '42',
+      author: 'OneKey Support',
+      message: 'Test reply & preview',
+      avatarUrl: undefined,
+    });
+    await subject.openIntercomNotification('42:reply-1');
+    expect(mockPresent).toHaveBeenCalledWith({
+      userId: 'A',
+      conversationId: '42',
+    });
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    conversations = [conversation('reply-2')];
+    subject.refreshIntercomNotifications('42');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(subject.getIntercomNotification()?.id).toBe('42:reply-2');
+    expect(mockFetch.mock.calls.at(-1)?.[0]).toMatch(/conversations\/42$/);
+  });
+  it.each([
+    [true, true],
+    [false, false],
+  ])(
+    'suppresses previews for read=%s and isAdmin=%s conversations',
+    async (read, isAdmin) => {
+      conversations = [conversation('reply', read, isAdmin)];
+      await show();
+      expect(subject.getIntercomNotification()).toBeUndefined();
+    },
+  );
+  it('dismisses the preview after a read acknowledgement', async () => {
+    await show();
+    const session = await subject.createIntercomMessengerSession('A');
+    await session.request('conversations/42/read');
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    expect(subject.getIntercomUnreadCount()).toBe(0);
+  });
+  it('hides private content on lock without replaying the same reply after unlock', async () => {
+    await show();
+    await subject.setIntercomMessengerLocked(true);
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    await subject.openIntercomNotification('42:reply-1');
+    expect(mockPresent).not.toHaveBeenCalled();
+    await subject.setIntercomMessengerLocked(false);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    conversations = [conversation('reply-2')];
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(subject.getIntercomNotification()?.id).toBe('42:reply-2');
+  });
+  it('rejects a preview click after the signed-in account changes', async () => {
+    await show();
+    mockUserId = 'B';
+    await subject.openIntercomNotification('42:reply-1');
+    expect(mockPresent).not.toHaveBeenCalled();
+    expect(subject.getIntercomNotification()).toBeUndefined();
+  });
+  it('does not show a response that arrives after foreground visibility is lost', async () => {
+    await show();
+    let resolve!: (value: Response) => void;
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    subject.refreshIntercomNotifications('42');
+    await jest.advanceTimersByTimeAsync(0);
+    await subject.setIntercomInAppMessageVisibility(false);
+    resolve(new Response(JSON.stringify(boot)));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    await subject.openIntercomNotification('42:reply-1');
+    expect(mockPresent).not.toHaveBeenCalled();
+  });
+  it('queues one immediate follow-up when several pushes arrive during an unread request', async () => {
+    await show();
+    const countUnread = () =>
+      mockFetch.mock.calls.filter(([url]) =>
+        url.endsWith('/conversations/unread'),
+      ).length;
+    const before = countUnread();
+    let resolve!: (value: Response) => void;
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    subject.refreshIntercomNotifications('42');
+    await jest.advanceTimersByTimeAsync(0);
+    subject.refreshIntercomNotifications('42');
+    subject.refreshIntercomNotifications('42');
+    resolve(new Response(JSON.stringify(boot)));
+    await jest.advanceTimersByTimeAsync(1);
+    expect(countUnread()).toBe(before + 2);
+  });
+  it('keeps first-use anonymous polling disabled even with a notification subscriber and a push', async () => {
+    mockUserId = null;
+    await show();
+    subject.refreshIntercomNotifications('42');
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(subject.getIntercomNotification()).toBeUndefined();
+  });
+});
+
 it('opens the shared RN route without booting a remote SDK or sending a request', async () => {
   await subject.showIntercom({ conversationId: '42' });
   expect(mockPresent).toHaveBeenCalledWith({

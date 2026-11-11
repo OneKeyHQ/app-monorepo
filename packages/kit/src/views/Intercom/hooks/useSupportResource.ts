@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 // A request belongs to the currently focused, unlocked screen. Late responses
 // must never repopulate a screen after identity, route or lock changes.
 export function useSupportResource<T>(
@@ -9,13 +14,14 @@ export function useSupportResource<T>(
 ) {
   const generation = useRef(0);
   const pending = useRef<number | undefined>(undefined);
+  const refreshAfterPush = useRef(false);
   const [state, setState] = useState<{
     load: () => Promise<T>;
     data?: T;
     loading: boolean;
     failed: boolean;
   }>({ load, loading: enabled, failed: false });
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<void> => {
     if (!enabled || pending.current !== undefined) return;
     generation.current += 1;
     const current = generation.current;
@@ -35,6 +41,10 @@ export function useSupportResource<T>(
         setState((previous) => ({ ...previous, loading: false, failed: true }));
     } finally {
       if (pending.current === current) pending.current = undefined;
+      if (current === generation.current && refreshAfterPush.current) {
+        refreshAfterPush.current = false;
+        void refresh();
+      }
     }
   }, [enabled, load]);
   useEffect(() => {
@@ -50,10 +60,18 @@ export function useSupportResource<T>(
             void refresh();
           }, 15_000)
         : undefined;
+    const onPush = () => {
+      if (pending.current !== undefined) refreshAfterPush.current = true;
+      else void refresh();
+    };
+    if (enabled && poll)
+      appEventBus.on(EAppEventBusNames.SupportConversationUpdated, onPush);
     return () => {
       generation.current += 1;
       pending.current = undefined;
+      refreshAfterPush.current = false;
       if (timer) clearInterval(timer);
+      appEventBus.off(EAppEventBusNames.SupportConversationUpdated, onPush);
     };
   }, [enabled, load, refresh, poll]);
   const current =

@@ -818,6 +818,9 @@ export interface IAppEventBusPayload {
     icon: string | undefined;
     remotePushMessageInfo: INotificationPushMessageInfo;
   };
+  [EAppEventBusNames.SupportConversationUpdated]: {
+    conversationId?: string;
+  };
   [EAppEventBusNames.ExecuteNotificationCommand]: {
     action: string;
     data?: Record<string, unknown>;

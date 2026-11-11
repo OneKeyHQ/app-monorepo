@@ -233,6 +233,7 @@ export enum EAppEventBusNames {
   SwapLimitOrderBuildSuccess = 'SwapLimitOrderBuildSuccess',
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',
+  SupportConversationUpdated = 'SupportConversationUpdated',
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
   ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',

@@ -9,7 +9,9 @@ import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificatio
 import {
   ENotificationCommand,
   ENotificationPushMessageMode,
+  ENotificationPushTopicTypes,
 } from '@onekeyhq/shared/types/notification';
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import ServiceNotification from './ServiceNotification';
 
@@ -23,6 +25,12 @@ jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
+}));
+jest.mock('../../states/jotai/atoms', () => ({
+  notificationsDevSettingsPersistAtom: {
+    get: jest.fn(async () => ({ showMessagePushSource: false })),
+  },
+  notificationsAtom: { set: jest.fn(async () => {}) },
 }));
 
 describe('support notification delivery across startup', () => {
@@ -163,4 +171,68 @@ describe('support notification delivery across startup', () => {
     ).toBe(false);
     expect(fallback).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['jpush', 'websocket'] as const)(
+    'refreshes support after %s receipt once, with no cross-runtime message preview',
+    async (pushSource) => {
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const ack = jest
+        .spyOn(service, 'ackNotificationMessage')
+        .mockResolvedValue(undefined);
+      const badge = jest
+        .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
+        .mockResolvedValue(undefined);
+      // JPush may have displayed the native notification before this callback.
+      jest
+        .spyOn(service, 'isNotificationShowed')
+        .mockResolvedValue(pushSource === 'jpush');
+      const show = jest
+        .spyOn(service, 'showNotification')
+        .mockResolvedValue({ notificationId: 'push-42' });
+      const message: INotificationPushMessageInfo = {
+        pushSource,
+        title: 'Untrusted push title',
+        content: 'Untrusted push preview',
+        extras: {
+          msgId: 'push-42',
+          topic: ENotificationPushTopicTypes.accountActivity,
+          mode: ENotificationPushMessageMode.command,
+          payload: JSON.stringify({
+            action: ENotificationCommand.openSupportConversation,
+            data: { conversationId: '42' },
+          }),
+          params: {
+            msgId: 'push-42',
+            accountAddress: '',
+            accountId: '',
+            networkId: '',
+            transactionHash: '',
+          },
+        },
+      };
+      await service.onNotificationReceived(message);
+      await service.onNotificationReceived(message);
+      const hints = emit.mock.calls.filter(
+        ([event]) => event === EAppEventBusNames.SupportConversationUpdated,
+      );
+      expect(hints).toEqual([
+        [
+          EAppEventBusNames.SupportConversationUpdated,
+          { conversationId: '42' },
+        ],
+      ]);
+      expect(
+        emit.mock.calls.some(
+          ([event]) => event === EAppEventBusNames.ShowInAppPushNotification,
+        ),
+      ).toBe(false);
+      expect(ack).toHaveBeenCalledTimes(2);
+      expect(badge).toHaveBeenCalledTimes(2);
+      if (pushSource === 'websocket') expect(show).toHaveBeenCalled();
+      else expect(show).not.toHaveBeenCalled();
+      await expect(
+        service.takePendingSupportConversation(),
+      ).resolves.toBeUndefined();
+    },
+  );
 });
