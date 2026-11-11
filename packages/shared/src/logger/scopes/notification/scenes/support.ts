@@ -1,7 +1,7 @@
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
-
-import type { INotificationPushMessageInfo } from '../../../../../types/notification';
 
 export type ISupportConversationIdSource =
   | 'extras.params'
@@ -129,7 +129,7 @@ export class SupportScene extends BaseScene {
     appState,
     pollActive,
   }: {
-    appState: string | undefined;
+    appState: string | null | undefined;
     pollActive: boolean;
   }) {
     return { appState, pollActive };
