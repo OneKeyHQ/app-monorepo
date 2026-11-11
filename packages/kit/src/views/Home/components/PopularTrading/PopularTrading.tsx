@@ -420,6 +420,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const hasShownCategorySelectorRef = useRef(false);
   const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
+  const favoriteRefreshIdRef = useRef(0);
+  const pendingWatchlistKeysRef = useRef(new Set<string>());
+  const displayTokenCacheRef = useRef(new Map<string, IFavoriteTokenDisplay>());
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
   >(() => {});
@@ -523,6 +526,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     marketCategories: homeCategories,
   });
 
+  useEffect(() => {
+    for (const token of [
+      ...favoriteTokens,
+      ...(recommendedDisplayTokens ?? []),
+      ...categoryTokens,
+    ]) {
+      displayTokenCacheRef.current.set(getMarketWatchlistKey(token), token);
+    }
+  }, [categoryTokens, favoriteTokens, recommendedDisplayTokens]);
+
   const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) => {
       if (record.assetId || record.stockId) {
@@ -556,6 +569,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
+      const key = getMarketWatchlistKey(record);
+      if (pendingWatchlistKeysRef.current.has(key)) return;
+      pendingWatchlistKeysRef.current.add(key);
+      displayTokenCacheRef.current.set(key, record);
       const checked = isTokenInWatchList(record);
 
       try {
@@ -599,7 +616,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           }
 
           appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-          await refreshDataRef.current();
+          void refreshDataRef
+            .current()
+            .catch(errorToastUtils.toastIfErrorDisable);
           return;
         }
 
@@ -646,13 +665,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         }
 
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        await refreshDataRef.current();
+        void refreshDataRef
+          .current()
+          .catch(errorToastUtils.toastIfErrorDisable);
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           }),
         });
+      } finally {
+        pendingWatchlistKeysRef.current.delete(key);
       }
     },
     [intl, isTokenInWatchList, watchListItems],
@@ -693,9 +716,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
+      favoriteRefreshIdRef.current += 1;
+      const refreshId = favoriteRefreshIdRef.current;
       // Get user's favorites from local storage (synced via Prime Cloud Sync)
       const watchList =
         await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+      if (refreshId !== favoriteRefreshIdRef.current) return;
       setWatchListItems(watchList.data);
 
       // Check if user has any favorites
@@ -705,6 +731,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         // Use user's favorites (up to 3 for display)
         const userDisplayCount = 3;
         const targetItems = watchList.data.slice(0, userDisplayCount);
+
+        // Membership changes use existing quotes before waiting for the network.
+        const cachedTokens = targetItems
+          .map((item) =>
+            displayTokenCacheRef.current.get(getMarketWatchlistKey(item)),
+          )
+          .filter((item): item is IFavoriteTokenDisplay => Boolean(item));
+        if (cachedTokens.length > 0) {
+          setFavoriteTokens(cachedTokens);
+          setHasUserFavorites(true);
+          setShowRecommendCards(false);
+          setTotalFavoritesCount(watchList.data.length);
+          initializedRef.current = true;
+        }
 
         // Split into spot and perps items
         const spotTargets = targetItems.filter(
@@ -755,6 +795,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 }),
             ),
           ]);
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         const spotResponse =
           spotResult.status === 'fulfilled'
             ? spotResult.value
@@ -864,12 +905,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ? (recommendedDisplayTokens ??
             (await loadRecommendations().catch(() => [])))
           : displayTokens;
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(recommendInstead);
       } else {
         const nextTokens =
           recommendedDisplayTokens ??
           (await loadRecommendations().catch(() => []));
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(false);
       }
@@ -1019,6 +1062,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
     async (record: IFavoriteTokenDisplay) => {
+      const key = getMarketWatchlistKey(record);
+      if (pendingWatchlistKeysRef.current.has(key)) return;
+      pendingWatchlistKeysRef.current.add(key);
       try {
         await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
           items: [
@@ -1048,13 +1094,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        await refreshData();
+        void refreshData().catch(errorToastUtils.toastIfErrorDisable);
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           }),
         });
+      } finally {
+        pendingWatchlistKeysRef.current.delete(key);
       }
     },
     [intl, refreshData],

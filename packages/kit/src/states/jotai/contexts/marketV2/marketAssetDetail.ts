@@ -1,4 +1,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  canConvertFiat,
+  convertFiat,
+} from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  currencyPersistAtom,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IJotaiGetter,
   IJotaiSetter,
@@ -7,6 +15,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -44,10 +53,14 @@ export function buildMarketAssetTokenDetail({
   assetDetail,
   decimals,
   lastUpdated,
+  currencyId,
+  currencyMap,
 }: {
   assetDetail: IMarketAssetDetailData;
   decimals?: number;
   lastUpdated: number;
+  currencyId: string;
+  currencyMap: Record<string, ICurrencyItem>;
 }): IMarketTokenDetail {
   const { asset, market, performance, selectedVariant } = assetDetail;
 
@@ -61,6 +74,20 @@ export function buildMarketAssetTokenDetail({
     decimals: decimals ?? MARKET_CHART_FALLBACK_DECIMALS,
     decimalsResolved: decimals !== undefined,
     price: market.price,
+    priceConverted:
+      currencyId !== MARKET_ASSET_DETAIL_CURRENCY &&
+      canConvertFiat({
+        sourceCurrency: MARKET_ASSET_DETAIL_CURRENCY,
+        targetCurrency: currencyId,
+        currencyMap,
+      })
+        ? convertFiat({
+            value: market.price,
+            sourceCurrency: MARKET_ASSET_DETAIL_CURRENCY,
+            targetCurrency: currencyId,
+            currencyMap,
+          })
+        : undefined,
     priceChange24hPercent: market.priceChange24hPercent,
     priceChange7dPercent: performance.priceChange7dPercent,
     priceChange30dPercent: performance.priceChange30dPercent,
@@ -168,12 +195,15 @@ async function fetchMarketAssetTokenDetail(
   try {
     set(tokenDetailLoadingAtom(), true);
 
-    const assetDetail =
-      await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+    const [assetDetail, { currencyMap }, { currencyInfo }] = await Promise.all([
+      backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
         assetId,
         variantId,
         currency: MARKET_ASSET_DETAIL_CURRENCY,
-      });
+      }),
+      currencyPersistAtom.get(),
+      settingsPersistAtom.get(),
+    ]);
 
     if (!isCurrentIdentity()) {
       isStale = true;
@@ -267,6 +297,8 @@ async function fetchMarketAssetTokenDetail(
     const lastUpdated = Date.now();
     const tokenData = buildMarketAssetTokenDetail({
       assetDetail,
+      currencyId: currencyInfo.id,
+      currencyMap,
       decimals: isValidTokenDecimals(decimals) ? decimals : undefined,
       lastUpdated,
     });

@@ -57,6 +57,8 @@ describe('buildMarketAssetTokenDetail', () => {
     expect(
       buildMarketAssetTokenDetail({
         assetDetail: dogeAssetDetail,
+        currencyId: 'usd',
+        currencyMap: {},
         decimals: 8,
         lastUpdated: 1_788_332_400_000,
       }),
@@ -78,3 +80,43 @@ describe('buildMarketAssetTokenDetail', () => {
     });
   });
 });
+
+it('supplies a CNY quote while preserving the USD price used by charts', () => {
+  const detail = buildMarketAssetTokenDetail({
+    assetDetail: dogeAssetDetail,
+    lastUpdated: 1,
+    currencyId: 'cny',
+    currencyMap: {
+      usd: {
+        id: 'usd',
+        name: 'US Dollar',
+        unit: '$',
+        value: '1',
+        type: ['fiat'],
+      },
+      cny: {
+        id: 'cny',
+        name: 'Chinese Yuan',
+        unit: '¥',
+        value: '7.1',
+        type: ['fiat'],
+      },
+    },
+  });
+  expect(detail.price).toBe('0.25');
+  expect(detail.priceConverted).toBe('1.775');
+});
+
+it.each(['usd', 'cny'])(
+  'omits the secondary quote for %s when conversion is unavailable',
+  (currencyId) => {
+    const detail = buildMarketAssetTokenDetail({
+      assetDetail: dogeAssetDetail,
+      lastUpdated: 1,
+      currencyId,
+      currencyMap: {},
+    });
+    expect(detail.price).toBe('0.25');
+    expect(detail.priceConverted).toBeUndefined();
+  },
+);

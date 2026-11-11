@@ -7,6 +7,7 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
 import type { IMarketBasicConfigResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { PopularTrading } from './PopularTrading';
@@ -76,7 +77,9 @@ jest.mock('@onekeyhq/components', () => {
       name === 'CheckRadioSolid' ? (
         <span data-testid="recommend-selected" />
       ) : null,
-    IconButton: () => null,
+    IconButton: ({ onPress }: { onPress: () => void }) => (
+      <button type="button" aria-label="Remove favorite" onClick={onPress} />
+    ),
     useMedia: () => ({ md: false }),
     Toast: { error: jest.fn(), success: jest.fn() },
     rootNavigationRef: { current: { navigate: jest.fn() } },
@@ -111,6 +114,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchMarketBasicConfig: jest.fn(),
       fetchMarketListingWatchlistQuote: jest.fn(),
       addMarketWatchListV2: jest.fn(),
+      removeMarketWatchListV2: jest.fn(),
     },
   },
 }));
@@ -149,7 +153,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     }
     return {
       isLoading: false,
-      run: jest.fn(),
+      run: options?.watchLoading ? method : jest.fn(),
       result: options?.watchLoading ? undefined : mockRecommendationResult,
     };
   },
@@ -182,16 +186,29 @@ jest.mock('../RichBlock/RichBlock', () => ({
   RichBlock: ({ content }: { content: ReactNode }) => <div>{content}</div>,
 }));
 jest.mock('../RichTable', () => ({
-  RichTable: ({ dataSource }: { dataSource: IFavoriteTokenDisplay[] }) => (
+  RichTable: ({
+    dataSource,
+    columns,
+  }: {
+    dataSource: IFavoriteTokenDisplay[];
+    columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
+  }) => (
     <div data-testid="favorite-list">
       {dataSource.map((token) => token.symbol).join(', ')}
+      {dataSource.map((token) => (
+        <span key={token.assetId}>{columns[0]?.render(token)}</span>
+      ))}
     </div>
   ),
 }));
 jest.mock('./metricColumns', () => ({
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT: 68,
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT: 0,
-  getPopularTradingColumns: () => [],
+  getPopularTradingColumns: ({
+    renderStarButton,
+  }: {
+    renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
+  }) => [{ render: renderStarButton }],
   renderPopularTradingStockBadges: () => null,
 }));
 jest.mock('./useHomeMarketCategoryTokens', () => ({
@@ -644,4 +661,78 @@ it('does not display an error when the extension detail opens successfully', asy
   });
   expect(openDetail).toHaveBeenCalledTimes(1);
   expect(Toast.error).not.toHaveBeenCalled();
+});
+
+it('removes a favorite before the remaining quote refresh settles', async () => {
+  mockShowFavorites = true;
+  getWatchList.mockResolvedValue({
+    data: [
+      { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+      { assetId: 'ethereum', chainId: '', contractAddress: '' },
+    ],
+  });
+  fetchListingQuote.mockImplementation(async (item) => ({
+    symbol: item.assetId === 'bitcoin' ? 'BTC' : 'ETH',
+    name: item.assetId === 'bitcoin' ? 'Bitcoin' : 'Ethereum',
+    logoUrl: '',
+  }));
+  render(<PopularTrading tableLayout />);
+  await act(async () => mockRefreshFavorites());
+  expect(screen.getByTestId('favorite-list').textContent).toBe('BTC, ETH');
+
+  const quote = Promise.withResolvers<
+    IMarketListingWatchlistQuote | undefined
+  >();
+  getWatchList.mockResolvedValue({
+    data: [{ assetId: 'ethereum', chainId: '', contractAddress: '' }],
+  });
+  fetchListingQuote.mockReturnValue(quote.promise);
+  await act(async () =>
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Remove favorite' })[0],
+    ),
+  );
+  expect(screen.getByTestId('favorite-list').textContent).toBe('ETH');
+  await act(async () =>
+    quote.resolve({ symbol: 'ETH', name: 'Ethereum', logoUrl: '' }),
+  );
+  expect(screen.getByTestId('favorite-list').textContent).toBe('ETH');
+});
+
+it('does not restore removed favorites when an older quote request finishes last', async () => {
+  mockShowFavorites = true;
+  getWatchList.mockResolvedValue({
+    data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
+  });
+  const quote = Promise.withResolvers<
+    IMarketListingWatchlistQuote | undefined
+  >();
+  fetchListingQuote.mockReturnValue(quote.promise);
+  render(<PopularTrading tableLayout />);
+  let oldRefresh: Promise<void>;
+  await act(async () => {
+    oldRefresh = mockRefreshFavorites();
+  });
+
+  getWatchList.mockResolvedValue({ data: [] });
+  mockRecommendationResult = [];
+  fetchRecommendations.mockResolvedValue({
+    code: 0,
+    message: '',
+    data: {
+      tradingViewUrl: '',
+      networkList: [],
+      recommendTokens: [],
+      searchRecommendTokens: [],
+      refreshInterval: 30,
+      minLiquidity: 0,
+    },
+  });
+  await act(async () => mockRefreshFavorites());
+  await act(async () => {
+    quote.resolve({ symbol: 'BTC', name: 'Bitcoin', logoUrl: '' });
+    await oldRefresh;
+  });
+  expect(screen.queryByTestId('favorite-list')).toBeNull();
+  expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
 });
