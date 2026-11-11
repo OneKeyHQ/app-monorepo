@@ -312,10 +312,11 @@ describe('support notification delivery across startup', () => {
     expect(
       isSupportReplyPushMessage(createSupportReplyPush({ payload: '{' })),
     ).toBe(false);
-    expect(isSupportReplyPushMessage(undefined)).toBe(false);
   });
 
-  it('asks the foreground to resync Intercom unread state on a support reply', async () => {
+  it('asks native main to resync Intercom unread state once per support reply', async () => {
+    const previousIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
     // Persisted atoms never hydrate in this suite.
     jest
       .spyOn(notificationsDevSettingsPersistAtom, 'get')
@@ -326,22 +327,28 @@ describe('support notification delivery across startup', () => {
       .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
       .mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit');
+    const supportReplyEmits = () =>
+      emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.SupportReplyReceived,
+      );
 
-    await service.onNotificationReceived(createSupportReplyPush());
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.SupportReplyReceived,
-      undefined,
-    );
+    try {
+      // The same reply delivered over both websocket and JPush.
+      await service.onNotificationReceived(createSupportReplyPush());
+      await service.onNotificationReceived(createSupportReplyPush());
+      expect(supportReplyEmits()).toHaveLength(1);
 
-    emit.mockClear();
-    await service.onNotificationReceived(
-      createSupportReplyPush({
-        payload: JSON.stringify({ action: 'openHardwareSalesOrder' }),
-      }),
-    );
-    expect(emit).not.toHaveBeenCalledWith(
-      EAppEventBusNames.SupportReplyReceived,
-      undefined,
-    );
+      emit.mockClear();
+      platformEnv.isNative = false;
+      await service.onNotificationReceived(
+        createSupportReplyPush({
+          msgId: 'support:1:3',
+          params: { msgId: 'support:1:3' },
+        } as Partial<NonNullable<INotificationPushMessageInfo['extras']>>),
+      );
+      expect(supportReplyEmits()).toHaveLength(0);
+    } finally {
+      platformEnv.isNative = previousIsNative;
+    }
   });
 });

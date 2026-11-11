@@ -246,9 +246,13 @@ export default class ServiceNotification extends ServiceBase {
       }
     }
 
-    // In the foreground the native Intercom SDK only hears about replies over
-    // its realtime socket; this push lets main resync the unread dots (OK-67112).
-    if (isSupportReplyPushMessage(messageInfo)) {
+    // Only the native Intercom SDK resyncs on this (OK-67112). A reply can
+    // arrive over both websocket and JPush, so resync once per message.
+    if (
+      platformEnv.isNative &&
+      !(msgId && this.showedNotificationIds.includes(msgId)) &&
+      isSupportReplyPushMessage(messageInfo)
+    ) {
       appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
     }
 

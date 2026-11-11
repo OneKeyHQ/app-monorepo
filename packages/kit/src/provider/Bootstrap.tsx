@@ -60,7 +60,6 @@ import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle'
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import {
   initIntercom,
-  refreshIntercomUnreadCount,
   setIntercomTheme,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -689,31 +688,9 @@ export const useIntercomInit = () => {
   }, [onekeyUserId, isLoggedIn]);
 };
 
-// The bg runtime receives OneKey support-reply pushes; main owns the SDK.
-const useIntercomSupportReplySync = () => {
-  useEffect(() => {
-    const onSupportReplyReceived = () => {
-      void refreshIntercomUnreadCount().catch(() => {
-        console.warn('Failed to refresh Intercom unread count');
-      });
-    };
-    appEventBus.on(
-      EAppEventBusNames.SupportReplyReceived,
-      onSupportReplyReceived,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.SupportReplyReceived,
-        onSupportReplyReceived,
-      );
-    };
-  }, []);
-};
-
 // Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
 function IntercomSessionSync() {
   useIntercomInit();
-  useIntercomSupportReplySync();
   return null;
 }
 

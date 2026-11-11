@@ -2,6 +2,7 @@ import { AppState, NativeEventEmitter, NativeModules } from 'react-native';
 
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
@@ -123,6 +124,29 @@ function toSdkThemeMode(sdk: IIntercomSdk, theme: IIntercomThemeMode) {
   return theme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT;
 }
 
+// An updateUser response stores the server's unread conversations before it
+// resolves, so it doubles as an unread resync.
+async function resyncUnreadFromServer(sdk: IIntercomSdk) {
+  await sdk.default.updateUser({
+    languageOverride: await getIntercomLanguageOverride(),
+  });
+  await refreshUnreadCount(sdk);
+}
+
+// In the foreground the SDK only learns about a new reply from its realtime
+// socket and keeps a stale unread cache when that event never arrives
+// (OK-67112). The OneKey support-reply push still reaches bg, so main resyncs.
+async function resyncUnreadOnSupportReply(sdk: IIntercomSdk) {
+  // A session still syncing ends with its own resync.
+  await sessionPromise;
+  const userId = activeUserId;
+  const generation = activeSessionGeneration;
+  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+    return;
+  }
+  await resyncUnreadFromServer(sdk);
+}
+
 async function loadSdk() {
   if (!sdkPromise) {
     sdkPromise = (async () => {
@@ -144,6 +168,11 @@ async function loadSdk() {
       emitter.addListener(sdk.IntercomEvents.IntercomWindowDidHide, () =>
         requestUnreadRefresh(sdk),
       );
+      appEventBus.on(EAppEventBusNames.SupportReplyReceived, () => {
+        void resyncUnreadOnSupportReply(sdk).catch(() => {
+          console.warn('Failed to resync Intercom unread count');
+        });
+      });
       AppState.addEventListener('change', (state) => {
         const active = state === 'active';
         if (active) {
@@ -304,10 +333,7 @@ async function syncSession(
   }
   activeUserId = userId;
   activeSessionGeneration = generation;
-  await sdk.default.updateUser({
-    languageOverride: await getIntercomLanguageOverride(),
-  });
-  await refreshUnreadCount(sdk);
+  await resyncUnreadFromServer(sdk);
 }
 
 function hasOpenedNativeSupport() {
@@ -350,34 +376,6 @@ async function syncCurrentSession(userId: IUserId) {
     }
     throw error;
   }
-}
-
-// In the foreground the SDK only learns about a new reply from its realtime
-// socket, and nothing updates its unread cache when that event never arrives
-// (OK-67112). OneKey push still delivers support replies, so it asks the SDK to
-// resync: an updateUser response stores the server's unread conversations
-// before it resolves.
-export async function refreshIntercomUnreadCount() {
-  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
-    return;
-  }
-  const session = sessionPromise;
-  // Without a session there is no unread state to show; initIntercom reads
-  // the count once it establishes one.
-  if (!session) {
-    return;
-  }
-  await session;
-  const sdk = await loadSdk();
-  const userId = activeUserId;
-  const generation = activeSessionGeneration;
-  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
-    return;
-  }
-  await sdk.default.updateUser({
-    languageOverride: await getIntercomLanguageOverride(),
-  });
-  await refreshUnreadCount(sdk);
 }
 
 export async function initIntercom() {

@@ -7,6 +7,7 @@ let mockUnreadCount = 0;
 let mockOnUnreadChanged: (() => void) | undefined;
 let mockOnWindowHidden: (() => void) | undefined;
 let mockOnAppStateChange: ((state: string) => void) | undefined;
+let mockOnSupportReply: (() => void) | undefined;
 const mockAppState = { currentState: 'background' };
 const mockUpdateLockPolicy = jest.fn(async () => {});
 const mockNativeModules: {
@@ -113,6 +114,16 @@ jest.mock('../../appGlobals', () => ({
     },
   },
 }));
+jest.mock('../../eventBus/appEventBus', () => ({
+  EAppEventBusNames: { SupportReplyReceived: 'SupportReplyReceived' },
+  appEventBus: {
+    on: (name: string, listener: () => void) => {
+      if (name === 'SupportReplyReceived') {
+        mockOnSupportReply = listener;
+      }
+    },
+  },
+}));
 jest.mock('../../platformEnv', () => ({
   __esModule: true,
   default: mockPlatformEnv,
@@ -182,6 +193,7 @@ describe('native Intercom SDK integration', () => {
     mockOnUnreadChanged = undefined;
     mockOnWindowHidden = undefined;
     mockOnAppStateChange = undefined;
+    mockOnSupportReply = undefined;
     mockAppState.currentState = 'background';
     mockNativeModules.IntercomEventEmitter = {};
     mockPlatformEnv.isNativeMainThread = true;
@@ -339,10 +351,8 @@ describe('native Intercom SDK integration', () => {
   });
 
   it('resyncs the unread count from the server on a support reply push', async () => {
-    // Without a session there is nothing to resync, so the SDK stays unloaded.
-    await subject.refreshIntercomUnreadCount();
-    expect(mockSdk.updateUser).not.toHaveBeenCalled();
-    expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
+    // The SDK listens only once a session loaded it.
+    expect(mockOnSupportReply).toBeUndefined();
 
     await subject.initIntercom();
     expect(subject.getIntercomUnreadCount()).toBe(0);
@@ -353,16 +363,12 @@ describe('native Intercom SDK integration', () => {
       mockUnreadCount = 1;
       return true;
     });
-    await subject.refreshIntercomUnreadCount();
+    mockOnSupportReply?.();
+    await flushEvents();
     expect(mockSdk.updateUser).toHaveBeenCalledWith({
       languageOverride: 'zh-CN',
     });
     expect(subject.getIntercomUnreadCount()).toBe(1);
-
-    mockSdk.updateUser.mockClear();
-    mockPlatformEnv.isNativeMainThread = false;
-    await subject.refreshIntercomUnreadCount();
-    expect(mockSdk.updateUser).not.toHaveBeenCalled();
   });
 
   it('does not resync a support reply into a switched identity', async () => {
@@ -374,7 +380,8 @@ describe('native Intercom SDK integration', () => {
     // The wallet switched accounts before the push arrived; the new session
     // has not been established yet.
     mockUserId = 'B';
-    await subject.refreshIntercomUnreadCount();
+    mockOnSupportReply?.();
+    await flushEvents();
     expect(mockSdk.updateUser).not.toHaveBeenCalled();
   });
 
