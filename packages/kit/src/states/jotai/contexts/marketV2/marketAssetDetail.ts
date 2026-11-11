@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   canConvertFiat,
@@ -63,6 +65,7 @@ export function buildMarketAssetTokenDetail({
   currencyMap: Record<string, ICurrencyItem>;
 }): IMarketTokenDetail {
   const { asset, market, performance, selectedVariant } = assetDetail;
+  const price = new BigNumber(market.price);
 
   return {
     address: selectedVariant.tokenAddress,
@@ -75,6 +78,8 @@ export function buildMarketAssetTokenDetail({
     decimalsResolved: decimals !== undefined,
     price: market.price,
     priceConverted:
+      price.isFinite() &&
+      price.gt(0) &&
       currencyId !== MARKET_ASSET_DETAIL_CURRENCY &&
       canConvertFiat({
         sourceCurrency: MARKET_ASSET_DETAIL_CURRENCY,

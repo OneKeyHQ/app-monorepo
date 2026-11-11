@@ -102,7 +102,14 @@ jest.mock('@onekeyhq/shared/src/utils/perpsUtils', () => ({
   getTokenSubtitle: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: { dex: { watchlist: { dexAddToWatchlist: jest.fn() } } },
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexAddToWatchlist: jest.fn(),
+        dexRemoveFromWatchlist: jest.fn(),
+      },
+    },
+  },
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -237,12 +244,19 @@ jest.mock('./utils', () => ({
 jest.mock('./MarketCategoryTokenList', () => ({
   MarketCategoryTokenList: ({
     onTokenPress,
+    onStarPress,
   }: {
     onTokenPress: (record: IFavoriteTokenDisplay) => void;
+    onStarPress: (record: IFavoriteTokenDisplay) => Promise<void>;
   }) => (
-    <button type="button" onClick={() => onTokenPress(mockRecord)}>
-      Open token
-    </button>
+    <>
+      <button type="button" onClick={() => onTokenPress(mockRecord)}>
+        Open token
+      </button>
+      <button type="button" onClick={() => void onStarPress(mockRecord)}>
+        Toggle favorite
+      </button>
+    </>
   ),
 }));
 
@@ -270,6 +284,10 @@ const addWatchList = jest.spyOn(
   backgroundApiProxy.serviceMarketV2,
   'addMarketWatchListV2',
 );
+const removeWatchList = jest.spyOn(
+  backgroundApiProxy.serviceMarketV2,
+  'removeMarketWatchListV2',
+);
 beforeEach(() => {
   jest.clearAllMocks();
   jest.replaceProperty(platformEnv, 'isNative', false);
@@ -281,6 +299,7 @@ beforeEach(() => {
   fetchRecommendations.mockReset();
   fetchListingQuote.mockReset();
   addWatchList.mockReset().mockResolvedValue(undefined);
+  removeWatchList.mockReset().mockResolvedValue(undefined);
   openDetail.mockReset().mockResolvedValue(undefined);
   fetchAsset.mockReset().mockResolvedValue({
     selectedVariant: {
@@ -735,4 +754,45 @@ it('does not restore removed favorites when an older quote request finishes last
   });
   expect(screen.queryByTestId('favorite-list')).toBeNull();
   expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
+});
+
+it('keeps a token pending until its membership refresh settles before allowing another toggle', async () => {
+  const membership =
+    Promise.withResolvers<
+      Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.serviceMarketV2.getMarketWatchListV2
+        >
+      >
+    >();
+  const quote = Promise.withResolvers<
+    IMarketListingWatchlistQuote | undefined
+  >();
+  getWatchList.mockReturnValueOnce(membership.promise);
+  fetchListingQuote.mockReturnValueOnce(quote.promise);
+  render(<PopularTrading tableLayout />);
+
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
+  );
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
+  );
+  expect(addWatchList).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    membership.resolve({
+      data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
+    });
+  });
+  await act(async () =>
+    quote.resolve({ symbol: 'BTC', name: 'Bitcoin', logoUrl: '' }),
+  );
+  getWatchList.mockResolvedValue({ data: [] });
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
+  );
+  expect(removeWatchList).toHaveBeenCalledTimes(1);
+  expect(addWatchList).toHaveBeenCalledTimes(1);
+  expect(Toast.error).not.toHaveBeenCalled();
 });

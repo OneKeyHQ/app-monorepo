@@ -616,9 +616,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           }
 
           appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-          void refreshDataRef
-            .current()
-            .catch(errorToastUtils.toastIfErrorDisable);
+          await refreshDataRef.current();
           return;
         }
 
@@ -665,9 +663,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         }
 
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        void refreshDataRef
-          .current()
-          .catch(errorToastUtils.toastIfErrorDisable);
+        await refreshDataRef.current();
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
@@ -1094,7 +1090,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        void refreshData().catch(errorToastUtils.toastIfErrorDisable);
+        await refreshData();
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
