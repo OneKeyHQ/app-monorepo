@@ -199,6 +199,7 @@ const uploadViaUploadTask = async ({
   }
 
   let uploadTaskError: unknown;
+  let taskSentBytes = 0;
   if (fileSystemModule?.createUploadTask) {
     try {
       const uploadTask = fileSystemModule.createUploadTask(
@@ -215,6 +216,7 @@ const uploadViaUploadTask = async ({
             progress.totalBytesExpectedToSend > 0
               ? progress.totalBytesExpectedToSend
               : digest.sizeBytes;
+          taskSentBytes = progress.totalBytesSent;
           onSentBytes(progress.totalBytesSent);
           emitUploadProgress(progress.totalBytesSent, total);
         },
@@ -239,6 +241,13 @@ const uploadViaUploadTask = async ({
       // another full upload on the same slow route.
       if (error instanceof LogUploadError && error.reason === 'timeout') {
         throw error;
+      }
+      if (taskSentBytes > 0) {
+        throw new LogUploadError({
+          reason: 'network',
+          retryable: false,
+          message: getErrorMessage(error),
+        });
       }
       uploadTaskError = error;
     }

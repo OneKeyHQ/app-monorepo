@@ -41,21 +41,26 @@ export class LogUploadError extends OneKeyLocalError {
 
   readonly retryable?: boolean;
 
+  readonly requestSent?: boolean;
+
   constructor({
     reason,
     message,
     httpStatus,
     retryable,
+    requestSent,
   }: {
     reason: ILogUploadErrorReason;
     message: string;
     httpStatus?: number;
     retryable?: boolean;
+    requestSent?: boolean;
   }) {
     super(message);
     this.reason = reason;
     this.httpStatus = httpStatus;
     this.retryable = retryable;
+    this.requestSent = requestSent;
   }
 }
 
@@ -64,6 +69,7 @@ export type ILogUploadTokenCache = {
   expiresAtMs: number;
   sha256: string;
   sizeBytes: number;
+  consumed?: boolean;
 };
 
 /**
@@ -84,8 +90,10 @@ export function normalizeTokenExpiresAtMs(
 }
 
 /**
- * A token is bound to the archive it was issued for (size + sha256), so it
- * can only be reused for the same digest.
+ * A token is single-use on the server (consumed on controller entry) and
+ * bound to the archive it was issued for (size + sha256), so it can only be
+ * reused for the same digest when the previous attempt proved the upload
+ * request was never sent (`!cache.consumed`).
  */
 export function isUploadTokenReusable(
   cache: ILogUploadTokenCache | undefined,
@@ -94,10 +102,36 @@ export function isUploadTokenReusable(
 ): cache is ILogUploadTokenCache {
   return Boolean(
     cache &&
+    !cache.consumed &&
     cache.sha256 === digest.sha256 &&
     cache.sizeBytes === digest.sizeBytes &&
     cache.expiresAtMs - LOG_UPLOAD_TOKEN_EXPIRY_MARGIN_MS > nowMs,
   );
+}
+
+/**
+ * Server upload tokens are atomically consumed before the upload stream is
+ * read. Once an upload request may have reached the server (including HTTP 5xx
+ * responses), the token must be treated as consumed; only errors that
+ * explicitly failed before sending the upload request (`requestSent: false`)
+ * keep the cached token reusable.
+ */
+export function canReuseUploadTokenAfterError(error: unknown): boolean {
+  return error instanceof LogUploadError && error.requestSent === false;
+}
+
+export function invalidateUploadTokenCacheAfterError(
+  cache: ILogUploadTokenCache | undefined,
+  error: unknown,
+): ILogUploadTokenCache | undefined {
+  if (!cache) {
+    return undefined;
+  }
+  if (canReuseUploadTokenAfterError(error)) {
+    return cache;
+  }
+  cache.consumed = true;
+  return undefined;
 }
 
 export function isSniTimeoutErrorCode(code: string): boolean {

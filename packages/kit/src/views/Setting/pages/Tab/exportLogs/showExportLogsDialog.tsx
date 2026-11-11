@@ -45,6 +45,7 @@ import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/
 import { downloadLogDigest } from './downloadLogDigest';
 import {
   LOG_UPLOAD_MAX_RETRIES,
+  invalidateUploadTokenCacheAfterError,
   isRetryableLogUploadError,
   isUploadTokenReusable,
   normalizeTokenExpiresAtMs,
@@ -215,20 +216,29 @@ function UploadLogsDialogContent({
           expiresAtMs: normalizeTokenExpiresAtMs(token.expiresAt, issuedAtMs),
           sha256: currentDigest.sha256,
           sizeBytes: currentDigest.sizeBytes,
+          consumed: false,
         };
         return token.uploadToken;
       };
 
       const attemptUpload = async () => {
         attempt += 1;
+        let uploadDispatched = false;
         try {
           digest ??= usesBrowserLogExport
             ? await collectLogDigest(fileBaseName, exportScope)
             : await collectLogDigest(fileBaseName);
           const uploadToken = await getUploadToken(digest);
+          uploadDispatched = true;
           const { result } = await uploadLogBundle({ uploadToken, digest });
           return result.objectKey;
         } catch (error) {
+          if (uploadDispatched) {
+            tokenCache = invalidateUploadTokenCacheAfterError(
+              tokenCache,
+              error,
+            );
+          }
           const retryable = isRetryableLogUploadError(error);
           const resolvedError = resolveError(error);
           defaultLogger.setting.logUpload.attemptFailed({
