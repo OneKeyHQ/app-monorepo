@@ -407,10 +407,9 @@ const ManagePositionPage = () => {
       screen: EModalStakingRoutes.EarnRouterAssetSelect,
       params: {
         purpose: 'earn',
-        // Named for what it picks, the token to deposit, as the Loans
-        // window's pickers are ("Collateral", "Borrow"); Pay with's own is
-        // "Pay with" (demo 10-29)
-        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
+        // Named as the field that opens it is ("Earn" over the pick), the
+        // way the Loans window's lists carry their fields' words (11-11)
+        title: intl.formatMessage({ id: ETranslations.earn_title }),
         tokens: networkAssets.tokens,
         networks: networkAssets.networks,
         selected: assetPick,
@@ -683,6 +682,9 @@ const ManagePositionPage = () => {
         networkLogoURI={pickNetwork?.logoURI}
         networkName={pickNetwork?.name}
         onPress={handleOpenAssetSelect}
+        onPickNetwork={(networkId) =>
+          handlePickAsset({ ...assetPick, networkId })
+        }
       />
     ) : undefined;
   const pickPill = renderPick('pill');

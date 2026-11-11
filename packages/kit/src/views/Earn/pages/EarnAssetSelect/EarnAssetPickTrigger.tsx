@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnHeaderNetworkMenu } from '../../components/desktopHome/EarnHeaderNetworkMenu';
 import {
   EarnHeaderPickCell,
   EarnHeaderPickRow,
@@ -17,6 +17,7 @@ import {
 import { getEarnAssetClassLabel } from './earnAssetClassLabel';
 import { EarnAssetLogos } from './EarnAssetLogos';
 import {
+  listAssetPickNetworks,
   scopeAssetSelectTokens,
   sortAssetSelectTokens,
 } from './earnAssetSelect.utils';
@@ -48,10 +49,11 @@ export function EarnAssetPickTrigger({
   lead,
   testID = 'earn-asset-pick-trigger',
   onPress,
+  onPickNetwork,
 }: {
   // The wide Earn window's header, fields without boxes: 'header' is the
   // pick under its role (`lead`, the window's name), 'headerNetwork' the
-  // network it is on, which stands over the offers
+  // network it is on, which stands over the offers and opens its own menu
   variant?: 'title' | 'pill' | 'header' | 'headerNetwork';
   pick: IEarnAssetPick;
   tokens: IEarnAssetSelectToken[];
@@ -73,6 +75,8 @@ export function EarnAssetPickTrigger({
   lead?: string;
   testID?: string;
   onPress: () => void;
+  // 'headerNetwork': the pick moved to another network (none, every one)
+  onPickNetwork?: (networkId?: string) => void;
 }) {
   const intl = useIntl();
   // The selector it opens groups its networks by Swap's list
@@ -88,6 +92,15 @@ export function EarnAssetPickTrigger({
           ).map((token) => token.logoURI)
         : [],
     [pick, purpose, tokens],
+  );
+  // Where the pick can go, with its rate on each network: the network
+  // field's own menu
+  const menuNetworks = useMemo(
+    () =>
+      variant === 'headerNetwork'
+        ? listAssetPickNetworks({ pick, tokens, purpose })
+        : undefined,
+    [pick, purpose, tokens, variant],
   );
   const pickNetworkId = pick.networkId;
   const pickNetwork = useMemo(() => {
@@ -142,21 +155,26 @@ export function EarnAssetPickTrigger({
     );
   }
   if (variant === 'headerNetwork') {
-    // Where the pick is, picked in the same list: every network, or the
-    // one it is kept to
+    // Where the pick is: every network, or the one it is kept to. Its menu
+    // changes the network alone; what is picked stays (11-11)
+    const figureOf = (rate?: number) =>
+      rate !== undefined && purpose !== 'loanSupply'
+        ? `${rate.toFixed(2)}%`
+        : undefined;
     return (
-      <EarnHeaderPickCell
+      <EarnHeaderNetworkMenu
         testID={`${testID}-network`}
-        label={intl.formatMessage({ id: ETranslations.global_network })}
-        logo={
-          <NetworkAvatarBase
-            logoURI={badgeLogoURI ?? ''}
-            isAllNetworks={!pickNetworkId}
-            size="$5"
-          />
-        }
-        value={networkWords ?? ''}
-        onPress={onPress}
+        selectedId={pickNetworkId}
+        selected={{ name: networkWords, logoURI: badgeLogoURI }}
+        networks={(menuNetworks?.networks ?? []).map((network) => ({
+          id: network.id,
+          name: network.name,
+          logoURI: network.logoURI,
+          figure: figureOf(network.rate),
+        }))}
+        allFigure={figureOf(menuNetworks?.all.rate)}
+        figureColor={purpose === 'earn' ? '$textSuccess' : undefined}
+        onSelect={(networkId) => onPickNetwork?.(networkId)}
       />
     );
   }

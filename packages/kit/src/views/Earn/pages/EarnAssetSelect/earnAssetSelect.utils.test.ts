@@ -6,6 +6,7 @@ import {
   isInAssetPick,
   isSameAssetPick,
   isSameAssetPickAsset,
+  listAssetPickNetworks,
   listAssetSelectHeldNetworks,
   listAssetSelectNetworks,
   listPickableClasses,
@@ -582,5 +583,73 @@ describe('the list by network and tab (11-05)', () => {
       BASE,
       ARBITRUM,
     ]);
+  });
+});
+
+describe('where a pick can go (11-11)', () => {
+  const ARBITRUM = { id: 'evm--42161', name: 'Arbitrum', logoURI: 'arb.png' };
+  const KATANA = { id: 'evm--747474', name: 'Katana', logoURI: 'kat.png' };
+  const usdc = token('USDC', {
+    type: 'stable',
+    networks: [
+      { ...BASE, rate: 5.19, fiatValue: 4 },
+      { ...ARBITRUM, rate: 3.1, fiatValue: 10 },
+    ],
+    rate: 5.19,
+    fiatValue: 14,
+  });
+  const usdt = token('USDT', {
+    type: 'stable',
+    networks: [
+      { ...ARBITRUM, rate: 7.5 },
+      { ...KATANA, rate: 2.2 },
+    ],
+    rate: 7.5,
+  });
+  const eth = token('ETH', { type: 'eth', networks: [{ ...BASE, rate: 2 }] });
+  const tokens = [usdc, usdt, eth];
+
+  it('lists a token networks with its rate on each, held first', () => {
+    const result = listAssetPickNetworks({
+      pick: { kind: 'token', symbol: 'usdc' },
+      tokens,
+      purpose: 'earn',
+    });
+    expect(result.all).toEqual({ rate: 5.19, fiatValue: 14 });
+    expect(result.networks).toEqual([
+      { ...ARBITRUM, rate: 3.1, fiatValue: 10 },
+      { ...BASE, rate: 5.19, fiatValue: 4 },
+    ]);
+  });
+
+  it('takes a kind across its tokens: the best rate on each network', () => {
+    const result = listAssetPickNetworks({
+      pick: { kind: 'class', assetClass: 'stable' },
+      tokens,
+      purpose: 'earn',
+    });
+    expect(result.all).toEqual({ rate: 7.5, fiatValue: 14 });
+    expect(result.networks).toEqual([
+      { ...ARBITRUM, rate: 7.5, fiatValue: 10 },
+      { ...BASE, rate: 5.19, fiatValue: 4 },
+      { ...KATANA, rate: 2.2, fiatValue: undefined },
+    ]);
+  });
+
+  it('gives a loan its lowest rate, and nothing for a token not listed', () => {
+    expect(
+      listAssetPickNetworks({
+        pick: { kind: 'class', assetClass: 'stable' },
+        tokens,
+        purpose: 'loanBorrow',
+      }).networks.map((network) => network.rate),
+    ).toEqual([3.1, 5.19, 2.2]);
+    expect(
+      listAssetPickNetworks({
+        pick: { kind: 'token', symbol: 'DAI' },
+        tokens,
+        purpose: 'earn',
+      }),
+    ).toEqual({ all: { rate: undefined, fiatValue: undefined }, networks: [] });
   });
 });

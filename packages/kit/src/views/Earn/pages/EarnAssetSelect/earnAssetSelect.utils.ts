@@ -183,15 +183,12 @@ export const sortAssetSelectTokens = (
   purpose: IEarnAssetSelectPurpose,
 ) => tokens.toSorted(compareTokens(purpose));
 
-function buildClassRow({
-  assetClass,
-  tokens,
-  purpose,
-}: {
-  assetClass: IEarnAssetClass;
-  tokens: IEarnAssetSelectToken[];
-  purpose: IEarnAssetSelectPurpose;
-}): IEarnAssetSelectClassRow {
+// Several tokens' figures as one: Earn's best rate across them or the lowest
+// loan rate, and what the wallet holds of them in the currency
+function sumTokenFigures(
+  tokens: IEarnAssetSelectToken[],
+  purpose: IEarnAssetSelectPurpose,
+): { rate?: number; fiatValue?: number } {
   const rates = tokens
     .map((token) => token.rate)
     .filter((rate): rate is number => rate !== undefined);
@@ -202,11 +199,54 @@ function buildClassRow({
     rate = Math.min(...rates);
   }
   const fiatValue = tokens.reduce((sum, token) => sum + held(token), 0);
+  return { rate, fiatValue: fiatValue > 0 ? fiatValue : undefined };
+}
+
+function buildClassRow({
+  assetClass,
+  tokens,
+  purpose,
+}: {
+  assetClass: IEarnAssetClass;
+  tokens: IEarnAssetSelectToken[];
+  purpose: IEarnAssetSelectPurpose;
+}): IEarnAssetSelectClassRow {
+  return { assetClass, tokens, ...sumTokenFigures(tokens, purpose) };
+}
+
+export type IEarnAssetPickNetwork = IEarnAssetSelectNetwork & {
+  rate?: number;
+  fiatValue?: number;
+};
+
+/**
+ * Where the pick can go, for the network menu beside it: every network its
+ * token (or any token of its kind) is offered on, in the network column's
+ * order, each with the pick's figures there, and the figures across them all
+ */
+export function listAssetPickNetworks({
+  pick,
+  tokens,
+  purpose,
+}: {
+  pick: IEarnAssetPick;
+  tokens: IEarnAssetSelectToken[];
+  purpose: IEarnAssetSelectPurpose;
+}): {
+  all: { rate?: number; fiatValue?: number };
+  networks: IEarnAssetPickNetwork[];
+} {
+  const members = tokens.filter((token) =>
+    pick.kind === 'token'
+      ? isSameSymbol(token.symbol, pick.symbol)
+      : token.type === pick.assetClass,
+  );
   return {
-    assetClass,
-    tokens,
-    rate,
-    fiatValue: fiatValue > 0 ? fiatValue : undefined,
+    all: sumTokenFigures(members, purpose),
+    networks: listAssetSelectNetworks(members).map((network) => ({
+      ...network,
+      ...sumTokenFigures(scopeAssetSelectTokens(members, network.id), purpose),
+    })),
   };
 }
 

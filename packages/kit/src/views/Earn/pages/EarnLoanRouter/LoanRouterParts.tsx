@@ -36,6 +36,7 @@ import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared
 import { ANIMATE_ONLY_BG_COLOR } from '../../components/desktopHome/earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnHeaderNetworkMenu } from '../../components/desktopHome/EarnHeaderNetworkMenu';
 import {
   EarnHeaderPickArrow,
   EarnHeaderPickCell,
@@ -1408,32 +1409,25 @@ function LoanPickCell({ side }: { side: ILoanPickSide }) {
 }
 
 // The network both picks are on, in the wide window's header over the
-// markets' column. Picked in either pick's list: it opens the supply side's
+// markets' column. Its menu lists where the collateral can be supplied and
+// changes the network alone; the token lists are the picks' own (11-11)
 export function LoanPickNetwork({
   network,
-  onPress,
+  networks,
+  onSelect,
 }: {
   // None, every network
   network?: IEarnAssetSelectNetwork;
-  onPress: () => void;
+  networks: IEarnAssetSelectNetwork[];
+  onSelect: (networkId?: string) => void;
 }) {
-  const intl = useIntl();
   return (
-    <EarnHeaderPickCell
+    <EarnHeaderNetworkMenu
       testID="earn-loan-pick-network"
-      label={intl.formatMessage({ id: ETranslations.global_network })}
-      logo={
-        <NetworkAvatarBase
-          logoURI={network?.logoURI ?? ''}
-          isAllNetworks={!network}
-          size="$5"
-        />
-      }
-      value={
-        network?.name ??
-        intl.formatMessage({ id: ETranslations.global_all_networks })
-      }
-      onPress={onPress}
+      selectedId={network?.id}
+      selected={network}
+      networks={networks}
+      onSelect={onSelect}
     />
   );
 }

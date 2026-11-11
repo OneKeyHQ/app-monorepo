@@ -95,6 +95,7 @@ import { EarnNavigation } from '../../earnUtils';
 import { leaveEarnWindowFor } from '../../earnWindowReturn';
 import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
 import {
+  listAssetPickNetworks,
   listAssetSelectNetworks,
   scopeAssetSelectTokens,
 } from '../EarnAssetSelect/earnAssetSelect.utils';
@@ -306,6 +307,11 @@ const HEALTH_TONE_WORD: Record<ILoanLtvTone, ETranslations> = {
   critical: ETranslations.perp_portfolio_health_status_high_risk,
 };
 
+// The window's two results, the health factor and the net APY: the figure
+// before and the one after share a size, between the small and the large
+// they had (11-11)
+const RESULT_FIGURE_SIZE = '$headingXl';
+
 // The health factor in the Borrow page's words: the position as it stands is
 // the server's figure, color and status; once amounts are typed, the figure
 // before and after, each in its band's color
@@ -318,12 +324,13 @@ function HealthFactorValue({
   before?: number;
   after?: number;
   current?: IHealthFactorDetail;
-  // The window's result: the figure it leaves large, what it was small
+  // The window's result: what it was and what it leaves in one size (11-11),
+  // told apart by their colors and the arrow between them
   isHero?: boolean;
 }) {
   const intl = useIntl();
-  const mainSize = isHero ? '$heading3xl' : '$bodyMdMedium';
-  const beforeSize = isHero ? '$bodyMd' : '$bodySm';
+  const mainSize = isHero ? RESULT_FIGURE_SIZE : '$bodyMdMedium';
+  const beforeSize = isHero ? RESULT_FIGURE_SIZE : '$bodySm';
   if (after === undefined) {
     return isHero ? (
       <SizableText size={mainSize} color="$textPlaceholder">
@@ -497,10 +504,10 @@ function PositionManageLink({ onPress }: { onPress: () => void }) {
 // there, line for line as it opens folded (the health factor, then the
 // position's title and its link), so the modal opens at the size it settles
 // at where the account has a position, and shrinks once if it has none
-// One of the window's two results, as the home's Net Worth stands: its
-// label over a large figure on the background. The line keeps its height
-// whatever it holds, so the button under it stays put
-const RESULT_FIGURE_HEIGHT = 36;
+// One of the window's two results: its label over a figure on the
+// background. The line keeps its height whatever it holds, so the button
+// under it stays put
+const RESULT_FIGURE_HEIGHT = 28;
 function LoanResultCell({
   testID,
   label,
@@ -1310,6 +1317,22 @@ function EarnLoanRouterPage() {
     },
     [resetLoan],
   );
+  // The header's network field: where the collateral can be supplied. A
+  // network picked there is the collateral's, as one picked in its list
+  const collateralNetworks = useMemo(
+    () =>
+      listAssetPickNetworks({
+        pick: collateralPick,
+        tokens: supplyTokens,
+        purpose: 'loanSupply',
+      }).networks,
+    [collateralPick, supplyTokens],
+  );
+  const handleNetworkPick = useCallback(
+    (networkId?: string) =>
+      handleCollateralPick({ ...collateralPick, networkId }),
+    [collateralPick, handleCollateralPick],
+  );
   const openSelect = useCallback(
     (side: 'supply' | 'borrow') => {
       const isSupply = side === 'supply';
@@ -1868,7 +1891,7 @@ function EarnLoanRouterPage() {
           legend={<LoanHealthLegend />}
         >
           {isFiguresLoading ? (
-            <Skeleton.Heading2Xl w={96} />
+            <Skeleton.HeadingXl w={96} />
           ) : (
             <HealthFactorValue
               isHero
@@ -1887,11 +1910,11 @@ function EarnLoanRouterPage() {
           label={netApyLabel}
           isTrailing={gtMd}
         >
-          {isFiguresLoading ? <Skeleton.Heading2Xl w={96} /> : null}
+          {isFiguresLoading ? <Skeleton.HeadingXl w={96} /> : null}
           {!isFiguresLoading && netApyValue?.before ? (
             <>
               <SizableText
-                size="$bodyMd"
+                size={RESULT_FIGURE_SIZE}
                 color="$textSubdued"
                 fontVariant={['tabular-nums']}
               >
@@ -1902,7 +1925,7 @@ function EarnLoanRouterPage() {
           ) : null}
           {isFiguresLoading ? null : (
             <SizableText
-              size="$heading3xl"
+              size={RESULT_FIGURE_SIZE}
               color={
                 // eslint-disable-next-line no-nested-ternary
                 !netApyValue
@@ -2531,7 +2554,8 @@ function EarnLoanRouterPage() {
         network={
           <LoanPickNetwork
             network={scopeNetwork}
-            onPress={openCollateralSelect}
+            networks={collateralNetworks}
+            onSelect={handleNetworkPick}
           />
         }
       >

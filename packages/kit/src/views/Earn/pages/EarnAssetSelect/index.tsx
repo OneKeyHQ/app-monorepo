@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
@@ -16,7 +17,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import type { IScrollViewRef } from '@onekeyhq/components';
+import type { ColorTokens, IScrollViewRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -28,7 +29,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import { SwapTokenSelectorNetworkColumn } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -44,15 +44,14 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { swapNetworksCommonCountMD } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
-import { CategoryPills } from '../../components/desktopHome/EarnDesktopEarnTab';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
 import { getEarnAssetClassLabel } from './earnAssetClassLabel';
-import { EarnAssetKindLogos } from './EarnAssetLogos';
+import { EarnAssetKindLogos, EarnAssetLogos } from './EarnAssetLogos';
 import {
+  buildAssetSelectGroups,
   buildAssetSelectView,
   getAssetSelectOpening,
   isAddressKeyword,
@@ -60,22 +59,19 @@ import {
   listAssetSelectHeldNetworks,
   listAssetSelectNetworks,
   orderAssetSelectPhoneNetworks,
+  scopeAssetSelectTokens,
   splitClassMembers,
 } from './earnAssetSelect.utils';
-import {
-  getLoadedSwapNetworkParents,
-  loadSwapNetworkParents,
-} from './earnAssetSelectNetworkParents';
+import { EarnAssetSelectNetworkColumn } from './EarnAssetSelectNetworkColumn';
 import { EARN_ASSET_SELECT_SIZE } from './earnAssetSelectSize';
 
 import type {
   IEarnAssetPick,
-  IEarnAssetSelectCategory,
   IEarnAssetSelectClassRow,
-  IEarnAssetSelectNetwork,
   IEarnAssetSelectPurpose,
   IEarnAssetSelectToken,
 } from './earnAssetSelect.utils';
+import type { IEarnAssetSelectColumnNetwork } from './EarnAssetSelectNetworkColumn';
 
 // The rows sit where Swap's selector puts its own: inset from the column's
 // edges, their content 20px in at either width
@@ -90,25 +86,6 @@ const SELECTED_ROW_TEST_ID = 'earn-asset-select-picked';
 const SECOND_LINE_HEIGHT = 20;
 
 const ALL_NETWORKS_ID = getNetworkIdsMap().onekeyall;
-const NO_NETWORK_IDS: string[] = [];
-const noop = () => undefined;
-
-// An L2 goes under its mainnet in the column, as in Swap's, once Swap's list
-// says which it is
-const toColumnNetwork = (
-  network: IEarnAssetSelectNetwork,
-  parents?: ReadonlyMap<string, string>,
-): ISwapNetwork => {
-  const parentNetworkId = parents?.get(network.id);
-  return {
-    networkId: network.id,
-    name: network.name,
-    symbol: '',
-    logoURI: network.logoURI,
-    ...(parentNetworkId ? { isL2: true, parentNetworkId } : {}),
-  };
-};
-
 // What the row's right side says: Earn's best rate, a loan's lowest, or what
 // the wallet holds of a collateral. Under it, what the wallet holds in the
 // currency; its line is kept where it holds none, so every figure sits on
@@ -435,6 +412,61 @@ function ClassRow({
   );
 }
 
+// A whole kind of token, picked in one press where Swap's selector keeps
+// its popular tokens: a chip of the kind's first logos and its name. It
+// takes the place of the tabs and of the row that headed each tab (11-11)
+function ClassChip({
+  row,
+  isSelected,
+  onPress,
+}: {
+  row: IEarnAssetSelectClassRow;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const intl = useIntl();
+  // The logos' rings take the chip's color as it changes
+  const [isHovered, setIsHovered] = useState(false);
+  let surface: ColorTokens = '$bg';
+  if (isSelected) {
+    surface = '$bgActive';
+  } else if (isHovered) {
+    surface = '$bgHover';
+  }
+  return (
+    <XStack
+      testID={`earn-asset-select-chip-${row.assetClass}`}
+      role="button"
+      aria-pressed={isSelected}
+      userSelect="none"
+      cursor="pointer"
+      ai="center"
+      gap="$1.5"
+      h={36}
+      pl="$1.5"
+      pr="$3"
+      bg={surface}
+      borderRadius="$full"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor={isSelected ? '$borderActive' : '$borderSubdued'}
+      pressStyle={{ bg: '$bgActive' }}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
+    >
+      <EarnAssetLogos
+        logos={row.tokens.map((token) => token.logoURI)}
+        size="xxs"
+        ringColor={surface}
+      />
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        {getEarnAssetClassLabel(intl, row.assetClass)}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function SearchEmpty({
   title,
   description,
@@ -487,26 +519,41 @@ function EarnRouterAssetSelectPage() {
     () => (networks?.length ? networks : listAssetSelectNetworks(tokens)),
     [networks, tokens],
   );
-  // Opened on the pick: its network, and a kind on its own tab
+  // Opened on the pick's network
   const [opening] = useState(() =>
     getAssetSelectOpening({ selected, networks: networkList }),
   );
   const [networkId, setNetworkId] = useState(opening.networkId);
-  const [category, setCategory] = useState<IEarnAssetSelectCategory>(
-    opening.category,
-  );
   const [keyword, setKeyword] = useState('');
-  const [networkKeyword, setNetworkKeyword] = useState('');
   // The phone's row of networks shows one picked from the full list up front
   const [phoneLeadId, setPhoneLeadId] = useState(opening.networkId);
 
+  // One list of tokens on the network chosen; the kinds are chips over it
   const view = useMemo(
     () =>
-      buildAssetSelectView({ tokens, purpose, networkId, category, keyword }),
-    [category, keyword, networkId, purpose, tokens],
+      buildAssetSelectView({
+        tokens,
+        purpose,
+        networkId,
+        category: 'all',
+        keyword,
+      }),
+    [keyword, networkId, purpose, tokens],
   );
   const network = networkList.find((item) => item.id === networkId);
   const isSearching = keyword.trim().length > 0;
+  // The kinds that can be compared on the network chosen (two tokens or
+  // more); a search finds them as rows among its matches instead
+  const classChips = useMemo(
+    () =>
+      isSearching
+        ? []
+        : buildAssetSelectGroups({
+            tokens: scopeAssetSelectTokens(tokens, networkId),
+            purpose,
+          }).flatMap((group) => (group.classRow ? [group.classRow] : [])),
+    [isSearching, networkId, purpose, tokens],
+  );
 
   const handlePick = useCallback(
     (pick: IEarnAssetPick) => {
@@ -523,71 +570,34 @@ function EarnRouterAssetSelectPage() {
       setKeyword(text.trim());
     }
   }, [getClipboard]);
-  const handleCategoryChange = useCallback(
-    (value: IEarnAssetSelectCategory | 'fixedIncome') => {
-      if (value !== 'fixedIncome') {
-        setCategory(value);
-      }
-    },
-    [],
-  );
-
   // Every network's name, the app's own words in every language: the
   // column's row, the phone's, the list's title and the pill say it alike
   const allNetworksLabel = intl.formatMessage({
     id: ETranslations.global_all_networks,
   });
-  const [networkParents, setNetworkParents] = useState(
-    getLoadedSwapNetworkParents,
-  );
-  useEffect(() => {
-    if (networkParents) {
-      return undefined;
-    }
-    let isActive = true;
-    loadSwapNetworkParents()
-      .then((parents) => {
-        if (isActive) {
-          setNetworkParents(parents);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      isActive = false;
-    };
-  }, [networkParents]);
-  // The network column, in Swap's own terms
-  const allColumnNetwork = useMemo<ISwapNetwork>(
-    () => ({
-      networkId: ALL_NETWORKS_ID,
-      name: allNetworksLabel,
-      symbol: '',
-      isAllNetworks: true,
-    }),
-    [allNetworksLabel],
-  );
-  const columnNetworks = useMemo(
-    () => networkList.map((item) => toColumnNetwork(item, networkParents)),
-    [networkList, networkParents],
-  );
-  const heldNetworks = useMemo(
-    () =>
+  // The column's networks, each once: where the wallet holds any of the
+  // tokens first, the most first, with what it holds there
+  const columnNetworks = useMemo<IEarnAssetSelectColumnNetwork[]>(() => {
+    const heldById = new Map(
       listAssetSelectHeldNetworks({ tokens, networks: networkList }).map(
-        (item) => ({
-          network: toColumnNetwork(item.network, networkParents),
-          fiatValue: convertFiat({
-            value: item.fiatValue,
-            sourceCurrency: USD_CURRENCY_ID,
-            targetCurrency: currencyInfo.id,
-            currencyMap,
-          }),
-        }),
+        (item) => [item.network.id, item.fiatValue],
       ),
-    [currencyInfo.id, currencyMap, networkList, networkParents, tokens],
-  );
-  const selectedColumnNetwork =
-    columnNetworks.find((item) => item.networkId === networkId) ??
-    allColumnNetwork;
+    );
+    return networkList
+      .map((item) => ({ ...item, held: heldById.get(item.id) ?? 0 }))
+      .toSorted((a, b) => b.held - a.held)
+      .map(({ held, ...item }) => ({
+        ...item,
+        fiatValue: held
+          ? convertFiat({
+              value: held,
+              sourceCurrency: USD_CURRENCY_ID,
+              targetCurrency: currencyInfo.id,
+              currencyMap,
+            })
+          : undefined,
+      }));
+  }, [currencyInfo.id, currencyMap, networkList, tokens]);
 
   // The phone's row: All Networks, then the networks, More at its end
   const phoneNetworks = useMemo<INetworkToggleGroupItem[]>(
@@ -659,8 +669,8 @@ function EarnRouterAssetSelectPage() {
     frame = requestAnimationFrame(scrollToPick);
     return () => cancelAnimationFrame(frame);
   }, []);
-  // Another network, tab or search starts the list at its top
-  const viewKey = `${networkId ?? ''}|${view.category}|${keyword}`;
+  // Another network or search starts the list at its top
+  const viewKey = `${networkId ?? ''}|${keyword}`;
   const shownViewKeyRef = useRef(viewKey);
   useEffect(() => {
     if (shownViewKeyRef.current === viewKey) {
@@ -745,16 +755,32 @@ function EarnRouterAssetSelectPage() {
     />
   );
 
-  const pills =
-    view.categories.length > 1 ? (
-      <XStack px="$5" pb="$1" testID="earn-asset-select-categories">
-        <CategoryPills
-          categories={view.categories}
-          value={view.category}
-          onChange={handleCategoryChange}
-        />
-      </XStack>
-    ) : null;
+  const chips = classChips.length ? (
+    <XStack
+      testID="earn-asset-select-categories"
+      px="$5"
+      pt="$1"
+      pb="$1.5"
+      gap="$2"
+      flexWrap="wrap"
+    >
+      {classChips.map((row) => {
+        const pick: IEarnAssetPick = {
+          kind: 'class',
+          assetClass: row.assetClass,
+          networkId,
+        };
+        return (
+          <ClassChip
+            key={row.assetClass}
+            row={row}
+            isSelected={isPicked(pick)}
+            onPress={() => handlePick(pick)}
+          />
+        );
+      })}
+    </XStack>
+  ) : null;
   // The list's name, and what the figure on each row's right is
   const listHeader = (
     <XStack h={38} ai="center" jc="space-between" gap="$3" pl="$5" pr="$5">
@@ -822,24 +848,12 @@ function EarnRouterAssetSelectPage() {
       <Page.Body>
         {isWide ? (
           <XStack flex={1} minHeight={0} testID="earn-asset-select">
-            <SwapTokenSelectorNetworkColumn
-              allNetwork={allColumnNetwork}
+            <EarnAssetSelectNetworkColumn
               networks={columnNetworks}
-              selectedNetwork={selectedColumnNetwork}
-              assetNetworks={heldNetworks}
-              disableNetworks={NO_NETWORK_IDS}
-              networkSearchValue={networkKeyword}
+              selectedId={networkId}
               allNetworksLabel={allNetworksLabel}
-              sameChainLabel=""
-              allSectionLabel={`${allNetworksLabel}, A–Z`}
-              searchTestID="earn-asset-select-network-search"
-              rowTestIDPrefix="earn-asset-select-network"
-              onNetworkSearchChange={setNetworkKeyword}
-              onSelectNetwork={(item) =>
-                setNetworkId(item.isAllNetworks ? undefined : item.networkId)
-              }
-              onDisableNetworksClick={noop}
               currencySymbol={currencyInfo.symbol}
+              onSelect={setNetworkId}
             />
             <YStack flex={1} minWidth={0} minHeight={0}>
               <YStack px="$4" pt="$3" pb="$2">
@@ -863,7 +877,7 @@ function EarnRouterAssetSelectPage() {
                   onChangeText={setKeyword}
                 />
               </YStack>
-              {pills}
+              {chips}
               {listHeader}
               {rows}
             </YStack>
@@ -882,7 +896,7 @@ function EarnRouterAssetSelectPage() {
               onMoreNetwork={handleMoreNetworks}
               testIDPrefix="earn-asset-select-network"
             />
-            {pills}
+            {chips}
             {listHeader}
             {rows}
           </YStack>
