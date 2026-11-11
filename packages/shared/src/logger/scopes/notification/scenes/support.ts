@@ -7,6 +7,14 @@ export type ISupportConversationIdSource =
   | 'payload'
   | undefined;
 
+export type IIntercomUnreadTrigger =
+  | 'sdk-event'
+  | 'messenger-closed'
+  | 'foreground'
+  | 'poll'
+  | 'session'
+  | 'support-push';
+
 export type ISupportOpenBranch =
   | 'native-conversation'
   | 'native-home'
@@ -88,5 +96,73 @@ export class SupportScene extends BaseScene {
     nativeSdkReady?: boolean;
   }) {
     return { conversationId, selectedBranch, nativeSdkReady };
+  }
+  // OK-67112: temporary unread-dot diagnostics; counts and states only.
+  @LogToLocal({ level: 'info' })
+  supportReplyPushReceived({
+    msgId,
+    pushSource,
+    isDuplicate,
+  }: {
+    msgId: string | undefined;
+    pushSource: string | undefined;
+    isDuplicate: boolean;
+  }) {
+    return { msgId, pushSource, isDuplicate };
+  }
+
+  @LogToLocal({ level: 'info' })
+  supportReplyResync({
+    result,
+  }: {
+    result: 'resynced' | 'no-session' | 'identity-changed';
+  }) {
+    return { result };
+  }
+
+  @LogToLocal({ level: 'info' })
+  intercomSdkLoaded({
+    appState,
+    pollActive,
+  }: {
+    appState: string | undefined;
+    pollActive: boolean;
+  }) {
+    return { appState, pollActive };
+  }
+
+  @LogToLocal({ level: 'info' })
+  intercomUnreadPollChanged({ active }: { active: boolean }) {
+    return { active };
+  }
+
+  // Logged only when the count changes, so the foreground poll stays quiet.
+  @LogToLocal({ level: 'info' })
+  intercomUnreadChanged({
+    trigger,
+    previousCount,
+    count,
+  }: {
+    trigger: IIntercomUnreadTrigger;
+    previousCount: number;
+    count: number;
+  }) {
+    return { trigger, previousCount, count };
+  }
+
+  @LogToLocal({ level: 'info' })
+  intercomUnreadDiscarded({ trigger }: { trigger: IIntercomUnreadTrigger }) {
+    return { trigger };
+  }
+
+  @LogToLocal({ level: 'info' })
+  intercomUnreadRefreshFailed({
+    trigger,
+    errorMessage,
+  }: {
+    trigger: IIntercomUnreadTrigger;
+    errorMessage: string | undefined;
+  }) {
+    return { trigger, errorMessage };
   }
 }

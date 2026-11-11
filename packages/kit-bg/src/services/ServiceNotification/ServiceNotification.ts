@@ -248,12 +248,16 @@ export default class ServiceNotification extends ServiceBase {
 
     // Only the native Intercom SDK resyncs on this (OK-67112). A reply can
     // arrive over both websocket and JPush, so resync once per message.
-    if (
-      platformEnv.isNative &&
-      !(msgId && this.showedNotificationIds.includes(msgId)) &&
-      isSupportReplyPushMessage(messageInfo)
-    ) {
-      appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
+    if (platformEnv.isNative && isSupportReplyPushMessage(messageInfo)) {
+      const isDuplicate = !!msgId && this.showedNotificationIds.includes(msgId);
+      defaultLogger.notification.support.supportReplyPushReceived({
+        msgId,
+        pushSource: messageInfo.pushSource,
+        isDuplicate,
+      });
+      if (!isDuplicate) {
+        appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
+      }
     }
 
     this.addShowedNotificationId(msgId);

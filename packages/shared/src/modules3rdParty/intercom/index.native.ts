@@ -19,6 +19,8 @@ import {
 } from './utils';
 import { showIntercom as showWebIntercom } from './webView.native';
 
+import type { IIntercomUnreadTrigger } from '../../logger/scopes/notification/scenes/support';
+
 type IIntercomSdk = typeof import('@intercom/intercom-react-native');
 type IUserId = string | null;
 type IIntercomThemeMode = 'light' | 'dark' | 'system';
@@ -77,7 +79,10 @@ export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   };
 };
 
-async function refreshUnreadCount(sdk: IIntercomSdk) {
+async function refreshUnreadCount(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
   const generation = activeSessionGeneration;
   unreadRequestId += 1;
   const requestId = unreadRequestId;
@@ -88,8 +93,17 @@ async function refreshUnreadCount(sdk: IIntercomSdk) {
     requestId === unreadRequestId &&
     activeUserId === userId
   ) {
+    if (count !== unreadCount) {
+      defaultLogger.notification.support.intercomUnreadChanged({
+        trigger,
+        previousCount: unreadCount,
+        count,
+      });
+    }
     setUnreadCount(count);
+    return;
   }
+  defaultLogger.notification.support.intercomUnreadDiscarded({ trigger });
 }
 
 async function isCurrentSession(userId: IUserId, generation: number) {
@@ -97,20 +111,38 @@ async function isCurrentSession(userId: IUserId, generation: number) {
   return generation === sessionGeneration && currentUserId === userId;
 }
 
-function requestUnreadRefresh(sdk: IIntercomSdk) {
-  void refreshUnreadCount(sdk).catch(() => {
-    console.warn('Failed to refresh Intercom unread count');
+function logUnreadRefreshFailed(
+  trigger: IIntercomUnreadTrigger,
+  error: unknown,
+) {
+  console.warn('Failed to refresh Intercom unread count');
+  defaultLogger.notification.support.intercomUnreadRefreshFailed({
+    trigger,
+    errorMessage: (error as Error | undefined)?.message,
   });
 }
 
+function requestUnreadRefresh(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
+  void refreshUnreadCount(sdk, trigger).catch((error: unknown) =>
+    logUnreadRefreshFailed(trigger, error),
+  );
+}
+
 function syncUnreadPolling(sdk: IIntercomSdk, active: boolean) {
+  if (active === !!unreadPollTimer) {
+    return;
+  }
+  defaultLogger.notification.support.intercomUnreadPollChanged({ active });
   if (!active) {
     clearInterval(unreadPollTimer);
     unreadPollTimer = undefined;
     return;
   }
-  unreadPollTimer ??= setInterval(
-    () => requestUnreadRefresh(sdk),
+  unreadPollTimer = setInterval(
+    () => requestUnreadRefresh(sdk, 'poll'),
     UNREAD_POLL_INTERVAL_MS,
   );
 }
@@ -126,11 +158,14 @@ function toSdkThemeMode(sdk: IIntercomSdk, theme: IIntercomThemeMode) {
 
 // An updateUser response stores the server's unread conversations before it
 // resolves, so it doubles as an unread resync.
-async function resyncUnreadFromServer(sdk: IIntercomSdk) {
+async function resyncUnreadFromServer(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
   await sdk.default.updateUser({
     languageOverride: await getIntercomLanguageOverride(),
   });
-  await refreshUnreadCount(sdk);
+  await refreshUnreadCount(sdk, trigger);
 }
 
 // In the foreground the SDK only learns about a new reply from its realtime
@@ -141,10 +176,22 @@ async function resyncUnreadOnSupportReply(sdk: IIntercomSdk) {
   await sessionPromise;
   const userId = activeUserId;
   const generation = activeSessionGeneration;
-  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+  if (userId === undefined) {
+    defaultLogger.notification.support.supportReplyResync({
+      result: 'no-session',
+    });
     return;
   }
-  await resyncUnreadFromServer(sdk);
+  if (!(await isCurrentSession(userId, generation))) {
+    defaultLogger.notification.support.supportReplyResync({
+      result: 'identity-changed',
+    });
+    return;
+  }
+  await resyncUnreadFromServer(sdk, 'support-push');
+  defaultLogger.notification.support.supportReplyResync({
+    result: 'resynced',
+  });
 }
 
 async function loadSdk() {
@@ -162,25 +209,31 @@ async function loadSdk() {
       );
       // One listener belongs to the main runtime for the native SDK lifetime.
       emitter.addListener(sdk.IntercomEvents.IntercomUnreadCountDidChange, () =>
-        requestUnreadRefresh(sdk),
+        requestUnreadRefresh(sdk, 'sdk-event'),
       );
       // Closing the Messenger marks conversations read.
       emitter.addListener(sdk.IntercomEvents.IntercomWindowDidHide, () =>
-        requestUnreadRefresh(sdk),
+        requestUnreadRefresh(sdk, 'messenger-closed'),
       );
       appEventBus.on(EAppEventBusNames.SupportReplyReceived, () => {
-        void resyncUnreadOnSupportReply(sdk).catch(() => {
-          console.warn('Failed to resync Intercom unread count');
-        });
+        void resyncUnreadOnSupportReply(sdk).catch((error: unknown) =>
+          logUnreadRefreshFailed('support-push', error),
+        );
       });
       AppState.addEventListener('change', (state) => {
         const active = state === 'active';
         if (active) {
-          requestUnreadRefresh(sdk);
+          requestUnreadRefresh(sdk, 'foreground');
         }
         syncUnreadPolling(sdk, active);
       });
       syncUnreadPolling(sdk, AppState.currentState === 'active');
+      // A main runtime restarted in-process starts from AppState's initial
+      // value; without an active state the poll waits for the next change.
+      defaultLogger.notification.support.intercomSdkLoaded({
+        appState: AppState.currentState,
+        pollActive: !!unreadPollTimer,
+      });
       return sdk;
     })();
     void sdkPromise.catch(() => {
@@ -333,7 +386,7 @@ async function syncSession(
   }
   activeUserId = userId;
   activeSessionGeneration = generation;
-  await resyncUnreadFromServer(sdk);
+  await resyncUnreadFromServer(sdk, 'session');
 }
 
 function hasOpenedNativeSupport() {

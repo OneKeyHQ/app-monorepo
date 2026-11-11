@@ -184,6 +184,10 @@ async function flushEvents() {
 
 describe('native Intercom SDK integration', () => {
   let subject: typeof import('./index.native');
+  let mockSupportLog: {
+    intercomUnreadChanged: jest.SpyInstance;
+    supportReplyResync: jest.SpyInstance;
+  };
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -206,6 +210,17 @@ describe('native Intercom SDK integration', () => {
     mockStorage.set(SUPPORT_OPENED_KEY, true);
     mockNativeModules.OneKeyIntercom.initialized = true;
     subject = await import('./index.native');
+    const { defaultLogger } = await import('../../logger/logger');
+    mockSupportLog = {
+      intercomUnreadChanged: jest.spyOn(
+        defaultLogger.notification.support,
+        'intercomUnreadChanged',
+      ),
+      supportReplyResync: jest.spyOn(
+        defaultLogger.notification.support,
+        'supportReplyResync',
+      ),
+    };
   });
 
   it('keeps the native singleton out of the background runtime and Catalyst', async () => {
@@ -369,6 +384,14 @@ describe('native Intercom SDK integration', () => {
       languageOverride: 'zh-CN',
     });
     expect(subject.getIntercomUnreadCount()).toBe(1);
+    expect(mockSupportLog.intercomUnreadChanged).toHaveBeenCalledWith({
+      trigger: 'support-push',
+      previousCount: 0,
+      count: 1,
+    });
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'resynced',
+    });
   });
 
   it('does not resync a support reply into a switched identity', async () => {
@@ -383,6 +406,9 @@ describe('native Intercom SDK integration', () => {
     mockOnSupportReply?.();
     await flushEvents();
     expect(mockSdk.updateUser).not.toHaveBeenCalled();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'identity-changed',
+    });
   });
 
   it('preserves support access on older binaries or without SDK configuration', async () => {
