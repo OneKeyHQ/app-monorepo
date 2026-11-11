@@ -17,7 +17,7 @@ import {
   useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
@@ -51,41 +51,57 @@ const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
   low: 1,
 };
 
+// `accent` / `accentBg` mirror the market-status chip of the same state
+// (PerpsBadges STOCK_MARKET_STATUS_CHIPS) so the panel and the chip that
+// opens it share one color per session.
 const ROW_META: Array<{
   row: IUSTradingHoursRow;
   icon: IKeyOfIcons;
   titleId: ETranslations;
   liquidity: ILiquidityLevel;
+  accent: IColorTokens;
+  accentBg: IColorTokens;
 }> = [
   {
     row: EUSMarketSessionKey.PreMarket,
     icon: 'SunriseOutline',
     titleId: ETranslations.trading_hours_pre_market,
     liquidity: 'moderate',
+    accent: '$lime11',
+    accentBg: '$lime3',
   },
   {
     row: EUSMarketSessionKey.Regular,
     icon: 'SunOutline',
     titleId: ETranslations.trading_hours_regular_market,
     liquidity: 'high',
+    accent: '$iconSuccess',
+    accentBg: '$bgSuccess',
   },
   {
     row: EUSMarketSessionKey.PostMarket,
     icon: 'SunDownOutline',
     titleId: ETranslations.trading_hours_post_market,
     liquidity: 'moderate',
+    accent: '$cyan11',
+    accentBg: '$cyan3',
   },
   {
     row: EUSMarketSessionKey.Overnight,
     icon: 'MoonOutline',
     titleId: ETranslations.trading_hours_overnight,
     liquidity: 'moderate',
+    accent: '$iconInfo',
+    accentBg: '$bgInfo',
   },
   {
     row: 'closed',
     icon: 'ClockSnoozeOutline',
     titleId: ETranslations.trading_hours_market_closed,
     liquidity: 'low',
+    accent: '$textSubdued',
+    // `$bgStrong` barely separates from the dark popover surface.
+    accentBg: '$bgStrongHover',
   },
   {
     row: 'halts',
@@ -94,21 +110,25 @@ const ROW_META: Array<{
     // A halt pauses the UNDERLYING stock, not token trading — on-chain
     // liquidity thins out but does not vanish (OK-58986).
     liquidity: 'low',
+    accent: '$iconCritical',
+    accentBg: '$bgCritical',
   },
 ];
 
 function LiquidityIndicator({
   level,
   isActive,
+  accent,
   dense,
 }: {
   level: ILiquidityLevel;
   isActive: boolean;
+  accent: IColorTokens;
   dense?: boolean;
 }) {
   const intl = useIntl();
   const filled = LIQUIDITY_FILLED_BARS[level];
-  const filledColor = isActive ? '$iconSuccess' : '$iconSubdued';
+  const filledColor = isActive ? accent : '$iconSubdued';
   return (
     <XStack gap="$1.5" alignItems="center">
       <SizableText size="$bodySm" color="$textDisabled">
@@ -135,10 +155,12 @@ function TradingHoursTimeline({
   segments,
   nowRatio,
   activeSessionKey,
+  accent,
 }: {
   segments: Array<{ key: EUSMarketSessionKey; ratio: number }>;
   nowRatio: number;
   activeSessionKey: EUSMarketSessionKey;
+  accent: IColorTokens;
 }) {
   return (
     <Stack h={12} justifyContent="center">
@@ -152,7 +174,7 @@ function TradingHoursTimeline({
               flexBasis={0}
               h={isActive ? 6 : 4}
               borderRadius="$full"
-              bg={isActive ? '$iconSuccess' : '$neutral5'}
+              bg={isActive ? accent : '$neutral5'}
             />
           );
         })}
@@ -166,7 +188,7 @@ function TradingHoursTimeline({
         borderRadius="$full"
         bg="$bg"
         borderWidth={2}
-        borderColor="$iconSuccess"
+        borderColor={accent}
       />
     </Stack>
   );
@@ -178,12 +200,16 @@ function SessionRow({
   isActive,
   showNowBadge = true,
   liquidity,
+  accent,
+  accentBg,
   dense,
   children,
 }: {
   icon: IKeyOfIcons;
   title: string;
   isActive: boolean;
+  accent: IColorTokens;
+  accentBg: IColorTokens;
   /** Off during session gaps — "Now" would contradict the awaiting chip. */
   showNowBadge?: boolean;
   liquidity: ILiquidityLevel;
@@ -197,7 +223,7 @@ function SessionRow({
       px={dense ? '$2.5' : '$3'}
       py={dense ? '$2' : '$2.5'}
       borderRadius={dense ? 10 : '$3'}
-      bg={isActive ? '$bgSuccess' : undefined}
+      bg={isActive ? accentBg : undefined}
       alignItems="flex-start"
       w="100%"
     >
@@ -217,7 +243,7 @@ function SessionRow({
             </SizableText>
             {isActive && showNowBadge ? (
               <Stack
-                bg="$iconSuccess"
+                bg={accent}
                 borderRadius="$full"
                 px={dense ? '$1' : '$1.5'}
                 py={dense ? 1 : '$0.5'}
@@ -236,6 +262,7 @@ function SessionRow({
           <LiquidityIndicator
             level={liquidity}
             isActive={isActive}
+            accent={accent}
             dense={dense}
           />
         </XStack>
@@ -368,6 +395,10 @@ function TradingHoursContent({
             nowRatio={tradingHours.nowRatio}
             // `dimmed` narrowing guarantees activeRow is a session key here
             activeSessionKey={activeRow}
+            accent={
+              ROW_META.find((meta) => meta.row === activeRow)?.accent ??
+              '$iconSuccess'
+            }
           />
           <Stack h={16}>
             {tradingHours.segments.map((segment) => {
@@ -399,7 +430,7 @@ function TradingHoursContent({
       )}
 
       <YStack px={dense ? '$1.5' : '$2'} pt="$1">
-        {ROW_META.map(({ row, icon, titleId, liquidity }) => {
+        {ROW_META.map(({ row, icon, titleId, liquidity, accent, accentBg }) => {
           const isActive = row === activeRow;
           const title = intl.formatMessage({ id: titleId });
           const activeStatusNote =
@@ -452,6 +483,8 @@ function TradingHoursContent({
               isActive={isActive}
               showNowBadge={showNowBadge}
               liquidity={liquidity}
+              accent={accent}
+              accentBg={accentBg}
               dense={dense}
             >
               {detail}
@@ -669,6 +702,9 @@ function TradingHoursHoverPopover({
       renderTrigger={
         <Stack
           testID="trading-hours-popover-trigger"
+          // Keep the arrow over the whole chip; the label text would otherwise
+          // show the browser's I-beam.
+          cursor="default"
           {...({ ref: triggerRef } as object)}
           onHoverIn={handleHoverIn}
           onHoverOut={cancelPendingOpen}
@@ -731,7 +767,7 @@ export function TradingHoursTrigger({
   if (useSheetDialog) {
     return (
       <Stack
-        cursor="pointer"
+        cursor="default"
         onPress={(e) => {
           // The chip often sits inside a pressable header row (which opens the
           // token selector) — keep this tap to ourselves.
