@@ -24,6 +24,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
@@ -62,6 +63,7 @@ const ASSET_SYMBOL_MAX_WIDTH = 84;
 // On web, true only for keyboard focus (`:focus-visible`), so a mouse click
 // that also focuses the button does not count. Native has no such state.
 function isKeyboardFocused(target: unknown): boolean {
+  if (platformEnv.isNative) return true;
   const element = target as
     | { matches?: (selector: string) => boolean }
     | null
