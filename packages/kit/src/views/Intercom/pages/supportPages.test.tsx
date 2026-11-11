@@ -19,11 +19,13 @@ import { createMessengerApi } from '@onekeyhq/shared/src/modules3rdParty/interco
 import type {
   IIntercomImage,
   IIntercomMessengerSession,
+  IIntercomPart,
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { uploadIntercomImage } from '@onekeyhq/shared/src/modules3rdParty/intercom/upload';
 import type { IIntercomSupportRoute } from '@onekeyhq/shared/src/routes/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { MessagePart } from '../components/MessagePart';
 import { cleanSupportImage, pickSupportImage } from '../utils/pickSupportImage';
 
 import SupportConversation from './SupportConversation';
@@ -231,6 +233,24 @@ jest.mock('@onekeyhq/components', () => {
         testID?: string;
       };
     }) => <Button {...buttonProps} testID={buttonProps?.testID} />,
+    Input: ({
+      value,
+      onChangeText,
+      editable,
+      testID,
+    }: {
+      value: string;
+      onChangeText: (text: string) => void;
+      editable: boolean;
+      testID: string;
+    }) => (
+      <input
+        data-testid={testID}
+        value={value}
+        disabled={!editable}
+        onChange={(event) => onChangeText(event.target.value)}
+      />
+    ),
     TextArea: ({
       value,
       onChangeText,
@@ -251,6 +271,94 @@ jest.mock('@onekeyhq/components', () => {
     ),
   };
 });
+
+function formPart(value: string): IIntercomPart {
+  return {
+    id: 'form-part',
+    createdAt: 0,
+    isAdmin: true,
+    author: 'Support',
+    blocks: [],
+    replies: [],
+    hasUnsupportedContent: false,
+    form: {
+      title: 'Contact',
+      fields: [
+        {
+          identifier: 'email',
+          label: 'Email',
+          type: 'email',
+          value,
+          disabled: false,
+        },
+      ],
+    },
+  };
+}
+
+it('follows refreshed form values while preserving unsaved local edits', () => {
+  const { rerender } = render(
+    <MessagePart part={formPart('before@example.com')} />,
+  );
+  const input = screen.getByTestId('support-form-email') as HTMLInputElement;
+  rerender(<MessagePart part={formPart('updated@example.com')} />);
+  expect(screen.getByTestId('support-form-email')).toBe(input);
+  expect(input.value).toBe('updated@example.com');
+  fireEvent.change(input, { target: { value: 'draft@example.com' } });
+  rerender(<MessagePart part={formPart('latest@example.com')} />);
+  expect(input.value).toBe('draft@example.com');
+  fireEvent.change(input, { target: { value: 'latest@example.com' } });
+  rerender(<MessagePart part={formPart('next@example.com')} />);
+  expect(input.value).toBe('next@example.com');
+});
+
+it.each([true, false])(
+  'updates a submitted form from the server only after success=%s',
+  async (success) => {
+    let finish!: () => void;
+    const submit = jest.fn(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          finish = () =>
+            success
+              ? resolve()
+              : reject(new OneKeyLocalError('Form submission failed'));
+        }),
+    );
+    const { rerender } = render(
+      <MessagePart part={formPart('')} onFormSubmit={submit} />,
+    );
+    const input = screen.getByTestId('support-form-email') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Draft@example.com' } });
+    fireEvent.click(screen.getByTestId('support-form-submit-email'));
+    expect(submit).toHaveBeenCalledWith(
+      'form-part',
+      'email',
+      'Draft@example.com',
+    );
+    expect(input.disabled).toBe(true);
+    rerender(
+      <MessagePart
+        part={formPart('draft@example.com')}
+        onFormSubmit={submit}
+      />,
+    );
+    expect(input.value).toBe('Draft@example.com');
+    await act(async () => finish());
+    expect(screen.getByTestId('support-form-email')).toBe(input);
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe(
+      success ? 'draft@example.com' : 'Draft@example.com',
+    );
+    fireEvent.click(screen.getByTestId('support-form-submit-email'));
+    expect(submit).toHaveBeenLastCalledWith(
+      'form-part',
+      'email',
+      success ? 'draft@example.com' : 'Draft@example.com',
+    );
+    await act(async () => finish());
+  },
+);
 
 const part = {
   id: 'part-1',

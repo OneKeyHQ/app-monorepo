@@ -195,7 +195,8 @@ function SupportFormField({
   submit: (value: string) => Promise<void>;
 }) {
   const intl = useIntl();
-  const [value, setValue] = useState(field.value);
+  const [draft, setDraft] = useState<string>();
+  const value = draft ?? field.value;
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -204,7 +205,9 @@ function SupportFormField({
       <Input
         testID={`support-form-${field.identifier}`}
         value={value}
-        onChangeText={setValue}
+        onChangeText={(text) =>
+          setDraft(text === field.value ? undefined : text)
+        }
         editable={!disabled && !field.disabled && !pending}
         keyboardType={field.type === 'email' ? 'email-address' : 'default'}
       />
@@ -218,6 +221,7 @@ function SupportFormField({
           setFailed(false);
           try {
             await submit(value);
+            setDraft((current) => (current === value ? undefined : current));
           } catch {
             setFailed(true);
           } finally {
