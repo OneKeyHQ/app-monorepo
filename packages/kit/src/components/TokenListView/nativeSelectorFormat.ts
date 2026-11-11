@@ -24,3 +24,24 @@ export function formatNativeSelectorAmount(
   );
   return { text: segments.map((part) => part.text).join(''), segments };
 }
+
+/**
+ * A formatted number as plain text, for screen readers: a tiny value's
+ * subscript zero count is spelled out again ("0.0₅147" reads "0.00000147"),
+ * where joining the segments would read "0.05147".
+ */
+export function plainNativeSelectorText(amount: {
+  text: string;
+  segments?: readonly ValueTextSegment[];
+}): string {
+  if (!amount.segments?.some((segment) => segment.style === 'subscript')) {
+    return amount.text;
+  }
+  return amount.segments
+    .map((segment) =>
+      segment.style === 'subscript'
+        ? '0'.repeat(Math.max(0, Number(segment.text) - 1))
+        : segment.text,
+    )
+    .join('');
+}

@@ -17,6 +17,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ShimmerTitle } from '@onekeyhq/components/src/composite/DeviceStage/ShimmerTitle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { plainNativeSelectorText } from '@onekeyhq/kit/src/components/TokenListView/nativeSelectorFormat';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -41,6 +42,7 @@ import { buildHistoryActivityRow } from '../HomeHistoryListView/historyActivityR
 import { RichBlock } from '../RichBlock';
 
 import type { ITxHistoryCompactListProps } from '../../pages/TxHistoryContainer';
+import type { ValueTextSegment } from '@onekeyfe/react-native-native-list';
 
 function RecentHistoryTitle() {
   const intl = useIntl();
@@ -79,7 +81,12 @@ function RecentHistoryTitle() {
 type IRecentActivityRow = {
   history: IAccountHistoryTx;
   title: string;
-  amount?: { text: string; positive: boolean };
+  amount?: {
+    text: string;
+    // A tiny amount keeps its leading-zero count as a subscript segment.
+    segments?: readonly ValueTextSegment[];
+    positive: boolean;
+  };
   status: 'pending' | 'failed' | 'done';
   when: string;
   tokenUri?: string;
@@ -276,6 +283,13 @@ function RecentActivityItem({
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
+      aria-label={[
+        row.title,
+        row.when,
+        row.amount ? plainNativeSelectorText(row.amount) : undefined,
+      ]
+        .filter(Boolean)
+        .join(', ')}
       onPress={handlePress}
       onKeyDown={handleKeyDown}
       transition="popoverQuick"
@@ -316,7 +330,24 @@ function RecentActivityItem({
           minWidth={0}
           textAlign="right"
         >
-          {row.amount.text}
+          {row.amount.segments
+            ? row.amount.segments.map((segment, index) =>
+                segment.style === 'subscript' ? (
+                  // The zero count, at the 60% NumberSizeableText draws.
+                  <SizableText
+                    key={index}
+                    size="$bodyLgMedium"
+                    fontSize={10}
+                    lineHeight={16}
+                    color={row.amount?.positive ? '$textSuccess' : '$text'}
+                  >
+                    {segment.text}
+                  </SizableText>
+                ) : (
+                  segment.text
+                ),
+              )
+            : row.amount.text}
         </SizableText>
       ) : null}
     </XStack>
@@ -428,7 +459,11 @@ function RecentActivityList({
             }),
           amount:
             primary?.text && primary.text !== '-'
-              ? { text: primary.text, positive: primary.tone === 'positive' }
+              ? {
+                  text: primary.text,
+                  segments: primary.textSegments,
+                  positive: primary.tone === 'positive',
+                }
               : undefined,
           status,
           when,
