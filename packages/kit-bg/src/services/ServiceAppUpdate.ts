@@ -19,6 +19,8 @@ import {
   getUpdateFileType,
   isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
+  isPlaceholderUpdateDownloadUrl,
+  isUsableUpdateDownloadUrl,
   normalizeFeaturedChangelog,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -1035,10 +1037,22 @@ class ServiceAppUpdate extends ServiceBase {
         );
         return this.cachedUpdateInfo;
       }
-      // Security: Validate downloadUrl and storeUrl use HTTPS
+      // Security: Validate downloadUrl and storeUrl use HTTPS.
+      //
+      // Desktop app-shell releases carry a known placeholder here
+      // (`DESKTOP_APP_SHELL_PLACEHOLDER_DOWNLOAD_URL`): the desktop client never
+      // downloads from this field — the Electron main process resolves the
+      // installer from the signed electron feed — and the backend mirrors the
+      // value only to keep the response shape identical across platforms.
+      // Accept that exact placeholder instead of discarding the whole update
+      // notice; any other non-HTTPS value is still rejected.
+      const isDesktopPlaceholderDownloadUrl = isPlaceholderUpdateDownloadUrl(
+        normalizedData.downloadUrl,
+      );
       if (
         normalizedData.downloadUrl &&
-        !normalizedData.downloadUrl.startsWith('https://')
+        !normalizedData.downloadUrl.startsWith('https://') &&
+        !isDesktopPlaceholderDownloadUrl
       ) {
         defaultLogger.app.appUpdate.endInstallPackage(
           false,
@@ -1476,11 +1490,16 @@ class ServiceAppUpdate extends ServiceBase {
     ) {
       return true;
     }
+    // The quarantine check stays truthy-guarded: an absent URL must never be
+    // treated as "blocked" (undefined === undefined).
+    const hasDownloadSource = isUsableUpdateDownloadUrl(info.downloadUrl);
     if (
       info.storeUrl ||
       !info.latestVersion ||
-      !info.downloadUrl?.startsWith('https://') ||
-      info.blockedDownloadUrl === info.downloadUrl
+      !hasDownloadSource ||
+      (!!info.blockedDownloadUrl &&
+        !!info.downloadUrl &&
+        info.blockedDownloadUrl === info.downloadUrl)
     ) {
       return false;
     }
@@ -3089,8 +3108,12 @@ class ServiceAppUpdate extends ServiceBase {
             installSource: shouldTransitionToNotify
               ? undefined
               : prev.installSource,
+            // A quarantine is bound to the target that failed: the desktop
+            // placeholder ("feedUrl") is identical across releases, so reuse it
+            // only while the target version is unchanged.
             blockedDownloadUrl:
-              releaseInfo.downloadUrl === prev.blockedDownloadUrl
+              releaseInfo.downloadUrl === prev.blockedDownloadUrl &&
+              releaseInfo.version === prev.latestVersion
                 ? prev.blockedDownloadUrl
                 : undefined,
             status: nextStatus,
