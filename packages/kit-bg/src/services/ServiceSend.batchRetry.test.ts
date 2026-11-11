@@ -171,6 +171,8 @@ function makeService(
       .fn()
       .mockResolvedValue(ESignedTxBroadcastStatus.Unknown),
     isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
+    // A chain without the proof: signing again is its retry behavior.
+    isUnsignedTxConflictingWithSignedTx: jest.fn().mockResolvedValue(true),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
@@ -392,6 +394,8 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(vault.checkSignedTxBroadcastStatus).toHaveBeenCalledWith({
       signedTx: expect.objectContaining({ txid: signatureOf('u0') }),
       attemptedAt: expect.any(Number),
+      // no node ever returned a txid for it
+      isAcceptedByNode: false,
     });
     expect(signedUuids(vault)).toEqual(['u0']);
     expect(broadcastTxids(vault)).toEqual([signatureOf('u0')]);
@@ -590,6 +594,270 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
       signatureOf('u1'),
     ]);
     expect(savedHistoryTxids(backgroundApi)).toEqual([signatureOf('u1')]);
+  });
+
+  // OK-67090. A chunk after the first is rebuilt on fresh inputs before it is
+  // signed (BTC re-selects its UTXOs). If its broadcast then fails without a
+  // verdict and the node did take it, a retry that rebuilds once more picks
+  // other inputs and pays the same recipients a second time.
+  describe('an attempt that left the device with no verdict', () => {
+    // Stands in for coin selection: every refresh yields a tx on new inputs.
+    function reselectOnRefresh(vault: ReturnType<typeof makeService>['vault']) {
+      let round = 0;
+      vault.refreshUnsignedTxBeforeBatchSign.mockImplementation(
+        async (tx: IUnsignedTxPro) => {
+          round += 1;
+          return { ...tx, encodedTx: `reselected-${round}-${tx.uuid ?? ''}` };
+        },
+      );
+    }
+
+    function broadcastPayloads(vault: ReturnType<typeof makeService>['vault']) {
+      return vault.broadcastTransaction.mock.calls.map(
+        ([{ signedTx }]) => signedTx.encodedTx,
+      );
+    }
+
+    it('sends the stored payload again instead of signing a tx rebuilt on other inputs', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault, backgroundApi } = makeService(store);
+      const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+      reselectOnRefresh(vault);
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(false);
+      vault.broadcastTransaction.mockImplementationOnce(
+        async ({ signedTx }) => ({ txid: signedTx.txid }),
+      );
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      const result = await batchSend(service, unsignedTxs);
+
+      // u1 was signed once, on the inputs of its first refresh; the retry's
+      // second refresh produced another tx, and that one was never signed
+      expect(signedUuids(vault)).toEqual(['u0', 'u1']);
+      expect(broadcastPayloads(vault)).toEqual([
+        'encoded-u0',
+        'reselected-1-u1',
+        'reselected-1-u1',
+      ]);
+      expect(vault.isUnsignedTxConflictingWithSignedTx).toHaveBeenCalledWith({
+        unsignedTx: expect.objectContaining({
+          uuid: 'u1',
+          encodedTx: 'reselected-2-u1',
+        }),
+        signedTx: expect.objectContaining({ encodedTx: 'reselected-1-u1' }),
+      });
+      expect(result).toHaveLength(2);
+      expect(store.records.get('u1')).toMatchObject({
+        isBroadcast: true,
+        isSettled: true,
+      });
+      // the history describes the tx that is on the wire
+      expect(vault.buildDecodedTx).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          unsignedTx: expect.objectContaining({
+            uuid: 'u1',
+            encodedTx: 'reselected-1-u1',
+          }),
+        }),
+      );
+      expect(savedHistoryTxids(backgroundApi)).toEqual([
+        signatureOf('u0'),
+        signatureOf('u1'),
+      ]);
+    });
+
+    it('keeps the stored payload when sending it again fails too', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+      reselectOnRefresh(vault);
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(false);
+      vault.broadcastTransaction.mockImplementationOnce(
+        async ({ signedTx }) => ({ txid: signedTx.txid }),
+      );
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      failBroadcastOnce(vault, 'txn-already-in-mempool');
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
+        'txn-already-in-mempool',
+      );
+
+      expect(store.records.get('u1')).toMatchObject({
+        isBroadcast: false,
+        signedTx: expect.objectContaining({ encodedTx: 'reselected-1-u1' }),
+      });
+
+      // a third attempt still has the first payload and nothing else to send
+      await batchSend(service, unsignedTxs);
+      expect(signedUuids(vault)).toEqual(['u0', 'u1']);
+      expect(broadcastPayloads(vault).slice(1)).toEqual([
+        'reselected-1-u1',
+        'reselected-1-u1',
+        'reselected-1-u1',
+      ]);
+    });
+
+    // "Nonce already used" for a payload that left the device earlier is
+    // what that payload having landed looks like. Dropping the record on it
+    // would let the next retry sign a tx on a fresh nonce: a second payment.
+    it('keeps the stored payload when the node refuses it outright on the second send', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+      reselectOnRefresh(vault);
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(false);
+      vault.broadcastTransaction.mockImplementationOnce(
+        async ({ signedTx }) => ({ txid: signedTx.txid }),
+      );
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      failBroadcastOnce(vault, 'nonce already used');
+      vault.isSignedTxRejectedByBroadcast.mockImplementation(
+        async (error: unknown) =>
+          (error as Error).message === 'nonce already used',
+      );
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
+        'nonce already used',
+      );
+
+      expect(store.records.get('u1')).toMatchObject({
+        isBroadcast: false,
+        signedTx: expect.objectContaining({ encodedTx: 'reselected-1-u1' }),
+      });
+      expect(signedUuids(vault)).toEqual(['u0', 'u1']);
+    });
+
+    it('keeps the record of a tx signed again when the node refuses that one outright', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      const unsignedTxs = [buildUnsignedTx('u0')];
+      // same nonce on both attempts: signing again is allowed
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(true);
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      failBroadcastOnce(vault, 'nonce already used');
+      vault.isSignedTxRejectedByBroadcast.mockImplementation(
+        async (error: unknown) =>
+          (error as Error).message === 'nonce already used',
+      );
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
+        'nonce already used',
+      );
+
+      // the uuid still remembers that a payload of its own may be out there
+      expect(store.records.get('u0')).toMatchObject({ isBroadcast: false });
+      expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+    });
+
+    it('replays the stored tx once the chain shows it landed, without sending it again', async () => {
+      const { service, vault } = makeService();
+      const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+      reselectOnRefresh(vault);
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(false);
+      vault.broadcastTransaction.mockImplementationOnce(
+        async ({ signedTx }) => ({ txid: signedTx.txid }),
+      );
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+        ESignedTxBroadcastStatus.Broadcast,
+      );
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      const result = await batchSend(service, unsignedTxs);
+
+      expect(signedUuids(vault)).toEqual(['u0', 'u1']);
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(2);
+      expect(vault.isUnsignedTxConflictingWithSignedTx).not.toHaveBeenCalled();
+      expect(result).toHaveLength(2);
+    });
+
+    it('signs again when the chain can execute only one of the two txs', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      const unsignedTxs = [buildUnsignedTx('u0')];
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(true);
+
+      await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+      await batchSend(service, unsignedTxs);
+
+      expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+      expect(store.deleteRecord).toHaveBeenCalledWith('u0');
+    });
+
+    it('sends the stored payload again for a caller that signs and sends directly', async () => {
+      const { service, vault } = makeService();
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+      vault.isUnsignedTxConflictingWithSignedTx.mockResolvedValue(false);
+      const send = (encodedTx: string) =>
+        service.signAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTx: { ...buildUnsignedTx('u0'), encodedTx },
+          signOnly: false,
+        });
+
+      await expect(send('built-on-nonce-5')).rejects.toThrow('timeout');
+      // the caller rebuilt its tx on a fresh nonce and kept the uuid
+      const signedTx = await send('built-on-nonce-6');
+
+      expect(signedUuids(vault)).toEqual(['u0']);
+      expect(broadcastPayloads(vault)).toEqual([
+        'built-on-nonce-5',
+        'built-on-nonce-5',
+      ]);
+      expect(signedTx.encodedTx).toBe('built-on-nonce-5');
+    });
+
+    it('tells the confirm page which txs have no verdict, so it keeps them as they are', async () => {
+      const store = createBroadcastRecordsStore();
+      const { service, vault } = makeService(store);
+      const unsignedTxs = [
+        buildUnsignedTx('u0'),
+        buildUnsignedTx('u1'),
+        buildUnsignedTx('u2'),
+      ];
+      vault.broadcastTransaction.mockImplementationOnce(
+        async ({ signedTx }) => ({ txid: signedTx.txid }),
+      );
+      failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+      await expect(
+        batchSend(service, unsignedTxs, { sentTxsTrackingId: 'screen-1' }),
+      ).rejects.toThrow('timeout');
+
+      // u0 went out, u1 left the device with no verdict, u2 was never signed
+      expect(
+        await service.getBatchBroadcastedTxUuids({
+          sentTxsTrackingId: 'screen-1',
+          uuids: ['u0', 'u1', 'u2'],
+        }),
+      ).toEqual([
+        { uuid: 'u0', recorded: true },
+        { uuid: 'u1', recorded: false, isAmbiguous: true },
+      ]);
+    });
+
+    it('reports a tx the persisted record knows went out after the tracking cache is gone', async () => {
+      const store = createBroadcastRecordsStore();
+      const first = makeService(store);
+      await batchSend(first.service, [buildUnsignedTx('u0')], {
+        sentTxsTrackingId: 'screen-1',
+      });
+
+      // a new background runtime: the in-memory tracking is empty
+      const second = makeService(store);
+      expect(
+        await second.service.getBatchBroadcastedTxUuids({
+          sentTxsTrackingId: 'screen-1',
+          uuids: ['u0'],
+        }),
+      ).toEqual([{ uuid: 'u0', recorded: true }]);
+    });
   });
 
   it('replays an already broadcast tx for callers that sign and send directly', async () => {
