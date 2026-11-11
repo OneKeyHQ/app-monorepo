@@ -43,6 +43,10 @@ let mockHomeFiatMap: Record<string, ITokenFiat | undefined> = {};
 let mockCurrencyId = 'usd';
 const mockCurrencyMap = { usd: { unit: '$' }, eur: { unit: '€' } };
 let mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+const mockComponentTheme = {
+  bgStrongHover: { val: '#E8E8E8' },
+  bgStrongActive: { val: '#E0E0E0' },
+};
 let mockTheme = {
   background: '#FFFFFF',
   primaryText: '#000000',
@@ -168,6 +172,7 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Container,
     Stack: Container,
     useMedia: () => ({ gtMd: false }),
+    useTheme: () => mockComponentTheme,
   };
 });
 
@@ -662,7 +667,15 @@ it('ends the wide Web Home row on the holdings, value first', () => {
       expect(first.trailing?.[0]).toMatchObject({
         kind: 'button',
         actionKey: 'swap',
+        // The hover-only Swap takes the Send / Receive fill, and names its token.
+        hoverBackgroundColor: '#E8E8E8',
+        pressedBackgroundColor: '#E0E0E0',
+        accessibilityLabel: expect.stringContaining(ethToken.symbol),
       });
+      // Names the token instead of reading "dataRow".
+      expect(first.accessibilityLabel).toBe(
+        `${ethToken.symbol}, ${ethToken.name}`,
+      );
     }
   } finally {
     mockHomeFiatMap = {};

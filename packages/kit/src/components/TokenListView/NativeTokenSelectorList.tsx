@@ -19,6 +19,7 @@ import {
   SizableText,
   Stack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
@@ -267,6 +268,28 @@ export function NativeTokenSelectorList({
 }) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
+  const componentTheme = useTheme();
+  const strongHoverColor = componentTheme.bgStrongHover.val;
+  const strongActiveColor = componentTheme.bgStrongActive.val;
+  // The web Swap shows on a hovered row, so it takes the Send / Receive fill
+  // (a translucent step above the row) rather than the opaque subdued one,
+  // which sits darker than the hover and reads as plain text.
+  const swapButtonColors = useMemo(
+    () =>
+      platformEnv.isNative
+        ? { backgroundColor: theme.subduedBackground }
+        : {
+            backgroundColor: theme.strongBackground,
+            hoverBackgroundColor: strongHoverColor,
+            pressedBackgroundColor: strongActiveColor,
+          },
+    [
+      strongActiveColor,
+      strongHoverColor,
+      theme.strongBackground,
+      theme.subduedBackground,
+    ],
+  );
   const { gtMd } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
@@ -406,6 +429,7 @@ export function NativeTokenSelectorList({
       gtMd,
       currencyMap,
       theme,
+      swapButtonColors,
     ];
     const previousCache = rowCacheRef.current;
     const canReuseRows =
@@ -867,8 +891,12 @@ export function NativeTokenSelectorList({
                       actionKey: 'swap',
                       disabled: swapDisabled[key] ?? true,
                       testID: 'token-actions-swap-btn',
+                      // Says which token it swaps; every row has one.
+                      accessibilityLabel: `${intl.formatMessage({
+                        id: ETranslations.global_swap,
+                      })} ${nativeRow.title}`,
                       textColor: theme.primaryText,
-                      backgroundColor: theme.subduedBackground,
+                      ...swapButtonColors,
                     },
                   ]
                 : [];
@@ -907,30 +935,37 @@ export function NativeTokenSelectorList({
                 alignment: 'end',
                 weight: columnWeights.balance,
               };
+              const tableColumns: DataColumn[] = platformEnv.isNative
+                ? [
+                    assetColumn,
+                    holdingsColumn,
+                    priceColumn,
+                    ...(columnWeights.swapSpacer
+                      ? [
+                          {
+                            key: 'swapSpacer',
+                            text: '',
+                            weight: columnWeights.swapSpacer,
+                          },
+                        ]
+                      : []),
+                  ]
+                : [assetColumn, priceColumn, holdingsColumn];
               const tableRow: DataRow = {
                 type: 'dataRow',
                 key: rowKey,
                 height: 60,
                 heightRounding: 'nearest',
                 testID: nativeRow.testID,
+                // Names the token, where the row would read "dataRow". It
+                // leaves the numbers out: a price or value update may only
+                // patch cells, and a changed label would rebuild the list.
+                accessibilityLabel: [nativeRow.title, token.name]
+                  .filter(Boolean)
+                  .join(', '),
                 leading,
                 badges: nativeRow.badges,
-                columns: platformEnv.isNative
-                  ? [
-                      assetColumn,
-                      holdingsColumn,
-                      priceColumn,
-                      ...(columnWeights.swapSpacer
-                        ? [
-                            {
-                              key: 'swapSpacer',
-                              text: '',
-                              weight: columnWeights.swapSpacer,
-                            },
-                          ]
-                        : []),
-                    ]
-                  : [assetColumn, priceColumn, holdingsColumn],
+                columns: tableColumns,
                 trailing: swapAction,
                 style: {
                   container: TOKEN_ROW_CONTAINER_STYLE,
@@ -1045,6 +1080,7 @@ export function NativeTokenSelectorList({
     gtMd,
     currencyMap,
     theme,
+    swapButtonColors,
   ]);
 
   useLayoutEffect(() => {
