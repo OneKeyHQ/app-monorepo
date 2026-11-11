@@ -289,6 +289,9 @@ export function MarketHighlightStrip({
   const locale = useLocaleVariant();
   const [hovered, setHovered] = useState(false);
   const [pressing, setPressing] = useState(false);
+  // Keyboard focus also pauses rotation, otherwise the focused item would
+  // rotate out of view and leave focus on a hidden row.
+  const [focused, setFocused] = useState(false);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -321,6 +324,8 @@ export function MarketHighlightStrip({
   const itemProps: IXStackProps = {
     onHoverIn: () => setHovered(true),
     onHoverOut: () => setHovered(false),
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
     onPressIn: () => {
       clearTimeout(pressTimerRef.current);
       setPressing(true);
@@ -375,7 +380,7 @@ export function MarketHighlightStrip({
           items={carouselItems}
           quotes={quotes}
           compact={compact}
-          paused={hovered || pressing}
+          paused={hovered || pressing || focused}
           height={CAROUSEL_ROW_HEIGHT}
           itemProps={itemProps}
         />
