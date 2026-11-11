@@ -98,6 +98,7 @@ const useIsFirstFocus = () => {
 };
 
 export function DesktopLayout({
+  isLayoutActive,
   filterBarProps,
   selectedNetworkId,
   onTabChange,
@@ -526,13 +527,13 @@ export function DesktopLayout({
       <MarketBannerLayout
         headerRef={bannerHeaderRef}
         stickyHeaderRef={stickyHeaderRef}
-        active={isRouteFocused}
+        active={isLayoutActive}
       >
         <AppPager
           ref={tabsRef}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
-          isRouteFocused={isRouteFocused}
+          isRouteFocused={isLayoutActive}
           onTabChange={onTabChangeHandler}
           {...containerProps}
           pages={pages}

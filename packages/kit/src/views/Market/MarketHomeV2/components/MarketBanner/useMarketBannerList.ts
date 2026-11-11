@@ -8,6 +8,7 @@ import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -27,10 +28,23 @@ import {
 } from '../../../utils/marketBannerUtils';
 
 import {
+  getMarketIndexDisplayConfig,
+  getMarketIndexTokens,
+} from './marketBannerIndexConfig';
+import {
   fetchMarketBannerListForPlatform,
   fetchMarketBannerStockTokenListForPlatform,
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
+
+function getMarketBannerLogoUris(banner: IMarketBannerItem): string[] {
+  if (isMarketIndexQuoteBanner(banner)) {
+    return getMarketIndexTokens(
+      banner.indices?.length ? banner.indices : banner.tokens,
+    ).map((token) => getMarketIndexDisplayConfig(token)?.logoUrl || token.logo);
+  }
+  return getMarketBannerTopTokens(banner.tokens).map((token) => token.logo);
+}
 
 function canReuseBannerQuotes(
   banner: IMarketBannerItem,
@@ -295,18 +309,26 @@ export function useMarketBannerList(): {
   }>();
   const preloadBannerImages = useMemo(() => {
     const limit = pLimit(4);
-    return (uris: string[]) =>
-      Promise.all(
-        [...new Set(uris)]
-          .filter(Boolean)
-          .map((uri) =>
-            limit(() =>
-              preloadImages([
-                { uri, resizeWidth: getTokenImageResizeWidth('xs') },
-              ]),
-            ),
-          ),
+    return (uris: string[]) => {
+      // Include time spent queued so stalled artwork cannot hold up quotes.
+      const deadline = Date.now() + 1000;
+      return Promise.all(
+        [...new Set(uris)].filter(Boolean).map((uri) =>
+          limit(() => {
+            const timeout = deadline - Date.now();
+            if (timeout <= 0) return false;
+            return createTimeoutPromise({
+              asyncFunc: () =>
+                preloadImages([
+                  { uri, resizeWidth: getTokenImageResizeWidth('xs') },
+                ]).catch(() => false),
+              timeout,
+              timeoutResult: false,
+            });
+          }),
+        ),
       );
+    };
   }, []);
   const hydrationSequenceRef = useRef(0);
   useEffect(
@@ -373,15 +395,14 @@ export function useMarketBannerList(): {
                 (banner) => banner._id === updated._id,
               );
               const displayedLogos = new Set(
-                displayed?.tokens?.map((token) => token.logo),
+                displayed ? getMarketBannerLogoUris(displayed) : [],
               );
               // Warm incoming rows before replacing cached rows so their
               // images paint on mount instead of flashing a loading skeleton.
               await preloadBannerImages(
-                (updated.tokens ?? [])
-                  .slice(0, 3)
-                  .map((token) => token.logo)
-                  .filter((uri) => !displayedLogos.has(uri)),
+                getMarketBannerLogoUris(updated).filter(
+                  (uri) => !displayedLogos.has(uri),
+                ),
               );
             }
             if (
@@ -511,11 +532,7 @@ export function useMarketBannerList(): {
     // Warm the first four cards only, without competing with Wallet startup
     // for every off-screen logo. Match the quote row's optimized rendition.
     void preloadBannerImages(
-      bannerList
-        .slice(0, 4)
-        .flatMap((banner) =>
-          getMarketBannerTopTokens(banner.tokens).map((token) => token.logo),
-        ),
+      bannerList.slice(0, 4).flatMap(getMarketBannerLogoUris),
     );
   }, [bannerList, preloadBannerImages]);
 

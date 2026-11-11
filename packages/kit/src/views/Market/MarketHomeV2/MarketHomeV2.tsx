@@ -365,9 +365,11 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function MarketHomeLayoutContent({
+  isLayoutActive,
   externalTopOverlayTag,
   externalTopOverlayHeight,
 }: {
+  isLayoutActive: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
 }) {
@@ -405,7 +407,7 @@ function MarketHomeLayoutContent({
             : {})}
         />
       ) : (
-        <DesktopLayout {...layoutProps} />
+        <DesktopLayout {...layoutProps} isLayoutActive={isLayoutActive} />
       )}
     </LazyPageContainer>
   );
@@ -422,6 +424,7 @@ function BaseMarketHomeLayout({
 }) {
   const content = (
     <MarketHomeLayoutContent
+      isLayoutActive={!freeze}
       externalTopOverlayTag={externalTopOverlayTag}
       externalTopOverlayHeight={externalTopOverlayHeight}
     />

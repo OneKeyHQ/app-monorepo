@@ -186,7 +186,9 @@ jest.mock('./hooks/useMarketHomeSelection', () => ({
   ],
 }));
 jest.mock('./layouts/DesktopLayout', () => ({
-  DesktopLayout: () => <span data-testid="desktop-layout" />,
+  DesktopLayout: ({ isLayoutActive }: { isLayoutActive: boolean }) => (
+    <span data-testid="desktop-layout" data-active={String(isLayoutActive)} />
+  ),
 }));
 jest.mock('./layouts/MobileLayout', () => ({
   MobileLayout: (props: typeof mockLayoutProps) => {
@@ -225,11 +227,13 @@ it.each([false, true])(
     await act(async () => screen.rerender(<MarketHomeV2 />));
     const layout = screen.getByTestId('desktop-layout');
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = false;
     mockRootRoutersLength = 2;
     await act(async () => screen.rerender(<MarketHomeV2 />));
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = true;
     mockRootRoutersLength = 1;
