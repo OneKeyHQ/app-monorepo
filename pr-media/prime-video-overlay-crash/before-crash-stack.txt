@@ -1,0 +1,10 @@
+2026-11-11 11:47:14.207 Df OneKeyWallet[73480:95da12d] (CoreFoundation) *** Terminating app due to uncaught exception 'UIViewControllerHierarchyInconsistency', reason: 'child view controller:<AVPlayerViewController: 0x15fc47800> should have parent view controller:<ExpoScreenOrientation.ScreenOrientationViewController: 0x103a48a00> but actual parent is:<NativeOverlay.NativeOverlaySheetController: 0x702cca4f00>'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x00000001c0287f24 __exceptionPreprocess + 172
+	1   libobjc.A.dylib                     0x00000001c008194c objc_exception_throw + 72
+	2   CoreFoundation                      0x00000001c0287e34 -[NSException initWithCoder:] + 0
+	3   UIKitCore                           0x00000001c4ea02fc -[UIView(Hierarchy) _associatedViewControllerForwardsAppearanceCallbacks:performHierarchyCheck:isRoot:] + 216
+	4   UIKitCore                           0x00000001c4ea0ab8 -[UIView(Hierarchy) _willMoveToWindow:withAncestorView:] + 184
+	5   UIKitCore                           0x00000001c4ea15fc _makeSubTreePerformSel<…>
+Child process terminated with signal 15: Terminated
