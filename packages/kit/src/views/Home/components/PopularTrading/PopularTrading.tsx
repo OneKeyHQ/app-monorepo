@@ -1332,7 +1332,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack>
+        <YStack
+          // Native virtualized lists cannot size their viewport from content.
+          height={
+            platformEnv.isNative
+              ? favoriteTokens.length * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+                (shouldUseTableLayout ? 32 : 0)
+              : undefined
+          }
+        >
           <RichTable<IFavoriteTokenDisplay>
             showHeader={shouldUseTableLayout}
             dataSource={favoriteTokens}

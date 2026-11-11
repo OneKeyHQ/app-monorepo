@@ -6,6 +6,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { PopularTrading } from './PopularTrading';
@@ -88,7 +89,7 @@ jest.mock('@onekeyhq/components', () => {
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isExtensionUiPopup: true },
+  default: { isExtensionUiPopup: true, isNative: false },
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
@@ -254,6 +255,8 @@ const addWatchList = jest.spyOn(
 );
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  jest.replaceProperty(platformEnv, 'isExtensionUiPopup', true);
   mockShowFavorites = false;
   mockRecommendationResult = undefined;
   mockUseRealPromiseResult = false;
@@ -313,12 +316,16 @@ it('does not reserve table height for mobile recommendation cards', async () => 
 
 it.each(
   [1, 2, 3, 4].flatMap((count) => [
-    { count, tableLayout: true },
-    { count, tableLayout: false },
+    { count, tableLayout: true, isNative: false },
+    { count, tableLayout: false, isNative: false },
+    { count, tableLayout: true, isNative: true },
+    { count, tableLayout: false, isNative: true },
   ]),
 )(
-  'sizes $count favorites to their content in table layout $tableLayout',
-  async ({ count, tableLayout }) => {
+  'sizes $count favorites to their content in table layout $tableLayout on native $isNative',
+  async ({ count, tableLayout, isNative }) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    jest.replaceProperty(platformEnv, 'isExtensionUiPopup', !isNative);
     mockShowFavorites = true;
     getWatchList.mockResolvedValue({
       data: Array.from({ length: count }, (_, index) => ({
@@ -338,6 +345,14 @@ it.each(
       ).join(', '),
     );
     expect(list.closest('[style*="min-height"]')).toBeNull();
+    const viewport = list.closest<HTMLElement>('[style*="height:"]');
+    if (isNative) {
+      expect(viewport?.style.height).toBe(
+        `${Math.min(count, 3) * 68 + (tableLayout ? 32 : 0)}px`,
+      );
+    } else {
+      expect(viewport).toBeNull();
+    }
     expect(
       screen
         .getByTestId('home-market-content')
