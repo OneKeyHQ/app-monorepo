@@ -221,6 +221,30 @@ describe('support message notifications', () => {
     expect(subject.getIntercomNotification()?.id).toBe('42:reply-2');
     expect(mockFetch.mock.calls.at(-1)?.[0]).toMatch(/conversations\/42$/);
   });
+  it('shows only the newest reply in a batch across polls and restarts while allowing a later reply', async () => {
+    const older = { ...conversation('older-reply'), id: '41' };
+    const newer = conversation('newer-reply');
+    newer.conversation_parts[0].created_at += 1;
+    conversations = [older, newer];
+    await show();
+    expect(subject.getIntercomNotification()?.id).toBe('42:newer-reply');
+    subject.dismissIntercomNotification('42:newer-reply');
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    expect(subject.getIntercomUnreadCount()).toBe(2);
+    await subject.setIntercomInAppMessageVisibility(false);
+    jest.resetModules();
+    subject = await import('./messenger');
+    subject.subscribeToIntercomNotifications(changed);
+    await show();
+    expect(subject.getIntercomNotification()).toBeUndefined();
+    expect(subject.getIntercomUnreadCount()).toBe(2);
+    older.conversation_parts[0].id = 'later-reply';
+    older.conversation_parts[0].created_at += 2;
+    subject.refreshIntercomNotifications();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(subject.getIntercomNotification()?.id).toBe('41:later-reply');
+  });
   it.each([
     [true, true],
     [false, false],

@@ -152,8 +152,6 @@ async function updateMessageNotification(
     let latest:
       | {
           message: IIntercomNotification;
-          entryKey: string;
-          partId: string;
           createdAt: number;
         }
       | undefined;
@@ -165,13 +163,11 @@ async function updateMessageNotification(
       const entryKey = JSON.stringify([userId, conversation.id]);
       const previous = notifiedParts.get(entryKey);
       if (previous && previous.createdAt > part.createdAt) return;
-      if (conversation.read || !part.isAdmin) {
-        notifiedParts.delete(entryKey);
-        notifiedParts.set(entryKey, {
-          partId: part.id,
-          createdAt: part.createdAt,
-        });
-      }
+      notifiedParts.delete(entryKey);
+      notifiedParts.set(entryKey, {
+        partId: part.id,
+        createdAt: part.createdAt,
+      });
       if (conversation.read) {
         if (notification?.conversationId === conversation.id)
           setNotification(undefined);
@@ -180,8 +176,6 @@ async function updateMessageNotification(
       if (!part.isAdmin || previous?.partId === part.id) return;
       if (!latest || part.createdAt > latest.createdAt) {
         latest = {
-          entryKey,
-          partId: part.id,
           createdAt: part.createdAt,
           message: {
             id: `${conversation.id}:${part.id}`,
@@ -200,14 +194,9 @@ async function updateMessageNotification(
     await assertCurrent();
     if (!canDeliver()) return;
     if (latest) {
-      // Deliver synchronously before the storage await. Hiding while a write
-      // is pending must only deduplicate a reply already handed to the host.
+      // One preview represents this observed batch. Publish the newest reply
+      // before committing the batch, so older replies do not trickle out later.
       setNotification(latest.message);
-      notifiedParts.delete(latest.entryKey);
-      notifiedParts.set(latest.entryKey, {
-        partId: latest.partId,
-        createdAt: latest.createdAt,
-      });
     }
     // Persist only bounded IDs/timestamps, never message text or credentials.
     // The shared lock deduplicates previews across extension windows and restarts.
