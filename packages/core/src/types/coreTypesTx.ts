@@ -159,6 +159,10 @@ export type ISignedTxResult = ISignedTx & {
 export type ISignedTxPro = ISignedTxResult & {
   solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
   encodedTx: IEncodedTx | null;
+  // Set on a send result that is the stored payload of an earlier attempt,
+  // not a signature of the unsigned tx the caller passed in. The caller's
+  // bookkeeping must describe this payload instead of its own tx.
+  isReplayedPayload?: boolean;
 };
 export type ISignedMessageItemPro = string;
 export type ISignedMessagePro = ISignedMessageItemPro[];

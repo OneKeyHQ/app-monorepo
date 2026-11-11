@@ -943,6 +943,8 @@ const usePerpDeposit = (
         networkId: token.networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
+        // a replayed payload is recorded as it is on the wire
+        signedTx: res,
         feeInfo: {
           feeInfo: gasInfo as IFeeInfoUnit,
           total,
