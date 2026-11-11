@@ -267,7 +267,7 @@ jest.mock('../../MarketHighlights/useMarketHighlights', () => ({
   }),
 }));
 jest.mock('../../MarketHighlights/MarketHighlightStrip', () => ({
-  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 62,
+  MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT: 52,
   MarketHighlightStrip: ({ highlight }: { highlight?: IMarketHighlight }) =>
     highlight ? (
       <div>{highlight.title}</div>
@@ -657,7 +657,7 @@ it('keeps the header height stable while the first hotspot loads', () => {
   const title = 'Market hotspot';
   expect(queryByText(title)).toBeNull();
   expect(getByText('Loading market hotspot')).toBeTruthy();
-  expect(mockPagerProps?.headerHeight).toBe(62);
+  expect(mockPagerProps?.headerHeight).toBe(52);
 
   mockHighlights = [
     {
@@ -687,7 +687,7 @@ it('keeps the header height stable while the first hotspot loads', () => {
 
   expect(getByText(title)).toBeTruthy();
   expect(queryByText('Loading market hotspot')).toBeNull();
-  expect(mockPagerProps?.headerHeight).toBe(62);
+  expect(mockPagerProps?.headerHeight).toBe(52);
 
   mockHighlights = [];
   rerender(

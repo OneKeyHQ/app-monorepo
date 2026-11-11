@@ -23,8 +23,8 @@ import type { IXStackProps } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
@@ -39,7 +39,8 @@ import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 import type { IMarketHighlightQuote } from './useMarketHighlightQuotes';
 import type { SharedValue } from 'react-native-reanimated';
 
-export const MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT = 62;
+// 12 top + 40 strip, with no gap below the strip.
+export const MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT = 52;
 // 24 top + 48 strip, matching the Market desktop design; the banner list
 // below supplies its own top gap.
 export const MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT = 72;
@@ -413,9 +414,7 @@ export function MarketHighlightStrip({
         alignItems="center"
         gap="$2.5"
       >
-        {compact ? null : (
-          <Icon name="SpeakerPromoteOutline" size="$4.5" color="$iconSubdued" />
-        )}
+        <Icon name="SpeakerPromoteOutline" size="$4.5" color="$iconSubdued" />
         <HighlightCarousel
           items={carouselItems}
           quotes={quotes}

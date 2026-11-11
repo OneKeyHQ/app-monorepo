@@ -77,7 +77,7 @@ function HighlightInfo({
   wide: boolean;
 }) {
   const intl = useIntl();
-  const title = intl.formatMessage({ id: ETranslations.global_info });
+  const title = intl.formatMessage({ id: ETranslations.global_details });
   const [isOpen, setIsOpen] = useState(false);
   const validLinks = links.filter(({ url }) => /^https?:\/\//i.test(url));
 
