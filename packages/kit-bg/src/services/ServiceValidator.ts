@@ -212,9 +212,30 @@ class ServiceValidator extends ServiceBase {
   }): Promise<IAddressValidation> {
     noopObject(networkId);
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    return this.returnInvalidOnInvalidAddress(() =>
+      vault.validateAddress(address),
+    );
+  }
+
+  @backgroundMethod()
+  async localValidateWatchingAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAddressValidation> {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    return this.returnInvalidOnInvalidAddress(() =>
+      vault.validateWatchingAddress(address),
+    );
+  }
+
+  private async returnInvalidOnInvalidAddress(
+    validate: () => Promise<IAddressValidation>,
+  ): Promise<IAddressValidation> {
     try {
-      const validation = await vault.validateAddress(address);
-      return validation;
+      return await validate();
     } catch (error) {
       if (error instanceof InvalidAddress) {
         return {

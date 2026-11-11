@@ -993,12 +993,12 @@ class ServiceUniversalSearch extends ServiceBase {
         const network = await serviceNetwork.getNetworkSafe({
           networkId: batchNetworkId,
         });
-        const localValidateResult = await serviceValidator.localValidateAddress(
-          {
+        // A result opens a watch-only account, so it takes the watch-only address forms.
+        const localValidateResult =
+          await serviceValidator.localValidateWatchingAddress({
             networkId: batchNetworkId,
             address: input,
-          },
-        );
+          });
 
         if (network && localValidateResult.isValid) {
           if (

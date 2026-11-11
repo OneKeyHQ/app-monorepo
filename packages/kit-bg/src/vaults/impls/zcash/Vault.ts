@@ -31,6 +31,7 @@ import {
   gateLocalWalletHistoryTx,
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type {
+  IAddressValidation,
   IFetchServerAccountDetailsParams,
   IFetchServerAccountDetailsResponse,
   IXprvtValidation,
@@ -151,6 +152,16 @@ export default class Vault extends VaultBtc {
       address,
       network: await this.getBtcForkNetwork(),
     });
+  }
+
+  // Watch-only never scans and reads balances from the backend, so it takes plain t1 addresses only.
+  override async validateWatchingAddress(
+    address: string,
+  ): Promise<IAddressValidation> {
+    if (!address.startsWith('t1')) {
+      return { isValid: false, normalizedAddress: '', displayAddress: '' };
+    }
+    return this.validateAddress(address);
   }
 
   async zcashResolveLightwalletdUrl(): Promise<string> {
