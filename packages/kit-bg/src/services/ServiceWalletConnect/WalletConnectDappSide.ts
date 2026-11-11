@@ -62,6 +62,36 @@ type IWalletConnectConnectAttempt = {
   uri?: string;
 };
 
+function isWalletConnectClockFailure(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? error.code : undefined;
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message
+      : '';
+  if (code === 3000) {
+    return /^JWT validation error: JWT Token is (?:not yet valid|expired)(?::|$)/.test(
+      message,
+    );
+  }
+  if (code === 6) return message.startsWith('Expired.');
+  // SDK validation/rejection codes must keep their original failure reason.
+  if (code !== undefined && code !== -99_999) return false;
+  // Relay recovery can wrap a JWT failure in a code-less transport error or
+  // an internal cancellation. Explicit user cancellation is excluded by caller.
+  return (
+    [
+      'WalletConnect relay did not connect',
+      'WalletConnect relay connection failed',
+      'WalletConnect connection cancelled',
+    ].includes(message) ||
+    /^(?:Socket stalled when trying to connect to |Couldn't establish socket connection to the relay server: )wss:\/\//.test(
+      message,
+    ) ||
+    message.startsWith('Expired.')
+  );
+}
+
 // https://github.com/WalletConnect/walletconnect-test-wallet
 
 /*
@@ -677,7 +707,11 @@ export class WalletConnectDappSide {
     } catch (error) {
       detachProviderListeners();
       let connectionError = attempt.cancelError ?? error;
-      if (canDiagnoseClockError && !attempt.cancelError) {
+      if (
+        canDiagnoseClockError &&
+        !attempt.cancelError &&
+        isWalletConnectClockFailure(error)
+      ) {
         // Diagnose SDK failures only; successful pairings remain usable with
         // clock skew. Keep 20 seconds below the Relay's 120-second allowance.
         const timeCheckStartedAt = Date.now();

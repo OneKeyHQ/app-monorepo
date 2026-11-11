@@ -127,7 +127,9 @@ function createDeferred<T>() {
 
 describe('WalletConnect clock diagnosis after connection failure', () => {
   const serverTime = 1_800_000_000_000;
-  const connectionError = new OneKeyLocalError('Relay connection failed');
+  const connectionError = new OneKeyLocalError(
+    'WalletConnect relay did not connect',
+  );
   let refreshTime: jest.SpyInstance<Promise<boolean>, []>;
   let getEstimatedTime: jest.SpyInstance<number | undefined, []>;
   let localTime: number;
@@ -202,6 +204,52 @@ describe('WalletConnect clock diagnosis after connection failure', () => {
       expect(fixture.connect).toHaveBeenCalledTimes(1);
     },
   );
+
+  it.each([
+    { code: 4001, message: 'User rejected the request.' },
+    { code: 5000, message: 'User rejected.' },
+    { code: 5001, message: 'User rejected chains.' },
+    { code: 5100, message: 'Unsupported chains.' },
+    { code: 5104, message: 'Unsupported namespace key.' },
+    { code: 9, message: 'Non conforming namespaces.' },
+    { code: 1001, message: 'Invalid method.' },
+    { code: 3001, message: 'Unauthorized method.' },
+    { code: 3000, message: 'JWT validation error: invalid signature' },
+    new Error("Namespace 'eip155' is not configured."),
+    new OneKeyLocalError('Storage initialization failed'),
+  ])(
+    'preserves an unrelated SDK error despite clock skew: %j',
+    async (error) => {
+      localTime += 86_400_000;
+      fixture.connect.mockRejectedValue(error);
+      const emit = jest.spyOn(appEventBus, 'emit');
+      await expect(dapp.connectToWallet({})).rejects.toBe(error);
+      expect(refreshTime).not.toHaveBeenCalled();
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.WalletConnectConnectError,
+        expect.objectContaining({
+          error: expect.objectContaining({ message: error.message }),
+        }),
+      );
+    },
+  );
+
+  it.each([
+    { code: 3000, message: 'JWT validation error: JWT Token is not yet valid' },
+    { code: 3000, message: 'JWT validation error: JWT Token is expired' },
+    { code: 6, message: 'Expired. pairing topic: test-pairing' },
+    new Error('Expired. proposal id: 123'),
+    new OneKeyLocalError('WalletConnect connection cancelled'),
+    new Error(
+      'Socket stalled when trying to connect to wss://relay.walletconnect.com',
+    ),
+  ])('diagnoses a clock-related connection error: %j', async (error) => {
+    localTime += 86_400_000;
+    fixture.connect.mockRejectedValue(error);
+    await expect(dapp.connectToWallet({})).rejects.toMatchObject({
+      key: ETranslations.global_network_doctor_action_check_datetime,
+    });
+  });
 
   it.each([0, 100_000, -100_000, 86_400_000, -172_800_000])(
     'allows a successful connection with offset %i ms without checking the clock',
