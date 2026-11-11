@@ -19,6 +19,7 @@ export type IHomeNativePagerProps = {
   onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
   initialTabName?: string;
   headerHeightHint?: number;
+  headerLayoutKey?: string;
   topOverlayHeightHint?: number;
   renderHeader: () => ReactNode;
   renderSubHeader?: () => ReactNode;
