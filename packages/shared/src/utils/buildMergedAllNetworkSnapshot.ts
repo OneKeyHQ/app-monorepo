@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { uniqBy } from 'lodash';
 
-import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   buildAggregateTokenListData,
@@ -13,6 +12,7 @@ import {
   nestAggregateTokensMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
+  splitTokensByLowValue,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   isUnavailableOrZeroFiatValue,
@@ -352,11 +352,14 @@ export function buildMergedAllNetworkSnapshot({
     mergedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
   }
 
-  tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
-
-  smallBalanceTokenList.smallBalanceTokens = mergedTokens.slice(
-    TOKEN_LIST_HIGH_VALUE_MAX,
-  );
+  // The networks' own splits do not add up across networks; re-split the
+  // merged list with the server's rule so dust never sits among the rows.
+  const split = splitTokensByLowValue({
+    tokens: mergedTokens,
+    map: displayTokenFiatMap,
+  });
+  tokenList.tokens = split.tokens;
+  smallBalanceTokenList.smallBalanceTokens = split.smallBalanceTokens;
 
   smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
     smallBalanceTokenList.smallBalanceTokens,

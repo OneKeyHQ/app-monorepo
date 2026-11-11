@@ -4,7 +4,8 @@
  * live consumer (L2 progressive paint) and the cold cache-seed (L1) share ONE
  * merge truth. Behavior must mirror the inline original exactly:
  *   merge-derive → $key dedup → sortTokensByFiatValue → zero-balance re-sort →
- *   high/low split at TOKEN_LIST_HIGH_VALUE_MAX.
+ *   high/low split by the server's low-value rule, capped at
+ *   TOKEN_LIST_HIGH_VALUE_MAX rows.
  */
 import BigNumber from 'bignumber.js';
 
@@ -237,8 +238,9 @@ describe('buildMergedAllNetworkSnapshot', () => {
       accountId: 'acc1',
     });
 
-    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['a1', 'b1', 'a2']);
-    expect(snap.smallBalanceTokens).toHaveLength(0);
+    // Worth nothing against a $15 total, the zero-value row folds last.
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['a1', 'b1']);
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual(['a2']);
 
     expect(
       new BigNumber(
@@ -507,10 +509,9 @@ describe('buildMergedAllNetworkSnapshot', () => {
       accountId: 'acc1',
     });
 
-    expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
-      'aggregate_BTC_',
-      'zero',
-    ]);
+    // The aggregate's own fiat ranks it; the zero-value row folds.
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['aggregate_BTC_']);
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual(['zero']);
   });
 
   it('includes aggregate fiat in the small-balance scalar', () => {
@@ -558,5 +559,112 @@ describe('buildMergedAllNetworkSnapshot', () => {
       'aggregate_BTC_',
     ]);
     expect(snap.smallBalanceFiatValue).toBe('1');
+  });
+
+  it('folds dust under 0.1% of the total into the low-value group', () => {
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          tokens: {
+            data: [makeToken('eth'), makeToken('dust')],
+            keys: 'k1',
+            map: { eth: makeFiat('100'), dust: makeFiat('0.005') },
+          },
+        }),
+        makeRound({
+          networkId: 'evm--56',
+          tokens: {
+            data: [makeToken('bnb', { networkId: 'evm--56' })],
+            keys: 'k56',
+            map: { bnb: makeFiat('0.2') },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    // 0.1% of $100.205 is about $0.1: BNB stays, the dust folds.
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['eth', 'bnb']);
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual(['dust']);
+    expect(snap.smallBalanceFiatValue).toBe('0.005');
+  });
+
+  it('caps the low-value line at $1,000 however large the total', () => {
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          tokens: {
+            data: [makeToken('whale'), makeToken('mid'), makeToken('small')],
+            keys: 'k1',
+            map: {
+              whale: makeFiat('5000000'),
+              mid: makeFiat('2000'),
+              small: makeFiat('999'),
+            },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    // 0.1% of the total is $5,003, but only tokens under $1,000 fold.
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['whale', 'mid']);
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual(['small']);
+  });
+
+  it('keeps tokens without a price listed and folds zero-value ones', () => {
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          tokens: {
+            data: [
+              makeToken('eth'),
+              makeToken('unpriced', { order: 1 }),
+              makeToken('worthless', { order: 2 }),
+            ],
+            keys: 'k1',
+            map: { eth: makeFiat('100'), worthless: makeFiat('0') },
+          },
+          smallBalanceTokens: {
+            data: [makeToken('dust')],
+            keys: 'ks1',
+            map: { dust: makeFiat('0.001') },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['eth', 'unpriced']);
+    expect(snap.smallBalanceTokens.map((t) => t.$key)).toEqual([
+      'dust',
+      'worthless',
+    ]);
+  });
+
+  it('folds nothing by value while the total is zero', () => {
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds: [
+        makeRound({
+          tokens: {
+            data: [
+              makeToken('eth', { order: 1 }),
+              makeToken('usdc', { order: 2 }),
+            ],
+            keys: 'k1',
+            map: { eth: makeFiat('0'), usdc: makeFiat('0') },
+          },
+        }),
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: 'acc1',
+    });
+
+    // An empty wallet keeps its default rows.
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['eth', 'usdc']);
+    expect(snap.smallBalanceTokens).toEqual([]);
   });
 });

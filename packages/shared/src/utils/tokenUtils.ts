@@ -7,6 +7,8 @@ import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   SEARCH_KEY_MIN_LENGTH,
   TOKEN_LIST_HIGH_VALUE_MAX,
+  TOKEN_LIST_LOW_VALUE_SHARE,
+  TOKEN_LIST_LOW_VALUE_USD_MAX,
 } from '../consts/walletConsts';
 import { OneKeyInternalError } from '../errors';
 
@@ -20,6 +22,7 @@ import {
 import {
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
+  sumFiatValuesFromTokens,
 } from './tokenValueUtils';
 
 import type { IServerNetwork } from '../../types';
@@ -660,6 +663,42 @@ export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
 
     return 0;
   });
+}
+
+/**
+ * Splits value-sorted tokens (zero or unavailable values last) into the list
+ * and its low-value group the way the server splits one network: a token
+ * worth under 0.1% of the total and under $1,000 (values are USD), a zero
+ * value included, is low-value, and the list keeps at most
+ * TOKEN_LIST_HIGH_VALUE_MAX rows. A token whose value is unavailable (no
+ * price) is never low-value by amount; it only overflows the cap. Both groups
+ * keep the input order.
+ */
+export function splitTokensByLowValue({
+  tokens,
+  map,
+}: {
+  tokens: IAccountToken[];
+  map: Record<string, ITokenFiat | undefined>;
+}): { tokens: IAccountToken[]; smallBalanceTokens: IAccountToken[] } {
+  const lowValueBelow = BigNumber.min(
+    sumFiatValuesFromTokens(tokens, map).times(TOKEN_LIST_LOW_VALUE_SHARE),
+    TOKEN_LIST_LOW_VALUE_USD_MAX,
+  );
+  const listed: IAccountToken[] = [];
+  const smallBalanceTokens: IAccountToken[] = [];
+  for (const token of tokens) {
+    const fiatValue = map[token.$key]?.fiatValue;
+    const lowValue =
+      isValidNumberValue(fiatValue) &&
+      new BigNumber(fiatValue).lt(lowValueBelow);
+    if (!lowValue && listed.length < TOKEN_LIST_HIGH_VALUE_MAX) {
+      listed.push(token);
+    } else {
+      smallBalanceTokens.push(token);
+    }
+  }
+  return { tokens: listed, smallBalanceTokens };
 }
 
 export function mergeDeriveTokenListMap({
@@ -1352,8 +1391,8 @@ export function buildSelectorTokenListFromResponses({
   // be worth more than another network's `tokens`, and TokenListView renders
   // as a PLAIN concat of the two buckets (no re-sort). Concat BOTH buckets,
   // value-sort once globally, push the zero/unavailable-value tail to a stable
-  // `order` sort, then re-split by the same high-value COUNT threshold so the
-  // concatenated list stays strictly descending by value — no high-value asset
+  // `order` sort, then re-split with Home's rule (`splitTokensByLowValue`) so
+  // the concatenated list stays descending by value — no high-value asset
   // stranded below a low-value one, and no floor/live reshuffle across the
   // bucket boundary.
   let mergedTokens = sortTokensByFiatValue({
@@ -1370,8 +1409,7 @@ export function buildSelectorTokenListFromResponses({
     ];
   }
   return {
-    tokens: mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX),
-    smallBalanceTokens: mergedTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX),
+    ...splitTokensByLowValue({ tokens: mergedTokens, map: sortMap }),
     tokenListMap,
     aggregateTokenFiatMap,
     aggregateTokenListMap,

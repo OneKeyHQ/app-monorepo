@@ -407,6 +407,10 @@ jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
   }),
   flattenAggregateTokensMap: () => ({}),
   sortTokensByFiatValue: ({ tokens }: { tokens: unknown[] }) => tokens,
+  splitTokensByLowValue: ({ tokens }: { tokens: unknown[] }) => ({
+    tokens,
+    smallBalanceTokens: [],
+  }),
 }));
 jest.mock('@onekeyhq/shared/src/utils/tokenSelectorFilterUtils', () => ({
   buildTokenSelectorDappTokenFilterParams: () => ({}),
