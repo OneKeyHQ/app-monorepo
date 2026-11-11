@@ -1582,3 +1582,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: A fixed 400px hero letterboxed 16:10 video on narrow screens. Swiper cached its initial height, and virtualized slide updates after resizing reset the scroll offset despite a successful requested scroll.
 **Fix**: Size extension video heroes from measured width, capped at 400px; refresh carousel geometry when dimensions change and retain the short extension carousel window. Keep icon heroes and all non-extension sizing unchanged.
 **Catchable by**: Section 8: Inspect rendered media-to-title spacing and test resize followed by pagination, including video/icon transitions, rather than checking only the active slide during resize.
+
+## Case: Bitcoin dependency hardening broke BIP322 message verification
+**Date**: 2026-11-11 | **Platforms**: Shared Bitcoin message verification on supported clients.
+**Symptom**: Updating the bitcoinjs-lib dependency used by bip322-js from 6.1.7 to 6.1.10 rejected previously valid BIP322 signatures.
+**Root Cause**: BIP322 built its virtual `to_spend` transaction through PSBT extraction without UTXO metadata. The security update correctly requires that metadata when accounting for real PSBT inputs, while the BIP322 virtual transaction deliberately has a null prevout.
+**Fix**: Keep the parent-scoped 6.1.10 resolution and construct only the virtual transaction with `Transaction`, preserving its serialized bytes. Real PSBT fee accounting and extraction retain the hardened validation.
+**Catchable by**: Verify existing mainnet/testnet P2WPKH, P2SH-P2WPKH and P2TR signatures, invalid signatures, legacy ECDSA and exact virtual transaction bytes. Independently assert that inconsistent or missing real PSBT UTXO metadata is still rejected.
