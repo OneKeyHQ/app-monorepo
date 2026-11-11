@@ -77,7 +77,7 @@ export async function sniRequest(
 }
 
 const DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE =
-  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.uploadFile\(\)/;
+  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.uploadFile\(\)|DESKTOP_API_CALL:\s*disallowed method "uploadFile"/;
 
 /**
  * Upload a local file over the pinned-IP/SNI transport in the main process.

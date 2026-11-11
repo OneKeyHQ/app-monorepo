@@ -136,6 +136,37 @@ describe('sniUploadFile (desktop)', () => {
     await expect(sniUploadFile(buildUploadConfig())).resolves.toBeNull();
   });
 
+  test('returns null when dynamic DesktopApiProxy hits an older main process allowlist without uploadFile', async () => {
+    const legacyAllowedMethods = new Set([
+      'cancelAllRequests',
+      'cancelRequest',
+      'clearDNSCache',
+      'getActiveRequestCount',
+      'isProxyActiveForUrl',
+      'request',
+    ]);
+    const dynamicSniRequestProxy = new Proxy(
+      {},
+      {
+        get: (_target, method: string) => () => {
+          if (!legacyAllowedMethods.has(method)) {
+            return Promise.reject(
+              new Error(`DESKTOP_API_CALL: disallowed method "${method}"`),
+            );
+          }
+          return Promise.resolve(sniResponse);
+        },
+      },
+    ) as NonNullable<DesktopApiProxyMock['sniRequest']>;
+
+    setDesktopApiProxy({
+      sniRequest: dynamicSniRequestProxy,
+    });
+
+    expect(isSniUploadFileSupported()).toBe(true);
+    await expect(sniUploadFile(buildUploadConfig())).resolves.toBeNull();
+  });
+
   test('surfaces transport failures so callers can classify timeouts', async () => {
     const timeoutError = Object.assign(new Error('SNI_TIMEOUT: timed out'), {
       code: 'SNI_TIMEOUT',
