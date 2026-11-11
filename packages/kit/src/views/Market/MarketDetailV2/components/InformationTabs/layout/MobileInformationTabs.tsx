@@ -101,7 +101,13 @@ function MobileInformationTabsHeader({
 
   return (
     <MarketDetailHeaderGesture panActiveOffsetY={[-4, 4]} scrollScale={1}>
-      <YStack bg="$bgApp" pointerEvents="box-none">
+      <YStack
+        bg="$bgApp"
+        pointerEvents="box-none"
+        {...(!platformEnv.isNative
+          ? { position: 'sticky', top: 0, zIndex: 10 }
+          : undefined)}
+      >
         <Tabs.TabBar
           {...props}
           scrollable

@@ -26,7 +26,10 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenSelectorCacheUtils';
 import * as swapTokenSelectorCacheUtils from '@onekeyhq/kit/src/views/Swap/utils/swapTokenSelectorCacheUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  settingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
@@ -77,6 +80,7 @@ import { jotaiContextStore } from '../../utils/jotaiContextStore';
 import { useSwapActions, useSwapRecentTokenPairAttribution } from './actions';
 import {
   ProviderJotaiContextSwap,
+  rateDifferenceAtom,
   swapActiveSelectedFromTokenBalanceAtom,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
@@ -5083,6 +5087,85 @@ describe('useSwapActions', () => {
     });
   });
 
+  it.each([
+    [ESwapTabSwitchType.STOCK, EProtocolOfExchange.STOCK, undefined],
+    [ESwapTabSwitchType.STOCK, EProtocolOfExchange.SWAP, undefined],
+    [ESwapTabSwitchType.SWAP, EProtocolOfExchange.STOCK, undefined],
+    [ESwapTabSwitchType.SWAP, EProtocolOfExchange.SWAP, '+100.00%'],
+  ])(
+    'keeps Stock warning impact strict for entry %s and protocol %s',
+    async (swapType, protocol, expected) => {
+      const fromToken = { ...usdcToken, price: '1', currency: 'usd' };
+      const toToken = { ...stockTokenA, price: '100', currency: 'cny' };
+      const quote = {
+        eventId: 'impact-event',
+        quoteId: 'impact-quote',
+        fromAmount: '1',
+        toAmount: '0.02',
+        kind: ESwapQuoteKind.SELL,
+        protocol,
+        instantRate: '0.02',
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+        info: { provider: 'mock', providerName: 'mock' },
+      } as IFetchQuoteResult;
+      const currencySpy = jest
+        .spyOn(currencyPersistAtom, 'get')
+        .mockResolvedValue({
+          currencyMap: {
+            usd: {
+              id: 'usd',
+              unit: '$',
+              name: 'US Dollar',
+              type: ['fiat'],
+              value: '1',
+            },
+            cny: {
+              id: 'cny',
+              unit: '¥',
+              name: 'Chinese Yuan',
+              type: ['fiat'],
+              value: '0',
+            },
+          },
+        });
+      try {
+        const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+          storeInstance.set(swapTypeSwitchAtom(), swapType);
+          storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+          storeInstance.set(swapSelectToTokenAtom(), toToken);
+          storeInstance.set(swapFromTokenAmountAtom(), {
+            value: '1',
+            isInput: true,
+          });
+          storeInstance.set(swapQuoteListAtom(), [quote]);
+          storeInstance.set(swapQuoteEventTotalCountAtom(), {
+            eventId: 'impact-event',
+            count: 1,
+          });
+          storeInstance.set(swapQuoteCurrentEventProviderKeysAtom(), [
+            'mock-mock',
+          ]);
+          storeInstance.set(swapQuoteCurrentEventReceivedCountAtom(), 1);
+          storeInstance.set(swapQuoteEventCompletedAtom(), true);
+        });
+        const { result } = renderHook(() => useSwapActions().current, {
+          wrapper: Wrapper,
+        });
+        const addressInfo = createExternalAddressInfo({
+          address: '0xabc',
+          isAddressInfoReady: true,
+        });
+        await act(async () => {
+          await result.current.checkSwapWarning(addressInfo, addressInfo);
+        });
+        expect(store.get(rateDifferenceAtom())?.value).toBe(expected);
+      } finally {
+        currencySpy.mockRestore();
+      }
+    },
+  );
+
   it('does not add token-risk presentation to the blocking action alerts', async () => {
     const fromToken = {
       ...ethToken,
@@ -7801,6 +7884,126 @@ describe('useSwapActions', () => {
       }),
     );
   });
+
+  it.each([
+    [
+      'Stock with currency',
+      ESwapTabSwitchType.STOCK,
+      EProtocolOfExchange.STOCK,
+      'usd',
+    ],
+    [
+      'Stock without currency',
+      ESwapTabSwitchType.STOCK,
+      EProtocolOfExchange.STOCK,
+      undefined,
+    ],
+    [
+      'Swap with currency',
+      ESwapTabSwitchType.SWAP,
+      EProtocolOfExchange.SWAP,
+      'usd',
+    ],
+  ])(
+    'preserves quote currency semantics: %s',
+    async (_name, swapType, protocol, quoteCurrency) => {
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapTypeSwitchAtom(), swapType);
+        storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+        storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+        storeInstance.set(swapFromTokenAmountAtom(), {
+          value: '1',
+          isInput: true,
+        });
+        storeInstance.set(swapQuoteEventTotalCountAtom(), {
+          eventId: 'currency-event',
+          count: 3,
+        });
+        storeInstance.set(swapQuoteActionLockAtom(), {
+          actionLock: true,
+          quoteRequestId: 'currency-request',
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const quoteParams: IFetchQuotesParams = {
+        fromNetworkId: usdcToken.networkId,
+        fromTokenAddress: usdcToken.contractAddress,
+        fromTokenAmount: '1',
+        protocol,
+        slippagePercentage: 0.5,
+        toNetworkId: stockTokenA.networkId,
+        toTokenAddress: stockTokenA.contractAddress,
+      };
+      const quote = (
+        provider: string,
+        from: Partial<ISwapToken>,
+        to: Partial<ISwapToken>,
+      ) => ({
+        eventId: 'currency-event',
+        info: { provider, providerName: provider },
+        fromTokenInfo: { ...usdcToken, ...from },
+        toTokenInfo: { ...stockTokenA, ...to },
+        fromAmount: '1',
+        toAmount: '10',
+        protocol,
+      });
+      const quoteEvent = {
+        data: JSON.stringify({
+          data: [
+            quote('request', { price: '0.98' }, { price: '100' }),
+            quote(
+              'explicit',
+              { price: '0.99', currency: 'cny' },
+              { price: '12', currency: 'eur' },
+            ),
+            quote('unpriced', {}, {}),
+          ],
+        }),
+      } as ISwapQuoteEvent;
+
+      await act(async () => {
+        result.current.quoteEventHandler({
+          event: quoteEvent,
+          type: 'message',
+          params: quoteParams,
+          quoteCurrency,
+          quoteRequestId: 'currency-request',
+          tokenPairs: { fromToken: usdcToken, toToken: stockTokenA },
+        });
+      });
+      const quoteList = store.get(swapQuoteListAtom());
+      const requestQuote = quoteList.find(
+        (item) => item.info.provider === 'request',
+      );
+      expect(requestQuote).toMatchObject({
+        fromTokenInfo: { price: '0.98' },
+        toTokenInfo: { price: '100' },
+      });
+      if (swapType === ESwapTabSwitchType.STOCK && quoteCurrency) {
+        expect(requestQuote?.fromTokenInfo.currency).toBe('usd');
+        expect(requestQuote?.toTokenInfo.currency).toBe('usd');
+      } else {
+        expect(requestQuote?.fromTokenInfo).not.toHaveProperty('currency');
+        expect(requestQuote?.toTokenInfo).not.toHaveProperty('currency');
+      }
+      expect(
+        quoteList.find((item) => item.info.provider === 'explicit'),
+      ).toMatchObject({
+        fromTokenInfo: { price: '0.99', currency: 'cny' },
+        toTokenInfo: { price: '12', currency: 'eur' },
+      });
+      expect(
+        quoteList.find((item) => item.info.provider === 'unpriced')
+          ?.fromTokenInfo,
+      ).not.toHaveProperty('currency');
+      expect(
+        quoteList.find((item) => item.info.provider === 'unpriced')
+          ?.toTokenInfo,
+      ).not.toHaveProperty('currency');
+    },
+  );
 
   it('accepts the current Swap quote before total and ignores stale request events', async () => {
     const staleQuote = {

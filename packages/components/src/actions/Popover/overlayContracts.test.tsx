@@ -11,6 +11,7 @@ import { useState } from 'react';
 
 import { Popover } from '.';
 
+import { autoUpdate } from '@floating-ui/dom';
 import {
   act,
   cleanup,
@@ -308,6 +309,34 @@ it.each([true, false])(
     expect(onPress).toHaveBeenCalledTimes(1);
   },
 );
+
+it('anchors a triggerless web panel to the supplied live toolbar element', async () => {
+  const button = document.createElement('button');
+  document.body.appendChild(button);
+  const { unmount } = render(
+    <Popover
+      title="Filter"
+      open
+      renderTrigger={null}
+      webAnchorElement={button}
+      nativeAnchorRect={{ x: 240, y: 300, width: 38, height: 38 }}
+      renderContent={<button type="button">Item</button>}
+    />,
+  );
+  try {
+    await waitFor(() =>
+      expect(autoUpdate).toHaveBeenCalledWith(
+        button,
+        expect.any(HTMLElement),
+        expect.any(Function),
+        { animationFrame: true },
+      ),
+    );
+  } finally {
+    unmount();
+    button.remove();
+  }
+});
 
 it('uses the requested percentage for a narrow web sheet', () => {
   mockNarrow = true;

@@ -1,5 +1,6 @@
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { defaultLogger } from '../../logger/logger';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
@@ -293,6 +294,10 @@ const openIntercom = async (
   if (messengerLocked || !canPresent()) {
     return false;
   }
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId ? 'web-conversation' : 'web-home',
+  });
   if (params?.conversationId) {
     showConversation(params.conversationId);
   } else {

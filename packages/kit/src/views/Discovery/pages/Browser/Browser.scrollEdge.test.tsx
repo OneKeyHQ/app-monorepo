@@ -1,9 +1,11 @@
 /** @jest-environment jsdom */
+import { useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { act, render } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import Browser from './Browser.native';
@@ -17,6 +19,16 @@ const mockTabs: { id: string }[] = [];
 const mockActions = { setDisplayHomePage: jest.fn(), closeWebTab: jest.fn() };
 let mockOuterTransitionChange: ((transitioning: boolean) => void) | undefined;
 let mockVisiblePagesChange: ((pages: number[]) => void) | undefined;
+let mockPageSelectedBySwipe: (() => void) | undefined;
+const mockPlatformEnv = platformEnv;
+let mockIsDualScreen = false;
+let mockIsSplitSubView = false;
+let mockIsSplitMainView = false;
+let mockIsSpanning = false;
+let mockSetSpanning: ((value: boolean) => void) | undefined;
+let mockDisplayHomePage = true;
+const mockWebViewMount = jest.fn();
+const mockWebViewUnmount = jest.fn();
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockRouteParams }),
@@ -43,15 +55,22 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Wrapper,
     Icon: () => null,
     isLiquidGlassAvailable: () => true,
-    useIsSplitView: () => false,
-    useSplitMainView: () => false,
-    useSplitSubView: () => false,
+    useIsSplitView: () => {
+      const [spanning, setSpanning] = useState(mockIsSpanning);
+      mockSetSpanning = setSpanning;
+      return spanning;
+    },
+    useSplitMainView: () => mockIsSplitMainView,
+    useSplitSubView: () => mockIsSplitSubView,
     useSafeAreaInsets: () => ({ top: 0 }),
   };
 });
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({ isNativeIOS: true }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  isNativeIOS: true,
+  isNativeAndroid: false,
+}));
 jest.mock('@onekeyhq/shared/src/modules/DualScreenInfo', () => ({
-  isDualScreenDevice: () => false,
+  isDualScreenDevice: () => mockIsDualScreen,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [
@@ -99,7 +118,7 @@ jest.mock('@onekeyhq/kit/src/components/LazyPageContainer', () => ({
   LazyPageContainer: ({ children }: PropsWithChildren) => children,
 }));
 jest.mock('@onekeyhq/kit/src/components/TabletHomeContainer', () => ({
-  TabletHomeContainer: () => null,
+  TabletHomeContainer: () => <span data-testid="tablet-placeholder" />,
 }));
 jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
   TabPageHeader: () => null,
@@ -130,17 +149,26 @@ jest.mock('../../components/OuterTabPagerView', () => ({
     browserContent,
     onTransitioningChange,
     onVisiblePagesChange,
+    showDiscoveryPage,
+    onPageSelectedBySwipe,
   }: {
     selectedHeaderTab: ETranslations;
+    showDiscoveryPage: boolean;
     earnContent: React.ReactNode;
     browserContent: React.ReactNode;
     onTransitioningChange?: (transitioning: boolean) => void;
     onVisiblePagesChange?: (pages: number[]) => void;
+    onPageSelectedBySwipe?: () => void;
   }) => {
     mockOuterTransitionChange = onTransitioningChange;
     mockVisiblePagesChange = onVisiblePagesChange;
+    mockPageSelectedBySwipe = onPageSelectedBySwipe;
     return (
-      <div data-testid="outer-pager" data-selected-tab={selectedHeaderTab}>
+      <div
+        data-testid="outer-pager"
+        data-selected-tab={selectedHeaderTab}
+        data-scroll-enabled={String(showDiscoveryPage)}
+      >
         {earnContent}
         {browserContent}
       </div>
@@ -162,12 +190,14 @@ jest.mock(
 jest.mock('../../hooks/useDAppNotifyChanges', () => ({
   useDAppNotifyChanges: jest.fn(),
 }));
-jest.mock('../../hooks/useMobileBrowserChromeAnimation', () => () => ({}));
+jest.mock('../../hooks/useMobileBrowserChromeAnimation', () => () => ({
+  expandBrowserChrome: jest.fn(),
+}));
 jest.mock('../../hooks/useWebTabs', () => ({
   useWebTabs: () => ({ tabs: mockTabs }),
   useActiveTabId: () => ({}),
   useWebTabDataById: () => ({}),
-  useDisplayHomePageFlag: () => ({ displayHomePage: true }),
+  useDisplayHomePageFlag: () => ({ displayHomePage: mockDisplayHomePage }),
 }));
 jest.mock('../../utils/explorerUtils', () => ({
   dismissWebviewKeyboard: jest.fn(),
@@ -182,7 +212,19 @@ jest.mock('../../utils/tabBarUtils', () => ({
 jest.mock('../Dashboard/DashboardContent', () => () => (
   <span data-testid="browser-dashboard" />
 ));
-jest.mock('./MobileBrowserContent', () => () => null);
+jest.mock(
+  './MobileBrowserContent',
+  () =>
+    function MockMobileBrowserContent() {
+      useEffect(() => {
+        mockWebViewMount();
+        return () => {
+          mockWebViewUnmount();
+        };
+      }, []);
+      return <span data-testid="browser-web-page" />;
+    },
+);
 jest.mock('./WithBrowserProvider', () => ({
   withBrowserProvider: (component: unknown) => component,
 }));
@@ -196,6 +238,114 @@ describe('Browser.native Explore tab migration', () => {
     jest.clearAllMocks();
     mockRouteParams = undefined;
     mockSelectedBrowserTab = ETranslations.global_market;
+    mockPlatformEnv.isNativeIOS = true;
+    mockPlatformEnv.isNativeAndroid = false;
+    mockIsDualScreen = false;
+    mockIsSplitSubView = false;
+    mockDisplayHomePage = true;
+    mockIsSplitMainView = false;
+    mockIsSpanning = false;
+    mockTabs.length = 0;
+  });
+
+  it.each([
+    ['folded detail pane', false, true, false, true],
+    ['unfolded main pane', true, false, true, true],
+    ['folded hidden main pane', true, false, false, false],
+    ['single-pane foldable', false, false, false, true],
+  ])(
+    'uses the native pager in the %s',
+    (_name, main, detail, spanning, showsEarn) => {
+      mockPlatformEnv.isNativeIOS = false;
+      mockPlatformEnv.isNativeAndroid = true;
+      mockIsDualScreen = true;
+      mockIsSplitMainView = main;
+      mockIsSplitSubView = detail;
+      mockIsSpanning = spanning;
+      mockSelectedBrowserTab = ETranslations.global_browser;
+      const screen = render(<Browser />);
+      expect(screen.getByTestId('outer-pager')).toBeTruthy();
+      expect(Boolean(screen.queryByTestId('earn-home'))).toBe(showsEarn);
+      expect(mockSetSelectedBrowserTab).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the unfolded home detail pane as a placeholder', () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isNativeAndroid = true;
+    mockIsDualScreen = true;
+    mockIsSplitSubView = true;
+    mockIsSpanning = true;
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    const screen = render(<Browser />);
+    expect(screen.getByTestId('tablet-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('outer-pager')).toBeNull();
+  });
+
+  it('keeps the detail web page outside the pager across folding', () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isNativeAndroid = true;
+    mockIsDualScreen = true;
+    mockIsSplitSubView = true;
+    mockDisplayHomePage = false;
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    mockTabs.push({ id: 'test-tab' });
+    const screen = render(<Browser />);
+    expect(
+      screen.getByTestId('outer-pager').getAttribute('data-scroll-enabled'),
+    ).toBe('false');
+    expect(
+      screen
+        .getByTestId('outer-pager')
+        .contains(screen.getByTestId('browser-web-page')),
+    ).toBe(false);
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    act(() => mockSetSpanning?.(true));
+    expect(screen.getByTestId('outer-pager')).toBeTruthy();
+    expect(screen.queryByTestId('earn-home')).toBeNull();
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+    act(() => mockSetSpanning?.(false));
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+  });
+
+  it('does not mount web pages in the unfolded main pane', () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isNativeAndroid = true;
+    mockIsDualScreen = true;
+    mockIsSplitMainView = true;
+    mockIsSpanning = true;
+    mockDisplayHomePage = false;
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    mockTabs.push({ id: 'test-tab' });
+    const screen = render(<Browser />);
+    expect(
+      screen.getByTestId('outer-pager').getAttribute('data-scroll-enabled'),
+    ).toBe('true');
+    expect(screen.queryByTestId('browser-web-page')).toBeNull();
+    expect(mockWebViewMount).not.toHaveBeenCalled();
+  });
+
+  it('retains the legacy pager-free layout on iOS split view', () => {
+    mockIsSplitSubView = true;
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    const screen = render(<Browser />);
+    expect(screen.queryByTestId('outer-pager')).toBeNull();
+    expect(screen.getByTestId('browser-dashboard')).toBeTruthy();
+  });
+
+  it('collapses the detail web page when the main pane swipes to DeFi', () => {
+    mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isNativeAndroid = true;
+    mockIsDualScreen = true;
+    mockIsSplitMainView = true;
+    mockIsSpanning = true;
+    mockDisplayHomePage = false;
+    mockSelectedBrowserTab = ETranslations.global_browser;
+    render(<Browser />);
+    act(() => mockPageSelectedBySwipe?.());
+    expect(mockActions.setDisplayHomePage).toHaveBeenCalledWith(true);
   });
 
   it('normalizes persisted global_market tab to global_browser on mount', () => {

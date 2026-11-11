@@ -42,7 +42,9 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ symbol: '$' }),
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
-  BaseMarketTokenPrice: () => null,
+  BaseMarketTokenPrice: ({ price }: { price: string }) => (
+    <span data-testid="preview-price">{price}</span>
+  ),
   MarketTokenPrice: () => null,
 }));
 jest.mock(
@@ -215,6 +217,26 @@ it('uses the stock price header on narrow web while token detail is pending', ()
   render(<InformationPanel mobileDetailKind="stock" />);
   expect(screen.getByText('stock price header')).toBeTruthy();
 });
+
+it.each([
+  [NaN, NaN, '--'],
+  [Infinity, -Infinity, '--'],
+  [0, 0, '0'],
+])(
+  'renders the pending quote with price %s and change %s',
+  (price, change24h, expected) => {
+    mockMissingDetail = true;
+    render(
+      <InformationPanel
+        mobileDetailKind="topCoin"
+        pendingMarketAsset={{ symbol: 'BNB', price, change24h }}
+      />,
+    );
+
+    expect(screen.getByTestId('preview-price').textContent).toBe(expected);
+    expect(screen.getByText(`percent:${expected}`)).toBeTruthy();
+  },
+);
 
 it.each(['trending', 'topCoin'] as const)(
   'shows the dollar move and percentage for %s',

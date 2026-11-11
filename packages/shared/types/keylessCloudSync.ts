@@ -22,6 +22,10 @@ export type IHardwareCloudSyncKeySource = {
   // Display only. Another device restored from the same recovery phrase can
   // sign again.
   deviceName: string;
+  // When present, label changes do not need to refresh the display name.
+  deviceBleName?: string;
+  // Local-only binding for display updates; older sources have no physical identity.
+  deviceSerialNoHash?: string;
   deviceType: IDeviceType;
   // Display only: the model and finish the account selector shows for this
   // device. Absent on sources saved before it was kept.

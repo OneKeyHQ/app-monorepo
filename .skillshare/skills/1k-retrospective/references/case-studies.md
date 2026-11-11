@@ -1445,3 +1445,126 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Importing GlassHeaderProvider from the native popover also imports navigation and native layout dependencies. The existing close lifecycle suite did not mock them, so Jest attempted to execute the untransformed ESM entry of @react-navigation/elements.
 **Fix**: Add the same navigation, safe-area and foldable-device mocks used by the neighboring native popover suites, keeping the real glass context and all lifecycle assertions.
 **Catchable by**: Sections 4 and 6: Run existing consumer suites when introducing a transitive dependency, not only the newly added regression tests.
+
+## Case: Universal Search table headers used a different background (OK-66871)
+**Date**: 2026-11-10 | **Platforms**: Universal Search UI on desktop/web (single JS runtime) and mobile (main runtime).
+**Symptom**: The table headers in All, Tokens, and Stocks appeared against a different surface from the search page.
+**Root Cause**: The shared selectors used their own table header backgrounds, while Universal Search used `$bgApp` for the page.
+**Fix**: Pass `$bgApp` to the search result headers and keep the stock selector's default `$bg`. Update the existing stock selector test to expect the explicit default background.
+**Catchable by**: Check sticky header contrast against the enclosing surface in each results tab, and run the existing tests for shared selectors when adding a default prop.
+
+## Case: Mobile Stocks order history tab was missing (OK-66882)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android (main UI and background swap history service).
+**Symptom**: Mobile Stocks showed positions and a pending-order preview, with no tab for browsing completed orders.
+**Root Cause**: The mobile layout rendered positions directly without mounting the stock history list or providing a way to switch to it.
+**Fix**: Restore the Positions and Order History tabs and show the pending preview only on Positions. Use a stock-scoped clear action that also filters queued history writes for the same scope.
+**Catchable by**: Verify both tabs on mobile with pending and completed orders, and test clearing stock history while a write is queued and other swap history exists.
+
+## Case: Perps deposit reused Solana payer and amount after switching to ETH (OK-66646)
+**Date**: 2026-11-10 | **Platforms**: Desktop/Web single-runtime UI hooks; reproduced and manually regressed on desktop.
+**Symptom**: Switching a Perps deposit from Solana USDC to native ETH sent the old Solana payer address and USDC quantity in an Ethereum quote, producing an invalid-address error.
+**Root Cause**: The account promise retained its previous result until the new network account resolved. The amount reset ran in a passive effect, while the amount-only debounce retained the previous token's quantity for 800ms.
+**Fix**: Bind account results to the selected account/network scope, reset amount state with token identity before effects run, and accept debounced amounts only when both token identity and amount match the current input.
+**Catchable by**: Test the real deposit and amount hooks together with delayed account resolution and fake timers. Assert that Solana USDC to ETH, account switches, same-network token switches, and rapid token round trips never quote with a stale payer or quantity.
+
+## Case: Native Buy kept a Processing order after the payment page failed to load (OK-66774)
+**Date**: 2026-11-10 | **Platforms**: iOS native Buy (main runtime classifies the checkout failure, background runtime stores the order). Android, desktop, web and extension have no in-app checkout and are unaffected.
+**Symptom**: A Paybis checkout whose payment web view failed on an SSL error left an order shown as Processing, and the page sent the user to that order instead of offering a retry.
+**Root Cause**: Onramper SDK 1.3.1 reports every failure of the provider's payment surface as `providerFailed` (payment outcome unknown), including a web view that never loaded. The client kept every such order for tracking.
+**Fix**: Read a `providerFailed` as a page load failure only when the failure carries a load error (support code `NSURLErrorDomain/<code>` other than cancelled, or the page's own `load_error`) and the web view had not reported ready. That hidden order is dropped and the page offers an in-place retry; a failure without a load error stays tracked as outcome unknown. The first version of the fix inferred the load failure from a missing `providerReady` alone, which review rejected: a provider page is not bound to report readiness.
+**Catchable by**: Section 4: Edge cases — error states of a third-party surface. Decide an outcome that drops a payment record on positive evidence from the failure, never on an event that did not arrive.
+
+## Case: Bulk Send random amounts did nothing with only the max entered (OK-66698)
+**Date**: 2026-11-10 | **Platforms**: Bulk Send amounts page on desktop/web (single JS runtime), extension and mobile (main UI runtime). No background or native-resource changes.
+**Symptom**: In ManyToOne / ManyToMany range mode, entering only the max generated no amounts, showed no error and kept Review disabled.
+**Root Cause**: Range validity and generation both required a non-empty min, while these modes start with both inputs empty and the "0" placeholder reads as an already-filled min.
+**Fix**: Treat an empty min as the chain minimum transfer amount, or the smallest token unit when the chain defines none, in validation, validity and generation. Review follow-up: an amount that display rounding would drop below a lower bound it met keeps that bound's precision (chain minimum 5.46 with an integer max formatted 5.68 as "5"), and a shared OneToMany balance must cover the chain minimum for every transfer instead of only one. Second review round: that kept precision is capped at the token's decimals (a min of 1.12345678 on a 6-decimal token produced an 8-decimal amount), and a range entered before the vault settings load is revalidated and regenerated once the chain minimum arrives, in both the mobile preview and the desktop table.
+**Catchable by**: Sections 4 and 6: When an input becomes optional, test the fallback value through every later step (rounding, balance caps) against chain limits, including a decimal chain minimum with an integer input, a balance below minimum × transfer count, an input finer than the token's decimals, and a fallback read before its async source resolves.
+
+## Case: Native Buy rate and fee popovers doubled the gap under the title (OK-66874)
+**Date**: 2026-11-10 | **Platforms**: iOS and Android native UI (main runtime), where the popover presents as a sheet. The anchored panel on expanded windows is unchanged.
+**Symptom**: The rate and fee explainer sheets left too much space between the title and the body.
+**Root Cause**: The body's uniform `$5` padding added a full top inset below the sheet header's own bottom padding.
+**Fix**: Share one `InfoPopoverContent` body that pads its top only in the anchored panel, which has no header, and keeps `$5` horizontal/bottom padding everywhere.
+**Catchable by**: Sections 3 and 8: Inspect combined header/content spacing in the rendered sheet, not each container in isolation (same pattern as the OK-66811 translation sheet).
+
+
+## Case: Cloud sync device names depended on cached hardware labels
+**Date**: 2026-11-10 | **Platforms**: Desktop/web (single JS runtime); mobile/extension hardware work stays in bg and the existing persisted-atom bridge updates main UI. SDK and native resource ownership are unchanged.
+**Symptom**: Cloud sync could show a custom label such as fido88 instead of the Bluetooth name Neo 1797, and a saved label fallback could become stale after a rename.
+**Root Cause**: Cloud copied the label-first device display name from an SDK runtime snapshot, while V2 label reads use the settings scope. Its saved display metadata was not updated by existing wallet label changes.
+**Fix**: Prefer the canonical Bluetooth name, retain label/model fallbacks, and read settings only when no Bluetooth name is available. Reuse label updates only after matching the standard wallet identity, and refresh display metadata after a Cloud key reset. A saved Bluetooth name skips label lookups and extra hardware reads.
+**Catchable by**: Sections 4 and 6: Exercise both label and Bluetooth name together, all empty Bluetooth-name variants, stale cached labels, unrelated wallet identities, and assertions on hardware-call counts.
+
+## Case: Optional Cloud label refresh blocked hardware signing
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background flow; desktop/web use one JS runtime, while mobile/extension use isolated bg and main runtimes. No native-resource or JS heap ownership changes.
+**Symptom**: A device without a Bluetooth name could no longer enable or reset Cloud sync if the new settings read failed, even though its standard-wallet runtime state and cached label were already valid.
+**Root Cause**: A display-only enrichment call was awaited as a required prerequisite to signing, and its error escaped the validated standard-wallet flow.
+**Fix**: Keep the validated runtime snapshot when a recoverable settings refresh fails, log the sanitized failure, and preserve operation/lease cancellation and explicit hardware or PIN cancellation. The existing live identity checks still gate signing.
+**Catchable by**: Sections 4, 5 and 6: Fail optional metadata reads after required validation succeeds; verify signing can proceed with the known name, while cancellation still stops before any signature.
+
+
+## Case: Cloud key reset reported failure after committing a new key
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing UI metadata broadcasts. Native resource ownership is unchanged.
+**Symptom**: Saving a refreshed device name could reject after a successful key rotation, report a failed reset, and skip generation recording, session revocation and forced synchronization.
+**Root Cause**: The display-name persistence await sat between committing the new key and required reset finalization, allowing an optional storage failure to interrupt security-relevant cleanup.
+**Fix**: Finish generation recording, session revocation, synchronization and timestamp updates first. Persist the display name afterward as best effort and log a sanitized failure without rejecting the completed reset.
+**Catchable by**: Sections 4, 5 and 6: Inject an optional persistence failure after the irreversible operation and assert the committed key, recorded generation, revoked sessions and completed sync independently of display metadata.
+
+## Case: Privacy account actions interfered with unrelated rows (OK-66891, OK-66892)
+**Date**: 2026-11-10 | **Platforms**: iOS, Android and extension main UI runtime; desktop/web single JS runtime. Background scanning, native resource ownership and shared account admission are unchanged.
+**Symptom**: An account action disabled unrelated rows, while deleting local data displayed loading on Pause. The first per-account guard also let a duplicate confirmation finish before the original request, allowing the dialog footer to close early.
+**Root Cause**: One global busy account controlled the whole list without recording the operation type. The replacement guard prevented duplicate work by returning immediately, but a confirmation callback must stay pending for the full operation. Existing tests checked request count without checking both confirmation results.
+**Fix**: Scope loading and disabled state by network/account and action type; keep deletion progress in its dialog and the row visible. Register and reuse the pending promise for each account so duplicate confirmations share completion or rejection, then clear only that account's state.
+**Catchable by**: Test independent rows and equal account IDs on different networks. For enable, delete and repair, hold the service request pending, confirm twice, assert both callbacks remain pending and only one request runs, then verify success, rejection and retry.
+
+
+## Case: Devices sharing a recovery phrase could replace each other's Cloud name
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg with existing persisted metadata delivered to main. SDK/native resource ownership is unchanged.
+**Symptom**: Renaming another physical device restored from the same recovery phrase could replace the selected Cloud device's name, and an unrelated Bluetooth name could disable future label refreshes.
+**Root Cause**: The Cloud credential ID identifies the standard wallet rather than the physical device, so matching only that ID admitted metadata from other devices using the same wallet.
+**Fix**: Keep a local hash of the physical device's normalized serial number when Cloud signing reads it. Reuse another flow's label only when both wallet and physical bindings match, and recheck the binding during the atom update. Keep unbound legacy sources unchanged until a Cloud signing operation identifies their device; no extra hardware reads are added.
+**Catchable by**: Sections 4, 5 and 6: Test two devices with the same wallet fingerprint but different serial numbers, missing physical identity, legacy metadata and a physical-source change during an async label lookup.
+
+
+## Case: A failed post-reset sync left the committed Cloud device name stale
+**Date**: 2026-11-10 | **Platforms**: Shared hardware Cloud background service; desktop/web single runtime, mobile/extension isolated bg and main. No SDK/native resource ownership changes.
+**Symptom**: After the data key was committed, a forced-sync error skipped the device-name refresh. The selected Cloud device kept its previous name and physical binding despite successful hardware signing.
+**Root Cause**: Making metadata persistence best effort prevented storage errors from failing the reset, but placing it only after successful synchronization still skipped it on the failure path.
+**Fix**: Remember the freshly signed source only after the data-key commit succeeds, then attempt its metadata update in finalization regardless of later synchronization failure. Keep metadata errors non-fatal and preserve the original synchronization error.
+**Catchable by**: Sections 4, 5 and 6: Fail the network step after key commit and assert the new key remains stored, the source name and physical binding refresh, and the original network error is still reported.
+
+## Case: Cloud device name helper missing from the native module registry
+**Date**: 2026-11-10 | **Platforms**: iOS, Android
+**Symptom**: Native startup graph CI failed while allocating the new hardware Cloud device name helper.
+**Root Cause**: The helper entered the background bundle graph without a stable module ID registration.
+**Fix**: Register the helper with the existing module ID update command and validate the strict registry lookup.
+**Catchable by**: Section 4: register new files consumed by native bundles before pushing.
+
+## Case: Lite card backup listed Bot Wallets (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: Lite card wallet selection and shared Prime Transfer filtering on supported clients.
+**Symptom**: Bot Wallets appeared in the Lite card backup wallet picker.
+**Root Cause**: The picker accepted HD wallet IDs and excluded only Keyless IDs. Bot IDs also start with `hd-`, so they passed that predicate. Prime Transfer already excluded Bot Wallets by default, but its helper was local to that service.
+**Fix**: Extract the backup filter into `shared` and reuse it in Lite card selection and Prime Transfer. Exclude Keyless wallets by metadata or ID, exclude Bot Wallets by default, and preserve explicit Bot selection for CLI export. Keep the Lite picker restricted to HD wallets and add regression coverage for mixed wallet lists.
+**Catchable by**: Sections 4 and 6: Trace all consumers of shared wallet eligibility rules and test ordinary, Keyless, Bot, hardware, QR, imported and watching wallets together.
+
+## Case: Shared backup filter was missing from the native module registry (OK-66802)
+**Date**: 2026-11-10 | **Platforms**: iOS CI main/background three-bundle build; the stable registry is also used by Android. Build-time only, with no native-resource or runtime-lifecycle changes.
+**Symptom**: Native CI failed during union bundle allocation even though the filtering tests, lint and type checks passed.
+**Root Cause**: The new shared source module was not added to the stable module ID registry. The production allocator rejects unregistered paths.
+**Fix**: Register `walletBackupUtils.ts` with the repository updater, preserving every existing ID. Verify the original strict allocator failure now passes, check the registry map, run the existing registry suites, and confirm Native CI succeeds.
+**Catchable by**: Section 3: Check native bundle integration when adding a shared module, including strict module-ID registration in addition to lint and type checks.
+
+## Case: Chart settings needed an extra step after Reset (OK-66883)
+**Date**: 2026-11-10 | **Platforms**: Desktop and Web wide-layout chart settings dialogs (single JS runtime).
+**Symptom**: In the full Indicators dialog, Reset changed the draft and required Confirm. Chart Settings saved defaults but left its dialog open.
+**Root Cause**: The two Reset handlers followed different save paths. Closing unconditionally after an async save would also discard edits entered while the reset was saving.
+**Fix**: Save defaults and close the dialog only when the latest draft still matches the saved reset. Keep any newer edits available for Confirm and leave the dialog open on save failure.
+**Catchable by**: Test Reset in both dialogs with a delayed save. Check that an untouched draft closes after success, an edit made during the save remains available, and a failed save can be retried.
+
+## Case: Perps Add Position amount field did not focus on iOS (OK-66886)
+**Date**: 2026-11-10 | **Platforms**: iOS main UI runtime (React Native Fabric and UIKit keyboard accessory).
+**Symptom**: Tapping the amount field in Perps Add Position could leave it unfocused with the keyboard closed. The issue also covered position TP/SL fields.
+**Root Cause**: A Fabric layout update could make a recycled, empty `InputAccessoryView` host visible. Its absolute frame overlapped the text input and intercepted taps.
+**Fix**: Backport `pointerEvents: 'box-none'` to the shared host in React Native 0.88.0 so taps reach the input and the UIKit keyboard toolbar keeps its own touch handling. Remove the Perps TWAP `pointerEvents: 'none'` workaround. [Upstream React Native fix](https://github.com/react/react-native/pull/59904)
+**Catchable by**: On an iOS simulator, reopen Add Position to exercise view reuse. Tap the middle of the amount field and verify focus, numeric entry, and keyboard toolbar interaction. Repeat in another accessory-backed form such as Swap Limit.

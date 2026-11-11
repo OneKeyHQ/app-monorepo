@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  canConvertFiat,
+  convertFiat,
+} from '@onekeyhq/kit/src/utils/fiatConvert';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
@@ -16,11 +19,13 @@ function resolveRateDifferenceTokenPrice({
   sourceCurrency,
   commonCurrency,
   currencyMap,
+  strictCurrencyConversion,
 }: {
   price?: string;
   sourceCurrency?: string;
   commonCurrency: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  strictCurrencyConversion?: boolean;
 }) {
   const priceBN = new BigNumber(price ?? '');
   if (!priceBN.isFinite() || priceBN.isZero()) {
@@ -31,7 +36,16 @@ function resolveRateDifferenceTokenPrice({
     return priceBN.toFixed();
   }
 
-  if (!currencyMap?.[sourceCurrency] || !currencyMap?.[commonCurrency]) {
+  if (
+    !currencyMap?.[sourceCurrency] ||
+    !currencyMap?.[commonCurrency] ||
+    (strictCurrencyConversion &&
+      !canConvertFiat({
+        sourceCurrency,
+        targetCurrency: commonCurrency,
+        currencyMap,
+      }))
+  ) {
     return undefined;
   }
 
@@ -57,6 +71,7 @@ export function buildSwapRateDifference({
   defaultTokenCurrency,
   currencyMap,
   instantRate,
+  strictCurrencyConversion = false,
 }: {
   fromTokenPrice?: string;
   toTokenPrice?: string;
@@ -65,6 +80,7 @@ export function buildSwapRateDifference({
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
   instantRate?: string;
+  strictCurrencyConversion?: boolean;
 }): ISwapPreSwapData['rateDifference'] {
   if (!fromTokenPrice || !toTokenPrice || !instantRate) {
     return undefined;
@@ -85,12 +101,14 @@ export function buildSwapRateDifference({
     sourceCurrency: fromPriceSourceCurrency,
     commonCurrency,
     currencyMap,
+    strictCurrencyConversion,
   });
   const resolvedToTokenPrice = resolveRateDifferenceTokenPrice({
     price: toTokenPrice,
     sourceCurrency: toPriceSourceCurrency,
     commonCurrency,
     currencyMap,
+    strictCurrencyConversion,
   });
   if (!resolvedFromTokenPrice || !resolvedToTokenPrice) {
     return undefined;

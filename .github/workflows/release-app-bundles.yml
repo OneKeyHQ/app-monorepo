@@ -166,12 +166,12 @@ jobs:
       commit: ${{ steps.params.outputs.commit }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: ${{ !inputs.pr_number }}
 
       - name: Checkout PR head commit (pinned to validated SHA)
         if: ${{ inputs.pr_number }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.validate-pr.outputs.head_sha }}
 
@@ -254,7 +254,7 @@ jobs:
         run: echo "value=web-embed-build-app-bundles-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
           ref: ${{ needs.prepare-params.outputs.commit }}
@@ -320,7 +320,7 @@ jobs:
           sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.prepare-params.outputs.build_number }}/" .env
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
           package-manager-cache: false
@@ -347,7 +347,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -397,16 +397,16 @@ jobs:
           # Sentry expects a literal tilde URL prefix.
           # shellcheck disable=SC2088
           URL_PREFIX='~/web-embed'
-          npx sentry-cli releases new "$RELEASE" || true
+          node_modules/.bin/sentry-cli releases new "$RELEASE" || true
           if [ -f ./apps/web-embed/scripts/check-browser-compat.js ]; then
-            if ! npx sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
+            if ! node_modules/.bin/sentry-cli sourcemaps inject ./apps/web-embed/web-build; then
               echo "::warning::Web-embed Sentry debug-id injection failed; continuing with release-based upload."
             fi
           else
             echo "::notice::Skipping Sentry debug-id injection for a legacy checkout without the post-injection browser compatibility check."
           fi
-          if npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
-            npx sentry-cli releases finalize "$RELEASE" || true
+          if node_modules/.bin/sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web-embed/web-build; then
+            node_modules/.bin/sentry-cli releases finalize "$RELEASE" || true
             echo "uploaded=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Web-embed Sentry sourcemap upload failed; archiving sourcemaps before stripping them."
@@ -424,7 +424,7 @@ jobs:
       - name: Upload Web-embed Sourcemap Diagnostic Artifact
         if: always() && steps.upload_web_embed_sourcemaps.outputs.uploaded != 'true'
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: web-embed-sourcemaps-${{ github.sha }}
           path: |
@@ -456,7 +456,7 @@ jobs:
           fi
 
       - name: Upload web-embed artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ steps.artifact-name.outputs.value }}
           path: |
@@ -611,17 +611,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.prepare-params.outputs.commit }}
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
 
       - name: Download Web Bundle Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: app-monorepo-test-${{ needs.prepare-params.outputs.commit }}-${{ needs.prepare-params.outputs.build_number }}
           path: apps/web/web-build

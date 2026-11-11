@@ -49,7 +49,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -115,7 +115,7 @@ jobs:
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
           package-manager-cache: false
@@ -142,7 +142,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -153,12 +153,6 @@ jobs:
         run: |
           rm -rf apps/mobile/android/app/google-services.json
           echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/google-services.json
-
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Modify build.gradle
         uses: OneKeyHQ/actions/build-gradle-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -194,41 +188,15 @@ jobs:
       - name: Stage private fonts for EAS
         run: node development/scripts/fonts-sync.js --stage-eas
 
-      - name: Build on EAS And Submit
-        if: ${{ github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-
-          if [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
-            INTERNAL_PROFILE="qa-internal"
-            STORE_PROFILE="qa-internal-store"
-          else
-            INTERNAL_PROFILE="production"
-            STORE_PROFILE="production-store"
-          fi
-
-          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
-          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
-            eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large
-          else
-            eas build --profile="${INTERNAL_PROFILE}" --platform android --non-interactive --no-wait --resource-class large
-            eas build --profile="${STORE_PROFILE}" --platform android --non-interactive --no-wait --resource-class large --auto-submit
-          fi
+      - name: Install locked EAS CLI
+        working-directory: .github/tools/eas-cli
+        run: node ../../../.yarn/releases/yarn-4.18.1.cjs install --immutable
 
       - name: Build on EAS
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-          if [[ "${ENABLE_STARTUP_PROFILE}" == "true" ]]; then
-            # Profiling build: forces qa-internal-startup-profile (internal APK
-            # only, never store-submits). See skill 1k-startup-profile.
-            PROFILE="qa-internal-startup-profile"
-          elif [[ "${ONEKEY_ALLOW_SKIP_GPG_VERIFICATION}" == "true" ]]; then
-            PROFILE="qa-internal"
-          else
-            PROFILE="production"
-          fi
-          eas build --profile="${PROFILE}" --platform android --non-interactive --no-wait --resource-class large
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          IS_WORKFLOW_RUN: ${{ github.event_name == 'workflow_run' }}
+        run: bash .github/scripts/mobile-release.sh android
 
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'
