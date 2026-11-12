@@ -140,6 +140,8 @@ export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
 // The web-embed page's local-file origin is opaque: any sandboxed, srcdoc or
 // data: frame of any page reports the same value, so it only counts as a
 // privileged origin on a request the web-embed WebView host has marked.
+// Only native hosts the web-embed page and clears page-sent marks; other
+// hosts (e.g. extension content-script ports) pass page fields through.
 const OPAQUE_WEB_EMBED_ORIGINS = new Set(['null', 'file://']);
 
 export function isProviderApiPrivateAllowedOrigin(
@@ -147,7 +149,7 @@ export function isProviderApiPrivateAllowedOrigin(
   payload?: IJsBridgeMessagePayload,
 ) {
   if (origin && OPAQUE_WEB_EMBED_ORIGINS.has(origin)) {
-    return hasWebEmbedChannelMark(payload);
+    return Boolean(platformEnv.isNative) && hasWebEmbedChannelMark(payload);
   }
   return (
     origin &&
@@ -215,6 +217,36 @@ export function isWebEmbedChannelRequest(payload?: IJsBridgeMessagePayload) {
     hasWebEmbedChannelMark(payload) &&
     isWebEmbedApiAllowedOrigin(payload?.origin)
   );
+}
+
+// WalletConnectRequestProxy attaches the session context and calls
+// handleProviderMethods directly. The page bridge only overwrites `origin`
+// and `internal`, so these fields on a page request come from the page.
+const WALLET_CONNECT_REQUEST_DATA_KEYS = new Set([
+  'walletConnectTopic',
+  'walletConnectDisplayOrigin',
+  'walletConnectVerifyContext',
+  'wcChainName',
+]);
+
+export function stripWalletConnectContextFromPageRequest(
+  payload: IJsBridgeMessagePayload,
+): IJsBridgeMessagePayload {
+  const { isWalletConnectRequest: _isWalletConnectRequest, ...rest } = payload;
+  const { data } = payload;
+  const dataEntries =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? Object.entries(data)
+      : [];
+  if (!dataEntries.some(([key]) => WALLET_CONNECT_REQUEST_DATA_KEYS.has(key))) {
+    return 'isWalletConnectRequest' in payload ? rest : payload;
+  }
+  return {
+    ...rest,
+    data: Object.fromEntries(
+      dataEntries.filter(([key]) => !WALLET_CONNECT_REQUEST_DATA_KEYS.has(key)),
+    ),
+  };
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
