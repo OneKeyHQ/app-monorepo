@@ -240,15 +240,23 @@ describe('TokenListFooterRows', () => {
         addToken={{ onPress: onAddToken }}
       />,
     );
+    // The row takes the click; its label is the keyboard and screen reader
+    // button, so the low-value "?" is not nested inside a button.
     const lowValue = screen.getByTestId('token-list-footer-low-value-btn');
-    expect(lowValue.getAttribute('role')).toBe('button');
-    expect(lowValue.getAttribute('tabindex')).toBe('0');
+    expect(lowValue.getAttribute('role')).toBeNull();
+    const lowValueLabel = screen.getByTestId(
+      'token-list-footer-low-value-btn-label',
+    );
+    expect(lowValueLabel.getAttribute('role')).toBe('button');
+    expect(lowValueLabel.getAttribute('tabindex')).toBe('0');
 
     fireEvent.click(lowValue);
-    fireEvent.keyDown(screen.getByTestId('token-list-footer-risky-btn'), {
+    fireEvent.keyDown(screen.getByTestId('token-list-footer-risky-btn-label'), {
       key: 'Enter',
     });
-    const addToken = screen.getByTestId('token-list-footer-add-token-btn');
+    const addToken = screen.getByTestId(
+      'token-list-footer-add-token-btn-label',
+    );
     fireEvent.keyDown(addToken, { key: ' ' });
     fireEvent.keyDown(addToken, { key: 'a' });
 

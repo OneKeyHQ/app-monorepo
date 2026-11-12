@@ -65,8 +65,6 @@ function FooterRow({
   const intl = useIntl();
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      // Keys on a control inside the row (the help button) are its own.
-      if (event.target !== event.currentTarget) return;
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         onPress();
@@ -75,9 +73,10 @@ function FooterRow({
     [onPress],
   );
   return (
+    // A press anywhere on the row opens it. For keyboards and screen readers
+    // the button is the label, so a control after it (the low-value "?")
+    // stays a control of its own rather than a part of it.
     <XStack
-      role="button"
-      tabIndex={0}
       testID={testID}
       h={48}
       px={ROW_PADDING}
@@ -88,27 +87,36 @@ function FooterRow({
       cursor="default"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
-      focusVisibleStyle={{
-        outlineColor: '$focusRing',
-        outlineWidth: 2,
-        outlineStyle: 'solid',
-        outlineOffset: -2,
-      }}
       onPress={onPress}
-      onKeyDown={handleKeyDown}
     >
       <Stack aria-hidden pointerEvents="none">
         {icon}
       </Stack>
       <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
-        <SizableText
+        <Stack
+          role="button"
+          tabIndex={0}
+          testID={`${testID}-label`}
           flexShrink={1}
           minWidth={0}
-          size="$bodyLg"
-          numberOfLines={1}
+          // Room for the focus ring around the words.
+          px="$1.5"
+          mx="$-1.5"
+          py="$1"
+          my="$-1"
+          borderRadius="$2"
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: -2,
+          }}
+          onKeyDown={handleKeyDown}
         >
-          {label}
-        </SizableText>
+          <SizableText size="$bodyLg" numberOfLines={1}>
+            {label}
+          </SizableText>
+        </Stack>
         {labelAccessory}
       </XStack>
       {trailing}
@@ -213,15 +221,21 @@ function LowValueHelp({ lines }: { lines: readonly string[] }) {
         placement="top-start"
         title={intl.formatMessage({ id: ETranslations.low_value_assets })}
         renderTrigger={
-          <IconButton
-            testID="token-list-footer-help-btn"
-            aria-label={intl.formatMessage({
-              id: ETranslations.global_learn_more,
-            })}
-            size="small"
-            variant="tertiary"
-            icon="QuestionmarkOutline"
-          />
+          // The small button is a 30 circle over a 20 footprint; 10 of
+          // invisible padding makes a 40 target with the same look and
+          // footprint, so a near miss on a touch screen opens the help, not
+          // the list.
+          <Stack p={10} m={-10} borderRadius="$full">
+            <IconButton
+              testID="token-list-footer-help-btn"
+              aria-label={intl.formatMessage({
+                id: ETranslations.low_value_assets,
+              })}
+              size="small"
+              variant="tertiary"
+              icon="QuestionmarkOutline"
+            />
+          </Stack>
         }
         renderContent={
           <YStack p="$5" gap="$2">

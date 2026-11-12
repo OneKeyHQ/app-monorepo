@@ -855,29 +855,38 @@ function DesktopBannerStrip({
             scale={cardScale}
             pointerEvents={closing ? 'none' : 'auto'}
             aria-hidden={closing ? true : undefined}
-            focusable
-            tabIndex={0}
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineWidth: 2,
-              outlineStyle: 'solid',
-              outlineOffset: -2,
-            }}
-            role="button"
-            aria-label={[item.title, item.description]
-              .filter(Boolean)
-              .join(', ')}
+            // A click anywhere on the card opens the banner; for keyboards
+            // and screen readers the button is the image and words below.
             onPressIn={() => setPressed(true)}
             onPressOut={() => setPressed(false)}
             onPress={() => handleBannerOnPress(item)}
-            onKeyDown={onKeyDown}
             userSelect="none"
           >
+            {/* The banner's button: the image and words only, so the
+                indicator and Close beside it stay controls of their own
+                rather than parts of it. It reaches back over the card's left
+                padding, so its focus ring meets the card's edge there. */}
             <XStack
               flex={1}
               minWidth={0}
               alignSelf="stretch"
               position="relative"
+              ml={-20}
+              pl={20}
+              borderRadius="$4"
+              focusable
+              tabIndex={0}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: -2,
+              }}
+              role="button"
+              aria-label={[item.title, item.description]
+                .filter(Boolean)
+                .join(', ')}
+              onKeyDown={onKeyDown}
             >
               {leaving ? (
                 <XStack
@@ -887,6 +896,7 @@ function DesktopBannerStrip({
                   right={0}
                   bottom={0}
                   left={0}
+                  pl={20}
                   alignItems="center"
                   gap="$3"
                   pointerEvents="none"
@@ -930,8 +940,8 @@ function DesktopBannerStrip({
                     role="button"
                     aria-label={`${i + 1} / ${count}`}
                     aria-current={i === index ? 'true' : undefined}
-                    // Not a tab stop each: the focused card switches banners
-                    // with the arrow keys.
+                    // Not a tab stop each: the focused banner button switches
+                    // banners with the arrow keys.
                     focusable={false}
                     tabIndex={-1}
                     onKeyDown={(event: {
