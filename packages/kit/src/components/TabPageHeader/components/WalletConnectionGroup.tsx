@@ -199,9 +199,10 @@ export function WalletConnectionGroup({
   }
 
   // Desktop: 16 between the triggers' contents, so their hover shapes (6 in on
-  // the content side, 2 on the chevron side) sit 8 apart.
+  // the content side, 2 on the chevron side) sit 8 apart. Those shapes are 32
+  // high but take no layout height, so the row holds that 32 itself.
   return (
-    <XStack gap="$4" ai="center">
+    <XStack gap="$4" ai="center" minHeight="$8">
       <MemoizedAccountSelectorTriggerWithSpotlight
         isFocus={isFocus}
         linkNetworkId={linkNetworkId}
