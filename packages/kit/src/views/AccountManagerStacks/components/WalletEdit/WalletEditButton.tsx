@@ -19,7 +19,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -219,16 +218,6 @@ function WalletEditButtonView({
     [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
-  const { result: hasPrivacyWalletAccount } = usePromiseResult(
-    async () =>
-      wallet?.id
-        ? backgroundApiProxy.servicePrivacyChain.hasLocalWalletAccounts({
-            walletId: wallet.id,
-          })
-        : false,
-    [wallet?.id],
-  );
-
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => {
       if (!config) {
@@ -319,22 +308,6 @@ function WalletEditButtonView({
             />
           ) : null}
 
-          {hasPrivacyWalletAccount ? (
-            <ActionList.Item
-              testID={AccountManagerTestIDs.privacyNetworksButton}
-              icon="ShieldOutline"
-              label={intl.formatMessage({
-                id: ETranslations.privacy_sync_menu__title,
-              })}
-              onClose={handleActionListClose}
-              onPress={() => {
-                navigation.push(EAccountManagerStacksRoutes.PrivacyNetworks, {
-                  walletId: wallet?.id || '',
-                });
-              }}
-            />
-          ) : null}
-
           {showAddHiddenWalletButton ? (
             <AddHiddenWalletButton
               wallet={wallet}
@@ -382,7 +355,6 @@ function WalletEditButtonView({
       );
     },
     [
-      hasPrivacyWalletAccount,
       config,
       bindWalletInviteCode,
       wallet,
