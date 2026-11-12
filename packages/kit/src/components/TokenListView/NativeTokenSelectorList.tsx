@@ -119,6 +119,12 @@ function readHomeCellValue(
 }
 const EMPTY_SWAP_DISABLED: Record<string, boolean> = {};
 
+export type INativeTokenStatus = {
+  networkId: string;
+  label: string;
+  loading: boolean;
+};
+
 function HomeTokenCellMirror({
   token,
   members,
@@ -217,6 +223,7 @@ export function NativeTokenSelectorList({
   webScrollHost,
   useExternalWebScrollHost,
   ownerKey,
+  nativeTokenStatus,
 }: {
   rows: ITokenSelectorListRow[];
   networkId: string;
@@ -262,6 +269,7 @@ export function NativeTokenSelectorList({
   webScrollHost?: HTMLElement | null;
   useExternalWebScrollHost?: boolean;
   ownerKey?: string;
+  nativeTokenStatus?: INativeTokenStatus;
 }) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
@@ -398,6 +406,7 @@ export function NativeTokenSelectorList({
       withPrice,
       withSwapAction,
       withAggregateBadge,
+      nativeTokenStatus,
       intl,
       settings.currencyInfo?.id,
       settingsValue.hideValue,
@@ -737,7 +746,22 @@ export function NativeTokenSelectorList({
                 : undefined;
             const titleIcon = receiptIcon ?? gasIcon;
             const secondaryTitleIcon = receiptIcon ? gasIcon : undefined;
+            const tokenStatus =
+              !isTokenSelector &&
+              !isAllNetworks &&
+              token.isNative &&
+              token.networkId === networkId &&
+              nativeTokenStatus?.networkId === networkId
+                ? nativeTokenStatus
+                : undefined;
             const trailing: TrailingAccessory[] = [];
+            if (
+              tokenStatus?.loading &&
+              !creatingAddress &&
+              !currentProcessing
+            ) {
+              trailing.push({ kind: 'spinner' });
+            }
             if (!creatingAddress && !hideBalanceAndValue && fiat) {
               trailing.push({
                 kind: 'valuePair',
@@ -812,6 +836,9 @@ export function NativeTokenSelectorList({
               titleIcon,
               secondaryTitleIcon,
               badges: [
+                ...(tokenStatus
+                  ? [{ key: 'sync-status', text: tokenStatus.label }]
+                  : []),
                 ...(isAllNetworks &&
                 (withAggregateBadge || isTokenSelector) &&
                 token.isAggregateToken &&
@@ -847,7 +874,100 @@ export function NativeTokenSelectorList({
                 },
               },
             };
-            if (tableLayout && !isTokenSelector) {
+            if (
+              platformEnv.isNative &&
+              !tableLayout &&
+              tokenStatus &&
+              !creatingAddress &&
+              !currentProcessing
+            ) {
+              const balanceAccessory = trailing.find(
+                (accessory) => accessory.kind === 'valuePair',
+              );
+              // Native identity accessories stack vertically. Keep the balance
+              // in a column so the spinner remains beside the two-line row.
+              const statusRow: DataRow = {
+                type: 'dataRow',
+                key: rowKey,
+                height: nativeRow.height,
+                heightRounding: nativeRow.heightRounding,
+                testID: nativeRow.testID,
+                accessibilityLabel: [
+                  nativeRow.title,
+                  tokenStatus.label,
+                  nativeRow.subtitle,
+                  balanceAccessory?.primary,
+                  balanceAccessory?.secondary,
+                ]
+                  .filter(Boolean)
+                  .join(', '),
+                leading,
+                badges: nativeRow.badges,
+                columns: [
+                  {
+                    key: 'asset',
+                    text: nativeRow.title,
+                    secondaryText: nativeRow.subtitle,
+                    secondaryTextSegments: withPrice
+                      ? [
+                          ...(priceText.segments ?? [{ text: priceText.text }]),
+                          { text: ' ' },
+                          ...(priceChangeText.segments ?? [
+                            { text: priceChangeText.text },
+                          ]),
+                        ]
+                      : undefined,
+                    titleIcon,
+                    weight: 2,
+                  },
+                  ...(balanceAccessory
+                    ? [
+                        {
+                          key: 'balance',
+                          text: balanceAccessory.primary,
+                          textSegments: balanceAccessory.primaryTextSegments,
+                          secondaryText: balanceAccessory.secondary,
+                          secondaryTextSegments:
+                            balanceAccessory.secondaryTextSegments,
+                          alignment: 'end' as const,
+                          weight: 1 as const,
+                        },
+                      ]
+                    : []),
+                ],
+                trailing: tokenStatus.loading ? [{ kind: 'spinner' }] : [],
+                disabled: nativeRow.disabled,
+                opacity: nativeRow.opacity,
+                style: {
+                  container: TOKEN_ROW_CONTAINER_STYLE,
+                  horizontalPadding: 12,
+                  verticalPadding: 8,
+                  leadingGap: 12,
+                  lineGap: 0,
+                  columns: {
+                    token: '$bodyLg',
+                    fontWeight: 'medium',
+                    lines: 1,
+                  },
+                  columnSecondary: {
+                    token: '$bodyMd',
+                    lines: 1,
+                  },
+                  image: { width: iconSize, height: iconSize, shape: 'circle' },
+                },
+              };
+              nativeRows.push(statusRow);
+              nextRows.set(rowKey, {
+                token,
+                cellValue: homeCellValues[key],
+                swapDisabled: swapDisabled[key],
+                fiat,
+                members,
+                allMembers,
+                memberFiatValues,
+                row: statusRow,
+              });
+            } else if (tableLayout && !isTokenSelector) {
               const swapAction: TrailingAccessory[] = withSwapAction
                 ? [
                     {
@@ -870,12 +990,14 @@ export function NativeTokenSelectorList({
                 heightRounding: 'nearest',
                 testID: nativeRow.testID,
                 leading,
-                badges: nativeRow.badges,
+                badges: nativeRow.badges?.filter(
+                  (badge) => badge.key !== 'sync-status',
+                ),
                 columns: [
                   {
                     key: 'asset',
                     text: nativeRow.title,
-                    secondaryText: token.name,
+                    secondaryText: tokenStatus?.label ?? token.name,
                     titleIcon,
                     secondaryTitleIcon,
                     weight: columnWeights.asset,
@@ -909,7 +1031,9 @@ export function NativeTokenSelectorList({
                       ]
                     : []),
                 ],
-                trailing: swapAction,
+                trailing: tokenStatus?.loading
+                  ? [{ kind: 'spinner' }, ...swapAction]
+                  : swapAction,
                 style: {
                   container: TOKEN_ROW_CONTAINER_STYLE,
                   horizontalPadding: 12,
@@ -1012,6 +1136,7 @@ export function NativeTokenSelectorList({
     withPrice,
     withSwapAction,
     withAggregateBadge,
+    nativeTokenStatus,
     swapDisabled,
     structuralTransition,
     disclosure,

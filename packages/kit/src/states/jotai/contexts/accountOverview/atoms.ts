@@ -1,4 +1,5 @@
 import type { IPortfolioCategoryRefreshResult } from '@onekeyhq/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/ServiceHardwarePortfolioSync';
+import type { ILocalWalletSyncStatus } from '@onekeyhq/kit-bg/src/utils/privacyChainSyncStatus';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -65,6 +66,28 @@ export const {
   isRefreshing: false,
   initialized: false,
 });
+
+export type IHomePrivacyTokenStatus = {
+  accountId: string;
+  networkId: string;
+  status: ILocalWalletSyncStatus;
+};
+
+export const {
+  atom: homePrivacyTokenStatusAtom,
+  use: useHomePrivacyTokenStatusAtom,
+} = contextAtom<IHomePrivacyTokenStatus | undefined>(undefined);
+
+export type IHomeMoneroEnableRequest = {
+  walletId: string;
+  indexedAccountId: string;
+  accountId: string;
+  networkId: string;
+};
+
+export const { use: useHomeMoneroEnableRequestAtom } = contextAtom<
+  IHomeMoneroEnableRequest | undefined
+>(undefined);
 
 export const {
   atom: lastConfirmedOverviewBalanceAtom,

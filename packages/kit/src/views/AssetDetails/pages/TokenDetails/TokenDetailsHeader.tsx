@@ -74,10 +74,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import {
-  LocalWalletPoolStatus,
-  LocalWalletSyncRow,
-} from './LocalWalletPoolStatus';
+import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -879,17 +876,7 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        {isPrivatePool ? (
-          <>
-            <LocalWalletSyncRow
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-              settingsOnly
-            />
-            <TokenPrivacyPreviewEntry />
-          </>
-        ) : null}
+        {isPrivatePool ? <TokenPrivacyPreviewEntry /> : null}
         {/* History */}
         <Divider mb="$3" />
       </>
