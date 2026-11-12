@@ -1945,5 +1945,51 @@ describe('usePromiseResult', () => {
       // was needed.
       expect(method).toHaveBeenCalledTimes(1);
     });
+
+    it('throttles focus revalidation within focusRevalidateMinIntervalMs while preserving polling and error recovery', async () => {
+      jest.useFakeTimers();
+      try {
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [method], {
+            revalidateOnFocus: true,
+            focusRevalidateMinIntervalMs: 15_000,
+          }),
+        );
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Blur and refocus within 2s (< 15s min interval) — should not revalidate.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Advance past 15s min interval, then blur and refocus — should revalidate.
+        act(() => {
+          jest.advanceTimersByTime(14_000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });
