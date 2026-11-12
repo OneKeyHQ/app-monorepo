@@ -151,6 +151,13 @@ target 'OneKeyWallet' do
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
   post_install do |installer|
+    # Pods that download prebuilt binaries in their prepare_command are pinned
+    # by the SHA-256 of every installed file; Podfile.lock covers only podspecs.
+    pinned_pods_check = File.join(__dir__, '..', 'scripts', 'verify-pinned-pods-ios.py')
+    unless system('python3', '-B', pinned_pods_check, installer.sandbox.root.to_s)
+      raise '[Pinned pods] Installed files do not match scripts/pinned-pods-ios.json'
+    end
+
     unless mac_catalyst_enabled
       # Remove recording code and voice UI from the exact reviewed SDK bytes.
       intercom_framework = File.join(installer.sandbox.root.to_s, 'Intercom', 'Intercom.xcframework')

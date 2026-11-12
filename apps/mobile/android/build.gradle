@@ -84,6 +84,18 @@ allprojects {
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
     }
+    // JitPack builds any GitHub repository on demand, so it may serve only the
+    // groups the app takes from it. This also covers the JitPack repositories
+    // that node_modules libraries declare for themselves.
+    repositories.withType(MavenArtifactRepository).configureEach { repo ->
+        if (repo.url?.host in ['jitpack.io', 'www.jitpack.io']) {
+            repo.content {
+                includeGroup('com.github.Dimezis')
+                includeGroup('com.github.reown-com.yttrium')
+                includeGroup('com.github.yalantis')
+            }
+        }
+    }
     // Pin app.notifee:core to the version bundled in node_modules to avoid
     // querying remote repos (jitpack.io) which can time out on EAS builds.
     configurations.all {
