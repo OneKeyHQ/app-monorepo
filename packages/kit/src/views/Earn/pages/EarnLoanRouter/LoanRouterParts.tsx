@@ -1052,7 +1052,13 @@ function RouteRow({
         />
       </XStack>
       <RouteReasonLine
-        text={block ? getLoanBlockText({ block, route, currency }) : undefined}
+        // An exceeded limit is said by the limit itself, in red: no line
+        // repeats it (11-12)
+        text={
+          block && block.kind !== 'maxLtv'
+            ? getLoanBlockText({ block, route, currency })
+            : undefined
+        }
         isReserved={!isSettled}
         indent={indent}
         testID={`earn-loan-route-block-${route.key}`}
