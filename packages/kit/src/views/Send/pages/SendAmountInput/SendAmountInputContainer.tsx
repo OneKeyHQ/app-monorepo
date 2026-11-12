@@ -43,6 +43,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   TextArea,
   TextAreaInput,
@@ -92,6 +93,10 @@ import {
   useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  ILocalWalletPoolDescriptor,
+  ILocalWalletSendPool,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type {
   IAccountDeriveInfo,
   ITransferInfo,
@@ -1358,11 +1363,10 @@ function SendAmountInputContainer() {
   );
 
   const {
-    pools: sendPools,
+    poolOptions: sendPools,
     selectedPool: selectedSendPool,
     selectPool: selectSendPool,
     isReady: isSendPoolReady,
-    isPrivacyPaused,
     isBalanceUnavailable: isSendPoolBalanceUnavailable,
     reload: reloadSendPools,
   } = useLocalWalletSendPool({
@@ -1376,13 +1380,16 @@ function SendAmountInputContainer() {
   });
   const hasLocalWallet = !isNFT && !!vaultSettings?.localWallet;
   const sendSourcePool = selectedSendPool?.key;
-  const { isWaitingForSync, statusText: sendSyncStatusText } =
-    useLocalWalletSendReadiness({
-      enabled: hasLocalWallet,
-      networkId,
-      accountId: currentAccountId,
-      sourcePool: sendSourcePool,
-    });
+  const {
+    isWaitingForSync,
+    statusText: sendSyncStatusText,
+    readiness: sendReadiness,
+  } = useLocalWalletSendReadiness({
+    enabled: hasLocalWallet,
+    networkId,
+    accountId: currentAccountId,
+    sourcePool: sendSourcePool,
+  });
   useLocalWalletSendPrewarm({
     enabled: isRouteFocused && hasLocalWallet,
     networkId,
@@ -4175,20 +4182,6 @@ function SendAmountInputContainer() {
       );
     }
 
-    if (isPrivacyPaused) {
-      addons.push(
-        <SizableText
-          key="send-pool-privacy-paused"
-          size="$bodySm"
-          color="$textSubdued"
-        >
-          {intl.formatMessage({
-            id: ETranslations.privacy_send_private_paused__msg,
-          })}
-        </SizableText>,
-      );
-    }
-
     if (hasLocalWallet && currentAccountId) {
       addons.push(
         <YStack key="local-wallet-password" width="100%">
@@ -4200,16 +4193,40 @@ function SendAmountInputContainer() {
       );
     }
 
-    if (sendSyncStatusText && !isPrivacyPaused) {
+    const isSyncPaused =
+      sendReadiness?.status === 'accountPaused' ||
+      sendReadiness?.status === 'chainPaused';
+    if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
       addons.push(
-        <SizableText
+        <LocalWalletSendPoolSelector
+          key="send-pool-picker"
+          pools={sendPools}
+          selectedPool={selectedSendPool}
+          descriptors={vaultSettings?.localWallet?.pools}
+          tokenSymbol={tokenSymbol}
+          isSubmitting={isSubmitting}
+          beforeOpen={dismissAmountInputKeyboardBeforeOverlayOpen}
+          onSelect={(value) => {
+            selectSendPool(value);
+            setIsMaxSend(false);
+          }}
+        />,
+      );
+    }
+
+    if (sendSyncStatusText && !(sendPools?.length && isSyncPaused)) {
+      addons.push(
+        <LocalWalletSendSyncStatus
           key="send-waiting-sync"
-          testID="send-waiting-sync"
-          size="$bodySm"
-          color="$textCaution"
-        >
-          {sendSyncStatusText}
-        </SizableText>,
+          text={sendSyncStatusText}
+          isSyncing={
+            !sendReadiness?.syncError &&
+            (!sendReadiness?.status ||
+              ['enabling', 'preparing', 'syncing', 'synced'].includes(
+                sendReadiness.status,
+              ))
+          }
+        />,
       );
     }
 
@@ -4236,70 +4253,6 @@ function SendAmountInputContainer() {
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
         </XStack>,
-      );
-    }
-
-    if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
-      const sendPoolLabel = (pool: { key: string; label: string }) => {
-        const kind = vaultSettings?.localWallet?.pools.find(
-          (item) => item.key === pool.key,
-        )?.kind;
-        return kind
-          ? formatPrivacyChainPoolKindLabel({ intl, kind })
-          : pool.label;
-      };
-      addons.push(
-        <Select
-          key="send-pool-picker"
-          testID="send-pool-picker"
-          disabled={isSubmitting}
-          title={intl.formatMessage({ id: ETranslations.global_from })}
-          placement="top-end"
-          value={selectedSendPool?.key ?? ''}
-          items={sendPools.map((pool) => ({
-            label: sendPoolLabel(pool),
-            value: pool.key,
-            description: [
-              `${pool.spendableParsed ?? '—'} ${tokenSymbol}`.trim(),
-              pool.hintId ? intl.formatMessage({ id: pool.hintId }) : '',
-            ]
-              .filter(Boolean)
-              .join(' · '),
-          }))}
-          onChange={(value) => {
-            if (!isSubmitting && value !== selectedSendPool?.key) {
-              selectSendPool(value);
-              setIsMaxSend(false);
-            }
-          }}
-          renderTrigger={({ onPress }) => (
-            <Badge
-              testID="send-pool-picker-trigger"
-              role="button"
-              userSelect="none"
-              pr="$1"
-              gap="$0.5"
-              hoverStyle={{ bg: '$bgStrongHover' }}
-              onPress={async (event: GestureResponderEvent) => {
-                if (isSubmitting) return;
-                event.persist();
-                await dismissAmountInputKeyboardBeforeOverlayOpen();
-                onPress?.(event);
-              }}
-            >
-              <Badge.Text>
-                {selectedSendPool
-                  ? sendPoolLabel(selectedSendPool)
-                  : intl.formatMessage({ id: ETranslations.global_from })}
-              </Badge.Text>
-              <Icon
-                size="$4"
-                name="ChevronDownSmallOutline"
-                color="$iconSubdued"
-              />
-            </Badge>
-          )}
-        />,
       );
     }
 
@@ -4346,10 +4299,10 @@ function SendAmountInputContainer() {
     sendPools,
     selectSendPool,
     tokenSymbol,
-    isPrivacyPaused,
     isSendPoolBalanceUnavailable,
     reloadSendPools,
     sendSyncStatusText,
+    sendReadiness,
     hasLocalWallet,
     currentAccountId,
   ]);
@@ -5705,3 +5658,109 @@ SendAmountInputContainerWithProvider.displayName =
   'SendAmountInputContainerWithProvider';
 
 export default SendAmountInputContainerWithProvider;
+
+function LocalWalletSendPoolSelector({
+  pools,
+  selectedPool,
+  descriptors,
+  tokenSymbol,
+  isSubmitting,
+  beforeOpen,
+  onSelect,
+}: {
+  pools: ILocalWalletSendPool[] | undefined;
+  selectedPool: ILocalWalletSendPool | undefined;
+  descriptors: ILocalWalletPoolDescriptor[] | undefined;
+  tokenSymbol: string | undefined;
+  isSubmitting: boolean;
+  beforeOpen: () => Promise<void>;
+  onSelect: (value: string | number) => void;
+}) {
+  const intl = useIntl();
+  if (!pools?.length || (pools.length === 1 && selectedPool)) return null;
+  const descriptor = (pool: ILocalWalletSendPool) =>
+    descriptors?.find((item) => item.key === pool.key);
+  const label = (pool: ILocalWalletSendPool) => {
+    const kind = descriptor(pool)?.kind;
+    return kind ? formatPrivacyChainPoolKindLabel({ intl, kind }) : pool.label;
+  };
+  return (
+    <Select
+      testID="send-pool-picker"
+      disabled={isSubmitting}
+      title={intl.formatMessage({ id: ETranslations.global_from })}
+      placement="top-end"
+      value={selectedPool?.key ?? ''}
+      items={pools.map((pool) => ({
+        label: label(pool),
+        value: pool.key,
+        disabled: !!pool.disabledReason,
+        description:
+          pool.disabledReason === 'paused'
+            ? intl.formatMessage({ id: ETranslations.syncing_paused__title })
+            : [
+                `${pool.spendableParsed ?? '—'} ${tokenSymbol ?? ''}`.trim(),
+                pool.hintId ? intl.formatMessage({ id: pool.hintId }) : '',
+              ]
+                .filter(Boolean)
+                .join(' · '),
+      }))}
+      onChange={(value) => {
+        const pool = pools.find((item) => item.key === value);
+        if (
+          !isSubmitting &&
+          pool &&
+          !pool.disabledReason &&
+          pool.key !== selectedPool?.key
+        ) {
+          onSelect(pool.key);
+        }
+      }}
+      renderTrigger={({ onPress }) => (
+        <Badge
+          testID="send-pool-picker-trigger"
+          role="button"
+          userSelect="none"
+          pr="$1"
+          gap="$0.5"
+          hoverStyle={{ bg: '$bgStrongHover' }}
+          onPress={async (event: GestureResponderEvent) => {
+            if (isSubmitting) return;
+            event.persist();
+            await beforeOpen();
+            onPress?.(event);
+          }}
+        >
+          <Badge.Text>
+            {selectedPool
+              ? label(selectedPool)
+              : intl.formatMessage({ id: ETranslations.global_from })}
+          </Badge.Text>
+          <Icon size="$4" name="ChevronDownSmallOutline" color="$iconSubdued" />
+        </Badge>
+      )}
+    />
+  );
+}
+
+function LocalWalletSendSyncStatus({
+  text,
+  isSyncing,
+}: {
+  text: string;
+  isSyncing: boolean;
+}) {
+  return (
+    <XStack gap="$1.5" alignItems="center" flex={1} minWidth={0}>
+      {isSyncing ? <Spinner size="small" flexShrink={0} /> : null}
+      <SizableText
+        testID="send-waiting-sync"
+        size="$bodySm"
+        color={isSyncing ? '$textSubdued' : '$textCaution'}
+        flexShrink={1}
+      >
+        {text}
+      </SizableText>
+    </XStack>
+  );
+}

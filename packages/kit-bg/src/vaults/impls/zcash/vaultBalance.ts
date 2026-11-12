@@ -130,7 +130,30 @@ export async function listLocalWalletSendPools(
     ...(hintId === undefined ? {} : { hintId }),
   });
   if (!privacyActive) {
+    const state =
+      await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+        { accountId },
+      );
+    const paused =
+      state.intent !== 'on' &&
+      state.operation === undefined &&
+      state.resumeFromHeight !== undefined;
     return [
+      ...(paused
+        ? [
+            {
+              ...pool(
+                ZCASH_CURRENT_SHIELDED_POOL,
+                'Ironwood',
+                undefined,
+                false,
+                undefined,
+                !toAddress || !isZcashTexAddress(toAddress),
+              ),
+              disabledReason: 'paused' as const,
+            },
+          ]
+        : []),
       pool(
         'transparent',
         'Transparent',
