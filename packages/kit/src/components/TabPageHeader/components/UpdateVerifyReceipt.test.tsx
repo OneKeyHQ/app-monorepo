@@ -1,0 +1,70 @@
+/** @jest-environment jsdom */
+import type { ReactNode } from 'react';
+
+import { render } from '@testing-library/react';
+
+import {
+  EAppUpdateStatus,
+  EUpdateStrategy,
+} from '@onekeyhq/shared/src/appUpdate';
+
+import { UpdateVerifyReceipt } from './UpdateVerifyReceipt';
+
+jest.mock('@onekeyhq/components', () => {
+  const Container = ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  );
+  return {
+    Divider: () => null,
+    Icon: () => null,
+    Spinner: () => null,
+    SizableText: Container,
+    XStack: Container,
+    YStack: Container,
+  };
+});
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+    formatNumber: (value: number, options?: Intl.NumberFormatOptions) =>
+      new Intl.NumberFormat('en-US', options).format(value),
+  }),
+}));
+
+test.each([undefined, 200 * 1024 * 1024])(
+  'uses Node byte counts when API fileSize is %s',
+  (fileSize) => {
+    const view = render(
+      <UpdateVerifyReceipt
+        data={{
+          status: EAppUpdateStatus.downloadPackage,
+          updateStrategy: EUpdateStrategy.manual,
+          updateAt: 0,
+          fileSize,
+        }}
+        progress={{
+          percent: 25,
+          total: 80 * 1024 * 1024,
+          transferred: 20 * 1024 * 1024,
+        }}
+        reducedMotion={false}
+      />,
+    );
+    expect(view.getByText('20/80 MB')).toBeTruthy();
+  },
+);
+
+test('shows percentage while the Node total is unknown', () => {
+  const view = render(
+    <UpdateVerifyReceipt
+      data={{
+        status: EAppUpdateStatus.downloadPackage,
+        updateStrategy: EUpdateStrategy.manual,
+        updateAt: 0,
+      }}
+      progress={{ percent: 25, total: 0, transferred: 0 }}
+      reducedMotion={false}
+    />,
+  );
+  expect(view.getByText('25%')).toBeTruthy();
+});

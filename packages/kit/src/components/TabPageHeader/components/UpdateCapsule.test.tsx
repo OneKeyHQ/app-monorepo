@@ -106,9 +106,16 @@ jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocused,
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
-  useDownloadProgress: () => 0,
-}));
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop',
+  () => ({
+    useDownloadProgressDetails: () => ({
+      percent: 0,
+      total: 0,
+      transferred: 0,
+    }),
+  }),
+);
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
@@ -174,6 +181,9 @@ test.each([
   await act(async () => {
     fireEvent.click(view.getByTestId('header-update-retry'));
   });
+  expect(view.getByTestId('header-update-whats-new').textContent).toBe(
+    ETranslations.app_update_details__title,
+  );
   expect(expected).toHaveBeenCalledTimes(1);
   expect(mockDownloadPackage).toHaveBeenCalledTimes(
     status === EAppUpdateStatus.downloadPackageFailed ||
@@ -586,7 +596,7 @@ test('install-time integrityFailed marks receipt Contents as Changed instead of 
   ) as typeof import('./UpdateVerifyReceipt');
   const view = render(
     <RealReceipt
-      percent={100}
+      progress={{ percent: 100, total: 0, transferred: 0 }}
       reducedMotion
       data={{
         latestVersion: '2.0.0',
