@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -9,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,6 +25,7 @@ import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 
 import * as hardwareMigration from './hardwareCloudSyncMigration';
 import { generateHardwareCloudSyncCredentialWithSdk } from './hardwareCloudSyncSdk';
@@ -34,6 +38,8 @@ import ServiceKeylessCloudSync from './ServiceKeylessCloudSync';
 
 import type {
   IDBCloudSyncItem,
+  IDBDevice,
+  IDBWallet,
   ILocalDBAgent,
   ILocalDBWithTransactionTask,
 } from '../../dbs/local/types';
@@ -199,6 +205,10 @@ jest.mock('../ServiceKeylessWallet/utils/keylessSyncCredentialStorage', () => ({
 }));
 
 const connectId = 'public-test-connect';
+const displayDeviceSerialNo = 'public-test-device-a';
+const displayDeviceSerialNoHash = createHash('sha256')
+  .update(displayDeviceSerialNo)
+  .digest('hex');
 const source = {
   type: 'hardware' as const,
   credentialId: `hardware-cloud-v1-${'a'.repeat(64)}`,
@@ -310,6 +320,197 @@ describe('hardware Cloud key source lifecycle', () => {
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
       .mockImplementation(withSignIn({ credential, source }));
+  });
+
+  test('skips account label refreshes when the Cloud source has a Bluetooth name', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = {
+      ...source,
+      deviceName: 'Neo 1797',
+      deviceBleName: 'Neo 1797',
+      deviceSerialNoHash: displayDeviceSerialNoHash,
+    };
+    const getWallet = jest.spyOn(localDb, 'getWalletSafe');
+    try {
+      await service.syncHardwareCloudSyncDeviceLabel({
+        walletId: 'hw-device-1',
+        label: 'New label',
+      });
+      expect(getWallet).not.toHaveBeenCalled();
+      expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe('Neo 1797');
+    } finally {
+      getWallet.mockRestore();
+    }
+  });
+
+  test.each([
+    {
+      serialNo: displayDeviceSerialNo,
+      bleName: undefined,
+      expectedName: 'Latest label',
+      expectedBleName: undefined,
+    },
+    {
+      serialNo: displayDeviceSerialNo,
+      bleName: 'Neo 1797',
+      expectedName: 'Neo 1797',
+      expectedBleName: 'Neo 1797',
+    },
+    {
+      serialNo: 'public-test-device-b',
+      bleName: undefined,
+      expectedName: 'Old label',
+      expectedBleName: undefined,
+    },
+    {
+      serialNo: 'public-test-device-b',
+      bleName: 'Neo 1797',
+      expectedName: 'Old label',
+      expectedBleName: undefined,
+    },
+    {
+      serialNo: '',
+      bleName: undefined,
+      expectedName: 'Old label',
+      expectedBleName: undefined,
+    },
+  ])(
+    'matches the physical device $serialNo before using BLE name $bleName',
+    async ({ serialNo, bleName, expectedName, expectedBleName }) => {
+      const { service } = setup();
+      const xfp = `00001234--xpub${'A'.repeat(107)}`;
+      mockConfig.hardwareCloudSyncKeySource = {
+        ...source,
+        credentialId: `hardware-cloud-v1-${createHash('sha256').update(xfp).digest('hex')}`,
+        deviceName: 'Old label',
+        deviceSerialNoHash: displayDeviceSerialNoHash,
+      };
+      const getWallet = jest.spyOn(localDb, 'getWalletSafe').mockResolvedValue({
+        id: 'hw-device-1',
+        associatedDevice: 'device-1',
+        xfp,
+      } as IDBWallet);
+      const getDevice = jest.spyOn(localDb, 'getDeviceSafe').mockResolvedValue({
+        id: 'device-1',
+        uuid: serialNo,
+        name: 'Latest label',
+        featuresInfo: { bleName },
+      } as IDBDevice);
+      try {
+        await service.syncHardwareCloudSyncDeviceLabel({
+          walletId: 'hw-device-1',
+          label: 'Latest label',
+        });
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(
+          expectedName,
+        );
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceBleName).toBe(
+          expectedBleName,
+        );
+        expect(mockConfig.hardwareCloudSyncKeySource.deviceSerialNoHash).toBe(
+          displayDeviceSerialNoHash,
+        );
+      } finally {
+        getWallet.mockRestore();
+        getDevice.mockRestore();
+      }
+    },
+  );
+
+  test('keeps a legacy Cloud source name until a signing operation identifies its device', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = {
+      ...source,
+      deviceName: 'Old label',
+    };
+    const getWallet = jest
+      .spyOn(localDb, 'getWalletSafe')
+      .mockResolvedValue(undefined);
+    try {
+      await service.syncHardwareCloudSyncDeviceLabel({
+        walletId: 'hw-device-1',
+        label: 'Other label',
+      });
+      expect(getWallet).not.toHaveBeenCalled();
+      expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(
+        'Old label',
+      );
+    } finally {
+      getWallet.mockRestore();
+    }
+  });
+
+  test('does not overwrite a new physical source selected during a label refresh', async () => {
+    const { service } = setup();
+    const xfp = `00001234--xpub${'A'.repeat(107)}`;
+    const selected = {
+      ...source,
+      credentialId: `hardware-cloud-v1-${createHash('sha256').update(xfp).digest('hex')}`,
+      deviceName: 'Old label',
+      deviceSerialNoHash: displayDeviceSerialNoHash,
+    };
+    mockConfig.hardwareCloudSyncKeySource = selected;
+    const getWallet = jest.spyOn(localDb, 'getWalletSafe').mockResolvedValue({
+      id: 'hw-device-1',
+      associatedDevice: 'device-1',
+      xfp,
+    } as IDBWallet);
+    const getDevice = jest
+      .spyOn(localDb, 'getDeviceSafe')
+      .mockImplementationOnce(async () => {
+        mockConfig.hardwareCloudSyncKeySource = {
+          ...selected,
+          deviceName: 'Other physical device',
+          deviceSerialNoHash: createHash('sha256')
+            .update('public-test-device-b')
+            .digest('hex'),
+        };
+        return {
+          id: 'device-1',
+          uuid: displayDeviceSerialNo,
+          name: 'Latest label',
+        } as IDBDevice;
+      });
+    try {
+      await service.syncHardwareCloudSyncDeviceLabel({
+        walletId: 'hw-device-1',
+        label: 'Latest label',
+      });
+      expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(
+        'Other physical device',
+      );
+    } finally {
+      getWallet.mockRestore();
+      getDevice.mockRestore();
+    }
+  });
+
+  test('ignores another hardware wallet when refreshing the fallback label', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = {
+      ...source,
+      deviceName: 'Old label',
+      deviceSerialNoHash: displayDeviceSerialNoHash,
+    };
+    const getWallet = jest.spyOn(localDb, 'getWalletSafe').mockResolvedValue({
+      id: 'hw-device-1',
+      associatedDevice: 'device-1',
+      xfp: `00001234--xpub${'A'.repeat(107)}`,
+    } as IDBWallet);
+    const getDevice = jest.spyOn(localDb, 'getDeviceSafe');
+    try {
+      await service.syncHardwareCloudSyncDeviceLabel({
+        walletId: 'hw-device-1',
+        label: 'Other device label',
+      });
+      expect(getDevice).not.toHaveBeenCalled();
+      expect(mockConfig.hardwareCloudSyncKeySource.deviceName).toBe(
+        'Old label',
+      );
+    } finally {
+      getWallet.mockRestore();
+      getDevice.mockRestore();
+    }
   });
 
   test.each(['challenge', 'hardware signature', 'verification'] as const)(
@@ -793,6 +994,92 @@ describe('hardware Cloud key source lifecycle', () => {
     },
   );
 
+  test.each([
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'keyless-old-lock',
+      isDeleted: false,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'hw-dek-old-lock',
+      isDeleted: true,
+      allowed: true,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.Lock,
+      pwdHash: 'ordinary-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: true,
+      allowed: false,
+    },
+    {
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      pwdHash: 'keyless-other-space',
+      isDeleted: false,
+      allowed: false,
+    },
+  ])(
+    'same-source recovery handles residual $dataType ($pwdHash, deleted=$isDeleted)',
+    async ({ dataType, pwdHash, isDeleted, allowed }) => {
+      const { service, backgroundApi, initLocalSyncItemsDB } = setup([
+        { pwdHash: 'hw-dek-gen3' },
+        {
+          dataType,
+          pwdHash,
+          isDeleted,
+          rawData: 'public-test-preserved-raw',
+          serverUploaded: false,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      mockStored = undefined;
+      const sessionApi = jest.requireMock<
+        typeof import('./hardwareCloudSyncSession')
+      >('./hardwareCloudSyncSession');
+      jest
+        .mocked(sessionApi.bootstrapHardwareCloudSyncDataKey)
+        .mockImplementationOnce(async ({ deriveKek }) => ({
+          dek: await deriveKek('00'.repeat(16)),
+          dekId: 'public-test-dek',
+          pwdHash: credential.pwdHash,
+          generation: 4,
+          previousPwdHashes: ['hw-dek-gen3'],
+        }));
+
+      const before =
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        });
+      const snapshot = structuredClone(before);
+      if (allowed) {
+        await service.enableHardwareCloudSync({ connectId });
+        expect(initLocalSyncItemsDB).toHaveBeenCalled();
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toThrow("can't unlock");
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+        expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        }),
+      ).toEqual(snapshot);
+    },
+  );
+
   test('switching to Keyless still needs sync off', async () => {
     const { service } = setup([{ pwdHash: credential.pwdHash }]);
     mockConfig.hardwareCloudSyncKeySource = source;
@@ -960,6 +1247,135 @@ describe('hardware Cloud key source lifecycle', () => {
     expect(mockStored).toBe(credential);
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
+
+  test('same-source re-signing recovers locally readable hardware records missing from server key history', async () => {
+    const { service, backgroundApi } = setup([
+      {
+        pwdHash: 'hw-dek-unlisted-old-version',
+        dataType: EPrimeCloudSyncDataType.Wallet,
+        rawKey: 'public-test-wallet-key',
+        rawData: JSON.stringify({
+          rawKey: 'public-test-wallet-key',
+          dataType: EPrimeCloudSyncDataType.Wallet,
+          payload: { name: 'B edited after A' },
+        }),
+        dataTime: 200,
+      },
+    ]);
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = undefined;
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(
+        withSignIn({
+          credential: {
+            ...credential,
+            pwdHash: 'hw-dek-current',
+            signingPrivateKey: '',
+            signingPublicKey: '',
+          },
+          source,
+        }),
+      );
+    const { items } =
+      await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems();
+    const build = jest
+      .spyOn(cloudSyncItemBuilder, 'buildSyncItemFromRawDataJson')
+      .mockImplementationOnce(async () => ({
+        ...items[0],
+        data: 'public-test-current-ciphertext',
+        pwdHash: 'hw-dek-current',
+      }));
+    const write = jest
+      .spyOn(localDb, 'updateSyncItem')
+      .mockImplementationOnce(async ({ updater }) => {
+        await updater(items[0]);
+      });
+    try {
+      await expect(
+        service.enableHardwareCloudSync({ connectId }),
+      ).resolves.toBeUndefined();
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+      expect(items[0]).toMatchObject({
+        pwdHash: 'hw-dek-current',
+        dataTime: 200,
+        serverUploaded: false,
+      });
+      expect(
+        backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+      ).toHaveBeenCalledWith(expect.objectContaining({ onlyAddMissing: true }));
+      expect(
+        backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+      ).toHaveBeenCalled();
+    } finally {
+      build.mockRestore();
+      write.mockRestore();
+    }
+  });
+
+  test.each([true, false])(
+    'an opaque historical hardware record reconnects only with known history=%s',
+    async (knownHistory) => {
+      const { service, backgroundApi } = setup([
+        {
+          pwdHash: 'hw-dek-old',
+          data: 'public-test-downloaded-ciphertext',
+          rawData: '',
+          serverUploaded: true,
+        },
+      ]);
+      mockConfig.hardwareCloudSyncKeySource = source;
+      mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+      mockConfig.isCloudSyncEnabledKeyless = true;
+      const currentCredential = {
+        ...credential,
+        pwdHash: 'hw-dek-current',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: 'public-test-current-key',
+        dekId: 'public-test-dek',
+        pwdHash: currentCredential.pwdHash,
+        generation: 4,
+        previousPwdHashes: knownHistory ? ['hw-dek-old'] : [],
+      });
+      jest
+        .mocked(generateHardwareCloudSyncCredentialWithSdk)
+        .mockImplementationOnce(
+          withSignIn({ credential: currentCredential, source }),
+        );
+      const before = structuredClone(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      );
+      if (knownHistory) {
+        await service.enableHardwareCloudSync({ connectId });
+        expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+        expect(
+          backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ onlyAddMissing: true }),
+        );
+        expect(
+          backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+        ).toHaveBeenCalled();
+      } else {
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toMatchObject({
+          reason: expect.stringContaining('Local hardware sync record'),
+        });
+        expect(
+          keylessSyncCredentialStorage.saveCredential,
+        ).not.toHaveBeenCalled();
+      }
+      expect(
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems(),
+      ).toEqual(before);
+    },
+  );
 
   test('rejects cancelled and failed hardware results before persisting anything', async () => {
     const { service } = setup();
@@ -1752,6 +2168,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a refresh after another one finished uses the stored token instead of reusing the rotated one', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -1785,6 +2202,25 @@ describe('a hardware key never outlives turned-off sync', () => {
     });
     expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
     expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] credential_refresh_reused_stored_session {"forceRequested":true}',
+    );
+    const diagnostics = log.mock.calls
+      .flat()
+      .filter((value) =>
+        String(value).includes('[HardwareCloudSyncDiagnostic]'),
+      )
+      .join(' ');
+    for (const secret of [
+      hardwareSession.accessToken,
+      hardwareSession.refreshToken,
+      hardwareSession.sessionId,
+      hardwareSession.dekId,
+      credential.pwdHash,
+      credential.keylessWalletId,
+    ]) {
+      expect(diagnostics).not.toContain(secret);
+    }
   });
 
   test('a refresh whose reply was lost keeps the stored token for the next refresh', async () => {
@@ -1921,6 +2357,7 @@ describe('a hardware key never outlives turned-off sync', () => {
   });
 
   test('a revoked-session push is checked with the server, for this session only', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const { service } = setup();
     const hardwareSession = {
       deviceKeyJwk: {
@@ -1951,6 +2388,12 @@ describe('a hardware key never outlives turned-off sync', () => {
     await service.onHardwareSessionRevokedPush({
       sessionId: hardwareSession.sessionId,
     });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":false'),
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('"sessionMatches":true'),
+    );
     // The refresh's 90700, not the push, drops the key.
     expect(refreshHardwareCloudSyncSessionIfNeeded).toHaveBeenCalledWith(
       expect.objectContaining({ force: true }),
@@ -2143,6 +2586,7 @@ describe('checking the hardware session when the page opens or the App returns',
   });
 
   test('a session another device signed out drops the key and tells the page', async () => {
+    const log = jest.spyOn(defaultLogger.app.error, 'log');
     const service = start();
     jest
       .mocked(sessionApi.getCurrentHardwareCloudSyncDataKeyId)
@@ -2155,6 +2599,9 @@ describe('checking the hardware session when the page opens or the App returns',
     expect(
       sessionApi.refreshHardwareCloudSyncSessionIfNeeded,
     ).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }));
+    expect(log).toHaveBeenCalledWith(
+      '[HardwareCloudSyncDiagnostic] sign_in_credential_deletion_guard {"deletionAllowed":true}',
+    );
     expect(mockStored).toBeUndefined();
     expect(dropped).toHaveBeenCalledTimes(1);
   });
@@ -2647,6 +3094,98 @@ describe('hardware reset session and local data races', () => {
     expect(keylessSyncCredentialStorage.saveCredential).not.toHaveBeenCalled();
   });
 
+  test('finishes key reset when persisting the optional device name fails', async () => {
+    const { service, backgroundApi } = setup();
+    jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async (params) => {
+        await signIn(params);
+        return {
+          credential: current,
+          source: { ...source, deviceName: 'Latest label' },
+        };
+      });
+    jest
+      .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
+      .mockImplementationOnce(async (params) => {
+        await params.savePending({ ...next, generation: 2 });
+        await params.beforeFlush?.();
+        return { next, generation: 2, items: [] };
+      });
+    const setConfig = jest.mocked(primeCloudSyncPersistAtom.set);
+    const originalSetConfig = setConfig.getMockImplementation();
+    if (!originalSetConfig)
+      throw new OneKeyLocalError('Missing atom setter fixture');
+    setConfig.mockImplementation(async (update) => {
+      const updated =
+        typeof update === 'function' ? update(mockConfig) : update;
+      if (updated.hardwareCloudSyncKeySource?.deviceName === 'Latest label') {
+        throw new OneKeyLocalError('Display metadata storage unavailable');
+      }
+      mockConfig = updated;
+    });
+    try {
+      await service.resetHardwareCloudSyncKey({ connectId });
+    } finally {
+      setConfig.mockImplementation(originalSetConfig);
+    }
+    expect(mockStored?.pwdHash).toBe(next.pwdHash);
+    expect(
+      mockConfig.hardwareCloudSyncKeyGenerations?.[source.credentialId],
+    ).toBe(2);
+    expect(sessionApi.revokeHardwareCloudSyncSession).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'allExceptCurrent' }),
+    );
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      backgroundApi.servicePrimeCloudSync.updateLastSyncTime,
+    ).toHaveBeenCalledWith({
+      syncMode: ECloudSyncMode.Keyless,
+    });
+  });
+
+  test('refreshes the committed physical source even when the post-reset sync fails', async () => {
+    const { service, backgroundApi } = setup();
+    jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
+    jest
+      .mocked(generateHardwareCloudSyncCredentialWithSdk)
+      .mockImplementationOnce(async (params) => {
+        await signIn(params);
+        return {
+          credential: current,
+          source: {
+            ...source,
+            deviceName: 'Latest label',
+            deviceSerialNoHash: displayDeviceSerialNoHash,
+          },
+        };
+      });
+    jest
+      .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
+      .mockImplementationOnce(async (params) => {
+        await params.savePending({ ...next, generation: 2 });
+        await params.beforeFlush?.();
+        return { next, generation: 2, items: [] };
+      });
+    const syncError = new OneKeyLocalError('Post-reset sync unavailable');
+    backgroundApi.servicePrimeCloudSync.startServerSyncFlow
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(syncError);
+    await expect(service.resetHardwareCloudSyncKey({ connectId })).rejects.toBe(
+      syncError,
+    );
+    expect(mockStored?.pwdHash).toBe(next.pwdHash);
+    expect(mockConfig.hardwareCloudSyncKeySource?.deviceName).toBe(
+      'Latest label',
+    );
+    expect(mockConfig.hardwareCloudSyncKeySource?.deviceSerialNoHash).toBe(
+      displayDeviceSerialNoHash,
+    );
+  });
+
   test('reset reads local items after signing and refuses cancellation once flush starts', async () => {
     const { service, backgroundApi } = setup();
     const edited = {
@@ -2664,7 +3203,10 @@ describe('hardware reset session and local data races', () => {
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
       .mockImplementation(async (params) => {
         await signIn(params);
-        return { credential: current, source };
+        return {
+          credential: current,
+          source: { ...source, deviceName: 'Latest label' },
+        };
       });
     jest
       .mocked(sessionApi.rotateHardwareCloudSyncDataKey)
@@ -2679,6 +3221,9 @@ describe('hardware reset session and local data races', () => {
       expect.objectContaining({ items: [edited], to: next }),
     );
     expect(mockStored?.pwdHash).toBe(next.pwdHash);
+    expect(mockConfig.hardwareCloudSyncKeySource?.deviceName).toBe(
+      'Latest label',
+    );
     expect(await service.cancelHardwareCloudKeyOperation()).toBe(true);
   });
 

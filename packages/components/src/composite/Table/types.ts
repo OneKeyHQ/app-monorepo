@@ -79,6 +79,8 @@ export interface ITableProps<T> {
   ) =>
     | {
         onPress?: () => void;
+        onPressIn?: () => void;
+        onPressOut?: () => void;
         onLongPress?: () => void;
         onContextMenu?: (position?: { x: number; y: number }) => void;
         rowProps?: ITableRowProps;

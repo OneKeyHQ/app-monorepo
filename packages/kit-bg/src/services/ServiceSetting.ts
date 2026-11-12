@@ -101,6 +101,7 @@ import { KytIntroPromptClaimManager } from './ServiceSetting/kytIntroPromptClaim
 import {
   TERMS_CONSENT_ACCEPT_PATH,
   TERMS_CONSENT_SETTING_KEY,
+  hasTermsConsentDialogAsked,
   resolveTermsConsentPrompt,
 } from './ServiceSetting/termsConsent';
 
@@ -651,12 +652,20 @@ class ServiceSetting extends ServiceBase {
   private termsConsentAccepting: Promise<void> = Promise.resolve();
 
   // The version this install still has to accept, for the ready page's notice.
+  // None once the dialog has asked about it: the dialog takes that answer.
   @backgroundMethod()
   public async getTermsConsentPendingVersion() {
     await this.termsConsentAccepting;
     const requiredVersion = await this.getTermsConsentRequiredVersion();
-    const { acceptedVersion } = await termsConsentPersistAtom.get();
-    return requiredVersion !== acceptedVersion ? requiredVersion : undefined;
+    const state = await termsConsentPersistAtom.get();
+    if (
+      !requiredVersion ||
+      requiredVersion === state.acceptedVersion ||
+      hasTermsConsentDialogAsked(state, requiredVersion)
+    ) {
+      return undefined;
+    }
+    return requiredVersion;
   }
 
   @backgroundMethod()
@@ -698,6 +707,17 @@ class ServiceSetting extends ServiceBase {
     );
   }
 
+  // Called by the dialog once it is on screen, which is what hands the answer
+  // to the dialog alone (see hasTermsConsentDialogAsked).
+  @backgroundMethod()
+  public async markTermsConsentShown({ version }: { version: string }) {
+    await termsConsentPersistAtom.set((prev) =>
+      prev.round?.version === version && prev.round.shownAt === undefined
+        ? { ...prev, round: { ...prev.round, shownAt: Date.now() } }
+        : prev,
+    );
+  }
+
   @backgroundMethod()
   public async acceptTermsConsent(params: {
     source: ITermsConsentSource;
@@ -731,8 +751,15 @@ class ServiceSetting extends ServiceBase {
     if (!version) {
       return;
     }
-    const { acceptedVersion } = await termsConsentPersistAtom.get();
-    if (acceptedVersion === version) {
+    const state = await termsConsentPersistAtom.get();
+    if (
+      state.acceptedVersion === version ||
+      // Only the notices that share the app with the dialog defer to it. The
+      // web dApp mode has no dialog, even after a wallet-mode visit left one
+      // shown on the same site.
+      ((source === 'onboarding' || source === 'wallet_ready') &&
+        hasTermsConsentDialogAsked(state, version))
+    ) {
       return;
     }
     try {

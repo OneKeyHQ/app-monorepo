@@ -51,9 +51,19 @@ const mockGetLastSyncedAt = jest.fn<
   Promise<number | undefined>,
   [IAccountParams]
 >();
-const mockRefreshAccount = jest.fn<Promise<void>, [IAccountParams]>();
+type IRefreshResult = {
+  scanRequested: boolean;
+  afterSequence?: number;
+  sessionId?: string;
+};
+const mockRefreshAccount = jest.fn<
+  Promise<IRefreshResult | undefined>,
+  [IAccountParams]
+>();
 const mockPageOpened = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockDisableAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockPauseScan = jest.fn<Promise<void>, [{ networkId: string }]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
   [IAccountParams]
@@ -94,6 +104,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
         mockEnableAccount(params),
+      disableLocalWalletAccount: (params: IAccountParams) =>
+        mockDisableAccount(params),
+      pauseLocalWalletScan: (params: { networkId: string }) =>
+        mockPauseScan(params),
       // jest hoists this factory above the `var` declarations below.
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       getLocalWalletAccountSupport: async () => mockWalletSupport,
@@ -198,6 +212,7 @@ jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
 }));
 
 import {
+  getLocalWalletSyncAction,
   preloadLocalWalletPool,
   resetLocalWalletPoolLastSeen,
   resolveSelectedPoolId,
@@ -248,8 +263,15 @@ beforeEach(() => {
   mockGetSyncProgress.mockReset().mockResolvedValue(undefined);
   mockTimerWait.mockReset().mockImplementation(() => new Promise(() => {}));
   mockGetLastSyncedAt.mockReset().mockResolvedValue(undefined);
-  mockRefreshAccount.mockReset().mockResolvedValue(undefined);
+  mockRefreshAccount.mockReset().mockResolvedValue({
+    scanRequested: true,
+    afterSequence: 0,
+    sessionId: 'refresh-session',
+  });
   mockPageOpened.mockReset().mockResolvedValue(undefined);
+  mockEnableAccount.mockReset().mockResolvedValue(undefined);
+  mockDisableAccount.mockReset().mockResolvedValue(undefined);
+  mockPauseScan.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
     paused: mockPaused,
@@ -700,6 +722,88 @@ describe('useLocalWalletPool enable failure', () => {
       await expect(settled).rejects.toBe(failure);
     });
     expect(result.current.busy).toBe(false);
+  });
+});
+
+describe('useLocalWalletPool pause', () => {
+  it.each([false, true])(
+    'pauses only the selected account and clears the control busy state (failure: %s)',
+    async (fails) => {
+      let resolvePause: (() => void) | undefined;
+      let rejectPause: ((error: Error) => void) | undefined;
+      mockDisableAccount.mockImplementation(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            resolvePause = resolve;
+            rejectPause = reject;
+          }),
+      );
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushReads();
+      let pending: Promise<void> | undefined;
+      act(() => {
+        pending = result.current.pauseSync();
+      });
+      expect(mockDisableAccount).toHaveBeenCalledWith({
+        networkId: props.networkId,
+        accountId: props.accountId,
+      });
+      expect(mockPauseScan).not.toHaveBeenCalled();
+      expect(result.current.actionBusy).toBe(true);
+      await act(async () => {
+        if (fails) {
+          const error = new Error('Pause failed');
+          rejectPause?.(error);
+          await expect(pending).rejects.toBe(error);
+        } else {
+          resolvePause?.();
+          await pending;
+        }
+      });
+      expect(result.current.actionBusy).toBe(false);
+    },
+  );
+
+  it('keeps another account active and resumes without changing the sync start', async () => {
+    setPublishedScanState({});
+    const pausedAccounts = new Set<string>();
+    mockGetState.mockImplementation(async ({ accountId }) => ({
+      enabled: !pausedAccounts.has(accountId),
+      paused: pausedAccounts.has(accountId),
+    }));
+    mockDisableAccount.mockImplementation(async ({ accountId }) => {
+      pausedAccounts.add(accountId);
+    });
+    mockEnableAccount.mockImplementation(async ({ accountId }) => {
+      pausedAccounts.delete(accountId);
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    const { result: otherAccount } = renderHook(useLocalWalletPool, {
+      initialProps: { ...props, accountId: 'account-b' },
+    });
+    await flushReads();
+
+    await act(async () => result.current.pauseSync());
+    await flushReads();
+    expect(result.current.syncStatus).toBe('accountPaused');
+    expect(result.current.balance?.pools[0].totalParsed).toBe('1');
+    expect(otherAccount.current.state).toEqual({
+      enabled: true,
+      paused: false,
+    });
+    expect(otherAccount.current.isSyncPaused).toBe(false);
+    expect(mockPauseScan).not.toHaveBeenCalled();
+
+    await act(async () => getLocalWalletSyncAction(result.current)());
+    await flushReads();
+    expect(mockEnableAccount).toHaveBeenCalledWith({
+      networkId: props.networkId,
+      accountId: props.accountId,
+    });
+    expect(result.current.isSyncPaused).toBe(false);
+    expect(pausedAccounts.size).toBe(0);
   });
 });
 
@@ -1181,8 +1285,303 @@ it('schedules a manual refresh without turning its request time into a success t
     networkId: props.networkId,
     accountId: props.accountId,
   });
-  expect(result.current.busy).toBe(false);
+  expect(result.current.busy).toBe(true);
   expect(result.current.lastSyncedAt).toBe(1_700_000_000_000);
+});
+
+describe('manual refresh follows the account scan completion', () => {
+  const progress: ILocalWalletSyncProgress = {
+    birthdayHeight: 1,
+    backfillScannedHeight: 100,
+    backfillTargetHeight: 100,
+    backfillProgress: 1,
+    isBackfillComplete: true,
+    tipScannedHeight: 100,
+    chainTip: 100,
+    tipLag: 0,
+    isTipCaughtUp: true,
+    isSyncing: false,
+    lastSyncedAt: 1000,
+  };
+  const publish = (state: Partial<IPrivacyChainScanState> = {}) => {
+    act(() => {
+      setPublishedScanState({
+        progress: { [`${props.networkId}:${props.accountId}`]: progress },
+        completedScanByAccount: {
+          [`${props.networkId}:${props.accountId}`]: {
+            sessionId: 'refresh-session',
+            sequence: 3,
+          },
+        },
+        ...state,
+      });
+    });
+  };
+  beforeEach(() => {
+    mockRefreshAccount.mockResolvedValue({
+      scanRequested: true,
+      afterSequence: 3,
+      sessionId: 'refresh-session',
+    });
+    publish();
+  });
+  afterEach(() => {
+    setPublishedScanState({});
+  });
+
+  it('deduplicates presses and waits for a newer completion even at the same timestamp', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    await act(async () => {
+      await Promise.all([
+        result.current.refreshBalanceNow(),
+        result.current.refreshBalanceNow(),
+      ]);
+    });
+    await act(async () => result.current.refreshBalanceNow());
+    expect(mockRefreshAccount).toHaveBeenCalledTimes(1);
+    expect(result.current.busy).toBe(true);
+    for (const sequence of [3, 2]) {
+      publish({
+        progress: {
+          [`${props.networkId}:${props.accountId}`]: {
+            ...progress,
+            lastSyncedAt: 2000,
+          },
+        },
+        completedScanByAccount: {
+          [`${props.networkId}:${props.accountId}`]: {
+            sessionId: 'refresh-session',
+            sequence,
+          },
+          [`${props.networkId}:other`]: {
+            sessionId: 'refresh-session',
+            sequence: 20,
+          },
+        },
+      });
+      expect(result.current.busy).toBe(true);
+    }
+    const reads = mockGetBalance.mock.calls.length;
+    publish({
+      completedScanByAccount: {
+        [`${props.networkId}:${props.accountId}`]: {
+          sessionId: 'refresh-session',
+          sequence: 4,
+        },
+      },
+    });
+    await flushMicrotasks();
+    expect(result.current.busy).toBe(false);
+    expect(result.current.lastSyncedAt).toBe(1000);
+    expect(mockGetBalance.mock.calls.length).toBeGreaterThan(reads);
+  });
+
+  it('recognizes completion that was published before the scheduling RPC returned', async () => {
+    let resolveRefresh: (value: IRefreshResult) => void = () => {};
+    mockRefreshAccount.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    let request: Promise<void> | undefined;
+    act(() => {
+      request = result.current.refreshBalanceNow();
+    });
+    publish({
+      completedScanByAccount: {
+        [`${props.networkId}:${props.accountId}`]: {
+          sessionId: 'refresh-session',
+          sequence: 4,
+        },
+      },
+    });
+    expect(result.current.busy).toBe(true);
+    await act(async () => {
+      resolveRefresh({
+        scanRequested: true,
+        afterSequence: 3,
+        sessionId: 'refresh-session',
+      });
+      await request;
+    });
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('finishes from authoritative completion without a published position', async () => {
+    publish({ progress: {}, completedScanByAccount: undefined });
+    mockGetSyncProgress.mockResolvedValue(progress);
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    publish({
+      progress: {},
+      completedScanByAccount: {
+        [`${props.networkId}:${props.accountId}`]: {
+          sessionId: 'refresh-session',
+          sequence: 4,
+        },
+      },
+    });
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('does not mistake an old UI completion for success after the background restarts', async () => {
+    mockRefreshAccount.mockResolvedValueOnce({
+      scanRequested: true,
+      afterSequence: 0,
+      sessionId: 'new-background',
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    publish({
+      completedScanByAccount: {
+        [`${props.networkId}:${props.accountId}`]: {
+          sessionId: 'new-background',
+          sequence: 1,
+        },
+      },
+    });
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('ends an outstanding wait when another background session publishes completion', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    publish({
+      completedScanByAccount: {
+        [`${props.networkId}:${props.accountId}`]: {
+          sessionId: 'new-background',
+          sequence: 1,
+        },
+      },
+    });
+    expect(result.current.busy).toBe(false);
+  });
+
+  it.each([
+    { pausedNetworkIds: [props.networkId] },
+    { storageUnsupportedNetworkIds: [props.networkId] },
+    { syncErrorByNetworkId: { [props.networkId]: 'nodeUnreachable' } },
+    { scanAllowed: false },
+  ] satisfies Partial<IPrivacyChainScanState>[])(
+    'ends waiting when scanning stops: %j',
+    async (state) => {
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushMicrotasks();
+      await act(async () => result.current.refreshBalanceNow());
+      expect(result.current.busy).toBe(true);
+      publish(state);
+      expect(result.current.busy).toBe(false);
+      expect(result.current.lastSyncedAt).toBe(1000);
+    },
+  );
+
+  it.each([false, true])(
+    'ends waiting when the account stops (paused: %s)',
+    async (paused) => {
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushMicrotasks();
+      await act(async () => result.current.refreshBalanceNow());
+      mockEnabled = false;
+      mockPaused = paused;
+      emitPrivacyChange();
+      await flushMicrotasks();
+      expect(result.current.busy).toBe(false);
+    },
+  );
+
+  it('does not let a previous account RPC end the new account refresh', async () => {
+    let resolveOld: (value: IRefreshResult) => void = () => {};
+    mockRefreshAccount.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(useLocalWalletPool, {
+      initialProps: props,
+    });
+    await flushMicrotasks();
+    let previous: Promise<void> | undefined;
+    act(() => {
+      previous = result.current.refreshBalanceNow();
+    });
+    rerender({ ...props, accountId: 'account-b' });
+    await flushMicrotasks();
+    expect(result.current.busy).toBe(false);
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    await act(async () => {
+      resolveOld({ scanRequested: false });
+      await previous;
+    });
+    expect(result.current.busy).toBe(true);
+    publish({
+      completedScanByAccount: {
+        [`${props.networkId}:account-b`]: {
+          sessionId: 'refresh-session',
+          sequence: 4,
+        },
+      },
+    });
+    expect(result.current.busy).toBe(false);
+  });
+
+  it.each([{ scanRequested: false }, undefined])(
+    'does not wait when no scan was accepted: %j',
+    async (response) => {
+      mockRefreshAccount.mockResolvedValueOnce(response);
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushMicrotasks();
+      await act(async () => result.current.refreshBalanceNow());
+      expect(result.current.busy).toBe(false);
+    },
+  );
+
+  it('clears a rejected request so it can be retried', async () => {
+    const error = new Error('request failed');
+    mockRefreshAccount.mockRejectedValueOnce(error);
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    await act(async () => {
+      await expect(result.current.refreshBalanceNow()).rejects.toBe(error);
+    });
+    expect(result.current.busy).toBe(false);
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    expect(mockRefreshAccount).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears pending on leaving the page and permits a fresh request on return', async () => {
+    const { result, rerender } = renderHook(useLocalWalletPool, {
+      initialProps: props,
+    });
+    await flushMicrotasks();
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    rerender({ ...props, isActive: false });
+    expect(result.current.busy).toBe(false);
+    rerender(props);
+    await flushMicrotasks();
+    await act(async () => result.current.refreshBalanceNow());
+    expect(result.current.busy).toBe(true);
+    expect(mockRefreshAccount).toHaveBeenCalledTimes(2);
+  });
 });
 
 it('keeps the balance available if optional refresh metadata cannot be read', async () => {

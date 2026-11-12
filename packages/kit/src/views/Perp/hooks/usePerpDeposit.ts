@@ -261,7 +261,15 @@ const usePerpDeposit = (
       },
     });
   }, [token]);
-  const { result, isLoading: isDepositQuoteAccountLoading } = usePromiseResult(
+  const depositQuoteAccountScope = [
+    indexedAccountId ?? '',
+    selectedAccountId ?? '',
+    token?.networkId ?? '',
+  ].join('::');
+  const {
+    result: depositQuoteAccount,
+    isLoading: isDepositQuoteAccountLoading,
+  } = usePromiseResult(
     async () => {
       if (
         selectedAction !== 'deposit' ||
@@ -293,6 +301,7 @@ const usePerpDeposit = (
             networkId: PERPS_NETWORK_ID,
           });
         return {
+          scope: depositQuoteAccountScope,
           accountId: accountAddressInfo.id,
           fromUserAddress: accountAddressInfo.addressDetail.address,
           perpReceiverAddress: perpAccount.addressDetail.address,
@@ -306,11 +315,17 @@ const usePerpDeposit = (
       token?.networkId,
       checkFromTokenFiatValue,
       selectedAccountId,
+      depositQuoteAccountScope,
     ],
     {
       watchLoading: true,
     },
   );
+  // Loading is set in an effect; reject the previous scope during render too.
+  const result =
+    depositQuoteAccount?.scope === depositQuoteAccountScope
+      ? depositQuoteAccount
+      : undefined;
   const accountId = useMemo(() => {
     return result?.accountId ?? '';
   }, [result?.accountId]);
@@ -380,7 +395,10 @@ const usePerpDeposit = (
       return;
     }
     if (shouldWaitForDepositQuoteAccount) {
-      setPerpDepositQuoteLoading(true);
+      await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+      if (isActiveQuoteRequest(requestId)) {
+        setPerpDepositQuoteLoading(true);
+      }
       return;
     }
     try {
@@ -925,6 +943,8 @@ const usePerpDeposit = (
         networkId: token.networkId,
         accountId,
         unsignedTx: updatedUnsignedTxItem,
+        // a replayed payload is recorded as it is on the wire
+        signedTx: res,
         feeInfo: {
           feeInfo: gasInfo as IFeeInfoUnit,
           total,

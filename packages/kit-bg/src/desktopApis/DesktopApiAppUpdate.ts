@@ -51,6 +51,10 @@ import {
 import type { IDesktopApi } from './base/types';
 
 function wrapAppUpdateOperationError(error: unknown, step: TUpdateErrorStep) {
+  const directError = getUpdateError(error, step);
+  if (directError.code !== EUpdateErrorCode.unknown) {
+    return createUpdateError(directError);
+  }
   return createUpdateError(getUpdateError(classifyNodeError(error), step));
 }
 
@@ -370,6 +374,17 @@ async function hashFile(
   });
 }
 
+/**
+ * Desktop app-shell updater, running in the Electron main process.
+ *
+ * The `/utility/v1/app-update` `downloadUrl` field is deprecated here: this
+ * class never reads it. It exists only so the backend response shape matches
+ * native platforms (test environments send a placeholder such as "feedUrl"),
+ * while the installer is always resolved from the signed electron feed
+ * (`electron-feed-url?version=<latestVersion>`). The `downloadUrl` carried by
+ * `IVerifyUpdateParams` is our own feed-resolved artifact URL echoed back by
+ * the renderer for cache-identity matching — not the backend field.
+ */
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
 
@@ -1460,6 +1475,8 @@ class DesktopApiAppUpdate {
       const record = await this.getInstallRecord(params);
       await this.stageMacUpdate(record);
       store.setUpdateBuildNumber(params.buildNumber);
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'install');
     } finally {
       this.installInProgress = false;
     }
@@ -1517,6 +1534,8 @@ class DesktopApiAppUpdate {
       await this.getInstallRecord(params);
       if (this.quitInstallGeneration === generation)
         this.quitInstallParams = params;
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'install');
     } finally {
       if (this.quitInstallGeneration === generation)
         this.preparingQuitInstall = undefined;
@@ -1717,7 +1736,11 @@ class DesktopApiAppUpdate {
         });
       }
     } catch (error) {
-      const classified = getUpdateError(classifyNodeError(error), 'install');
+      const directError = getUpdateError(error, 'install');
+      const classified =
+        directError.code === EUpdateErrorCode.unknown
+          ? getUpdateError(classifyNodeError(error), 'install')
+          : directError;
       throw createUpdateError({
         ...classified,
         code:

@@ -65,6 +65,7 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
   }
 
   // `isCurrent` runs under the entity lock right before the write; a value read before its data was destroyed is dropped.
+  // Resolves whether the record was written.
   async setLastBalance({
     accountId,
     record,
@@ -73,14 +74,17 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     accountId: string;
     record: IPrivacyChainLastBalanceRecord;
     isCurrent: () => Promise<boolean>;
-  }): Promise<void> {
+  }): Promise<boolean> {
+    let written = false;
     await this.setRawData(async (rawData) => {
       if (!(await isCurrent())) return rawData ?? {};
+      written = true;
       return {
         ...rawData,
         lastBalances: { ...rawData?.lastBalances, [accountId]: record },
       };
     });
+    return written;
   }
 
   async getLastPublicBalance({

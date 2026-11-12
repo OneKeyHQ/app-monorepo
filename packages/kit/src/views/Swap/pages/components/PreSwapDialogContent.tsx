@@ -936,6 +936,10 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.fromToken}
               amount={fromAmount}
+              strictCurrencyConversion={
+                preSwapData?.strictCurrencyConversion ||
+                preSwapData?.swapType === ESwapTabSwitchType.STOCK
+              }
             />
           </YStack>
           {/* You received */}
@@ -984,6 +988,10 @@ const PreSwapDialogContent = ({
             <PreSwapTokenItem
               token={preSwapData?.toToken}
               amount={toAmount}
+              strictCurrencyConversion={
+                preSwapData?.strictCurrencyConversion ||
+                preSwapData?.swapType === ESwapTabSwitchType.STOCK
+              }
               loading={shouldShowSwapReviewToAmountSkeleton({
                 swapBuildLoading: preSwapData.swapBuildLoading,
                 toTokenAmount: preSwapData.toTokenAmount,

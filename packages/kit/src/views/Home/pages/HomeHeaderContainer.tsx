@@ -1,23 +1,17 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack, YStack } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
 import WalletBanner from '../components/WalletBanner';
@@ -25,28 +19,23 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { IHomePrivacyActionsPresentation } from '../components/HomePrivacyActions';
 
-/**
- * Identifies the header layout (OK-63873). The header is measured by the
- * collapsible tab container after layout, so a switch between layouts of
- * different height (funded: actions + banner band; empty: the add-money
- * block) left the tab content one or two frames behind. HomePageView keeps
- * the measured height per variant and hands the container the expected
- * height before paint whenever the variant changes.
- */
 export interface IHomeHeaderContainerProps {
-  onHeaderVariantChange?: (variant: string) => void;
-  /** The measured height of this container (alerts above it excluded). */
-  onHeaderLayout?: (variant: string, height: number) => void;
+  layout: ReturnType<typeof useHomeHeaderLayout>;
 }
 
-function BaseHomeHeaderContainer({
-  onHeaderVariantChange,
-  onHeaderLayout,
-}: IHomeHeaderContainerProps) {
+// Share the rendering decision so the parent can select its height before commit.
+export function useHomeHeaderLayout() {
   const {
-    activeAccount: { wallet, account, network, vaultSettings },
+    activeAccount: {
+      wallet,
+      account,
+      network,
+      vaultSettings,
+      ready,
+      isNetworkNotMatched,
+    },
   } = useActiveAccount({
     num: 0,
   });
@@ -73,6 +62,30 @@ function BaseHomeHeaderContainer({
   // flicker that previously occurred when the page mounted with the banner
   // visible and then collapsed once the first balance fetch came back zero.
   const homeBalanceState = useHomeBalanceState();
+  const [privacyActionsPresentation, setPrivacyActionsPresentation] =
+    useState<IHomePrivacyActionsPresentation>();
+  const handleActionsPresentationChange = useCallback(
+    (presentation: IHomePrivacyActionsPresentation) => {
+      setPrivacyActionsPresentation((previous) =>
+        previous?.ownerKey === presentation.ownerKey &&
+        previous.variant === presentation.variant
+          ? previous
+          : presentation,
+      );
+    },
+    [],
+  );
+  const isMonero =
+    !!network?.id &&
+    !network.isAllNetworks &&
+    networkUtils.getNetworkImpl({ networkId: network.id }) === IMPL_XMR;
+  const actionsOwnerKey = `${network?.id ?? ''}:${account?.id ?? ''}`;
+  const privacyActionsVariant =
+    ready &&
+    !isNetworkNotMatched &&
+    privacyActionsPresentation?.ownerKey === actionsOwnerKey
+      ? privacyActionsPresentation.variant
+      : 'privacy-loading';
   const shouldShowBanner =
     !isWalletNotBackedUp &&
     hasWalletBannerContent &&
@@ -86,24 +99,56 @@ function BaseHomeHeaderContainer({
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
 
-  // Layout effect: the parent applies the remembered height for this variant
-  // in the same commit, before the frame with the new layout is painted.
-  // Without a banner the action row still differs by balance state (actions
-  // row, add-money block, loading placeholder), so each keeps its own height.
-  // Not backed up: no actions or banner, one layout.
-  let headerVariant = 'backup:plain';
-  if (!isWalletNotBackedUp) {
-    headerVariant = `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
+  let variant = isWalletNotBackedUp
+    ? 'backup:plain'
+    : `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
+  // Zero-balance Enable and Add Money share the description-and-button layout.
+  // Keep that measurement when activation completes instead of resetting the header.
+  if (
+    !isWalletNotBackedUp &&
+    platformEnv.isNative &&
+    isMonero &&
+    privacyActionsVariant !== 'standard' &&
+    !(privacyActionsVariant === 'privacy-enable' && homeBalanceState === 'zero')
+  ) {
+    variant = `${variant}:${privacyActionsVariant}`;
   }
-  useLayoutEffect(() => {
-    onHeaderVariantChange?.(headerVariant);
-  }, [headerVariant, onHeaderVariantChange]);
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      onHeaderLayout?.(headerVariant, event.nativeEvent.layout.height);
-    },
-    [headerVariant, onHeaderLayout],
+  const onActionsPresentationChange =
+    platformEnv.isNative && isMonero
+      ? handleActionsPresentationChange
+      : undefined;
+
+  return useMemo(
+    () => ({
+      wallet,
+      isWalletNotBackedUp,
+      homeBalanceState,
+      shouldShowBanner,
+      nativeMinHeight,
+      variant,
+      onActionsPresentationChange,
+    }),
+    [
+      wallet,
+      isWalletNotBackedUp,
+      homeBalanceState,
+      shouldShowBanner,
+      nativeMinHeight,
+      variant,
+      onActionsPresentationChange,
+    ],
   );
+}
+
+function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
+  const {
+    wallet,
+    isWalletNotBackedUp,
+    homeBalanceState,
+    shouldShowBanner,
+    nativeMinHeight,
+    onActionsPresentationChange,
+  } = layout;
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -137,7 +182,6 @@ function BaseHomeHeaderContainer({
       $gtMd={{ gap: '$8' }}
       bg="$bgApp"
       pointerEvents="box-none"
-      onLayout={onHeaderLayout ? handleLayout : undefined}
     >
       <Stack
         testID={HomeTestIDs.headerContainer}
@@ -157,7 +201,7 @@ function BaseHomeHeaderContainer({
         </HomeHeaderGesture>
         {isWalletNotBackedUp ? null : (
           <HomeHeaderGesture onRefresh={onHomePageRefresh}>
-            <WalletActions />
+            <WalletActions onPresentationChange={onActionsPresentationChange} />
           </HomeHeaderGesture>
         )}
       </Stack>
@@ -174,16 +218,5 @@ function BaseHomeHeaderContainer({
   );
 }
 
-// The provider mirror must wrap the component (not live inside its return):
-// `useHomeBalanceState` reads tokenList context atoms, so the hook call in
-// `BaseHomeHeaderContainer`'s body has to sit inside the provider.
-// Note: on the URL-account page (which reuses HomePageView) the token list is
-// written to the separate urlAccountHomeTokenList store, not this mirror's
-// homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
-// the holdings override simply stays inactive there (worth-only behavior).
-export const HomeHeaderContainer = memo((props: IHomeHeaderContainerProps) => (
-  <HomeTokenListProviderMirror>
-    <BaseHomeHeaderContainer {...props} />
-  </HomeTokenListProviderMirror>
-));
+export const HomeHeaderContainer = memo(BaseHomeHeaderContainer);
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';

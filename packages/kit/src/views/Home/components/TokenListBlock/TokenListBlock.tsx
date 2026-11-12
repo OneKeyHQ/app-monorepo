@@ -47,6 +47,7 @@ import {
   useAccountWorthAtom,
   useAllNetworksStateStateAtom,
   useHomePortfolioDisplayAtom,
+  useHomePrivacyTokenStatusAtom,
   useOverviewTokenCacheStateAtom,
   usePortfolioCategoryRefreshAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
@@ -77,6 +78,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection';
 import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { PRIVACY_CHAIN_SYNC_STATUS_LABELS } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
 import {
   DustSweepEntryCapabilitiesProvider,
@@ -104,6 +106,7 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -356,6 +359,8 @@ function TokenListBlock({
       deriveType,
       deriveInfoItems,
       vaultSettings,
+      ready,
+      isNetworkNotMatched,
     },
   } = useActiveAccount({ num: 0 });
   const accountSelectorStore = useAccountSelectorContextData().store;
@@ -3968,6 +3973,11 @@ function TokenListBlock({
   ]);
 
   useEffect(() => {
+    // The popup is short-lived and can duplicate the refresh from a persistent
+    // extension window. Persistent extension windows still need refocus refresh.
+    if (platformEnv.isExtensionUiPopup) {
+      return undefined;
+    }
     const removeSubscription = onVisibilityStateChange((visible) => {
       if (visible && isFocused && isRouteFocused) {
         handleRefreshOnVisibilityActive();
@@ -4430,10 +4440,46 @@ function TokenListBlock({
     tokenListState.isRefreshing,
   ]);
 
+  const [privacyTokenStatus] = useHomePrivacyTokenStatusAtom();
+  const nativeTokenStatus = useMemo(() => {
+    if (
+      !ready ||
+      isNetworkNotMatched ||
+      !network?.id ||
+      network.isAllNetworks ||
+      networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR ||
+      privacyTokenStatus?.accountId !== account?.id ||
+      privacyTokenStatus?.networkId !== network.id
+    ) {
+      return undefined;
+    }
+    const { status } = privacyTokenStatus;
+    if (status === 'off' || status === 'synced' || status === 'unavailable') {
+      return undefined;
+    }
+    return {
+      networkId: network.id,
+      label: intl.formatMessage({
+        id: PRIVACY_CHAIN_SYNC_STATUS_LABELS[status],
+      }),
+      loading:
+        status === 'syncing' || status === 'preparing' || status === 'enabling',
+    };
+  }, [
+    account?.id,
+    intl,
+    isNetworkNotMatched,
+    network?.id,
+    network?.isAllNetworks,
+    privacyTokenStatus,
+    ready,
+  ]);
+
   const renderContent = useCallback(() => {
     return (
       <TokenListView
         tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
+        nativeTokenStatus={nativeTokenStatus}
         limit={6}
         plainMode
         withHeader
@@ -4536,6 +4582,7 @@ function TokenListBlock({
     nativeListSidecar,
     nativeListSidecarLayout,
     nativeRefreshing,
+    nativeTokenStatus,
     onNativeRefresh,
     renderSubTitle,
     scopedLpTokenList,

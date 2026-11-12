@@ -65,6 +65,8 @@ type IOneKeyIdActionItemProps = {
   titleColor?: ColorTokens;
   drillIn?: boolean;
   testID?: string;
+  disabled?: boolean;
+  isLoading?: boolean;
 };
 
 type IOneKeyIdAction = IOneKeyIdActionItemProps & {
@@ -79,6 +81,8 @@ function OneKeyIdActionItem({
   titleColor,
   drillIn = true,
   testID,
+  disabled = false,
+  isLoading = false,
 }: IOneKeyIdActionItemProps) {
   const media = useMedia();
 
@@ -98,7 +102,10 @@ function OneKeyIdActionItem({
       }}
       title={title}
       subtitle={media.gtMd ? subtitle : undefined}
-      onPress={onPress}
+      disabled={disabled}
+      isLoading={isLoading}
+      accessibilityState={{ disabled, busy: isLoading }}
+      onPress={disabled ? undefined : onPress}
       titleProps={{
         size: media.gtMd ? '$bodyMdMedium' : '$bodyLgMedium',
         color: titleColor,
@@ -419,7 +426,8 @@ function OneKeyIdPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const media = useMedia();
-  const { toInviteRewardPage } = useReferFriends();
+  const { toInviteRewardPage, isReferralEntryPending, isReferralEntryLoading } =
+    useReferFriends();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
   const isFocused = useRouteIsFocused();
@@ -529,6 +537,8 @@ function OneKeyIdPage() {
         id: ETranslations.id_refer_a_friend_desc,
       }),
       onPress: toInviteRewardPage,
+      disabled: isReferralEntryPending,
+      isLoading: isReferralEntryLoading,
     },
     {
       key: 'devices',

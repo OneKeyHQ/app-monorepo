@@ -12,8 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ITokenPrivacyPanelState =
   | 'disabled'
@@ -40,11 +39,8 @@ export type ITokenPrivacyPanelProps = {
   onAllowMobileData?: () => void;
 };
 
-const STATUS_LABELS: Record<
-  ITokenPrivacyPanelState,
-  ETranslations | ETranslationsMock
-> = {
-  disabled: ETranslationsMock.privacy_enable_account__title,
+const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
+  disabled: ETranslations.privacy_enable_account__title,
   preparing: ETranslations.global_preparing,
   syncing: ETranslations.global_syncing,
   synced: ETranslations.global_synced,
@@ -53,11 +49,9 @@ const STATUS_LABELS: Record<
   error: ETranslations.global_sync_error,
 };
 
-const ACTION_LABELS: Record<
-  Exclude<ITokenPrivacyPanelState, 'preparing'>,
-  ETranslations
-> = {
+const ACTION_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
   disabled: ETranslations.global_enable,
+  preparing: ETranslations.global_pause,
   syncing: ETranslations.global_pause,
   synced: ETranslations.global_refresh,
   stopped: ETranslations.global_resume,
@@ -91,7 +85,7 @@ export function TokenPrivacyPanel({
   let onAction = onSync;
   if (isDisabled) {
     onAction = onEnable;
-  } else if (isSyncing) {
+  } else if (isPreparing || isSyncing) {
     onAction = onStop;
   } else if (state === 'waitingWifi') {
     onAction = onAllowMobileData;
@@ -118,13 +112,12 @@ export function TokenPrivacyPanel({
   if (supportingText === undefined) {
     if (isDisabled) {
       supportingText = intl.formatMessage({
-        id: ETranslationsMock.privacy_enable_account__desc,
-        defaultMessage: ETranslationsMock.privacy_enable_account__desc,
+        id: ETranslations.privacy_enable_account__desc,
       });
     }
   }
   const action =
-    state !== 'preparing' && onAction && !(isDisabled && enableUnavailable) ? (
+    onAction && !(isDisabled && enableUnavailable) ? (
       <Button
         testID="token-privacy-action"
         alignSelf={isDisabled ? 'flex-start' : 'center'}
@@ -132,7 +125,7 @@ export function TokenPrivacyPanel({
         mt={isDisabled ? '$3' : undefined}
         flexShrink={0}
         size="small"
-        variant={isDisabled ? 'primary' : 'tertiary'}
+        variant={isDisabled ? 'primary' : 'secondary'}
         loading={busy}
         disabled={busy}
         onPress={onAction}
@@ -184,9 +177,6 @@ export function TokenPrivacyPanel({
               {title ??
                 intl.formatMessage({
                   id: STATUS_LABELS[state],
-                  defaultMessage: isDisabled
-                    ? ETranslationsMock.privacy_enable_account__title
-                    : undefined,
                 })}
             </SizableText>
           </XStack>
@@ -215,20 +205,7 @@ export function TokenPrivacyPanel({
           ) : null}
           {isDisabled ? action : null}
         </YStack>
-        {!isDisabled ? (
-          <XStack alignItems="center" gap="$2" flexShrink={0}>
-            {showProgress && progressValue !== undefined ? (
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                fontVariant={['tabular-nums']}
-              >
-                {formatPrivacyChainPercent(progressValue / 100)}
-              </SizableText>
-            ) : null}
-            {action}
-          </XStack>
-        ) : null}
+        {!isDisabled ? action : null}
       </XStack>
       {showProgress ? (
         <Progress

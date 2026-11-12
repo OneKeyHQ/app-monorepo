@@ -7,16 +7,23 @@ let mockUnreadCount = 0;
 let mockOnUnreadChanged: (() => void) | undefined;
 let mockOnWindowHidden: (() => void) | undefined;
 let mockOnAppStateChange: ((state: string) => void) | undefined;
+let mockOnSupportReply: (() => void) | undefined;
 const mockAppState = { currentState: 'background' };
 const mockUpdateLockPolicy = jest.fn(async () => {});
+const mockRefreshUnreadCount = jest.fn<Promise<void>, [string]>(async () => {});
 const mockNativeModules: {
   IntercomEventEmitter: object | undefined;
   OneKeyIntercom: {
     initialized: boolean;
+    refreshUnreadCount?: typeof mockRefreshUnreadCount;
     updateLockPolicy: typeof mockUpdateLockPolicy;
   };
 } = {
-  OneKeyIntercom: { initialized: true, updateLockPolicy: mockUpdateLockPolicy },
+  OneKeyIntercom: {
+    initialized: true,
+    refreshUnreadCount: mockRefreshUnreadCount,
+    updateLockPolicy: mockUpdateLockPolicy,
+  },
   IntercomEventEmitter: {},
 };
 const mockGetCustomerJWT = jest.fn<Promise<{ token: string }>, []>();
@@ -56,10 +63,11 @@ const mockSdk = {
     async (_provider: () => Promise<string | null>) => true,
   ),
   removeUserJwtProvider: jest.fn(async () => true),
-  updateUser: jest.fn(async () => true),
+  updateUser: jest.fn<Promise<boolean>, [UserAttributes]>(async () => true),
   logEvent: jest.fn(async () => true),
   getUnreadConversationCount: jest.fn(async () => mockUnreadCount),
   present: jest.fn(async () => true),
+  presentSpace: jest.fn(async (_space: string) => true),
   presentContent: jest.fn(async (_content: { id: string }) => true),
   bootstrapEventListeners: jest.fn(() => () => {}),
 };
@@ -69,6 +77,7 @@ jest.mock('@intercom/intercom-react-native', () => ({
   default: mockSdk,
   ThemeMode: { DARK: 'DARK', LIGHT: 'LIGHT', SYSTEM: 'SYSTEM' },
   Visibility: { GONE: 'GONE', VISIBLE: 'VISIBLE' },
+  Space: { messages: 'MESSAGES' },
   IntercomEvents: {
     IntercomUnreadCountDidChange: 'unread-changed',
     IntercomWindowDidHide: 'window-hidden',
@@ -103,6 +112,7 @@ jest.mock('../../appGlobals', () => ({
   __esModule: true,
   default: {
     $backgroundApiProxy: {
+      serviceLogger: { addMsg: jest.fn() },
       servicePrime: {
         getLocalUserInfo: async () => ({
           isLoggedIn: mockUserId !== null,
@@ -110,6 +120,16 @@ jest.mock('../../appGlobals', () => ({
         }),
         apiGetCustomerJWT: () => mockGetCustomerJWT(),
       },
+    },
+  },
+}));
+jest.mock('../../eventBus/appEventBus', () => ({
+  EAppEventBusNames: { SupportReplyReceived: 'SupportReplyReceived' },
+  appEventBus: {
+    on: (name: string, listener: () => void) => {
+      if (name === 'SupportReplyReceived') {
+        mockOnSupportReply = listener;
+      }
     },
   },
 }));
@@ -173,6 +193,11 @@ async function flushEvents() {
 
 describe('native Intercom SDK integration', () => {
   let subject: typeof import('./index.native');
+  let mockSupportLog: {
+    intercomUnreadChanged: jest.SpyInstance;
+    supportReplyResync: jest.SpyInstance;
+    intercomUnreadRefreshFailed: jest.SpyInstance;
+  };
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -182,18 +207,38 @@ describe('native Intercom SDK integration', () => {
     mockOnUnreadChanged = undefined;
     mockOnWindowHidden = undefined;
     mockOnAppStateChange = undefined;
+    mockOnSupportReply = undefined;
     mockAppState.currentState = 'background';
     mockNativeModules.IntercomEventEmitter = {};
     mockPlatformEnv.isNativeMainThread = true;
     mockPlatformEnv.isNativeIOSMacCatalyst = false;
     mockPlatformEnv.isNativeAndroid = false;
     mockGetCustomerJWT.mockReset();
+    mockSdk.updateUser.mockReset().mockResolvedValue(true);
+    mockRefreshUnreadCount.mockReset().mockResolvedValue(undefined);
     mockStorage.clear();
     mockSupportUrlOverride = undefined;
     // Most cases model an anonymous user who has contacted support before.
     mockStorage.set(SUPPORT_OPENED_KEY, true);
     mockNativeModules.OneKeyIntercom.initialized = true;
+    mockNativeModules.OneKeyIntercom.refreshUnreadCount =
+      mockRefreshUnreadCount;
     subject = await import('./index.native');
+    const { defaultLogger } = await import('../../logger/logger');
+    mockSupportLog = {
+      intercomUnreadChanged: jest.spyOn(
+        defaultLogger.notification.support,
+        'intercomUnreadChanged',
+      ),
+      supportReplyResync: jest.spyOn(
+        defaultLogger.notification.support,
+        'supportReplyResync',
+      ),
+      intercomUnreadRefreshFailed: jest.spyOn(
+        defaultLogger.notification.support,
+        'intercomUnreadRefreshFailed',
+      ),
+    };
   });
 
   it('keeps the native singleton out of the background runtime and Catalyst', async () => {
@@ -257,7 +302,7 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.setThemeMode).toHaveBeenLastCalledWith('SYSTEM');
   });
 
-  it('applies in-app message visibility without eagerly loading the SDK', async () => {
+  it('never shows in-app messages and hides them without loading the SDK', async () => {
     // A fresh main runtime hides messages a previous runtime left enabled,
     // without starting an SDK session.
     await subject.setIntercomInAppMessageVisibility(true);
@@ -266,16 +311,28 @@ describe('native Intercom SDK integration', () => {
     expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
     expect(mockSdk.isUserLoggedIn).not.toHaveBeenCalled();
 
+    // Re-enabling would re-present an unread reply the user swiped away
+    // (OK-67003), so main tabs, unlocks and new sessions all stay hidden.
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
     await subject.initIntercom();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-    await subject.setIntercomInAppMessageVisibility(false);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-
-    mockPlatformEnv.isNativeMainThread = false;
+    await subject.setIntercomInAppMessageVisibility(true);
+    await subject.setIntercomMessengerLocked(true);
+    await subject.setIntercomMessengerLocked(false);
+    await flushEvents();
+    mockUserId = 'B';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-B') });
+    await subject.initIntercom();
     await subject.setIntercomInAppMessageVisibility(true);
     expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
+      'VISIBLE',
+    );
+
+    mockSdk.setInAppMessageVisibility.mockClear();
+    mockPlatformEnv.isNativeMainThread = false;
+    await subject.setIntercomInAppMessageVisibility(true);
+    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
   });
 
   it('hides messages over a lock screen after a main runtime restart', async () => {
@@ -288,80 +345,6 @@ describe('native Intercom SDK integration', () => {
     mockSdk.setInAppMessageVisibility.mockClear();
     await subject.setIntercomInAppMessageVisibility(false);
     expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
-  });
-
-  it('keeps a restored previous account hidden until the current session is ready', async () => {
-    // The native SDK restored account A while the wallet now belongs to B.
-    mockLoggedInUser = { userId: 'intercom-A' };
-    mockUserId = 'B';
-    const jwt = deferred<{ token: string }>();
-    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
-    await subject.setIntercomInAppMessageVisibility(true);
-
-    const syncing = subject.initIntercom();
-    await flushEvents();
-    await subject.setIntercomInAppMessageVisibility(true);
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
-      'VISIBLE',
-    );
-
-    jwt.resolve({ token: createToken('intercom-B') });
-    await syncing;
-    expect(mockLoggedInUser).toEqual(
-      expect.objectContaining({ userId: 'intercom-B' }),
-    );
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-  });
-
-  it('keeps messages hidden when the current session cannot be established', async () => {
-    mockLoggedInUser = { userId: 'intercom-A' };
-    mockUserId = 'B';
-    mockGetCustomerJWT.mockRejectedValueOnce(new Error('jwt failed'));
-    await subject.setIntercomInAppMessageVisibility(true);
-    await expect(subject.initIntercom()).rejects.toThrow('jwt failed');
-    await subject.setIntercomInAppMessageVisibility(true);
-    expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalledWith(
-      'VISIBLE',
-    );
-  });
-
-  it('hides messages on account switch and lock before reapplying', async () => {
-    mockUserId = 'A';
-    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
-    await subject.setIntercomInAppMessageVisibility(true);
-    await subject.initIntercom();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-
-    await subject.setIntercomMessengerLocked(true);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-    await subject.setIntercomMessengerLocked(false);
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-
-    mockUserId = 'B';
-    const jwt = deferred<{ token: string }>();
-    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
-    const switching = subject.initIntercom();
-    await flushEvents();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-    const goneCall =
-      mockSdk.setInAppMessageVisibility.mock.invocationCallOrder.at(-1) ?? 0;
-    expect(goneCall).toBeLessThan(
-      mockSdk.logout.mock.invocationCallOrder.at(-1) ?? 0,
-    );
-
-    jwt.resolve({ token: createToken('intercom-B') });
-    await switching;
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
   });
 
   it('refreshes unread count on foreground and Messenger close', async () => {
@@ -400,6 +383,221 @@ describe('native Intercom SDK integration', () => {
     }
   });
 
+  it('resyncs the unread count from the server on a support reply push', async () => {
+    // The SDK listens only once a session loaded it.
+    expect(mockOnSupportReply).toBeUndefined();
+
+    mockAppState.currentState = 'active';
+    await subject.initIntercom();
+    expect(subject.getIntercomUnreadCount()).toBe(0);
+    mockSdk.updateUser.mockClear();
+    // The realtime event never reached the SDK; only a server response
+    // updates its unread cache (OK-67112).
+    mockSdk.updateUser.mockImplementationOnce(async () => {
+      mockUnreadCount = 1;
+      return true;
+    });
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSdk.updateUser).toHaveBeenCalledWith({
+      languageOverride: 'zh-CN',
+    });
+    expect(subject.getIntercomUnreadCount()).toBe(1);
+    expect(mockSupportLog.intercomUnreadChanged).toHaveBeenCalledWith({
+      trigger: 'support-push',
+      previousCount: 0,
+      count: 1,
+    });
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'resynced',
+    });
+    mockOnAppStateChange?.('background');
+  });
+
+  it('refreshes Android replies after a same-language session update and waits for the response', async () => {
+    mockPlatformEnv.isNativeAndroid = true;
+    mockAppState.currentState = 'active';
+    let previousLanguage: string | undefined;
+    let serverUnreadCount = 0;
+    let serverRequests = 0;
+    // Model Android's attribute dedup: repeated attributes succeed locally.
+    mockSdk.updateUser.mockImplementation(async ({ languageOverride }) => {
+      if (languageOverride !== previousLanguage) {
+        previousLanguage = languageOverride;
+        serverRequests += 1;
+        mockUnreadCount = serverUnreadCount;
+      }
+      return true;
+    });
+    const response = deferred<void>();
+    mockRefreshUnreadCount.mockImplementationOnce(async (languageOverride) => {
+      await response.promise;
+      previousLanguage = undefined;
+      await mockSdk.updateUser({ languageOverride });
+    });
+
+    try {
+      await subject.initIntercom();
+      expect(serverRequests).toBe(1);
+      expect(subject.getIntercomUnreadCount()).toBe(0);
+
+      serverUnreadCount = 1;
+      mockOnSupportReply?.();
+      await flushEvents();
+      expect(mockRefreshUnreadCount).toHaveBeenCalledWith('zh-CN');
+      expect(serverRequests).toBe(1);
+      expect(subject.getIntercomUnreadCount()).toBe(0);
+      expect(mockSupportLog.supportReplyResync).not.toHaveBeenCalled();
+
+      response.resolve();
+      await flushEvents();
+      expect(serverRequests).toBe(2);
+      expect(subject.getIntercomUnreadCount()).toBe(1);
+      expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+        result: 'resynced',
+      });
+    } finally {
+      mockOnAppStateChange?.('background');
+    }
+  });
+
+  it('retries a failed Android reply refresh on the next foreground', async () => {
+    mockPlatformEnv.isNativeAndroid = true;
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshUnreadCount
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(async () => {
+        mockUnreadCount = 2;
+      });
+
+    try {
+      await subject.initIntercom();
+      // A background reply is flushed on foreground, where its request fails.
+      mockOnSupportReply?.();
+      await flushEvents();
+      mockAppState.currentState = 'active';
+      mockOnAppStateChange?.('active');
+      await flushEvents();
+      expect(mockRefreshUnreadCount).toHaveBeenCalledTimes(1);
+      expect(subject.getIntercomUnreadCount()).toBe(0);
+      expect(mockSupportLog.intercomUnreadRefreshFailed).toHaveBeenCalledWith({
+        trigger: 'support-push',
+        errorName: 'Error',
+      });
+
+      mockOnAppStateChange?.('background');
+      mockOnAppStateChange?.('active');
+      await flushEvents();
+      expect(mockRefreshUnreadCount).toHaveBeenCalledTimes(2);
+      expect(subject.getIntercomUnreadCount()).toBe(2);
+      expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+        result: 'resynced',
+      });
+
+      mockOnAppStateChange?.('background');
+      mockOnAppStateChange?.('active');
+      await flushEvents();
+      expect(mockRefreshUnreadCount).toHaveBeenCalledTimes(2);
+    } finally {
+      mockOnAppStateChange?.('background');
+      warning.mockRestore();
+    }
+  });
+
+  it('does not report an Android server refresh on binaries without the bridge', async () => {
+    mockPlatformEnv.isNativeAndroid = true;
+    mockAppState.currentState = 'active';
+    mockNativeModules.OneKeyIntercom.refreshUnreadCount = undefined;
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await subject.initIntercom();
+      mockSdk.updateUser.mockClear();
+      mockOnSupportReply?.();
+      await flushEvents();
+      expect(mockSdk.updateUser).not.toHaveBeenCalled();
+      expect(mockSupportLog.supportReplyResync).not.toHaveBeenCalled();
+      expect(mockSupportLog.intercomUnreadRefreshFailed).toHaveBeenCalledWith({
+        trigger: 'support-push',
+        errorName: 'Error',
+      });
+    } finally {
+      mockOnAppStateChange?.('background');
+      warning.mockRestore();
+    }
+  });
+
+  it('defers a support reply received in the background to the next foreground', async () => {
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'deferred-to-foreground',
+    });
+
+    mockUnreadCount = 2;
+    mockAppState.currentState = 'active';
+    mockOnAppStateChange?.('active');
+    await flushEvents();
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    expect(subject.getIntercomUnreadCount()).toBe(2);
+
+    // The pending resync runs once.
+    mockOnAppStateChange?.('background');
+    mockOnAppStateChange?.('active');
+    await flushEvents();
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    mockOnAppStateChange?.('background');
+  });
+
+  it('does not resync a support reply into a switched identity', async () => {
+    mockAppState.currentState = 'active';
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    // The wallet switched accounts before the push arrived; the new session
+    // has not been established yet.
+    mockUserId = 'B';
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSdk.updateUser).not.toHaveBeenCalled();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'identity-changed',
+    });
+    mockOnAppStateChange?.('background');
+  });
+
+  it('leaves a support reply to a session sync that is still running', async () => {
+    mockAppState.currentState = 'active';
+    mockUserId = 'A';
+    mockGetCustomerJWT.mockResolvedValue({ token: createToken('intercom-A') });
+    await subject.initIntercom();
+    mockSdk.updateUser.mockClear();
+
+    // The next identity's JWT request hangs; the push must not wait on it.
+    mockUserId = 'B';
+    const jwt = deferred<{ token: string }>();
+    mockGetCustomerJWT.mockReturnValueOnce(jwt.promise);
+    const switching = subject.initIntercom();
+    await flushEvents();
+    mockOnSupportReply?.();
+    await flushEvents();
+    expect(mockSupportLog.supportReplyResync).toHaveBeenLastCalledWith({
+      result: 'session-syncing',
+    });
+
+    jwt.resolve({ token: createToken('intercom-B') });
+    await switching;
+    // The finished sync ran its own resync.
+    expect(mockSdk.updateUser).toHaveBeenCalledTimes(1);
+    mockOnAppStateChange?.('background');
+  });
+
   it('preserves support access on older binaries or without SDK configuration', async () => {
     mockNativeModules.OneKeyIntercom.initialized = false;
     await subject.initIntercom();
@@ -418,18 +616,16 @@ describe('native Intercom SDK integration', () => {
     expect(subject.getIntercomUnreadCount()).toBe(0);
   });
 
-  it('opens the hosted page instead of the SDK while a support URL override is set', async () => {
-    mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
-    await subject.showIntercom({ requestId: 'request-1' });
-    expect(mockWebIntercom).toHaveBeenCalledWith({ requestId: 'request-1' });
-    expect(mockSdk.present).not.toHaveBeenCalled();
-
-    mockSupportUrlOverride = undefined;
-    // Skip the duplicate-open cooldown left by the first presentation.
-    await subject.showIntercom({ requestId: 'request-2' });
-    expect(mockWebIntercom).toHaveBeenCalledTimes(1);
-    expect(mockSdk.present).toHaveBeenCalledTimes(1);
-  });
+  it.each(['ios', 'android'])(
+    'keeps %s support on the SDK while a support URL override is set',
+    async (platform) => {
+      mockPlatformEnv.isNativeAndroid = platform === 'android';
+      mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
+      await subject.showIntercom({ requestId: 'request-1' });
+      expect(mockWebIntercom).not.toHaveBeenCalled();
+      expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps notification conversations on the SDK while a support URL override is set', async () => {
     mockSupportUrlOverride = 'https://intercom-preview.onekey.test/';
@@ -450,6 +646,34 @@ describe('native Intercom SDK integration', () => {
     mockPlatformEnv.isNativeMainThread = false;
     await subject.setIntercomMessengerLocked(true, policy);
     expect(mockUpdateLockPolicy).not.toHaveBeenCalled();
+  });
+
+  it.each([1, 2])(
+    'opens the message list when there are %i unread conversations',
+    async (count) => {
+      mockUnreadCount = count;
+      await subject.showIntercom();
+      expect(mockSdk.presentSpace).toHaveBeenCalledWith('MESSAGES');
+      expect(mockSdk.present).not.toHaveBeenCalled();
+      expect(mockSdk.presentContent).not.toHaveBeenCalled();
+      expect(subject.getIntercomUnreadCount()).toBe(count);
+    },
+  );
+
+  it('keeps an explicit conversation ahead of the unread message list', async () => {
+    mockUnreadCount = 2;
+    await subject.showIntercom({ conversationId: 'conversation-1' });
+    expect(mockSdk.presentContent).toHaveBeenCalledWith({
+      id: 'conversation-1',
+    });
+    expect(mockSdk.presentSpace).not.toHaveBeenCalled();
+    expect(mockSdk.present).not.toHaveBeenCalled();
+  });
+
+  it('opens the default messenger when there are no unread conversations', async () => {
+    await subject.showIntercom();
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    expect(mockSdk.presentSpace).not.toHaveBeenCalled();
   });
 
   it('retries an initialization cancelled by a transient account change', async () => {

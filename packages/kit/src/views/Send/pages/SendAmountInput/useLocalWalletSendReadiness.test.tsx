@@ -12,6 +12,7 @@ let mockRequest:
 const mockRun = jest.fn(async () => undefined);
 const mockRequestSync = jest.fn<Promise<void>, [object]>(async () => undefined);
 const mockPageOpened = jest.fn<Promise<void>, [object]>(async () => undefined);
+const mockPrewarm = jest.fn<Promise<void>, [object]>(async () => undefined);
 const mockGetReadiness = jest.fn<
   Promise<ILocalWalletSendReadiness | undefined>,
   [{ networkId: string; accountId: string; sourcePool?: string }]
@@ -23,6 +24,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     servicePrivacyChain: {
       requestLocalWalletSendSync: (params: object) => mockRequestSync(params),
       onLocalWalletPageOpened: (params: object) => mockPageOpened(params),
+      prewarmLocalWalletSend: (params: object) => mockPrewarm(params),
       getLocalWalletSendReadiness: (params: {
         networkId: string;
         accountId: string;
@@ -68,6 +70,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   getLocalWalletSendSyncStatusText,
+  useLocalWalletSendPrewarm,
   useLocalWalletSendReadiness,
 } from './useLocalWalletSendReadiness';
 
@@ -215,5 +218,37 @@ describe('useLocalWalletSendReadiness', () => {
     mockGetReadiness.mockRejectedValueOnce(new Error('bg gone'));
     await expect(mockRequest?.()).rejects.toThrow('bg gone');
     expect(result.current.isWaitingForSync).toBe(true);
+  });
+});
+
+describe('useLocalWalletSendPrewarm', () => {
+  beforeEach(() => {
+    mockPrewarm.mockClear();
+  });
+
+  // The send sync needs the thread first; prewarming then runs while the amount is typed.
+  it('waits for the send sync before prewarming', () => {
+    const params = {
+      enabled: true,
+      networkId: 'zec--0',
+      accountId: 'account',
+      sourcePool: 'ironwood',
+      toAddress: 'u1-recipient',
+      isWaitingForSync: true,
+    };
+    const { rerender } = renderHook(
+      (hookParams: typeof params) => useLocalWalletSendPrewarm(hookParams),
+      { initialProps: params },
+    );
+    expect(mockPrewarm).not.toHaveBeenCalled();
+
+    rerender({ ...params, isWaitingForSync: false });
+    expect(mockPrewarm).toHaveBeenCalledTimes(1);
+    expect(mockPrewarm).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountId: 'account',
+      sourcePool: 'ironwood',
+      toAddress: 'u1-recipient',
+    });
   });
 });

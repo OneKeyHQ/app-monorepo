@@ -240,16 +240,20 @@ export function useAccountSelectorCreateAddress() {
           }
         }
 
-        // If indexedAccountId was empty, get the first indexed account from wallet
+        // Empty-wallet creation requested index 0; list order may put another index first.
         let resultIndexedAccountId = account?.indexedAccountId;
         if (!resultIndexedAccountId && account?.walletId) {
+          const createdIndexedAccountId = accountUtils.buildIndexedAccountId({
+            walletId: account.walletId,
+            index: 0,
+          });
           const { accounts: indexedAccounts } =
             await serviceAccount.getIndexedAccountsOfWallet({
               walletId: account.walletId,
             });
-          if (indexedAccounts.length > 0) {
-            resultIndexedAccountId = indexedAccounts[0].id;
-          }
+          resultIndexedAccountId = indexedAccounts.find(
+            (indexedAccount) => indexedAccount.id === createdIndexedAccountId,
+          )?.id;
         }
 
         return handleAddAccounts({
@@ -262,8 +266,7 @@ export function useAccountSelectorCreateAddress() {
       const addAccounts = async () => {
         try {
           if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
-            await addAccountsForAllNetwork();
-            return;
+            return await addAccountsForAllNetwork();
           }
           // If indexedAccountId is empty, create the first account (index 0)
           const indexes = account?.indexedAccountId ? undefined : [0];

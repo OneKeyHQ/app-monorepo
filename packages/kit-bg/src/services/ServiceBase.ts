@@ -4,11 +4,13 @@ import {
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ONEKEY_ID_OAUTH_BIND_PATH } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimeMasterPasswordInvalid,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyErrorPrimeUserBanned,
 } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -16,7 +18,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { takeRequestAuthTokenOfError } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
+import {
+  PRIME_USER_BANNED_CODE,
+  isPrimeUserBannedError,
+} from '@onekeyhq/shared/src/prime/primeUserBanned';
+import {
+  ONEKEY_REQUEST_TOKEN_HEADER,
+  readRequestAuthTokenHeader,
+  takeRequestAuthContextOfError,
+} from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -25,7 +35,7 @@ import { getEndpointInfo } from '../endpoints';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -33,10 +43,6 @@ export type IServiceBaseProps = {
 
 // Must use global variables, not class properties, otherwise independent properties will be generated in multiple service instances, causing the judgment to fail
 let hideTimer: Array<ReturnType<typeof setTimeout> | undefined> = [];
-
-const ONEKEY_REQUEST_TOKEN_HEADER = 'X-Onekey-Request-Token';
-const ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE =
-  ONEKEY_REQUEST_TOKEN_HEADER.toLowerCase();
 
 const _oneKeyIdAuthClientsMap: Partial<
   Record<EServiceEndpointEnum, AxiosInstance | undefined>
@@ -59,6 +65,52 @@ export default class ServiceBase {
   getRawDataClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getRawDataClient(await getEndpointInfo({ name }));
 
+  private async signOutRejectedOneKeyIdSession({
+    requestAuthToken,
+    errorCode,
+    errorMessage,
+    requestUrl,
+  }: {
+    requestAuthToken: string;
+    errorCode?: number;
+    errorMessage?: string;
+    requestUrl?: string;
+  }) {
+    // A bind rejection can describe the incoming OAuth identity, not the
+    // signed-in account.
+    if (
+      errorCode === PRIME_USER_BANNED_CODE &&
+      requestUrl?.split('?')[0].endsWith(ONEKEY_ID_OAUTH_BIND_PATH)
+    ) {
+      return;
+    }
+    try {
+      const clearResult =
+        await this.backgroundApi.servicePrime.handlePrimeLoginInvalidToken({
+          requestAuthToken,
+          errorCode,
+          errorMessage,
+          requestUrl,
+        });
+      if (clearResult.cleared) {
+        appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
+          authSessionSource: clearResult.authSessionSource,
+          clearedByBackground: true,
+          authStateGeneration: clearResult.authStateGeneration,
+        });
+      }
+    } catch (handlerError) {
+      // Handler failure must not mask the server error the caller throws.
+      defaultLogger.prime.subscription.onekeyIdInvalidToken({
+        url: requestUrl || '',
+        errorCode: errorCode ?? -1,
+        errorMessage: `handlePrimeLoginInvalidToken failed: ${String(
+          handlerError,
+        )}`,
+      });
+    }
+  }
+
   getOneKeyIdClient = async (name: EServiceEndpointEnum) => {
     if (!_oneKeyIdAuthClientsMap[name]) {
       // Use a dedicated client instance so the auth/prime interceptors below
@@ -68,14 +120,9 @@ export default class ServiceBase {
       );
       client.interceptors.request.use(async (config) => {
         const headers = config.headers as {
-          get?: (headerName: string) => unknown;
           set?: (headerName: string, value: string) => void;
         } & Record<string, unknown>;
-        const explicitAuthToken =
-          headers?.get?.(ONEKEY_REQUEST_TOKEN_HEADER) ||
-          headers?.[ONEKEY_REQUEST_TOKEN_HEADER] ||
-          headers?.[ONEKEY_REQUEST_TOKEN_HEADER_LOWERCASE];
-        if (explicitAuthToken) {
+        if (readRequestAuthTokenHeader(headers)) {
           return config;
         }
 
@@ -103,13 +150,25 @@ export default class ServiceBase {
         return config;
       });
       client.interceptors.response.use(
-        (response) => {
-          const r = response;
-          return r;
+        async (response) => {
+          // This also covers autoHandleError:false callers before they can
+          // interpret a banned OAuth response as an account ownership conflict.
+          if (Number(response.data?.code) === PRIME_USER_BANNED_CODE) {
+            await this.signOutRejectedOneKeyIdSession({
+              requestAuthToken: readRequestAuthTokenHeader(
+                response.config.headers,
+              ),
+              errorCode: PRIME_USER_BANNED_CODE,
+              requestUrl: response.config.url,
+            });
+            throw new OneKeyErrorPrimeUserBanned();
+          }
+          return response;
         },
         async (error) => {
           const errorData = error as {
             requestId?: string;
+            config?: InternalAxiosRequestConfig;
             data: {
               code: number;
               message: string;
@@ -118,60 +177,53 @@ export default class ServiceBase {
             };
           };
           const errorMessage: string | undefined = errorData?.data?.message;
-          // check invalid token and logout
-          const errorCode: number | undefined = errorData?.data?.code;
+          const isBanned = isPrimeUserBannedError(error);
+          // A banned OneKey ID is signed out like an invalid session.
+          const errorCode: number | undefined = isBanned
+            ? PRIME_USER_BANNED_CODE
+            : errorData?.data?.code;
           // TODO 90_002 sdk refresh token required
           // TODO 90_003 user login required
-          if ([90_002, 90_003].includes(errorCode)) {
+          if (isBanned || [90_002, 90_003].includes(errorCode)) {
             // Read-and-delete from the module-private WeakMap stash written
             // by the global axios interceptor: the X-Onekey-Request-Token
             // the failed request carried (never a property on the error —
             // errors escape to console.error / error collection).
-            const requestAuthToken = takeRequestAuthTokenOfError(error);
+            const stashed = takeRequestAuthContextOfError(error);
+            const failedConfig = errorData?.config;
+            const requestAuthToken =
+              stashed.requestAuthToken ||
+              readRequestAuthTokenHeader(failedConfig?.headers);
+            // Converted errors may record only the service origin.
+            const requestUrl =
+              stashed.requestUrl ||
+              failedConfig?.url ||
+              errorData?.data?.requestUrl;
             defaultLogger.prime.subscription.onekeyIdInvalidToken({
-              url: errorData?.data?.requestUrl || '',
+              url: requestUrl || '',
               errorCode,
               errorMessage: errorMessage || '',
             });
+            await this.signOutRejectedOneKeyIdSession({
+              requestAuthToken,
+              errorCode,
+              errorMessage,
+              requestUrl,
+            });
+            if (isBanned) {
+              throw new OneKeyErrorPrimeUserBanned();
+            }
             const invalidTokenError = new OneKeyErrorPrimeLoginInvalidToken({
               message: errorMessage,
             });
             // The marker means "handled OR attempted": it is set even when
-            // the handler below fails, so downstream matchers (e.g.
+            // the handler failed, so downstream matchers (e.g.
             // ServicePrime.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError)
             // never run handlePrimeLoginInvalidToken a second time — by
             // then the auth session source may already be cleared, and a
             // second pass would fall back to the wrong source and emit a
             // duplicate PrimeLoginInvalidToken event.
             invalidTokenError.$$invalidTokenHandled = true;
-            try {
-              const clearResult =
-                await this.backgroundApi.servicePrime.handlePrimeLoginInvalidToken(
-                  {
-                    requestAuthToken,
-                    errorCode,
-                    errorMessage,
-                    requestUrl: errorData?.data?.requestUrl,
-                  },
-                );
-              if (clearResult.cleared) {
-                appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, {
-                  authSessionSource: clearResult.authSessionSource,
-                  clearedByBackground: true,
-                  authStateGeneration: clearResult.authStateGeneration,
-                });
-              }
-            } catch (handlerError) {
-              // Handler failure must not mask the invalid-token error: log
-              // and still throw the marked OneKeyErrorPrimeLoginInvalidToken.
-              defaultLogger.prime.subscription.onekeyIdInvalidToken({
-                url: errorData?.data?.requestUrl || '',
-                errorCode,
-                errorMessage: `handlePrimeLoginInvalidToken failed: ${String(
-                  handlerError,
-                )}`,
-              });
-            }
             throw invalidTokenError;
           }
           if ([90_004].includes(errorCode)) {

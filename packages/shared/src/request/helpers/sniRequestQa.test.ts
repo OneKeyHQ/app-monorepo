@@ -19,5 +19,17 @@ describe('getSniRequestErrorCode', () => {
         ),
       ),
     ).toBe('SNI_CANCELLED');
+    expect(
+      getSniRequestErrorCode(
+        new Error(
+          "Error invoking remote method 'DESKTOP_API_CALL': Error: connect ECONNREFUSED 93.184.216.34:443",
+        ),
+      ),
+    ).toBe('SNI_CONNECTION_REFUSED');
+    expect(
+      getSniRequestErrorCode(
+        new Error('getaddrinfo ENOTFOUND wallet.onekeycn.com'),
+      ),
+    ).toBe('SNI_DNS_FAILED');
   });
 });

@@ -73,7 +73,6 @@ import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowser
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
-// import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBrowserChromeAnimation from '../../hooks/useMobileBrowserChromeAnimation';
 import {
   useActiveTabId,
@@ -488,9 +487,13 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // phone layouts keep Market, Earn, and Browser in the outer pager.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
+  // Keep each Android foldable pane's pager mounted across posture changes.
+  const useFoldablePager =
+    platformEnv.isNativeAndroid &&
+    isDualScreen &&
+    (isTabletMainView || isTabletDetailView);
+  const useOuterPager =
+    useFoldablePager || (!isTabletMainView && !isTabletDetailView);
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -590,7 +593,21 @@ function MobileBrowser() {
 
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
-  }, []);
+    if (
+      useFoldablePager &&
+      isTabletMainView &&
+      !displayHomePage &&
+      selectedHeaderTab === ETranslations.global_browser
+    ) {
+      setDisplayHomePage(true);
+    }
+  }, [
+    useFoldablePager,
+    isTabletMainView,
+    displayHomePage,
+    selectedHeaderTab,
+    setDisplayHomePage,
+  ]);
 
   const isShowContent = useMemo(() => {
     if (
@@ -666,7 +683,6 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            // Tablet has no outer pager updates, so omit its shared position.
             pageScrollPosition={
               useOuterPager ? outerPageScrollPosition : undefined
             }
@@ -693,27 +709,31 @@ function MobileBrowser() {
               onVisiblePagesChange={handleVisiblePagesChange}
               onTransitioningChange={setIsOuterPageTransitioning}
               earnContent={
-                <EarnHomeWithProvider
-                  showHeader={false}
-                  showContent={selectedHeaderTab === ETranslations.global_earn}
-                  isVisible={isEarnPageVisible}
-                  bannerAutoPlayEnabled={
-                    showDiscoveryPage &&
-                    !isOuterPageTransitioning &&
-                    visibleOuterPages.length === 1 &&
-                    visibleOuterPages[0] === 0
-                  }
-                  defaultTab={earnTab}
-                  tabsRef={earnTabsRef}
-                  useSwipePager={useOuterPager}
-                  earnBorrowPagerRef={earnBorrowPagerRef}
-                />
+                !useFoldablePager || isShowContent ? (
+                  <EarnHomeWithProvider
+                    showHeader={false}
+                    showContent={
+                      selectedHeaderTab === ETranslations.global_earn
+                    }
+                    isVisible={isEarnPageVisible}
+                    bannerAutoPlayEnabled={
+                      showDiscoveryPage &&
+                      !isOuterPageTransitioning &&
+                      visibleOuterPages.length === 1 &&
+                      visibleOuterPages[0] === 0
+                    }
+                    defaultTab={earnTab}
+                    tabsRef={earnTabsRef}
+                    useSwipePager={useOuterPager}
+                    earnBorrowPagerRef={earnBorrowPagerRef}
+                  />
+                ) : null
               }
               browserContent={
                 <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
                     {browserDashboardContent}
-                    {platformEnv.isNativeAndroid ? (
+                    {platformEnv.isNativeAndroid && !useFoldablePager ? (
                       <Animated.View
                         collapsable={false}
                         pointerEvents={
@@ -740,9 +760,10 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* iOS WebView layer: ends above the bottom bar (see
-                useMobileBrowserChromeAnimation). */}
-            {platformEnv.isNativeIOS ? (
+            {/* Split-view web pages belong to the detail pane and stay outside
+                its pager so folding cannot move or recreate the WebView. */}
+            {platformEnv.isNativeIOS ||
+            (useFoldablePager && !isTabletMainView) ? (
               <Animated.View
                 collapsable={false}
                 pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}

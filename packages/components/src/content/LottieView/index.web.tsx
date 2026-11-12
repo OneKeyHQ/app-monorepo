@@ -22,7 +22,15 @@ const LottieViewWeb = lazy(() => import('lottie-react'));
 
 export const LottieView = forwardRef<ILottieViewHandle, ILottieViewProps>(
   (
-    { source, autoPlay = false, loop, onAnimationFinish, onComplete, ...props },
+    {
+      source,
+      autoPlay = false,
+      loop,
+      nativeProgress: _nativeProgress,
+      onAnimationFinish,
+      onComplete,
+      ...props
+    },
     ref,
   ) => {
     const [restProps, style] = usePropsAndStyle(props, {
