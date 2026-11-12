@@ -1562,7 +1562,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
           32 +
           50;
-      } else if (hasUserFavorites && !showRecommendCards) {
+      } else if (
+        !platformEnv.isNativeAndroid &&
+        hasUserFavorites &&
+        !showRecommendCards
+      ) {
         contentMinHeight =
           HOME_MARKET_CATEGORY_REQUEST_LIMIT *
             HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
