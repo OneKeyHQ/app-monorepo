@@ -8,8 +8,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { prewarmColdStartImagesFromSnapshot } from '../../utils/coldStartImagePreload';
-
 // Web/desktop gate the React mount on BOTH:
 //   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
 //     reconciled from JotaiStorage IDB into the jotai store, so first render
@@ -88,10 +86,6 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
   }
 }
 
-async function primeColdStartImagesBeforeRender(): Promise<void> {
-  await prewarmColdStartImagesFromSnapshot();
-}
-
 const jsEntryStart: number =
   (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
@@ -148,14 +142,11 @@ export function GlobalJotaiReady({ children }: { children: any }) {
         setIsReady(true);
       });
     };
-    const releaseAfterImagePrime = () => {
-      void primeColdStartImagesBeforeRender().then(release, release);
-    };
     if (isWebOrDesktop) {
-      void waitForJotaiReadyOnWebOrDesktop().then(releaseAfterImagePrime);
+      void waitForJotaiReadyOnWebOrDesktop().then(release, release);
     } else {
       // Native/extension: single handler, always resolves with `true`.
-      void globalJotaiStorageReadyHandler.ready.then(releaseAfterImagePrime);
+      void globalJotaiStorageReadyHandler.ready.then(release, release);
     }
     return () => {
       isMounted = false;
