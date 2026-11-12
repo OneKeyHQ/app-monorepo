@@ -6,7 +6,6 @@ import {
 } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 
-import tokenRebaseUtils from './tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from './tokenUtils';
 
 import type { ISwapNetwork, ISwapToken } from '../../types/swap/types';
@@ -152,9 +151,8 @@ function getConfiguredNativeCrossChainCounterpart({
   }
 
   if (
-    (configuredTo.balanceMultiplier !== undefined &&
-      typeof configuredTo.balanceMultiplier !== 'string') ||
-    tokenRebaseUtils.isScalingBalanceMultiplier(configuredTo.balanceMultiplier)
+    configuredTo.balanceMultiplier !== undefined &&
+    typeof configuredTo.balanceMultiplier !== 'string'
   ) {
     return undefined;
   }

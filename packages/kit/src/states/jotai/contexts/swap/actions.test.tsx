@@ -10780,6 +10780,26 @@ describe('Recent trades attribution', () => {
     return { store, actions: result.current };
   }
 
+  it.each(['from', 'to'] as const)(
+    'allows selecting a token with a balance multiplier as %s',
+    async (side) => {
+      const { store, actions } = renderActions();
+      const token = { ...usdcToken, balanceMultiplier: '1.5' };
+
+      await act(async () => {
+        await (side === 'from'
+          ? actions.selectFromToken(token)
+          : actions.selectToToken(token));
+      });
+
+      expect(
+        store.get(
+          side === 'from' ? swapSelectFromTokenAtom() : swapSelectToTokenAtom(),
+        ),
+      ).toEqual(token);
+    },
+  );
+
   it('records the picked pair after applying it', async () => {
     const { store, actions } = renderActions();
     await act(async () => {

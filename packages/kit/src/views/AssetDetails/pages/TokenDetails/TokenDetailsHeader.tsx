@@ -134,14 +134,6 @@ export function pushSwapFromTokenDetails({
     return;
   }
 
-  // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
-  // pipeline treats every amount as raw. The entries are disabled for these
-  // tokens; re-check here so no trigger path can seed Swap with a basis out
-  // of sync with the wallet display. A multiplier of exactly 1 is the
-  // documented no-op and must not block.
-  if (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)) {
-    return;
-  }
   const importFromToken: ISwapToken = {
     contractAddress: token.address,
     symbol: token.symbol,
@@ -150,6 +142,7 @@ export function pushSwapFromTokenDetails({
     decimals: token.decimals,
     name: token.name,
     logoURI: token.logoURI,
+    balanceMultiplier: token.balanceMultiplier,
     networkLogoURI,
   };
   defaultLogger.wallet.walletActions.actionTrade({
@@ -516,12 +509,6 @@ function TokenDetailsHeaderContent({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
-  // Scaled-UI (rebase) marker for the swap gate below; also passed into
-  // `pushSwapFromTokenDetails` so its fail-closed re-check sees the same
-  // snapshot the disabled state was derived from. While the details request
-  // is still in flight (or the tab opted out of the tokenMap seed), fall back
-  // to the route token so the loading window stays fail closed instead of
-  // treating a scaled-UI token as a plain one.
   const tokenDetailsBalanceMultiplier =
     tokenRebaseUtils.pickBalanceMultiplier(tokenDetails) ??
     tokenInfo.balanceMultiplier;
@@ -570,16 +557,10 @@ function TokenDetailsHeaderContent({
         contractAddress: tokenInfo.address,
         isNative: tokenInfo.isNative,
         networkId,
-      }) ||
-      // Scaled-UI tokens: Swap would display/build on the raw basis, out of
-      // sync with the wallet display.
-      tokenRebaseUtils.isScalingBalanceMultiplier(
-        tokenDetailsBalanceMultiplier,
-      ),
+      }),
     [
       accountId,
       networkId,
-      tokenDetailsBalanceMultiplier,
       tokenInfo.address,
       tokenInfo.isNative,
       vaultSettings?.disabledSwapAction,
