@@ -138,7 +138,12 @@ function formatNativeLogEvent(
         key === 'requestId' || key === 'ip' || key === 'requestedHost'
           ? String(value ?? 'none').replace(/[\r\n\s]+/g, '_')
           : safeSniLogValue(value);
-      return `${key}=${logValue}`;
+      // Keep long diagnostic IDs recoverable without matching the logger's private-key filter.
+      const displayedValue =
+        key === 'requestId'
+          ? logValue.replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-')
+          : logValue;
+      return `${key}=${displayedValue}`;
     })
     .join(' ');
 }
