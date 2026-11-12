@@ -781,8 +781,10 @@ export function NativeTokenSelectorList({
               token.isNative &&
               token.networkId === networkId &&
               nativeTokenVerification?.networkId === networkId;
+            const isCompactVerification =
+              needsVerification && !platformEnv.isNative && !gtMd;
             const verificationIcon: IdentityRow['titleIcon'] =
-              needsVerification && platformEnv.isNative
+              needsVerification && (platformEnv.isNative || !gtMd)
                 ? {
                     name: 'InfoCircleOutline',
                     tintColor: verificationIconColor,
@@ -790,7 +792,7 @@ export function NativeTokenSelectorList({
                   }
                 : undefined;
             const verificationBadge: IWebLeadingBadge | undefined =
-              needsVerification && !platformEnv.isNative
+              needsVerification && !platformEnv.isNative && gtMd
                 ? {
                     text: intl.formatMessage({
                       id: ETranslations.global_unverified,
@@ -964,7 +966,7 @@ export function NativeTokenSelectorList({
                         ]
                       : undefined,
                     titleIcon,
-                    weight: 2,
+                    weight: isCompactVerification ? 1 : 2,
                   },
                   ...(balanceAccessory
                     ? [
@@ -980,7 +982,9 @@ export function NativeTokenSelectorList({
                           secondaryTextSegments:
                             balanceAccessory.secondaryTextSegments,
                           alignment: 'end' as const,
-                          weight: 1 as const,
+                          weight: isCompactVerification
+                            ? (2 as const)
+                            : (1 as const),
                         },
                       ]
                     : []),

@@ -66,6 +66,7 @@ const mockEmptySubFiatMap = {};
 const mockSwap = jest.fn();
 let mockHomeCellStore: IJotaiContextStore | undefined;
 let mockRowLayoutEngine: 'web' | 'native' = 'web';
+let mockGtMd = false;
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -169,7 +170,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     SizableText: Container,
     Stack: Container,
-    useMedia: () => ({ gtMd: false }),
+    useMedia: () => ({ gtMd: mockGtMd }),
     useTheme: () => ({
       iconCaution: { val: '#B88600' },
       textCaution: { val: '#8F6200' },
@@ -394,14 +395,18 @@ it('omits an absent Home sidecar so token rows remain a valid list input', () =>
 });
 
 it.each([
-  { tableLayout: false, isNative: false },
-  { tableLayout: false, isNative: true },
-  { tableLayout: true, isNative: false },
+  { tableLayout: false, isNative: false, gtMd: false },
+  { tableLayout: false, isNative: false, gtMd: true },
+  { tableLayout: false, isNative: true, gtMd: false },
+  { tableLayout: true, isNative: false, gtMd: false },
+  { tableLayout: true, isNative: false, gtMd: true },
 ])(
-  'marks the native balance for verification and retains the normal details action (table: $tableLayout, native: $isNative)',
-  ({ tableLayout, isNative }) => {
+  'marks the native balance for verification and retains the normal details action (table: $tableLayout, native: $isNative, wide: $gtMd)',
+  ({ tableLayout, isNative, gtMd }) => {
     const wasNative = platformEnv.isNative;
+    const wasGtMd = mockGtMd;
     platformEnv.isNative = isNative;
+    mockGtMd = gtMd;
     mockRowLayoutEngine = isNative ? 'native' : 'web';
     try {
       const token = {
@@ -450,7 +455,14 @@ it.each([
         throw new OneKeyLocalError('Expected balance columns');
       const balance = pending.columns.find(({ key }) => key === 'balance');
       expect(balance).toMatchObject({ text: '2' });
-      if (isNative) {
+      if (!tableLayout) {
+        const compactWeb = !isNative && !gtMd;
+        expect(pending.columns.find(({ key }) => key === 'asset')?.weight).toBe(
+          compactWeb ? 1 : 2,
+        );
+        expect(balance?.weight).toBe(compactWeb ? 2 : 1);
+      }
+      if (isNative || !gtMd) {
         expect(balance?.titleIcon).toEqual({
           name: 'InfoCircleOutline',
           tintColor: '#B88600',
@@ -472,6 +484,25 @@ it.each([
       fireEvent.click(getByTestId(token.$key));
       expect(onPressToken).toHaveBeenCalledTimes(1);
       expect(onPressToken).toHaveBeenCalledWith(token);
+
+      if (!isNative) {
+        mockGtMd = !gtMd;
+        rerender(
+          <NativeTokenSelectorList
+            {...props}
+            nativeTokenVerification={verification}
+          />,
+        );
+        const resized = mockSnapshot?.rows[0];
+        if (resized?.type !== 'dataRow')
+          throw new OneKeyLocalError('Expected balance columns');
+        const resizedBalance = resized.columns.find(
+          ({ key }) => key === 'balance',
+        );
+        expect(Boolean(resizedBalance?.titleIcon)).toBe(gtMd);
+        expect(Boolean(resizedBalance?.webLeadingBadge)).toBe(!gtMd);
+        mockGtMd = gtMd;
+      }
 
       rerender(<NativeTokenSelectorList {...props} />);
       const verified = mockSnapshot?.rows[0];
@@ -517,6 +548,7 @@ it.each([
       }
     } finally {
       platformEnv.isNative = wasNative;
+      mockGtMd = wasGtMd;
       mockRowLayoutEngine = 'web';
     }
   },
