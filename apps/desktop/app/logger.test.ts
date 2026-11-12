@@ -45,7 +45,7 @@ describe('SNI request IDs through the final file logger', () => {
     ['c'.repeat(128), Array<string>(4).fill('c'.repeat(32)).join('-')],
     [
       `request-${'a'.repeat(64)}`,
-      `request-${'a'.repeat(32)}-${'a'.repeat(32)}`,
+      `request%2D${'a'.repeat(32)}-${'a'.repeat(32)}`,
     ],
     [
       '12345678-1234-1234-1234-123456789abc',
@@ -76,5 +76,46 @@ describe('SNI request IDs through the final file logger', () => {
     expect(output).toContain('requestId=[REDACTED]');
     expect(output).not.toContain(hex);
     expect(output).not.toContain('Q'.repeat(32));
+  });
+
+  test('restores mixed IDs exactly and distinguishes different original separator positions', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+    const hex = 'a'.repeat(64);
+    const ids = [
+      `${'a'.repeat(32)}-${hex}`,
+      `${hex}-${'a'.repeat(32)}`,
+      `request+%2D-${hex}-`,
+    ];
+    const outputs: string[] = [];
+    for (const id of ids) {
+      await api.cancelRequest(id);
+      const output = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
+      const displayed = /requestId=([^ ]+)/.exec(output)?.[1];
+      expect(output).toContain('requestIdFormat=hex32');
+      expect(displayed).toBeDefined();
+      expect(decodeURIComponent((displayed ?? '').replace(/-/g, ''))).toBe(id);
+      outputs.push(output);
+    }
+    expect(outputs[0]).not.toBe(outputs[1]);
+  });
+
+  test('distinguishes grouped raw IDs from IDs originally containing separators', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+    const rawId = 'a'.repeat(64);
+    const groupedId = `${'a'.repeat(32)}-${'a'.repeat(32)}`;
+    await api.cancelRequest(rawId);
+    const rawLog = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
+    await api.cancelRequest(groupedId);
+    const groupedLog = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
+
+    expect(rawLog).toContain(`requestId=${groupedId} requestIdFormat=hex32`);
+    expect(groupedLog).toContain(`requestId=${groupedId}`);
+    expect(groupedLog).not.toContain('requestIdFormat=');
+    expect(rawLog).not.toBe(groupedLog);
+
+    await api.cancelRequest('12345678-1234-1234-1234-123456789abc');
+    expect(fileLogger.warn.mock.calls.at(-1)?.[0]).not.toContain(
+      'requestIdFormat=',
+    );
   });
 });

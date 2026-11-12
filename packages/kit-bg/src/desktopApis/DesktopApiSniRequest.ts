@@ -139,11 +139,21 @@ function formatNativeLogEvent(
           ? String(value ?? 'none').replace(/[\r\n\s]+/g, '_')
           : safeSniLogValue(value);
       // Keep long diagnostic IDs recoverable without matching the logger's private-key filter.
-      const displayedValue =
+      let displayedValue =
         key === 'requestId'
           ? logValue.replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-')
           : logValue;
-      return `${key}=${displayedValue}`;
+      if (displayedValue !== logValue) {
+        displayedValue = logValue
+          .split('-')
+          .map((part) =>
+            part
+              .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-')
+              .replace(/%/g, '%25'),
+          )
+          .join('%2D');
+      }
+      return `${key}=${displayedValue}${displayedValue !== logValue ? ' requestIdFormat=hex32' : ''}`;
     })
     .join(' ');
 }
