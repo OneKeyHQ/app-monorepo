@@ -10,6 +10,7 @@ import {
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 import {
+  CENT_PLACES,
   getTickingPlaces,
   getTickingStepSeconds,
   splitTickingValue,
@@ -29,10 +30,17 @@ export const ASTERISK_DROP = 0.16;
 // be seen moving (the cents alone when they move often enough, or when no
 // place allowed would), and re-renders about when that place changes, between
 // once a second and once a minute. It stands still while hidden, loading or
-// off screen
-function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
+// off screen. Written without the digits after its cents, the cents are the
+// place it waits on
+function useTickingTotal(
+  total: number,
+  change24h: number,
+  isRunning: boolean,
+  hidesDigits?: boolean,
+) {
   const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
   const places = getTickingPlaces(perSecond);
+  const lastPlace = hidesDigits ? CENT_PLACES : places;
   const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
   const [now, setNow] = useState(() => Date.now());
   if (anchor.total !== total) {
@@ -44,7 +52,7 @@ function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
           MAX_TICK_MS,
           Math.max(
             MIN_TICK_MS,
-            getTickingStepSeconds(perSecond, places) * 1000,
+            getTickingStepSeconds(perSecond, lastPlace) * 1000,
           ),
         )
       : 0;
@@ -153,17 +161,25 @@ export function TickingTotalValue({
   isHidden: boolean;
   // The copy that is only measured: no motion
   isStatic?: boolean;
-  // No room for them at any size
+  // The total to its cents alone: no room for the digits at any size, or a
+  // page that states it without them
   hidesDigits?: boolean;
   // How wide the digits are at this size; none, nothing
   onDigitsWidth?: (width: number) => void;
 }) {
-  const { value, places } = useTickingTotal(total, change24h, isRunning);
-  const { cents, digits } =
-    hidesDigits || isHidden
-      ? { cents: '', digits: '' }
-      : splitTickingValue(value, places);
-  const hasDigits = digits.length > 0;
+  const { value, places } = useTickingTotal(
+    total,
+    change24h,
+    isRunning,
+    hidesDigits,
+  );
+  const { cents, digits } = isHidden
+    ? { cents: '', digits: '' }
+    : splitTickingValue(value, places);
+  // Cut at its cents wherever digits follow them, drawn or not: the amount
+  // reads the same with them and without
+  const isCut = digits.length > 0;
+  const hasDigits = isCut && !hidesDigits;
   useEffect(() => {
     if (!hasDigits) {
       onDigitsWidth?.(0);
@@ -177,7 +193,7 @@ export function TickingTotalValue({
   return (
     <TotalValue
       value={value}
-      amount={hasDigits ? cents : undefined}
+      amount={isCut ? cents : undefined}
       digits={
         hasDigits ? (
           <EarnTickingDigits

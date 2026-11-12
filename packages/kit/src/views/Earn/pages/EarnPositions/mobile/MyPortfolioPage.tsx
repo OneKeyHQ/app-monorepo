@@ -30,7 +30,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -106,23 +105,6 @@ const isLendingTxTag = (tag: string) =>
 const READS_LENDING_MARKETS = !platformEnv.isNative;
 // The wide layout's column, the wallet DeFi Portfolio's desktop width
 const TABLE_LAYOUT_MAX_WIDTH = 1140;
-
-// Demo review (11-12): the wide page's top as it was, or one of two new
-// arrangements, picked in the browser's storage until one is chosen. B: Net
-// Worth leads, Rewards' figure in its tab. C: Net Worth leads, Rewards at
-// the row's other end with what can be claimed
-type IPortfolioTopVariant = 'b' | 'c';
-function readPortfolioTopVariant(): IPortfolioTopVariant | undefined {
-  if (platformEnv.isNative) {
-    return undefined;
-  }
-  try {
-    const stored = globalThis.localStorage?.getItem('ddPortfolioTop');
-    return stored === 'b' || stored === 'c' ? stored : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 /**
  * The phone "My portfolio" page (OK-61377, figma 29180-108096).
@@ -242,8 +224,6 @@ export function MyPortfolioPage({
     '';
   const homeFigures = useHomeNetWorthFigures(filterAccountKey);
   const homeNetWorth = homeFigures?.value;
-  const [storedTopVariant] = useState(readPortfolioTopVariant);
-  const topVariant = tableLayout ? storedTopVariant : undefined;
   const [networkSelection, setNetworkSelection] = useState<{
     accountKey: string;
     networkIds: string[];
@@ -500,15 +480,6 @@ export function MyPortfolioPage({
       }),
     [rewards?.totals.rewards, view.protocols],
   );
-  // The part of it ready to claim, counted the same way
-  const claimableHeaderFiat = useMemo(
-    () =>
-      sumRewardsHeaderFiat({
-        ledgerRewardsFiatValue: rewards?.totals.claimable,
-        positionRewardsValue: sumEarnClaimableRewards(view.protocols),
-      }),
-    [rewards?.totals.claimable, view.protocols],
-  );
 
   // The card's header line opens the position's own detail page, landing on
   // its Portfolio tab. A loan's card has no such line on web: it carries
@@ -726,13 +697,15 @@ export function MyPortfolioPage({
           label: intl.formatMessage({
             id: ETranslations.earn_rewards,
           }),
-          figure:
-            topVariant === 'b' ? (
-              <EarnPortfolioRewardsTabFigure
-                value={rewardsHeaderFiat}
-                isLoading={isFirstLoad}
-              />
-            ) : undefined,
+          // The wide page's top is Net Worth's: Rewards states its figure
+          // in its tab (11-12)
+          figure: tableLayout ? (
+            <EarnPortfolioRewardsTabFigure
+              value={rewardsHeaderFiat}
+              isLoading={isFirstLoad}
+              onPress={() => handleTabChange('rewards')}
+            />
+          ) : undefined,
         },
       ]}
       value={primaryTab}
@@ -741,18 +714,6 @@ export function MyPortfolioPage({
       bare={tableLayout}
     />
   );
-  // The wallet protocols behind the cards the filter leaves, for the overview
-  const visibleDeFiProtocols = useMemo(() => {
-    const keys = new Set(visibleProtocols.map((protocol) => protocol.key));
-    return view.deFiProtocols.filter((protocol) =>
-      keys.has(
-        defiUtils.buildProtocolMapKey({
-          protocol: protocol.protocol,
-          networkId: protocol.networkId,
-        }),
-      ),
-    );
-  }, [view.deFiProtocols, visibleProtocols]);
 
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -803,22 +764,15 @@ export function MyPortfolioPage({
                 {/* DeFi Assets leaves the positions' rewards out; Rewards counts them.
                     On web the total is the home's Net Worth, the same figure
                     under the same name (demo 10-29) */}
-                {topVariant ? (
+                {tableLayout ? (
                   <EarnPortfolioDesktopHeader
                     netWorth={homeNetWorth ?? String(view.totalValue)}
                     earnings24h={homeFigures?.earnings24h}
                     change24h={homeFigures?.change24h}
-                    showsRewards={topVariant === 'c'}
-                    rewardsFiatValue={rewardsHeaderFiat}
-                    claimableFiatValue={claimableHeaderFiat}
                     isLoading={isFirstLoad}
                     isActive={isFocused}
                     isRefreshing={isManualRefreshing}
                     onRefresh={handleRefresh}
-                    onOpenClaimable={() => {
-                      handleTabChange('rewards');
-                      setStage('claimable');
-                    }}
                   />
                 ) : (
                   <PortfolioTotalsHeader
@@ -858,14 +812,11 @@ export function MyPortfolioPage({
                           focusRequest={focusRequest}
                           focusCardRequest={focusCardRequest}
                           protocols={visibleProtocols}
-                          deFiProtocols={visibleDeFiProtocols}
-                          protocolMap={view.protocolMap}
                           isLoading={isFirstLoad}
                           pendingCountByProvider={pendingCountByProvider}
                           onManage={handleManage}
                           onRedeem={handleRedeem}
                           onWarmRedeem={handleWarmRedeem}
-                          hidesTiles={Boolean(topVariant)}
                         />
                       ) : (
                         <DeFiAssetsTab

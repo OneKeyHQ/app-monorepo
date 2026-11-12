@@ -6,11 +6,6 @@ import { Empty, Spinner, Stack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
-import type {
-  IDeFiProtocol,
-  IProtocolSummary,
-} from '@onekeyhq/shared/types/defi';
 
 import { EarnTestIDs } from '../../../testIDs';
 import { GroupRow, useGroupExpansion } from '../mobile/GroupRow';
@@ -28,39 +23,33 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 /**
  * DeFi Assets in the wide layout, the way the wallet DeFi Portfolio reads on
  * desktop: the allocation overview, then one open card per protocol per
- * network, its holdings as tables. A tile opens its card and scrolls the
- * page to it. The phone tab's empty and loading states.
+ * network, its holdings as tables. A share of the overview's bar opens its
+ * cards and scrolls the page to them. The phone tab's empty and loading
+ * states.
  */
 function BasicDeFiAssetsDesktopTab({
   focusRequest,
   focusCardRequest,
   protocols,
-  deFiProtocols,
-  protocolMap,
   isLoading,
   pendingCountByProvider,
   onManage,
   onRedeem,
   onWarmRedeem,
-  hidesTiles,
 }: {
   /** A share of the home's split: its protocols' cards, once they are in */
   focusRequest?: { protocols: string[]; at: number };
   /** A Your loans card: its market's one card, once it is in */
   focusCardRequest?: { cardKeys: string[]; at: number };
   protocols: IEarnProtocolView[];
-  deFiProtocols: IDeFiProtocol[];
-  protocolMap: Record<string, IProtocolSummary>;
   isLoading: boolean;
   pendingCountByProvider: Record<string, number>;
-  /** the overview as the bar alone */
-  hidesTiles?: boolean;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const expansion = useGroupExpansion();
   const networkNames = useRepeatedProtocolNetworkNames(protocols);
-  // The cards a tile or a request scrolls to, as the wallet's tiles do
+  // The cards a share of the bar or a request scrolls to
   const { flashKeys, registerAnchor, scrollToCards } = useCardFocus({
     isOpen: expansion.isExpanded,
     open: expansion.open,
@@ -71,17 +60,6 @@ function BasicDeFiAssetsDesktopTab({
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-  const handlePressProtocol = useCallback(
-    (protocol: IDeFiProtocol) => {
-      scrollToCards([
-        defiUtils.buildProtocolMapKey({
-          protocol: protocol.protocol,
-          networkId: protocol.networkId,
-        }),
-      ]);
-    },
-    [scrollToCards],
-  );
   // A share of the split is a protocol across networks, "N more" several:
   // all their cards, the page scrolled to the first of them
   const handleOpenSplitProtocols = useCallback(
@@ -134,12 +112,7 @@ function BasicDeFiAssetsDesktopTab({
     <YStack gap="$8" pb="$4">
       <EarnPortfolioOverview
         protocols={protocols}
-        deFiProtocols={deFiProtocols}
-        protocolMap={protocolMap}
-        networkNames={networkNames}
-        onPressProtocol={handlePressProtocol}
         onOpenSplitProtocols={handleOpenSplitProtocols}
-        hidesTiles={hidesTiles}
       />
       {placeholder}
       {protocols.length > 0 ? (

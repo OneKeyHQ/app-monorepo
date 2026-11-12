@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-const CENT_PLACES = 2;
+export const CENT_PLACES = 2;
 // Past the cents, a total shows at most this many places in all
 const MAX_PLACES = 8;
 // The last place shown changes at least this often, in a second
