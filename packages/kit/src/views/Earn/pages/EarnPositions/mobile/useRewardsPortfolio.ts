@@ -9,11 +9,12 @@ import type {
   IEarnRewardsPortfolioStage,
 } from '@onekeyhq/shared/types/staking';
 
+import { earnPortfolioAccountScope } from '../../../utils/portfolioAccountScope';
+
 /**
  * Pages fetched past the first one, tied to the first page they extend
- * (its scope + asOf). A scope change or a refresh replaces the first page,
- * so its key changes and rows of the previous page set are dropped, even
- * when a load-more request for them is still in flight.
+ * (its scope generation and read sequence). A successful first-page refresh
+ * replaces the page set even if the server returns the same asOf value.
  */
 type IPagedRewards = {
   baseKey: string;
@@ -28,13 +29,17 @@ type IPagedRewards = {
  */
 type IRewardsRead = {
   scopeKey: string;
+  generation: number;
+  readSequence?: number;
   response?: IEarnRewardsPortfolioResponse;
 };
 
 const EMPTY_PAGES: IEarnRewardsPortfolioResponse[] = [];
 
 function baseKeyOf(read: IRewardsRead | undefined) {
-  return read?.response ? `${read.scopeKey}:${read.response.asOf}` : undefined;
+  return read?.response
+    ? JSON.stringify([read.scopeKey, read.generation, read.readSequence])
+    : undefined;
 }
 
 /**
@@ -66,21 +71,32 @@ export function useRewardsPortfolio({
   const indexedAccountId =
     account?.indexedAccountId || indexedAccount?.id || '';
   const hasAccount = Boolean(accountId || indexedAccountId);
-  const scopeKey = [accountId, indexedAccountId, stage, ...networkIds].join(
-    '|',
-  );
+  const scopeKey = JSON.stringify([
+    earnPortfolioAccountScope({ account, indexedAccountId }),
+    stage,
+    networkIds,
+  ]);
   const lastReadRef = useRef<IRewardsRead | undefined>(undefined);
+  const readSequenceRef = useRef(0);
   // The scope the page is on, read as a request lands: a read of a scope
   // the page has since left must not stand in as the last read, or a
   // failed refresh of the current scope would show it empty.
-  const scopeKeyRef = useRef(scopeKey);
-  scopeKeyRef.current = scopeKey;
+  const scopeRef = useRef({ scopeKey, generation: 0 });
+  if (scopeRef.current.scopeKey !== scopeKey) {
+    scopeRef.current = {
+      scopeKey,
+      generation: scopeRef.current.generation + 1,
+    };
+  }
+  const { generation } = scopeRef.current;
 
   const { result, isLoading, run } = usePromiseResult<IRewardsRead | undefined>(
     async () => {
       if (!hasAccount || !isActive) {
         return undefined;
       }
+      readSequenceRef.current += 1;
+      const readSequence = readSequenceRef.current;
       try {
         const response =
           await backgroundApiProxy.serviceStaking.getRewardsPortfolio({
@@ -90,8 +106,11 @@ export function useRewardsPortfolio({
             stage,
             networkIds,
           });
-        const read = { scopeKey, response };
-        if (scopeKeyRef.current === scopeKey) {
+        const read = { scopeKey, generation, readSequence, response };
+        if (
+          scopeRef.current.generation === generation &&
+          readSequenceRef.current === readSequence
+        ) {
           lastReadRef.current = read;
         }
         return read;
@@ -100,7 +119,9 @@ export function useRewardsPortfolio({
         // read of a new scope shows that scope empty rather than the
         // previous scope's rewards, or a spinner for good.
         const last = lastReadRef.current;
-        return last?.scopeKey === scopeKey ? last : { scopeKey };
+        return last?.scopeKey === scopeKey && last.generation === generation
+          ? last
+          : { scopeKey, generation };
       }
     },
     [
@@ -111,6 +132,7 @@ export function useRewardsPortfolio({
       networkIds,
       isActive,
       scopeKey,
+      generation,
     ],
     {
       watchLoading: true,
@@ -120,15 +142,24 @@ export function useRewardsPortfolio({
 
   // A read of another scope is the previous scope's: the new one is on its
   // way, which the hook's own loading flag reports only a render later.
-  const isScopeStale = result !== undefined && result.scopeKey !== scopeKey;
-  const read = result?.scopeKey === scopeKey ? result : undefined;
+  const isScopeStale =
+    result !== undefined &&
+    (result.scopeKey !== scopeKey || result.generation !== generation);
+  const read =
+    result?.scopeKey === scopeKey && result.generation === generation
+      ? result
+      : undefined;
   const firstPage = read?.response;
 
   const [pagedRewards, setPagedRewards] = useState<IPagedRewards>();
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const loadingMoreRequestRef = useRef<symbol | undefined>(undefined);
+  const [loadingMoreKey, setLoadingMoreKey] = useState<string>();
+  const loadingMoreRequestRef = useRef<
+    { request: symbol; baseKey: string } | undefined
+  >(undefined);
 
   const baseKey = baseKeyOf(read);
+  const baseKeyRef = useRef(baseKey);
+  baseKeyRef.current = baseKey;
   const pages =
     pagedRewards && pagedRewards.baseKey === baseKey
       ? pagedRewards.pages
@@ -147,12 +178,19 @@ export function useRewardsPortfolio({
 
   const loadMore = useCallback(async () => {
     const cursor = rewards?.cursor;
-    if (!cursor || !baseKey || !hasAccount || loadingMoreRequestRef.current) {
+    if (
+      !cursor ||
+      !baseKey ||
+      !hasAccount ||
+      scopeRef.current.generation !== generation ||
+      baseKeyRef.current !== baseKey ||
+      loadingMoreRequestRef.current?.baseKey === baseKey
+    ) {
       return;
     }
     const request = Symbol('rewardsLoadMore');
-    loadingMoreRequestRef.current = request;
-    setIsLoadingMore(true);
+    loadingMoreRequestRef.current = { request, baseKey };
+    setLoadingMoreKey(baseKey);
     try {
       const next = await backgroundApiProxy.serviceStaking.getRewardsPortfolio({
         accountId,
@@ -162,25 +200,43 @@ export function useRewardsPortfolio({
         cursor,
         networkIds,
       });
-      setPagedRewards((prev) =>
-        prev && prev.baseKey === baseKey
+      if (
+        scopeRef.current.generation !== generation ||
+        baseKeyRef.current !== baseKey
+      )
+        return;
+      setPagedRewards((prev) => {
+        if (
+          scopeRef.current.generation !== generation ||
+          baseKeyRef.current !== baseKey
+        )
+          return prev;
+        return prev && prev.baseKey === baseKey
           ? { baseKey, pages: [...prev.pages, next] }
-          : { baseKey, pages: [next] },
-      );
+          : { baseKey, pages: [next] };
+      });
     } catch {
       // Keep the loaded pages; the next scroll retries this cursor.
     } finally {
-      if (loadingMoreRequestRef.current === request) {
+      if (loadingMoreRequestRef.current?.request === request) {
         loadingMoreRequestRef.current = undefined;
-        setIsLoadingMore(false);
+        setLoadingMoreKey(undefined);
       }
     }
-  }, [rewards, baseKey, hasAccount, accountId, indexedAccountId, networkIds]);
+  }, [
+    rewards,
+    baseKey,
+    hasAccount,
+    accountId,
+    indexedAccountId,
+    networkIds,
+    generation,
+  ]);
 
   return {
     rewards,
     isLoading: Boolean(isLoading) || isScopeStale,
-    isLoadingMore,
+    isLoadingMore: Boolean(baseKey && loadingMoreKey === baseKey),
     hasMore: Boolean(rewards?.cursor),
     loadMore,
     refresh: run,

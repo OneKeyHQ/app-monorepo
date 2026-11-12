@@ -16,6 +16,23 @@ state. A request finishing, an event being emitted, and a visible position
 updating are three different checkpoints. Check who mounts the listener; a
 background settlement refresh must not accidentally depend on opening History.
 
+## Earn Providers And Tasks
+
+For protocol-specific behavior, start with `packages/kit/src/views/Earn/protocols/`:
+`getEarnProtocol` selects an `EarnProtocol` implementation, whose policies and
+plans describe provider differences in assets, deposits, withdrawals, and
+presentation. Trace the relevant policy through its actual caller before adding
+another provider branch to a shared form. For EtherFi, inspect
+`EtherFiEarnProtocol.ts` and its action hooks together with the service response;
+the selected entry asset, vault share, and withdrawal output have distinct roles.
+
+Shared task identity and step state live in `Earn/tasks/earnTaskPlan.ts` and
+`earnWorkflowTaskState.ts`; `earnWorkflowTaskController.ts` coordinates step
+adapters. Deposit adapters live under `Staking/earnDepositTask/`, and individual
+protocol withdrawal adapters live alongside the Earn protocols. Borrow has its
+own task adapters. Follow the actual action path: a shared task primitive does not
+mean every protocol or action has the same setup or settlement contract.
+
 ## Loading And Readiness
 
 Keep independent requests independently usable. A missing balance need not

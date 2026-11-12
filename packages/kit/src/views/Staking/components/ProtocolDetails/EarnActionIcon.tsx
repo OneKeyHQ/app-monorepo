@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -21,8 +21,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -43,6 +44,7 @@ import type {
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
+import { useCommittedEarnScopeGuard } from '../../hooks/useCommittedEarnScopeGuard';
 import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
@@ -95,12 +97,6 @@ function useHandleClaimAction({
       }, 10 * 1000);
       const claimAmount =
         protocolInfo?.claimable || actionIcon.data?.balance || '0';
-      const isMorphoClaim = !!(
-        tokenInfo?.provider &&
-        earnUtils.isMorphoProvider({
-          providerName: tokenInfo?.provider,
-        })
-      );
       const receiveToken = earnUtils.convertEarnTokenToIToken(token);
 
       await handleClaim({
@@ -115,7 +111,6 @@ function useHandleClaimAction({
           : undefined,
         claimAmount,
         claimTokenAddress: token?.address,
-        isMorphoClaim,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -391,7 +386,13 @@ function BasicListaCheckActionIcon({
   onSuccess?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const signMessage = useEarnSignMessage();
+  const signMessage = useEarnSignMessage({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId: protocolInfo?.earnAccount?.networkId,
+    accountAddress: protocolInfo?.earnAccount?.accountAddress,
+    provider: protocolInfo?.provider,
+    symbol: token?.symbol,
+  });
 
   const handlePress = useCallback(async () => {
     if (!protocolInfo) {
@@ -406,7 +407,9 @@ function BasicListaCheckActionIcon({
       symbol: token?.symbol,
       request: { origin: 'https://lista.org/', scope: 'ethereum' },
     })
-      .then(() => onSuccess?.())
+      .then((registered) => {
+        if (registered) onSuccess?.();
+      })
       .finally(() => setLoading(false));
   }, [protocolInfo, signMessage, token, onSuccess]);
 
@@ -448,12 +451,26 @@ function BasicClaimWithKycActionIcon({
   trigger?: IActionTrigger;
 }) {
   const [loading, setLoading] = useState(false);
+  const runningRef = useRef(false);
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      protocolInfo?.earnAccount?.accountId,
+      tokenInfo?.networkId,
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+      protocolInfo?.symbol,
+      tokenInfo?.indexedAccountId,
+    ]),
+  );
   const handleClaimAction = useHandleClaimAction({
     protocolInfo,
     tokenInfo,
   });
 
   const handlePress = useCallback(async () => {
+    if (runningRef.current) return;
+    const isCurrent = scope.capture();
+    if (!isCurrent()) return;
     if (!tokenInfo || !protocolInfo) {
       // If we don't have the necessary info, show dialog with current data
       showClaimWithKycDialog({
@@ -462,6 +479,7 @@ function BasicClaimWithKycActionIcon({
       return;
     }
 
+    runningRef.current = true;
     setLoading(true);
     try {
       // Get fresh data from API
@@ -474,6 +492,7 @@ function BasicClaimWithKycActionIcon({
           provider: protocolInfo.provider,
           vault: protocolInfo.vault,
         });
+      if (!isCurrent()) return;
 
       // Find the updated action in portfolios
       // Search in portfolios.items[].buttons
@@ -512,15 +531,17 @@ function BasicClaimWithKycActionIcon({
         });
       }
     } catch (error) {
+      if (!isCurrent()) return;
       // If API call fails, show dialog with current data
       console.error('Failed to fetch latest claimWithKyc data:', error);
       showClaimWithKycDialog({
         actionData: actionIcon,
       });
     } finally {
+      runningRef.current = false;
       setLoading(false);
     }
-  }, [actionIcon, protocolInfo, tokenInfo, handleClaimAction]);
+  }, [actionIcon, protocolInfo, tokenInfo, handleClaimAction, scope]);
 
   if (trigger) {
     return trigger({
@@ -570,43 +591,86 @@ function BasicEarnActionIcon({
   onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const appNavigation = useAppNavigation();
   const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
   });
-  const handleCancelWithdrawal = useCallback(async () => {
-    const provider = protocolInfo?.provider || tokenInfo?.provider || '';
-    const symbol =
-      protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
+  const handleCancelWithdrawal = useCallback(
+    // Keep the button's vault when opening the picker or canceling a single request.
+    async () => {
+      const provider = protocolInfo?.provider || tokenInfo?.provider || '';
+      const symbol =
+        protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
 
-    if (!protocolInfo?.earnAccount?.accountId || !provider || !symbol) {
-      return;
-    }
-    setCancelLoading(true);
-    try {
-      await handleUniversalWithdraw({
-        amount: '0',
-        symbol,
-        provider,
-        protocolVault: earnUtils.shouldSendEarnProtocolVault({
-          providerName: provider,
-        })
-          ? protocolInfo?.vault
-          : undefined,
-        withdrawAll: false,
-        withdrawType: 'cancel',
-        stakingInfo: {
-          label: EEarnLabels.Withdraw,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
-        },
-      });
-    } finally {
-      setCancelLoading(false);
-    }
-  }, [handleUniversalWithdraw, protocolInfo, token, tokenInfo]);
+      if (
+        actionIcon?.type !== EStakingActionType.CancelWithdrawal ||
+        !protocolInfo?.earnAccount?.accountId ||
+        !provider ||
+        !symbol
+      ) {
+        return;
+      }
+      if (
+        getEarnProtocol(provider).getCancelWithdrawalRoute() ===
+        'withdraw-options'
+      ) {
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: protocolInfo.earnAccount.accountId,
+            networkId: protocolInfo.networkId || tokenInfo?.networkId || '',
+            protocolInfo,
+            tokenInfo,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            onSuccess: onActionSuccess,
+          },
+        });
+        return;
+      }
+      setCancelLoading(true);
+      try {
+        await handleUniversalWithdraw({
+          amount: '0',
+          symbol,
+          provider,
+          protocolVault: earnUtils.shouldSendEarnProtocolVault({
+            providerName: provider,
+          })
+            ? protocolInfo?.vault
+            : undefined,
+          withdrawAll: false,
+          withdrawType: 'cancel',
+          taskAccountAddress:
+            protocolInfo.earnAccount.networkId ===
+            (protocolInfo.networkId || tokenInfo?.networkId || '')
+              ? protocolInfo.earnAccount.accountAddress
+              : undefined,
+          stakingInfo: {
+            label: EEarnLabels.Withdraw,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+            tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+          },
+          onSuccess: onActionSuccess,
+        });
+      } finally {
+        setCancelLoading(false);
+      }
+    },
+    [
+      actionIcon,
+      appNavigation,
+      handleUniversalWithdraw,
+      onActionSuccess,
+      protocolInfo,
+      token,
+      tokenInfo,
+    ],
+  );
 
   if (!actionIcon) {
     return null;
@@ -672,6 +736,14 @@ function BasicEarnActionIcon({
     case 'claimAirdrop':
       return (
         <ClaimActionIcon
+          key={JSON.stringify([
+            protocolInfo?.earnAccount?.accountId,
+            tokenInfo?.networkId,
+            protocolInfo?.provider,
+            protocolInfo?.vault,
+            token?.address,
+            actionIcon.type,
+          ])}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
           token={token}
@@ -684,6 +756,15 @@ function BasicEarnActionIcon({
       const claimWithKycAction = actionIcon as IEarnClaimWithKycActionIcon;
       return (
         <ClaimWithKycActionIcon
+          key={JSON.stringify([
+            protocolInfo?.earnAccount?.accountId,
+            tokenInfo?.networkId,
+            protocolInfo?.provider,
+            protocolInfo?.vault,
+            protocolInfo?.symbol,
+            tokenInfo?.indexedAccountId,
+            actionIcon.type,
+          ])}
           actionIcon={claimWithKycAction}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}

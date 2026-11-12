@@ -120,7 +120,6 @@ function RewardItem({
             onPress={() => {
               onClaim?.({
                 amount: validClaimableNow.toFixed(),
-                isMorphoClaim: true,
                 claimTokenAddress: rewardTokenAddress,
               });
             }}
@@ -169,7 +168,6 @@ export function ProtocolRewards({
     amount: string;
     claimTokenAddress?: string;
     isReward?: boolean;
-    isMorphoClaim?: boolean;
   }) => void;
 }) {
   const intl = useIntl();

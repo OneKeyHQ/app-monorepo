@@ -558,6 +558,7 @@ export default class ServiceSwap extends ServiceBase {
   >();
 
   private _activeQuoteEventRequestIds = new Set<string>();
+  private _isolatedQuoteEventRequestIds = new Set<string>();
 
   private _quoteEventRequestSequence = 0;
 
@@ -711,9 +712,12 @@ export default class ServiceSwap extends ServiceBase {
             ...this._activeQuoteEventRequestIds,
             ...this._quoteEventSources.keys(),
           ]),
+        ).filter(
+          (requestId) => !this._isolatedQuoteEventRequestIds.has(requestId),
         );
     for (const requestId of requestIds) {
       this._activeQuoteEventRequestIds.delete(requestId);
+      this._isolatedQuoteEventRequestIds.delete(requestId);
       const sources = this._quoteEventSources.get(requestId);
       reportApiAvailabilityStream(sources?.availabilityTiming, 'abandoned');
       this.removeQuoteEventSourceListeners(requestId);
@@ -1354,12 +1358,16 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount,
     userMarketPriceRate,
     quoteRequestId: inputQuoteRequestId,
+    cancelOnGlobalStop,
   }: IFetchSwapQuoteParams) {
     const quoteRequestId =
       inputQuoteRequestId ??
       `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
     await this.cancelFetchQuoteEvents(quoteRequestId);
     this._activeQuoteEventRequestIds.add(quoteRequestId);
+    if (cancelOnGlobalStop === false) {
+      this._isolatedQuoteEventRequestIds.add(quoteRequestId);
+    }
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,

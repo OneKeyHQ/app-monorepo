@@ -47,6 +47,7 @@ import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnNavigation, parseFormattedLiquidityValue } from '../../earnUtils';
+import { getEarnProtocol } from '../../protocols';
 import { EarnTestIDs } from '../../testIDs';
 import {
   filterAndSortProtocols,
@@ -90,9 +91,8 @@ const getProtocolCategory = (item: IStakeProtocolListItem) => {
     return backendCategory;
   }
 
-  return earnUtils.isPendleProvider({
-    providerName: item.provider.name,
-  })
+  return getEarnProtocol(item.provider.name).getDefaultEarnCategory() ===
+    'fixedRate'
     ? EProtocolCategory.FixedRate
     : EProtocolCategory.SimpleEarn;
 };

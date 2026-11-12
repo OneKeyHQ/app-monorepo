@@ -54,6 +54,11 @@ const ClaimPage = () => {
         symbol,
         provider,
         protocolVault: vault,
+        taskAccountAddress:
+          protocolInfo?.earnAccount?.accountId === accountId &&
+          protocolInfo.earnAccount.networkId === networkId
+            ? protocolInfo.earnAccount.accountAddress
+            : undefined,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -80,6 +85,9 @@ const ClaimPage = () => {
       symbol,
       provider,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.earnAccount,
+      accountId,
+      networkId,
       info,
       actionTag,
       appNavigation,

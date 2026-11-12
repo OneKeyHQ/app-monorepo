@@ -1,11 +1,9 @@
 import { EEarnProviderEnum } from '../../types/earn';
 import { normalizeToEarnProvider } from '../../types/earn/earnProvider.constants';
-import { EApproveType } from '../../types/staking';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
-  MorphoBaseBundlerContract,
+  EtherFiLiquidReferContract,
   MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
 } from '../consts/addresses';
 
 import earnUtils from './earnUtils';
@@ -22,17 +20,9 @@ describe('earnUtils Spark provider integration', () => {
   });
 
   it('uses the protocol vault for Spark requests and ERC20 approval', () => {
-    const protocolVault = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d';
-
     expect(
       earnUtils.shouldSendEarnProtocolVault({ providerName: 'spark' }),
     ).toBe(true);
-    expect(
-      earnUtils.resolveEarnApproveSpenderAddress({
-        providerName: 'spark',
-        protocolVault,
-      }),
-    ).toBe(protocolVault);
   });
 
   it('fails closed until Spark returns a withdrawal path', () => {
@@ -52,25 +42,48 @@ describe('earnUtils Spark provider integration', () => {
   });
 });
 
-describe('earnUtils permit allowance spender', () => {
-  const approveSpenderAddress = '0x1111111111111111111111111111111111111111';
+describe('earnUtils Permit cache identity', () => {
+  const keyPayload = {
+    accountId: 'account-1',
+    networkId: getNetworkIdsMap().eth,
+    providerName: 'Morpho',
+    approveSpenderAddress: MorphoBundlerContract,
+    tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    amount: '1',
+  };
 
-  it.each([
-    [getNetworkIdsMap().eth, MorphoBundlerContract],
-    [getNetworkIdsMap().base, MorphoBaseBundlerContract],
-    [getNetworkIdsMap().katana, MorphoKatanaBundlerContract],
-  ])(
-    'uses the network-specific Morpho bundler on %s',
-    (networkId, expected) => {
-      expect(
-        earnUtils.resolveEarnAllowanceSpenderAddress({
-          networkId,
-          approveType: EApproveType.Permit,
-          approveSpenderAddress,
-        }),
-      ).toBe(expected);
-    },
-  );
+  it('isolates signatures for the same account, token and amount by provider', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        providerName: 'EtherFi',
+      }),
+    );
+  });
+
+  it('isolates signatures when the same provider changes its spender', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        approveSpenderAddress: EtherFiLiquidReferContract,
+      }),
+    );
+  });
+
+  it('normalizes provider and EVM spender casing for lookup and removal', () => {
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).toBe(
+      earnUtils.getEarnPermitCacheKey({
+        ...keyPayload,
+        providerName: 'MORPHO',
+        approveSpenderAddress: MorphoBundlerContract.toUpperCase(),
+      }),
+    );
+  });
+
+  it('cannot reuse a cache entry created without provider and spender identity', () => {
+    const legacyKey = `${keyPayload.accountId}_${keyPayload.networkId}_${keyPayload.tokenAddress}_${keyPayload.amount}`;
+    expect(earnUtils.getEarnPermitCacheKey(keyPayload)).not.toBe(legacyKey);
+  });
 });
 
 describe('earnUtils Bitway provider behavior', () => {

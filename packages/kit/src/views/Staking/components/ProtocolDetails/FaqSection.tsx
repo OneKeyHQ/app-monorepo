@@ -19,6 +19,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
@@ -171,18 +172,23 @@ function FaqInfo({
 
 export const FaqSection = ({
   details,
+  symbol,
 }: {
   details?: IStakeProtocolDetails;
+  symbol: string;
 }) => {
   const { result: solutions } = usePromiseResult(
     async () =>
       details
         ? backgroundApiProxy.serviceStaking.getFAQList({
-            symbol: details.token.info.symbol,
+            symbol: getEarnProtocol(details.provider.name).resolveFaqSymbol({
+              routeSymbol: symbol,
+              tokenSymbol: details.token.info.symbol,
+            }),
             provider: details.provider.name,
           })
         : Promise.resolve([]),
-    [details],
+    [details, symbol],
     {
       initResult: [],
     },

@@ -1,5 +1,12 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,6 +25,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -38,14 +46,22 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import { createEarnConfirmationTaskAdapter } from '@onekeyhq/kit/src/views/Earn/tasks/confirmationTaskAdapter';
+import { createEarnWithdrawApprovalTask } from '@onekeyhq/kit/src/views/Earn/tasks/earnWithdrawApprovalTask';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -55,6 +71,7 @@ import {
 import type {
   ICheckAmountAlert,
   IEarnActionIcon,
+  IEarnAmountUnit,
   IEarnEstimateFeeResp,
   IEarnText,
   IEarnTokenInfo,
@@ -64,8 +81,11 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
+import { getUniversalWithdrawProtocolPlan } from '../../earnWithdrawTask/types';
+import { useCommittedEarnScopeGuard } from '../../hooks/useCommittedEarnScopeGuard';
+import { useEarnActionGuard } from '../../hooks/useEarnActionGuard';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
@@ -112,7 +132,20 @@ import {
   selectCurrentTransactionConfirmation,
   shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
+import {
+  canContinueWithdrawalAfterApproval,
+  getWithdrawApproveAmount,
+  getWithdrawEstimateStep,
+} from './withdrawAmountUtils';
 
+import type {
+  IUniversalWithdrawContext,
+  IUniversalWithdrawPrepared,
+} from '../../../Earn/protocols/withdrawProtocolRuntime';
+import type { IEarnWithdrawApprovalIdentity } from '../../../Earn/tasks/earnWithdrawApprovalTask';
+import type { IEarnWorkflowTaskStep } from '../../../Earn/tasks/earnWorkflowTaskState';
+import type { IUniversalWithdrawWorkflowHandoff } from '../../earnWithdrawTask/types';
+import type { IEarnActionGuard } from '../../hooks/useEarnActionGuard';
 import type { FontSizeTokens } from 'tamagui';
 
 type IFooterActionOverride = {
@@ -157,18 +190,25 @@ type IUniversalWithdrawProps = {
     withdrawAll,
     signature,
     message,
+    isTaskIntentCurrent,
     effectiveApy,
     useEthenaCooldown,
     resumeEthenaCooldownUnstake,
     onStepChange,
     onEthenaCooldownUnstakeReady,
     withdrawType,
+    isActionCurrent,
+    isSendCurrent,
+    isResultCurrent,
+    taskAccountAddress,
+    workflowHandoff,
   }: {
     amount: string;
     withdrawAll: boolean;
     // Stakefish: signature and message for withdraw all
     signature?: string;
     message?: string;
+    isTaskIntentCurrent?: () => boolean;
     effectiveApy?: string | number;
     // Pendle: Ethena cooldown path vs instant swap
     useEthenaCooldown?: boolean;
@@ -177,12 +217,18 @@ type IUniversalWithdrawProps = {
     onStepChange?: (step: number) => void;
     onEthenaCooldownUnstakeReady?: () => void;
     withdrawType?: IEarnWithdrawType;
+    isActionCurrent?: () => boolean;
+    isSendCurrent?: () => boolean;
+    isResultCurrent?: () => boolean;
+    taskAccountAddress?: string;
+    workflowHandoff?: IUniversalWithdrawWorkflowHandoff;
     // Resolves false when the flow never started (risk disclaimer rejected), so
     // the form keeps the amount the user typed. Deliberately not
     // `boolean | void`: a caller that forgets to return the hook's result would
     // silently reset the form, which is how this shipped half-wired once.
   }) => Promise<boolean>;
   beforeFooter?: ReactElement | null;
+  actionGuard?: IEarnActionGuard;
   footerActionOverride?: IFooterActionOverride;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
@@ -204,6 +250,13 @@ type IUniversalWithdrawProps = {
   pendleSlippage?: number;
   initialWithdrawType?: IEarnWithdrawType;
   receiptTokenRate?: string;
+  amountUnit?: IEarnAmountUnit;
+  withdrawalSafetyPolicy?: 'confirm-and-revalidate';
+  maxWithdrawAmountMode?: 'fixed';
+  withdrawAssetsReady?: boolean;
+  withdrawAssetsStatus?: 'error' | 'empty' | 'ready';
+  onRetryWithdrawAssets?: () => void;
+  showSingleWithdrawPath?: boolean;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
 };
@@ -433,6 +486,7 @@ export function UniversalWithdraw({
 
   onConfirm,
   beforeFooter,
+  actionGuard,
   footerActionOverride,
   showApyDetail = false,
   isInModalContext = false,
@@ -444,26 +498,58 @@ export function UniversalWithdraw({
   refreshKey,
   onQuoteRefreshingChange,
   approveTarget,
-  currentAllowance = '0',
+  currentAllowance,
   approveType = EApproveType.Legacy,
   pendleSlippage,
   initialWithdrawType,
   receiptTokenRate,
+  amountUnit,
+  withdrawalSafetyPolicy,
+  maxWithdrawAmountMode,
+  withdrawAssetsReady,
+  withdrawAssetsStatus,
+  onRetryWithdrawAssets,
+  showSingleWithdrawPath,
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
+  const intl = useIntl();
   const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const navigation = useAppNavigation();
-  const handleWithdrawAction = useHandleWithdraw();
+  const handleWithdrawAction = useHandleWithdraw(
+    JSON.stringify([
+      accountId,
+      accountAddress,
+      networkId,
+      providerName,
+      protocolVault,
+    ]),
+  );
   const { handleOpenWebSite } = useBrowserAction().current;
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
+  const shouldUseLiveBalanceForMax = maxWithdrawAmountMode !== 'fixed';
   const isCancelWithdrawal = initialWithdrawType === 'cancel';
+  const requiresConfirmedWithdrawal = Boolean(withdrawalSafetyPolicy);
+  const areWithdrawAssetsReady =
+    isCancelWithdrawal ||
+    amountUnit !== 'shares' ||
+    (!!withdrawAssetsReady &&
+      !!transactionInputTokenAddress &&
+      transactionInputTokenAddress.toLowerCase() ===
+        protocolInfo?.withdrawApprove?.tokenAddress?.toLowerCase());
   const [amountValue, setAmountValue] = useState(
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
+  const amountForRequest = useMemo(() => {
+    if (maxWithdrawAmountMode !== 'fixed' || isInvalidAmount(amountValue)) {
+      return amountValue;
+    }
+    const amount = new BigNumber(amountValue);
+    return amount.isFinite() ? amount.toFixed() : amountValue;
+  }, [amountValue, maxWithdrawAmountMode]);
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
   const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
@@ -490,27 +576,27 @@ export function UniversalWithdraw({
   const transactionConfirmationRequestIdRef = useRef(0);
   const transactionConfirmationRequestKeyRef = useRef('');
 
-  // Sign message hook and refs for withdraw all signature
-  const signPersonalMessage = useEarnSignMessageWithoutVerify();
-  const withdrawSignatureRef = useRef<string | undefined>(undefined);
-  const withdrawMessageRef = useRef<string | undefined>(undefined);
-  // Only Stakefish ETH needs signature for withdraw all
-  const isStakefishEthWithdraw = useMemo(
-    () =>
-      earnUtils.isStakefishProvider({ providerName: providerName ?? '' }) &&
-      tokenSymbol?.toUpperCase() === 'ETH',
-    [providerName, tokenSymbol],
-  );
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
+  const earnProtocol = useMemo(
+    () => getEarnProtocol(providerName ?? ''),
     [providerName],
   );
+  const {
+    allowNonQueuedApproval,
+    requireCurrentQuoteAfterApproval,
+    enableQuoteRefresh,
+    confirmPriceImpact: requiresPriceImpactConfirmation,
+    action: withdrawalAction,
+    transactionLayout,
+  } = useMemo(() => earnProtocol.getWithdrawUiPolicy(), [earnProtocol]);
+  const { skipEstimate: skipWithdrawFeeEstimate, includeTransactionIdentity } =
+    useMemo(() => earnProtocol.getWithdrawFeePolicy(), [earnProtocol]);
   const requiresEarnWithdrawPath = useMemo(
     () =>
+      requiresConfirmedWithdrawal ||
       earnUtils.requiresEarnWithdrawPath({
         providerName: providerName ?? '',
       }),
-    [providerName],
+    [requiresConfirmedWithdrawal, providerName],
   );
   const shouldSendProtocolVault = useMemo(
     () =>
@@ -551,6 +637,11 @@ export function UniversalWithdraw({
       withdrawPathConfirmBoxes.length - 1,
     );
   }, [selectedWithdrawPathIndex, withdrawPathConfirmBoxes]);
+  const shouldUseEthenaCooldown = earnProtocol.shouldUseEthenaCooldown({
+    networkId,
+    pathCount: withdrawPathConfirmBoxes.length,
+    selectedPathIndex: effectiveSelectedWithdrawPathIndex,
+  });
 
   useEffect(() => {
     if (selectedWithdrawPathIndex !== effectiveSelectedWithdrawPathIndex) {
@@ -576,7 +667,9 @@ export function UniversalWithdraw({
       JSON.stringify({
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
-        amount: amountValue,
+        amount: amountForRequest,
+        amountUnit,
+        areWithdrawAssetsReady,
         claimRefreshKey,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
@@ -590,7 +683,9 @@ export function UniversalWithdraw({
       }),
     [
       accountAddress,
-      amountValue,
+      amountForRequest,
+      amountUnit,
+      areWithdrawAssetsReady,
       claimRefreshKey,
       identity,
       isDisabled,
@@ -606,8 +701,10 @@ export function UniversalWithdraw({
       transactionOutputTokenAddress,
     ],
   );
-  transactionConfirmationRequestKeyRef.current =
-    transactionConfirmationRequestKey;
+  useLayoutEffect(() => {
+    transactionConfirmationRequestKeyRef.current =
+      transactionConfirmationRequestKey;
+  }, [transactionConfirmationRequestKey]);
 
   const isTransactionConfirmationCurrent =
     resolvedTransactionConfirmationRequestKey ===
@@ -713,50 +810,186 @@ export function UniversalWithdraw({
     [handleTipAction, handleShowTipPopup],
   );
 
-  const approveAmountValue = useMemo(() => {
-    if (!isQueuedWithdraw || !receiptTokenRate) {
-      return amountValue;
-    }
-
-    const amountBN = new BigNumber(amountValue);
-    const receiptTokenRateBN = new BigNumber(receiptTokenRate);
-    const approveTokenDecimals =
-      approveTarget?.token?.decimals ?? decimals ?? 0;
-    if (
-      amountBN.isNaN() ||
-      amountBN.lte(0) ||
-      receiptTokenRateBN.isNaN() ||
-      receiptTokenRateBN.lte(0)
-    ) {
-      return amountValue;
-    }
-
-    const roundingMode = isWithdrawAll
-      ? BigNumber.ROUND_CEIL
-      : BigNumber.ROUND_FLOOR;
-
-    // For max queued withdrawals the server spends the full receipt-token
-    // balance. The displayed underlying amount may be rounded down, so ceil the
-    // approval by at most one smallest receipt unit to avoid under-approving.
-    return amountBN
-      .multipliedBy(receiptTokenRateBN)
-      .integerValue(roundingMode)
-      .shiftedBy(-approveTokenDecimals)
-      .toFixed();
-  }, [
-    amountValue,
-    approveTarget?.token?.decimals,
-    decimals,
-    isQueuedWithdraw,
-    isWithdrawAll,
-    receiptTokenRate,
-  ]);
+  const approveAmountValue = useMemo(
+    () =>
+      getWithdrawApproveAmount({
+        amount: amountForRequest,
+        amountUnit,
+        withdrawType: selectedWithdrawType,
+        receiptTokenRate,
+        decimals: approveTarget?.token?.decimals ?? decimals ?? 0,
+        withdrawAll: isWithdrawAll && shouldUseLiveBalanceForMax,
+      }),
+    [
+      amountForRequest,
+      amountUnit,
+      selectedWithdrawType,
+      receiptTokenRate,
+      approveTarget?.token?.decimals,
+      decimals,
+      isWithdrawAll,
+      shouldUseLiveBalanceForMax,
+    ],
+  );
 
   // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
   const useApprove =
-    (isPendleProvider || isQueuedWithdraw) && !!approveTarget?.spenderAddress;
+    (allowNonQueuedApproval || isQueuedWithdraw) &&
+    !!approveTarget?.spenderAddress;
   const [approving, setApproving] = useState(false);
   const allowanceAbortRef = useRef<AbortController | undefined>(undefined);
+  const approvalAttemptRef = useRef(0);
+  const withdrawalReadyRef = useRef(false);
+  const sendEligibilityRef = useRef(false);
+  const sendEligible = Boolean(
+    !isDisabled && areWithdrawAssetsReady && !footerActionOverride,
+  );
+  const actionGuardRef = useRef(actionGuard);
+  useLayoutEffect(() => {
+    sendEligibilityRef.current = sendEligible;
+    actionGuardRef.current = actionGuard;
+  }, [actionGuard, sendEligible]);
+  const isWithdrawalGuardAllowed = useCallback(() => {
+    const guard = actionGuardRef.current;
+    return guard?.isActionAllowed
+      ? guard.isActionAllowed()
+      : !guard?.action && !guard?.blocked;
+  }, []);
+  const approvalScope = JSON.stringify([
+    accountId,
+    accountAddress,
+    networkId,
+    providerName,
+    protocolVault,
+    identity,
+    amountForRequest,
+    amountUnit,
+    requiresConfirmedWithdrawal,
+    approveAmountValue,
+    isWithdrawAll,
+    maxWithdrawAmountMode,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    selectedWithdrawType,
+    approveTarget?.accountId,
+    approveTarget?.networkId,
+    approveTarget?.token?.address,
+    approveTarget?.spenderAddress,
+    approveType,
+  ]);
+  const approvalScopeGuard = useCommittedEarnScopeGuard(approvalScope);
+  const approvalTargetScope = JSON.stringify([
+    accountId,
+    accountAddress,
+    networkId,
+    providerName,
+    protocolVault,
+    identity,
+    amountUnit,
+    maxWithdrawAmountMode,
+    requestSymbol,
+    tokenSymbol,
+    pendleSlippage,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    selectedWithdrawType,
+    effectiveSelectedWithdrawPathIndex,
+    withdrawPathConfirmBoxes.length,
+    requiresConfirmedWithdrawal,
+    approveTarget?.accountId,
+    approveTarget?.networkId,
+    approveTarget?.token?.address,
+    approveTarget?.token?.decimals,
+    approveTarget?.token?.isNative,
+    approveTarget?.spenderAddress,
+    approveType,
+  ]);
+  const approvalTargetScopeGuard =
+    useCommittedEarnScopeGuard(approvalTargetScope);
+  const latestApprovalSnapshotRef = useRef({
+    amountForRequest,
+    approveAmountValue,
+    isWithdrawAll,
+    transactionConfirmationRequestKey,
+    resolvedTransactionConfirmationRequestKey,
+    transactionConfirmation,
+  });
+  useLayoutEffect(() => {
+    latestApprovalSnapshotRef.current = {
+      amountForRequest,
+      approveAmountValue,
+      isWithdrawAll,
+      transactionConfirmationRequestKey,
+      resolvedTransactionConfirmationRequestKey,
+      transactionConfirmation,
+    };
+  }, [
+    amountForRequest,
+    approveAmountValue,
+    isWithdrawAll,
+    transactionConfirmationRequestKey,
+    resolvedTransactionConfirmationRequestKey,
+    transactionConfirmation,
+  ]);
+  const approvalSendScopeGuard = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      sendEligible,
+      approveTarget?.token?.decimals,
+      approveTarget?.token?.isNative,
+    ]),
+  );
+  const sendScopeGuard = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      accountAddress,
+      networkId,
+      providerName,
+      protocolVault,
+      identity,
+      amountUnit,
+      maxWithdrawAmountMode,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ]),
+  );
+  const sendAttemptRef = useRef(0);
+  const policyScopeGuard = useCommittedEarnScopeGuard(
+    requiresConfirmedWithdrawal ? 'strict' : 'legacy',
+  );
+  const isPolicyForRenderCurrent = useCallback(
+    () => policyScopeGuard.isCurrent(),
+    [policyScopeGuard],
+  );
+  const loadingOwnerRef = useRef<
+    { isPolicyCurrent: () => boolean } | undefined
+  >(undefined);
+  const previousRequiresConfirmedWithdrawalRef = useRef(
+    requiresConfirmedWithdrawal,
+  );
+  const previousApprovalTargetScopeRef = useRef(approvalTargetScope);
+  useEffect(() => {
+    if (
+      requiresConfirmedWithdrawal ||
+      previousRequiresConfirmedWithdrawalRef.current ||
+      previousApprovalTargetScopeRef.current !== approvalTargetScope
+    ) {
+      approvalAttemptRef.current += 1;
+      allowanceAbortRef.current?.abort();
+      setApproving(false);
+    }
+    if (loadingOwnerRef.current && !loadingOwnerRef.current.isPolicyCurrent()) {
+      loadingOwnerRef.current = undefined;
+      setLoading(false);
+    }
+    previousRequiresConfirmedWithdrawalRef.current =
+      requiresConfirmedWithdrawal;
+    previousApprovalTargetScopeRef.current = approvalTargetScope;
+  }, [approvalScope, approvalTargetScope, requiresConfirmedWithdrawal]);
+
+  const actionSymbol = useMemo(
+    () => requestSymbol || tokenSymbol || '',
+    [requestSymbol, tokenSymbol],
+  );
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
   const { navigationToTxConfirm } = useSignatureConfirm({
@@ -766,15 +999,21 @@ export function UniversalWithdraw({
 
   const {
     allowance,
+    allowanceAvailable,
+    allowanceError,
+    retryAllowance,
     loading: loadingAllowance,
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName: providerName ?? '',
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
+    refreshOnMount: requiresConfirmedWithdrawal,
+    retryTrackingOnError: requiresConfirmedWithdrawal,
     approveType,
   });
 
@@ -796,6 +1035,7 @@ export function UniversalWithdraw({
   useEffect(
     () => () => {
       allowanceAbortRef.current?.abort();
+      approvalAttemptRef.current += 1;
     },
     [],
   );
@@ -849,7 +1089,13 @@ export function UniversalWithdraw({
 
   // Refs to break circular dependency: onApprove needs onPress/fetchTransactionConfirmation
   // which are defined later. Assigned after their useCallback declarations.
-  const onPressRef = useRef<() => Promise<void>>(undefined);
+  const onPressRef =
+    useRef<
+      (
+        handoff?: IUniversalWithdrawWorkflowHandoff,
+        setSendCurrent?: (isCurrent: () => boolean) => void,
+      ) => Promise<void>
+    >(undefined);
   const fetchTransactionConfirmationRef =
     useRef<
       (amount: string) => Promise<IStakeTransactionConfirmation | undefined>
@@ -857,10 +1103,40 @@ export function UniversalWithdraw({
 
   const onApprove = useCallback(async () => {
     if (!approveTarget?.token || !approveAmountValue) return;
-    // OK-59196: the approve transaction is the user's first on-chain action in
-    // the two-step withdraw flow and never reaches useUniversalWithdraw, so the
-    // one-time disclaimer has to gate it here too. Before the approving lock:
-    // bailing after it would leave the button stuck loading.
+    if (!isPolicyForRenderCurrent()) return;
+    const isScopeCurrent = approvalScopeGuard.capture();
+    const isTargetCurrent = approvalTargetScopeGuard.capture();
+    const isPolicyCurrent = policyScopeGuard.capture();
+    const isSendScopeCurrent = approvalSendScopeGuard.capture();
+    if (
+      !isScopeCurrent() ||
+      !isTargetCurrent() ||
+      !isPolicyCurrent() ||
+      (requiresConfirmedWithdrawal &&
+        (!isSendScopeCurrent() ||
+          !sendEligibilityRef.current ||
+          !withdrawalReadyRef.current))
+    ) {
+      return;
+    }
+    approvalAttemptRef.current += 1;
+    const attempt = approvalAttemptRef.current;
+    const isApprovalCurrent = () =>
+      isPolicyCurrent() &&
+      isTargetCurrent() &&
+      approvalAttemptRef.current === attempt &&
+      (!requiresConfirmedWithdrawal || isScopeCurrent());
+    const isApprovalSendCurrent = () =>
+      isApprovalCurrent() &&
+      (!requiresConfirmedWithdrawal ||
+        (isSendScopeCurrent() &&
+          sendEligibilityRef.current &&
+          withdrawalReadyRef.current));
+    const releaseApproving = () => {
+      if (isPolicyCurrent() && approvalAttemptRef.current === attempt) {
+        setApproving(false);
+      }
+    };
     if (
       !(await ensureRiskAccepted({
         provider: providerName ?? '',
@@ -870,149 +1146,415 @@ export function UniversalWithdraw({
     ) {
       return;
     }
+    if (
+      !isApprovalSendCurrent() ||
+      (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed())
+    )
+      return;
     Keyboard.dismiss();
     setApproving(true);
-
-    let approveAllowance = allowance;
+    let pendingWithoutTxid = false;
+    let abortController: AbortController | undefined;
     try {
-      const allowanceInfo = await fetchAllowanceResponse();
-      approveAllowance = allowanceInfo.allowanceParsed;
-    } catch (_e) {
-      // use cached allowance
-    }
-
-    const allowanceBN = new BigNumber(approveAllowance);
-    const amountBN = new BigNumber(approveAmountValue);
-    if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
-      // Already approved
-      setApproving(false);
-      return;
-    }
-
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-
-    await navigationToTxConfirm({
-      approvesInfo: [
-        {
-          owner: account.address,
-          spender: approveTarget.spenderAddress,
-          amount: approveAmountValue,
-          tokenInfo: approveTarget.token,
+      let approveAllowance = allowance;
+      try {
+        const allowanceInfo = await fetchAllowanceResponse();
+        approveAllowance = allowanceInfo.allowanceParsed;
+      } catch (error) {
+        if (requiresConfirmedWithdrawal) throw error;
+      }
+      if (!isApprovalSendCurrent()) return;
+      const allowanceBN = new BigNumber(approveAllowance);
+      const amountBN = new BigNumber(approveAmountValue);
+      if (
+        requiresConfirmedWithdrawal &&
+        (!allowanceBN.isFinite() || allowanceBN.isNegative())
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return;
+      }
+      if (!amountBN.isNaN() && allowanceBN.gte(amountBN)) {
+        if (requiresConfirmedWithdrawal) retryAllowance();
+        return;
+      }
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      if (
+        !isApprovalSendCurrent() ||
+        (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed())
+      )
+        return;
+      if (
+        !accountId ||
+        !networkId ||
+        accountId !== approveTarget.accountId ||
+        networkId !== approveTarget.networkId ||
+        !accountAddress ||
+        normalizeTaskAccountAddress(networkId, account.address) !==
+          normalizeTaskAccountAddress(networkId, accountAddress)
+      )
+        throw new OneKeyLocalError('Earn withdrawal account changed');
+      const config = await backgroundApiProxy.serviceStaking.getStakingConfigs({
+        networkId,
+        symbol: actionSymbol,
+        provider: providerName ?? '',
+      });
+      if (!isApprovalSendCurrent()) return;
+      if (!config) throw new OneKeyLocalError('Earn withdrawal config missing');
+      const useEthenaCooldown = shouldUseEthenaCooldown;
+      const plan = getUniversalWithdrawProtocolPlan({
+        provider: providerName ?? '',
+        config,
+        useEthenaCooldown,
+        resumeEthenaCooldownUnstake:
+          useEthenaCooldown && pendingEthenaCooldownUnstake,
+      });
+      const taskIdentity: IEarnWithdrawApprovalIdentity = {
+        accountId,
+        accountAddress: account.address,
+        networkId,
+        provider: providerName ?? '',
+        action: 'withdraw',
+      };
+      type IApprovalStep = Exclude<
+        IEarnWorkflowTaskStep,
+        { kind: 'sign' | 'external' | 'wait' }
+      >;
+      type IApprovalPrepared = { owner: string };
+      const confirmation = createEarnConfirmationTaskAdapter<
+        IEarnWithdrawApprovalIdentity,
+        IApprovalStep,
+        IApprovalPrepared,
+        ISendTxOnSuccessData[],
+        Error
+      >({
+        prepare: async () => ({ owner: account.address }),
+        navigate: async (prepared, callbacks) => {
+          await navigationToTxConfirm({
+            isNavigationCurrent: isApprovalSendCurrent,
+            onBeforeSend: async () => {
+              if (
+                !isApprovalSendCurrent() ||
+                (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed())
+              )
+                throw new OneKeyLocalError(
+                  intl.formatMessage({
+                    id: ETranslations.privacy_error_review_expired__msg,
+                  }),
+                );
+              const currentAccount =
+                await backgroundApiProxy.serviceAccount.getAccount({
+                  accountId: approveTarget.accountId,
+                  networkId: approveTarget.networkId,
+                });
+              if (
+                !isApprovalSendCurrent() ||
+                (requiresConfirmedWithdrawal && !isWithdrawalGuardAllowed()) ||
+                normalizeTaskAccountAddress(
+                  networkId,
+                  currentAccount.address,
+                ) !== normalizeTaskAccountAddress(networkId, prepared.owner)
+              )
+                throw new OneKeyLocalError('Earn withdrawal account changed');
+              callbacks.onSendObserved();
+            },
+            approvesInfo: [
+              {
+                owner: prepared.owner,
+                spender: approveTarget.spenderAddress,
+                amount: approveAmountValue,
+                tokenInfo: approveTarget.token,
+              },
+            ],
+            onSuccess: callbacks.onSuccess,
+            onLateBroadcastAccepted: (fact) => {
+              if (
+                fact.accountId !== approveTarget.accountId ||
+                fact.networkId !== approveTarget.networkId ||
+                !fact.uuid.trim() ||
+                !callbacks.onLateBroadcastAccepted(fact.txid)
+              )
+                return;
+              if (isApprovalCurrent()) trackAllowance(fact.txid);
+            },
+            onFail: callbacks.onFail,
+            onSafePreSendFail: (error) => {
+              if (isApprovalCurrent()) errorToastUtils.showToastOfError(error);
+            },
+            onConfirmationFail: callbacks.onFail,
+            onCancel: callbacks.onCancel,
+          });
         },
-      ],
-      onSuccess(data) {
-        trackAllowance(data[0].decodedTx.txid);
-        allowanceAbortRef.current?.abort();
-        const abortController = new AbortController();
-        allowanceAbortRef.current = abortController;
-        void (async () => {
-          try {
-            const allowanceReady = await waitForAllowanceAfterApprove({
-              requiredAmount: approveAmountValue,
-              signal: abortController.signal,
+        onSuccess: (data) => {
+          if (!isApprovalCurrent()) return;
+          const txid =
+            data[0]?.signedTx?.txid?.trim() || data[0]?.decodedTx?.txid?.trim();
+          if (!txid && requiresConfirmedWithdrawal) {
+            pendingWithoutTxid = true;
+            Toast.message({
+              title: intl.formatMessage({ id: ETranslations.global_pending }),
             });
-            if (!allowanceReady) {
-              return;
-            }
-            await onPressRef.current?.();
-          } finally {
-            setApproving(false);
+            return;
           }
-        })();
-      },
-      onFail() {
-        setApproving(false);
-      },
-      onCancel() {
-        setApproving(false);
-      },
-    });
+          trackAllowance(txid || data[0]?.decodedTx?.txid || '');
+        },
+        onObserverError: (error) => {
+          defaultLogger.staking.page.permitSignError({
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+        getTxid: (data) =>
+          data[0]?.signedTx?.txid?.trim() || data[0]?.decodedTx?.txid?.trim(),
+        failureCertainty: () => 'unknown',
+        cancellationCertainty: () => 'unknown',
+      });
+      void confirmation.navigation.catch((error: unknown) => {
+        defaultLogger.staking.page.permitSignError({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      allowanceAbortRef.current?.abort();
+      abortController = new AbortController();
+      allowanceAbortRef.current = abortController;
+      const taskAbort = abortController;
+      let validatedSnapshot:
+        | typeof latestApprovalSnapshotRef.current
+        | undefined;
+      let businessSendCurrent: (() => boolean) | undefined;
+      const task = createEarnWithdrawApprovalTask<
+        IApprovalPrepared,
+        IUniversalWithdrawPrepared,
+        IUniversalWithdrawContext
+      >({
+        taskId: generateUUID(),
+        identity: taskIdentity,
+        protocolSteps: plan.steps,
+        initialContext: plan.initialContext,
+        approval: {
+          adapter: {
+            ...confirmation.adapter,
+            waitForFinalStatus: async ({ txid, signal }) => {
+              const status = await waitForTxFinalStatus({
+                accountId: approveTarget.accountId,
+                networkId: approveTarget.networkId,
+                txid,
+                signal,
+              });
+              if (status === EOnChainHistoryTxStatus.Success) return 'success';
+              if (status === EOnChainHistoryTxStatus.Failed) return 'failed';
+              return 'unknown';
+            },
+            verify: async () => true,
+          },
+          handoffOnSubmit: !requiresConfirmedWithdrawal,
+          allowMissingTxidAllowanceCheck: !requiresConfirmedWithdrawal,
+        },
+        allowanceCheck: async (signal) => {
+          if (signal.aborted || !isApprovalSendCurrent()) return false;
+          const snapshot = latestApprovalSnapshotRef.current;
+          const requiredAmount = new BigNumber(snapshot.approveAmountValue);
+          if (
+            !requiredAmount.isFinite() ||
+            requiredAmount.lte(0) ||
+            !withdrawalReadyRef.current ||
+            (requireCurrentQuoteAfterApproval &&
+              snapshot.resolvedTransactionConfirmationRequestKey !==
+                snapshot.transactionConfirmationRequestKey)
+          )
+            return false;
+          const isSnapshotCurrent = () =>
+            isApprovalSendCurrent() &&
+            latestApprovalSnapshotRef.current === snapshot &&
+            !signal.aborted;
+          const canContinue = await canContinueWithdrawalAfterApproval({
+            waitForAllowance: () =>
+              waitForAllowanceAfterApprove({
+                requiredAmount: snapshot.approveAmountValue,
+                signal,
+              }),
+            isCurrent: isSnapshotCurrent,
+            verifyBeforeAction: requiresConfirmedWithdrawal
+              ? actionGuardRef.current?.verifyBeforeAction
+              : undefined,
+          });
+          if (
+            !canContinue ||
+            !isSnapshotCurrent() ||
+            (requiresConfirmedWithdrawal &&
+              (!withdrawalReadyRef.current || !isWithdrawalGuardAllowed()))
+          )
+            return false;
+          validatedSnapshot = snapshot;
+          return true;
+        },
+        prepareBusiness: async (handoff) => {
+          const snapshot = validatedSnapshot;
+          if (!snapshot || latestApprovalSnapshotRef.current !== snapshot)
+            return;
+          const guardedHandoff: IUniversalWithdrawWorkflowHandoff = {
+            register: async (fragment) => {
+              if (
+                !isApprovalSendCurrent() ||
+                latestApprovalSnapshotRef.current !== snapshot
+              )
+                return false;
+              const started = await handoff.register(fragment);
+              if (started && allowanceAbortRef.current === taskAbort)
+                allowanceAbortRef.current = undefined;
+              return started;
+            },
+          };
+          await onPressRef.current?.(guardedHandoff, (isCurrent) => {
+            businessSendCurrent = isCurrent;
+          });
+        },
+        isCurrent: isApprovalCurrent,
+        isCurrentAfterHandoff: () =>
+          isPolicyCurrent() && (businessSendCurrent?.() ?? false),
+        signal: taskAbort.signal,
+        onAsyncError: (error) => errorToastUtils.showToastOfError(error),
+      });
+      await task.run();
+    } catch (error) {
+      if (isApprovalCurrent()) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      }
+    } finally {
+      if (allowanceAbortRef.current === abortController && !pendingWithoutTxid)
+        allowanceAbortRef.current = undefined;
+      if (!pendingWithoutTxid) releaseApproving();
+    }
   }, [
+    accountAddress,
+    accountId,
+    actionSymbol,
     allowance,
+    approvalScopeGuard,
+    approvalSendScopeGuard,
+    approvalTargetScopeGuard,
     approveAmountValue,
     approveTarget,
     ensureRiskAccepted,
-    networkId,
-    providerName,
-    tokenSymbol,
-    navigationToTxConfirm,
     fetchAllowanceResponse,
+    intl,
+    requireCurrentQuoteAfterApproval,
+    shouldUseEthenaCooldown,
+    isPolicyForRenderCurrent,
+    isWithdrawalGuardAllowed,
+    navigationToTxConfirm,
+    networkId,
+    pendingEthenaCooldownUnstake,
+    policyScopeGuard,
+    providerName,
+    requiresConfirmedWithdrawal,
+    retryAllowance,
+    tokenSymbol,
     trackAllowance,
     waitForAllowanceAfterApprove,
   ]);
-  const actionSymbol = useMemo(
-    () => requestSymbol || tokenSymbol || '',
-    [requestSymbol, tokenSymbol],
-  );
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountFetchFailed, setCheckAmountFetchFailed] = useState(false);
+  const [checkAmountRetrySequence, setCheckAmountRetrySequence] = useState(0);
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    if (
-      !accountId ||
-      !networkId ||
-      !providerName ||
-      !actionSymbol ||
-      (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
-    ) {
-      return undefined;
-    }
+  const estimateAction = getWithdrawEstimateStep({
+    requireConfirmedApproval: requiresConfirmedWithdrawal,
+    assetsReady: areWithdrawAssetsReady,
+    pathReady:
+      isTransactionConfirmationCurrent &&
+      !!selectedWithdrawType &&
+      !selectedWithdrawPath?.disabled,
+    withdrawType: selectedWithdrawType,
+    allowanceAvailable,
+    loadingAllowance,
+    allowance,
+    amount: approveAmountValue,
+  })?.action;
+  const estimateWithdrawAll = isWithdrawAll && shouldUseLiveBalanceForMax;
+  const { result: estimateFeeResp } = usePromiseResult(
+    async () => {
+      if (
+        !accountId ||
+        !networkId ||
+        !providerName ||
+        !actionSymbol ||
+        (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
+      ) {
+        return undefined;
+      }
 
-    if (earnUtils.isLidoProvider({ providerName })) {
-      return undefined;
-    }
+      if (skipWithdrawFeeEstimate) {
+        return undefined;
+      }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      if (!estimateAction || isDisabled) return undefined;
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      if (
+        accountAddress &&
+        normalizeTaskAccountAddress(networkId, account.address) !==
+          normalizeTaskAccountAddress(networkId, accountAddress)
+      )
+        return undefined;
+
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: actionSymbol,
+        action: estimateAction,
+        amount: isCancelWithdrawal ? '0' : amountForRequest || balance || '1',
+        txId: includeTransactionIdentity ? identity : undefined,
+        protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+        identity,
+        accountAddress: account.address,
+        withdrawAll: estimateWithdrawAll,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
+        withdrawType: selectedWithdrawType,
+      });
+      return resp;
+    },
+    [
+      amountValue,
+      amountForRequest,
+      estimateAction,
+      estimateWithdrawAll,
+      skipWithdrawFeeEstimate,
+      includeTransactionIdentity,
+      isDisabled,
       accountId,
+      accountAddress,
       networkId,
-    });
-
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: actionSymbol,
-      action: 'unstake',
-      amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
-      txId: earnUtils.isBabylonProvider({ providerName })
-        ? identity
-        : undefined,
-      protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+      providerName,
+      actionSymbol,
       identity,
-      accountAddress: account.address,
-      withdrawAll: withdrawAllRef.current,
-      inputTokenAddress: transactionInputTokenAddress,
-      outputTokenAddress: transactionOutputTokenAddress,
-      withdrawType: selectedWithdrawType,
-    });
-    return resp;
-  }, [
-    amountValue,
-    accountId,
-    networkId,
-    providerName,
-    actionSymbol,
-    identity,
-    protocolVault,
-    shouldSendProtocolVault,
-    balance,
-    transactionInputTokenAddress,
-    transactionOutputTokenAddress,
-    selectedWithdrawType,
-    isCancelWithdrawal,
-  ]);
+      protocolVault,
+      shouldSendProtocolVault,
+      balance,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      selectedWithdrawType,
+      isCancelWithdrawal,
+    ],
+    { undefinedResultIfReRun: true },
+  );
 
   const [
     {
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
-
-  const intl = useIntl();
 
   const network = usePromiseResult(
     () =>
@@ -1030,9 +1572,6 @@ export function UniversalWithdraw({
     setPendingEthenaCooldownUnstake(false);
     withdrawAllRef.current = false;
     setIsWithdrawAll(false);
-    // Reset withdraw signature and message
-    withdrawSignatureRef.current = undefined;
-    withdrawMessageRef.current = undefined;
   }, [isCancelWithdrawal]);
 
   const handleSelectWithdrawPath = useCallback(
@@ -1041,6 +1580,9 @@ export function UniversalWithdraw({
       if (!targetBox || targetBox.disabled) {
         return;
       }
+      if (index !== effectiveSelectedWithdrawPathIndex) {
+        sendScopeGuard.invalidate();
+      }
       // Remember the user's explicit choice so it is respected on later renders.
       manualWithdrawTypeRef.current = targetBox.withdrawType;
       setIgnoreAllowanceCheck(false);
@@ -1048,159 +1590,217 @@ export function UniversalWithdraw({
       setWithdrawProgressStep(EStakeProgressStep.approve);
       setSelectedWithdrawPathIndex(index);
     },
-    [withdrawPathConfirmBoxes],
+    [
+      withdrawPathConfirmBoxes,
+      effectiveSelectedWithdrawPathIndex,
+      sendScopeGuard,
+    ],
   );
 
-  const onPress = useCallback(async () => {
-    if (
-      requiresEarnWithdrawPath &&
-      (!isTransactionConfirmationCurrent || !selectedWithdrawType)
-    ) {
-      return;
-    }
-    try {
-      Keyboard.dismiss();
-      setLoading(true);
-      ethenaCooldownCompletedRef.current = false;
-      const shouldUseEthenaCooldown =
-        isPendleProvider &&
-        networkId === getNetworkIdsMap().eth &&
-        withdrawPathConfirmBoxes.length > 1 &&
-        effectiveSelectedWithdrawPathIndex === 0;
-      const shouldResumeEthenaCooldownUnstake =
-        shouldUseEthenaCooldown && pendingEthenaCooldownUnstake;
-
-      // Get signature for withdraw all (Stakefish ETH)
+  const confirmPriceImpact = useCallback(
+    (resumeEthenaCooldownUnstake: boolean) => {
       if (
-        isStakefishEthWithdraw &&
-        withdrawAllRef.current &&
-        !withdrawSignatureRef.current
+        !requiresPriceImpactConfirmation ||
+        isCancelWithdrawal ||
+        resumeEthenaCooldownUnstake
       ) {
-        try {
-          const { signature, message } = await signPersonalMessage({
-            networkId: networkId || '',
-            accountId: accountId || '',
-            provider: providerName || '',
-            symbol: actionSymbol || '',
-            action: 'unstake',
-            identity,
-          });
-          withdrawSignatureRef.current = signature;
-          withdrawMessageRef.current = message;
-        } catch (error) {
-          console.error('Stakefish withdraw sign error:', error);
-          setLoading(false);
-          return;
-        }
+        return true;
       }
-
-      // Check high price impact (Pendle only)
-      if (
-        isPendleProvider &&
-        !isCancelWithdrawal &&
-        !shouldResumeEthenaCooldownUnstake
-      ) {
-        const payFiatValue =
-          Number(amountValue) > 0 && Number(price) > 0
-            ? new BigNumber(amountValue).multipliedBy(price).toFixed()
-            : undefined;
-        const impactInfo = calcPriceImpactInfo({
-          payFiatValue,
-          receiveConfig: receiveInputConfig,
-          receiveDescription: transactionConfirmation?.receive,
-        });
-        if (impactInfo) {
-          const userConfirmed = await showHighPriceImpactDialog(intl, {
-            percent: impactInfo.percent,
-            lossAmount: `${symbol}${impactInfo.lossAmount}`,
-          });
-          if (!userConfirmed) return;
-        }
-      }
-
-      const started = await onConfirm?.({
-        amount: isCancelWithdrawal ? '0' : amountValue,
-        withdrawAll: withdrawAllRef.current,
-        signature: withdrawSignatureRef.current,
-        message: withdrawMessageRef.current,
-        effectiveApy: transactionConfirmation?.effectiveApy,
-        withdrawType: selectedWithdrawType,
-        useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
-        resumeEthenaCooldownUnstake: shouldResumeEthenaCooldownUnstake
-          ? true
-          : undefined,
-        onStepChange: (step: number) => {
-          setIgnoreAllowanceCheck(true);
-          setWithdrawProgressStep(step);
-          if (step >= EStakeProgressStep.unstake) {
-            ethenaCooldownCompletedRef.current = true;
-          }
-        },
-        onEthenaCooldownUnstakeReady: shouldUseEthenaCooldown
-          ? () => {
-              setIgnoreAllowanceCheck(true);
-              setPendingEthenaCooldownUnstake(true);
-              setWithdrawProgressStep(EStakeProgressStep.unstake);
-            }
-          : undefined,
+      const payFiatValue =
+        Number(amountForRequest) > 0 && Number(price) > 0
+          ? new BigNumber(amountForRequest).multipliedBy(price).toFixed()
+          : undefined;
+      const impactInfo = calcPriceImpactInfo({
+        payFiatValue,
+        receiveConfig: receiveInputConfig,
+        receiveDescription: transactionConfirmation?.receive,
       });
-      if (started === false) {
+      if (!impactInfo) return true;
+      return showHighPriceImpactDialog(intl, {
+        percent: impactInfo.percent,
+        lossAmount: `${symbol}${impactInfo.lossAmount}`,
+      });
+    },
+    [
+      amountForRequest,
+      intl,
+      isCancelWithdrawal,
+      requiresPriceImpactConfirmation,
+      price,
+      receiveInputConfig,
+      symbol,
+      transactionConfirmation?.receive,
+    ],
+  );
+
+  const onPress = useCallback(
+    async (
+      workflowHandoff?: IUniversalWithdrawWorkflowHandoff,
+      setSendCurrent?: (isCurrent: () => boolean) => void,
+    ) => {
+      const isScopeCurrent = approvalScopeGuard.capture();
+      const isSendScopeCurrent = sendScopeGuard.capture();
+      const isPolicyCurrent = policyScopeGuard.capture();
+      if (!isScopeCurrent() || !isSendScopeCurrent() || !isPolicyCurrent()) {
         return;
       }
-      if (shouldUseEthenaCooldown) {
-        if (ethenaCooldownCompletedRef.current) {
+      sendAttemptRef.current += 1;
+      const sendAttempt = sendAttemptRef.current;
+      const isResultCurrent =
+        requiresConfirmedWithdrawal || workflowHandoff
+          ? () => isSendScopeCurrent() && sendAttemptRef.current === sendAttempt
+          : undefined;
+      const isSendCurrent = isResultCurrent
+        ? () =>
+            isPolicyCurrent() &&
+            isResultCurrent() &&
+            sendEligibilityRef.current &&
+            isWithdrawalGuardAllowed()
+        : undefined;
+      const isActionCurrent =
+        requiresConfirmedWithdrawal || workflowHandoff
+          ? () =>
+              isPolicyCurrent() &&
+              isScopeCurrent() &&
+              withdrawalReadyRef.current &&
+              isWithdrawalGuardAllowed()
+          : undefined;
+      setSendCurrent?.(
+        isSendCurrent ?? (() => isPolicyCurrent() && isSendScopeCurrent()),
+      );
+      if (
+        !areWithdrawAssetsReady ||
+        (requiresEarnWithdrawPath &&
+          (!isTransactionConfirmationCurrent || !selectedWithdrawType))
+      ) {
+        return;
+      }
+      if (!isPolicyCurrent()) return;
+      const loadingOwner = { isPolicyCurrent };
+      loadingOwnerRef.current = loadingOwner;
+      try {
+        Keyboard.dismiss();
+        setLoading(true);
+        ethenaCooldownCompletedRef.current = false;
+        const shouldResumeEthenaCooldownUnstake =
+          shouldUseEthenaCooldown && pendingEthenaCooldownUnstake;
+
+        const priceImpactDecision = confirmPriceImpact(
+          shouldResumeEthenaCooldownUnstake,
+        );
+        if (
+          typeof priceImpactDecision === 'boolean'
+            ? !priceImpactDecision
+            : !(await priceImpactDecision)
+        )
+          return;
+
+        if (!isPolicyCurrent() || (isActionCurrent && !isActionCurrent()))
+          return;
+        let workflowRegistered = false;
+        const trackedHandoff: IUniversalWithdrawWorkflowHandoff | undefined =
+          workflowHandoff
+            ? {
+                register: (fragment) => {
+                  workflowRegistered = true;
+                  return workflowHandoff.register(fragment);
+                },
+              }
+            : undefined;
+        const isTaskIntentCurrent = () =>
+          isPolicyCurrent() &&
+          isScopeCurrent() &&
+          (isActionCurrent?.() ?? true);
+        const started = await onConfirm?.({
+          amount: isCancelWithdrawal ? '0' : amountForRequest,
+          withdrawAll: withdrawAllRef.current && shouldUseLiveBalanceForMax,
+          isTaskIntentCurrent,
+          effectiveApy: transactionConfirmation?.effectiveApy,
+          withdrawType: selectedWithdrawType,
+          isActionCurrent,
+          isSendCurrent,
+          isResultCurrent,
+          taskAccountAddress: accountAddress || undefined,
+          workflowHandoff: trackedHandoff,
+          useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
+          resumeEthenaCooldownUnstake: shouldResumeEthenaCooldownUnstake
+            ? true
+            : undefined,
+          onStepChange: (step: number) => {
+            setIgnoreAllowanceCheck(true);
+            setWithdrawProgressStep(step);
+            if (step >= EStakeProgressStep.unstake) {
+              ethenaCooldownCompletedRef.current = true;
+            }
+          },
+          onEthenaCooldownUnstakeReady: shouldUseEthenaCooldown
+            ? () => {
+                setIgnoreAllowanceCheck(true);
+                setPendingEthenaCooldownUnstake(true);
+                setWithdrawProgressStep(EStakeProgressStep.unstake);
+              }
+            : undefined,
+        });
+        if (
+          started === false ||
+          (workflowHandoff && !workflowRegistered) ||
+          !isPolicyCurrent() ||
+          (isActionCurrent && !isActionCurrent())
+        ) {
+          return;
+        }
+        if (shouldUseEthenaCooldown) {
+          if (ethenaCooldownCompletedRef.current) {
+            resetAmount();
+            setWithdrawProgressStep(EStakeProgressStep.approve);
+            onQuoteReset?.();
+          }
+        } else {
           resetAmount();
           setWithdrawProgressStep(EStakeProgressStep.approve);
+          // Auto-refresh quote countdown after swap completes
           onQuoteReset?.();
         }
-      } else {
-        resetAmount();
-        setWithdrawProgressStep(EStakeProgressStep.approve);
-        // Auto-refresh quote countdown after swap completes
-        onQuoteReset?.();
+      } finally {
+        if (loadingOwnerRef.current === loadingOwner) {
+          loadingOwnerRef.current = undefined;
+          setLoading(false);
+        }
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    amountValue,
-    onConfirm,
-    onQuoteReset,
-    resetAmount,
-    isStakefishEthWithdraw,
-    signPersonalMessage,
-    networkId,
-    accountId,
-    providerName,
-    actionSymbol,
-    identity,
-    isPendleProvider,
-    withdrawPathConfirmBoxes.length,
-    effectiveSelectedWithdrawPathIndex,
-    intl,
-    symbol,
-    price,
-    receiveInputConfig,
-    transactionConfirmation?.effectiveApy,
-    transactionConfirmation?.receive,
-    pendingEthenaCooldownUnstake,
-    requiresEarnWithdrawPath,
-    isTransactionConfirmationCurrent,
-    selectedWithdrawType,
-    isCancelWithdrawal,
-  ]);
+    },
+    [
+      amountForRequest,
+      requiresConfirmedWithdrawal,
+      approvalScopeGuard,
+      sendScopeGuard,
+      policyScopeGuard,
+      isWithdrawalGuardAllowed,
+      areWithdrawAssetsReady,
+      onConfirm,
+      onQuoteReset,
+      resetAmount,
+      accountAddress,
+      shouldUseEthenaCooldown,
+      confirmPriceImpact,
+      transactionConfirmation?.effectiveApy,
+      pendingEthenaCooldownUnstake,
+      requiresEarnWithdrawPath,
+      isTransactionConfirmationCurrent,
+      selectedWithdrawType,
+      isCancelWithdrawal,
+      shouldUseLiveBalanceForMax,
+    ],
+  );
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
 
-  const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
-    providerName: providerName ?? '',
-    isLoading:
-      transactionConfirmationLoading ||
-      (requiresEarnWithdrawPath && !isTransactionConfirmationCurrent),
-    withdrawType: selectedWithdrawType,
-  });
+  const isWithdrawPathReady =
+    !requiresEarnWithdrawPath ||
+    (!transactionConfirmationLoading &&
+      isTransactionConfirmationCurrent &&
+      !!selectedWithdrawType);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
@@ -1208,7 +1808,7 @@ export function UniversalWithdraw({
     () => ({
       accountId,
       action: ECheckAmountActionType.UNSTAKING,
-      amount: amountValue,
+      amount: amountForRequest,
       identity,
       inputTokenAddress: transactionInputTokenAddress,
       networkId,
@@ -1217,15 +1817,16 @@ export function UniversalWithdraw({
       provider: providerName,
       slippage: pendleSlippage,
       symbol: actionSymbol,
-      withdrawAll: isWithdrawAll,
+      withdrawAll: isWithdrawAll && shouldUseLiveBalanceForMax,
       withdrawType: selectedWithdrawType,
     }),
     [
       accountId,
       actionSymbol,
-      amountValue,
+      amountForRequest,
       identity,
       isWithdrawAll,
+      shouldUseLiveBalanceForMax,
       networkId,
       pendleSlippage,
       protocolVault,
@@ -1236,10 +1837,17 @@ export function UniversalWithdraw({
     ],
   );
   const checkAmountRequestKey = useMemo(
-    () => getCheckAmountRequestKey(checkAmountRequestParams),
-    [checkAmountRequestParams],
+    () =>
+      JSON.stringify([
+        getCheckAmountRequestKey(checkAmountRequestParams),
+        requiresConfirmedWithdrawal,
+        requiresConfirmedWithdrawal ? accountAddress : undefined,
+      ]),
+    [accountAddress, requiresConfirmedWithdrawal, checkAmountRequestParams],
   );
-  checkAmountRequestKeyRef.current = checkAmountRequestKey;
+  useLayoutEffect(() => {
+    checkAmountRequestKeyRef.current = checkAmountRequestKey;
+  }, [checkAmountRequestKey]);
 
   const debouncedCheckAmount = useDebouncedCallback(
     async ({
@@ -1265,12 +1873,39 @@ export function UniversalWithdraw({
           return;
         }
 
-        if (Number(response.code) === 0) {
+        const responseCode: unknown = response.code;
+        const success = requiresConfirmedWithdrawal
+          ? responseCode === 0 || responseCode === '0'
+          : Number(response.code) === 0;
+        if (success) {
           setCheckoutAmountMessage('');
           setCheckAmountAlerts(response.data?.alerts || []);
         } else {
-          setCheckoutAmountMessage(response.message);
+          setCheckoutAmountMessage(
+            response.message ||
+              (requiresConfirmedWithdrawal
+                ? intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  })
+                : ''),
+          );
           setCheckAmountAlerts([]);
+        }
+      } catch (error) {
+        if (!requiresConfirmedWithdrawal) throw error;
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          setCheckoutAmountMessage(
+            intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
+          );
+          setCheckAmountAlerts([]);
+          setCheckAmountFetchFailed(true);
         }
       } finally {
         if (
@@ -1293,18 +1928,23 @@ export function UniversalWithdraw({
     const requestId = checkAmountRequestIdRef.current;
     const requestKey = checkAmountRequestKey;
     const isCheckableAmount =
+      areWithdrawAssetsReady &&
+      (!requiresConfirmedWithdrawal || isWithdrawPathReady) &&
+      !isDisabled &&
       !isCancelWithdrawal &&
-      !isInvalidAmount(amountValue) &&
-      new BigNumber(amountValue).isGreaterThan(0);
+      !isInvalidAmount(amountForRequest) &&
+      new BigNumber(amountForRequest).isGreaterThan(0);
 
     if (!isCheckableAmount) {
       setCheckAmountLoading(false);
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
+      setCheckAmountFetchFailed(false);
       return undefined;
     }
 
     setCheckAmountLoading(true);
+    setCheckAmountFetchFailed(false);
     void debouncedCheckAmount({
       params: checkAmountRequestParams,
       requestId,
@@ -1318,8 +1958,13 @@ export function UniversalWithdraw({
       debouncedCheckAmount.cancel();
     };
   }, [
-    amountValue,
+    amountForRequest,
+    requiresConfirmedWithdrawal,
+    areWithdrawAssetsReady,
+    isWithdrawPathReady,
+    isDisabled,
     checkAmountRequestKey,
+    checkAmountRetrySequence,
     checkAmountRequestParams,
     debouncedCheckAmount,
     isCancelWithdrawal,
@@ -1327,7 +1972,7 @@ export function UniversalWithdraw({
 
   const fetchTransactionConfirmation = useCallback(
     async (amount: string, withdrawType = selectedWithdrawType) => {
-      if (isDisabled) {
+      if (isDisabled || !areWithdrawAssetsReady) {
         return undefined;
       }
       const resp =
@@ -1349,6 +1994,7 @@ export function UniversalWithdraw({
     },
     [
       isDisabled,
+      areWithdrawAssetsReady,
       accountAddress,
       protocolVault,
       shouldSendProtocolVault,
@@ -1363,9 +2009,10 @@ export function UniversalWithdraw({
     ],
   );
 
-  // Keep refs in sync for onApprove's async onSuccess handler
-  onPressRef.current = onPress;
-  fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
+  useLayoutEffect(() => {
+    onPressRef.current = onPress;
+    fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
+  }, [fetchTransactionConfirmation, onPress]);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async ({
@@ -1430,10 +2077,10 @@ export function UniversalWithdraw({
     // so it still has to be quoted.
     const isQuotableAmount =
       isCancelWithdrawal ||
-      (!isInvalidAmount(amountValue) &&
-        new BigNumber(amountValue).isGreaterThan(0));
+      (!isInvalidAmount(amountForRequest) &&
+        new BigNumber(amountForRequest).isGreaterThan(0));
 
-    if (!isQuotableAmount) {
+    if (!isQuotableAmount || !areWithdrawAssetsReady || isDisabled) {
       // Bumping the id above already invalidates anything in flight; the
       // previous run's cleanup cancelled any pending debounce.
       setTransactionConfirmationLoading(false);
@@ -1442,7 +2089,7 @@ export function UniversalWithdraw({
 
     setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation({
-      amount: amountValue,
+      amount: amountForRequest,
       requestId,
       requestKey: transactionConfirmationRequestKey,
       withdrawType: selectedWithdrawType,
@@ -1454,7 +2101,9 @@ export function UniversalWithdraw({
       debouncedFetchTransactionConfirmation.cancel();
     };
   }, [
-    amountValue,
+    amountForRequest,
+    areWithdrawAssetsReady,
+    isDisabled,
     debouncedFetchTransactionConfirmation,
     isCancelWithdrawal,
     selectedWithdrawType,
@@ -1462,7 +2111,7 @@ export function UniversalWithdraw({
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
-    enabled: isPendleProvider,
+    enabled: enableQuoteRefresh,
     refreshKey,
     amountValue,
     fetchTransactionConfirmation,
@@ -1482,6 +2131,7 @@ export function UniversalWithdraw({
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          sendScopeGuard.invalidate();
           // OK-59850 is handled by the checkAmount effect now: clearing the
           // field re-runs it, whose cleanup cancels the pending debounce and
           // whose non-checkable branch resets the loading state.
@@ -1504,6 +2154,9 @@ export function UniversalWithdraw({
       if (isOverflowDecimals) {
         setAmountValue((oldValue) => oldValue);
       } else {
+        if (value !== amountValue || isMax !== isWithdrawAll) {
+          sendScopeGuard.invalidate();
+        }
         setIgnoreAllowanceCheck(false);
         setPendingEthenaCooldownUnstake(false);
         setWithdrawProgressStep(EStakeProgressStep.approve);
@@ -1512,7 +2165,7 @@ export function UniversalWithdraw({
       withdrawAllRef.current = !!isMax;
       setIsWithdrawAll(!!isMax);
     },
-    [decimals, isCancelWithdrawal],
+    [decimals, isCancelWithdrawal, amountValue, isWithdrawAll, sendScopeGuard],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -1563,6 +2216,11 @@ export function UniversalWithdraw({
   const isDisable = useMemo<boolean>(
     () =>
       isDisabled ||
+      !areWithdrawAssetsReady ||
+      (requiresConfirmedWithdrawal &&
+        !isCancelWithdrawal &&
+        isQueuedWithdraw &&
+        (!allowanceAvailable || loadingAllowance)) ||
       !!selectedWithdrawPath?.disabled ||
       (!isCancelWithdrawal &&
         (isInvalidAmount(amountValue) ||
@@ -1573,15 +2231,40 @@ export function UniversalWithdraw({
       !isWithdrawPathReady,
     [
       isDisabled,
+      requiresConfirmedWithdrawal,
+      areWithdrawAssetsReady,
+      allowanceAvailable,
+      loadingAllowance,
       amountValue,
       isCheckAmountMessageError,
       checkAmountAlerts.length,
       checkAmountLoading,
       isCancelWithdrawal,
+      isQueuedWithdraw,
       isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
     ],
   );
+
+  const withdrawalReady = Boolean(
+    !isDisabled &&
+    areWithdrawAssetsReady &&
+    !footerActionOverride &&
+    !selectedWithdrawPath?.disabled &&
+    (isCancelWithdrawal ||
+      (!isInvalidAmount(amountValue) &&
+        new BigNumber(amountValue).isGreaterThan(0))) &&
+    !isCheckAmountMessageError &&
+    checkAmountAlerts.length === 0 &&
+    !checkAmountLoading &&
+    isWithdrawPathReady,
+  );
+  useLayoutEffect(() => {
+    withdrawalReadyRef.current = withdrawalReady;
+    if (requiresConfirmedWithdrawal && !withdrawalReady) {
+      approvalSendScopeGuard.invalidate();
+    }
+  }, [approvalSendScopeGuard, requiresConfirmedWithdrawal, withdrawalReady]);
 
   const {
     isPendleLikeLayout,
@@ -1599,7 +2282,7 @@ export function UniversalWithdraw({
     effectiveReceiveInputConfig,
     receiveArrowOverlayStyle,
   } = usePendleLayoutState({
-    providerName: providerName ?? '',
+    transactionLayout,
     transactionConfirmation,
     amountValue,
     showApyDetail,
@@ -1668,10 +2351,12 @@ export function UniversalWithdraw({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
 
-  const showWithdrawPathSelector =
+  const showWithdrawPathSummary =
     (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
-    withdrawPathConfirmBoxes.length > 1 &&
+    (withdrawPathConfirmBoxes.length > 1 ||
+      (showSingleWithdrawPath && withdrawPathConfirmBoxes.length === 1)) &&
     !!selectedWithdrawPath;
+  const canSelectWithdrawPath = withdrawPathConfirmBoxes.length > 1;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
@@ -1740,28 +2425,45 @@ export function UniversalWithdraw({
     if (effectiveShowExpiredRefresh) return ETranslations.global_refresh;
     if (shouldResumeEthenaCooldownUnstake) return ETranslations.defi_unstake;
     if (isCancelWithdrawal) return ETranslations.global_confirm;
-    if (isPendleProvider) return ETranslations.global_swap;
+    if (withdrawalAction === 'swap') return ETranslations.global_swap;
     return ETranslations.global_withdraw;
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
     shouldResumeEthenaCooldownUnstake,
     isCancelWithdrawal,
-    isPendleProvider,
+    withdrawalAction,
   ]);
+
+  const onWithdrawPress = useCallback(() => {
+    void onPress();
+  }, [onPress]);
 
   const confirmOnPress = useMemo(() => {
     if (shouldApprove) return onApprove;
     if (effectiveShowExpiredRefresh) return handleLocalRefreshQuote;
-    return onPress;
+    return onWithdrawPress;
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
     onApprove,
     handleLocalRefreshQuote,
-    onPress,
+    onWithdrawPress,
   ]);
 
+  const actionIdentity = [
+    accountId,
+    accountAddress,
+    networkId,
+    providerName,
+    protocolVault,
+    amountForRequest,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    initialWithdrawType,
+    effectiveSelectedWithdrawPathIndex,
+    approveType,
+  ].join('|');
   const confirmLoading = useMemo(() => {
     if (shouldApprove) return loadingAllowance || approving;
     if (effectiveShowExpiredRefresh) return quoteRefreshing;
@@ -1788,20 +2490,25 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
-  const effectiveConfirmText =
-    footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
-  const effectiveConfirmOnPress =
-    footerActionOverride?.onPress ?? confirmOnPress;
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : confirmLoading;
-  const effectiveConfirmDisabled = footerActionOverride
-    ? Boolean(footerActionOverride.disabled)
-    : confirmDisabled;
+  const guardedAction = useEarnActionGuard({
+    action: {
+      text: intl.formatMessage({ id: confirmText }),
+      onPress: confirmOnPress,
+      loading: confirmLoading,
+      disabled: confirmDisabled,
+    },
+    override: footerActionOverride,
+    guard: actionGuard,
+    identity: actionIdentity,
+  });
+  const effectiveConfirmText = guardedAction.text;
+  const effectiveConfirmOnPress = guardedAction.onPress;
+  const effectiveConfirmLoading = Boolean(guardedAction.loading);
+  const effectiveConfirmDisabled = Boolean(guardedAction.disabled);
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
-    isPendleProvider,
+    usesMarketLayout: transactionLayout === 'market',
     amountValue,
     hasSummarySection,
     showPendleTransactionSection,
@@ -1886,7 +2593,7 @@ export function UniversalWithdraw({
         ) : null}
       </Stack>
 
-      {showWithdrawPathSelector && selectedWithdrawPath ? (
+      {showWithdrawPathSummary && selectedWithdrawPath ? (
         <XStack
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -1895,9 +2602,9 @@ export function UniversalWithdraw({
           gap="$2.5"
           ai="center"
           userSelect="none"
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgHover' }}
-          onPress={showWithdrawPathDialog}
+          cursor={canSelectWithdrawPath ? 'pointer' : undefined}
+          hoverStyle={canSelectWithdrawPath ? { bg: '$bgHover' } : undefined}
+          onPress={canSelectWithdrawPath ? showWithdrawPathDialog : undefined}
         >
           <YStack flex={1} gap="$1">
             <SizableText size="$bodyMdMedium" color="$text">
@@ -1930,11 +2637,13 @@ export function UniversalWithdraw({
               </XStack>
             ) : null}
           </YStack>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
+          {canSelectWithdrawPath ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          ) : null}
         </XStack>
       ) : null}
 
@@ -1973,6 +2682,17 @@ export function UniversalWithdraw({
           icon="InfoCircleOutline"
           type="critical"
           title={checkAmountMessage}
+          action={
+            checkAmountFetchFailed
+              ? {
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  onPrimaryPress: () =>
+                    setCheckAmountRetrySequence((n) => n + 1),
+                }
+              : undefined
+          }
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (
@@ -2243,6 +2963,35 @@ export function UniversalWithdraw({
           ) : null}
         </YStack>
       ) : null}
+      {amountUnit === 'shares' &&
+      !isCancelWithdrawal &&
+      (withdrawAssetsStatus === 'error' || withdrawAssetsStatus === 'empty') ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id:
+              withdrawAssetsStatus === 'empty'
+                ? ETranslations.global_no_data
+                : ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: onRetryWithdrawAssets,
+          }}
+        />
+      ) : null}
+      {requiresConfirmedWithdrawal && useApprove && allowanceError ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: retryAllowance,
+          }}
+        />
+      ) : null}
       {beforeFooter}
       {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
@@ -2256,7 +3005,7 @@ export function UniversalWithdraw({
                 ) as EStakeProgressStep)
           }
           step2LabelId={
-            isPendleProvider
+            withdrawalAction === 'swap'
               ? ETranslations.global_swap
               : ETranslations.global_withdraw
           }

@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
@@ -44,26 +47,57 @@ export const usePortfolioAction = ({
   onSuccess,
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
+  const appNavigation = useAppNavigation();
 
   // Get earnAccount to use the correct accountId for claim. An indexed
   // account alone (all networks on an HD or hardware wallet, a network whose
   // address is not created yet) resolves too, as the detail page's
   // useEarnAccount does; the phone positions card claims from there.
-  const { result: earnAccount } = usePromiseResult(async () => {
-    if (!accountId && !indexedAccountId) {
-      return null;
-    }
-    return backgroundApiProxy.serviceStaking.getEarnAccount({
-      accountId,
-      networkId,
-      indexedAccountId,
-      btcOnlyTaproot: true,
-    });
-  }, [accountId, networkId, indexedAccountId]);
+  const accountScope = JSON.stringify([accountId, networkId, indexedAccountId]);
+  const {
+    result: resolvedAccount,
+    run: resolveAccount,
+    isLoading: isAccountLoading,
+  } = usePromiseResult(
+    async () => {
+      if (!accountId && !indexedAccountId) {
+        return { accountScope, status: 'unavailable' as const };
+      }
+      try {
+        const account = await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId,
+          networkId,
+          indexedAccountId,
+          btcOnlyTaproot: true,
+        });
+        return account
+          ? { accountScope, status: 'ready' as const, account }
+          : { accountScope, status: 'unavailable' as const };
+      } catch (_error) {
+        return { accountScope, status: 'error' as const };
+      }
+    },
+    [accountId, networkId, indexedAccountId, accountScope],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
 
-  const earnAccountId = useMemo(
-    () => earnAccount?.accountId || accountId,
-    [earnAccount, accountId],
+  const earnAccount = useMemo(
+    () =>
+      resolvedAccount?.accountScope === accountScope &&
+      resolvedAccount.status === 'ready'
+        ? resolvedAccount.account
+        : undefined,
+    [resolvedAccount, accountScope],
+  );
+  const earnAccountId = earnAccount?.accountId ?? '';
+  const isResolvingAccount = Boolean(
+    (accountId || indexedAccountId) &&
+    (isAccountLoading || resolvedAccount?.accountScope !== accountScope),
+  );
+  const accountResolutionFailed = Boolean(
+    (accountId || indexedAccountId) &&
+    resolvedAccount?.accountScope === accountScope &&
+    resolvedAccount.status !== 'ready',
   );
 
   const handleClaim = useHandleClaim({ accountId: earnAccountId, networkId });
@@ -71,7 +105,14 @@ export const usePortfolioAction = ({
     accountId: earnAccountId,
     networkId,
   });
-  const signMessage = useEarnSignMessage();
+  const signMessage = useEarnSignMessage({
+    accountId: earnAccountId,
+    networkId,
+    accountAddress: earnAccount?.accountAddress,
+    provider,
+    symbol,
+    ownerKey: accountScope,
+  });
 
   const handleListaCheckAction = useCallback(
     async (
@@ -82,7 +123,7 @@ export const usePortfolioAction = ({
     ) => {
       setLoading(true);
       try {
-        await signMessage({
+        const registered = await signMessage({
           accountId: earnAccountId,
           networkId,
           provider,
@@ -90,7 +131,7 @@ export const usePortfolioAction = ({
           request: { origin: 'https://lista.org/', scope: 'ethereum' },
         });
 
-        void onSuccess?.();
+        if (registered) void onSuccess?.();
       } finally {
         setLoading(false);
       }
@@ -120,10 +161,6 @@ export const usePortfolioAction = ({
       setLoading(true);
       try {
         const claimAmount = actionIcon.data?.balance || '0';
-        const isMorphoClaim = earnUtils.isMorphoProvider({
-          providerName: provider,
-        });
-
         const receiveToken = earnUtils.convertEarnTokenToIToken(token?.info);
 
         // Use rewardTokenAddress if provided (from airdrop asset), otherwise use token.address
@@ -148,6 +185,7 @@ export const usePortfolioAction = ({
               logoURI: providerLogoURI || '',
             },
             claimable: claimAmount,
+            earnAccount,
           },
           tokenInfo: token
             ? {
@@ -163,7 +201,6 @@ export const usePortfolioAction = ({
           claimAmount,
           claimTokenAddress,
           claimRequestType,
-          isMorphoClaim,
           stakingInfo: {
             label: EEarnLabels.Claim,
             protocol: earnUtils.getEarnProviderName({ providerName: provider }),
@@ -194,6 +231,7 @@ export const usePortfolioAction = ({
       stakeTag,
       providerLogoURI,
       accountId,
+      earnAccount,
     ],
   );
 
@@ -268,42 +306,81 @@ export const usePortfolioAction = ({
     ],
   );
 
-  const handleCancelWithdrawalAction = useCallback(async () => {
-    setLoading(true);
-    try {
-      await handleWithdraw({
-        amount: '0',
-        symbol,
-        provider,
-        protocolVault: earnUtils.shouldSendEarnProtocolVault({
-          providerName: provider,
-        })
-          ? vault
-          : undefined,
-        withdrawAll: false,
-        withdrawType: 'cancel',
-        stakingInfo: {
-          label: EEarnLabels.Withdraw,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: providerLogoURI || '',
-          tags: stakeTag ? [stakeTag] : [],
-        },
-        onSuccess: async () => {
-          await onSuccess?.();
-        },
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    handleWithdraw,
-    onSuccess,
-    provider,
-    providerLogoURI,
-    stakeTag,
-    symbol,
-    vault,
-  ]);
+  const handleCancelWithdrawalAction = useCallback(
+    // Aggregated actions open a picker; legacy actions retain direct cancellation.
+    async () => {
+      if (
+        getEarnProtocol(provider).getCancelWithdrawalRoute() ===
+        'withdraw-options'
+      ) {
+        if (!earnAccountId) return;
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: earnAccountId,
+            networkId,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            protocolInfo: {
+              symbol,
+              provider,
+              vault: vault ?? '',
+              networkId,
+              stakeTag: stakeTag || '',
+              providerDetail: {
+                name: provider,
+                logoURI: providerLogoURI || '',
+              },
+              earnAccount,
+            },
+            onSuccess,
+          },
+        });
+        return;
+      }
+      setLoading(true);
+      try {
+        await handleWithdraw({
+          amount: '0',
+          symbol,
+          provider,
+          protocolVault: earnUtils.shouldSendEarnProtocolVault({
+            providerName: provider,
+          })
+            ? vault
+            : undefined,
+          withdrawAll: false,
+          withdrawType: 'cancel',
+          taskAccountAddress: earnAccount?.accountAddress,
+          stakingInfo: {
+            label: EEarnLabels.Withdraw,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: providerLogoURI || '',
+            tags: stakeTag ? [stakeTag] : [],
+          },
+          onSuccess: async () => {
+            await onSuccess?.();
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      appNavigation,
+      earnAccountId,
+      earnAccount,
+      networkId,
+      handleWithdraw,
+      onSuccess,
+      provider,
+      providerLogoURI,
+      stakeTag,
+      symbol,
+      vault,
+    ],
+  );
 
   const handleAction = useCallback(
     ({
@@ -326,6 +403,7 @@ export const usePortfolioAction = ({
       stakedSymbol?: string;
       rewardSymbol?: string;
     }) => {
+      if (!earnAccountId) return;
       switch (actionIcon.type) {
         case 'claim':
         case 'claimOrder':
@@ -363,12 +441,16 @@ export const usePortfolioAction = ({
       handleClaimWithKycAction,
       handleListaCheckAction,
       handleCancelWithdrawalAction,
+      earnAccountId,
       symbol,
     ],
   );
 
   return {
-    loading,
+    loading: loading || isResolvingAccount,
+    accountResolutionFailed,
+    accountUnavailable: !accountId && !indexedAccountId,
+    retryAccount: resolveAccount,
     handleAction,
   };
 };

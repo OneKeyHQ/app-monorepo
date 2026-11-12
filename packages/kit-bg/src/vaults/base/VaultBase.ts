@@ -665,6 +665,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   /**
    * Extension point for vault implementations to perform preparatory actions
    * before sending transactions, such as resource rental for Tron.
+   * A successful result without preSendTx must not have created a durable
+   * external side effect. A thrown error may have an unknown outcome.
    */
   async preActionsBeforeSending(params: {
     unsignedTxs: IUnsignedTxPro[];

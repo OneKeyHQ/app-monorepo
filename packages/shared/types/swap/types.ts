@@ -714,6 +714,8 @@ export interface IFetchSwapQuoteParams {
   toTokenAmount?: string;
   userMarketPriceRate?: string;
   quoteRequestId?: string;
+  /** Keep this request active when a different caller cancels its legacy session. */
+  cancelOnGlobalStop?: boolean;
 }
 
 export interface IFetchQuoteResult {

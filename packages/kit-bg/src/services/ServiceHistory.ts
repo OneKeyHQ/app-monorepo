@@ -3207,12 +3207,22 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
+  public async fetchHistoryTxDetails(
+    params: IFetchHistoryTxDetailsParams & { expectedAccountAddress?: string },
+  ) {
     try {
-      const { accountId, networkId, txid, withUTXOs } = params;
+      const {
+        accountId,
+        networkId,
+        txid,
+        withUTXOs,
+        expectedAccountAddress,
+        ...requestContext
+      } = params;
 
       let accountAddress = params.accountAddress;
       let xpub = params.xpub;
+      let identityResolved = false;
 
       try {
         const [a, x] = await Promise.all([
@@ -3227,8 +3237,23 @@ class ServiceHistory extends ServiceBase {
         ]);
         accountAddress = a;
         xpub = x;
+        identityResolved = true;
       } catch (_e) {
         // pass
+      }
+
+      if (expectedAccountAddress !== undefined) {
+        const normalize = (address: string) =>
+          networkUtils.isEvmNetwork({ networkId })
+            ? address.toLowerCase()
+            : address;
+        if (
+          !identityResolved ||
+          !expectedAccountAddress.trim() ||
+          !accountAddress?.trim() ||
+          normalize(expectedAccountAddress) !== normalize(accountAddress)
+        )
+          return null;
       }
 
       // the withUTXOs request deliberately carries no account context so
@@ -3236,6 +3261,14 @@ class ServiceHistory extends ServiceBase {
       // account-scoped vault extra params there too — the server rejects
       // `accountAddressArray` unless `accountAddress` accompanies it, and
       // the raw view needs no account semantics.
+      const historyContext = (address: string) => ({
+        ...requestContext,
+        accountId,
+        networkId,
+        txid,
+        withUTXOs,
+        accountAddress: address,
+      });
       const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
             accountId,
@@ -3256,10 +3289,9 @@ class ServiceHistory extends ServiceBase {
             // accompanying `accountAddress`, and other vault extras (e.g.
             // lightning auth) are equally meaningless with an empty address.
             ...(accountAddress
-              ? await this.buildFetchHistoryListParams({
-                  ...params,
-                  accountAddress,
-                })
+              ? await this.buildFetchHistoryListParams(
+                  historyContext(accountAddress),
+                )
               : {}),
           };
       const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -3346,11 +3378,15 @@ class ServiceHistory extends ServiceBase {
     accountId,
     networkId,
     txid,
-  }: IFetchTxDetailsParams) {
+    expectedAccountAddress,
+  }: IFetchTxDetailsParams & { expectedAccountAddress?: string }) {
     return this.fetchHistoryTxDetails({
       accountId,
       networkId,
       txid,
+      ...(expectedAccountAddress !== undefined
+        ? { expectedAccountAddress }
+        : undefined),
     });
   }
 

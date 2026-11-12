@@ -104,6 +104,7 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
+import { getEarnProtocol } from '../../protocols';
 import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
@@ -431,10 +432,8 @@ function ChartSection({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName: provider }),
-    [provider],
-  );
+  const chartPresentation =
+    getEarnProtocol(provider).getApyHistoryPresentation().chart;
 
   const {
     impliedApyHistory,
@@ -446,19 +445,21 @@ function ChartSection({
 
   // Pendle keeps its own toggled underlying-APY line; every other provider
   // draws the campaign / reward line the server computed.
-  const secondaryHistory = isPendleProvider
-    ? underlyingApyHistory
-    : extraApyHistory;
-  const secondaryLineColor = isPendleProvider
-    ? undefined
-    : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
-      // segment colors: the design's Orange/10 (OK-64551).
-      (extraApyKind === 'reward' && '#0177E5') || '#ED5F00';
+  const secondaryHistory =
+    chartPresentation === 'fixed-income'
+      ? underlyingApyHistory
+      : extraApyHistory;
+  const secondaryLineColor =
+    chartPresentation === 'fixed-income'
+      ? undefined
+      : // Campaign orange vs protocol-reward blue, matching the Yield sheet's
+        // segment colors: the design's Orange/10 (OK-64551).
+        (extraApyKind === 'reward' && '#0177E5') || '#ED5F00';
 
   // Both lines used to read "APY" in the tooltip, which left the reader with no
   // way to tell the vault's own yield from the bonus on top of it.
   const { primaryLabel, secondaryLabel } = useMemo(() => {
-    if (isPendleProvider) {
+    if (chartPresentation === 'fixed-income') {
       return {
         primaryLabel: intl.formatMessage({
           id: ETranslations.earn_fixed_income,
@@ -483,7 +484,7 @@ function ChartSection({
               : ETranslations.defi_platform_bonus,
         }),
     };
-  }, [apyBreakdownItems, extraApyKind, intl, isPendleProvider]);
+  }, [apyBreakdownItems, extraApyKind, intl, chartPresentation]);
 
   // Calculate high and low APY
   const { high, low } = useMemo(() => {
@@ -498,7 +499,7 @@ function ChartSection({
   }, [impliedApyHistory]);
 
   const showUnderlyingApyToggle = Boolean(
-    isPendleProvider &&
+    chartPresentation === 'fixed-income' &&
     hasNonZeroUnderlyingApy &&
     underlyingApyHistory &&
     underlyingApyHistory.length > 0,
@@ -515,7 +516,10 @@ function ChartSection({
   return (
     <YStack gap="$3">
       {/* High and Low values */}
-      {gtMd && !isPendleProvider && high !== null && low !== null ? (
+      {gtMd &&
+      chartPresentation !== 'fixed-income' &&
+      high !== null &&
+      low !== null ? (
         <XStack gap="$4" pt="$6">
           <YStack>
             <SizableText size="$bodySm" color="$textSubdued">
@@ -541,7 +545,9 @@ function ChartSection({
         underlyingApyHistory={secondaryHistory}
         secondaryLineColor={secondaryLineColor}
         controlsPlacement={showTimeRangeControls ? 'bottom' : 'top'}
-        showChartControls={isPendleProvider || Boolean(showTimeRangeControls)}
+        showChartControls={
+          chartPresentation === 'fixed-income' || Boolean(showTimeRangeControls)
+        }
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={primaryLabel}
         secondaryApyLabel={secondaryLabel}
@@ -825,6 +831,8 @@ const DetailsPartComponent = ({
   holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
+  const rulesPresentation =
+    getEarnProtocol(provider).getApyHistoryPresentation().rules;
   const { chartData, isChartLoading } = useEarnApyHistory({
     networkId,
     symbol,
@@ -985,9 +993,7 @@ const DetailsPartComponent = ({
                         }
                       />
                       <GridSection data={detailInfo.mobileInfo?.tokenInfo} />
-                      {earnUtils.isPendleProvider({
-                        providerName: provider,
-                      }) ? (
+                      {rulesPresentation === 'maturity-chart' ? (
                         <PendleRulesSection
                           data={detailInfo.rules}
                           impliedApyHistory={chartData?.impliedApyHistory}
@@ -1059,9 +1065,7 @@ const DetailsPartComponent = ({
             />
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
-            {earnUtils.isPendleProvider({
-              providerName: provider,
-            }) ? (
+            {rulesPresentation === 'maturity-chart' ? (
               <PendleRulesSection
                 data={detailInfo.rules}
                 impliedApyHistory={chartData?.impliedApyHistory}
@@ -1205,6 +1209,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
+  const earnProtocol = useMemo(() => getEarnProtocol(provider), [provider]);
+  const detailRedeemPolicy = earnProtocol.getDetailRedeemPolicy();
+  const stakeAction = earnProtocol.getStakePresentation().action;
 
   const {
     detailInfo,
@@ -1582,13 +1589,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       isMobileLayout &&
       !detailInfo?.actions &&
       !isCustomProtocol &&
-      !earnUtils.isPendleProvider({ providerName: provider }) &&
+      detailRedeemPolicy !== 'holding' &&
       hasPortfolio,
     [
       isMobileLayout,
       detailInfo?.actions,
       isCustomProtocol,
-      provider,
+      detailRedeemPolicy,
       hasPortfolio,
     ],
   );
@@ -1617,26 +1624,29 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // principal row of the Portfolio tab share this one Redeem (product 10-14:
   // both stay).
   const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
-    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
     const showRedeem =
       isMobileLayout &&
       hasDeposit &&
-      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
+      (Boolean(redeemAction) ||
+        detailRedeemPolicy === 'holding' ||
+        redeemWithoutActions);
     if (!showRedeem) {
       return undefined;
     }
     return {
       label: intl.formatMessage({
-        id:
-          isPendle && !isMatured
-            ? ETranslations.defi_sell_early
-            : ETranslations.earn_redeem,
+        id: getEarnProtocol(provider).shouldSellBeforeMaturity({
+          matured: isMatured,
+        })
+          ? ETranslations.defi_sell_early
+          : ETranslations.earn_redeem,
       }),
       // Pendle sends no actions: its Redeem follows the holding's flag from
       // the positions read, the same the card greys on.
-      disabled: isPendle
-        ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
-        : Boolean(redeemAction?.disabled),
+      disabled:
+        detailRedeemPolicy === 'holding'
+          ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
+          : Boolean(redeemAction?.disabled),
       onPress: handleOpenRedeem,
     };
   }, [
@@ -1645,6 +1655,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isMobileLayout,
     hasDeposit,
     hasPortfolio,
+    detailRedeemPolicy,
     holding?.source.earn.redeem?.disabled,
     redeemAction,
     redeemWithoutActions,
@@ -1669,11 +1680,13 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     // actions for Pendle (its wide layout has its own swap pair), so the rules
     // mirror the manage page's pair: no buying after maturity, no selling
     // without a position.
-    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
       : intl.formatMessage({
-          id: isPendle ? ETranslations.global_buy : ETranslations.earn_deposit,
+          id:
+            stakeAction === 'swap'
+              ? ETranslations.global_buy
+              : ETranslations.earn_deposit,
         });
     const onPress = isManageOnly
       ? () => handleOpenManageModal()
@@ -1683,7 +1696,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       (action) => action.type === 'deposit',
     );
     const depositDisabled =
-      Boolean(depositAction?.disabled) || (isPendle && isMatured);
+      Boolean(depositAction?.disabled) ||
+      !earnProtocol.canDepositAtMaturity({ matured: isMatured });
 
     return (
       <Page.Footer
@@ -1716,7 +1730,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
-    provider,
+    stakeAction,
+    earnProtocol,
     isMatured,
   ]);
 

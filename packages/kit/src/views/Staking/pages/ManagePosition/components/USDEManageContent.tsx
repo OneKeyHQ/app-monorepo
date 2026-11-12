@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 
 import { showKYCDialog } from '../../../components/ProtocolDetails/showKYCDialog';
+import { useEarnRegistrationTask } from '../../../hooks/useEarnRegistrationTask';
 import { useHandleSwap } from '../../../hooks/useHandleSwap';
 
 import { SpecialManageContent } from './SpecialManageContent';
@@ -72,6 +73,13 @@ export function USDEManageContent({
 }: IUSDEManageContentProps) {
   const appNavigation = useAppNavigation();
   const { handleSwap } = useHandleSwap();
+  const activateRegistration = useEarnRegistrationTask({
+    accountId: earnAccount?.accountId,
+    networkId,
+    accountAddress: earnAccount?.accountAddress,
+    provider,
+    symbol,
+  });
 
   const holdings = managePageData?.holdings;
   const receiveAction = managePageData?.receive;
@@ -162,19 +170,17 @@ export function USDEManageContent({
   const handleActivate = useCallback(() => {
     if (!activateAction) return;
 
+    const registrationAbort = new AbortController();
     showKYCDialog({
       actionData: activateAction,
+      onCloseStart: () => registrationAbort.abort(),
       onConfirm: async (checkboxStates: boolean[]) => {
         if (checkboxStates.every(Boolean)) {
-          const resp =
-            await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage({
-              networkId,
-              provider,
-              symbol,
-              accountAddress: earnAccount?.accountAddress ?? '',
-              signature: '',
-              message: '',
-            });
+          const resp = await activateRegistration({
+            mode: 'activation',
+            signal: registrationAbort.signal,
+          });
+          if (!resp) return;
           if (resp.toast) {
             Toast.success({
               title: resp.toast.text.text,
@@ -184,14 +190,7 @@ export function USDEManageContent({
         }
       },
     });
-  }, [
-    activateAction,
-    networkId,
-    provider,
-    symbol,
-    earnAccount?.accountAddress,
-    onActionSuccess,
-  ]);
+  }, [activateAction, onActionSuccess, activateRegistration]);
 
   // Configure buttons based on available actions
   const buttonConfig = useMemo((): ISpecialManageButtonConfig => {

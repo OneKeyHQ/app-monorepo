@@ -1,4 +1,4 @@
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IEarnAvailableAssetV2 } from '@onekeyhq/shared/types/earn';
 import type { IEarnPortfolioClaimSymbolStatus } from '@onekeyhq/shared/types/staking';
@@ -101,10 +101,27 @@ export function resolveUniquePortfolioClaimSourceIdentity({
   return identities.size === 1 ? Array.from(identities.values())[0] : null;
 }
 
+export function resolvePortfolioActionSymbol({
+  providerName,
+  assetSymbol,
+  protocolSymbol,
+}: {
+  providerName: string;
+  assetSymbol: string;
+  protocolSymbol?: string;
+}) {
+  return getEarnProtocol(providerName).resolvePortfolioActionSymbol({
+    assetSymbol,
+    protocolSymbol,
+  });
+}
+
+/** Resolve protocol and airdrop source identities; missing or conflicting identities fail closed. */
 export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop,
   providerName,
   assetSymbol,
+  protocolSymbol,
   assetVault,
   claimSymbol,
   claimSymbolStatus,
@@ -113,24 +130,25 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop: boolean;
   providerName: string;
   assetSymbol: string;
+  protocolSymbol?: string;
   assetVault?: string;
   claimSymbol?: string;
   claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   sourceIdentity?: IPortfolioClaimProtocolIdentity | null;
 }): IPortfolioClaimProtocolIdentity | null {
   if (!isAirdrop) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
+    const symbol = resolvePortfolioActionSymbol({
+      providerName,
+      assetSymbol,
+      protocolSymbol,
+    });
+    return symbol === undefined ? null : { symbol, vault: assetVault };
   }
 
-  if (earnUtils.isPendleProvider({ providerName })) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
-  }
+  const protocolIdentity = getEarnProtocol(
+    providerName,
+  ).resolveAirdropClaimIdentity({ assetSymbol, assetVault });
+  if (protocolIdentity) return protocolIdentity;
 
   if (claimSymbolStatus === 'ambiguous') {
     return null;

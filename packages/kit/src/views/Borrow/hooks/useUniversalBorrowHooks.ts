@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,14 @@ import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { createLateEarnOrderObserver } from '@onekeyhq/kit/src/views/Earn/tasks/lateEarnOrderRecorder';
+import {
+  getTaskAccountAddress,
+  isTaskAccountCurrent,
+  normalizeTaskAccountAddress,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
+import { useCommittedEarnScopeGuard } from '@onekeyhq/kit/src/views/Staking/hooks/useCommittedEarnScopeGuard';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -14,16 +21,18 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   type IBorrowEModeSwitchCheck,
   type IBorrowTransactionConfirmation,
-  type IRepayWithCollateralQuote,
   type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import type {
+  IBroadcastAcceptedFact,
+  ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
-import {
-  getBorrowLutFinalizationErrorTranslation,
-  mapBorrowLutFinalizationToTxStatus,
-} from './borrowLutFinalization';
+import { createBorrowCollateralRepayTask } from './borrowCollateralRepayTask';
+import { runBorrowConfirmationTask } from './borrowConfirmationTask';
+import { mapBorrowLutFinalizationToTxStatus } from './borrowLutFinalization';
+import { createBorrowLutTaskRegistry } from './borrowLutTaskRegistry';
 import {
   type IBorrowBuildTxParams,
   attachBorrowOrderId,
@@ -32,6 +41,8 @@ import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
 } from './useUniversalBorrowWithdrawRepayHooks';
+
+import type { IBorrowCollateralRepayTaskOwner } from './borrowCollateralRepayTask';
 
 export { useUniversalBorrowRepay, useUniversalBorrowWithdraw };
 
@@ -113,34 +124,39 @@ const getLatestTxId = (data: ISendTxOnSuccessData[]) => {
   return undefined;
 };
 
-const syncBorrowOrder = async ({
-  orderId,
-  networkId,
-  txId,
-  status,
-  stakingInfo,
-}: {
-  orderId?: string;
-  networkId: string;
-  txId?: string;
-  status: EDecodedTxStatus;
-  stakingInfo?: IStakingInfo;
-}) => {
-  if (!orderId || !txId) {
-    return;
-  }
-
-  await backgroundApiProxy.serviceStaking.addEarnOrder({
-    orderId,
-    networkId,
-    txId,
-    status,
-    ...getEarnOrderTrackingInfo(stakingInfo),
-  });
-};
-
 // Buffer after RPC finalization to allow all RPC nodes to sync the LUT state
 const LUT_PROPAGATION_BUFFER_MS = 5000;
+
+type ICollateralRepayIntent = Pick<
+  IBorrowBuildTxParams,
+  | 'amount'
+  | 'marketAddress'
+  | 'reserveAddress'
+  | 'repayAll'
+  | 'slippageBps'
+  | 'routeKey'
+> & { collateralReserveAddress: string };
+
+type ICollateralRepayTask = ReturnType<
+  typeof createBorrowCollateralRepayTask<ICollateralRepayIntent>
+>;
+
+const borrowCollateralRepayRegistry =
+  createBorrowLutTaskRegistry<ICollateralRepayTask>();
+
+const hasReusableCollateralSetup = (task: ICollateralRepayTask) => {
+  const snapshot = task.getSetupTask();
+  const setup = snapshot.steps.find((step) => step.id === 'setup');
+  const propagation = snapshot.steps.find((step) => step.id === 'propagation');
+  return Boolean(
+    setup?.status.type === 'handedOff' &&
+    propagation?.status.type === 'completed' &&
+    ['saved', 'remoteUnknown', 'notTracked'].includes(
+      snapshot.facts?.recording ?? '',
+    ) &&
+    ['pending', 'confirmed'].includes(snapshot.facts?.finality ?? ''),
+  );
+};
 
 /**
  * Resolves true once the flow has been handed to the transaction confirm page,
@@ -152,9 +168,11 @@ const LUT_PROPAGATION_BUFFER_MS = 5000;
 export function useUniversalBorrowSupply({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -162,6 +180,15 @@ export function useUniversalBorrowSupply({
   });
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -170,9 +197,13 @@ export function useUniversalBorrowSupply({
       marketAddress,
       reserveAddress,
       stakingInfo,
+      accountAddress: approvalAccountAddress,
+      workflowHandoff,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -185,41 +216,49 @@ export function useUniversalBorrowSupply({
       ) {
         return false;
       }
+      if (!isCurrent()) return false;
 
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildSupplyTransaction({
-          networkId,
+      const frozenAddress =
+        approvalAccountAddress ??
+        accountAddress ??
+        (await getTaskAccountAddress({ accountId, networkId }));
+      if (!isCurrent()) return false;
+
+      return runBorrowConfirmationTask({
+        identity: {
           accountId,
+          networkId,
+          accountAddress: frozenAddress,
           provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
+          action: 'supply',
+          intent: { marketAddress, reserveAddress, amount },
+        },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildSupplyTransaction({
             networkId,
             accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
+            expectedAccountAddress: frozenAddress,
+            provider,
+            marketAddress,
+            reserveAddress,
+            amount,
+          }),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent,
+        onSuccess,
         onFail,
+        workflowHandoff,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+      scope,
+    ],
   );
 }
 
@@ -233,9 +272,11 @@ export function useUniversalBorrowSupply({
 export function useUniversalBorrowBorrow({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -243,6 +284,15 @@ export function useUniversalBorrowBorrow({
   });
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -252,9 +302,13 @@ export function useUniversalBorrowBorrow({
       reserveAddress,
       unwrap,
       stakingInfo,
+      accountAddress: approvalAccountAddress,
+      workflowHandoff,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returns false so the caller can tell a rejection apart from a
       // completed hand-off and leave the form untouched.
@@ -267,74 +321,127 @@ export function useUniversalBorrowBorrow({
       ) {
         return false;
       }
+      if (!isCurrent()) return false;
 
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildBorrowTransaction({
-          networkId,
+      const frozenAddress =
+        approvalAccountAddress ??
+        accountAddress ??
+        (await getTaskAccountAddress({ accountId, networkId }));
+      if (!isCurrent()) return false;
+
+      return runBorrowConfirmationTask({
+        identity: {
           accountId,
+          networkId,
+          accountAddress: frozenAddress,
           provider,
-          marketAddress,
-          reserveAddress,
-          amount,
-          ...(unwrap !== undefined ? { unwrap } : {}),
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
+          action: 'borrow',
+          intent: { marketAddress, reserveAddress, amount, unwrap },
+        },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildBorrowTransaction({
             networkId,
             accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
+            expectedAccountAddress: frozenAddress,
+            provider,
+            marketAddress,
+            reserveAddress,
+            amount,
+            ...(unwrap !== undefined ? { unwrap } : {}),
+          }),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent,
+        onSuccess,
         onFail,
+        workflowHandoff,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+      scope,
+    ],
   );
 }
 
 export function useUniversalBorrowRepayWithCollateral({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const intl = useIntl();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
   });
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const activeTaskGroup = useMemo(
+    () => ({ scope, detachers: new Set<() => void>() }),
+    [scope],
+  );
+  const activeTaskDetach = activeTaskGroup.detachers;
+  useEffect(() => {
+    return () => {
+      activeTaskDetach.forEach((detach) => detach());
+      activeTaskDetach.clear();
+    };
+  }, [activeTaskDetach]);
   const waitForTxConfirmResult = useCallback(
     async ({
       encodedTx,
       stakingInfo,
+      isCurrent,
+      beforeSend,
+      onConfirmed,
+      onLateBroadcastAccepted,
+      signal,
+      onCancelled,
+      onFailed,
     }: {
       encodedTx?: IEncodedTx;
       stakingInfo?: IStakingInfo;
+      isCurrent: () => boolean;
+      beforeSend: () => Promise<void>;
+      onConfirmed?: (
+        data: ISendTxOnSuccessData[],
+        wasSettled: boolean,
+      ) => Promise<void>;
+      onLateBroadcastAccepted?: (
+        fact: IBroadcastAcceptedFact,
+      ) => Promise<boolean>;
+      signal?: AbortSignal;
+      onCancelled?: () => void;
+      onFailed?: () => void;
     }): Promise<ITxConfirmResult> =>
       new Promise((resolve, reject) => {
         let settled = false;
+        let successHandled = false;
+        let lateFact: Promise<boolean> | undefined;
+        let successTxid: string | undefined;
 
         const resolveOnce = (result: ITxConfirmResult) => {
           if (settled) {
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           resolve(result);
         };
 
@@ -343,16 +450,80 @@ export function useUniversalBorrowRepayWithCollateral({
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           reject(error);
         };
+
+        function onAbort() {
+          try {
+            if (!settled) onCancelled?.();
+          } finally {
+            resolveOnce({ status: 'cancel' });
+          }
+        }
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
+        signal?.addEventListener('abort', onAbort, { once: true });
 
         void navigationToTxConfirm({
           encodedTx,
           stakingInfo,
-          onSuccess: (data) => resolveOnce({ status: 'success', data }),
-          onFail: (error) => rejectOnce(error),
-          onCancel: () => resolveOnce({ status: 'cancel' }),
-        }).catch((error) => rejectOnce(error));
+          isNavigationCurrent: isCurrent,
+          onBeforeSend: beforeSend,
+          onLateBroadcastAccepted: onLateBroadcastAccepted
+            ? async (fact) => {
+                if (successTxid && successTxid === fact.txid) return;
+                const current = onLateBroadcastAccepted(fact);
+                lateFact = lateFact
+                  ? Promise.all([lateFact, current]).then(
+                      ([first, second]) => first || second,
+                    )
+                  : current;
+                await current;
+              }
+            : undefined,
+          onSuccess: (data) => {
+            if (successHandled) return;
+            successHandled = true;
+            successTxid = getLatestTxId(data);
+            const wasSettled = settled;
+            void (async () => {
+              try {
+                if (lateFact && (await lateFact)) return;
+                await onConfirmed?.(data, wasSettled);
+                resolveOnce({ status: 'success', data });
+              } catch (error) {
+                if (settled) {
+                  console.error(
+                    'Unable to complete Borrow confirmation callback',
+                  );
+                } else {
+                  rejectOnce(error);
+                }
+              }
+            })();
+          },
+          onFail: (error) => {
+            try {
+              if (!settled) onFailed?.();
+            } finally {
+              rejectOnce(error);
+            }
+          },
+          onCancel: () => {
+            try {
+              if (!settled) onCancelled?.();
+            } finally {
+              resolveOnce({ status: 'cancel' });
+            }
+          },
+        })
+          .then(() => {
+            if (!isCurrent()) resolveOnce({ status: 'cancel' });
+          })
+          .catch((error) => rejectOnce(error));
       }),
     [navigationToTxConfirm],
   );
@@ -370,9 +541,13 @@ export function useUniversalBorrowRepayWithCollateral({
       routeKey,
       stakingInfo,
       onSetupLutReadyForRepay,
+      isActionCurrent,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
+      const isScopeCurrent = scope.capture();
+      const isCurrent = () => isScopeCurrent() && (isActionCurrent?.() ?? true);
+      if (!isCurrent()) return false;
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses.
       if (
@@ -384,166 +559,586 @@ export function useUniversalBorrowRepayWithCollateral({
       ) {
         return false;
       }
+      if (!isCurrent()) return false;
 
       try {
-        let setupLutFinalizationResult:
-          | 'finalized'
-          | 'failed'
-          | 'timeout'
-          | undefined;
-
+        const frozenAddress =
+          accountAddress ??
+          (await getTaskAccountAddress({ accountId, networkId }));
+        const verifyAccount = async () => {
+          if (
+            !isCurrent() ||
+            !(await isTaskAccountCurrent({
+              accountId,
+              networkId,
+              accountAddress: frozenAddress,
+            })) ||
+            !isCurrent()
+          ) {
+            throw new OneKeyLocalError(
+              'Borrow transaction confirmation expired',
+            );
+          }
+        };
+        await verifyAccount();
         if (!collateralReserveAddress) {
           throw new OneKeyLocalError('collateralReserveAddress is required');
         }
-
-        if (needsSetupLut) {
-          const failedMessage = intl.formatMessage({
-            id: ETranslations.global_failed,
+        const intent: ICollateralRepayIntent = {
+          amount,
+          marketAddress,
+          reserveAddress,
+          collateralReserveAddress,
+          repayAll,
+          slippageBps,
+          routeKey,
+        };
+        const key = { accountId, networkId, accountAddress: frozenAddress };
+        const pending = () => {
+          Toast.message({
+            title: intl.formatMessage({ id: ETranslations.global_pending }),
+            message: intl.formatMessage({
+              id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+            }),
           });
-          const setupResp =
-            await backgroundApiProxy.serviceStaking.borrowBuildSetupLutTransaction(
-              {
-                networkId,
-                accountId,
-                provider,
-                marketAddress,
-                reserveAddress,
-                collateralReserveAddress,
-              },
-            );
-
-          if (!setupResp.tx) {
-            throw new OneKeyLocalError(failedMessage);
-          }
-
-          const setupTrackingStakingInfo = buildBorrowTrackingStakingInfo({
-            stakingInfo,
-            orderId: setupResp.orderId,
-          });
-
-          const setupConfirmResult = await waitForTxConfirmResult({
-            encodedTx: parseBorrowEncodedTx(setupResp.tx),
-            stakingInfo: setupTrackingStakingInfo,
-          });
-
-          if (setupConfirmResult.status === 'cancel') {
-            return false;
-          }
-
-          const latestSetupTxId = getLatestTxId(setupConfirmResult.data);
-          if (!latestSetupTxId) {
-            throw new OneKeyLocalError(failedMessage);
-          }
-
-          await syncBorrowOrder({
-            orderId: setupResp.orderId,
-            networkId,
-            txId: latestSetupTxId,
-            status:
-              setupConfirmResult.data[setupConfirmResult.data.length - 1]
-                ?.decodedTx.status ?? EDecodedTxStatus.Pending,
-            stakingInfo: setupTrackingStakingInfo,
-          });
-
-          setupLutFinalizationResult =
-            await backgroundApiProxy.serviceStaking.waitForSolTxFinalized({
+          return false;
+        };
+        const sameIntent = (
+          left: ICollateralRepayIntent,
+          right: ICollateralRepayIntent,
+        ) =>
+          JSON.stringify([
+            left.amount,
+            left.marketAddress,
+            left.reserveAddress,
+            left.collateralReserveAddress,
+            left.repayAll,
+            left.slippageBps,
+            left.routeKey,
+          ]) ===
+          JSON.stringify([
+            right.amount,
+            right.marketAddress,
+            right.reserveAddress,
+            right.collateralReserveAddress,
+            right.repayAll,
+            right.slippageBps,
+            right.routeKey,
+          ]);
+        const sameSetupRoute = (task: ICollateralRepayTask) => {
+          const previous = task.getTask().identity;
+          return (
+            previous.accountId === accountId &&
+            previous.networkId === networkId &&
+            previous.provider.toLowerCase() === provider.toLowerCase() &&
+            previous.intent.marketAddress === marketAddress &&
+            previous.intent.reserveAddress === reserveAddress &&
+            previous.intent.collateralReserveAddress ===
+              collateralReserveAddress
+          );
+        };
+        let entry = borrowCollateralRepayRegistry.findReservation(key);
+        if (entry?.type === 'conflict') return pending();
+        const createTask = (
+          preparation: 'setup' | 'freshQuote' | 'direct',
+          predecessor?: ICollateralRepayTask,
+        ) =>
+          createBorrowCollateralRepayTask({
+            identity: {
+              accountId,
+              accountAddress: frozenAddress,
               networkId,
-              txId: latestSetupTxId,
-            });
-
-          if (setupResp.orderId) {
-            await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId({
-              currentTxId: latestSetupTxId,
-              status: mapBorrowLutFinalizationToTxStatus(
-                setupLutFinalizationResult,
-              ),
-            });
-          }
-
-          if (setupLutFinalizationResult === 'failed') {
-            throw new OneKeyLocalError(
-              intl.formatMessage({
-                id: getBorrowLutFinalizationErrorTranslation(
-                  setupLutFinalizationResult,
-                ),
-              }),
-            );
-          }
-
-          await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
+              provider,
+              action: 'repayWithCollateral',
+              intent,
+            },
+            preparation,
+            predecessor,
+            failedMessage: intl.formatMessage({
+              id: ETranslations.global_failed,
+            }),
+            onAsyncError: (error) => {
+              if (isCurrent()) {
+                Toast.error({
+                  title:
+                    error instanceof Error
+                      ? error.message
+                      : intl.formatMessage({ id: ETranslations.global_failed }),
+                });
+              }
+            },
+          });
+        if (!entry) {
+          const task = createTask(needsSetupLut ? 'setup' : 'direct');
+          const reservation = borrowCollateralRepayRegistry.reserve(key, task);
+          if (reservation.type !== 'reserved') return pending();
+          entry = { type: 'owned', controller: task, token: reservation.token };
         }
-
-        if (needsSetupLut) {
-          onSetupLutReadyForRepay?.();
-        }
-
-        let freshQuote: IRepayWithCollateralQuote | undefined;
-        if (needsSetupLut) {
-          // Re-quote after LUT setup so the confirm summary and the built
-          // transaction stay pinned to the same fresh route.
-          freshQuote =
-            await backgroundApiProxy.serviceStaking.getBorrowRepayWithCollateralQuote(
-              {
-                networkId,
-                accountId,
-                provider,
-                marketAddress,
-                reserveAddress,
-                collateralReserveAddress,
-                amount,
-                repayAll,
-                slippageBps,
-              },
-            );
-        }
-
-        const resp =
-          await backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
-            {
+        let task = entry.controller;
+        let reservationToken = entry.token;
+        let changed = !sameIntent(task.getTask().identity.intent, intent);
+        let didSucceed = false;
+        const makeOwner = (
+          currentTask: ICollateralRepayTask,
+          stopAfterSetup: boolean,
+          isOwnerActive: () => boolean = () => true,
+        ): IBorrowCollateralRepayTaskOwner<ICollateralRepayIntent> => ({
+          isCurrent: () =>
+            isCurrent() &&
+            isOwnerActive() &&
+            (!stopAfterSetup || !hasReusableCollateralSetup(currentTask)),
+          verify: verifyAccount,
+          buildSetup: async (request) =>
+            backgroundApiProxy.serviceStaking.borrowBuildSetupLutTransaction({
               networkId,
               accountId,
+              expectedAccountAddress: frozenAddress,
               provider,
-              marketAddress,
-              reserveAddress,
-              collateralReserveAddress,
-              amount,
-              repayAll,
-              slippageBps,
-              routeKey: needsSetupLut ? freshQuote?.routeKey : routeKey,
-            },
+              marketAddress: request.marketAddress,
+              reserveAddress: request.reserveAddress,
+              collateralReserveAddress: request.collateralReserveAddress,
+            }),
+          confirmSetup: async ({
+            built,
+            signal,
+            onBeforeSend,
+            onConfirmed,
+            onLateBroadcastAccepted,
+            onCancelled,
+            onFailed,
+          }) => {
+            const setupInfo = buildBorrowTrackingStakingInfo({
+              stakingInfo,
+              orderId: built.orderId,
+            });
+            const result = await waitForTxConfirmResult({
+              encodedTx: parseBorrowEncodedTx(built.tx),
+              stakingInfo: setupInfo,
+              isCurrent,
+              beforeSend: onBeforeSend,
+              signal,
+              onCancelled,
+              onFailed,
+              onLateBroadcastAccepted: async (fact) => {
+                if (
+                  fact.accountId !== accountId ||
+                  fact.networkId !== networkId ||
+                  !fact.uuid.trim() ||
+                  !fact.txid.trim()
+                )
+                  return false;
+                return onLateBroadcastAccepted(fact.txid);
+              },
+              onConfirmed: async (data, wasSettled) => {
+                const txid = getLatestTxId(data);
+                if (!txid)
+                  throw new OneKeyLocalError(
+                    intl.formatMessage({ id: ETranslations.global_failed }),
+                  );
+                await onConfirmed(
+                  txid,
+                  data[data.length - 1]?.decodedTx.status ??
+                    EDecodedTxStatus.Pending,
+                  wasSettled,
+                );
+              },
+            });
+            return result.status === 'success';
+          },
+          recordSetup: async ({
+            txid,
+            orderId,
+            status,
+            preserveExistingTx,
+          }) => {
+            if (!orderId) return 'notTracked';
+            const setupInfo = buildBorrowTrackingStakingInfo({
+              stakingInfo,
+              orderId,
+            });
+            const result = await backgroundApiProxy.serviceStaking.addEarnOrder(
+              {
+                orderId,
+                networkId,
+                txId: txid,
+                status,
+                ...getEarnOrderTrackingInfo(setupInfo),
+              },
+              {
+                remoteSync: 'once',
+                ...(preserveExistingTx ? { preserveExistingTx: true } : {}),
+              },
+            );
+            if (!result || result.remoteStatus === 'failed')
+              return 'remoteUnknown';
+            if (
+              (result.localStatus === 'failed' ||
+                result.localStatus === 'unavailable') &&
+              result.remoteStatus === 'notAttempted'
+            )
+              return 'localFailed';
+            if (result.remoteStatus !== 'synced') return 'remoteUnknown';
+            return 'saved';
+          },
+          finality: async (txid) => {
+            const result =
+              await backgroundApiProxy.serviceStaking.waitForSolTxFinalized({
+                networkId,
+                txId: txid,
+              });
+            if (currentTask.getSetupTask().facts?.orderId) {
+              await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId({
+                currentTxId: txid,
+                status: mapBorrowLutFinalizationToTxStatus(result),
+              });
+            }
+            return result;
+          },
+          propagate: async () => {
+            await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
+            await verifyAccount();
+            onSetupLutReadyForRepay?.();
+          },
+          quote: async (request) => {
+            await verifyAccount();
+            return backgroundApiProxy.serviceStaking.getBorrowRepayWithCollateralQuote(
+              {
+                networkId,
+                accountId,
+                expectedAccountAddress: frozenAddress,
+                provider,
+                marketAddress: request.marketAddress,
+                reserveAddress: request.reserveAddress,
+                collateralReserveAddress: request.collateralReserveAddress,
+                amount: request.amount,
+                repayAll: request.repayAll,
+                slippageBps: request.slippageBps,
+              },
+            );
+          },
+          buildRepay: async (request, quote) =>
+            backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
+              {
+                networkId,
+                accountId,
+                expectedAccountAddress: frozenAddress,
+                provider,
+                marketAddress: request.marketAddress,
+                reserveAddress: request.reserveAddress,
+                collateralReserveAddress: request.collateralReserveAddress,
+                amount: request.amount,
+                repayAll: request.repayAll,
+                slippageBps: request.slippageBps,
+                routeKey: quote ? quote.routeKey : request.routeKey,
+              },
+            ),
+          confirmRepay: async ({
+            built,
+            signal,
+            onBeforeSend,
+            onConfirmed,
+            onLateBroadcastAccepted,
+            onCancelled,
+            onFailed,
+            onCompleted,
+            onCallbackFailed,
+          }) => {
+            const info = attachBorrowOrderId({
+              stakingInfo: attachRepayWithCollateralAmount({
+                stakingInfo,
+                amount: built.quote?.swapIn,
+              }),
+              orderId: built.orderId,
+            });
+            if (hasReusableCollateralSetup(currentTask)) {
+              await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
+              await verifyAccount();
+            }
+            const observeLateOrder = createLateEarnOrderObserver({
+              accountId,
+              networkId,
+              onError: () =>
+                console.error('Unable to record late Borrow order'),
+            });
+            const result = await waitForTxConfirmResult({
+              encodedTx: parseBorrowEncodedTx(built.tx),
+              stakingInfo: info,
+              isCurrent,
+              beforeSend: onBeforeSend,
+              signal,
+              onCancelled,
+              onFailed,
+              onLateBroadcastAccepted: async (fact) => {
+                let accepted = false;
+                if (
+                  fact.accountId !== accountId ||
+                  fact.networkId !== networkId ||
+                  !fact.uuid.trim() ||
+                  !fact.txid.trim()
+                )
+                  return false;
+                accepted = await onLateBroadcastAccepted(fact.txid);
+                await observeLateOrder({
+                  fact,
+                  stakeInfo: info,
+                  orderId: built.orderId,
+                  onAccepted: () => accepted,
+                });
+                return accepted;
+              },
+              onConfirmed: async (data, wasSettled) => {
+                const txid = getLatestTxId(data);
+                await onConfirmed(txid ?? '');
+                try {
+                  if (wasSettled) {
+                    if (built.orderId && txid) {
+                      await backgroundApiProxy.serviceStaking.addEarnOrder(
+                        {
+                          orderId: built.orderId,
+                          networkId,
+                          txId: txid,
+                          status: data[data.length - 1]?.decodedTx.status,
+                          ...getEarnOrderTrackingInfo(info),
+                        },
+                        { remoteSync: 'once', preserveExistingTx: true },
+                      );
+                    }
+                    onCompleted();
+                    return;
+                  }
+                  await handleBorrowSuccess({
+                    data,
+                    orderId: built.orderId,
+                    networkId,
+                    accountId:
+                      !wasSettled && isCurrent() && isOwnerActive()
+                        ? accountId
+                        : undefined,
+                    expectedAccountAddress: frozenAddress,
+                    stakingInfo: info,
+                    onSuccess: (successData) => {
+                      if (!wasSettled && isCurrent() && isOwnerActive())
+                        onSuccess?.(successData);
+                    },
+                  });
+                  onCompleted();
+                } catch (error) {
+                  onCallbackFailed();
+                  throw error;
+                }
+                if (!wasSettled && isCurrent() && isOwnerActive())
+                  didSucceed = true;
+              },
+            });
+            return result.status === 'success';
+          },
+        });
+        if (!sameSetupRoute(task)) {
+          const previous = task.getTask();
+          if (previous.identity.accountId !== accountId) return pending();
+          const active = previous.steps.some(
+            (step) =>
+              [
+                'preparing',
+                'awaitingUser',
+                'sending',
+                'confirming',
+                'verifying',
+                'executing',
+                'checking',
+              ].includes(step.status.type) ||
+              (step.kind !== 'wait' && step.status.type === 'unknown'),
           );
-
-        const stakingInfoWithOrderId = attachBorrowOrderId({
-          stakingInfo: attachRepayWithCollateralAmount({
-            stakingInfo,
-            amount: freshQuote?.swapIn,
-          }),
-          orderId: resp.orderId,
-        });
-
-        if (needsSetupLut) {
-          await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
+          const priorRepay = previous.steps.find((step) => step.id === 'repay');
+          if (
+            active ||
+            (priorRepay?.status.type === 'handedOff' &&
+              previous.facts?.repayCallback !== 'completed')
+          )
+            return pending();
+          const setup = task.getSetupTask();
+          if (setup.steps.some((step) => step.id === 'setup')) {
+            // Remote order sync failure does not make a finalized LUT ambiguous.
+            if (
+              setup.facts?.recording !== 'saved' &&
+              setup.facts?.recording !== 'remoteUnknown' &&
+              setup.facts?.recording !== 'notTracked'
+            )
+              return pending();
+            const finality =
+              setup.facts.finality === 'pending'
+                ? await task.refreshSetupFinality(makeOwner(task, false))
+                : setup.facts.finality;
+            if (!isCurrent()) return false;
+            if (finality !== 'confirmed' && finality !== 'failed')
+              return pending();
+          }
+          const replacement = createTask(needsSetupLut ? 'setup' : 'direct');
+          const nextToken = borrowCollateralRepayRegistry.replace(
+            key,
+            reservationToken,
+            replacement,
+          );
+          if (!nextToken) return pending();
+          task = replacement;
+          reservationToken = nextToken;
+          changed = false;
         }
-
-        const repayConfirmResult = await waitForTxConfirmResult({
-          encodedTx: parseBorrowEncodedTx(resp.tx),
-          stakingInfo: stakingInfoWithOrderId,
-        });
-
-        if (repayConfirmResult.status === 'cancel') {
-          return false;
+        const runTask = async (
+          currentTask: ICollateralRepayTask,
+          stopAfterSetup: boolean,
+        ) => {
+          let token: symbol;
+          const ownerLease = { active: true };
+          try {
+            token = currentTask.attachOwner(
+              makeOwner(currentTask, stopAfterSetup, () => ownerLease.active),
+            );
+          } catch (error) {
+            if (
+              error instanceof OneKeyLocalError &&
+              error.message === 'Earn workflow owner unavailable'
+            )
+              return 'busy' as const;
+            throw error;
+          }
+          const detach = () => {
+            ownerLease.active = false;
+            return currentTask.detachOwner(token);
+          };
+          activeTaskDetach.add(detach);
+          try {
+            if (currentTask.getTask().facts?.recording === 'localFailed')
+              await currentTask.retryRecording(token);
+            const state = currentTask.getTask();
+            const step = state.steps[state.currentStepIndex];
+            if (
+              step?.kind === 'wait' &&
+              (step.status.type === 'unknown' ||
+                step.status.type === 'cancelled' ||
+                step.status.type === 'failed')
+            )
+              return await currentTask.tryRetryWait(token);
+            if (
+              step &&
+              step.kind !== 'wait' &&
+              step.kind !== 'sign' &&
+              step.kind !== 'external' &&
+              (step.status.type === 'cancelled' ||
+                step.status.type === 'failed')
+            )
+              return await currentTask.tryRetryTransaction(token);
+            return await currentTask.tryRun(token);
+          } finally {
+            activeTaskDetach.delete(detach);
+            detach();
+          }
+        };
+        if (task.getSetupTask().facts?.finality === 'failed') {
+          const priorRepay = task
+            .getTask()
+            .steps.find((step) => step.id === 'repay');
+          if (
+            priorRepay &&
+            [
+              'awaitingUser',
+              'sending',
+              'confirming',
+              'verifying',
+              'unknown',
+              'handedOff',
+            ].includes(priorRepay.status.type)
+          )
+            return pending();
+          const next = createTask('setup');
+          const nextToken = borrowCollateralRepayRegistry.replace(
+            key,
+            reservationToken,
+            next,
+          );
+          if (!nextToken) return pending();
+          task = next;
+          reservationToken = nextToken;
+          changed = false;
         }
-
-        await handleBorrowSuccess({
-          data: repayConfirmResult.data,
-          orderId: resp.orderId,
-          networkId,
-          accountId,
-          stakingInfo: stakingInfoWithOrderId,
-          onSuccess,
-        });
-        return true;
+        if (
+          changed &&
+          task.getSetupTask().steps.some((step) => step.id === 'setup') &&
+          !hasReusableCollateralSetup(task)
+        ) {
+          const result = await runTask(task, true);
+          if (!isCurrent()) return false;
+          if (result === 'busy' || !hasReusableCollateralSetup(task))
+            return pending();
+        }
+        if (changed) {
+          const current = task.getTask();
+          const repay = current.steps[current.currentStepIndex];
+          if (
+            repay?.id === 'repay' &&
+            repay.status.type === 'unknown' &&
+            'txid' in repay.status &&
+            repay.status.txid &&
+            current.facts?.repayCallback === 'completed'
+          ) {
+            const result = await runTask(task, false);
+            if (!isCurrent()) return false;
+            if (result !== 'started') return pending();
+          }
+        }
+        if (
+          changed ||
+          task.getTask().currentStepIndex >= task.getTask().steps.length
+        ) {
+          const current = task.getTask();
+          const repay = current.steps.find((step) => step.id === 'repay');
+          if (
+            repay &&
+            [
+              'awaitingUser',
+              'sending',
+              'confirming',
+              'verifying',
+              'unknown',
+            ].includes(repay.status.type)
+          )
+            return pending();
+          if (
+            repay?.status.type === 'handedOff' &&
+            current.facts?.repayCallback !== 'completed'
+          )
+            return pending();
+          const hasSetup = hasReusableCollateralSetup(task);
+          if (!hasSetup && current.steps.some((step) => step.id === 'setup'))
+            return pending();
+          let preparation: 'setup' | 'freshQuote' | 'direct' = 'direct';
+          if (hasSetup) preparation = 'freshQuote';
+          else if (needsSetupLut) preparation = 'setup';
+          const next = createTask(preparation, hasSetup ? task : undefined);
+          const nextToken = borrowCollateralRepayRegistry.replace(
+            key,
+            reservationToken,
+            next,
+          );
+          if (!nextToken) return pending();
+          task = next;
+          reservationToken = nextToken;
+          changed = false;
+        }
+        const outcome = await runTask(task, false);
+        if (!isCurrent()) return false;
+        if (outcome !== 'started') return pending();
+        if (task.getTask().facts?.recording === 'localFailed') return pending();
+        if (
+          didSucceed &&
+          !task.getTask().steps.some((step) => step.id === 'setup') &&
+          task.getSetupTask() === task.getTask()
+        ) {
+          borrowCollateralRepayRegistry.release(key, reservationToken);
+        }
+        return didSucceed;
       } catch (error) {
+        if (!isCurrent()) return false;
         Toast.error({
           title:
             error instanceof Error && error.message
@@ -556,7 +1151,16 @@ export function useUniversalBorrowRepayWithCollateral({
         return false;
       }
     },
-    [accountId, ensureRiskAccepted, intl, networkId, waitForTxConfirmResult],
+    [
+      accountAddress,
+      accountId,
+      activeTaskDetach,
+      ensureRiskAccepted,
+      intl,
+      networkId,
+      scope,
+      waitForTxConfirmResult,
+    ],
   );
 }
 
@@ -579,9 +1183,11 @@ type IBorrowClaimTxParams = {
 export function useUniversalBorrowClaim({
   networkId,
   accountId,
+  accountAddress,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -589,6 +1195,15 @@ export function useUniversalBorrowClaim({
   });
 
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      networkId,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -599,6 +1214,9 @@ export function useUniversalBorrowClaim({
       onSuccess,
       onFail,
     }: IBorrowClaimTxParams): Promise<boolean> => {
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return false;
+      const selectedIds = [...ids];
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses.
       if (
@@ -610,40 +1228,40 @@ export function useUniversalBorrowClaim({
       ) {
         return false;
       }
+      if (!isCurrent()) return false;
 
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildClaimTransaction({
-          networkId,
+      return runBorrowConfirmationTask({
+        identity: {
           accountId,
+          networkId,
+          accountAddress,
           provider,
-          marketAddress,
-          ids,
-        });
-
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
+          action: 'claim',
+          intent: { marketAddress, ids: selectedIds },
+        },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildClaimTransaction({
             networkId,
             accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            onSuccess,
-          });
-        },
+            provider,
+            marketAddress,
+            ids: selectedIds,
+          }),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent,
+        onSuccess,
         onFail,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      ensureRiskAccepted,
+      networkId,
+      navigationToTxConfirm,
+      scope,
+    ],
   );
 }
 
@@ -786,9 +1404,13 @@ export function useUniversalBorrowSetEMode({
 export function useUniversalBorrowSetCollateral({
   networkId,
   accountId,
+  accountAddress,
+  ownerScope,
 }: {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
+  ownerScope?: string;
 }) {
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
@@ -796,6 +1418,16 @@ export function useUniversalBorrowSetCollateral({
   });
   const intl = useIntl();
   const ensureRiskAccepted = useEarnRiskWarningGate();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([
+      accountId,
+      networkId,
+      ownerScope,
+      accountAddress
+        ? normalizeTaskAccountAddress(networkId, accountAddress)
+        : undefined,
+    ]),
+  );
 
   return useCallback(
     async ({
@@ -803,6 +1435,7 @@ export function useUniversalBorrowSetCollateral({
       marketAddress,
       reserveAddress,
       useAsCollateral,
+      accountAddress: actionAccountAddress,
       eModeId,
       stakingInfo,
       onSuccess,
@@ -813,12 +1446,15 @@ export function useUniversalBorrowSetCollateral({
       marketAddress: string;
       reserveAddress: string;
       useAsCollateral: boolean;
+      accountAddress?: string;
       eModeId?: number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       onCancel?: () => void;
     }): Promise<boolean> => {
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return false;
       // OK-59196: same reason as the eMode switch — this can be the first DeFi
       // transaction of an existing position, so gate before the first request.
       if (
@@ -828,17 +1464,25 @@ export function useUniversalBorrowSetCollateral({
           networkId,
         }))
       ) {
-        onCancel?.();
+        if (isCurrent()) onCancel?.();
         return false;
       }
+      if (!isCurrent()) return false;
 
+      let frozenAddress: string;
       let confirmation: IBorrowTransactionConfirmation | undefined;
       try {
+        frozenAddress =
+          actionAccountAddress ??
+          accountAddress ??
+          (await getTaskAccountAddress({ accountId, networkId }));
+        if (!isCurrent()) return false;
         confirmation =
           await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
             {
               networkId,
               accountId,
+              expectedAccountAddress: frozenAddress,
               provider,
               marketAddress,
               reserveAddress,
@@ -849,6 +1493,7 @@ export function useUniversalBorrowSetCollateral({
             },
           );
       } catch (error) {
+        if (!isCurrent()) return false;
         if (
           (error as { autoToast?: boolean } | undefined)?.autoToast !== true
         ) {
@@ -862,6 +1507,8 @@ export function useUniversalBorrowSetCollateral({
         }
         throw error;
       }
+
+      if (!isCurrent()) return false;
 
       const unavailable =
         !confirmation ||
@@ -881,44 +1528,46 @@ export function useUniversalBorrowSetCollateral({
         });
       }
 
-      const resp =
-        await backgroundApiProxy.serviceStaking.borrowBuildSetCollateralTransaction(
-          {
-            networkId,
-            accountId,
-            provider,
-            marketAddress,
-            reserveAddress,
-            useAsCollateral,
-            ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
-          },
-        );
-      const stakingInfoWithOrderId = attachBorrowOrderId({
-        stakingInfo,
-        orderId: resp.orderId,
-      });
-      await navigationToTxConfirm({
-        encodedTx: parseBorrowEncodedTx(resp.tx),
-        stakingInfo: stakingInfoWithOrderId,
-        onSuccess: async (data) => {
-          await handleBorrowSuccess({
-            data,
-            orderId: resp.orderId,
-            networkId,
-            accountId,
-            stakingInfo: stakingInfoWithOrderId,
-            // Order tracking is auxiliary after broadcast. Collateral state
-            // reconciliation must continue even if that request is unavailable.
-            ignoreOrderTrackingError: true,
-            onSuccess,
-          });
+      return runBorrowConfirmationTask({
+        identity: {
+          accountId,
+          networkId,
+          accountAddress: frozenAddress,
+          provider,
+          action: 'setCollateral',
+          intent: { marketAddress, reserveAddress, useAsCollateral, eModeId },
         },
+        build: () =>
+          backgroundApiProxy.serviceStaking.borrowBuildSetCollateralTransaction(
+            {
+              networkId,
+              accountId,
+              expectedAccountAddress: frozenAddress,
+              provider,
+              marketAddress,
+              reserveAddress,
+              useAsCollateral,
+              ...(useAsCollateral && eModeId !== undefined ? { eModeId } : {}),
+            },
+          ),
+        stakingInfo,
+        navigationToTxConfirm,
+        isCurrent,
+        verifyAccountBeforeBuild: true,
+        ignoreOrderTrackingError: true,
+        onSuccess,
         onFail,
         onCancel,
       });
-
-      return true;
     },
-    [accountId, ensureRiskAccepted, intl, networkId, navigationToTxConfirm],
+    [
+      accountAddress,
+      accountId,
+      ensureRiskAccepted,
+      intl,
+      networkId,
+      navigationToTxConfirm,
+      scope,
+    ],
   );
 }
