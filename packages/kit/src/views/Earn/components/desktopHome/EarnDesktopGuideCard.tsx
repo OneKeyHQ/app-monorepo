@@ -26,11 +26,12 @@ import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 import type { IEarnGuideState, IEarnGuideStep } from './earnGuide.utils';
 import type { IEarnGuideCardPlace } from './earnGuideStore';
 
-// A green near black, the ground the card's picture stands on and fades
-// into on the side its words are on (opaque, the same on a light page and a
-// dark one). White type reads on it and the green metal shines on it
-export const EARN_GUIDE_INK = '#0A120C';
-export const EARN_GUIDE_INK_HOVER = '#0E1A11';
+// A fresh green in the brand's hue, the ground the card's picture stands on
+// and fades into on the side its words are on (opaque, the same on a light
+// page and a dark one). White type reads on it (8 to 1) and the pile of
+// tokens stands on it
+export const EARN_GUIDE_INK = '#185D1C';
+export const EARN_GUIDE_INK_HOVER = '#1C6821';
 // The banner's Join pill beside the card: pure white, 30 tall
 const EARN_GUIDE_PILL_BG = '#FFFFFF';
 const EARN_GUIDE_PILL_HEIGHT = 30;
