@@ -758,6 +758,36 @@ test.each([
   },
 );
 
+test.each([EAppUpdateStatus.failed, EAppUpdateStatus.updateIncomplete])(
+  '%s preserves install timeout errors and manual retry',
+  async (status) => {
+    mockDownloadPackage.mockClear();
+    const view = render(
+      <UpdateCapsule
+        data={{
+          latestVersion: '2.0.0',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status,
+          updateError: { code: EUpdateErrorCode.timeout, step: 'install' },
+        }}
+        showUpdate
+        onWhatsNew={() => {}}
+      />,
+    );
+    expect(
+      view.getByTestId('header-update-details').getAttribute('aria-label'),
+    ).toContain(ETranslations.app_update_cant_continue__msg);
+    expect(
+      view.getByText(ETranslations.app_update_cant_continue__msg),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(mockDownloadPackage).toHaveBeenCalledTimes(1);
+  },
+);
+
 test.each([false, true])(
   'completed banner keeps its quiet style and narrow icon at wide=%s',
   (wide) => {

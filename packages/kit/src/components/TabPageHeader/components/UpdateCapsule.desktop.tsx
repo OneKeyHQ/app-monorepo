@@ -146,6 +146,10 @@ function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
       return 'securityError';
     }
     if (
+      (data.status === EAppUpdateStatus.downloadPackageFailed ||
+        data.status === EAppUpdateStatus.downloadASCFailed ||
+        data.status === EAppUpdateStatus.verifyASCFailed ||
+        data.status === EAppUpdateStatus.verifyPackageFailed) &&
       !data.downloadRetryExhausted &&
       data.updateError &&
       isRetryableUpdateError(data.updateError)
