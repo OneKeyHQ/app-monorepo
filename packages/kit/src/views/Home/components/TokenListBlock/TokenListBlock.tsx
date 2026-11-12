@@ -4516,7 +4516,6 @@ function TokenListBlock({
         nativeTokenVerification={nativeTokenVerification}
         limit={6}
         plainMode
-        withHeader
         withFooter
         withPrice
         inTabList

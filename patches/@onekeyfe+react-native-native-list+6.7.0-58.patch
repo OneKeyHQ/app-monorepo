@@ -80,10 +80,10 @@ index 0d0a5a4..da40073 100644
    PencilOutline: 'PencilOutline',
    PlusLargeOutline: 'PlusLargeOutline',
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
-index 2fc3a80..1a155e2 100644
+index 94c6a1b..a9f7b95 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
-@@ -60,6 +60,30 @@ function bind(body, row, primitives) {
+@@ -76,6 +76,30 @@ function bind(body, row, primitives) {
      cell.primary.textContent = column.text;
      applyValueSegments(cell.primary, column.textSegments, style?.columns?.fontSize ?? 14, style?.columns?.lineHeight ?? 20, fontWeight(style?.columns?.fontWeight, 500));
      if (style?.columns) primitives.textStyle(cell.primary, style.columns);
@@ -114,7 +114,7 @@ index 2fc3a80..1a155e2 100644
      cell.titleIcons.replaceChildren();
      if (column.titleIcon || column.secondaryTitleIcon) {
        cell.primary.style.minWidth = '0';
-@@ -118,10 +142,14 @@ function create(document, row, primitives) {
+@@ -134,10 +158,14 @@ function create(document, row, primitives) {
      const cell = createElement(document, 'span', 'ok-native-list-data-cell');
      const primaryLine = createElement(document, 'span', 'ok-native-list-data-primary');
      const primary = tagSlot(createElement(document, 'span'), 'columns');
@@ -130,7 +130,7 @@ index 2fc3a80..1a155e2 100644
      const secondaryLine = createElement(document, 'span', 'ok-native-list-data-secondary-line');
      const secondary = Array.from({
        length: 2
-@@ -133,6 +161,7 @@ function create(document, row, primitives) {
+@@ -149,6 +177,7 @@ function create(document, row, primitives) {
        body: cell,
        primaryLine,
        primary,
@@ -254,7 +254,7 @@ index d612a4d..778ae04 100644
    PencilOutline: 'PencilOutline',
    PlusLargeOutline: 'PlusLargeOutline',
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
-index 6515941..c5c1141 100644
+index 82b983a..5bf4765 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
 @@ -11,6 +11,7 @@ type ColumnViews = {
@@ -265,7 +265,7 @@ index 6515941..c5c1141 100644
    titleIcons: HTMLElement;
    badges: HTMLElement;
    secondaryLine: HTMLElement;
-@@ -109,6 +110,30 @@ function bind(body: HTMLElement, row: DataRow, primitives: RowPrimitives) {
+@@ -137,6 +138,30 @@ function bind(body: HTMLElement, row: DataRow, primitives: RowPrimitives) {
        fontWeight(style?.columns?.fontWeight, 500)
      );
      if (style?.columns) primitives.textStyle(cell.primary, style.columns);
@@ -296,7 +296,7 @@ index 6515941..c5c1141 100644
      cell.titleIcons.replaceChildren();
      if (column.titleIcon || column.secondaryTitleIcon) {
        cell.primary.style.minWidth = '0';
-@@ -210,10 +235,14 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
+@@ -238,10 +263,14 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
        'ok-native-list-data-primary'
      );
      const primary = tagSlot(createElement(document, 'span'), 'columns');
@@ -312,7 +312,7 @@ index 6515941..c5c1141 100644
      const secondaryLine = createElement(
        document,
        'span',
-@@ -232,6 +261,7 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
+@@ -260,6 +289,7 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
        body: cell,
        primaryLine,
        primary,

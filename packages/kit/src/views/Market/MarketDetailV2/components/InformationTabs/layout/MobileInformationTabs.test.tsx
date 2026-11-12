@@ -7,12 +7,14 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IStockFinancials } from '@onekeyhq/shared/types/marketStockFinancials';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { Portfolio } from '../components/Portfolio';
 
 import { MobileInformationTabs } from './MobileInformationTabs';
 
+import type { useStockFinancials } from '../../StockFinancials/useStockFinancials';
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
 const mockContainerProps = jest.fn();
@@ -21,6 +23,11 @@ const mockChartUnmount = jest.fn();
 let mockGtLg = false;
 let mockStockId: string | undefined;
 let mockAccountAddress: string | undefined;
+let mockFinancials: ReturnType<typeof useStockFinancials>;
+
+jest.mock('../../StockFinancials/useStockFinancials', () => ({
+  useStockFinancials: () => mockFinancials,
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -169,6 +176,167 @@ beforeEach(() => {
   mockNetworkId = 'evm--1';
   mockTokenAddress = '0xabc';
   mockStockId = undefined;
+  mockFinancials = {
+    result: undefined,
+    isLoading: true,
+    retry: jest.fn(),
+  };
+});
+
+describe('stock financials availability', () => {
+  const emptyData: IStockFinancials = {
+    stockId: 'VUG',
+    period: 'annual',
+    currency: 'USD',
+    partial: false,
+    unavailableSources: [],
+    updatedAt: '2026-11-12',
+    performance: [],
+    debtLevelAndCoverage: [],
+    earnings: { items: [] },
+  };
+
+  let financialResult: NonNullable<
+    ReturnType<typeof useStockFinancials>['result']
+  >;
+
+  function renderTabs() {
+    return (
+      <MobileInformationTabs
+        detailKind="stock"
+        renderHeader={() => null}
+        onScrollEnd={jest.fn()}
+        portfolioData={[]}
+      />
+    );
+  }
+
+  beforeEach(() => {
+    mockStockId = 'VUG';
+    financialResult = {
+      stockId: 'VUG',
+      annual: { data: emptyData, failed: false },
+      quarter: { data: { ...emptyData, period: 'quarter' }, failed: false },
+    };
+    mockFinancials = {
+      result: financialResult,
+      isLoading: false,
+      retry: jest.fn(),
+    };
+  });
+
+  it('removes the Financials tab after complete empty responses', () => {
+    render(renderTabs());
+    expect(
+      screen.queryByTestId('information-tab-market.stock_financials__title'),
+    ).toBeNull();
+    expect(screen.getByTestId('information-tab-global.overview')).toBeTruthy();
+  });
+
+  it.each(['annual', 'quarter'] as const)(
+    'keeps the Financials tab for partial or failed %s responses',
+    (period) => {
+      const result = financialResult;
+      result[period] = {
+        data: { ...emptyData, period, partial: true },
+        failed: false,
+      };
+      const { rerender } = render(renderTabs());
+      expect(
+        screen.getByTestId('information-tab-market.stock_financials__title'),
+      ).toBeTruthy();
+      result[period] = { data: null, failed: true };
+      rerender(renderTabs());
+      expect(
+        screen.getByTestId('information-tab-market.stock_financials__title'),
+      ).toBeTruthy();
+      result[period] = { data: null, failed: false };
+      rerender(renderTabs());
+      expect(
+        screen.queryByTestId('information-tab-market.stock_financials__title'),
+      ).toBeNull();
+    },
+  );
+
+  it.each(['annual', 'quarter'] as const)(
+    'keeps the Financials tab when %s has chartable zero values',
+    (period) => {
+      const result = financialResult;
+      result[period].data = {
+        ...emptyData,
+        period,
+        performance: [
+          {
+            date: '2026-09-30',
+            fiscalYear: '2026',
+            fiscalPeriod: period === 'annual' ? 'FY' : 'Q3',
+            revenue: 0,
+            netIncome: null,
+            netMarginPercent: null,
+          },
+        ],
+      };
+      render(renderTabs());
+      expect(
+        screen.getByTestId('information-tab-market.stock_financials__title'),
+      ).toBeTruthy();
+    },
+  );
+
+  it('keeps the Financials tab while the result is loading', () => {
+    mockFinancials.isLoading = true;
+    render(renderTabs());
+    expect(
+      screen.getByTestId('information-tab-market.stock_financials__title'),
+    ).toBeTruthy();
+  });
+
+  it.each(['annual', 'quarter'] as const)(
+    'keeps the Financials tab when only %s has an upcoming earnings date',
+    (period) => {
+      financialResult[period].data = {
+        ...emptyData,
+        period,
+        earnings: { items: [], nextEarningsDate: '2099-01-01' },
+      };
+      render(renderTabs());
+      expect(
+        screen.getByTestId('information-tab-market.stock_financials__title'),
+      ).toBeTruthy();
+    },
+  );
+
+  it('preserves the chart viewport and scroll position when empty data removes Financials', () => {
+    const renderStockTabs = () => (
+      <MobileInformationTabs
+        detailKind="stock"
+        renderHeader={() => <Chart />}
+        onScrollEnd={jest.fn()}
+        portfolioData={[]}
+      />
+    );
+    mockFinancials = { ...mockFinancials, result: undefined, isLoading: true };
+    const { rerender } = render(renderStockTabs());
+    const chart = screen.getByRole('textbox', { name: 'chart viewport' });
+    fireEvent.change(chart, { target: { value: 'historical candles' } });
+    const container = screen.getByTestId('information-scroll-container');
+    container.scrollTop = 400;
+    mockFinancials = {
+      ...mockFinancials,
+      result: financialResult,
+      isLoading: false,
+    };
+    rerender(renderStockTabs());
+    expect(
+      screen.queryByTestId('information-tab-market.stock_financials__title'),
+    ).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'chart viewport' })).toBe(chart);
+    expect((chart as HTMLInputElement).value).toBe('historical candles');
+    expect(screen.getByTestId('information-scroll-container')).toBe(container);
+    expect(container.scrollTop).toBe(400);
+    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    expect(mockChartUnmount).not.toHaveBeenCalled();
+  });
 });
 
 it.each(['address', 'network'] as const)(
