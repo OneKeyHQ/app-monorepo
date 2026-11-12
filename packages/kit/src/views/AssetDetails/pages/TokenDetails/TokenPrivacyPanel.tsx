@@ -12,7 +12,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ITokenPrivacyPanelState =
@@ -50,11 +49,9 @@ const STATUS_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
   error: ETranslations.global_sync_error,
 };
 
-const ACTION_LABELS: Record<
-  Exclude<ITokenPrivacyPanelState, 'preparing'>,
-  ETranslations
-> = {
+const ACTION_LABELS: Record<ITokenPrivacyPanelState, ETranslations> = {
   disabled: ETranslations.global_enable,
+  preparing: ETranslations.global_pause,
   syncing: ETranslations.global_pause,
   synced: ETranslations.global_refresh,
   stopped: ETranslations.global_resume,
@@ -88,7 +85,7 @@ export function TokenPrivacyPanel({
   let onAction = onSync;
   if (isDisabled) {
     onAction = onEnable;
-  } else if (isSyncing) {
+  } else if (isPreparing || isSyncing) {
     onAction = onStop;
   } else if (state === 'waitingWifi') {
     onAction = onAllowMobileData;
@@ -120,7 +117,7 @@ export function TokenPrivacyPanel({
     }
   }
   const action =
-    state !== 'preparing' && onAction && !(isDisabled && enableUnavailable) ? (
+    onAction && !(isDisabled && enableUnavailable) ? (
       <Button
         testID="token-privacy-action"
         alignSelf={isDisabled ? 'flex-start' : 'center'}
@@ -208,20 +205,7 @@ export function TokenPrivacyPanel({
           ) : null}
           {isDisabled ? action : null}
         </YStack>
-        {!isDisabled ? (
-          <XStack alignItems="center" gap="$2" flexShrink={0}>
-            {showProgress && progressValue !== undefined ? (
-              <SizableText
-                size="$bodySmMedium"
-                color="$textSubdued"
-                fontVariant={['tabular-nums']}
-              >
-                {formatPrivacyChainPercent(progressValue / 100)}
-              </SizableText>
-            ) : null}
-            {action}
-          </XStack>
-        ) : null}
+        {!isDisabled ? action : null}
       </XStack>
       {showProgress ? (
         <Progress
