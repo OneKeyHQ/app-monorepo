@@ -234,6 +234,172 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
+  test.each(['isDesktopMac', 'isDesktopWin', 'isDesktopLinux'])(
+    'recovers a verified manual app update without a pending task on %s startup',
+    async (platformFlag) => {
+      const env = require('@onekeyhq/shared/src/platformEnv').default;
+      const previous = env[platformFlag];
+      env[platformFlag] = true;
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+        downloadUrl: 'feedUrl',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      const service = createService();
+      try {
+        await service.processPendingInstallTask();
+
+        expect(AppUpdate.installPackage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            latestVersion: '2.0.0',
+            installSource: 'startup',
+            downloadedEvent: expect.objectContaining({
+              downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+            }),
+          }),
+        );
+        expect(pendingTaskValue).toMatchObject({
+          type: 'app-install',
+          status: 'applied_waiting_verify',
+        });
+        await service.processPendingInstallTask();
+        expect(AppUpdate.installPackage).toHaveBeenCalledTimes(1);
+      } finally {
+        env[platformFlag] = previous;
+      }
+    },
+  );
+
+  test.each([
+    { isDesktop: false },
+    { isDesktopStore: true },
+    { storeUrl: 'https://store.onekey.test/app' },
+    { updateStrategy: EUpdateStrategy.force },
+    { status: EAppUpdateStatus.verifyPackage },
+    { latestVersion: '1.0.0', jsBundleVersion: '2' },
+  ])(
+    'does not recover a manual app update outside the desktop ready flow: %j',
+    async (override) => {
+      const env = require('@onekeyhq/shared/src/platformEnv').default;
+      const previous = {
+        isDesktop: env.isDesktop,
+        isDesktopStore: env.isDesktopStore,
+      };
+      const { isDesktop, isDesktopStore, ...stateOverride } = override;
+      Object.assign(env, {
+        isDesktop: isDesktop ?? true,
+        isDesktopStore: isDesktopStore ?? false,
+      });
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+        ...stateOverride,
+      });
+      try {
+        await createService().processPendingInstallTask();
+        expect(pendingTaskValue).toBeUndefined();
+        expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(env, previous);
+      }
+    },
+  );
+
+  test('renderer reload leaves a manual ready update pending until the next native process starts', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'desktopApi',
+    );
+    const {
+      AppUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      readyAt: 200,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    Object.defineProperty(globalThis, 'desktopApi', {
+      configurable: true,
+      value: { processStartAt: 100 },
+    });
+    try {
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(pendingTaskValue.status).toBe('pending');
+
+      Object.defineProperty(globalThis, 'desktopApi', {
+        configurable: true,
+        value: { processStartAt: 300 },
+      });
+      await createService().processPendingInstallTask();
+      expect(AppUpdate.installPackage).toHaveBeenCalledTimes(1);
+      expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    } finally {
+      if (descriptor)
+        Object.defineProperty(globalThis, 'desktopApi', descriptor);
+      else Reflect.deleteProperty(globalThis, 'desktopApi');
+    }
+  });
+
+  test.each([
+    { freezeUntil: Date.now() + 60_000 },
+    {
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+    },
+    {
+      downloadedEvent: {
+        latestVersion: '3.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.pkg',
+      },
+    },
+  ])(
+    'startup recovery preserves the target and retry controls: %j',
+    async (override) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+        ...override,
+      });
+
+      await createService().processPendingInstallTask();
+
+      expect(pendingTaskValue).toBeUndefined();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+    },
+  );
+
   test('does not emit process finished event when bundle switch succeeds and restart is expected', async () => {
     const service = createService();
     const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');

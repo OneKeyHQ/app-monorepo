@@ -929,6 +929,38 @@ test('Windows quit update never asks for elevation after a direct launch error',
   expect(mockSpawn.mock.calls[0][0]).not.toContain('elevate.exe');
 });
 
+test('Windows quit update hands off the verified installer without relaunching', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+
+  expect(api.hasPreparedQuitInstall()).toBe(true);
+  expect(await api.installOnQuit()).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledWith(file, ['/S', '--updated'], {
+    cwd: path.dirname(file),
+    detached: true,
+    stdio: 'ignore',
+  });
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).not.toHaveBeenCalled();
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(await api.installOnQuit()).toBe(false);
+  expect(mockSpawn).toHaveBeenCalledTimes(1);
+});
+
+test('macOS prepares a native quit update without quitting or relaunching early', async () => {
+  const { api, params } = await preparePackage('darwin');
+  jest.spyOn(fs, 'realpathSync').mockReturnValue('/Applications/OneKey.app');
+
+  await api.prepareMacInstall(params);
+  await api.prepareMacInstall(params);
+
+  expect(mockNativeUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).not.toHaveBeenCalled();
+});
+
 test('Windows rejects a concurrent install before a second confirmation and keeps the handoff locked', async () => {
   const { api, params } = await preparePackage('win32');
   let confirm!: (result: { response: number }) => void;

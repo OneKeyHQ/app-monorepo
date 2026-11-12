@@ -835,13 +835,19 @@ class ServicePendingInstallTask {
     // OK-55397: silent now also queues a pending install task instead of
     // showing a "ready" dialog, so the downloaded update is applied on the
     // next restart (or immediately when the user taps the update button).
-    // silent + seamless together == isAutoUpdateStrategy, mirroring the
-    // shouldAutoDownload gate in ServiceAppUpdate.fetchAppUpdateInfo (kept
-    // inline here to avoid coupling to the shared helper's import path).
+    // A verified manual desktop app update also needs a startup fallback
+    // when the native quit installer was interrupted or never ran.
+    const isManualDesktopAppUpdate =
+      platformEnv.isDesktop &&
+      !platformEnv.isDesktopStore &&
+      !releaseInfo.storeUrl &&
+      decision.decision === 'appShellUpdate' &&
+      releaseInfo.updateStrategy === EUpdateStrategy.manual;
     if (
       decision.decision !== 'jsBundleRollback' &&
       releaseInfo.updateStrategy !== EUpdateStrategy.seamless &&
-      releaseInfo.updateStrategy !== EUpdateStrategy.silent
+      releaseInfo.updateStrategy !== EUpdateStrategy.silent &&
+      !isManualDesktopAppUpdate
     ) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
@@ -1646,6 +1652,18 @@ class ServicePendingInstallTask {
       });
     }
     const appInfo = await appUpdatePersistAtom.get();
+    const processStartAt = globalThis.desktopApi?.processStartAt;
+    if (
+      platformEnv.isDesktop &&
+      payload.updateStrategy === EUpdateStrategy.manual &&
+      processStartAt &&
+      appInfo.readyAt &&
+      appInfo.readyAt >= processStartAt
+    ) {
+      // A renderer reload is not a new app launch. Leave this process's ready
+      // update to the quit installer or an explicit user action.
+      return false;
+    }
     const downloadUrl = appInfo.downloadedEvent?.downloadUrl;
     if (
       !downloadUrl ||
@@ -1874,7 +1892,32 @@ class ServicePendingInstallTask {
       markStep('cleanupUpdateControlState:await:done');
 
       markStep('getPendingInstallTask:await:start');
-      const rawTask = await getPendingInstallTask();
+      let rawTask = await getPendingInstallTask();
+      if (!rawTask && platformEnv.isDesktop && !platformEnv.isDesktopStore) {
+        const appInfo = await appUpdatePersistAtom.get();
+        if (
+          appInfo.status === EAppUpdateStatus.ready &&
+          appInfo.updateStrategy === EUpdateStrategy.manual &&
+          !appInfo.storeUrl &&
+          getUpdateFileType(appInfo) === EUpdateFileType.appShell
+        ) {
+          // Older clients could persist ready without a pending task. Restore
+          // it before startup dispatch, using the same identity/control gates.
+          await this.syncPendingInstallTaskWithReleaseInfo({
+            releaseInfo: {
+              version: appInfo.latestVersion,
+              jsBundleVersion: appInfo.jsBundleVersion,
+              updateStrategy: appInfo.updateStrategy,
+              downloadUrl: appInfo.downloadUrl,
+            },
+            appInfo,
+            requestSeq: await this.nextRequestSeq(),
+            traceId,
+            stage: 'ready_to_install',
+          });
+          rawTask = await getPendingInstallTask();
+        }
+      }
       markStep('getPendingInstallTask:await:done', {
         hasTask: !!rawTask,
         taskStatus:

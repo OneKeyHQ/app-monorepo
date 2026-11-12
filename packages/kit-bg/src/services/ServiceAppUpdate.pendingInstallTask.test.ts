@@ -1370,7 +1370,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('non-seamless + appShellUpdate does not create pending task', async () => {
+  test('manual desktop app-shell update persists a startup fallback once verified', async () => {
     setReadyState({
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.manual,
@@ -1382,7 +1382,12 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
 
     await service.readyToInstall();
 
-    expect(pendingTaskValue).toBeUndefined();
+    expect(pendingTaskValue).toMatchObject({
+      type: 'app-install',
+      status: 'pending',
+      targetAppVersion: '2.0.0',
+      payload: { updateStrategy: EUpdateStrategy.manual, channel: 'direct' },
+    });
   });
 
   test('frozen target blocks app-install scheduling', async () => {
