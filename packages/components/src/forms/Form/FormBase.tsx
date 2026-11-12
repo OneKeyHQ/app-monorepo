@@ -58,16 +58,20 @@ export type IFormProps = IPropsWithTestId<{
 }>;
 
 function HiddenSubmit() {
+  // A native submit button is all Enter-to-submit needs: the browser clicks the
+  // form's default button, that click dispatches the form's `submit` event, and
+  // `TMForm` handles it once. Wrapping the button in `TMForm.Trigger` added a
+  // second path — the trigger's `onPress` — so a single Enter press submitted
+  // the form twice: duplicated address book records and double-started send
+  // flows. Keep the submit button, drop the duplicate trigger.
   return platformEnv.isNative ? null : (
-    <TMForm.Trigger asChild>
-      <Button
-        testID="form-submit-button"
-        type="submit"
-        opacity={0}
-        position="absolute"
-        pointerEvents="none"
-      />
-    </TMForm.Trigger>
+    <Button
+      testID="form-submit-button"
+      type="submit"
+      opacity={0}
+      position="absolute"
+      pointerEvents="none"
+    />
   );
 }
 

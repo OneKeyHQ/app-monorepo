@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
@@ -103,12 +103,6 @@ export const MonitorContainer = () => {
     );
   };
 
-  const handleCloseKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-      handleClose(e);
-    }
-  };
-
   if (!visible) return null;
 
   // Render the monitor in a draggable container using portal
@@ -155,7 +149,6 @@ export const MonitorContainer = () => {
             outline: 'none',
           }}
           onClick={handleClose}
-          onKeyDown={handleCloseKeyDown}
           tabIndex={0}
           aria-label="Close Performance Monitor"
         >
