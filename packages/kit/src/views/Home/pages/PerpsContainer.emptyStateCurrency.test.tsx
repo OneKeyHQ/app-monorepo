@@ -13,9 +13,10 @@ import type { ReactNode } from 'react';
 
 type IBoxProps = { children?: ReactNode };
 
+let mockPortfolioView: IPerpsHomeView | undefined;
+const mockValueSettings = { hideValue: false };
 const mockSettings = {
   currencyInfo: { id: 'cny', symbol: '¥' },
-  hideValue: false,
 };
 
 jest.mock('react-native', () => ({
@@ -41,9 +42,12 @@ jest.mock('@onekeyhq/components', () => {
       children,
       formatter,
       formatterOptions,
+      hideValue,
     }: INumberFormatProps & { children: string | number | undefined }) => (
       <span>
-        {numberFormat(String(children), { formatter, formatterOptions })}
+        {hideValue
+          ? '****'
+          : numberFormat(String(children), { formatter, formatterOptions })}
       </span>
     ),
     SizableText: Text,
@@ -92,7 +96,10 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList',
   () => ({
-    useMarketPerpsTokenList: () => ({ tokens: [], isLoading: false }),
+    useMarketPerpsTokenList: () => ({
+      tokens: [{ name: 'ETH', displayName: 'ETH', markPrice: '1800' }],
+      isLoading: false,
+    }),
   }),
 );
 jest.mock(
@@ -120,6 +127,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useCurrencyPersistAtom: () => [{ currencyMap: {} }],
   usePerpsCustomSettingsAtom: () => [{ hideSmallSpotHoldings: false }],
   useSettingsPersistAtom: () => [mockSettings],
+  useSettingsValuePersistAtom: () => [mockValueSettings],
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
   EPerpPageEnterSource: {},
@@ -165,8 +173,8 @@ jest.mock('../components/Upgrade/Upgrade', () => ({
 jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('./usePerpsHomePortfolio', () => ({
   usePerpsHomePortfolio: () => ({
-    viewState: 'empty',
-    view: undefined,
+    viewState: mockPortfolioView ? 'ready' : 'empty',
+    view: mockPortfolioView,
     canDeposit: true,
     isDepositDisabled: false,
   }),
@@ -175,6 +183,7 @@ jest.mock('./usePerpsHomePortfolio', () => ({
 import { render, screen } from '@testing-library/react';
 
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IPerpsHomeView } from '@onekeyhq/shared/src/utils/perpsHomeViewUtils';
 
 import { PerpsContainer } from './PerpsContainer';
 
@@ -182,9 +191,11 @@ import { PerpsContainer } from './PerpsContainer';
 yarn jest packages/kit/src/views/Home/pages/PerpsContainer.emptyStateCurrency.test.tsx
 */
 
-describe('PerpsContainer empty state account value', () => {
+describe('PerpsContainer asset values and positions', () => {
   afterEach(() => {
     mockSettings.currencyInfo = { id: 'cny', symbol: '¥' };
+    mockValueSettings.hideValue = false;
+    mockPortfolioView = undefined;
   });
 
   it('formats the zero total in the selected currency', () => {
@@ -204,4 +215,96 @@ describe('PerpsContainer empty state account value', () => {
 
     expect(screen.getAllByText('$0.00')).toHaveLength(2);
   });
+
+  it('masks the empty total and currency symbol in both layouts', () => {
+    mockValueSettings.hideValue = true;
+    render(<PerpsContainer />);
+
+    expect(screen.getAllByText('****')).toHaveLength(2);
+    expect(screen.queryByText('¥****')).toBeNull();
+    expect(screen.queryByText('¥0.00')).toBeNull();
+  });
+
+  it.each(['9500', null])(
+    'masks all position metrics with liquidation price %s',
+    (liqPx) => {
+      mockSettings.currencyInfo = { id: 'usd', symbol: '$' };
+      mockPortfolioView = {
+        isEmpty: false,
+        isDegraded: true,
+        accountValueUsd: 125,
+        holdings: [
+          {
+            symbol: 'USDC',
+            displaySymbol: 'USDC',
+            balance: '54.4',
+            valueUsd: 54.4,
+            pnlUsd: -1.25,
+          },
+        ],
+        positions: [
+          {
+            coin: 'BTC',
+            side: 'long',
+            leverageType: 'cross',
+            leverageValue: 2,
+            pnlUsd: 5,
+            roi: 0.05,
+            sizeCoin: '0.02',
+            marginUsd: 100,
+            entryPx: '10000',
+            fundingUsd: 2.5,
+            markPx: '10250',
+            liqPx,
+          },
+        ],
+      };
+      const { rerender } = render(<PerpsContainer />);
+      const positionValues = [
+        '+$5.00',
+        '0.02',
+        '$100.00',
+        '-$2.50',
+        '+5.0%',
+        '10000',
+        '10250',
+        liqPx ?? 'N/A',
+      ];
+      const expectVisible = () => {
+        expect(screen.getAllByText('$125.00')).toHaveLength(2);
+        expect(screen.getAllByText('≈')).toHaveLength(2);
+        expect(screen.getAllByText('$54.40')).toHaveLength(2);
+        expect(screen.getByText('54.4')).toBeTruthy();
+        expect(screen.getByText('-$1.25')).toBeTruthy();
+        expect(screen.getByText('BTC')).toBeTruthy();
+        for (const value of positionValues) {
+          expect(screen.getByText(value)).toBeTruthy();
+        }
+      };
+      expectVisible();
+
+      mockValueSettings.hideValue = true;
+      rerender(<PerpsContainer />);
+      expect(screen.queryByText('$****')).toBeNull();
+      expect(screen.getAllByText('****')).toHaveLength(14);
+      for (const text of [
+        '$125.00',
+        '≈',
+        '$54.40',
+        '54.4',
+        '-$1.25',
+        ...positionValues,
+      ]) {
+        expect(screen.queryByText(text)).toBeNull();
+      }
+      expect(screen.getByText('BTC')).toBeTruthy();
+      expect(screen.getByText(/2x$/)).toBeTruthy();
+      expect(screen.getAllByText('USDC')).toHaveLength(2);
+      expect(screen.getByText('ETH')).toBeTruthy();
+
+      mockValueSettings.hideValue = false;
+      rerender(<PerpsContainer />);
+      expectVisible();
+    },
+  );
 });
