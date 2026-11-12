@@ -210,6 +210,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   abstract validateAddress(address: string): Promise<IAddressValidation>;
 
+  // Address forms a watch-only account can be built on; a send recipient may take more.
+  async validateWatchingAddress(address: string): Promise<IAddressValidation> {
+    return this.validateAddress(address);
+  }
+
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
 
   abstract validateXprvt(xprvt: string): Promise<IXprvtValidation>;
