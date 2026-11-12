@@ -139,17 +139,25 @@ function formatNativeLogEvent(
           ? String(value ?? 'none').replace(/[\r\n\s]+/g, '_')
           : safeSniLogValue(value);
       // Keep long diagnostic IDs recoverable without matching the logger's private-key filter.
-      let displayedValue =
-        key === 'requestId'
-          ? logValue.replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-')
-          : logValue;
-      if (displayedValue !== logValue) {
-        displayedValue = logValue
-          .replace(/%/g, '%25')
-          .replace(/-/g, '%2D')
+      let displayedValue = logValue;
+      let formatSuffix = '';
+      if (
+        key === 'requestId' &&
+        typeof value === 'string' &&
+        (value !== logValue || /[0-9a-fA-F]{64}/.test(value))
+      ) {
+        displayedValue = encodeURIComponent(
+          Buffer.from(value, 'utf8').toString('utf8'),
+        )
+          .replace(
+            /[!'()*~-]/g,
+            (character) =>
+              `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+          )
           .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-');
+        formatSuffix = ' requestIdFormat=uri-hex32';
       }
-      return `${key}=${displayedValue}${displayedValue !== logValue ? ' requestIdFormat=hex32' : ''}`;
+      return `${key}=${displayedValue}${formatSuffix}`;
     })
     .join(' ');
 }

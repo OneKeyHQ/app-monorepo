@@ -94,12 +94,40 @@ describe('SNI request IDs through the final file logger', () => {
       await api.cancelRequest(id);
       const output = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
       const displayed = /requestId=([^ ]+)/.exec(output)?.[1];
-      expect(output).toContain('requestIdFormat=hex32');
+      expect(output).toContain('requestIdFormat=uri-hex32');
       expect(displayed).toBeDefined();
       expect(decodeURIComponent((displayed ?? '').replace(/-/g, ''))).toBe(id);
       outputs.push(output);
     }
     expect(outputs[0]).not.toBe(outputs[1]);
+  });
+
+  test('distinguishes spaces, underscores and literal percent sequences', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+    const outputs: string[] = [];
+    for (const id of ['job 1', 'job_1', 'job%201', '任务 1']) {
+      await api.cancelRequest(id);
+      const output = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
+      const displayed = /requestId=([^ ]+)/.exec(output)?.[1] ?? '';
+      const restored = output.includes('requestIdFormat=uri-hex32')
+        ? decodeURIComponent(displayed.replace(/-/g, ''))
+        : displayed;
+      expect(restored).toBe(id);
+      outputs.push(output);
+    }
+    expect(outputs[0]).toContain('requestId=job%201 requestIdFormat=uri-hex32');
+    expect(outputs[1]).toContain('requestId=job_1');
+    expect(outputs[1]).not.toContain('requestIdFormat=');
+    expect(outputs[2]).toContain('requestId=job%201');
+    expect(outputs[2]).not.toContain('requestIdFormat=');
+    expect(new Set(outputs).size).toBe(outputs.length);
+  });
+
+  test('keeps cancellation best-effort for malformed Unicode IDs', async () => {
+    const api = new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+    await expect(api.cancelRequest('job \ud800')).resolves.toEqual({
+      success: false,
+    });
   });
 
   test('distinguishes grouped raw IDs from IDs originally containing separators', async () => {
@@ -111,7 +139,9 @@ describe('SNI request IDs through the final file logger', () => {
     await api.cancelRequest(groupedId);
     const groupedLog = formatForFile([fileLogger.warn.mock.calls.at(-1)?.[0]]);
 
-    expect(rawLog).toContain(`requestId=${groupedId} requestIdFormat=hex32`);
+    expect(rawLog).toContain(
+      `requestId=${groupedId} requestIdFormat=uri-hex32`,
+    );
     expect(groupedLog).toContain(`requestId=${groupedId}`);
     expect(groupedLog).not.toContain('requestIdFormat=');
     expect(rawLog).not.toBe(groupedLog);
