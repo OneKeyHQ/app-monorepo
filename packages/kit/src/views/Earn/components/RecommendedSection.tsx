@@ -250,6 +250,25 @@ function extractAvailableNumber(text?: string) {
   return text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
 }
 
+// The mobile list row is one line of title plus the balance. On native the
+// title has to stay on one line and take its height from its content: Yoga
+// keeps the flex basis it resolved for a `flex: 1` item and reuses the cached
+// measurements of nodes that were not dirtied, so one narrower layout pass
+// (the tab page is padded by stale landscape safe-area insets for a pass when
+// the fullscreen chart rotates back to portrait) wrapped the badge onto a
+// second line and left that two-line height behind once the width was back.
+// The title and the balance then drifted apart, or the rows kept the taller
+// height and ran into the next block (OK-67080). Browsers resolve the wrap
+// again on every layout, so web keeps wrapping long badge sets.
+const LIST_TITLE_ROW_PROPS: IXStackProps = platformEnv.isNative
+  ? { overflow: 'hidden' }
+  : { flex: 1, flexWrap: 'wrap' };
+const LIST_BADGES_CONTAINER_PROPS: IXStackProps = {
+  justifyContent: 'flex-start',
+  flexShrink: 0,
+  ...(platformEnv.isNative ? { flexWrap: 'nowrap' } : undefined),
+};
+
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
   const onPress = useRecommendedItemPress(token);
   const availableNumber = extractAvailableNumber(token.available?.text);
@@ -266,16 +285,13 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
       <ListItem.Text
         flex={1}
         primary={
-          <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
+          <XStack gap="$2" ai="center" minWidth={0} {...LIST_TITLE_ROW_PROPS}>
             <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
               {earnUtils.getDisplaySymbol(token)}
             </SizableText>
             <RecommendedBadges
               token={token}
-              containerProps={{
-                justifyContent: 'flex-start',
-                flexShrink: 0,
-              }}
+              containerProps={LIST_BADGES_CONTAINER_PROPS}
             />
           </XStack>
         }
