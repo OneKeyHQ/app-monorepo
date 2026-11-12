@@ -130,6 +130,7 @@ export function useLocalWalletPool({
     useState<ILocalWalletRefreshRequest>();
   const refreshRequestRef = useRef<ILocalWalletRefreshRequest>(undefined);
   const [revision, setRevision] = useState(0);
+  const revalidateRef = useRef<() => void>(() => {});
   const [attemptedBalanceScope, setAttemptedBalanceScope] =
     useState<ILocalWalletReadScope>();
   const accountScope = useMemo(
@@ -154,16 +155,17 @@ export function useLocalWalletPool({
   // Read from the chain rather than inferred from the account id: Monero has no hardware
   // keyring, so a hardware account there can never scan despite looking scannable. Read again on
   // every change notice (a temp wallet kept), keeping this account's last answer meanwhile.
-  const { result: accountSupportResult } = usePromiseResult(async () => {
-    if (!hasPooledBalance || !accountId) return undefined;
-    return {
-      scope: accountScope,
-      support:
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
-          { networkId, accountId },
-        ),
-    };
-  }, [hasPooledBalance, accountScope, accountId, networkId]);
+  const { result: accountSupportResult, run: refreshSupport } =
+    usePromiseResult(async () => {
+      if (!hasPooledBalance || !accountId) return undefined;
+      return {
+        scope: accountScope,
+        support:
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+            { networkId, accountId },
+          ),
+      };
+    }, [hasPooledBalance, accountScope, accountId, networkId]);
   const freshSupport =
     accountSupportResult?.scope.networkId === networkId &&
     accountSupportResult.scope.accountId === accountId
@@ -180,11 +182,18 @@ export function useLocalWalletPool({
     const invalidate = (payload: {
       networkId: string;
       accountIds: string[];
+      change?: 'syncState';
     }) => {
       if (
         payload.networkId !== networkId ||
         !payload.accountIds.includes(accountId)
       ) {
+        return;
+      }
+      // Pause/resume keeps the same data owner. Destructive or unclassified notices
+      // still invalidate immediately, including while the page is retained offscreen.
+      if (payload.change === 'syncState') {
+        revalidateRef.current();
         return;
       }
       const ownerKey = privacyChainPoolOwnerKey({
@@ -458,6 +467,10 @@ export function useLocalWalletPool({
   }, [refreshAddresses, refreshBalance, refreshState, refreshSyncProgress]);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+  revalidateRef.current = () => {
+    void refreshSupport();
+    refresh();
+  };
   useEffect(() => {
     const refreshNetworkState = () => void refreshState();
     appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkState);

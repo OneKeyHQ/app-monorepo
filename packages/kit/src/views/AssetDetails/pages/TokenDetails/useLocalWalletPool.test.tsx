@@ -20,7 +20,11 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 type IAccountParams = { accountId: string; networkId: string };
-type IPrivacyChangePayload = { networkId: string; accountIds: string[] };
+type IPrivacyChangePayload = {
+  networkId: string;
+  accountIds: string[];
+  change?: 'syncState';
+};
 
 let mockFocused = true;
 let mockEnabled = true;
@@ -245,7 +249,10 @@ async function flushMicrotasks() {
 }
 
 function emitPrivacyChange(
-  payload = { networkId: props.networkId, accountIds: [props.accountId] },
+  payload: IPrivacyChangePayload = {
+    networkId: props.networkId,
+    accountIds: [props.accountId],
+  },
   event = EAppEventBusNames.LocalWalletAccountsChanged,
 ) {
   act(() => mockListeners.get(event)?.forEach((listener) => listener(payload)));
@@ -808,6 +815,101 @@ describe('useLocalWalletPool pause', () => {
 });
 
 describe('useLocalWalletPool retained-page lifecycle', () => {
+  it.each([false, true])(
+    'keeps the loaded page visible across a sync-state notification (was paused: %s)',
+    async (wasPaused) => {
+      mockEnabled = !wasPaused;
+      mockPaused = wasPaused;
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushReads();
+      const balance = result.current.balance;
+      const address = result.current.poolAddress;
+      let answer: (state: ILocalWalletAccountState) => void = () => {};
+      mockGetState.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      );
+      emitPrivacyChange({
+        networkId: props.networkId,
+        accountIds: [props.accountId],
+        change: 'syncState',
+      });
+      await flushMicrotasks();
+      expect(result.current.isReady).toBe(true);
+      expect(result.current.balance).toBe(balance);
+      expect(result.current.poolAddress).toBe(address);
+      expect(result.current.hasAttemptedBalance).toBe(true);
+      expect(mockDisplay?.balanceParsed).toBe('1');
+
+      await act(async () => answer({ enabled: wasPaused, paused: !wasPaused }));
+      await flushReads();
+      expect(result.current.isReady).toBe(true);
+      expect(result.current.state?.paused).toBe(!wasPaused);
+      expect(result.current.poolAddress).toBe(address);
+    },
+  );
+
+  it('still fails closed when a sync-state revalidation fails', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    mockGetState.mockRejectedValueOnce(new Error('unavailable'));
+    emitPrivacyChange({
+      networkId: props.networkId,
+      accountIds: [props.accountId],
+      change: 'syncState',
+    });
+    await flushReads();
+    expect(result.current.isReady).toBe(false);
+    expect(result.current.addresses).toBeUndefined();
+    expect(mockDisplay).toBeUndefined();
+  });
+
+  it('invalidates a pending sync-state refresh immediately when account data is deleted', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    let finishPrevious: (state: ILocalWalletAccountState) => void = () => {};
+    mockGetState.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPrevious = resolve;
+        }),
+    );
+    emitPrivacyChange({
+      networkId: props.networkId,
+      accountIds: [props.accountId],
+      change: 'syncState',
+    });
+    await flushMicrotasks();
+    mockEnabled = false;
+    emitPrivacyChange();
+    expect(result.current.isReady).toBe(false);
+    expect(result.current.addresses).toBeUndefined();
+    expect(mockDisplay).toBeUndefined();
+    await flushReads();
+    await act(async () => finishPrevious({ enabled: true, paused: false }));
+    expect(result.current.enabled).toBe(false);
+    expect(result.current.addresses).toBeUndefined();
+    expect(mockDisplay).toBeUndefined();
+  });
+
+  it('clears the display when wallet support is revoked', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    mockWalletSupport = 'tempWallet';
+    mockEnabled = false;
+    emitPrivacyChange();
+    expect(result.current.addresses).toBeUndefined();
+    expect(mockDisplay).toBeUndefined();
+    await flushReads();
+    expect(result.current.isUnsupportedWallet).toBe(true);
+    expect(result.current.enabled).toBe(false);
+    expect(mockDisplay).toBeUndefined();
+  });
+
   it('revalidates authoritative privacy state when returning from settings', async () => {
     const { result, rerender } = renderHook(useLocalWalletPool, {
       initialProps: props,
