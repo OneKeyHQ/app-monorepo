@@ -55,6 +55,7 @@ import { FeaturedFooter } from '../components/FeaturedFooter';
 import {
   markPendingContactSupportHandoff,
   useForceUpdateContactSupport,
+  waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
@@ -351,10 +352,9 @@ function FeaturedChangelogContent({
     } finally {
       release();
     }
-    // Let UpdatePreview mount before navigating to the support modal.
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 50);
-    });
+    // Open support only after UpdatePreview has mounted and taken over the
+    // lock, instead of guessing how long the modal stack takes to commit.
+    await waitForContactSupportHandoff();
     await handleContactSupport();
   }, [
     closeDialog,

@@ -16,6 +16,13 @@ const mockClose = jest.fn<Promise<void>, []>();
 const mockRelease = jest.fn();
 const mockPushModal = jest.fn();
 const mockOpenSupport = jest.fn(async () => {});
+let mockAcceptHandoff: (accepted: boolean) => void = () => {};
+const mockWaitForHandoff = jest.fn(
+  () =>
+    new Promise<boolean>((resolve) => {
+      mockAcceptHandoff = resolve;
+    }),
+);
 let mockNative = false;
 let mockContainerProps: IDialogContainerProps;
 const mockUpdateInfo = {
@@ -107,6 +114,7 @@ jest.mock('../components/FeaturedFooter', () => ({
 }));
 jest.mock('../hooks/useForceUpdateContactSupport', () => ({
   markPendingContactSupportHandoff: jest.fn(),
+  waitForContactSupportHandoff: () => mockWaitForHandoff(),
   useForceUpdateContactSupport: () => ({
     updateInfo: mockUpdateInfo,
     isForceUpdate: true,
@@ -158,9 +166,13 @@ describe.each([false, true])(
       });
       expect(mockOpenSupport).not.toHaveBeenCalled();
       expect(mockRelease).toHaveBeenCalledTimes(1);
+      // No fixed delay: support waits for UpdatePreview to take over the lock.
       await act(async () => {
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(5000);
       });
+      expect(mockWaitForHandoff).toHaveBeenCalledTimes(1);
+      expect(mockOpenSupport).not.toHaveBeenCalled();
+      await act(async () => mockAcceptHandoff(true));
       expect(mockOpenSupport).toHaveBeenCalledTimes(1);
       expect(await props.onBeforeClose?.({ flag: 'programmatic' })).toBe(true);
       expect(await props.onBeforeClose?.()).toBe(false);

@@ -30,12 +30,16 @@ export async function assertIntercomIdentity(expectedUserId: string | null) {
 }
 
 export async function getIntercomCredentials(expectedUserId: string) {
+  // Background pins the request to this account's session and rejects the
+  // token when that session changed before the response arrived, so the JWT
+  // owner does not depend on when this runtime's atom copy synchronizes.
   const response =
-    await appGlobals.$backgroundApiProxy.servicePrime.apiGetCustomerJWT();
+    await appGlobals.$backgroundApiProxy.servicePrime.apiGetCustomerJWT({
+      expectedOneKeyUserId: expectedUserId,
+    });
   if ((await getCurrentIntercomUserId()) !== expectedUserId) {
     return undefined;
   }
-  await assertIntercomIdentity(expectedUserId);
   const token = response?.token;
   const claims = token ? stringUtils.decodeJWT(token) : null;
   const userId =

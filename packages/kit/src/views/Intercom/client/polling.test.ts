@@ -42,6 +42,28 @@ it('backs off failures to five minutes, ignores pushes during backoff, then rese
   await jest.advanceTimersByTimeAsync(15_000);
   expect(run).toHaveBeenCalledTimes(count + 1);
 });
+it('retries a failed one-shot read with exponential backoff and stops after success', async () => {
+  const run = jest.fn(async (): Promise<void> => {
+    throw new OneKeyLocalError('offline');
+  });
+  const current = createSupportPollingTask(run);
+  tasks.push(current);
+  await current.refresh();
+  expect(run).toHaveBeenCalledTimes(1);
+  for (const delay of [30_000, 60_000, 120_000, 240_000, 300_000, 300_000]) {
+    const count = run.mock.calls.length;
+    await jest.advanceTimersByTimeAsync(delay - 1);
+    expect(run).toHaveBeenCalledTimes(count);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(run).toHaveBeenCalledTimes(count + 1);
+  }
+  run.mockImplementation(async () => {});
+  await jest.advanceTimersByTimeAsync(300_000);
+  const count = run.mock.calls.length;
+  expect(jest.getTimerCount()).toBe(0);
+  await jest.advanceTimersByTimeAsync(3_600_000);
+  expect(run).toHaveBeenCalledTimes(count);
+});
 it('coalesces concurrent refreshes and push hints without overlapping requests', async () => {
   let resolve!: () => void;
   const run = jest.fn(

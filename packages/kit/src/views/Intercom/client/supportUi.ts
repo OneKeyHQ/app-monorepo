@@ -21,10 +21,12 @@ export function presentIntercomSupportUi(params: IIntercomSupportRoute) {
   const state = navigation.getRootState();
   const current = state.routes[state.index];
   const currentModal = current?.state;
+  // A partial (rehydrated) stack state without an index focuses its last route.
+  const focusedModal =
+    currentModal?.routes[currentModal.index ?? currentModal.routes.length - 1];
   const isSupportOpen =
     current?.name === ERootRoutes.Modal &&
-    (currentModal?.routes[currentModal.index ?? 0]?.name ===
-      EModalRoutes.IntercomModal ||
+    (focusedModal?.name === EModalRoutes.IntercomModal ||
       (current.params &&
         'screen' in current.params &&
         current.params.screen === EModalRoutes.IntercomModal));

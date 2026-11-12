@@ -12,6 +12,9 @@ type IJob = {
 const jobs = new Set<IJob>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 const maximumDelay = 5 * 60_000;
+// One-shot reads (session, home, composer) have no polling interval; their
+// automatic retries still start short and back off like periodic jobs.
+const oneShotRetryBase = 15_000;
 
 function schedule() {
   clearTimeout(timer);
@@ -51,7 +54,7 @@ function execute(job: IJob): Promise<void> {
         job.failures = Math.min(job.failures + 1, 10);
         const delay = Math.min(
           maximumDelay,
-          (job.interval ?? Infinity) * 2 ** job.failures,
+          (job.interval ?? oneShotRetryBase) * 2 ** job.failures,
         );
         // Jitter avoids synchronized retries; push hints cannot skip this backoff.
         job.due =

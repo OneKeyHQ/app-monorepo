@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import {
   assertIntercomIdentity,
   getCurrentIntercomUserId,
@@ -9,7 +11,10 @@ let mockUser: { isLoggedIn: boolean; onekeyUserId?: string } = {
   isLoggedIn: false,
 };
 let mockBackgroundUser: typeof mockUser = { isLoggedIn: false };
-const mockToken = jest.fn<Promise<{ token: string }>, []>();
+const mockToken = jest.fn<
+  Promise<{ token: string }>,
+  [{ expectedOneKeyUserId: string }]
+>();
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   primePersistAtom: { atom: () => 'prime', ready: () => mockReady },
 }));
@@ -21,7 +26,8 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   default: {
     $backgroundApiProxy: {
       servicePrime: {
-        apiGetCustomerJWT: () => mockToken(),
+        apiGetCustomerJWT: (params: { expectedOneKeyUserId: string }) =>
+          mockToken(params),
         getLocalUserInfo: async () => mockBackgroundUser,
       },
     },
@@ -56,6 +62,7 @@ it('returns the token only while its requesting account remains current', async 
   await expect(getIntercomCredentials('A')).resolves.toMatchObject({
     token: token('intercom-A'),
   });
+  expect(mockToken).toHaveBeenLastCalledWith({ expectedOneKeyUserId: 'A' });
   mockToken.mockImplementation(async () => {
     mockUser = { isLoggedIn: true, onekeyUserId: 'B' };
     return { token: token('intercom-A') };
@@ -100,8 +107,18 @@ it('checks the authoritative background identity before a window changes shared 
 it('rejects a JWT when background switches accounts before the window receives its atom update', async () => {
   mockUser = { isLoggedIn: true, onekeyUserId: 'A' };
   mockBackgroundUser = { isLoggedIn: true, onekeyUserId: 'B' };
-  mockToken.mockResolvedValue({ token: token('intercom-B') });
+  // Background pins the request to the expected account and refuses to issue
+  // a token for another session; the stale window must surface that refusal.
+  mockToken.mockImplementation(async ({ expectedOneKeyUserId }) => {
+    if (
+      !mockBackgroundUser.isLoggedIn ||
+      mockBackgroundUser.onekeyUserId !== expectedOneKeyUserId
+    )
+      throw new OneKeyLocalError('Support session changed');
+    return { token: token(`intercom-${expectedOneKeyUserId}`) };
+  });
   await expect(getIntercomCredentials('A')).rejects.toThrow(
     'Support session changed',
   );
+  expect(mockToken).toHaveBeenCalledWith({ expectedOneKeyUserId: 'A' });
 });
