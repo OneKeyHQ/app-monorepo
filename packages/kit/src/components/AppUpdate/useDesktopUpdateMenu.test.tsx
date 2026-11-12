@@ -9,7 +9,8 @@ import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { registerUpdateDetailsHost } from './updateDetailsHost';
-import { useDesktopUpdateMenu } from './useDesktopUpdateMenu';
+import { useDesktopUpdateMenu as useNonDesktopUpdateMenu } from './useDesktopUpdateMenu';
+import { useDesktopUpdateMenu } from './useDesktopUpdateMenu.desktop';
 
 const mockCheck = jest.fn();
 const mockAction = jest.fn();
@@ -377,4 +378,12 @@ test('seamless updates retain the existing background path', async () => {
   });
   expect(mockDownload).toHaveBeenCalledTimes(1);
   expect(mockAction).not.toHaveBeenCalled();
+});
+
+test('ignores update menu checks outside desktop', async () => {
+  const { result } = renderHook(useNonDesktopUpdateMenu);
+  await act(async () => result.current());
+  expect(mockCheck).not.toHaveBeenCalled();
+  expect(mockDialog).not.toHaveBeenCalled();
+  expect(mockLoading).not.toHaveBeenCalled();
 });
