@@ -1335,14 +1335,17 @@ class ServicePrivacyChain extends ServiceBase {
     networkId,
     accountIds,
     backfillActive,
+    change,
   }: {
     networkId: string;
     accountIds: string[];
     backfillActive: boolean;
+    change?: 'syncState';
   }): Promise<void> {
     appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
       networkId,
       accountIds,
+      ...(change ? { change } : {}),
     });
     this.clearSyncFailureBackoff(networkId);
     this.markLocalWalletOrphanCleanupDue(networkId);
@@ -1845,6 +1848,7 @@ class ServicePrivacyChain extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
           networkId,
           accountIds,
+          ...(event === 'networkPause' ? { change: 'syncState' as const } : {}),
         });
       }
     }
@@ -2640,6 +2644,15 @@ class ServicePrivacyChain extends ServiceBase {
             // Timeouts are held back by quarantine instead.
             this.recordSyncFailure(candidate.runtimeStateKey);
           }
+          // Quarantine before publishing the error: a failed atom write must not leave a writer
+          // that is still running eligible for the retry.
+          if (isWatchdogTimeout) {
+            const stuckSync = syncPromise;
+            if (!stuckSync) {
+              throw e;
+            }
+            this.quarantineStuckSync(candidate, stuckSync);
+          }
           this.reportFirstSyncFailure({
             networkId: candidate.networkId,
             accountIds: candidate.accountIds,
@@ -2650,13 +2663,6 @@ class ServicePrivacyChain extends ServiceBase {
             candidate.networkId,
             getLocalWalletSyncErrorKind(e),
           );
-          if (isWatchdogTimeout) {
-            const stuckSync = syncPromise;
-            if (!stuckSync) {
-              throw e;
-            }
-            this.quarantineStuckSync(candidate, stuckSync);
-          }
           // `message` is an opaque code; `operation`/`detail` name the failing call.
           console.error('[privacy-chain] background sync failed', {
             networkId: candidate.networkId,
@@ -2758,6 +2764,8 @@ class ServicePrivacyChain extends ServiceBase {
         continueDelayMs = followUpDelayMs;
       }
     } catch (e) {
+      // Keep retrying when even error/cleanup publication fails, including turns held by backoff.
+      continueDelayMs ??= timerUtils.getTimeDurationMs({ seconds: 30 });
       // Structured fields: Android logs render a thrown object as "[object Object]".
       console.error('[privacy-chain] background sync tick failed', {
         name: e instanceof Error ? e.name : typeof e,
@@ -5196,8 +5204,11 @@ class ServicePrivacyChain extends ServiceBase {
         };
       });
     } catch (e) {
-      // Publishing is best-effort: a failure leaves subscribers on the last
-      // good value, which is strictly better than clearing it.
+      // Completion must reach subscribers. Let the scheduler retry an unchanged tip, even when
+      // this pass caught up no accounts. Mid-turn progress remains best-effort.
+      if (successfulEpochs !== undefined) {
+        throw e;
+      }
       console.error('[privacy-chain] publish progress failed', {
         networkId,
         error: e instanceof Error ? e.message : String(e),

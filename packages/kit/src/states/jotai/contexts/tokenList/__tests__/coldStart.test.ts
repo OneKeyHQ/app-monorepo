@@ -10,7 +10,10 @@
  */
 import { createStore } from 'jotai';
 
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   fiatEqual,
@@ -18,11 +21,14 @@ import {
   metaEqual,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type { IStructureSnapshot } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { jotaiContextStore } from '../../../utils/jotaiContextStore';
 import { listStructureAtom } from '../atoms';
 import {
   applyStructureSnapshot,
@@ -32,6 +38,8 @@ import {
 import {
   fanOutSlimToApply,
   hydrateCellsFromColdStart,
+  primeHomeTokenListCellsFromColdStart,
+  primeTokenListCellsFromColdStart,
 } from '../cells/coldStart';
 import {
   aggCell,
@@ -446,5 +454,96 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
       currentCurrency: 'usd',
     });
     expect(painted).toBe(false);
+  });
+});
+
+describe('primeTokenListCellsFromColdStart / primeHomeTokenListCellsFromColdStart', () => {
+  const globalRef = globalThis as typeof globalThis & {
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+  const homeActiveAccountsKey = `store:${EJotaiContextStoreNames.accountSelector}@${EAccountSelectorSceneName.home}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom}`;
+
+  beforeEach(() => {
+    jotaiContextStore.removeStore({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+    });
+    jotaiDefaultStore.set(settingsPersistAtom.atom(), {
+      $$isForceSetAtomWithoutProxy: true,
+      name: settingsPersistAtom.name,
+      payload: {
+        ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+        currencyInfo: { id: 'usd', symbol: '$' },
+      },
+    } as never);
+  });
+
+  afterEach(() => {
+    delete globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    jotaiContextStore.removeStore({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+    });
+  });
+
+  it('primes the home token-list store before subscribers mount and skips repeat calls', () => {
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+      [homeActiveAccountsKey]: {
+        0: {
+          account: { id: 'acc1' },
+          network: { id: 'net1' },
+          deriveInfoItems: [],
+        },
+      },
+    };
+
+    expect(primeHomeTokenListCellsFromColdStart()).toBe(true);
+
+    const store = jotaiContextStore.getOrCreateStore({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+    });
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([
+      'a',
+      'b',
+      'aggregate_agg1',
+    ]);
+    expect(store.get(cell(store, 'a'))?.fiatValue).toBe('200');
+
+    let subscriberNotified = false;
+    const unsub = store.sub(listStructureAtom(), () => {
+      subscriberNotified = true;
+    });
+    expect(primeTokenListCellsFromColdStart(store)).toBe(false);
+    expect(subscriberNotified).toBe(false);
+    unsub();
+  });
+
+  it('marks a store as primed on first provider pass so later renders never write during render', () => {
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+
+    const store = jotaiContextStore.getOrCreateStore({
+      storeName: EJotaiContextStoreNames.homeTokenList,
+    });
+
+    // First provider pass has no ownerKey yet: marks store primed without writing.
+    expect(primeTokenListCellsFromColdStart(store)).toBe(false);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+
+    // Even if ownerKey becomes available on a later render, primeTokenListCellsFromColdStart
+    // must not mutate the store while subscribers are mounted.
+    let subscriberNotified = false;
+    const unsub = store.sub(listStructureAtom(), () => {
+      subscriberNotified = true;
+    });
+    expect(
+      primeTokenListCellsFromColdStart(store, {
+        ownerKey: OWNER_KEY,
+        currentCurrency: 'usd',
+      }),
+    ).toBe(false);
+    expect(subscriberNotified).toBe(false);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+    unsub();
   });
 });
