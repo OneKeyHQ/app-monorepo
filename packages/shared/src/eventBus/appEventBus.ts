@@ -822,6 +822,7 @@ export interface IAppEventBusPayload {
     action: string;
     data?: Record<string, unknown>;
   };
+  [EAppEventBusNames.SupportReplyReceived]: undefined;
   [EAppEventBusNames.ShowRookieShare]: {
     data: IRookieShareData;
   };

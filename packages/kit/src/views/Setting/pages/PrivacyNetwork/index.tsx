@@ -687,7 +687,7 @@ export default function PrivacyNetworkSettings({
         } catch (error) {
           if (!isLocalWalletSlotsFullError(error)) throw error;
           if (options?.isActive && !options.isActive()) return;
-          showPrivacyChainSlotsFullDialog({ intl });
+          showPrivacyChainSlotsFullDialog({ intl, networkId: entry.networkId });
           return;
         }
         if (options?.isActive && !options.isActive()) return;
@@ -707,7 +707,10 @@ export default function PrivacyNetworkSettings({
           } catch (error) {
             // Other failures keep this dialog open; the limit gets its own.
             if (!isLocalWalletSlotsFullError(error)) throw error;
-            showPrivacyChainSlotsFullDialog({ intl });
+            showPrivacyChainSlotsFullDialog({
+              intl,
+              networkId: entry.networkId,
+            });
           }
         };
         const twinBirthday =

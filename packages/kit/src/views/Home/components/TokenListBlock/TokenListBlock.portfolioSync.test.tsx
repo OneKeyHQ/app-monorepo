@@ -332,6 +332,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountOverview', () => ({
     },
   ],
   useHomePortfolioDisplayAtom: () => [mockHomeDisplay],
+  useHomePrivacyTokenStatusAtom: () => [undefined],
   useOverviewTokenCacheStateAtom: () => [{}, mockNoop],
   useAllNetworksStateStateAtom: () => [{ visibleCount: 1 }],
 }));

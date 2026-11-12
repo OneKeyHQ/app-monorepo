@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { privacyChainAtom } from '../states/jotai/atoms';
+
 import type { ILocalWalletCapability } from '../vaults/localWallet/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
@@ -144,6 +146,31 @@ describe('Privacy sync timeout recovery', () => {
     await service.backgroundSyncTick();
     expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
     expect(syncGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it('quarantines a timed-out writer even when publishing its error fails', async () => {
+    const { service, syncGroup, resolveSync } = createService(true);
+    jest
+      .spyOn(privacyChainAtom, 'set')
+      .mockRejectedValueOnce(new OneKeyLocalError('state publication failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+    await service.backgroundSyncTick();
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+
+    resolveSync(result);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(0);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
   });
 
   it('clears proxy quarantine when replacement of the carrier is confirmed', async () => {

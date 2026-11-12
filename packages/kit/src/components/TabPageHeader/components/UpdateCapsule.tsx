@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -30,8 +37,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
@@ -173,7 +180,16 @@ export function UpdateCapsule({
   const keyboardStarting = useRef(false);
   const { downloadPackage, downloadASC, verifyASC, installPackage } =
     useDownloadPackage();
-  const percent = useDownloadProgress(getAppUpdateProgressScope(data));
+  const progressScope = useMemo(
+    () =>
+      getAppUpdateProgressScope({
+        latestVersion: data.latestVersion,
+        jsBundleVersion: data.jsBundleVersion,
+      }) ?? { latestVersion: data.latestVersion },
+    [data.latestVersion, data.jsBundleVersion],
+  );
+  const progress = useDownloadProgressDetails(progressScope);
+  const { percent } = progress;
   const mode = getCapsuleMode(data);
 
   const isVisibleHost = useCallback(() => {
@@ -671,12 +687,14 @@ export function UpdateCapsule({
                   iconAfter="ChevronRightSmallOutline"
                   onPress={closeAndShowWhatsNew}
                 >
-                  {intl.formatMessage({ id: ETranslations.settings_whats_new })}
+                  {intl.formatMessage({
+                    id: ETranslations.app_update_details__title,
+                  })}
                 </Button>
               </XStack>
               <UpdateVerifyReceipt
                 data={data}
-                percent={percent}
+                progress={progress}
                 reducedMotion={reducedMotion}
               />
               {isReady ? (

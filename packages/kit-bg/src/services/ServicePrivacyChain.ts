@@ -181,6 +181,13 @@ export type ILocalWalletAccountListItem = {
   deriveLabel?: string;
 };
 
+// A network's accounts keeping local data, grouped as its account limit counts
+// them: accounts sharing a key (a software and a hardware wallet) share one
+// place and one scan, so one group stands for them all.
+export type ILocalWalletNetworkPlaces = {
+  groups: { accountIds: string[]; address?: string }[];
+};
+
 // Upper bound on the per-network head request inside a tick.
 const PRIVACY_CHAIN_TIP_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -603,10 +610,10 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // Funds a send from a hardware account must first verify on its device, for
-  // the send page to explain before the device asks; undefined when none.
+  // Funds a send must first verify, on the device or by unlocking, for the send
+  // page to explain before either asks; undefined when none.
   @backgroundMethod()
-  async getLocalWalletDeviceVerifyAmount({
+  async getLocalWalletVerifyAmount({
     networkId,
     accountId,
   }: {
@@ -614,7 +621,10 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<string | undefined> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    if (!(await vault.localWalletHasDeviceWork())) return undefined;
+    const needsVerify =
+      (await vault.localWalletHasDeviceWork()) ||
+      (await vault.localWalletHasPasswordWork());
+    if (!needsVerify) return undefined;
     const balance = await this.getLocalWalletAccountBalance({
       networkId,
       accountId,
@@ -634,8 +644,8 @@ class ServicePrivacyChain extends ServiceBase {
     await this.confirmLocalWalletFunds(params);
   }
 
-  // Passive check on entering a send: scanning accounts only; failures are logged, never toasted.
-  // The device is not asked here: the send page explains and asks once the user sends.
+  // Passive check on entering a send: scanning accounts only, with a cached password only; failures
+  // are logged, never toasted. Nothing asks here: the send page explains and asks once the user sends.
   @backgroundMethod()
   async maybeVerifyLocalWalletOnSend(params: {
     networkId: string;
@@ -644,7 +654,13 @@ class ServicePrivacyChain extends ServiceBase {
     try {
       const state = await this.getLocalWalletAccountState(params);
       if (!state.enabled) return;
-      await this.confirmLocalWalletFunds({ ...params, withDevice: false });
+      const changed = await this.doLocalWalletPasswordWork({
+        networkId: params.networkId,
+        accountIds: [params.accountId],
+      });
+      if (changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
         networkId: params.networkId,
@@ -656,16 +672,13 @@ class ServicePrivacyChain extends ServiceBase {
   private async confirmLocalWalletFunds({
     networkId,
     accountId,
-    withDevice = true,
   }: {
     networkId: string;
     accountId: string;
-    withDevice?: boolean;
   }): Promise<void> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     // A hardware account confirms the same funds with its device instead.
     if (await vault.localWalletHasDeviceWork()) {
-      if (!withDevice) return;
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
@@ -2627,6 +2640,15 @@ class ServicePrivacyChain extends ServiceBase {
             // Timeouts are held back by quarantine instead.
             this.recordSyncFailure(candidate.runtimeStateKey);
           }
+          // Quarantine before publishing the error: a failed atom write must not leave a writer
+          // that is still running eligible for the retry.
+          if (isWatchdogTimeout) {
+            const stuckSync = syncPromise;
+            if (!stuckSync) {
+              throw e;
+            }
+            this.quarantineStuckSync(candidate, stuckSync);
+          }
           this.reportFirstSyncFailure({
             networkId: candidate.networkId,
             accountIds: candidate.accountIds,
@@ -2637,13 +2659,6 @@ class ServicePrivacyChain extends ServiceBase {
             candidate.networkId,
             getLocalWalletSyncErrorKind(e),
           );
-          if (isWatchdogTimeout) {
-            const stuckSync = syncPromise;
-            if (!stuckSync) {
-              throw e;
-            }
-            this.quarantineStuckSync(candidate, stuckSync);
-          }
           // `message` is an opaque code; `operation`/`detail` name the failing call.
           console.error('[privacy-chain] background sync failed', {
             networkId: candidate.networkId,
@@ -2745,6 +2760,8 @@ class ServicePrivacyChain extends ServiceBase {
         continueDelayMs = followUpDelayMs;
       }
     } catch (e) {
+      // Keep retrying when even error/cleanup publication fails, including turns held by backoff.
+      continueDelayMs ??= timerUtils.getTimeDurationMs({ seconds: 30 });
       // Structured fields: Android logs render a thrown object as "[object Object]".
       console.error('[privacy-chain] background sync tick failed', {
         name: e instanceof Error ? e.name : typeof e,
@@ -3865,6 +3882,60 @@ class ServicePrivacyChain extends ServiceBase {
         });
       }
     }
+  }
+
+  // What a full network can delete from: only deleting local data frees a place.
+  @backgroundMethod()
+  async getLocalWalletNetworkPlaces({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<ILocalWalletNetworkPlaces> {
+    const holders =
+      await this.backgroundApi.simpleDb.privacyChainState.listNetworkDataHolders(
+        { networkId },
+      );
+    const accountIdsByIdentity = new Map<string, string[]>();
+    for (const { accountId, identity } of holders) {
+      accountIdsByIdentity.set(identity, [
+        ...(accountIdsByIdentity.get(identity) ?? []),
+        accountId,
+      ]);
+    }
+    // Same wallets the account list names: one not open now (a hidden wallet
+    // no longer kept) shows neither its accounts nor their address.
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+    });
+    const listedWalletIds = new Set(wallets.map(({ id }) => id));
+    const groups = await Promise.all(
+      Array.from(accountIdsByIdentity.values(), async (accountIds) => ({
+        accountIds,
+        address: await this.findLocalWalletGroupAddress(
+          accountIds.filter((accountId) =>
+            listedWalletIds.has(
+              accountUtils.getWalletIdFromAccountId({ accountId }),
+            ),
+          ),
+        ),
+      })),
+    );
+    return { groups };
+  }
+
+  // Accounts sharing a key share their address; the first one still in the
+  // account store gives it, as one removed but not yet cleaned up has none.
+  private async findLocalWalletGroupAddress(
+    accountIds: string[],
+  ): Promise<string | undefined> {
+    for (const accountId of accountIds) {
+      // eslint-disable-next-line no-await-in-loop
+      const account = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+        accountId,
+      });
+      if (account?.address) return account.address;
+    }
+    return undefined;
   }
 
   // Asked before the birthday form, so a full network refuses before any input.
@@ -5129,8 +5200,11 @@ class ServicePrivacyChain extends ServiceBase {
         };
       });
     } catch (e) {
-      // Publishing is best-effort: a failure leaves subscribers on the last
-      // good value, which is strictly better than clearing it.
+      // Completion must reach subscribers. Let the scheduler retry an unchanged tip, even when
+      // this pass caught up no accounts. Mid-turn progress remains best-effort.
+      if (successfulEpochs !== undefined) {
+        throw e;
+      }
       console.error('[privacy-chain] publish progress failed', {
         networkId,
         error: e instanceof Error ? e.message : String(e),

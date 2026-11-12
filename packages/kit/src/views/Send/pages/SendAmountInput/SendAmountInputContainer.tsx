@@ -73,7 +73,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { formatPrivacyChainPoolKindLabel } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
-import { confirmLocalWalletDeviceVerify } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
+import { confirmLocalWalletVerify } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletFrozenLines';
 import { LocalWalletPasswordAlert } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
@@ -3218,21 +3218,21 @@ function SendAmountInputContainer() {
             return;
           }
 
-          // A hardware account's device must verify new funds before a send
-          // is built; explain first so the device does not ask unprompted.
-          if (
-            hasLocalWallet &&
-            accountUtils.isHwAccount({ accountId: currentAccountId })
-          ) {
+          // New funds must be verified, on the device or by unlocking, before a
+          // send is built; explain first so neither asks unprompted.
+          if (hasLocalWallet) {
             const unverified =
-              await backgroundApiProxy.servicePrivacyChain.getLocalWalletDeviceVerifyAmount(
+              await backgroundApiProxy.servicePrivacyChain.getLocalWalletVerifyAmount(
                 { networkId, accountId: currentAccountId },
               );
             if (unverified) {
               await dismissAmountInputKeyboardBeforeOverlayOpen();
-              const shouldVerify = await confirmLocalWalletDeviceVerify({
+              const shouldVerify = await confirmLocalWalletVerify({
                 intl,
                 amount: `${unverified} ${network?.symbol ?? ''}`.trim(),
+                onDevice: accountUtils.isHwAccount({
+                  accountId: currentAccountId,
+                }),
               });
               if (!shouldVerify) return;
               await backgroundApiProxy.servicePrivacyChain.verifyLocalWalletWithPassword(
