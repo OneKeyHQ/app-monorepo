@@ -293,24 +293,14 @@ function BasicEarnDesktopHero({
   const [heroWidth, setHeroWidth] = useState(0);
   const [fullWidth, setFullWidth] = useState(0);
   const [fontSize, setFontSize] = useState<ITotalFontSize>(TOTAL_FONT_SIZE);
-  // The moving digits after the cents, as wide as the unseen copy has them.
-  // They are the first to go when the total has no room: a size smaller
-  // first, then the total without them
-  const [digitsWidth, setDigitsWidth] = useState(0);
-  let hidesDigits = false;
   if (heroWidth && fullWidth) {
-    const fits = (width: number) => (size: ITotalFontSize) =>
-      (width * size) / TOTAL_FONT_SIZE +
+    const fits = (size: ITotalFontSize) =>
+      (fullWidth * size) / TOTAL_FONT_SIZE +
         (isReadyToEarn ? 0 : ENTRY_PADDING_WIDTH + CHEVRON_SIZE[size].px) +
         (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
       heroWidth;
-    let nextFontSize = TOTAL_FONT_SIZES.find(fits(fullWidth));
-    if (!nextFontSize && digitsWidth) {
-      hidesDigits = true;
-      nextFontSize = TOTAL_FONT_SIZES.find(fits(fullWidth - digitsWidth));
-    }
-    nextFontSize = nextFontSize ?? MIN_TOTAL_FONT_SIZE;
+    const nextFontSize = TOTAL_FONT_SIZES.find(fits) ?? MIN_TOTAL_FONT_SIZE;
     if (nextFontSize !== fontSize) {
       setFontSize(nextFontSize);
     }
@@ -449,8 +439,6 @@ function BasicEarnDesktopHero({
               currency={currency}
               fontSize={TOTAL_FONT_SIZE}
               isHidden={isHidden}
-              isStatic
-              onDigitsWidth={setDigitsWidth}
             />
           )}
         </XStack>
@@ -549,7 +537,6 @@ function BasicEarnDesktopHero({
                     currency={currency}
                     fontSize={fontSize}
                     isHidden={isHidden}
-                    hidesDigits={hidesDigits}
                   />
                 </YStack>
                 <Icon

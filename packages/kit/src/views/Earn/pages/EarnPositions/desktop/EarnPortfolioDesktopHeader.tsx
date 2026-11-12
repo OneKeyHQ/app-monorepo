@@ -34,10 +34,8 @@ const TOTAL_FONT_SIZE = 48;
 /**
  * The wide My portfolio's top: Net Worth leads the page as it leads the DeFi
  * home (its size, the day's earnings under it, the eye and the refresh),
- * with the scope note under it. The total is written to its cents, without
- * the home's moving digits after them (the user, 11-12), and cut where the
- * home cuts it, so the two pages read the same amount. Rewards, the page's
- * second figure, is in its tab
+ * with the scope note under it. Rewards, the page's second figure, is in
+ * its tab
  */
 export function EarnPortfolioDesktopHeader({
   netWorth,
@@ -130,7 +128,6 @@ export function EarnPortfolioDesktopHeader({
               currency={currency}
               fontSize={TOTAL_FONT_SIZE}
               isHidden={isHidden}
-              hidesDigits
             />
           </YStack>
           <IconButton

@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   PROPORTIONAL_NUMS,
@@ -9,16 +8,6 @@ import {
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
-import {
-  CENT_PLACES,
-  getTickingPlaces,
-  getTickingStepSeconds,
-  splitTickingValue,
-} from './earnTicking.utils';
-import { EarnTickingDigits } from './EarnTickingDigits';
-
-import type { LayoutChangeEvent } from 'react-native';
-
 const SECONDS_PER_DAY = 24 * 60 * 60;
 const MIN_TICK_MS = 1000;
 const MAX_TICK_MS = 60_000;
@@ -26,21 +15,11 @@ const MAX_TICK_MS = 60_000;
 export const ASTERISK_DROP = 0.16;
 
 // The total keeps moving between refreshes at the estimated daily change's
-// per-second rate. It shows as many places as it takes for the last one to
-// be seen moving (the cents alone when they move often enough, or when no
-// place allowed would), and re-renders about when that place changes, between
-// once a second and once a minute. It stands still while hidden, loading or
-// off screen. Written without the digits after its cents, the cents are the
-// place it waits on
-function useTickingTotal(
-  total: number,
-  change24h: number,
-  isRunning: boolean,
-  hidesDigits?: boolean,
-) {
+// per-second rate. It shows cents only, so it re-renders about when the next
+// cent accrues, between once a second and once a minute. It stands still while
+// hidden, loading or off screen
+function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
   const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
-  const places = getTickingPlaces(perSecond);
-  const lastPlace = hidesDigits ? CENT_PLACES : places;
   const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
   const [now, setNow] = useState(() => Date.now());
   if (anchor.total !== total) {
@@ -48,13 +27,7 @@ function useTickingTotal(
   }
   const tickMs =
     perSecond > 0 && isRunning
-      ? Math.min(
-          MAX_TICK_MS,
-          Math.max(
-            MIN_TICK_MS,
-            getTickingStepSeconds(perSecond, lastPlace) * 1000,
-          ),
-        )
+      ? Math.min(MAX_TICK_MS, Math.max(MIN_TICK_MS, 10 / perSecond))
       : 0;
   useEffect(() => {
     if (!tickMs) {
@@ -65,23 +38,16 @@ function useTickingTotal(
     return () => clearInterval(timer);
   }, [tickMs]);
   const elapsedSeconds = Math.max(0, (now - anchor.at) / 1000);
-  return { value: total + perSecond * elapsedSeconds, places };
+  return total + perSecond * elapsedSeconds;
 }
 
 export function TotalValue({
   value,
-  amount,
-  digits,
   currency,
   fontSize,
   isHidden,
 }: {
   value: number;
-  // What is written in place of the value: the total cut at its cents, when
-  // the digits after them follow
-  amount?: string;
-  // The digits after the cents, on the total's baseline
-  digits?: ReactNode;
   currency: string;
   fontSize: number;
   isHidden: boolean;
@@ -110,36 +76,33 @@ export function TotalValue({
       </SizableText>
     );
   }
-  const formatted = (
+  const amount = (
     <NumberSizeableTextWrapper
       {...textProps}
       splitDecimal
       formatter="value"
       formatterOptions={{ currency }}
-      // Beside the digits the amount is the part that gives way
-      {...(digits ? { flexShrink: 1, minWidth: 0 } : undefined)}
     >
-      {amount ?? String(Math.abs(value))}
+      {String(Math.abs(value))}
     </NumberSizeableTextWrapper>
   );
   // The value formatter writes a negative as "< 0.01", so the sign goes in
   // front of the formatted amount
-  return value < 0 || digits ? (
+  return value < 0 ? (
     <XStack ai="baseline" minWidth={0} x={x}>
-      {value < 0 ? <SizableText {...textProps}>-</SizableText> : null}
-      {formatted}
-      {digits}
+      <SizableText {...textProps}>-</SizableText>
+      {amount}
     </XStack>
   ) : (
     <YStack minWidth={0} x={x}>
-      {formatted}
+      {amount}
     </YStack>
   );
 }
 
 /**
- * The net worth as it grows: the total, and after its cents the smaller
- * digits that are seen to move. It holds the clock, so the hero around it is
+ * The net worth as it grows, to its cents (the digits after them stood here
+ * for a day and went on 11-12). It holds the clock, so what is around it is
  * not drawn again at every tick
  */
 export function TickingTotalValue({
@@ -149,9 +112,6 @@ export function TickingTotalValue({
   currency,
   fontSize,
   isHidden,
-  isStatic,
-  hidesDigits,
-  onDigitsWidth,
 }: {
   total: number;
   change24h: number;
@@ -159,51 +119,11 @@ export function TickingTotalValue({
   currency: string;
   fontSize: number;
   isHidden: boolean;
-  // The copy that is only measured: no motion
-  isStatic?: boolean;
-  // The total to its cents alone: no room for the digits at any size, or a
-  // page that states it without them
-  hidesDigits?: boolean;
-  // How wide the digits are at this size; none, nothing
-  onDigitsWidth?: (width: number) => void;
 }) {
-  const { value, places } = useTickingTotal(
-    total,
-    change24h,
-    isRunning,
-    hidesDigits,
-  );
-  const { cents, digits } = isHidden
-    ? { cents: '', digits: '' }
-    : splitTickingValue(value, places);
-  // Cut at its cents wherever digits follow them, drawn or not: the amount
-  // reads the same with them and without
-  const isCut = digits.length > 0;
-  const hasDigits = isCut && !hidesDigits;
-  useEffect(() => {
-    if (!hasDigits) {
-      onDigitsWidth?.(0);
-    }
-  }, [hasDigits, onDigitsWidth]);
-  const handleDigitsLayout = useCallback(
-    (event: LayoutChangeEvent) =>
-      onDigitsWidth?.(Math.ceil(event.nativeEvent.layout.width)),
-    [onDigitsWidth],
-  );
+  const value = useTickingTotal(total, change24h, isRunning);
   return (
     <TotalValue
       value={value}
-      amount={isCut ? cents : undefined}
-      digits={
-        hasDigits ? (
-          <EarnTickingDigits
-            digits={digits}
-            fontSize={fontSize}
-            isStatic={isStatic}
-            onLayout={onDigitsWidth ? handleDigitsLayout : undefined}
-          />
-        ) : undefined
-      }
       currency={currency}
       fontSize={fontSize}
       isHidden={isHidden}
