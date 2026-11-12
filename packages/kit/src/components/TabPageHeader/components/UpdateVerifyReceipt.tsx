@@ -165,8 +165,12 @@ export function UpdateVerifyReceipt({
   } else if (status === EAppUpdateStatus.ready || postVerificationFailed) {
     contentState = 'done';
   }
+  let totalBytes = progress.total;
+  if (totalBytes <= 0 && downloadState === 'done') {
+    totalBytes = data.fileSize ?? 0;
+  }
   const totalMb =
-    progress.total > 0 ? Math.round(progress.total / (1024 * 1024)) : undefined;
+    totalBytes > 0 ? Math.round(totalBytes / (1024 * 1024)) : undefined;
   const downloadedMb = Math.round(progress.transferred / (1024 * 1024));
   let downloadResult: string | undefined;
   if (status === EAppUpdateStatus.downloadPackageFailed) {

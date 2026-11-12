@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -173,9 +180,15 @@ export function UpdateCapsule({
   const keyboardStarting = useRef(false);
   const { downloadPackage, downloadASC, verifyASC, installPackage } =
     useDownloadPackage();
-  const progress = useDownloadProgressDetails(
-    getAppUpdateProgressScope(data) ?? { latestVersion: data.latestVersion },
+  const progressScope = useMemo(
+    () =>
+      getAppUpdateProgressScope({
+        latestVersion: data.latestVersion,
+        jsBundleVersion: data.jsBundleVersion,
+      }) ?? { latestVersion: data.latestVersion },
+    [data.latestVersion, data.jsBundleVersion],
   );
+  const progress = useDownloadProgressDetails(progressScope);
   const { percent } = progress;
   const mode = getCapsuleMode(data);
 

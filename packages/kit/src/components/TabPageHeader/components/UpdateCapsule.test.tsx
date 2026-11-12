@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
 
 import { UpdateCapsule } from './UpdateCapsule';
 
@@ -109,11 +110,11 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
 jest.mock(
   '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop',
   () => ({
-    useDownloadProgressDetails: () => ({
+    useDownloadProgressDetails: jest.fn(() => ({
       percent: 0,
       total: 0,
       transferred: 0,
-    }),
+    })),
   }),
 );
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
@@ -154,6 +155,34 @@ beforeEach(() => {
 afterEach(() => {
   jest.restoreAllMocks();
   jest.useRealTimers();
+});
+
+test('keeps app-shell progress scope stable until the target version changes', () => {
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.downloadPackage,
+  };
+  const progressHook = jest.mocked(useDownloadProgressDetails);
+  const view = render(
+    <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  const scope = progressHook.mock.lastCall?.[0];
+  expect(scope).toEqual({ latestVersion: '2.0.0' });
+  view.rerender(
+    <UpdateCapsule data={{ ...data }} showUpdate onWhatsNew={() => {}} />,
+  );
+  expect(progressHook.mock.lastCall?.[0]).toBe(scope);
+  view.rerender(
+    <UpdateCapsule
+      data={{ ...data, latestVersion: '3.0.0' }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(progressHook.mock.lastCall?.[0]).not.toBe(scope);
+  expect(progressHook.mock.lastCall?.[0]).toEqual({ latestVersion: '3.0.0' });
 });
 
 test.each([

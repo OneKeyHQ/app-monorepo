@@ -61,10 +61,51 @@ test('shows percentage while the Node total is unknown', () => {
         status: EAppUpdateStatus.downloadPackage,
         updateStrategy: EUpdateStrategy.manual,
         updateAt: 0,
+        fileSize: 200 * 1024 * 1024,
       }}
       progress={{ percent: 25, total: 0, transferred: 0 }}
       reducedMotion={false}
     />,
   );
   expect(view.getByText('25%')).toBeTruthy();
+});
+
+test.each([EAppUpdateStatus.downloadASC, EAppUpdateStatus.ready])(
+  'retains the completed size without progress events at %s',
+  (status) => {
+    const view = render(
+      <UpdateVerifyReceipt
+        data={{
+          status,
+          updateStrategy: EUpdateStrategy.manual,
+          updateAt: 0,
+          fileSize: 80 * 1024 * 1024,
+        }}
+        progress={{ percent: 0, total: 0, transferred: 0 }}
+        reducedMotion={false}
+      />,
+    );
+    expect(view.getByText('80 MB')).toBeTruthy();
+  },
+);
+
+test('prefers Node size to API fileSize after download completes', () => {
+  const view = render(
+    <UpdateVerifyReceipt
+      data={{
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        updateAt: 0,
+        fileSize: 200 * 1024 * 1024,
+      }}
+      progress={{
+        percent: 100,
+        total: 80 * 1024 * 1024,
+        transferred: 80 * 1024 * 1024,
+      }}
+      reducedMotion={false}
+    />,
+  );
+  expect(view.getByText('80 MB')).toBeTruthy();
+  expect(view.queryByText('200 MB')).toBeNull();
 });
