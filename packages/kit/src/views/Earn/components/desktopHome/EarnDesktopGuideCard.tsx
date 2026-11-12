@@ -28,8 +28,8 @@ import type { IEarnGuideCardPlace } from './earnGuideStore';
 
 // A fresh green in the brand's hue, the ground the card's picture stands on
 // and fades into on the side its words are on (opaque, the same on a light
-// page and a dark one). White type reads on it (8 to 1) and the pile of
-// tokens stands on it
+// page and a dark one). White type reads on it (8 to 1) and the stacks of
+// coins stand on it
 export const EARN_GUIDE_INK = '#185D1C';
 export const EARN_GUIDE_INK_HOVER = '#1C6821';
 // The banner's Join pill beside the card: pure white, 30 tall

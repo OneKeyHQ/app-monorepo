@@ -2,16 +2,17 @@ import { memo } from 'react';
 
 import { Image, YStack, useMedia } from '@onekeyhq/components';
 
-// The card's picture: tokens heaped as chips are, white with each coin's
-// color and mark on its face (Bitcoin, Ethereum, USDC, USDT), a few fallen
-// around the foot. One rendered scene whose places come from a rigid-body
-// drop, so every token rests on the ground or on another. Kept as two cuts:
-// all of it for a wide card, and the heap's core for a phone's, where the
-// steps take the card's width. Both fade into the card's own color on the
-// side its words are on.
+// The card's picture: coins in neat stacks, each coin a metal of its own
+// color with a milled edge and its mark in silver (Bitcoin, Ethereum, USDC,
+// USDT), one leaned on the tallest stack. One rendered scene whose places
+// come from a rigid-body run, so every coin rests on the ground or on
+// another. Kept as two cuts: the stacks spread out for a wide card, and four
+// stacks close as a block for a phone's, where the steps take the card's
+// width. Both fade into the card's own color on the side its words are on.
 const WIDE_ASPECT = 1120 / 400;
-// Beside the steps on a phone's card, above its button. The heap starts under
-// the first step's line: that line is the longest and runs up to the picture
+// Beside the steps on a phone's card, above its button. The stacks start
+// under the first step's line: that line is the longest and runs up to the
+// picture
 const PHONE_ART = { width: 119, height: 190, top: 34, right: -4 } as const;
 
 function EarnGuideArtView({
@@ -43,7 +44,7 @@ function EarnGuideArtView({
           <Image
             w="100%"
             h="100%"
-            source={require('@onekeyhq/kit/assets/earn_guide_pile.webp')}
+            source={require('@onekeyhq/kit/assets/earn_guide_coins.webp')}
             resizeMode="cover"
           />
         </YStack>
@@ -54,7 +55,7 @@ function EarnGuideArtView({
           right={PHONE_ART.right}
           w={PHONE_ART.width}
           h={PHONE_ART.height}
-          source={require('@onekeyhq/kit/assets/earn_guide_pile_phone.webp')}
+          source={require('@onekeyhq/kit/assets/earn_guide_coins_phone.webp')}
           resizeMode="cover"
         />
       )}
