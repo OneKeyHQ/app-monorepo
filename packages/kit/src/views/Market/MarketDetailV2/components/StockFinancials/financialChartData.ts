@@ -25,6 +25,13 @@ export type IFinancialChartKind =
   | 'debt'
   | 'earnings';
 
+export const FINANCIAL_CHART_KINDS: readonly IFinancialChartKind[] = [
+  'performance',
+  'conversion',
+  'debt',
+  'earnings',
+];
+
 export type IStockFinancialLabels = Record<IFinancialWaterfallKey, string> & {
   financials: string;
   annual: string;
@@ -232,4 +239,16 @@ export function buildFinancialChart(
       values: [row.actual, row.estimate],
     })),
   };
+}
+
+// Whether any card would draw a value from this period's payload.
+export function hasFinancialChartData(
+  data: IStockFinancials | null | undefined,
+  labels: IStockFinancialLabels,
+): boolean {
+  return FINANCIAL_CHART_KINDS.some((kind) =>
+    buildFinancialChart(data, kind, labels).rows.some((row) =>
+      row.values.some(isFinancialNumber),
+    ),
+  );
 }
