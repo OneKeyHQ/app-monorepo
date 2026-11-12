@@ -112,7 +112,12 @@ jest.mock('../utils/pickSupportImage', () => ({
   pickSupportImage: jest.fn(),
   cleanSupportImage: jest.fn(async () => {}),
 }));
-jest.mock('@react-navigation/native', () => ({ useRoute: () => mockRoute }));
+let mockStackIndex = 1;
+jest.mock('@react-navigation/native', () => ({
+  useRoute: () => mockRoute,
+  useNavigationState: <T,>(selector: (state: { index: number }) => T) =>
+    selector({ index: mockStackIndex }),
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -436,6 +441,7 @@ beforeEach(() => {
   mockFailSend = false;
   mockFailRefresh = false;
   mockFocused = true;
+  mockStackIndex = 1;
   mockRoute.name = 'IntercomConversation';
   mockRoute.params = { userId: null };
   mockRequest.mockReset().mockImplementation(async (path) => {
@@ -900,6 +906,26 @@ it('does not acknowledge cached unread data again until a fresh foreground respo
   expect(readCount()).toBe(1);
   await act(async () => refreshed.resolve({ ...conversation, read: false }));
   await waitFor(() => expect(readCount()).toBe(2));
+});
+
+it.each([
+  ['pushed above support home', 1],
+  ['opened first for unread replies', 0],
+])('returns Home from the message list %s', async (_, stackIndex) => {
+  mockRoute.name = 'IntercomMessages';
+  mockStackIndex = stackIndex;
+  render(<SupportScreen />);
+  fireEvent.click(await screen.findByTestId('support-home'));
+  if (stackIndex === 0) {
+    // Popping the only support screen would close support instead.
+    expect(mockNavigation.replace).toHaveBeenCalledWith('IntercomHome', {
+      userId: null,
+    });
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+  } else {
+    expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+  }
 });
 
 it('keeps loaded inbox pages when focus changes', async () => {

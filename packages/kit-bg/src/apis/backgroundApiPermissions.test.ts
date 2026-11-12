@@ -1,3 +1,4 @@
+import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import { EAtomNames } from '../states/jotai/atomNames';
@@ -48,6 +49,51 @@ describe('isProviderApiPrivateOriginDenied', () => {
     ['wallet_getConnectWalletInfo', 'https://evil.example', false],
   ])('method=%s origin=%s denied=%s', (method, origin, denied) => {
     expect(isProviderApiPrivateOriginDenied({ method, origin })).toBe(denied);
+  });
+});
+
+describe('$private access from the opaque web-embed origins', () => {
+  const isDenied = (origin: string, method: string, isMarked: boolean) =>
+    isProviderApiPrivateOriginDenied({
+      method,
+      origin,
+      payload: markWebEmbedChannelPayload(
+        {
+          origin,
+          scope: '$private',
+          data: { method },
+        } as unknown as IJsBridgeMessagePayload,
+        isMarked,
+      ),
+    });
+
+  it.each(['null', 'file://'])(
+    'treats an unmarked %s frame as an ordinary page',
+    (origin) => {
+      expect(isDenied(origin, 'getLastFocusUrl', false)).toBe(true);
+      expect(isDenied(origin, 'wallet_showToast', false)).toBe(true);
+      expect(isDenied(origin, 'getSensitiveEncodeKey', false)).toBe(true);
+      expect(isDenied(origin, 'wallet_getConnectWalletInfo', false)).toBe(
+        false,
+      );
+      expect(
+        isDenied(origin, 'wallet_addBrowserUrlToRiskWhiteList', false),
+      ).toBe(false);
+    },
+  );
+
+  it.each(['null', 'file://'])(
+    'keeps the marked web-embed page at %s privileged',
+    (origin) => {
+      expect(isDenied(origin, 'webEmbedApiReady', true)).toBe(false);
+      expect(isDenied(origin, 'getSensitiveEncodeKey', true)).toBe(false);
+    },
+  );
+
+  it('lets the Prime purchase page send its host-handled requests', () => {
+    for (const method of Object.values(EWebEmbedPrivateRequestMethod)) {
+      expect(isDenied('null', method, false)).toBe(false);
+    }
   });
 });
 

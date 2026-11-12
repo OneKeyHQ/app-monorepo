@@ -5,13 +5,21 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import {
+  isSupportReplyPushMessage,
+  parseNotificationPayload,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   ENotificationCommand,
   ENotificationPushMessageMode,
   ENotificationPushTopicTypes,
 } from '@onekeyhq/shared/types/notification';
 import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
+import {
+  notificationsAtom,
+  notificationsDevSettingsPersistAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceNotification from './ServiceNotification';
 
@@ -331,4 +339,102 @@ describe('support notification delivery across startup', () => {
       ).resolves.toBeUndefined();
     },
   );
+
+  // Shape of the support reply push in the OK-67112 logs.
+  function createSupportReplyPush(
+    extras: Partial<NonNullable<INotificationPushMessageInfo['extras']>> = {},
+  ): INotificationPushMessageInfo {
+    return {
+      title: 'Support replied',
+      content: 'You have a new support reply.',
+      pushSource: 'jpush',
+      extras: {
+        msgId: 'support:1:2',
+        mode: '6',
+        payload: JSON.stringify({
+          action: ENotificationCommand.openSupportConversation,
+          data: {},
+        }),
+        params: { msgId: 'support:1:2' },
+        ...extras,
+      } as INotificationPushMessageInfo['extras'],
+    };
+  }
+
+  it('recognizes support reply pushes by their command payload', () => {
+    expect(isSupportReplyPushMessage(createSupportReplyPush())).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.command }),
+      ),
+    ).toBe(true);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({ mode: ENotificationPushMessageMode.page }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(
+        createSupportReplyPush({
+          payload: JSON.stringify({ action: 'openHardwareSalesOrder' }),
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isSupportReplyPushMessage(createSupportReplyPush({ payload: '{' })),
+    ).toBe(false);
+  });
+
+  it('refreshes support unread state once per reply on every platform, even without a usable conversation id', async () => {
+    const previousIsNative = platformEnv.isNative;
+    // Persisted atoms never hydrate in this suite.
+    jest
+      .spyOn(notificationsDevSettingsPersistAtom, 'get')
+      .mockResolvedValue({ showMessagePushSource: false });
+    jest.spyOn(notificationsAtom, 'set').mockResolvedValue(undefined);
+    jest.spyOn(service, 'ackNotificationMessage').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'increaseBadgeCountWhenNotificationReceived')
+      .mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const supportHints = () =>
+      emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.SupportConversationUpdated,
+      );
+
+    try {
+      for (const isNative of [true, false]) {
+        platformEnv.isNative = isNative;
+        emit.mockClear();
+        const msgId = `support:1:${isNative ? 2 : 3}`;
+        const reply = createSupportReplyPush({
+          msgId,
+          params: { msgId },
+        } as Partial<NonNullable<INotificationPushMessageInfo['extras']>>);
+        // The same reply delivered over both websocket and JPush.
+        await service.onNotificationReceived(reply);
+        await service.onNotificationReceived(reply);
+        expect(supportHints()).toEqual([
+          [EAppEventBusNames.SupportConversationUpdated, {}],
+        ]);
+      }
+
+      emit.mockClear();
+      await service.onNotificationReceived(
+        createSupportReplyPush({
+          msgId: 'support:1:4',
+          payload: JSON.stringify({
+            action: ENotificationCommand.openSupportConversation,
+            data: { conversationId: { id: 4 } },
+          }),
+          params: { msgId: 'support:1:4' },
+        } as Partial<NonNullable<INotificationPushMessageInfo['extras']>>),
+      );
+      expect(supportHints()).toEqual([
+        [EAppEventBusNames.SupportConversationUpdated, {}],
+      ]);
+    } finally {
+      platformEnv.isNative = previousIsNative;
+    }
+  });
 });

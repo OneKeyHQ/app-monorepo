@@ -460,11 +460,14 @@ export async function showIntercom(params?: IShowIntercomParams) {
       )
         return false;
       if (
-        !presentIntercomSupportUi({
-          userId,
-          requestId: params?.requestId,
-          conversationId: params?.conversationId,
-        })
+        !presentIntercomSupportUi(
+          {
+            userId,
+            requestId: params?.requestId,
+            conversationId: params?.conversationId,
+          },
+          { hasUnread: unreadIds.size > 0 },
+        )
       )
         throw new OneKeyLocalError('Support navigation is not ready');
       return true;

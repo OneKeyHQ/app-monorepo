@@ -26,6 +26,7 @@ jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   },
 }));
 const mockPresent = jest.fn((_route: unknown) => true);
+const mockPresentOptions = jest.fn<void, [unknown]>();
 const mockNotify = jest.fn((_error: unknown): void => {});
 const mockCredentials = jest.fn(async (_user: string) => ({
   token: 'test-jwt',
@@ -93,7 +94,10 @@ jest.mock(
   }),
 );
 jest.mock('./supportUi', () => ({
-  presentIntercomSupportUi: (route: unknown) => mockPresent(route),
+  presentIntercomSupportUi: (route: unknown, options?: unknown) => {
+    mockPresentOptions(options);
+    return mockPresent(route);
+  },
 }));
 jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/openFailure', () => ({
   notifyIntercomOpenFailed: (error: unknown) => mockNotify(error),
@@ -198,6 +202,16 @@ describe('support message notifications', () => {
     await subject.setIntercomInAppMessageVisibility(true);
     await jest.advanceTimersByTimeAsync(0);
   }
+  it('asks support to open the message list while replies are unread', async () => {
+    await show();
+    expect(subject.getIntercomUnreadCount()).toBe(1);
+    await subject.showIntercom();
+    expect(mockPresent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ userId: 'A', conversationId: undefined }),
+    );
+    expect(mockPresentOptions).toHaveBeenLastCalledWith({ hasUnread: true });
+  });
+
   it('shows an authenticated admin preview once per reply and opens the matching conversation', async () => {
     await show();
     expect(subject.getIntercomNotification()).toEqual({
@@ -653,6 +667,7 @@ it('allows an explicit support open before passive polling starts', async () => 
   expect(mockPresent).toHaveBeenCalledWith(
     expect.objectContaining({ userId: 'A' }),
   );
+  expect(mockPresentOptions).toHaveBeenLastCalledWith({ hasUnread: false });
   await subject.createIntercomMessengerSession('A');
   expect(mockCredentials).toHaveBeenCalledTimes(1);
   expect(mockFetch).toHaveBeenCalledTimes(1);

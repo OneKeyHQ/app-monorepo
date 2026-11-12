@@ -1953,7 +1953,6 @@ function ReceiveToken() {
       accountId: currentAccount?.id,
       settings: vaultSettings?.localWallet,
       onEnabled: handlePrivacyEnabled,
-      onOpenSettings: openPrivacyNetworkSettings,
     });
 
   const cardHeaderRight = useMemo(() => {

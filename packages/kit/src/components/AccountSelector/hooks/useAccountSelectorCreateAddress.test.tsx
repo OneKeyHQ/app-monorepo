@@ -33,6 +33,11 @@ const mockGetDeriveInfoOfNetwork = jest.fn<
 const mockCallAccountSelectorAction = jest.fn<Promise<void>, [string, unknown]>(
   async () => undefined,
 );
+const mockGetIndexedAccounts = jest.fn<
+  Promise<{ accounts: { id: string }[] }>,
+  [unknown]
+>();
+const mockVerifyPassword = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -41,7 +46,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       getWalletDevice: jest.fn(async () => ({ connectId: 'device-1' })),
       isThirdPartyHwByWalletId: (params: unknown) =>
         mockIsThirdPartyHwByWalletId(params),
-      getIndexedAccountsOfWallet: jest.fn(async () => ({ accounts: [] })),
+      getIndexedAccountsOfWallet: (params: unknown) =>
+        mockGetIndexedAccounts(params),
       addHDOrHWAccounts: (params: unknown) => mockAddAccounts(params),
       isBtcOnlyFirmwareByWalletId: jest.fn(async () => false),
     },
@@ -58,7 +64,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockGetDeriveInfoOfNetwork(params),
     },
     servicePassword: {
-      promptPasswordVerifyByWallet: jest.fn(async () => undefined),
+      promptPasswordVerifyByWallet: (params: unknown) =>
+        mockVerifyPassword(params),
     },
   },
 }));
@@ -133,6 +140,8 @@ async function createAllNetworkAddress(selectAfterCreate = false) {
 describe('useAccountSelectorCreateAddress', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetIndexedAccounts.mockResolvedValue({ accounts: [] });
+    mockVerifyPassword.mockResolvedValue(undefined);
     mockGetNetwork.mockReset().mockResolvedValue({ name: 'Bitcoin' });
     mockGetDeriveInfoOfNetwork
       .mockReset()
@@ -180,6 +189,100 @@ describe('useAccountSelectorCreateAddress', () => {
     expect(showIntercom).not.toHaveBeenCalled();
     await act(async () => finishClose());
     expect(showIntercom).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'returns the created first index for an empty HD wallet (selectAfterCreate=%s)',
+    async (selectAfterCreate) => {
+      mockAddDefaultNetworkAccounts.mockResolvedValue({
+        addedAccounts: [],
+        failedAccounts: [],
+      });
+      mockGetIndexedAccounts.mockResolvedValue({
+        accounts: [{ id: 'hd-wallet-1--7' }, { id: 'hd-wallet-1--0' }],
+      });
+      const { result } = renderHook(() => useAccountSelectorCreateAddress());
+      await act(async () => {
+        const response = await result.current.createAddress({
+          num: 0,
+          selectAfterCreate,
+          account: {
+            walletId: 'hd-wallet-1',
+            networkId: getNetworkIdsMap().onekeyall,
+            indexedAccountId: undefined,
+            deriveType: 'default',
+          },
+          customNetworks: [{ networkId: 'evm--1', deriveType: 'default' }],
+        });
+        expect(response).toEqual({
+          walletId: 'hd-wallet-1',
+          indexedAccountId: 'hd-wallet-1--0',
+          accounts: [],
+        });
+      });
+      expect(mockVerifyPassword).toHaveBeenCalledWith(
+        expect.objectContaining({ walletId: 'hd-wallet-1' }),
+      );
+      expect(mockVerifyPassword.mock.invocationCallOrder[0]).toBeLessThan(
+        mockAddDefaultNetworkAccounts.mock.invocationCallOrder[0],
+      );
+      expect(mockAddDefaultNetworkAccounts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          indexes: [0],
+          indexedAccountId: undefined,
+          customNetworks: [{ networkId: 'evm--1', deriveType: 'default' }],
+        }),
+      );
+      expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+        1,
+        'refresh',
+        { num: 0 },
+      );
+      if (selectAfterCreate) {
+        expect(mockCallAccountSelectorAction).toHaveBeenNthCalledWith(
+          2,
+          'updateSelectedAccountForHdOrHwAccount',
+          {
+            num: 0,
+            walletId: 'hd-wallet-1',
+            indexedAccountId: 'hd-wallet-1--0',
+          },
+        );
+      } else {
+        expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it('does not return an unrelated index when the requested first index is absent', async () => {
+    mockAddDefaultNetworkAccounts.mockResolvedValue({
+      addedAccounts: [],
+      failedAccounts: [],
+    });
+    mockGetIndexedAccounts.mockResolvedValue({
+      accounts: [{ id: 'hd-wallet-1--7' }],
+    });
+    const { result } = renderHook(() => useAccountSelectorCreateAddress());
+    await act(async () => {
+      const response = await result.current.createAddress({
+        num: 0,
+        account: {
+          walletId: 'hd-wallet-1',
+          networkId: getNetworkIdsMap().onekeyall,
+          indexedAccountId: undefined,
+          deriveType: 'default',
+        },
+      });
+      expect(response).toEqual({
+        walletId: 'hd-wallet-1',
+        indexedAccountId: undefined,
+        accounts: [],
+      });
+    });
+    expect(mockCallAccountSelectorAction).toHaveBeenCalledTimes(1);
+    expect(mockCallAccountSelectorAction).toHaveBeenCalledWith('refresh', {
+      num: 0,
+    });
   });
 
   it('names the chain a third-party device refused while others succeeded', async () => {

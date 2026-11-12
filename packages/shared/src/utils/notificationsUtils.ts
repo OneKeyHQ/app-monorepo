@@ -601,6 +601,44 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+type INotificationCommandPayload = {
+  action?: string;
+  data?: Record<string, unknown>;
+  conversationId?: unknown;
+};
+
+// Throws on malformed JSON; callers decide how to fall back.
+function parseNotificationCommandPayload(
+  payload: string | undefined,
+): INotificationCommandPayload {
+  const parsed = JSON.parse(payload || '{}') as INotificationCommandPayload;
+  return {
+    ...parsed,
+    action:
+      typeof parsed.action === 'string' ? parsed.action.trim() : parsed.action,
+  };
+}
+
+export function isSupportReplyPushMessage(
+  messageInfo: INotificationPushMessageInfo,
+): boolean {
+  const { extras } = messageInfo;
+  if (
+    normalizeNotificationMode(extras?.mode) !==
+    ENotificationPushMessageMode.command
+  ) {
+    return false;
+  }
+  try {
+    return (
+      parseNotificationCommandPayload(extras?.payload).action ===
+      ENotificationCommand.openSupportConversation
+    );
+  } catch {
+    return false;
+  }
+}
+
 function toSupportConversationId(value: unknown): string | undefined {
   if (typeof value === 'string') {
     return value.trim() || undefined;
@@ -843,16 +881,8 @@ export function parseNotificationPayload(
       return true;
     case ENotificationPushMessageMode.command:
       try {
-        const parsedPayload = JSON.parse(payload || '{}') as {
-          action?: string;
-          data?: Record<string, unknown>;
-          conversationId?: unknown;
-        };
-        const action =
-          typeof parsedPayload.action === 'string'
-            ? parsedPayload.action.trim()
-            : parsedPayload.action;
-        const { data } = parsedPayload;
+        const parsedPayload = parseNotificationCommandPayload(payload);
+        const { action, data } = parsedPayload;
         if (!action) {
           fallbackHandler();
           return false;

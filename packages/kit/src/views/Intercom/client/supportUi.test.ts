@@ -99,6 +99,32 @@ it('pushes support home on the root stack when support is not open', () => {
   });
 });
 
+it('opens the message list instead of home when unread replies exist', () => {
+  const route = { userId: 'A' };
+  expect(presentIntercomSupportUi(route, { hasUnread: true })).toBe(true);
+  expect(mockDispatch).toHaveBeenCalledWith(
+    expect.objectContaining({
+      payload: {
+        name: ERootRoutes.Modal,
+        params: modalParams(EIntercomRoutes.Messages, route),
+      },
+    }),
+  );
+  expect(mockLogBranch).toHaveBeenCalledWith({
+    conversationId: undefined,
+    selectedBranch: 'rn-messages',
+  });
+  // A targeted conversation still wins over the unread list.
+  presentIntercomSupportUi(
+    { userId: 'A', conversationId: '9' },
+    { hasUnread: true },
+  );
+  expect(mockLogBranch).toHaveBeenLastCalledWith({
+    conversationId: '9',
+    selectedBranch: 'rn-conversation',
+  });
+});
+
 it('keeps another modal, such as a mandatory update, underneath a targeted conversation', () => {
   stack([
     { name: ERootRoutes.Main },

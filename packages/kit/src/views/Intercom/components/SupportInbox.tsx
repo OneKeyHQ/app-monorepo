@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { FlatList, View } from 'react-native';
 
@@ -60,6 +61,8 @@ export function SupportInbox({
   const navigation =
     useAppNavigation<IModalNavigationProp<IIntercomParamList>>();
   const unread = useIntercomUnreadCount();
+  // Unread replies can open the message list as the first support screen.
+  const isFirstScreen = useNavigationState((state) => state.index === 0);
   const load = useCallback(async () => {
     if (!session) throw new OneKeyLocalError('Support session is unavailable');
     return session.listConversations();
@@ -509,7 +512,10 @@ export function SupportInbox({
                 home={home}
                 unread={unread}
                 onHome={() => {
-                  if (!home) navigation.pop();
+                  if (home) return;
+                  if (isFirstScreen)
+                    navigation.replace(EIntercomRoutes.Home, route);
+                  else navigation.pop();
                 }}
                 onMessages={showMessages}
                 homeLabel={homeContent.data?.homeLabel}
