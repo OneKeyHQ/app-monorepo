@@ -49,6 +49,10 @@ import {
   peekDesktopUpdateBanner,
   startDesktopUpdateBanner,
 } from '../../AppUpdate/AppUpdateForeground';
+import {
+  hasBlockingUpdateOverlay,
+  registerUpdateDetailsHost,
+} from '../../AppUpdate/updateDetailsHost';
 import { HEADER_WIDE_MEDIA_KEY } from '../headerLayout';
 
 import { UpdateVerifyReceipt } from './UpdateVerifyReceipt';
@@ -167,10 +171,12 @@ export function UpdateCapsule({
   data,
   showUpdate,
   onWhatsNew,
+  detailsOnly = false,
 }: {
   data: IAppUpdateInfo;
   showUpdate: boolean;
   onWhatsNew: () => void;
+  detailsOnly?: boolean;
 }) {
   const intl = useIntl();
   const anchorId = useId();
@@ -220,6 +226,7 @@ export function UpdateCapsule({
   }, [anchorId, isRouteFocused]);
 
   useEffect(() => {
+    if (detailsOnly) return;
     ensureCapsuleStyles();
     let interval: ReturnType<typeof setInterval> | undefined;
     const checkCompleted = () => {
@@ -252,7 +259,7 @@ export function UpdateCapsule({
       document.removeEventListener('visibilitychange', checkCompleted);
       if (interval) clearInterval(interval);
     };
-  }, [isVisibleHost]);
+  }, [detailsOnly, isVisibleHost]);
 
   useEffect(
     () => () => {
@@ -263,33 +270,51 @@ export function UpdateCapsule({
   );
 
   useEffect(() => {
-    const onOpenDetails = () => {
-      if (!isRouteFocused || !isVisibleHost()) return;
+    if (detailsOnly) return;
+    return registerUpdateDetailsHost((target) => {
+      if (
+        target.latestVersion !== data.latestVersion ||
+        target.jsBundleVersion !== data.jsBundleVersion ||
+        !showUpdate ||
+        !isVisibleHost()
+      )
+        return false;
+      if (
+        open &&
+        document.activeElement?.closest(
+          '[data-testid="update-details-content"]',
+        )
+      ) {
+        return true;
+      }
+      if (hasBlockingUpdateOverlay()) return false;
       const button = document
         .getElementById(anchorId)
         ?.querySelector<HTMLButtonElement>(
           '[data-testid="header-update-details"]',
         );
-      if (!button || button.disabled || button.inert) return;
+      if (!button || button.disabled || button.inert) return false;
       const rect = button.getBoundingClientRect();
       const topButton = document
-        .elementsFromPoint(
+        .elementFromPoint(
           rect.left + rect.width / 2,
           rect.top + rect.height / 2,
         )
-        .map((element) =>
-          element.closest('[data-testid="header-update-details"]'),
-        )
-        .find(Boolean);
-      if (topButton !== button) return;
+        ?.closest('[data-testid="header-update-details"]');
+      if (topButton !== button) return false;
       button.focus();
       setOpen(true);
-    };
-    appEventBus.on(EAppEventBusNames.OpenAppUpdateDetails, onOpenDetails);
-    return () => {
-      appEventBus.off(EAppEventBusNames.OpenAppUpdateDetails, onOpenDetails);
-    };
-  }, [anchorId, isRouteFocused, isVisibleHost]);
+      return true;
+    });
+  }, [
+    anchorId,
+    data.latestVersion,
+    data.jsBundleVersion,
+    detailsOnly,
+    isVisibleHost,
+    open,
+    showUpdate,
+  ]);
 
   useEffect(() => {
     if (!isRouteFocused) setOpen(false);
@@ -319,11 +344,19 @@ export function UpdateCapsule({
   }, [anchorId, data.status]);
 
   const showBusy = useCallback(() => {
+    if (detailsOnly) {
+      Toast.message({
+        title: intl.formatMessage({
+          id: ETranslations.app_update_finish_first__msg,
+        }),
+      });
+      return;
+    }
     setOpen(false);
     setBusy(true);
     clearTimeout(busyTimer.current);
     busyTimer.current = setTimeout(() => setBusy(false), 3000);
-  }, []);
+  }, [detailsOnly, intl]);
 
   const restart = useCallback(async () => {
     if (restarting) return;
@@ -542,6 +575,97 @@ export function UpdateCapsule({
     </Button>
   );
 
+  const detailsContent = (
+    <YStack gap="$6" testID="update-details-content">
+      <XStack alignItems="center" justifyContent="space-between">
+        <SizableText size="$headingMd">OneKey {data.latestVersion}</SizableText>
+        <Button
+          testID="header-update-whats-new"
+          size="small"
+          variant="tertiary"
+          iconAfter="ChevronRightSmallOutline"
+          onPress={closeAndShowWhatsNew}
+        >
+          {intl.formatMessage({
+            id: ETranslations.settings_whats_new,
+          })}
+        </Button>
+      </XStack>
+      <UpdateVerifyReceipt
+        data={data}
+        progress={progress}
+        reducedMotion={reducedMotion}
+      />
+      {isReady ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.app_update_installs_on_quit__desc,
+          })}
+        </SizableText>
+      ) : null}
+      {mode === 'securityError' ? (
+        <YStack gap="$3">
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.app_update_verify_failed__msg,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.app_update_cant_continue__msg,
+            })}
+          </SizableText>
+          <Button
+            testID="header-update-github"
+            size="small"
+            variant="secondary"
+            alignSelf="flex-start"
+            onPress={() => openUrlExternal(GITHUB_RELEASES)}
+          >
+            {intl.formatMessage({
+              id: ETranslations.app_update_download_from_github__action,
+            })}
+          </Button>
+        </YStack>
+      ) : null}
+      {mode === 'error' || isRetrying ? (
+        <YStack gap="$3">
+          {!isRetrying ? (
+            <SizableText size="$bodyMd" style={{ textWrap: 'pretty' }}>
+              {errorDescription}
+            </SizableText>
+          ) : null}
+          {data.updateError?.code === EUpdateErrorCode.installLocation ? (
+            <Button
+              testID="header-update-move-to-applications"
+              size="small"
+              variant="secondary"
+              alignSelf="flex-start"
+              disabled={moving}
+              onPress={() => void moveToApplications()}
+            >
+              {intl.formatMessage({
+                id: ETranslations.app_update_move_to_applications__action,
+              })}
+            </Button>
+          ) : (
+            <Button
+              testID="header-update-retry"
+              size="small"
+              variant="secondary"
+              alignSelf="flex-start"
+              onPress={() => void retry()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          )}
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+
+  if (detailsOnly) return detailsContent;
+
   if (completedVersion && visibleCompleted) {
     const completedLabel = intl.formatMessage(
       { id: ETranslations.app_update_updated__msg },
@@ -748,97 +872,7 @@ export function UpdateCapsule({
               renderContent={tooltip}
             />
           }
-          renderContent={
-            <YStack gap="$6">
-              <XStack alignItems="center" justifyContent="space-between">
-                <SizableText size="$headingMd">
-                  OneKey {data.latestVersion}
-                </SizableText>
-                <Button
-                  testID="header-update-whats-new"
-                  size="small"
-                  variant="tertiary"
-                  iconAfter="ChevronRightSmallOutline"
-                  onPress={closeAndShowWhatsNew}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.settings_whats_new,
-                  })}
-                </Button>
-              </XStack>
-              <UpdateVerifyReceipt
-                data={data}
-                progress={progress}
-                reducedMotion={reducedMotion}
-              />
-              {isReady ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.app_update_installs_on_quit__desc,
-                  })}
-                </SizableText>
-              ) : null}
-              {mode === 'securityError' ? (
-                <YStack gap="$3">
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage({
-                      id: ETranslations.app_update_verify_failed__msg,
-                    })}
-                  </SizableText>
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage({
-                      id: ETranslations.app_update_cant_continue__msg,
-                    })}
-                  </SizableText>
-                  <Button
-                    testID="header-update-github"
-                    size="small"
-                    variant="secondary"
-                    alignSelf="flex-start"
-                    onPress={() => openUrlExternal(GITHUB_RELEASES)}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.app_update_download_from_github__action,
-                    })}
-                  </Button>
-                </YStack>
-              ) : null}
-              {mode === 'error' || isRetrying ? (
-                <YStack gap="$3">
-                  {!isRetrying ? (
-                    <SizableText size="$bodyMd" style={{ textWrap: 'pretty' }}>
-                      {errorDescription}
-                    </SizableText>
-                  ) : null}
-                  {data.updateError?.code ===
-                  EUpdateErrorCode.installLocation ? (
-                    <Button
-                      testID="header-update-move-to-applications"
-                      size="small"
-                      variant="secondary"
-                      alignSelf="flex-start"
-                      disabled={moving}
-                      onPress={() => void moveToApplications()}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.app_update_move_to_applications__action,
-                      })}
-                    </Button>
-                  ) : (
-                    <Button
-                      testID="header-update-retry"
-                      size="small"
-                      variant="secondary"
-                      alignSelf="flex-start"
-                      onPress={() => void retry()}
-                    >
-                      {intl.formatMessage({ id: ETranslations.global_retry })}
-                    </Button>
-                  )}
-                </YStack>
-              ) : null}
-            </YStack>
-          }
+          renderContent={detailsContent}
         />
       </XStack>
       {leavingNotify ? (

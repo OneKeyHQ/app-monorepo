@@ -7,13 +7,11 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
+
+import { tryOpenUpdateDetails } from '../../AppUpdate/updateDetailsHost';
 
 import { UpdateCapsule as NonDesktopUpdateCapsule } from './UpdateCapsule';
 import { UpdateCapsule } from './UpdateCapsule.desktop';
@@ -27,9 +25,24 @@ const mockPrepareUserUpdateRetry = jest.fn(
   async (_opts?: { preserveArtifact?: boolean }) => ({}),
 );
 const mockStartBanner = jest.fn();
+let mockBlockingOverlay = false;
 let mockRouteFocused = true;
 let mockWideHeader = false;
 let mockBanner: { version: string; expiresAt?: number } | undefined;
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  isBlockingLevel: (level: string) => level !== 'toast',
+  overlayStore: {
+    getSnapshot: () => ({
+      entries: [
+        { level: 'hardware', suspended: false, blocking: false },
+        ...(mockBlockingOverlay
+          ? [{ level: 'modal', suspended: false, blocking: true }]
+          : []),
+      ],
+    }),
+  },
+}));
 
 jest.mock('@onekeyhq/components', () => {
   const Container = ({
@@ -167,6 +180,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  mockBlockingOverlay = false;
   mockRouteFocused = true;
   mockWideHeader = false;
   mockBanner = undefined;
@@ -835,12 +849,12 @@ test('menu details request opens the visible capsule and ignores an inactive rou
     <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
   );
   const details = view.getByTestId('header-update-details');
-  Object.defineProperty(document, 'elementsFromPoint', {
+  Object.defineProperty(document, 'elementFromPoint', {
     configurable: true,
-    value: () => [details],
+    value: () => details,
   });
   act(() => {
-    appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+    tryOpenUpdateDetails(data);
   });
   expect(
     view.getByTestId('update-test-popover').getAttribute('data-open'),
@@ -849,12 +863,107 @@ test('menu details request opens the visible capsule and ignores an inactive rou
   mockRouteFocused = false;
   view.rerender(<UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />);
   act(() => {
-    appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+    tryOpenUpdateDetails(data);
   });
   expect(
     view.getByTestId('update-test-popover').getAttribute('data-open'),
   ).toBe('false');
-  Reflect.deleteProperty(document, 'elementsFromPoint');
+  Reflect.deleteProperty(document, 'elementFromPoint');
+});
+
+test.each(['scrim', 'dialog', 'inactive', 'target'])(
+  'does not open a background capsule for %s',
+  (obstruction) => {
+    jest
+      .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+      .mockReturnValue(document.body);
+    jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const data = {
+      latestVersion: '2.0.0',
+      updateAt: 0,
+      updateStrategy: EUpdateStrategy.manual,
+      status: EAppUpdateStatus.ready,
+    };
+    mockRouteFocused = obstruction !== 'inactive';
+    mockBlockingOverlay = obstruction === 'dialog';
+    const view = render(
+      <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+    );
+    const button = view.getByTestId('header-update-details');
+    const scrim = document.createElement('div');
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => (obstruction === 'scrim' ? scrim : button),
+    });
+    let handled = true;
+    act(() => {
+      handled = tryOpenUpdateDetails(
+        obstruction === 'target' ? { ...data, latestVersion: '3.0.0' } : data,
+      );
+    });
+    expect(handled).toBe(false);
+    expect(
+      view.getByTestId('update-test-popover').getAttribute('data-open'),
+    ).toBe('false');
+    expect(document.activeElement).not.toBe(button);
+    Reflect.deleteProperty(document, 'elementFromPoint');
+  },
+);
+
+test('menu details are claimed by only one of multiple eligible headers', () => {
+  jest
+    .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+    .mockReturnValue(document.body);
+  jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.ready,
+  };
+  const view = render(
+    <>
+      <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />
+      <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />
+    </>,
+  );
+  const buttons = view.getAllByTestId('header-update-details');
+  Object.defineProperty(document, 'elementFromPoint', {
+    configurable: true,
+    value: () => buttons[0],
+  });
+  act(() => {
+    expect(tryOpenUpdateDetails(data)).toBe(true);
+  });
+  expect(
+    view
+      .getAllByTestId('update-test-popover')
+      .map((el) => el.getAttribute('data-open')),
+  ).toEqual(['true', 'false']);
+  Reflect.deleteProperty(document, 'elementFromPoint');
+});
+
+test('dialog details preserve signature quarantine without showing a capsule or a retry action', () => {
+  const view = render(
+    <UpdateCapsule
+      detailsOnly
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyASCFailed,
+        updateError: {
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        },
+      }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(view.queryByTestId('header-update-details')).toBeNull();
+  expect(view.queryByTestId('header-update-retry')).toBeNull();
+  expect(view.getByTestId('header-update-github')).toBeTruthy();
 });
 
 test('non-desktop capsule entry renders nothing', () => {
