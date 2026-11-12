@@ -4,10 +4,14 @@ import type { PropsWithChildren } from 'react';
 import { act, render, screen } from '@testing-library/react';
 
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicDetail,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { StockSimpleChart, StockSimpleChartContent } from './StockSimpleChart';
 import {
+  type IStockSimpleChartRange,
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
 } from './stockSimpleChartData';
@@ -73,9 +77,12 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     return mockPromiseResult();
   },
 }));
-const mockChart = jest.fn<void, [{ data: IMarketTokenChart }]>();
+const mockChart = jest.fn<
+  void,
+  [{ data: IMarketTokenChart; pulseLastPoint: boolean; trend: 'up' | 'down' }]
+>();
 jest.mock('@onekeyhq/kit/src/components/StockPriceLineChart', () => ({
-  StockPriceLineChart: (props: { data: IMarketTokenChart }) => {
+  StockPriceLineChart: (props: Parameters<typeof mockChart>[0]) => {
     mockChart(props);
     return <div data-testid="rendered-chart" />;
   },
@@ -91,7 +98,7 @@ const points: IMarketTokenChart = [
   [1_800_000_000, 10],
   [1_800_000_300, 12],
 ];
-function result(range: '1D' | '1W', data = points) {
+function result(range: IStockSimpleChartRange, data = points) {
   return {
     data,
     range,
@@ -114,6 +121,82 @@ beforeEach(() => {
     run: jest.fn(),
   });
 });
+
+it.each(['1D', '1W', '1M'] as const)(
+  'keeps the overnight Share %s line on the last candle while reporting the title quote',
+  (range) => {
+    const now = Date.parse('2026-11-12T03:00:00Z');
+    const lastCandle = Date.parse('2026-11-12T00:59:00Z') / 1000;
+    const history: IMarketTokenChart = [
+      [Date.parse('2026-11-11T14:30:00Z') / 1000, 170],
+      [lastCandle, 158.8],
+    ];
+    const onRangeChange = jest.fn();
+    const onPriceUpdate = jest.fn();
+    const props = {
+      ...base,
+      isNative: false,
+      networkId: '',
+      tokenAddress: '',
+      priceMode: 'share' as const,
+      stockId: 'NVDA',
+      range,
+      stockDetail: {
+        price: '173.73',
+        previousClose: '168.89',
+        priceUpdatedAt: '2026-11-11T21:00:00Z',
+        marketStatus: { isOpen: true },
+      } as IMarketStockPublicDetail,
+      onRangeChange,
+      onPriceUpdate,
+    };
+    mockPromiseResult.mockReturnValue({
+      result: {
+        data: history,
+        range,
+        scopeKey: buildStockSimpleChartScopeKey(props),
+        assetKey: buildStockSimpleChartAssetKey(props),
+        status: 'success',
+      },
+      isLoading: false,
+      run: jest.fn(),
+    });
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      const { rerender } = render(<StockSimpleChartContent {...props} />);
+      expect(mockChart.mock.calls.at(-1)?.[0]).toMatchObject({
+        data: history,
+        pulseLastPoint: false,
+        trend: 'up',
+      });
+      expect(onRangeChange).toHaveBeenLastCalledWith({
+        priceMode: 'share',
+        range,
+        baseline: range === '1D' ? 168.89 : 170,
+        latest: 173.73,
+      });
+      expect(onPriceUpdate).toHaveBeenLastCalledWith(158.8);
+
+      rerender(
+        <StockSimpleChartContent
+          {...props}
+          stockDetail={{
+            ...props.stockDetail,
+            priceUpdatedAt: '2026-11-12T00:59:00Z',
+          }}
+        />,
+      );
+      expect(mockChart.mock.calls.at(-1)?.[0]).toMatchObject({
+        data: [...history, [now / 1000, 173.73]],
+        pulseLastPoint: true,
+        trend: 'up',
+      });
+      expect(onPriceUpdate).toHaveBeenLastCalledWith(173.73);
+    } finally {
+      clock.mockRestore();
+    }
+  },
+);
 
 it('renders the Swap asset independently of the Market detail identity', () => {
   mockTokenDetail.mockReturnValue({
