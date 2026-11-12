@@ -15,14 +15,9 @@ import {
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -49,25 +44,6 @@ function logLocalWalletActionError(action: string) {
   };
 }
 
-function useOpenPrivacyNetworkSettings({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
-  networkId: string;
-}) {
-  const navigation = useAppNavigation();
-  return useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-      params: {
-        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-        networkId,
-      },
-    });
-  }, [accountId, navigation, networkId]);
-}
-
 export function LocalWalletPoolStatus({
   networkId,
   accountId,
@@ -86,17 +62,16 @@ export function LocalWalletPoolStatus({
   }) => ReactNode;
 }) {
   const intl = useIntl();
-  const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
-  // A full network is not toasted: the dialog explains how to make room.
+  // A full network is not toasted: the dialog lists what can be deleted.
   const showSlotsFullOr = useCallback(
     (action: string) => (error: unknown) => {
       if (!isLocalWalletSlotsFullError(error)) {
         logLocalWalletActionError(action)(error);
         return;
       }
-      showPrivacyChainSlotsFullDialog({ intl, onOpenSettings: openSettings });
+      showPrivacyChainSlotsFullDialog({ intl, networkId });
     },
-    [intl, openSettings],
+    [intl, networkId],
   );
   // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =

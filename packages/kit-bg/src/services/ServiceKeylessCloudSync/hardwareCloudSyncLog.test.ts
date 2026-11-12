@@ -83,21 +83,21 @@ test('device diagnostics reject arbitrary model and firmware strings', () => {
   );
 });
 
-test('device failure diagnostics retain SDK codes and known path refusals', () => {
+test('device failure diagnostics retain SDK codes', () => {
   const signature = 'ab'.repeat(65);
   logHardwareCloudSyncFailure('btcSignMessage.auth', {
     className: 'OneKeyHardwareError',
-    code: 803,
+    code: HardwareErrorCode.ForbiddenKeyPath,
     payload: {
-      code: 800,
-      error: 'Failure_DataError,Forbidden key path',
+      code: HardwareErrorCode.ForbiddenKeyPath,
+      error: 'Forbidden key path',
       signature,
     },
     message: signature,
     request: { messageHex: signature },
   });
   expect(mockLog).toHaveBeenCalledWith(
-    '[HardwareCloudSync] btcSignMessage.auth: OneKeyHardwareError | 803 | sdkCode=800 | Forbidden key path',
+    '[HardwareCloudSync] btcSignMessage.auth: OneKeyHardwareError | 416 | sdkCode=416',
   );
 });
 
