@@ -302,8 +302,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
+  const poolDisplayKey = privacyChainPoolOwnerKey({
+    accountId,
+    networkId,
+    poolId: privacyHistoryPoolId,
+  });
   const privacyStatus = useTokenPrivacyStatus({
     pool: localWalletPool,
+    ownerKey: poolDisplayKey,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
   // One gate for every private-UI decision below, so the page settles once.
@@ -318,11 +324,6 @@ function TokenDetailsHeaderContent({
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
-  const poolDisplayKey = privacyChainPoolOwnerKey({
-    accountId,
-    networkId,
-    poolId: privacyHistoryPoolId,
-  });
   const poolDisplay =
     privacyChainPoolDisplay?.ownerKey === poolDisplayKey
       ? privacyChainPoolDisplay
