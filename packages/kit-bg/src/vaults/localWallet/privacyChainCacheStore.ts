@@ -185,7 +185,7 @@ async function save({
   ) {
     return false;
   }
-  await backgroundApi.simpleDb.privacyChainCache.setLastBalance({
+  return backgroundApi.simpleDb.privacyChainCache.setLastBalance({
     accountId,
     record: { networkId, epoch, value: serialized, savedAt: Date.now() },
     isCurrent: async () =>
@@ -195,7 +195,6 @@ async function save({
         epoch,
       })) && shouldSave?.() !== false,
   });
-  return true;
 }
 
 // For a scanner that holds the runtime for long turns: it saves what it just

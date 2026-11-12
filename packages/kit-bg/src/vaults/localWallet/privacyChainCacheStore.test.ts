@@ -678,6 +678,29 @@ describe('saved balance epochs', () => {
     emit.mockRestore();
   });
 
+  it('tells no page about a balance dropped as its data was destroyed', async () => {
+    const backgroundApi = createBackgroundApi();
+    await enable(backgroundApi);
+    const epoch = await readLocalWalletCacheEpoch({
+      backgroundApi,
+      accountId: owner.accountId,
+    });
+    await backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
+      accountIds: [owner.accountId],
+    });
+    const emit = jest.spyOn(appEventBus, 'emit');
+
+    await saveLastLocalWalletBalance({
+      backgroundApi,
+      ...owner,
+      epoch,
+      value: 'destroyed',
+    });
+    expect(emit).not.toHaveBeenCalled();
+    await expect(savedRecord(backgroundApi)).resolves.toBeUndefined();
+    emit.mockRestore();
+  });
+
   it('misses and deletes an entry saved under an older epoch', async () => {
     const backgroundApi = createBackgroundApi();
     await enable(backgroundApi);
