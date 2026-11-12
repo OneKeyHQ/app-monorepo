@@ -882,6 +882,17 @@ class ServicePendingInstallTask {
     }
 
     const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
+    if (
+      isManualDesktopAppUpdate &&
+      runtimeAppInfo.status === EAppUpdateStatus.ready &&
+      (typeof runtimeAppInfo.readyAt !== 'number' ||
+        !Number.isFinite(runtimeAppInfo.readyAt) ||
+        runtimeAppInfo.readyAt <= 0 ||
+        runtimeAppInfo.readyAt > Date.now())
+    ) {
+      // Rearming a legacy ready package must not invent a new startup lifetime.
+      return;
+    }
     const downloadedEvent = runtimeAppInfo.downloadedEvent;
     const isMatchingDownload = isMatchingDownloadedRelease({
       event: downloadedEvent,

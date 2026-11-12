@@ -93,6 +93,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     downloadASC: jest.fn(async () => undefined),
     installPackage: jest.fn(async () => true),
     clearPackage: jest.fn(async () => undefined),
+    prepareQuitInstall: jest.fn(async () => undefined),
   },
   BundleUpdate: {
     downloadBundle: jest.fn(async () => ({
@@ -1389,6 +1390,43 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       payload: { updateStrategy: EUpdateStrategy.manual, channel: 'direct' },
     });
   });
+
+  test.each([undefined, Number.NaN, 0, Date.now() + 60_000])(
+    'rearming legacy manual ready with unknown age (%s) does not manufacture a startup task',
+    async (readyAt) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setReadyState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        jsBundleVersion: undefined,
+        updateStrategy: EUpdateStrategy.manual,
+        readyAt,
+        downloadUrl: 'feedUrl',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+      await service.readyToInstall();
+      expect(pendingTaskValue).toBeUndefined();
+      expect(appUpdateState.readyAt).toBe(readyAt);
+      expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+      expect(AppUpdate.prepareQuitInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ latestVersion: '2.0.0' }),
+      );
+      await createService().processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+        'https://cdn.onekey.so/app-2.0.0.pkg',
+      );
+    },
+  );
 
   test('frozen target blocks app-install scheduling', async () => {
     setReadyState({
