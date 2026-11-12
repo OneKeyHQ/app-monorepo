@@ -21,6 +21,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDownloadPackage } from '@onekeyhq/kit/src/components/AppUpdate';
@@ -37,7 +38,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import {
+  EUpdateErrorCode,
+  isRetryableUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -77,7 +81,7 @@ function ensureCapsuleStyles() {
   const style = document.createElement('style');
   style.id = 'ok-update-capsule-style';
   style.textContent = `
-    @keyframes okUpdateShieldPulse { 0%, 100% { opacity: 1 } 50% { opacity: .55 } }
+    @keyframes okUpdateShieldPulse { 0%, 100% { opacity: 1 } 50% { opacity: .4 } }
     @keyframes okUpdateNotifyExit { from { opacity: 1 } to { opacity: 0 } }
     @media (prefers-reduced-motion: reduce) { .ok-update-shield-pulse { animation: none !important } }
   `;
@@ -85,6 +89,7 @@ function ensureCapsuleStyles() {
 }
 
 function DownloadCircle({ percent }: { percent: number }) {
+  const theme = useTheme();
   return (
     <XStack width={20} height={20} alignItems="center" justifyContent="center">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
@@ -93,16 +98,15 @@ function DownloadCircle({ percent }: { percent: number }) {
           cy="10"
           r="8"
           fill="none"
-          stroke="currentColor"
+          stroke={theme.neutral5.val}
           strokeWidth="2"
-          opacity="0.3"
         />
         <circle
           cx="10"
           cy="10"
           r="8"
           fill="none"
-          stroke="currentColor"
+          stroke={theme.iconSubdued.val}
           strokeWidth="2"
           strokeLinecap="round"
           strokeDasharray="50.27"
@@ -140,6 +144,15 @@ function getCapsuleMode(data: IAppUpdateInfo): ICapsuleMode {
       getUpdateFileType(data) === EUpdateFileType.appShell
     ) {
       return 'securityError';
+    }
+    if (
+      !data.downloadRetryExhausted &&
+      data.updateError &&
+      isRetryableUpdateError(data.updateError)
+    ) {
+      return data.status === EAppUpdateStatus.downloadPackageFailed
+        ? 'download'
+        : 'verify';
     }
     return 'error';
   }
@@ -422,6 +435,15 @@ export function UpdateCapsule({
 
   const isReady = mode === 'ready';
   const isError = mode === 'error' || mode === 'securityError';
+  const isRetrying =
+    !isError &&
+    Boolean(data.updateError && isRetryableUpdateError(data.updateError)) &&
+    [
+      EAppUpdateStatus.downloadPackageFailed,
+      EAppUpdateStatus.downloadASCFailed,
+      EAppUpdateStatus.verifyASCFailed,
+      EAppUpdateStatus.verifyPackageFailed,
+    ].includes(data.status);
   const detailsLabel = intl.formatMessage({
     id: ETranslations.app_update_details__title,
   });
@@ -434,7 +456,12 @@ export function UpdateCapsule({
   } else if (mode === 'verify') {
     stateLabel = intl.formatMessage({ id: ETranslations.update_verifying });
   } else if (isError) {
-    stateLabel = intl.formatMessage({ id: ETranslations.global_update_failed });
+    stateLabel = intl.formatMessage({
+      id:
+        mode === 'securityError'
+          ? ETranslations.app_update_verify_failed__msg
+          : ETranslations.app_update_cant_continue__msg,
+    });
   } else {
     stateLabel = intl.formatMessage(
       { id: ETranslations.update_downloading_package },
@@ -472,15 +499,15 @@ export function UpdateCapsule({
             : { animation: 'okUpdateShieldPulse 1.4s ease-in-out infinite' }
         }
       >
-        <Icon name="ShieldCheckDoneOutline" size="$5" color="$iconInverse" />
+        <Icon name="ShieldCheckDoneOutline" size="$5" color="$iconSubdued" />
       </XStack>
     );
   } else if (mode === 'securityError') {
     detailIcon = (
-      <Icon name="ShieldFailureSolid" size="$5" color="$iconInverse" />
+      <Icon name="ShieldExclamationOutline" size="$5" color="$iconCritical" />
     );
   } else if (mode === 'error') {
-    detailIcon = <Icon name="ErrorOutline" size="$5" color="$iconInverse" />;
+    detailIcon = <Icon name="ErrorOutline" size="$5" color="$iconCritical" />;
   } else {
     detailIcon = <Icon name="DotHorOutline" size="$4.5" color="$iconInverse" />;
   }
@@ -488,13 +515,16 @@ export function UpdateCapsule({
   const detailsButton = (
     <Button
       testID="header-update-details"
-      variant={isError ? 'destructive' : 'accent'}
+      variant={isReady ? 'accent' : 'tertiary'}
+      m={0}
       childrenAsText={false}
       width={30}
       height={30}
       minWidth={30}
       p={0}
-      borderRadius={isReady ? 0 : '$full'}
+      borderRadius="$full"
+      borderTopLeftRadius={isReady ? 0 : 15}
+      borderBottomLeftRadius={isReady ? 0 : 15}
       aria-label={`${stateLabel} · ${detailsLabel}`}
       aria-haspopup="dialog"
       aria-disabled={restarting}
@@ -509,29 +539,53 @@ export function UpdateCapsule({
   );
 
   if (completedVersion && visibleCompleted) {
+    const completedLabel = intl.formatMessage(
+      { id: ETranslations.app_update_updated__msg },
+      { version: completedVersion },
+    );
     return (
-      <Button
-        id={anchorId}
-        testID="header-update-completed"
-        size="small"
-        variant="accent"
-        mr="$3"
-        height={30}
-        onPress={closeAndShowWhatsNew}
-        style={{
-          opacity: visibleCompleted === 'exiting' ? 0 : 1,
-          transform:
-            visibleCompleted === 'exiting' && !reducedMotion
-              ? 'scale(.95)'
-              : undefined,
-          transition: 'opacity 100ms ease-out, transform 100ms ease-out',
-        }}
-      >
-        {intl.formatMessage(
-          { id: ETranslations.app_update_updated__msg },
-          { version: completedVersion },
-        )}
-      </Button>
+      <Tooltip
+        triggerAsChild
+        placement="bottom"
+        renderContent={completedLabel}
+        renderTrigger={
+          <Button
+            id={anchorId}
+            testID="header-update-completed"
+            size="small"
+            variant="tertiary"
+            childrenAsText={false}
+            m={0}
+            mr="$3"
+            px={wide ? '$2.5' : 0}
+            width={wide ? undefined : 30}
+            height={30}
+            borderRadius="$full"
+            aria-label={completedLabel}
+            onPress={closeAndShowWhatsNew}
+            style={{
+              opacity: visibleCompleted === 'exiting' ? 0 : 1,
+              transform:
+                visibleCompleted === 'exiting' && !reducedMotion
+                  ? 'scale(.95)'
+                  : undefined,
+              transition: 'opacity 100ms ease-out, transform 100ms ease-out',
+            }}
+          >
+            <Icon
+              name="CheckRadioSolid"
+              size="$4.5"
+              color="$iconSuccess"
+              mr={wide ? '$2' : 0}
+            />
+            {wide ? (
+              <SizableText size="$bodyMdMedium" color="$text">
+                {completedLabel}
+              </SizableText>
+            ) : null}
+          </Button>
+        }
+      />
     );
   }
 
@@ -547,27 +601,40 @@ export function UpdateCapsule({
     );
 
   if (data.status === EAppUpdateStatus.notify) {
+    const updateLabel = intl.formatMessage({ id: ETranslations.global_update });
     return (
-      <Button
-        id={anchorId}
-        testID="header-update-button"
-        size="small"
-        variant="accent"
-        mr="$3"
-        height={30}
-        loading={starting}
-        onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
-          keyboardStarting.current = event.key === 'Enter' || event.key === ' ';
-        }}
-        onPress={() => void startDownload()}
-      >
-        {intl.formatMessage({ id: ETranslations.global_update })}
-      </Button>
+      <Tooltip
+        triggerAsChild
+        placement="bottom"
+        renderContent={updateLabel}
+        renderTrigger={
+          <Button
+            id={anchorId}
+            testID="header-update-button"
+            size="small"
+            variant="accent"
+            mr="$3"
+            height={30}
+            width={wide ? undefined : 30}
+            px={wide ? undefined : 0}
+            icon={wide ? undefined : 'ArrowTopCircleOutline'}
+            aria-label={updateLabel}
+            loading={starting}
+            onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+              keyboardStarting.current =
+                event.key === 'Enter' || event.key === ' ';
+            }}
+            onPress={() => void startDownload()}
+          >
+            {wide ? updateLabel : null}
+          </Button>
+        }
+      />
     );
   }
 
   return (
-    <YStack id={anchorId} mr="$3" position="relative">
+    <YStack id={anchorId} mr="$3" position="relative" flexShrink={0}>
       <XStack
         alignItems="center"
         height={30}
@@ -587,6 +654,7 @@ export function UpdateCapsule({
         <Tooltip
           triggerAsChild
           placement="bottom"
+          disabled={open}
           renderContent={restartLabel}
           renderTrigger={
             <Button
@@ -597,6 +665,8 @@ export function UpdateCapsule({
               width={wide ? undefined : 30}
               px={wide ? '$2.5' : 0}
               borderRadius={0}
+              borderTopLeftRadius={15}
+              borderBottomLeftRadius={15}
               disabled={!isReady}
               aria-hidden={!isReady}
               aria-disabled={restarting || !isReady}
@@ -624,9 +694,7 @@ export function UpdateCapsule({
                 </XStack>
               ) : (
                 <Icon
-                  name={
-                    wide ? 'ShieldCheckDoneOutline' : 'RestartToUpdateCustom'
-                  }
+                  name={wide ? 'ShieldCheckDoneSolid' : 'RestartToUpdateCustom'}
                   size="$4.5"
                   color="$iconInverse"
                   mr={wide ? '$2' : 0}
@@ -663,6 +731,7 @@ export function UpdateCapsule({
             p: '$5',
             bg: '$bg',
             role: 'dialog',
+            trapFocus: true,
             'aria-label': detailsLabel,
             style: { transformOrigin: 'calc(100% - 15px) top' },
           }}
@@ -670,6 +739,7 @@ export function UpdateCapsule({
             <Tooltip
               triggerAsChild
               placement="bottom"
+              disabled={open}
               renderTrigger={<XStack>{detailsButton}</XStack>}
               renderContent={tooltip}
             />
@@ -677,7 +747,7 @@ export function UpdateCapsule({
           renderContent={
             <YStack gap="$6">
               <XStack alignItems="center" justifyContent="space-between">
-                <SizableText size="$headingSm">
+                <SizableText size="$headingMd">
                   OneKey {data.latestVersion}
                 </SizableText>
                 <Button
@@ -688,7 +758,7 @@ export function UpdateCapsule({
                   onPress={closeAndShowWhatsNew}
                 >
                   {intl.formatMessage({
-                    id: ETranslations.app_update_details__title,
+                    id: ETranslations.settings_whats_new,
                   })}
                 </Button>
               </XStack>
@@ -729,9 +799,13 @@ export function UpdateCapsule({
                   </Button>
                 </YStack>
               ) : null}
-              {mode === 'error' ? (
+              {mode === 'error' || isRetrying ? (
                 <YStack gap="$3">
-                  <SizableText size="$bodyMd">{errorDescription}</SizableText>
+                  {!isRetrying ? (
+                    <SizableText size="$bodyMd" style={{ textWrap: 'pretty' }}>
+                      {errorDescription}
+                    </SizableText>
+                  ) : null}
                   {data.updateError?.code ===
                   EUpdateErrorCode.installLocation ? (
                     <Button

@@ -7,6 +7,8 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import { UpdateVerifyReceipt } from './UpdateVerifyReceipt';
 
@@ -18,7 +20,13 @@ jest.mock('@onekeyhq/components', () => {
     Divider: () => null,
     Icon: () => null,
     Spinner: () => null,
-    SizableText: Container,
+    SizableText: ({
+      children,
+      color,
+    }: {
+      children?: ReactNode;
+      color?: string;
+    }) => <span data-color={color}>{children}</span>,
     XStack: Container,
     YStack: Container,
   };
@@ -108,4 +116,30 @@ test('prefers Node size to API fileSize after download completes', () => {
   );
   expect(view.getByText('80 MB')).toBeTruthy();
   expect(view.queryByText('200 MB')).toBeNull();
+});
+
+test('marks failed verification results with the critical text color', () => {
+  const view = render(
+    <UpdateVerifyReceipt
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        status: EAppUpdateStatus.verifyASCFailed,
+        updateStrategy: EUpdateStrategy.manual,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        },
+      }}
+      progress={{
+        percent: 100,
+        total: 80 * 1024 * 1024,
+        transferred: 80 * 1024 * 1024,
+      }}
+      reducedMotion={false}
+    />,
+  );
+  expect(
+    view.getByText(ETranslations.global_unknown).getAttribute('data-color'),
+  ).toBe('$textCritical');
 });

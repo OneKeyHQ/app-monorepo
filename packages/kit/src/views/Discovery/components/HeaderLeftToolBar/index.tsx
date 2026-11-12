@@ -91,7 +91,12 @@ function HeaderLeftToolBar({
   }
 
   return (
-    <XStack alignItems="center" justifyContent="center" pl="$2">
+    <XStack
+      alignItems="center"
+      justifyContent="center"
+      pl="$2"
+      $platform-desktop={{ flex: 1, minWidth: 0 }}
+    >
       <HeaderButtonGroup>
         <HeaderIconButton
           title={

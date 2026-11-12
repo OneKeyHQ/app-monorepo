@@ -157,6 +157,7 @@ function HeaderLeftToolBarInput({
   return (
     <Stack
       flex={1}
+      $platform-desktop={{ minWidth: 0 }}
       onPress={(e) => {
         e.preventDefault();
         e.stopPropagation();

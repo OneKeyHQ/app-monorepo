@@ -7,6 +7,10 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
@@ -23,6 +27,7 @@ const mockPrepareUserUpdateRetry = jest.fn(
 );
 const mockStartBanner = jest.fn();
 let mockRouteFocused = true;
+let mockWideHeader = false;
 let mockBanner: { version: string; expiresAt?: number } | undefined;
 
 jest.mock('@onekeyhq/components', () => {
@@ -40,16 +45,25 @@ jest.mock('@onekeyhq/components', () => {
       testID,
       disabled,
       id,
+      variant,
+      width,
+      'aria-label': ariaLabel,
     }: {
       children?: ReactNode;
       onPress?: () => void;
       testID?: string;
       disabled?: boolean;
       id?: string;
+      variant?: string;
+      width?: number;
+      'aria-label'?: string;
     }) => (
       <button
         id={id}
         data-testid={testID}
+        data-variant={variant}
+        style={{ width }}
+        aria-label={ariaLabel}
         onClick={onPress}
         disabled={disabled}
       >
@@ -67,16 +81,22 @@ jest.mock('@onekeyhq/components', () => {
     Popover: ({
       renderTrigger,
       renderContent,
+      open,
     }: {
       renderTrigger: ReactNode;
       renderContent: ReactNode;
+      open?: boolean;
     }) => (
-      <>
+      <div data-testid="update-test-popover" data-open={String(open)}>
         {renderTrigger}
         {renderContent}
-      </>
+      </div>
     ),
-    useMedia: () => ({}),
+    useMedia: () => ({ gtXl: mockWideHeader, gtLg: mockWideHeader }),
+    useTheme: () => ({
+      neutral5: { val: '#ddd' },
+      iconSubdued: { val: '#777' },
+    }),
   };
 });
 jest.mock('react-intl', () => ({
@@ -147,6 +167,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockRouteFocused = true;
+  mockWideHeader = false;
   mockBanner = undefined;
   mockStartBanner.mockClear();
   mockCanRestart.mockResolvedValue(true);
@@ -211,7 +232,7 @@ test.each([
     fireEvent.click(view.getByTestId('header-update-retry'));
   });
   expect(view.getByTestId('header-update-whats-new').textContent).toBe(
-    ETranslations.app_update_details__title,
+    ETranslations.settings_whats_new,
   );
   expect(expected).toHaveBeenCalledTimes(1);
   expect(mockDownloadPackage).toHaveBeenCalledTimes(
@@ -670,4 +691,137 @@ test('stale integrityFailed error does not lock active download into securityErr
   expect(
     view.queryByText(ETranslations.app_update_cant_continue__msg),
   ).toBeNull();
+});
+
+test.each([false, true])('manual download respects wide=%s', (wide) => {
+  mockWideHeader = wide;
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.notify,
+  };
+  const view = render(
+    <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  const button = view.getByTestId('header-update-button');
+  expect(button.textContent).toBe(wide ? ETranslations.global_update : '');
+  expect(button.style.width).toBe(wide ? '' : '30px');
+  expect(button.getAttribute('aria-label')).toBe(ETranslations.global_update);
+});
+
+test.each([
+  [
+    EAppUpdateStatus.downloadPackageFailed,
+    ETranslations.update_downloading_package,
+  ],
+  [EAppUpdateStatus.downloadASCFailed, ETranslations.update_verifying],
+  [EAppUpdateStatus.verifyASCFailed, ETranslations.update_verifying],
+  [EAppUpdateStatus.verifyPackageFailed, ETranslations.update_verifying],
+])(
+  'transient %s keeps a quiet status until retries are exhausted',
+  (status, label) => {
+    const data = {
+      latestVersion: '2.0.0',
+      updateAt: 0,
+      updateStrategy: EUpdateStrategy.manual,
+      status,
+      updateError: {
+        code: EUpdateErrorCode.networkError,
+        step: 'download' as const,
+      },
+    };
+    const view = render(
+      <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+    );
+    expect(
+      view.getByTestId('header-update-details').getAttribute('data-variant'),
+    ).toBe('tertiary');
+    expect(
+      view.getByTestId('header-update-details').getAttribute('aria-label'),
+    ).toContain(label);
+    expect(
+      view.queryByText(ETranslations.app_update_cant_continue__msg),
+    ).toBeNull();
+    expect(view.getByTestId('header-update-retry')).toBeTruthy();
+    view.rerender(
+      <UpdateCapsule
+        data={{ ...data, downloadRetryExhausted: true }}
+        showUpdate
+        onWhatsNew={() => {}}
+      />,
+    );
+    expect(
+      view.getByTestId('header-update-details').getAttribute('aria-label'),
+    ).toContain(ETranslations.app_update_cant_continue__msg);
+  },
+);
+
+test.each([false, true])(
+  'completed banner keeps its quiet style and narrow icon at wide=%s',
+  (wide) => {
+    mockWideHeader = wide;
+    jest
+      .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+      .mockReturnValue(document.body);
+    mockBanner = { version: '2.0.0' };
+    const view = render(
+      <UpdateCapsule
+        data={{
+          latestVersion: '2.0.0',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status: EAppUpdateStatus.done,
+        }}
+        showUpdate={false}
+        onWhatsNew={() => {}}
+      />,
+    );
+    const button = view.getByTestId('header-update-completed');
+    expect(button.getAttribute('data-variant')).toBe('tertiary');
+    expect(button.style.width).toBe(wide ? '' : '30px');
+    expect(button.textContent).toBe(
+      wide ? ETranslations.app_update_updated__msg : '',
+    );
+    expect(button.getAttribute('aria-label')).toBe(
+      ETranslations.app_update_updated__msg,
+    );
+  },
+);
+
+test('menu details request opens the visible capsule and ignores an inactive route', () => {
+  jest
+    .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+    .mockReturnValue(document.body);
+  jest.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.ready,
+  };
+  const view = render(
+    <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  const details = view.getByTestId('header-update-details');
+  Object.defineProperty(document, 'elementsFromPoint', {
+    configurable: true,
+    value: () => [details],
+  });
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+  });
+  expect(
+    view.getByTestId('update-test-popover').getAttribute('data-open'),
+  ).toBe('true');
+  expect(document.activeElement).toBe(details);
+  mockRouteFocused = false;
+  view.rerender(<UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.OpenAppUpdateDetails, undefined);
+  });
+  expect(
+    view.getByTestId('update-test-popover').getAttribute('data-open'),
+  ).toBe('false');
+  Reflect.deleteProperty(document, 'elementsFromPoint');
 });
