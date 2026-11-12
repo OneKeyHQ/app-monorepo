@@ -1105,10 +1105,27 @@ function EarnLoanRouterPage() {
     borrowToken?.symbol ??
     (borrowPick.kind === 'token' ? borrowPick.symbol : '');
   const networkLogoURI = selectedRoute?.market.network.logoURI;
-  // The box's token carries its network: what pays, from wherever it is
-  const boxNetworkLogoURI = isSwapping
-    ? findLoanNetwork(loanNetworkById, payToken?.networkId)?.logoURI
-    : networkLogoURI;
+  // The box's token carries its network: what pays, from wherever it is.
+  // A network the server's list brings (Robinhood Chain) is on no market
+  // and not in the app's preset list, so the network service is asked
+  const payNetworkId = isSwapping ? payToken?.networkId : undefined;
+  const listedPayNetwork = findLoanNetwork(loanNetworkById, payNetworkId);
+  const hasListedPayNetwork = Boolean(listedPayNetwork);
+  const { result: servedPayNetwork } = usePromiseResult(
+    async () =>
+      payNetworkId && !hasListedPayNetwork
+        ? backgroundApiProxy.serviceNetwork.getNetworkSafe({
+            networkId: payNetworkId,
+          })
+        : undefined,
+    [hasListedPayNetwork, payNetworkId],
+  );
+  const payNetworkLogoURI =
+    listedPayNetwork?.logoURI ??
+    (servedPayNetwork?.id === payNetworkId
+      ? servedPayNetwork?.logoURI
+      : undefined);
+  const boxNetworkLogoURI = isSwapping ? payNetworkLogoURI : networkLogoURI;
   // What the box can take: the pay token's balance, or the collateral's,
   // with what a swap or a bridge just brought until the market's figures
   // count it
