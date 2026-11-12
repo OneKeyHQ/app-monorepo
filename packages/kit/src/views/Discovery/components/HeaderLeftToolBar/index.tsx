@@ -95,7 +95,7 @@ function HeaderLeftToolBar({
       alignItems="center"
       justifyContent="center"
       pl="$2"
-      $platform-desktop={{ flex: 1, minWidth: 0 }}
+      {...(platformEnv.isDesktop ? { flex: 1, minWidth: 0 } : undefined)}
     >
       <HeaderButtonGroup>
         <HeaderIconButton

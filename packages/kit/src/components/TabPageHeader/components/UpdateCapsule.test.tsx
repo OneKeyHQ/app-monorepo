@@ -15,7 +15,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
 
-import { UpdateCapsule } from './UpdateCapsule';
+import { UpdateCapsule as NonDesktopUpdateCapsule } from './UpdateCapsule';
+import { UpdateCapsule } from './UpdateCapsule.desktop';
 
 const mockDownloadPackage = jest.fn();
 const mockDownloadASC = jest.fn();
@@ -824,4 +825,20 @@ test('menu details request opens the visible capsule and ignores an inactive rou
     view.getByTestId('update-test-popover').getAttribute('data-open'),
   ).toBe('false');
   Reflect.deleteProperty(document, 'elementsFromPoint');
+});
+
+test('non-desktop capsule entry renders nothing', () => {
+  const view = render(
+    <NonDesktopUpdateCapsule
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+      }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(view.container.childElementCount).toBe(0);
 });
