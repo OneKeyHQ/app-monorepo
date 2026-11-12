@@ -62,8 +62,6 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock/RichBlock';
-import { SupportHub } from '../components/SupportHub';
-import { Upgrade } from '../components/Upgrade';
 import { STICKY_TOP_OFFSET } from '../types';
 
 import {
@@ -1043,7 +1041,7 @@ function DeFiContainer() {
               />
             </YStack>
           ) : null}
-          <YStack mt="$8" gap="$8">
+          <YStack mt="$8">
             <DeFiListBlock
               tableLayout
               hideInternalTitle
@@ -1051,8 +1049,6 @@ function DeFiContainer() {
               registerProtocol={registerProtocol}
               onCollapseToProtocol={handleCollapseToProtocol}
             />
-            <Upgrade />
-            <SupportHub />
           </YStack>
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </YStack>
@@ -1080,8 +1076,6 @@ function DeFiContainer() {
   return (
     <YStack testID={DEFI_TAB_CONTENT_TEST_ID} gap="$6" pb="$5">
       <DeFiListBlock />
-      <Upgrade />
-      <SupportHub />
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
     </YStack>
   );

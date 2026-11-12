@@ -156,12 +156,6 @@ jest.mock('../components/RichBlock', () => ({
     </div>
   ),
 }));
-jest.mock('../components/SupportHub/SupportHub', () => ({
-  SupportHub: () => null,
-}));
-jest.mock('../components/Upgrade/Upgrade', () => ({
-  Upgrade: () => null,
-}));
 jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('./usePerpsHomePortfolio', () => ({
   usePerpsHomePortfolio: () => ({

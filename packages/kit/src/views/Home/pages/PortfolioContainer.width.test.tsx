@@ -87,9 +87,6 @@ jest.mock('../components/PullToRefresh', () => ({
 jest.mock('../components/RecentHistory', () => ({
   RecentHistory: () => null,
 }));
-jest.mock('../components/SupportHub', () => ({
-  SupportHub: () => null,
-}));
 jest.mock('../components/TokenListBlock', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -102,7 +99,6 @@ jest.mock('../components/TokenListBlock', () => {
     },
   };
 });
-jest.mock('../components/Upgrade', () => ({ Upgrade: () => null }));
 jest.mock('./defiDesktopStickyDom', () => ({
   findOverflowAncestorFromLocalNode: () => null,
 }));

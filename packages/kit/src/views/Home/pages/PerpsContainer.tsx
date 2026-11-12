@@ -85,14 +85,9 @@ import {
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
 import { HomeScrollView } from '../components/HomeScrollView';
-import {
-  HOME_PERPS_GUIDE_URL,
-  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
-} from '../components/PopularTrading/constants';
+import { HOME_PERPS_HOT_REQUEST_CATEGORY_ID } from '../components/PopularTrading/constants';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
-import { SupportHub } from '../components/SupportHub/SupportHub';
-import { Upgrade } from '../components/Upgrade/Upgrade';
 import { HomeTestIDs } from '../testIDs';
 
 import { debugPerpsChain } from './perpsChainTrace';
@@ -1755,24 +1750,7 @@ export function PerpsContainer() {
               ) : null}
             </>
           ) : null}
-          {viewState !== 'loading' ? (
-            <>
-              <PerpsEmptyRecommendSection />
-              <YStack
-                gap="$6"
-                mx="$-5"
-                $gtMd={{ gap: '$8', mx: '$-pagePadding' }}
-              >
-                <Upgrade />
-                <SupportHub
-                  helpCenterTitle={intl.formatMessage({
-                    id: ETranslations.perp_guide_title,
-                  })}
-                  helpCenterLink={HOME_PERPS_GUIDE_URL}
-                />
-              </YStack>
-            </>
-          ) : null}
+          {viewState !== 'loading' ? <PerpsEmptyRecommendSection /> : null}
         </YStack>
       </HomeScrollView>
     </Stack>

@@ -25,9 +25,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListP
 import { PopularTrading } from '../components/PopularTrading';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RecentHistory } from '../components/RecentHistory';
-import { SupportHub } from '../components/SupportHub';
 import { TokenListBlock } from '../components/TokenListBlock';
-import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 
 import { findOverflowAncestorFromLocalNode } from './defiDesktopStickyDom';
@@ -134,8 +132,6 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
       <DeFiListBlock refreshCacheOnly />
       <PopularTrading tableLayout={tableLayout || undefined} />
       <EarnListView isActive={isEarnListActive} />
-      <Upgrade />
-      <SupportHub />
     </>
   );
   const recentHistorySidebar =
@@ -216,8 +212,8 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
             showRecentHistory={tableLayout ? showRecentHistory : undefined}
             tableLayout={tableLayout || undefined}
           />
-          {/* The wide desktop / web home leaves Market, Earn, Upgrade and
-              Support Hub to their own pages. */}
+          {/* The wide desktop / web home leaves Market and Earn to their own
+              pages. */}
           {tableLayout ? <DeFiListBlock refreshCacheOnly /> : otherBlocks}
         </YStack>
         {recentHistorySidebar}
