@@ -44,6 +44,7 @@ import { RichBlock } from '../RichBlock';
 
 import type { ITxHistoryCompactListProps } from '../../pages/TxHistoryContainer';
 import type { ValueTextSegment } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent } from 'react-native';
 
 function RecentHistoryTitle() {
   const intl = useIntl();
@@ -527,22 +528,97 @@ function RecentActivityLoading() {
   );
 }
 
-// No activity yet: a line on the rows' plate instead of the History tab's
-// illustration, which stands taller than the column's rows.
+// No activity yet: outlines of three rows in the rows' own geometry, fading
+// down, with the words centered over them. Static, unlike the loading
+// skeleton.
+const EMPTY_ROW_OUTLINES = [
+  { opacity: 0.7, title: 128, sub: 80, amount: 72 },
+  { opacity: 0.45, title: 112, sub: 72, amount: 64 },
+  { opacity: 0.25, title: 88, sub: 56, amount: 48 },
+] as const;
+
+// The outlines clear softly around the words: a mask rather than a plate, so
+// it holds on either theme. It follows the words' width, clear 14 past each
+// end and fading out over the rest, so a longer language clears more.
+const EMPTY_WORDS_WIDTH_FALLBACK = 104;
+function buildEmptyWordsClearing(wordsWidth: number) {
+  const radiusX = Math.round((wordsWidth / 2 + 14) / 0.55);
+  const mask = `radial-gradient(ellipse ${radiusX}px 44px at 50% 50%, transparent 55%, black 100%)`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
+function RecentActivityOutlineBar({ w, h = 10 }: { w: number; h?: number }) {
+  return <Stack w={w} h={h} borderRadius="$full" bg="$neutral3" />;
+}
+
 function RecentActivityEmpty() {
   const intl = useIntl();
+  const [wordsWidth, setWordsWidth] = useState(EMPTY_WORDS_WIDTH_FALLBACK);
+  const handleWordsLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.width;
+    setWordsWidth((prev) => (Math.abs(prev - next) < 1 ? prev : next));
+  }, []);
+  const clearing = useMemo(
+    () =>
+      platformEnv.isNative ? undefined : buildEmptyWordsClearing(wordsWidth),
+    [wordsWidth],
+  );
   return (
-    <YStack mx="$2" px="$3" py="$2.5">
-      <SizableText size="$bodyLgMedium">
-        {intl.formatMessage({
-          id: ETranslations.wallet_transaction_history_empty_message,
-        })}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.wallet_transactions_empty_desc,
-        })}
-      </SizableText>
+    <YStack position="relative">
+      <YStack aria-hidden style={clearing}>
+        {EMPTY_ROW_OUTLINES.map((row) => (
+          <XStack
+            key={row.title}
+            h={60}
+            mx="$2"
+            px="$3"
+            gap="$3"
+            alignItems="center"
+            opacity={row.opacity}
+          >
+            <Stack
+              w="$8"
+              h="$8"
+              borderRadius="$full"
+              {...ACTION_ICON_FRAME}
+              flexShrink={0}
+            />
+            {/* Bars centered on the two text lines of a real row. */}
+            <YStack flex={1} minWidth={0}>
+              <XStack h={24} alignItems="center">
+                <RecentActivityOutlineBar w={row.title} />
+              </XStack>
+              <XStack h={20} alignItems="center">
+                <RecentActivityOutlineBar w={row.sub} h={8} />
+              </XStack>
+            </YStack>
+            <RecentActivityOutlineBar w={row.amount} />
+          </XStack>
+        ))}
+      </YStack>
+      <XStack
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        alignItems="center"
+        justifyContent="center"
+        pointerEvents="none"
+      >
+        {/* Measured here: the stack is as wide as the words. */}
+        <Stack maxWidth="100%" onLayout={handleWordsLayout}>
+          <SizableText
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {intl.formatMessage({
+              id: ETranslations.wallet_transaction_history_empty_message,
+            })}
+          </SizableText>
+        </Stack>
+      </XStack>
     </YStack>
   );
 }
@@ -555,7 +631,6 @@ const renderRecentActivityList = (props: ITxHistoryCompactListProps) => {
 
 const RecentHistory = memo(() => {
   const intl = useIntl();
-
   const renderContent = useCallback(() => {
     return (
       <TxHistoryListContainer
