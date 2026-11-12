@@ -756,11 +756,7 @@ function TokenDetailsOverview(props: IProps) {
             horizontalPadding: 12,
             verticalPadding: 8,
             leadingGap: 12,
-            // Native engines space the trailing items with trailingGap. The
-            // web engine also puts it between the two lines of a value pair,
-            // which pushed the amount and its fiat value 12px apart
-            // (OK-66935), so web keeps the engine's default trailing gap.
-            ...(platformEnv.isNative ? { trailingGap: 12 } : undefined),
+            trailingGap: 12,
             image: { width: 32, height: 32, shape: 'circle' },
             title: {
               fontSize: 16,
