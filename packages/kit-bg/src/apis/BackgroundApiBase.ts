@@ -1056,6 +1056,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           isProviderApiPrivateOriginDenied({
             method: payloadData?.method,
             origin,
+            payload,
           })
         ) {
           const error = new Error(
@@ -1105,7 +1106,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isProviderApiPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin, payload)) {
       return this.handleSelfOriginMethods(payload);
     }
 

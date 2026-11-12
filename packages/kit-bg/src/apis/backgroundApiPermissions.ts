@@ -1,6 +1,9 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
-import { WEB_EMBED_ANDROID_LOCAL_ORIGIN } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import {
+  EWebEmbedPrivateRequestMethod,
+  WEB_EMBED_ANDROID_LOCAL_ORIGIN,
+} from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hasWebEmbedChannelMark } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
@@ -79,6 +82,10 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
   'wallet_requestClipboardPermission',
+  // Answered by the web-embed modal's WebView host; the background has no
+  // handler for them. The Prime purchase page sends them unmarked from the
+  // opaque origin on iOS.
+  ...Object.values(EWebEmbedPrivateRequestMethod),
 ];
 
 export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
@@ -130,7 +137,18 @@ export function isProviderApiPrivateAllowedKeylessOrigin(origin?: string) {
   return isDevLocalhostOrigin(origin);
 }
 
-export function isProviderApiPrivateAllowedOrigin(origin?: string) {
+// The web-embed page's local-file origin is opaque: any sandboxed, srcdoc or
+// data: frame of any page reports the same value, so it only counts as a
+// privileged origin on a request the web-embed WebView host has marked.
+const OPAQUE_WEB_EMBED_ORIGINS = new Set(['null', 'file://']);
+
+export function isProviderApiPrivateAllowedOrigin(
+  origin?: string,
+  payload?: IJsBridgeMessagePayload,
+) {
+  if (origin && OPAQUE_WEB_EMBED_ORIGINS.has(origin)) {
+    return hasWebEmbedChannelMark(payload);
+  }
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
@@ -144,9 +162,12 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
 export function isProviderApiPrivateOriginDenied({
   method,
   origin,
+  payload,
 }: {
   method?: string;
   origin?: string;
+  // The request itself, which carries the host's web-embed channel mark.
+  payload?: IJsBridgeMessagePayload;
 }) {
   if (
     isProviderApiPrivateKeylessMethod(method) ||
@@ -155,7 +176,7 @@ export function isProviderApiPrivateOriginDenied({
     return !isProviderApiPrivateAllowedKeylessOrigin(origin);
   }
   return (
-    !isProviderApiPrivateAllowedOrigin(origin) &&
+    !isProviderApiPrivateAllowedOrigin(origin, payload) &&
     !isProviderApiPrivateAllowedMethod(method)
   );
 }
