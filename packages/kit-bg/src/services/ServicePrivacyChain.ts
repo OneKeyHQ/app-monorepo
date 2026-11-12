@@ -3898,10 +3898,22 @@ class ServicePrivacyChain extends ServiceBase {
         accountId,
       ]);
     }
+    // Same wallets the account list names: one not open now (a hidden wallet
+    // no longer kept) shows neither its accounts nor their address.
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+    });
+    const listedWalletIds = new Set(wallets.map(({ id }) => id));
     const groups = await Promise.all(
       Array.from(accountIdsByIdentity.values(), async (accountIds) => ({
         accountIds,
-        address: await this.findLocalWalletGroupAddress(accountIds),
+        address: await this.findLocalWalletGroupAddress(
+          accountIds.filter((accountId) =>
+            listedWalletIds.has(
+              accountUtils.getWalletIdFromAccountId({ accountId }),
+            ),
+          ),
+        ),
       })),
     );
     return { groups };

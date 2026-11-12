@@ -143,6 +143,11 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
             },
           ]
         : row.owners;
+    // Without an address (a wallet not open now), the first owner line titles the block.
+    const title = row.address
+      ? accountUtils.shortenAddress({ address: row.address })
+      : owners[0]?.label;
+    const ownerLines = row.address ? owners : owners.slice(1);
     return (
       <XStack
         key={row.accountId}
@@ -158,11 +163,9 @@ export function PrivacyChainPlacesList({ networkId }: { networkId: string }) {
       >
         <YStack flex={1} minWidth={0} gap="$0.5">
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
-            {row.address
-              ? accountUtils.shortenAddress({ address: row.address })
-              : owners[0]?.label}
+            {title}
           </SizableText>
-          {owners.map((owner) => (
+          {ownerLines.map((owner) => (
             <SizableText key={owner.accountId} size="$bodyMd" numberOfLines={1}>
               {owner.label}
             </SizableText>

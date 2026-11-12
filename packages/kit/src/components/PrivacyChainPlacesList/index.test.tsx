@@ -154,8 +154,8 @@ beforeEach(() => {
     },
     // Paused, still keeping its data.
     { accountIds: ['hd-1--1'], address: '43SMrTtLPausedAccountAddressK44756' },
-    // Held by a wallet that is not open now.
-    { accountIds: ['hd-9--0'], address: '46R1sU9YLockedWalletAddressNSndB5' },
+    // Held by a wallet that is not open now: no address is given for it.
+    { accountIds: ['hd-9--0'] },
   ];
 });
 
@@ -178,9 +178,10 @@ it('lists every account keeping data by derivation, one block per shared key', a
   expect(paused.textContent).toContain('Wallet 1 / Account #1');
   expect(paused.textContent).toContain(ETranslations.syncing_paused__title);
 
-  expect(
-    screen.getByTestId('privacy-chain-places-row-hd-9--0').textContent,
-  ).toContain(`${ETranslations.privacy_slots_locked_wallets__msg}: 1`);
+  // Named once, as the block's title, and nothing more about it.
+  const locked = screen.getByTestId('privacy-chain-places-row-hd-9--0');
+  const lockedLabel = `${ETranslations.privacy_slots_locked_wallets__msg}: 1`;
+  expect(locked.textContent?.split(lockedLabel)).toHaveLength(2);
 });
 
 it('deletes a row’s data once confirmed and drops the row', async () => {
