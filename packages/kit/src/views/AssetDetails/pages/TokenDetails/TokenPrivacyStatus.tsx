@@ -56,6 +56,13 @@ export function useTokenPrivacyStatus({
       allow: true,
     });
   }, []);
+  const handleStop = useCallback(() => {
+    void lw.pauseSync().catch((error: unknown) => {
+      console.error('[privacyChain] pause failed', {
+        error: error instanceof Error ? error.message : '',
+      });
+    });
+  }, [lw]);
   const state: ITokenPrivacyPanelState =
     lw.isReady && status ? PANEL_STATES[status] : 'preparing';
 
@@ -86,6 +93,11 @@ export function useTokenPrivacyStatus({
     );
   }
   const progress = lw.syncProgress;
+  const canPause =
+    lw.isReady &&
+    lw.enabled &&
+    lw.state?.pendingOperation !== 'enable' &&
+    (status === 'syncing' || status === 'preparing');
 
   return {
     state,
@@ -93,7 +105,8 @@ export function useTokenPrivacyStatus({
     detail,
     updatedAtLabel,
     enableUnavailable: status === 'unavailable',
-    busy: lw.busy,
+    busy: canPause ? lw.actionBusy : lw.busy,
+    onStop: canPause ? handleStop : undefined,
     // Nothing to retry until the WebView is updated.
     onSync:
       lw.isReady &&

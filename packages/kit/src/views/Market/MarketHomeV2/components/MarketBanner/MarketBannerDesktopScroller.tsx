@@ -98,6 +98,7 @@ export function MarketBannerDesktopScroller({
       <YStack position="relative">
         <ScrollView
           ref={scrollViewRef}
+          testID={MarketTestIDs.bannerScrollView}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={

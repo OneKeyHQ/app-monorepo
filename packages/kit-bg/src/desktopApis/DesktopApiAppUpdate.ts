@@ -51,6 +51,10 @@ import {
 import type { IDesktopApi } from './base/types';
 
 function wrapAppUpdateOperationError(error: unknown, step: TUpdateErrorStep) {
+  const directError = getUpdateError(error, step);
+  if (directError.code !== EUpdateErrorCode.unknown) {
+    return createUpdateError(directError);
+  }
   return createUpdateError(getUpdateError(classifyNodeError(error), step));
 }
 
@@ -1471,6 +1475,8 @@ class DesktopApiAppUpdate {
       const record = await this.getInstallRecord(params);
       await this.stageMacUpdate(record);
       store.setUpdateBuildNumber(params.buildNumber);
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'install');
     } finally {
       this.installInProgress = false;
     }
@@ -1528,6 +1534,8 @@ class DesktopApiAppUpdate {
       await this.getInstallRecord(params);
       if (this.quitInstallGeneration === generation)
         this.quitInstallParams = params;
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'install');
     } finally {
       if (this.quitInstallGeneration === generation)
         this.preparingQuitInstall = undefined;
@@ -1728,7 +1736,11 @@ class DesktopApiAppUpdate {
         });
       }
     } catch (error) {
-      const classified = getUpdateError(classifyNodeError(error), 'install');
+      const directError = getUpdateError(error, 'install');
+      const classified =
+        directError.code === EUpdateErrorCode.unknown
+          ? getUpdateError(classifyNodeError(error), 'install')
+          : directError;
       throw createUpdateError({
         ...classified,
         code:

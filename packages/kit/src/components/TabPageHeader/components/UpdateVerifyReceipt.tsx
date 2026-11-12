@@ -92,17 +92,21 @@ export function UpdateVerifyReceipt({
   const intl = useIntl();
   const status = data.status;
   const integrityFailed =
-    data.updateError?.code === EUpdateErrorCode.integrityFailed;
+    data.updateError?.code === EUpdateErrorCode.integrityFailed ||
+    data.updateError?.code === EUpdateErrorCode.securityRejected;
   const downloadFailed =
     status === EAppUpdateStatus.downloadPackageFailed ||
     (integrityFailed && data.updateError?.step === 'download');
   const signatureFailed =
     integrityFailed && data.updateError?.step === 'verifyASC';
   const contentFailed =
-    integrityFailed && data.updateError?.step === 'verifyPackage';
+    integrityFailed &&
+    (data.updateError?.step === 'verifyPackage' ||
+      data.updateError?.step === 'install');
   const postVerificationFailed =
-    data.updateError?.code === EUpdateErrorCode.installLocation ||
-    data.updateError?.step === 'install';
+    !integrityFailed &&
+    (data.updateError?.code === EUpdateErrorCode.installLocation ||
+      data.updateError?.step === 'install');
   const retrying =
     !data.downloadRetryExhausted &&
     Boolean(data.updateError && isRetryableUpdateError(data.updateError));

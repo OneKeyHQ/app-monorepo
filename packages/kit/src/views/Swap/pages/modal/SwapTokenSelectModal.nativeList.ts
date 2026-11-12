@@ -23,6 +23,7 @@ type IBuildSwapTokenNativeListParams = {
   searchKeyword?: string;
   isMediumScreen: boolean;
   isDesktopSelector: boolean;
+  isNativeIOS?: boolean;
   currencySymbol: string;
   oppositeToken?: ISwapToken;
   otherNetworkStartIndex: number;
@@ -66,6 +67,7 @@ export function buildSwapTokenNativeListSnapshot({
   searchKeyword,
   isMediumScreen,
   isDesktopSelector,
+  isNativeIOS,
   currencySymbol,
   oppositeToken,
   otherNetworkStartIndex,
@@ -238,7 +240,9 @@ export function buildSwapTokenNativeListSnapshot({
       ],
       style: {
         container: TOKEN_ROW_CONTAINER_STYLE,
-        horizontalPadding: 12,
+        // iOS uses the default leading inset and compensates the trailing
+        // button's internal padding when horizontalPadding is omitted.
+        ...(isNativeIOS && !isDesktopSelector ? {} : { horizontalPadding: 12 }),
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },

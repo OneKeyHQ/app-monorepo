@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -541,6 +542,23 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
+  const routeName = props.route.name;
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    defaultLogger.market.navigation.homeTokenNavigation({
+      stage: 'detailMounted',
+      routeName,
+    });
+  }, [routeName]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!platformEnv.isNative) return;
+      defaultLogger.market.navigation.homeTokenNavigation({
+        stage: 'detailFocused',
+        routeName,
+      });
+    }, [routeName]),
+  );
   const hasPreviousScreen = useNavigationState((state) => state.index > 0);
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
