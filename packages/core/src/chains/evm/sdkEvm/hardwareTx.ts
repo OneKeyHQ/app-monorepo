@@ -25,8 +25,6 @@ export interface IHardwareEvmTransaction {
   nonce: string; // 0x-prefixed hex
   gasLimit: string; // 0x-prefixed hex
   gasPrice: string; // 0x-prefixed hex
-  txType?: number;
-  accessList?: Array<{ address: string; storageKeys: string[] }>;
   maxFeePerGas: undefined;
   maxPriorityFeePerGas: undefined;
   paymentRequest?: IEvmPaymentRequest;
@@ -104,13 +102,6 @@ export function buildHardwareEvmTransaction(
     : undefined;
 
   const isEip1559 = maxFeePerGas || maxPriorityFeePerGas;
-  let txType: number | undefined;
-  if (typeof encodedTx.txType === 'number') {
-    txType = encodedTx.txType;
-  } else if (encodedTx.accessList) {
-    txType = 1;
-  }
-  const isEip2930 = !isEip1559 && (txType === 1 || !!encodedTx.accessList);
 
   // Spread extras (e.g. `customData`) minus `from` to preserve the
   // pre-extraction kit-bg behavior.
@@ -132,8 +123,13 @@ export function buildHardwareEvmTransaction(
       maxPriorityFeePerGas: checkIsDefined(maxPriorityFeePerGas),
     } as IHardwareEvmTransactionEIP1559;
   } else {
+    // The gas-price sign message cannot carry an access list, and its
+    // `txType` field is not the EIP-2718 envelope type, so the device only
+    // ever signs the legacy payload. Drop both so the transaction assembled
+    // below is the one that was signed; a type 1 envelope would recover to
+    // a different sender.
     hwTransaction = {
-      ...extras,
+      ...omit(extras, 'accessList', 'txType'),
       to,
       value,
       data,
@@ -168,11 +164,6 @@ export function buildHardwareEvmTransaction(
         hwTransaction as IHardwareEvmTransactionEIP1559
       ).accessList;
     }
-  } else if (isEip2930) {
-    unsignedTx.type = txType ?? 1;
-    unsignedTx.accessList = (
-      hwTransaction as IHardwareEvmTransaction
-    ).accessList;
   }
 
   return { hwTransaction, unsignedTx };
