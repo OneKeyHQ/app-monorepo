@@ -968,19 +968,18 @@ export function NativeTokenSelectorList({
                     titleIcon,
                     weight: isCompactVerification ? 1 : 2,
                   },
-                  ...(balanceAccessory
+                  ...(balanceAccessory || needsVerification
                     ? [
                         {
                           key: 'balance',
-                          text: balanceAccessory.primary,
+                          text: balanceText.text,
                           titleIcon: verificationIcon,
                           ...(verificationBadge
                             ? { webLeadingBadge: verificationBadge }
                             : {}),
-                          textSegments: balanceAccessory.primaryTextSegments,
-                          secondaryText: balanceAccessory.secondary,
-                          secondaryTextSegments:
-                            balanceAccessory.secondaryTextSegments,
+                          textSegments: balanceText.segments,
+                          secondaryText: valueText.text,
+                          secondaryTextSegments: valueText.segments,
                           alignment: 'end' as const,
                           weight: isCompactVerification
                             ? (2 as const)

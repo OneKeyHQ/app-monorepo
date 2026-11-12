@@ -555,6 +555,101 @@ it.each([
 );
 
 it.each([
+  { isNative: false, gtMd: false },
+  { isNative: false, gtMd: true },
+  { isNative: true, gtMd: false },
+])(
+  'keeps verification visible as the balance feed arrives and clears (native: $isNative, wide: $gtMd)',
+  ({ isNative, gtMd }) => {
+    const wasNative = platformEnv.isNative;
+    const wasGtMd = mockGtMd;
+    platformEnv.isNative = isNative;
+    mockGtMd = gtMd;
+    mockRowLayoutEngine = isNative ? 'native' : 'web';
+    try {
+      const token = {
+        ...ethToken,
+        $key: 'xmr--0_native',
+        networkId: 'xmr--0',
+        symbol: 'XMR',
+        name: 'Monero',
+        isNative: true,
+      };
+      const onPressToken = jest.fn();
+      const props = {
+        rows: [token],
+        networkId: token.networkId,
+        crossNetworkGroupingActive: false,
+        zeroFillMissingFiat: false,
+        showProcessingState: false,
+        isSearching: false,
+        currentNetworkName: 'Monero',
+        empty: <div />,
+        tableLayout: false,
+        onPressToken,
+        nativeTokenVerification: {
+          networkId: token.networkId,
+          label: 'Some funds need verification',
+        },
+      };
+      const { rerender, getByTestId } = render(
+        <NativeTokenSelectorList {...props} tokenListMap={{}} />,
+      );
+      for (const tokenListMap of [
+        {},
+        {
+          [token.$key]: {
+            balance: '2000000000000',
+            balanceParsed: '2',
+            fiatValue: '100',
+            price: 50,
+          },
+        },
+        {},
+      ]) {
+        rerender(
+          <NativeTokenSelectorList {...props} tokenListMap={tokenListMap} />,
+        );
+        const row = getMockSnapshot()?.rows[0];
+        expect(row?.type).toBe('dataRow');
+        if (row?.type !== 'dataRow')
+          throw new OneKeyLocalError('Expected verification balance column');
+        const balance = row.columns.find(({ key }) => key === 'balance');
+        const hasBalance = Object.keys(tokenListMap).length > 0;
+        expect(balance?.text).toBe(hasBalance ? '2' : '');
+        if (hasBalance) {
+          expect(balance?.secondaryText).toContain('100');
+        } else {
+          expect(balance?.secondaryText).toBe('');
+        }
+        if (isNative || !gtMd) {
+          expect(balance?.titleIcon).toEqual({
+            name: 'InfoCircleOutline',
+            tintColor: '#B88600',
+            accessibilityLabel: props.nativeTokenVerification.label,
+          });
+          expect(balance).not.toHaveProperty('webLeadingBadge');
+        } else {
+          expect(balance?.titleIcon).toBeUndefined();
+          expect(balance).toHaveProperty(
+            'webLeadingBadge.text',
+            'global.unverified',
+          );
+        }
+        validateInstalledSnapshot(getMockSnapshot()!);
+      }
+      fireEvent.click(getByTestId(token.$key));
+      expect(onPressToken).toHaveBeenCalledTimes(1);
+      expect(onPressToken).toHaveBeenCalledWith(token);
+    } finally {
+      platformEnv.isNative = wasNative;
+      mockGtMd = wasGtMd;
+      mockRowLayoutEngine = 'web';
+    }
+  },
+);
+
+it.each([
   { tableLayout: false, isNative: false },
   { tableLayout: false, isNative: true },
   { tableLayout: true, isNative: false },
