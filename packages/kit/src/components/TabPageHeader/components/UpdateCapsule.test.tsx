@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
@@ -16,6 +17,7 @@ import { tryOpenUpdateDetails } from '../../AppUpdate/updateDetailsHost';
 import { UpdateCapsule as NonDesktopUpdateCapsule } from './UpdateCapsule';
 import { UpdateCapsule } from './UpdateCapsule.desktop';
 
+const mockInstallPackage = jest.fn(async () => {});
 const mockDownloadPackage = jest.fn();
 const mockDownloadASC = jest.fn();
 const mockVerifyASC = jest.fn();
@@ -87,7 +89,7 @@ jest.mock('@onekeyhq/components', () => {
     Icon: () => null,
     Spinner: () => null,
     Divider: Container,
-    Toast: { error: jest.fn() },
+    Toast: { error: jest.fn(), message: jest.fn() },
     XStack: Container,
     YStack: Container,
     SizableText: Container,
@@ -135,7 +137,7 @@ jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
     downloadPackage: mockDownloadPackage,
     downloadASC: mockDownloadASC,
     verifyASC: mockVerifyASC,
-    installPackage: jest.fn(),
+    installPackage: mockInstallPackage,
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
@@ -185,7 +187,11 @@ beforeEach(() => {
   mockWideHeader = false;
   mockBanner = undefined;
   mockStartBanner.mockClear();
+  mockCanRestart.mockClear();
   mockCanRestart.mockResolvedValue(true);
+  mockInstallPackage.mockReset();
+  mockInstallPackage.mockResolvedValue(undefined);
+  jest.mocked(Toast.message).mockClear();
 });
 
 afterEach(() => {
@@ -964,6 +970,103 @@ test('dialog details preserve signature quarantine without showing a capsule or 
   expect(view.queryByTestId('header-update-details')).toBeNull();
   expect(view.queryByTestId('header-update-retry')).toBeNull();
   expect(view.getByTestId('header-update-github')).toBeTruthy();
+});
+
+test('fallback details gain a working restart action when the update becomes ready', async () => {
+  let finishInstall = () => {};
+  mockInstallPackage.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishInstall = resolve;
+      }),
+  );
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.downloadPackage,
+  };
+  const view = render(
+    <UpdateCapsule detailsOnly data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  expect(view.queryByTestId('update-details-restart')).toBeNull();
+  view.rerender(
+    <UpdateCapsule
+      detailsOnly
+      data={{ ...data, status: EAppUpdateStatus.ready }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  const button = view.getByTestId('update-details-restart');
+  expect(button.textContent).toBe(ETranslations.app_update_restart__action);
+  await act(async () => {
+    fireEvent.click(button);
+  });
+  expect(mockCanRestart).toHaveBeenCalledTimes(1);
+  expect(mockInstallPackage).toHaveBeenCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    { userInitiated: true, installSource: 'capsule' },
+  );
+  expect(button.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(button);
+  expect(mockInstallPackage).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    finishInstall();
+  });
+  expect(button.hasAttribute('disabled')).toBe(false);
+  expect(view.queryByTestId('header-update-details')).toBeNull();
+});
+
+test('fallback restart respects the busy gate and keeps the details visible', async () => {
+  mockCanRestart.mockResolvedValue(false);
+  const view = render(
+    <UpdateCapsule
+      detailsOnly
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.ready,
+      }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('update-details-restart'));
+  });
+  expect(mockCanRestart).toHaveBeenCalledTimes(1);
+  expect(mockInstallPackage).not.toHaveBeenCalled();
+  expect(Toast.message).toHaveBeenCalledWith({
+    title: ETranslations.app_update_finish_first__msg,
+  });
+  expect(view.getByTestId('header-update-whats-new')).toBeTruthy();
+  expect(
+    view.getByTestId('update-details-restart').hasAttribute('disabled'),
+  ).toBe(false);
+});
+
+test.each([
+  EAppUpdateStatus.notify,
+  EAppUpdateStatus.downloadPackage,
+  EAppUpdateStatus.verifyASCFailed,
+])('fallback details do not offer restart for %s', (status) => {
+  const view = render(
+    <UpdateCapsule
+      detailsOnly
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status,
+      }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(view.queryByTestId('update-details-restart')).toBeNull();
 });
 
 test('non-desktop capsule entry renders nothing', () => {

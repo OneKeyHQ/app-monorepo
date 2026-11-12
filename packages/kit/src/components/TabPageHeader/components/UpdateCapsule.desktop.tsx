@@ -603,6 +603,19 @@ export function UpdateCapsule({
           })}
         </SizableText>
       ) : null}
+      {detailsOnly && isReady ? (
+        <Button
+          testID="update-details-restart"
+          size="small"
+          variant="accent"
+          alignSelf="flex-start"
+          disabled={restarting}
+          onPress={() => void restart()}
+          focusVisibleStyle={FOCUS_STYLE}
+        >
+          {restartLabel}
+        </Button>
+      ) : null}
       {mode === 'securityError' ? (
         <YStack gap="$3">
           <SizableText size="$bodyMd">
