@@ -513,7 +513,7 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
     );
   }
 
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.ForbiddenKeyPath;
 }
 
 export class FirmwareDowngradeNotAllowedError extends OneKeyHardwareError {
@@ -980,7 +980,7 @@ export class UnsupportedAddressTypeError extends OneKeyHardwareError {
     );
   }
 
-  override code = HardwareErrorCode.RuntimeError;
+  override code = HardwareErrorCode.DeviceNotSupportPath;
 }
 
 // Communication exception 通信异常

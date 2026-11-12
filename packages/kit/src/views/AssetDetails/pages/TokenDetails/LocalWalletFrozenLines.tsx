@@ -71,25 +71,27 @@ function frozenLineText(
     .join(' · ');
 }
 
-// Before a hardware account's send asks its device to verify new funds, say
-// why. Resolves whether the user chose to verify.
-export function confirmLocalWalletDeviceVerify({
+// Before a send asks the device or an unlock to verify new funds, say why.
+// Resolves whether the user chose to verify.
+export function confirmLocalWalletVerify({
   intl,
   amount,
+  onDevice,
 }: {
   intl: IntlShape;
   amount: string;
+  onDevice: boolean;
 }): Promise<boolean> {
+  const descriptionId = onDevice
+    ? ETranslations.privacy_device_verify__desc
+    : ETranslations.privacy_password_verify__desc;
   return new Promise((resolve) => {
     let confirmed = false;
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.privacy_device_verify__title,
       }),
-      description: intl.formatMessage(
-        { id: ETranslations.privacy_device_verify__desc },
-        { amount },
-      ),
+      description: intl.formatMessage({ id: descriptionId }, { amount }),
       onConfirmText: intl.formatMessage({
         id: ETranslations.privacy_balance_verify__action,
       }),

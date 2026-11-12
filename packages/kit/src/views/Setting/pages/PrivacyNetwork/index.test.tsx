@@ -1326,11 +1326,10 @@ describe('Privacy network settings for a temp wallet', () => {
       networkId: 'zec--0',
       accountId: 'hd-1--0',
     });
-    // Already on the page that lists the accounts and their data.
-    expect(
-      (mockShowSlotsFull.mock.calls[0][0] as { onOpenSettings?: unknown })
-        .onOpenSettings,
-    ).toBeUndefined();
+    // The places may be held in any wallet: the dialog lists the network's.
+    expect(mockShowSlotsFull).toHaveBeenCalledWith(
+      expect.objectContaining({ networkId: 'zec--0' }),
+    );
     expect(Dialog.show).not.toHaveBeenCalled();
     expect(mockEnable).not.toHaveBeenCalled();
   });
