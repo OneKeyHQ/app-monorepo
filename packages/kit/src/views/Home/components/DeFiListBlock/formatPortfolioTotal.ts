@@ -7,7 +7,7 @@ export function roundPortfolioTotal(total: BigNumber.Value): BigNumber {
 /**
  * Currency-prefixed amount for DeFi portfolio displays.
  * Always keeps two decimal places (`$5.23`, `$469,621.00`) to match the other
- * wallet asset value displays. Renders `$****` when the user's hide-balance
+ * wallet asset value displays. Renders `****` when the user's hide-balance
  * toggle is on.
  */
 export function formatPortfolioTotal(
@@ -15,7 +15,7 @@ export function formatPortfolioTotal(
   currency: string,
   hide: boolean,
 ): string {
-  if (hide) return `${currency}****`;
+  if (hide) return '****';
   if (!Number.isFinite(total)) return `${currency}0.00`;
   const bn = roundPortfolioTotal(total);
   const absTotal = bn.abs();
