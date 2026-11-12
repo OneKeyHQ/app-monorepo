@@ -323,6 +323,81 @@ describe('useBorrowApproval', () => {
     });
   });
 
+  it.each(['token', 'delegation', 'USDT reset'] as const)(
+    'allows a new %s approval after a proven pre-broadcast cancellation',
+    async (kind) => {
+      signatureConfirmMock.navigationToTxConfirm.mockResolvedValue(undefined);
+      backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({
+        borrowAllowance: '0',
+      });
+      allowanceMock.fetchAllowanceResponse.mockResolvedValue({
+        allowanceParsed: kind === 'USDT reset' ? '1' : '0',
+      });
+      const submit = jest.fn(async () => undefined);
+      const { result } = renderHook(() =>
+        useBorrowApproval({
+          action: kind === 'delegation' ? 'borrow' : 'repay',
+          providerName: 'aave',
+          amountValue: '5',
+          approveType: EApproveType.Legacy,
+          ...(kind === 'delegation'
+            ? { borrowDelegationApproveTarget: delegationTarget }
+            : {
+                approveTarget: {
+                  ...tokenApproveTarget,
+                  token:
+                    kind === 'USDT reset'
+                      ? {
+                          ...tokenApproveTarget.token,
+                          address: '0xUSDT',
+                          decimals: 6,
+                          symbol: 'USDT',
+                        }
+                      : tokenApproveTarget.token,
+                },
+              }),
+          onApprovedSubmit: submit,
+          onApprovedTaskSubmit: submit,
+        }),
+      );
+      const startApproval = async () => {
+        await act(async () => {
+          await result.current.onApprove();
+        });
+        if (kind === 'USDT reset') {
+          const calls = (Dialog.show as jest.Mock).mock.calls;
+          const dialog = calls[calls.length - 1][0] as {
+            onConfirm: () => void;
+          };
+          act(() => dialog.onConfirm());
+        }
+      };
+      await startApproval();
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(1),
+      );
+      const confirmation = signatureConfirmMock.navigationToTxConfirm.mock
+        .calls[0][0] as {
+        onBeforeSend: () => Promise<void>;
+        onSafePreSendFail: (error: Error) => void;
+      };
+      await act(async () => {
+        await confirmation.onBeforeSend();
+        confirmation.onSafePreSendFail(new Error('local signing cancelled'));
+      });
+      expect(result.current.approving).toBe(false);
+      await startApproval();
+      await waitFor(() =>
+        expect(
+          signatureConfirmMock.navigationToTxConfirm,
+        ).toHaveBeenCalledTimes(2),
+      );
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
+
   it('fresh-checks delegation allowance before direct submit', async () => {
     const onApprovedSubmit = jest.fn().mockResolvedValue(undefined);
     backgroundMock.serviceStaking.getBorrowManagePage.mockResolvedValue({

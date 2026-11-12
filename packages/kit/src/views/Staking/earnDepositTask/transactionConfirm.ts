@@ -159,7 +159,15 @@ export function waitForEarnTransactionConfirm({
           resolveOnce({ status: 'success', data });
         }
       },
-      onSafePreSendFail: () => undefined,
+      onSafePreSendFail: (error) => {
+        if (settled || !sendStarted) return;
+        sendStarted = false;
+        try {
+          onSendBlocked?.();
+        } finally {
+          rejectOnce(error);
+        }
+      },
       onFail: (error) => {
         try {
           if (!settled) {

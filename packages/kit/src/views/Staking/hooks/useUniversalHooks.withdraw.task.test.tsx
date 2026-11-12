@@ -1701,6 +1701,22 @@ describe('useUniversalWithdraw existing transaction behavior', () => {
     expect(mockBuildUnstake).toHaveBeenCalledTimes(1);
   });
 
+  it('allows Ethena to retry after signing is cancelled before broadcasting', async () => {
+    mockNavigate.mockImplementationOnce(
+      async ({ onBeforeSend, onSafePreSendFail }) => {
+        await onBeforeSend?.();
+        onSafePreSendFail?.(new Error('local signing cancelled'));
+      },
+    );
+    const { result } = renderHook(() => useUniversalWithdraw(account));
+    const ethena = { ...params, provider: 'pendle', useEthenaCooldown: true };
+    await expect(result.current(ethena)).resolves.toBe(false);
+    mockNavigate.mockImplementationOnce(async ({ onCancel }) => onCancel?.());
+    await expect(result.current(ethena)).resolves.toBe(false);
+    expect(mockBuildUnstake).toHaveBeenCalledTimes(2);
+    expect(mockWaitFinality).not.toHaveBeenCalled();
+  });
+
   it('does not replay an Ethena swap with an unknown final status', async () => {
     mockWaitFinality.mockResolvedValueOnce(undefined);
     mockNavigate.mockImplementationOnce(async ({ onSuccess }) => {

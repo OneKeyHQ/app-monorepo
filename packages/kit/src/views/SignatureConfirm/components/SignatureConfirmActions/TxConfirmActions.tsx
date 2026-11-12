@@ -1,6 +1,7 @@
 /* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isNil, isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -50,6 +51,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EGasAccountRequestStage,
   getGasAccountErrorCode,
@@ -1016,7 +1019,24 @@ function TxConfirmActions(props: IProps) {
       // Toast.error({
       //   title: (e as Error).message,
       // });
-      onFail?.(e as Error);
+      // Local password/device cancellation happens before broadcasting. A
+      // batch or pre-send transaction may already have produced side effects.
+      const cancelledBeforeBroadcast =
+        !transactionSubmitted &&
+        !hadPreSendTx &&
+        newUnsignedTxs.length === 1 &&
+        !accountUtils.isExternalAccount({ accountId }) &&
+        ((e as IOneKeyError)?.className ===
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
+          (e as IOneKeyError)?.className ===
+            EOneKeyErrorClassNames.HardwareUserCancelFromOutside ||
+          isHardwareErrorByCode({
+            error: e as IOneKeyError,
+            code: HardwareErrorCode.ActionCancelled,
+          }));
+      (cancelledBeforeBroadcast ? (onSafePreSendFail ?? onFail) : onFail)?.(
+        e as Error,
+      );
       isSubmitted.current = false;
       gasAccountSubmitIdRef.current = null;
       if (shouldRejectDappAction()) {

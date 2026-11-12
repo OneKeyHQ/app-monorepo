@@ -464,12 +464,18 @@ export function createEarnTransactionTaskController<
               },
               onConfirmationFailed: (certainty) => {
                 confirmationState.closed = true;
-                withCallbackLease(() =>
+                withCallbackLease(() => {
+                  if (
+                    certainty === 'beforeSend' &&
+                    state.getTask().steps.find((item) => item.id === step.id)
+                      ?.status.type === 'sending'
+                  )
+                    update(step.id, attemptId, { type: 'sendBlocked' });
                   update(step.id, attemptId, {
                     type:
                       certainty === 'beforeSend' ? 'fail' : 'outcomeUnknown',
-                  }),
-                );
+                  });
+                });
               },
               onConfirmationCancelled: (certainty) => {
                 confirmationState.closed = true;

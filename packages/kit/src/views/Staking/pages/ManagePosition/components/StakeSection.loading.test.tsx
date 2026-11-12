@@ -4,6 +4,7 @@
 const mockGetEarnAssetsList = jest.fn<Promise<unknown>, unknown[]>();
 const mockFetchTokensDetails = jest.fn<Promise<unknown>, unknown[]>();
 const mockRetainedAccountAddress = jest.fn<Promise<string>, []>();
+const mockRetainedStakeForm = jest.fn<void, [unknown]>();
 const mockBorrowSupplyScope = jest.fn();
 const mockBorrowBorrowScope = jest.fn();
 const mockHandleStake = jest.fn<
@@ -200,7 +201,11 @@ jest.mock('../../../components/UniversalStake', () => ({
     beforeFooter,
     balance,
     onConfirm,
+    retainedTask,
   }: {
+    retainedTask?:
+      | import('../../../earnDepositTask/useRetainedDepositTask').IRetainedDepositTask
+      | null;
     tokenSymbol?: string;
     tokenSelectorTriggerProps?: { onPress?: () => void };
     isStakeAssetLoading?: boolean;
@@ -212,6 +217,7 @@ jest.mock('../../../components/UniversalStake', () => ({
       params: import('../../../earnDepositTask/types').IEarnStakeConfirmParams,
     ) => Promise<boolean>;
   }) => {
+    mockRetainedStakeForm(retainedTask);
     mockConfirmStake({ amount: '1' }, onConfirm);
     mockStakeRender({ balance, tokenSymbol, isDisabled, isStakeAssetLoading });
     return (
@@ -320,6 +326,7 @@ function renderStake(provider = nativeProtocol) {
 
 beforeEach(() => {
   mockRetainedAccountAddress.mockReset().mockResolvedValue('0xowner');
+  mockRetainedStakeForm.mockReset();
   mockGetEarnAssetsList.mockReset();
   mockFetchTokensDetails.mockReset();
   mockStakeApproval
@@ -331,6 +338,112 @@ beforeEach(() => {
   mockRemovePermitCache.mockReset();
   mockConfirmStake.mockReset();
 });
+
+it.each([true, false])(
+  'restores a Spark deposit cancelled after approval only for its original fixed token: %s',
+  async (matchingToken) => {
+    const provider = { ...nativeProtocol, provider: 'spark' };
+    const entryTokenInfo = {
+      ...tokenInfo,
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      balanceParsed: '7',
+    };
+    const openPage = () =>
+      render(
+        <StakeSection
+          accountId="account-1"
+          networkId="evm--1"
+          tokenInfo={entryTokenInfo}
+          protocolInfo={provider}
+        />,
+      );
+    const ownerKey = getDepositTaskOwnerKey({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      provider: 'spark',
+      vault: 'vault',
+    });
+    const state = createDepositTaskState(
+      createDepositTask({
+        taskId: 'spark-retained',
+        identity: {
+          accountId: 'account-1',
+          accountAddress: '0xowner',
+          networkId: 'evm--1',
+          provider: 'spark',
+          vault: 'vault',
+          inputTokenAddress: matchingToken ? EthereumWETH : '0xother-token',
+          depositTokenAddress: matchingToken ? EthereumWETH : '0xother-token',
+          amount: '2',
+          spenderAddress: '0xspender',
+        },
+        steps: [
+          { id: 'approve', kind: 'approve' },
+          { id: 'deposit', kind: 'deposit' },
+        ],
+      }),
+    );
+    const first = openPage();
+    await screen.findByTestId('stake-form');
+    const reservation = depositTaskRegistry.reserve(ownerKey, state);
+    expect(reservation).toBeDefined();
+    if (!reservation) throw new OneKeyLocalError('Missing test reservation');
+    try {
+      act(() => {
+        const approve = {
+          taskId: 'spark-retained',
+          stepId: 'approve',
+          attemptId: 'approve-1',
+        };
+        state.dispatch({ ...approve, type: 'start' });
+        state.dispatch({ ...approve, type: 'confirmationOpened' });
+        state.dispatch({ ...approve, type: 'sendStarted' });
+        state.dispatch({ ...approve, type: 'submitted', txid: 'approval-tx' });
+        state.dispatch({ ...approve, type: 'confirmed' });
+        state.dispatch({ ...approve, type: 'verified' });
+        const deposit = {
+          taskId: 'spark-retained',
+          stepId: 'deposit',
+          attemptId: 'deposit-1',
+        };
+        state.dispatch({ ...deposit, type: 'start' });
+        state.dispatch({ ...deposit, type: 'confirmationOpened' });
+        state.dispatch({ ...deposit, type: 'cancel' });
+      });
+      expect(state.getTask().steps.map((step) => step.status.type)).toEqual([
+        'succeeded',
+        'cancelled',
+      ]);
+      first.unmount();
+      mockRetainedStakeForm.mockClear();
+      const second = openPage();
+      if (matchingToken) {
+        await waitFor(() =>
+          expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+        );
+        expect(mockRetainedStakeForm).toHaveBeenLastCalledWith(
+          expect.objectContaining({ state, token: reservation }),
+        );
+        expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(
+          false,
+        );
+        expect(screen.queryByText('global.pending')).toBeNull();
+      } else {
+        await screen.findByText('global.pending');
+        expect(screen.queryByTestId('stake-form')).toBeNull();
+        expect(mockRetainedStakeForm).not.toHaveBeenCalled();
+      }
+      expect(mockGetEarnAssetsList).not.toHaveBeenCalled();
+      expect(mockFetchTokensDetails).not.toHaveBeenCalled();
+      expect(depositTaskRegistry.find(ownerKey)?.state).toBe(state);
+      second.unmount();
+    } finally {
+      first.unmount();
+      depositTaskRegistry.release(ownerKey, reservation);
+    }
+  },
+);
 
 it('restores the original asset before mounting the manage form', async () => {
   const provider = { ...nativeProtocol, provider: 'etherfi' };

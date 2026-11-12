@@ -11,7 +11,11 @@ import { runDirectDepositTask } from '@onekeyhq/kit/src/views/Staking/earnDeposi
 import { createDepositTask } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/state';
 import { waitForEarnTransactionConfirm } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/transactionConfirm';
 import type { IDepositTaskHandle } from '@onekeyhq/kit/src/views/Staking/earnDepositTask/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PasswordPromptDialogCancel,
+} from '@onekeyhq/shared/src/errors';
+import { UserCancel } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -481,6 +485,89 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(onFail).not.toHaveBeenCalled();
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
+
+  it.each([new PasswordPromptDialogCancel(), new UserCancel()])(
+    'releases an Earn send after a local signing cancellation: %s',
+    async (error) => {
+      mockPayer = 'native';
+      mockBatchSend.mockRejectedValueOnce(error);
+      const blocked = jest.fn();
+      const uncertain = jest.fn();
+      const operation = waitForEarnTransactionConfirm({
+        navigationToTxConfirm: async (params) => {
+          render(
+            <TxConfirmActions
+              accountId="hd-1--0"
+              networkId="evm--1"
+              securityCheckConfirmation="none"
+              securityCheckAcknowledgementKey="tx-1"
+              onBeforeSend={params.onBeforeSend}
+              onSafePreSendFail={params.onSafePreSendFail}
+              onFail={params.onFail}
+              onCancel={params.onCancel}
+              onSuccess={params.onSuccess}
+            />,
+          );
+        },
+        expiredMessage: 'expired',
+        onSendBlocked: blocked,
+        onUncertainFailure: uncertain,
+      });
+      const outcome = operation.catch((failure: unknown) => failure);
+      await act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toBe(error);
+      });
+      await expect(outcome).resolves.toBe(error);
+      expect(blocked).toHaveBeenCalledTimes(1);
+      expect(uncertain).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['batch', 'pre-send', 'external', 'unknown'] as const)(
+    'keeps %s failures on the uncertain failure path',
+    async (scenario) => {
+      mockPayer = 'native';
+      const error =
+        scenario === 'unknown' ? new Error('RPC timeout') : new UserCancel();
+      mockBatchSend.mockRejectedValueOnce(error);
+      if (scenario === 'batch')
+        jest
+          .spyOn(
+            backgroundApiProxy.serviceSend,
+            'updateUnSignedTxBeforeSending',
+          )
+          .mockResolvedValueOnce([
+            ...mockUnsignedTxs,
+            { ...mockUnsignedTxs[0], uuid: 'tx-2' },
+          ]);
+      if (scenario === 'pre-send')
+        jest
+          .spyOn(
+            backgroundApiProxy.serviceSignatureConfirm,
+            'preActionsBeforeSending',
+          )
+          .mockResolvedValueOnce({ preSendTx: { txid: 'pre-send-tx' } });
+      const onFail = jest.fn();
+      const onSafePreSendFail = jest.fn();
+      render(
+        <TxConfirmActions
+          accountId={
+            scenario === 'external' ? 'external--wallet--0' : 'hd-1--0'
+          }
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onFail={onFail}
+          onSafePreSendFail={onSafePreSendFail}
+        />,
+      );
+      await act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toBe(error);
+      });
+      expect(onFail).toHaveBeenCalledWith(error);
+      expect(onSafePreSendFail).not.toHaveBeenCalled();
+    },
+  );
 
   it('retries an Earn confirmation after a safe precheck failure and submits once', async () => {
     mockGetWallet.mockResolvedValue(undefined);

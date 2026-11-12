@@ -1156,6 +1156,10 @@ export function useBorrowApproval({
                     sendObserved = true;
                   },
                   onSuccess: callbacks.onSuccess,
+                  onSafePreSendFail: (error) => {
+                    sendObserved = false;
+                    callbacks.onFail(error);
+                  },
                   onFail: callbacks.onFail,
                   onCancel: callbacks.onCancel,
                   onLateBroadcastAccepted: (fact) => {
@@ -1543,6 +1547,10 @@ export function useBorrowApproval({
                   sendObserved = true;
                 },
                 onSuccess: callbacks.onSuccess,
+                onSafePreSendFail: (error) => {
+                  sendObserved = false;
+                  callbacks.onFail(error);
+                },
                 onFail: callbacks.onFail,
                 onCancel: callbacks.onCancel,
                 onLateBroadcastAccepted: (fact) => {

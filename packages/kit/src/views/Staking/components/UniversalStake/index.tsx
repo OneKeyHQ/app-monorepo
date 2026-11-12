@@ -1873,6 +1873,37 @@ export function UniversalStake({
     [canSendDepositTask],
   );
 
+  const confirmStakePriceImpact = useCallback(
+    (confirmation?: IStakeTransactionConfirmation) => {
+      if (stakePresentation.priceImpact !== 'confirm') return true;
+      const payFiatValue =
+        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+          ? new BigNumber(amountValue)
+              .multipliedBy(tokenInfo?.price ?? '0')
+              .toFixed()
+          : undefined;
+      const impactInfo = calcPriceImpactInfo({
+        payFiatValue,
+        receiveConfig: receiveInputConfig,
+        receiveDescription: confirmation?.receive,
+      });
+      return impactInfo
+        ? showHighPriceImpactDialog(intl, {
+            percent: impactInfo.percent,
+            lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
+          })
+        : true;
+    },
+    [
+      stakePresentation.priceImpact,
+      amountValue,
+      tokenInfo?.price,
+      receiveInputConfig,
+      intl,
+      currencySymbol,
+    ],
+  );
+
   const prepareDepositTask = useCallback(
     async (
       signal: AbortSignal,
@@ -1919,6 +1950,16 @@ export function UniversalStake({
         if (!accepted || signal.aborted || !isCurrent())
           return { type: 'cancelled' };
       }
+      const priceImpactDecision = confirmStakePriceImpact(confirmation);
+      if (
+        (typeof priceImpactDecision === 'boolean'
+          ? !priceImpactDecision
+          : !(await priceImpactDecision)) ||
+        signal.aborted ||
+        !isCurrent()
+      ) {
+        return { type: 'cancelled' };
+      }
       const fee = await fetchEstimateFeeResp(
         amountValue,
         ECheckAmountActionType.STAKING,
@@ -1963,6 +2004,7 @@ export function UniversalStake({
       checkAmount,
       updateCheckAmountLoading,
       updateAmountValidation,
+      confirmStakePriceImpact,
     ],
   );
 
@@ -2346,25 +2388,14 @@ export function UniversalStake({
         }
       };
 
-      if (stakePresentation.priceImpact === 'confirm') {
-        const payFiatValue =
-          Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
-            ? new BigNumber(amountValue)
-                .multipliedBy(tokenInfo?.price ?? '0')
-                .toFixed()
-            : undefined;
-        const impactInfo = calcPriceImpactInfo({
-          payFiatValue,
-          receiveConfig: receiveInputConfig,
-          receiveDescription: depositConfirmation?.receive,
-        });
-        if (impactInfo) {
-          const userConfirmed = await showHighPriceImpactDialog(intl, {
-            percent: impactInfo.percent,
-            lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
-          });
-          if (!userConfirmed || !isCurrent()) return;
-        }
+      const priceImpactDecision = confirmStakePriceImpact(depositConfirmation);
+      if (
+        (typeof priceImpactDecision === 'boolean'
+          ? !priceImpactDecision
+          : !(await priceImpactDecision)) ||
+        !isCurrent()
+      ) {
+        return;
       }
 
       if (requiresValidatorSignature) {
@@ -2428,7 +2459,7 @@ export function UniversalStake({
       showEstimateGasAlert,
       checkEstimateGasAlert,
       fetchEstimateFeeResp,
-      stakePresentation.priceImpact,
+      confirmStakePriceImpact,
       validatorStake.mode,
       requiresCurrentStakeQuote,
       selectedValidator,
@@ -2442,9 +2473,6 @@ export function UniversalStake({
       protocolVault,
       onQuoteReset,
       intl,
-      currencySymbol,
-      tokenInfo?.price,
-      receiveInputConfig,
       transactionConfirmation,
       fetchTransactionConfirmation,
       preparationPolicy,

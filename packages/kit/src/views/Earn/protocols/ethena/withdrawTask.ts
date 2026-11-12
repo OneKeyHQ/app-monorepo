@@ -39,6 +39,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
   waitForSwap,
   onUnknownSwap,
   onSwapSend,
+  onSwapSendBlocked,
   onFail,
   onObserverError,
   resolveResult,
@@ -71,6 +72,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
     }
     const stage: IStage = step.id === 'swap' ? 'swap' : 'unstake';
     let sendObserved = false;
+    let failedBeforeSend = false;
     const confirmation = createEarnConfirmationTaskAdapter<
       typeof identity,
       ITransactionStep,
@@ -105,9 +107,18 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
                   sendObserved = true;
                   callbacks.onSendObserved();
                 },
-            onSafePreSendFail: verifyBeforeSend
-              ? (error) => onFail?.(error)
-              : undefined,
+            onSafePreSendFail: (error) => {
+              if (!sendObserved) {
+                onFail?.(error);
+                return;
+              }
+              if (callbackStarted) return;
+              callbackStarted = true;
+              sendObserved = false;
+              failedBeforeSend = true;
+              if (stage === 'swap') onSwapSendBlocked?.();
+              callbacks.onFail(error);
+            },
             onSuccess: (data) => {
               callbackStarted = true;
               return callbacks.onSuccess(data);
@@ -183,7 +194,7 @@ export function createEthenaWithdrawAdapters<TIdentity extends IEarnTaskScope>({
       onObserverError,
       getTxid: (data) =>
         data[0]?.signedTx?.txid?.trim() || data[0]?.decodedTx?.txid?.trim(),
-      failureCertainty: () => 'unknown',
+      failureCertainty: () => (failedBeforeSend ? 'beforeSend' : 'unknown'),
       cancellationCertainty: () => 'unknown',
     });
     void confirmation.navigation.catch((error: unknown) => {
@@ -220,6 +231,7 @@ type IEthenaWithdrawTaskParams<TIdentity extends IEarnTaskScope> = {
   waitForSwap: (txid?: string) => Promise<boolean>;
   onUnknownSwap: () => void;
   onSwapSend: () => void;
+  onSwapSendBlocked?: () => void;
   onFail?: (error: Error) => void;
   onObserverError: (error: unknown) => void;
 };
@@ -239,6 +251,7 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
   waitForSwap,
   onUnknownSwap,
   onSwapSend,
+  onSwapSendBlocked,
   onFail,
   onObserverError,
 }: Omit<IEthenaWithdrawTaskParams<TIdentity>, 'taskId'>) {
@@ -261,6 +274,7 @@ export function createEthenaWithdrawFragment<TIdentity extends IEarnTaskScope>({
     waitForSwap,
     onUnknownSwap,
     onSwapSend,
+    onSwapSendBlocked,
     onFail,
     onObserverError,
     resolveResult,

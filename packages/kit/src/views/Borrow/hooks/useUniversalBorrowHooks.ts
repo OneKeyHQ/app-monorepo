@@ -958,8 +958,10 @@ export function useUniversalBorrowRepayWithCollateral({
             return pending();
           const setup = task.getSetupTask();
           if (setup.steps.some((step) => step.id === 'setup')) {
+            // Remote order sync failure does not make a finalized LUT ambiguous.
             if (
               setup.facts?.recording !== 'saved' &&
+              setup.facts?.recording !== 'remoteUnknown' &&
               setup.facts?.recording !== 'notTracked'
             )
               return pending();

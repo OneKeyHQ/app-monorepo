@@ -105,6 +105,12 @@ const mockPermitSign = jest.fn<
 const mockPermitCache = jest.fn<IEarnPermitCache | null, [unknown]>();
 const mockUpdatePermitCache = jest.fn<void, [unknown]>();
 const mockRemovePermitCache = jest.fn<void, [unknown]>();
+const mockPriceImpactDialog = jest.fn<
+  Promise<boolean>,
+  Parameters<
+    typeof import('../showHighPriceImpactDialog').showHighPriceImpactDialog
+  >
+>();
 const mockGasAlert = jest.fn<
   void,
   [{ onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void> }]
@@ -384,8 +390,12 @@ jest.mock('../ProtocolDisplayShared', () => ({
   formatTvl: () => '',
 }));
 jest.mock('../showHighPriceImpactDialog', () => ({
-  calcPriceImpactInfo: () => undefined,
-  showHighPriceImpactDialog: jest.fn(),
+  ...jest.requireActual<typeof import('../showHighPriceImpactDialog')>(
+    '../showHighPriceImpactDialog',
+  ),
+  showHighPriceImpactDialog: (
+    ...params: Parameters<typeof mockPriceImpactDialog>
+  ) => mockPriceImpactDialog(...params),
 }));
 jest.mock('../StakeProgress', () => ({
   EStakeProgressStep: { approve: 0, deposit: 1, unstake: 2 },
@@ -695,6 +705,7 @@ describe('EtherFi USDT approval reset', () => {
       },
     ]);
     mockRisk.mockResolvedValue(true);
+    mockPriceImpactDialog.mockResolvedValue(true);
     mockStakefishSign.mockResolvedValue({
       signature: 'validator-signature',
       message: 'validator-message',
@@ -1980,6 +1991,156 @@ describe('EtherFi USDT approval reset', () => {
     await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
   });
 
+  describe('Pendle deposit price impact', () => {
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const pendleProps: ComponentProps<typeof UniversalStake> = {
+      ...props,
+      providerName: 'pendle',
+      tokenSymbol: 'USDC',
+      preparationPolicy: undefined,
+      tokenInfo: props.tokenInfo
+        ? { ...props.tokenInfo, provider: 'pendle', token: usdc }
+        : undefined,
+      protocolInfo: props.protocolInfo
+        ? { ...props.protocolInfo, provider: 'pendle' }
+        : undefined,
+      approveTarget: { ...props.approveTarget, token: usdc },
+      receiveInputConfig: { enabled: true, price: '1', tokenSymbol: 'PT' },
+    };
+    const quote = (receiveAmount: string) => ({
+      receive: {
+        title: { text: 'Receive' },
+        description: { text: `${receiveAmount} PT` },
+      },
+    });
+
+    async function beginPendleDeposit(allowance: '0' | '5') {
+      mockAllowanceState.value = allowance;
+      mockAllowance.mockResolvedValue({ allowanceParsed: allowance });
+      const view = render(
+        <StakeTaskHarness {...pendleProps} currentAllowance={allowance} />,
+      );
+      fireEvent.change(view.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const button = await view.findByRole('button', {
+        name: allowance === '0' ? 'global.approve' : 'global.swap',
+      });
+      await waitFor(() => expect(mockConfirmation).toHaveBeenCalled());
+      await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+      fireEvent.click(button);
+      return view;
+    }
+
+    async function finishPendleApproval() {
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+      mockAllowance
+        .mockResolvedValueOnce({ allowanceParsed: '0' })
+        .mockResolvedValue({ allowanceParsed: '2' });
+      await submitConfirmation(0, 'pendle-approval');
+    }
+
+    it.each([false, true])(
+      'uses the new post-approval quote and builds only if its loss warning is accepted (%s)',
+      async (accepted) => {
+        mockConfirmation.mockResolvedValue(quote('2'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('0');
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+        expect(mockPriceImpactDialog).not.toHaveBeenCalled();
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        expect(mockPriceImpactDialog).toHaveBeenCalledWith(expect.anything(), {
+          percent: '10.00',
+          lossAmount: '$0.20',
+        });
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        await act(async () => decision.resolve(accepted));
+        if (accepted) {
+          await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+          expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        } else {
+          await view.findByRole('button', { name: 'global.retry' });
+          expect(mockBuildStake).not.toHaveBeenCalled();
+          expect(mockNavigate).toHaveBeenCalledTimes(1);
+        }
+      },
+    );
+
+    it.each([false, true])(
+      'preserves the loss warning when allowance is already sufficient (%s)',
+      async (accepted) => {
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('5');
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+        await act(async () => decision.resolve(accepted));
+        if (accepted) {
+          await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+          expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        } else {
+          expect(
+            (view.getByLabelText('amount') as HTMLInputElement).value,
+          ).toBe('2');
+          expect(mockBuildStake).not.toHaveBeenCalled();
+          expect(mockNavigate).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it.each([
+      ['0', '1.98'],
+      ['0', '1.99'],
+      ['5', '1.98'],
+      ['5', '1.99'],
+    ] as const)(
+      'does not add a warning at or below 1%% loss (allowance=%s, receive=%s)',
+      async (allowance, receiveAmount) => {
+        mockConfirmation.mockResolvedValue(quote(receiveAmount));
+        await beginPendleDeposit(allowance);
+        if (allowance === '0') await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockNavigate).toHaveBeenCalledTimes(allowance === '0' ? 2 : 1),
+        );
+        expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        expect(mockPriceImpactDialog).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['unmount', 'account change'] as const)(
+      'does not build after %s while the post-approval warning is open',
+      async (change) => {
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('0');
+        await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        if (change === 'unmount') view.unmount();
+        else
+          view.rerender(
+            <StakeTaskHarness {...pendleProps} accountId="other-account" />,
+          );
+        await act(async () => decision.resolve(true));
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
   it('keeps legacy USDT reset confirmation and waits for zero before approval', async () => {
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2008,6 +2169,62 @@ describe('EtherFi USDT approval reset', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
     expect(mockBuildStake).toHaveBeenCalledTimes(1);
     expect(mockWaitStatus).not.toHaveBeenCalled();
+  });
+
+  it('resumes a Spark deposit after approval and cancellation without approving again', async () => {
+    if (!props.tokenInfo || !props.protocolInfo)
+      throw new OneKeyLocalError('Missing Spark fixture');
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const sparkProps: ComponentProps<typeof UniversalStake> = {
+      ...props,
+      providerName: 'spark',
+      preparationPolicy: undefined,
+      currentAllowance: '0',
+      tokenSymbol: 'USDC',
+      tokenInfo: { ...props.tokenInfo, provider: 'spark', token: usdc },
+      protocolInfo: { ...props.protocolInfo, provider: 'spark' },
+      approveTarget: { ...props.approveTarget, token: usdc },
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'spark-order',
+    });
+    const first = render(<RetainedStakeHarness {...sparkProps} />);
+    fireEvent.change(first.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const approve = await first.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    mockAllowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '2' });
+    await submitConfirmation(0, 'spark-approval');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    await act(async () => mockNavigate.mock.calls[1][0].onCancel?.());
+    first.unmount();
+
+    const second = render(<RetainedStakeHarness {...sparkProps} />);
+    await waitFor(() =>
+      expect(second.getByLabelText('amount').getAttribute('value')).toBe('2'),
+    );
+    const retry = await second.findByRole('button', { name: 'global.retry' });
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    expect(
+      mockNavigate.mock.calls.filter(
+        ([confirmation]) => confirmation.approvesInfo,
+      ),
+    ).toHaveLength(1);
+    expect(mockBuildStake).toHaveBeenCalledTimes(2);
+    await submitConfirmation(2, 'spark-deposit');
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+    second.unmount();
   });
 
   it('resumes after a real unmount without wrapping again', async () => {

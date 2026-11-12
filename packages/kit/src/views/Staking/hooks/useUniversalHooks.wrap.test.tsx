@@ -1880,6 +1880,59 @@ describe('useUniversalStake deposits and wrapping', () => {
     },
   );
 
+  it.each(['wrap', 'approve', 'deposit'] as const)(
+    'retries the Native %s step after a proven pre-broadcast cancellation',
+    async (rejectedStep) => {
+      let rejected = false;
+      let currentAllowance = '0';
+      mockAllowance.mockImplementation(async () => allowance(currentAllowance));
+      mockNavigate.mockImplementation(
+        async ({
+          wrappedInfo,
+          encodedTx,
+          approvesInfo,
+          onBeforeSend,
+          onSuccess,
+          onSafePreSendFail,
+        }) => {
+          await onBeforeSend?.();
+          let step: 'approve' | 'wrap' | 'deposit' = 'deposit';
+          if (approvesInfo) step = 'approve';
+          else if (wrappedInfo) step = 'wrap';
+          if (step === rejectedStep && !rejected) {
+            rejected = true;
+            onSafePreSendFail?.(new UserCancel());
+            return;
+          }
+          if (step === 'approve') currentAllowance = '1';
+          await onSuccess?.(
+            successData(confirmationTxid(encodedTx, approvesInfo)),
+          );
+        },
+      );
+      const onDepositTaskReady = jest.fn<void, [IDepositTaskHandle]>();
+      const { result } = renderHook(() => useUniversalStake(account));
+      await expect(
+        result.current({
+          ...params,
+          provider: 'native',
+          taskMode: 'deposit',
+          onDepositTaskReady,
+          onFail: jest.fn(),
+        }),
+      ).resolves.toBe(false);
+      const handle = onDepositTaskReady.mock.calls[0][0];
+      const step = handle.getTask().steps[handle.getTask().currentStepIndex];
+      expect(step.kind).toBe(rejectedStep);
+      expect(step.status).toEqual({ type: 'failed', stage: 'beforeSend' });
+      await handle.retry();
+      expect(handle.getTask().steps.at(-1)?.status.type).toBe('handedOff');
+      expect(
+        mockNavigate.mock.calls.filter(([input]) => input.wrappedInfo),
+      ).toHaveLength(rejectedStep === 'wrap' ? 2 : 1);
+    },
+  );
+
   it('does not assume a device rejection is pre-broadcast for another provider', async () => {
     mockNavigate.mockImplementation(async ({ onBeforeSend, onFail }) => {
       await onBeforeSend?.();

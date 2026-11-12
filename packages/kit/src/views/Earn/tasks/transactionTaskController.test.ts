@@ -243,3 +243,37 @@ it.each([false, true])(
     expect(store.acquire(Symbol('another-owner'))).toBe(true);
   },
 );
+
+it.each(['sending', 'unknown', 'confirming', 'late hash'] as const)(
+  'only releases the current sending attempt on a safe failure (prior=%s)',
+  async (prior) => {
+    let callbacks: Parameters<IAdapter['confirm']>[0] | undefined;
+    const { controller } = createHarness({
+      confirmationLifecycle: 'detached',
+      prepare: async () => ({ type: 'confirm', prepared: 'fund' }),
+      confirm: async (context) => {
+        callbacks = context;
+        return { type: 'detached' };
+      },
+      waitForFinalStatus: async () => 'unknown',
+      verify: async () => false,
+    });
+    await controller.run();
+    if (!callbacks) throw new OneKeyLocalError('Missing confirmation');
+    callbacks.onSendObserved();
+    if (prior === 'confirming') callbacks.onSubmitted('accepted-tx');
+    if (prior === 'unknown' || prior === 'late hash')
+      callbacks.onConfirmationFailed('unknown');
+    if (prior === 'late hash') callbacks.onLateBroadcastAccepted('accepted-tx');
+    callbacks.onConfirmationFailed('beforeSend');
+    expect(controller.getTask().steps[0].status).toEqual(
+      prior === 'sending'
+        ? { type: 'failed', stage: 'beforeSend' }
+        : {
+            type: 'unknown',
+            chainConfirmed: false,
+            ...(prior === 'unknown' ? {} : { txid: 'accepted-tx' }),
+          },
+    );
+  },
+);

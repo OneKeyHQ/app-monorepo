@@ -382,7 +382,7 @@ describe('Ethena withdrawal workflow plan', () => {
         onFail,
       });
       await waitFor(() => expect(confirmation).toBeDefined());
-      expect(Boolean(confirmation?.onSafePreSendFail)).toBe(handoff);
+      expect(confirmation?.onSafePreSendFail).toEqual(expect.any(Function));
       const failure = new Error('pre-send action may have had side effects');
       confirmation?.onConfirmationFail?.(failure);
       await expect(operation).resolves.toBe(false);

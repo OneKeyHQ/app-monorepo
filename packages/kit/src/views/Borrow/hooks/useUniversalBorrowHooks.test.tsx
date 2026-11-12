@@ -1079,94 +1079,218 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     ).toHaveBeenLastCalledWith(expect.objectContaining({ amount: '2' }));
   });
 
-  it('holds a different collateral route while setup is pending, then releases it after chain confirmation', async () => {
-    backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
-      { tx: '{}', orderId: 'setup-order-id' },
-    );
-    backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
-      localStatus: 'saved',
-      remoteStatus: 'synced',
-    });
-    backgroundMock.serviceStaking.waitForSolTxFinalized
-      .mockResolvedValueOnce('timeout')
-      .mockResolvedValueOnce('timeout')
-      .mockResolvedValue('finalized');
-    backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockResolvedValue(
-      { routeKey: 'fresh-route', swapIn: '1' },
-    );
-    backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
-      { tx: '{}', orderId: 'repay-order-id' },
-    );
-    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
-      async ({
-        stakingInfo,
-        onSuccess,
-        onCancel,
-      }: {
-        stakingInfo?: { orderId?: string };
-        onSuccess: (data: unknown[]) => void;
-        onCancel: () => void;
-      }) => {
-        if (stakingInfo?.orderId === 'repay-order-id') onCancel();
-        else
+  it.each([
+    { remoteStatus: 'synced', finality: 'finalized' },
+    { remoteStatus: 'synced', finality: 'failed' },
+    { remoteStatus: 'failed', finality: 'finalized' },
+    { remoteStatus: 'failed', finality: 'failed' },
+  ])(
+    'holds a different collateral route until setup is $finality when order sync is $remoteStatus',
+    async ({ remoteStatus, finality }) => {
+      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'setup-order-id' },
+      );
+      backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
+        localStatus: 'saved',
+        remoteStatus,
+      });
+      backgroundMock.serviceStaking.waitForSolTxFinalized
+        .mockResolvedValueOnce('timeout')
+        .mockResolvedValueOnce('timeout')
+        .mockResolvedValue(finality);
+      backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockResolvedValue(
+        { routeKey: 'fresh-route', swapIn: '1' },
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'repay-order-id' },
+      );
+      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async ({
+          stakingInfo,
+          onSuccess,
+          onCancel,
+        }: {
+          stakingInfo?: { orderId?: string };
+          onSuccess: (data: unknown[]) => void;
+          onCancel: () => void;
+        }) => {
+          if (stakingInfo?.orderId === 'repay-order-id') onCancel();
+          else
+            onSuccess([
+              {
+                decodedTx: { txid: 'setup-tx-id', status: 'Pending' },
+                signedTx: { txid: 'setup-tx-id' },
+              },
+            ]);
+        },
+      );
+      const params = {
+        amount: '1',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        collateralReserveAddress: 'collateral-a',
+        needsSetupLut: true,
+        stakingInfo: {
+          protocol: 'Kamino',
+          label: EEarnLabels.Repay,
+          tags: ['borrow'],
+        },
+      };
+      const { result } = renderHook(() =>
+        useUniversalBorrowRepayWithCollateral({
+          networkId: 'sol--101',
+          accountId: 'account-a',
+        }),
+      );
+      await act(async () => {
+        expect(await result.current(params)).toBe(false);
+      });
+      await act(async () => {
+        expect(
+          await result.current({
+            ...params,
+            collateralReserveAddress: 'collateral-b',
+          }),
+        ).toBe(false);
+      });
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        expect(
+          await result.current({
+            ...params,
+            collateralReserveAddress: 'collateral-b',
+          }),
+        ).toBe(false);
+      });
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({ collateralReserveAddress: 'collateral-b' }),
+      );
+      expect(
+        backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction,
+      ).toHaveBeenCalledTimes(finality === 'failed' ? 1 : 2);
+    },
+  );
+
+  it.each(['cancelled', 'completed', 'unknown'] as const)(
+    'switches collateral after failed setup order sync only when the repay is resolved (%s)',
+    async (repayOutcome) => {
+      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'setup-order-id' },
+      );
+      backgroundMock.serviceStaking.addEarnOrder.mockResolvedValue({
+        localStatus: 'saved',
+        remoteStatus: 'failed',
+      });
+      backgroundMock.serviceStaking.waitForSolTxFinalized.mockResolvedValue(
+        'finalized',
+      );
+      backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockResolvedValue(
+        { routeKey: 'fresh-route', swapIn: '1' },
+      );
+      backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+        { tx: '{}', orderId: 'repay-order-id' },
+      );
+      signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+        async ({
+          stakingInfo,
+          onBeforeSend,
+          onSuccess,
+          onCancel,
+          onFail,
+        }: {
+          stakingInfo?: { orderId?: string };
+          onBeforeSend: () => Promise<void>;
+          onSuccess: (data: unknown[]) => void;
+          onCancel: () => void;
+          onFail: (error: Error) => void;
+        }) => {
+          const isRepay = stakingInfo?.orderId === 'repay-order-id';
+          if (isRepay && repayOutcome === 'cancelled') {
+            onCancel();
+            return;
+          }
+          await onBeforeSend();
+          if (isRepay && repayOutcome === 'unknown') {
+            onFail(new Error('Broadcast response lost'));
+            return;
+          }
+          const txid = isRepay ? 'repay-tx-id' : 'setup-tx-id';
           onSuccess([
             {
-              decodedTx: { txid: 'setup-tx-id', status: 'Pending' },
-              signedTx: { txid: 'setup-tx-id' },
+              decodedTx: { txid, status: 'Pending' },
+              signedTx: { txid },
             },
           ]);
-      },
-    );
-    const params = {
-      amount: '1',
-      provider: 'kamino',
-      marketAddress: 'market',
-      reserveAddress: 'reserve',
-      collateralReserveAddress: 'collateral-a',
-      needsSetupLut: true,
-      stakingInfo: {
-        protocol: 'Kamino',
-        label: EEarnLabels.Repay,
-        tags: ['borrow'],
-      },
-    };
-    const { result } = renderHook(() =>
-      useUniversalBorrowRepayWithCollateral({
-        networkId: 'sol--101',
-        accountId: 'account-a',
-      }),
-    );
-    await act(async () => {
-      expect(await result.current(params)).toBe(false);
-    });
-    await act(async () => {
-      expect(
-        await result.current({
-          ...params,
-          collateralReserveAddress: 'collateral-b',
+        },
+      );
+      const params = {
+        amount: '1',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        collateralReserveAddress: 'collateral-a',
+        needsSetupLut: true,
+        stakingInfo: {
+          protocol: 'Kamino',
+          label: EEarnLabels.Repay,
+          tags: ['borrow'],
+        },
+      };
+      const { result } = renderHook(() =>
+        useUniversalBorrowRepayWithCollateral({
+          networkId: 'sol--101',
+          accountId: 'account-a',
         }),
-      ).toBe(false);
-    });
-    expect(
-      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
-    ).toHaveBeenCalledTimes(1);
-    await act(async () => {
+      );
+      await act(async () => {
+        expect(await result.current(params)).toBe(repayOutcome === 'completed');
+      });
+      await act(async () => {
+        expect(await result.current({ ...params, amount: '2' })).toBe(
+          repayOutcome === 'completed',
+        );
+      });
       expect(
-        await result.current({
-          ...params,
-          collateralReserveAddress: 'collateral-b',
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote,
+      ).toHaveBeenCalledTimes(repayOutcome === 'unknown' ? 1 : 2);
+      expect(
+        backgroundMock.serviceStaking.waitForSolTxFinalized,
+      ).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        expect(
+          await result.current({
+            ...params,
+            collateralReserveAddress: 'collateral-b',
+          }),
+        ).toBe(repayOutcome === 'completed');
+      });
+      const canSwitch = repayOutcome !== 'unknown';
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenCalledTimes(canSwitch ? 2 : 1);
+      expect(
+        backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          collateralReserveAddress: canSwitch ? 'collateral-b' : 'collateral-a',
         }),
-      ).toBe(false);
-    });
-    expect(
-      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
-    ).toHaveBeenCalledTimes(2);
-    expect(
-      backgroundMock.serviceStaking.borrowBuildSetupLutTransaction,
-    ).toHaveBeenLastCalledWith(
-      expect.objectContaining({ collateralReserveAddress: 'collateral-b' }),
-    );
-  });
+      );
+      expect(
+        backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction,
+      ).toHaveBeenCalledTimes(canSwitch ? 3 : 1);
+    },
+  );
 
   it('never reuses the pre-setup route if the fresh quote omits its route key', async () => {
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(

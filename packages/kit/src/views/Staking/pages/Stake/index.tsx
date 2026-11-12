@@ -43,7 +43,10 @@ import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/Di
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { RetainedTaskFallback } from '../../components/EarnProtocolForms/RetainedTaskFallback';
 import { EarnStakeForm } from '../../components/EarnProtocolForms/Stake';
-import { findRetainedDepositAsset } from '../../earnDepositTask/retainedAsset';
+import {
+  findRetainedDepositAsset,
+  isRetainedDepositToken,
+} from '../../earnDepositTask/retainedAsset';
 import {
   getDepositTaskOwnerKey,
   useRetainedDepositTask,
@@ -680,7 +683,17 @@ function BasicStakePage() {
         }}
       />
     );
-  } else if (retainedTask && !activeStakeAsset) {
+  } else if (
+    retainedTask &&
+    !activeStakeAsset &&
+    !(
+      stakeAssetPolicy.selection === 'fixed' &&
+      isRetainedDepositToken({
+        tokenInfo,
+        identity: retainedTask.task.identity,
+      })
+    )
+  ) {
     retainedView = (
       <RetainedTaskFallback
         ownerKey={retainedOwnerKey}

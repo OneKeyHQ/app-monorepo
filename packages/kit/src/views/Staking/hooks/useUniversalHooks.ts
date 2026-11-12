@@ -2942,6 +2942,8 @@ export function useUniversalWithdraw({
             return !signal?.aborted;
           },
           onUnknownSwap: () => unknownEthenaSwapsRef.current.add(ethenaScope),
+          onSwapSendBlocked: () =>
+            unknownEthenaSwapsRef.current.delete(ethenaScope),
           onSwapSend: () => {
             if (unknownEthenaSwapsRef.current.has(ethenaScope)) {
               throw new OneKeyLocalError(
