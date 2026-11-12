@@ -767,6 +767,29 @@ it('hides the section when the payload carries no chartable value', () => {
   expect(screen.queryByTestId('stock-financials')).toBeNull();
 });
 
+it.each(['annual', 'quarter'] as const)(
+  'keeps retry available when empty %s data is partial',
+  (period) => {
+    mockResult = {
+      stockId: 'AAPL',
+      annual: { data: null, failed: false },
+      quarter: { data: null, failed: false },
+    };
+    mockResult[period].data = {
+      ...annual,
+      period,
+      partial: true,
+      unavailableSources: ['income_statement'],
+      performance: [],
+      debtLevelAndCoverage: [],
+      earnings: { items: [] },
+    };
+    renderFinancials();
+    fireEvent.click(screen.getByTestId('stock-financials-performance-retry'));
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  },
+);
+
 it('prefers valid API net margins and only computes missing margins', () => {
   const chart = (
     netMarginPercent: number | null,

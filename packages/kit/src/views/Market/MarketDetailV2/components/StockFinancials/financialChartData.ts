@@ -18,6 +18,7 @@ import type {
   IFinancialChartSeries,
 } from './FinancialChart';
 import type { IFinancialWaterfallKey } from './financialsUtils';
+import type { useStockFinancials } from './useStockFinancials';
 
 export type IFinancialChartKind =
   | 'performance'
@@ -250,5 +251,25 @@ export function hasFinancialChartData(
     buildFinancialChart(data, kind, labels).rows.some((row) =>
       row.values.some(isFinancialNumber),
     ),
+  );
+}
+
+export function shouldHideStockFinancials(
+  {
+    result,
+    isLoading,
+  }: Pick<ReturnType<typeof useStockFinancials>, 'result' | 'isLoading'>,
+  labels: IStockFinancialLabels,
+): boolean {
+  // Partial payloads can recover on retry even when neither period has values.
+  return Boolean(
+    !isLoading &&
+    result &&
+    !result.annual.failed &&
+    !result.quarter.failed &&
+    !result.annual.data?.partial &&
+    !result.quarter.data?.partial &&
+    !hasFinancialChartData(result.annual.data, labels) &&
+    !hasFinancialChartData(result.quarter.data, labels),
   );
 }

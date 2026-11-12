@@ -21,13 +21,14 @@ const loadFinancials = createFinancialsLoader((params) =>
 );
 const lastSuccess = new Map<string, IStockFinancials>();
 
-export function useStockFinancials(stockId: string) {
-  const normalizedStockId = stockId.trim().toUpperCase();
+export function useStockFinancials(stockId?: string) {
+  const normalizedStockId = stockId?.trim().toUpperCase() ?? '';
   const refreshRef = useRef(false);
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       const refresh = refreshRef.current;
       refreshRef.current = false;
+      if (!normalizedStockId) return undefined;
       const loadPeriod = async (
         period: IStockFinancialPeriod,
       ): Promise<IFinancialPeriodResult> => {

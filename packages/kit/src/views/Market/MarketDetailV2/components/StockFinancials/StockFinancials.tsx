@@ -20,7 +20,7 @@ import { FinancialChart } from './FinancialChart';
 import {
   FINANCIAL_CHART_KINDS,
   buildFinancialChart,
-  hasFinancialChartData,
+  shouldHideStockFinancials,
 } from './financialChartData';
 import { isFinancialNumber } from './financialsUtils';
 import { useStockFinancialLabels } from './stockFinancialLabels';
@@ -210,37 +210,32 @@ function FinancialCard({
 // Gap between the two card columns; also feeds the card width calculation.
 const CARD_COLUMN_GAP = '$10';
 
-export function StockFinancials({
-  stockId,
-  labels: labelsOverride,
-  withHorizontalPadding = true,
-  showTitle = true,
-}: {
+type IStockFinancialsProps = {
   stockId: string;
   withHorizontalPadding?: boolean;
   labels?: IStockFinancialLabels;
   /** Off where a tab already names the section. */
   showTitle?: boolean;
+};
+
+export function StockFinancialsContent({
+  stockId,
+  labels: labelsOverride,
+  withHorizontalPadding = true,
+  showTitle = true,
+  financials,
+}: IStockFinancialsProps & {
+  financials: ReturnType<typeof useStockFinancials>;
 }) {
   const translatedLabels = useStockFinancialLabels();
   const labels = labelsOverride ?? translatedLabels;
-  const { result, isLoading, retry } = useStockFinancials(stockId);
+  const { result, isLoading, retry } = financials;
   const [contentWidth, setContentWidth] = useState(0);
   const columnGap = getTokenValue(CARD_COLUMN_GAP, 'space');
   // Measure the content column: the desktop trade panel also consumes width.
   const cardWidth =
     contentWidth >= 800 ? (contentWidth - columnGap) / 2 : '100%';
-  // Like the events and analyst sections, a stock the provider has no
-  // statements for (ETFs among them) hides the section. A failed request keeps
-  // it so the reader can retry.
-  if (
-    !isLoading &&
-    result &&
-    !result.annual.failed &&
-    !result.quarter.failed &&
-    !hasFinancialChartData(result.annual.data, labels) &&
-    !hasFinancialChartData(result.quarter.data, labels)
-  ) {
+  if (shouldHideStockFinancials(financials, labels)) {
     return null;
   }
   return (
@@ -278,4 +273,9 @@ export function StockFinancials({
       </XStack>
     </YStack>
   );
+}
+
+export function StockFinancials(props: IStockFinancialsProps) {
+  const financials = useStockFinancials(props.stockId);
+  return <StockFinancialsContent {...props} financials={financials} />;
 }
