@@ -31,15 +31,17 @@ const mockEmptyState = (): IPrivacyChainScanState => ({
   syncErrorByNetworkId: {},
 });
 let mockPublished = mockEmptyState();
+const mockSetScanState = jest.fn(
+  async (
+    updater: (value: IPrivacyChainScanState) => IPrivacyChainScanState,
+  ) => {
+    mockPublished = updater(mockPublished);
+  },
+);
 jest.mock('../states/jotai/atoms', () => ({
   privacyChainAtom: {
-    set: jest.fn(
-      async (
-        updater: (value: IPrivacyChainScanState) => IPrivacyChainScanState,
-      ) => {
-        mockPublished = updater(mockPublished);
-      },
-    ),
+    set: (...args: Parameters<typeof mockSetScanState>) =>
+      mockSetScanState(...args),
     get: jest.fn(async () => mockPublished),
   },
 }));
@@ -106,10 +108,12 @@ function createService({
   })),
   syncPolicy = sendSyncPolicy,
   accountState = { enabled: true, paused: false },
+  withProgressPublication = false,
 }: {
   syncGroup?: jest.Mock;
   syncPolicy?: ILocalWalletSyncPolicy;
   accountState?: ILocalWalletAccountState;
+  withProgressPublication?: boolean;
 } = {}) {
   mockGetChainOnlyVault.mockResolvedValue({
     getLocalWalletCapability: () => ({
@@ -118,6 +122,18 @@ function createService({
       }),
       getAccountState: async () => accountState,
       getChainTip: async () => 100,
+      getSyncProgress: async () => ({
+        birthdayHeight: 1,
+        backfillScannedHeight: 100,
+        backfillTargetHeight: 100,
+        backfillProgress: 1,
+        isBackfillComplete: true,
+        tipScannedHeight: 100,
+        chainTip: 100,
+        tipLag: 0,
+        isTipCaughtUp: true,
+        isSyncing: false,
+      }),
       syncPolicy,
       syncGroup,
       isLocalScanTransaction: (tx: { zcashMode?: string }) =>
@@ -135,8 +151,19 @@ function createService({
         },
         simpleDb: {
           privacyChainState: {
-            getAccountEpoch: async () => undefined,
+            getAccountEpoch: async () =>
+              withProgressPublication ? 'scan-epoch' : undefined,
+            isAccountSyncCurrent: async () => true,
             touchAccountSyncSlot: async () => undefined,
+          },
+          privacyChainCache: {
+            setLastSync: async ({
+              isCurrent,
+            }: {
+              isCurrent: () => Promise<boolean>;
+            }) => {
+              await isCurrent();
+            },
           },
         },
         serviceAccount: {
@@ -162,7 +189,7 @@ function createService({
       refreshLocalWalletAccount: jest.fn(async () => undefined),
       scheduleBackgroundSync: jest.fn(),
       shortenStartupQuietWindow: jest.fn(),
-      publishScanProgress: jest.fn(),
+      ...(withProgressPublication ? {} : { publishScanProgress: jest.fn() }),
       publishBoostingNetworks: jest.fn(),
       refreshAutoBoost: jest.fn(),
       runLocalWalletOrphanCleanupIfDue: jest.fn(),
@@ -178,6 +205,10 @@ const orchard = { networkId, accountId, sourcePool: 'orchard' };
 beforeEach(() => {
   mockPublished = mockEmptyState();
   jest.clearAllMocks();
+  mockSetScanState.mockReset();
+  mockSetScanState.mockImplementation(async (updater) => {
+    mockPublished = updater(mockPublished);
+  });
 });
 
 afterEach(() => {
@@ -556,3 +587,186 @@ it.each(['publishSyncError', 'publishScanProgress'] as const)(
     expect(syncGroup).toHaveBeenCalledTimes(2);
   },
 );
+
+describe('scan completion publication failures', () => {
+  it.each([true, false])(
+    'retries an unchanged tip when the atom rejects a synced pass (caught up: %s)',
+    async (caughtUp) => {
+      const start = 1_700_000_000_000;
+      const now = jest.spyOn(Date, 'now').mockReturnValue(start);
+      const syncGroup = jest.fn(async () => ({
+        synced: true,
+        chainTip: 100,
+        caughtUpAccountIds: caughtUp ? [accountId] : [],
+      }));
+      const { service } = createService({
+        syncGroup,
+        withProgressPublication: true,
+      });
+      let publicationAttempts = 0;
+      mockSetScanState.mockImplementation(async (updater) => {
+        const next = updater(mockPublished);
+        if (
+          next.completedScanByAccount !== mockPublished.completedScanByAccount
+        ) {
+          publicationAttempts += 1;
+          if (publicationAttempts === 1) {
+            throw new OneKeyLocalError('completion publication failed');
+          }
+        }
+        mockPublished = next;
+      });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await service.backgroundSyncTick();
+      expect(syncGroup).toHaveBeenCalledTimes(1);
+      expect(publicationAttempts).toBe(1);
+      expect(
+        mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+      ).toBeUndefined();
+      expect(service.runtimeSyncState.has(stateKey)).toBe(false);
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+      now.mockReturnValue(start + 30_000);
+      await service.backgroundSyncTick();
+      expect(syncGroup).toHaveBeenCalledTimes(2);
+      expect(publicationAttempts).toBe(2);
+      expect(service.runtimeSyncState.get(stateKey)).toMatchObject({
+        lastChainTip: 100,
+      });
+      expect(mockPublished.progress[`${networkId}:${accountId}`]).toMatchObject(
+        {
+          chainTip: 100,
+          isTipCaughtUp: true,
+        },
+      );
+      if (caughtUp) {
+        expect(
+          mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+        ).toEqual({ sessionId: expect.any(String), sequence: 2 });
+      } else {
+        expect(
+          mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+        ).toBeUndefined();
+      }
+
+      await service.backgroundSyncTick();
+      expect(syncGroup).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([false, true])(
+    'keeps a retry scheduled when publishing the error also fails (foreground: %s)',
+    async (foreground) => {
+      const start = 1_700_000_000_000;
+      const now = jest.spyOn(Date, 'now').mockReturnValue(start);
+      const { service, syncGroup } = createService({
+        withProgressPublication: true,
+      });
+      Object.assign(service, { isNetworkForegroundHot: () => foreground });
+      let rejectFurtherPublications = false;
+      mockSetScanState.mockImplementation(async (updater) => {
+        const next = updater(mockPublished);
+        if (
+          next.completedScanByAccount !== mockPublished.completedScanByAccount
+        ) {
+          rejectFurtherPublications = true;
+        }
+        if (rejectFurtherPublications) {
+          throw new OneKeyLocalError('state publication unavailable');
+        }
+        mockPublished = next;
+      });
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await service.backgroundSyncTick();
+      expect(syncGroup).toHaveBeenCalledTimes(1);
+      expect(service.runtimeSyncState.has(stateKey)).toBe(false);
+      expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+      mockSetScanState.mockImplementation(async (updater) => {
+        mockPublished = updater(mockPublished);
+      });
+      now.mockReturnValue(start + 30_000);
+      await service.backgroundSyncTick();
+      expect(syncGroup).toHaveBeenCalledTimes(2);
+      expect(
+        mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+      ).toEqual({ sessionId: expect.any(String), sequence: 2 });
+    },
+  );
+
+  it('keeps retrying if state publication fails while the next scan is backed off', async () => {
+    const start = 1_700_000_000_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(start);
+    const { service, syncGroup } = createService({
+      withProgressPublication: true,
+    });
+    Object.assign(service, { isNetworkForegroundHot: () => true });
+    mockSetScanState.mockImplementation(async (updater) => {
+      const next = updater(mockPublished);
+      if (
+        next.completedScanByAccount !== mockPublished.completedScanByAccount
+      ) {
+        throw new OneKeyLocalError('completion publication failed');
+      }
+      mockPublished = next;
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(3000);
+
+    mockSetScanState.mockRejectedValue(
+      new OneKeyLocalError('state publication unavailable'),
+    );
+    service.scheduleBackgroundSync.mockClear();
+    now.mockReturnValue(start + 3000);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+    mockSetScanState.mockImplementation(async (updater) => {
+      mockPublished = updater(mockPublished);
+    });
+    now.mockReturnValue(start + 33_000);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
+    expect(
+      mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+    ).toEqual({ sessionId: expect.any(String), sequence: 2 });
+  });
+
+  it('keeps mid-turn progress best-effort and publishes the next position', async () => {
+    const { service } = createService({ withProgressPublication: true });
+    const instance = service as unknown as InstanceType<
+      typeof ServicePrivacyChain
+    >;
+    mockSetScanState.mockRejectedValueOnce(
+      new OneKeyLocalError('mid-turn publication failed'),
+    );
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(
+      instance.publishLocalWalletSyncProgress({
+        networkId,
+        accountIds: [accountId],
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockPublished.progress[`${networkId}:${accountId}`]).toBeUndefined();
+
+    await instance.publishLocalWalletSyncProgress({
+      networkId,
+      accountIds: [accountId],
+    });
+    expect(mockPublished.progress[`${networkId}:${accountId}`]).toMatchObject({
+      chainTip: 100,
+      isTipCaughtUp: true,
+    });
+    expect(
+      mockPublished.completedScanByAccount?.[`${networkId}:${accountId}`],
+    ).toBeUndefined();
+    expect(service.scheduleBackgroundSync).not.toHaveBeenCalled();
+  });
+});
