@@ -1577,6 +1577,13 @@ class DesktopApiAppUpdate {
   ): Promise<boolean> {
     if (isStoreVersion) return false;
     if (
+      isWin &&
+      params.installSource === 'startup' &&
+      getWindowsInstallScope() !== 'currentUser'
+    ) {
+      return false;
+    }
+    if (
       params.userInitiated !== true &&
       params.installSource !== 'quit' &&
       params.installSource !== 'startup'

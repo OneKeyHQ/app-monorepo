@@ -893,6 +893,71 @@ test('Windows launches only the verified NSIS installer and then quits', async (
   expect(mockAppQuit).toHaveBeenCalledTimes(1);
 });
 
+test.each(['allUsers', 'unknown'] as const)(
+  'Windows %s startup defers installation without elevation and preserves explicit installation',
+  async (scope) => {
+    const { api, file, params } = await preparePackage('win32');
+    mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+      if (
+        scope === 'allUsers' &&
+        command === 'reg.exe' &&
+        args[1]?.startsWith('HKLM\\')
+      ) {
+        return `    InstallLocation    REG_SZ    ${path.win32.dirname(process.execPath)}\r\n`;
+      }
+      throw new OneKeyLocalError('Registry key unavailable');
+    });
+    mockSpawn.mockImplementation(() => {
+      const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+      setImmediate(() => child.emit('exit', 0));
+      return child;
+    });
+
+    expect(
+      await api.installPackage({ ...params, installSource: 'startup' }),
+    ).toBe(false);
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockAppQuit).not.toHaveBeenCalled();
+    expect(mockShowMessageBox).not.toHaveBeenCalled();
+    expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+    expect(fs.existsSync(file)).toBe(true);
+    expect(api.downloadedEvent).toBeDefined();
+
+    expect(await api.installPackage({ ...params, userInitiated: true })).toBe(
+      true,
+    );
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(mockSpawn).toHaveBeenCalledWith(
+      path.join(process.resourcesPath, 'elevate.exe'),
+      [file, '/S', '--updated', '--force-run'],
+      {
+        cwd: process.resourcesPath,
+        detached: true,
+        stdio: 'ignore',
+      },
+    );
+    expect(mockAppQuit).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('Windows current-user startup still launches the verified installer', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  expect(
+    await api.installPackage({ ...params, installSource: 'startup' }),
+  ).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledWith(
+    file,
+    ['/S', '--updated', '--force-run'],
+    {
+      cwd: path.dirname(file),
+      detached: true,
+      stdio: 'ignore',
+    },
+  );
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+});
+
 test('Windows cancelled elevation keeps the verified update ready and the window visible', async () => {
   const { api, params } = await preparePackage('win32');
   mockExecFileSync.mockImplementation(() => {
