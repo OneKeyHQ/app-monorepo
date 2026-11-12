@@ -971,10 +971,12 @@ class ServiceNetwork extends ServiceBase {
     for (const network of availableNetworks) {
       try {
         const localValidateResult =
-          await this.backgroundApi.serviceValidator.localValidateAddress({
-            networkId: network.id,
-            address,
-          });
+          await this.backgroundApi.serviceValidator.localValidateWatchingAddress(
+            {
+              networkId: network.id,
+              address,
+            },
+          );
         if (localValidateResult?.isValid) {
           if (!detectedNetworksMap[network.impl]) {
             detectedNetworksMap[network.impl] = [];

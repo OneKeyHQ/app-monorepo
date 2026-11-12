@@ -1,6 +1,7 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
+  ForbiddenKeyPathError,
   UnknownMethod,
   UnsupportedAddressTypeError,
 } from '../errors/hardwareErrors';
@@ -22,16 +23,24 @@ describe('convertDeviceError for what the firmware does not support', () => {
     expect(error).toBeInstanceOf(UnknownMethod);
   });
 
-  it('reads an Ed25519 path the device refuses as an unsupported address type', () => {
-    const message =
-      'Failure_DataError,Non-hardened paths unsupported on Ed25519';
+  it('reads a path the device cannot derive as an unsupported address type', () => {
+    const message = 'Non-hardened paths unsupported on Ed25519';
     const error = convertDeviceError({
-      code: HardwareErrorCode.RuntimeError,
+      code: HardwareErrorCode.DeviceNotSupportPath,
       error: message,
-      message,
     });
     expect(error).toBeInstanceOf(UnsupportedAddressTypeError);
+    expect(error.code).toBe(HardwareErrorCode.DeviceNotSupportPath);
     // Kept for logs and reports, though the user sees the translated text.
     expect(error.payload).toMatchObject({ message });
+  });
+
+  it('reads a path the safety checks refuse as a forbidden key path', () => {
+    const error = convertDeviceError({
+      code: HardwareErrorCode.ForbiddenKeyPath,
+      error: 'Forbidden key path',
+    });
+    expect(error).toBeInstanceOf(ForbiddenKeyPathError);
+    expect(error.code).toBe(HardwareErrorCode.ForbiddenKeyPath);
   });
 });

@@ -22900,6 +22900,7 @@
     "packages/kit/src/components/PermissionsDialog/PermissionsDialog.tsx": 10354,
     "packages/kit/src/components/PermissionsDialog/index.tsx": 8626,
     "packages/kit/src/components/PerpRefreshButton/index.tsx": 13590,
+    "packages/kit/src/components/PrivacyChainPlacesList/index.tsx": 1530,
     "packages/kit/src/components/RenameDialog/index.tsx": 3330,
     "packages/kit/src/components/RenameDialog/renameConsts.ts": 15543,
     "packages/kit/src/components/Resource/ResourceBannerCard.tsx": 7926,

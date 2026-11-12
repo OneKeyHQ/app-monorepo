@@ -188,6 +188,11 @@ export function convertDeviceError(
       return new HardwareErrors.NewFirmwareForceUpdate({ payload });
     case HardwareErrorCode.DeviceNotSupportMethod:
       return new HardwareErrors.UnknownMethod({ payload });
+    case HardwareErrorCode.ForbiddenKeyPath:
+      return new HardwareErrors.ForbiddenKeyPathError({ payload });
+    // The raw firmware text stays in the payload for logs and reports.
+    case HardwareErrorCode.DeviceNotSupportPath:
+      return new HardwareErrors.UnsupportedAddressTypeError({ payload });
     case HardwareErrorCode.NetworkError:
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
@@ -237,13 +242,6 @@ export function convertDeviceError(
       // Pro 2 answers a message type it lacks with "Handler not found" instead of "Unknown message".
       if (UNKNOWN_MESSAGE_ERRORS.some((text) => message.indexOf(text) !== -1)) {
         return new HardwareErrors.UnknownMethod({ payload });
-      }
-      if (message.indexOf('Forbidden key path') !== -1) {
-        return new HardwareErrors.ForbiddenKeyPathError({ payload });
-      }
-      // The raw firmware text stays in the payload for logs and reports.
-      if (message.indexOf('Non-hardened paths unsupported on Ed25519') !== -1) {
-        return new HardwareErrors.UnsupportedAddressTypeError({ payload });
       }
       if (
         message.toLowerCase().includes('string overflow') ||
