@@ -62,6 +62,9 @@ const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
 // element. Native keeps the inverse pill.
 const PILL_FOCUSED_BG = platformEnv.isNative ? 'bgPrimary' : 'bgActive';
 const PILL_FOCUSED_TEXT = platformEnv.isNative ? 'textInverse' : 'text';
+// Web: the other pills are subdued, so the selection does not rest on the
+// chip's faint gray alone.
+const PILL_IDLE_TEXT = platformEnv.isNative ? 'text' : 'textSubdued';
 const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
 const TAB_LIST_FILL_AVAILABLE_SPACE_STYLE = {
   flexGrow: 1,
@@ -111,7 +114,9 @@ function AnimatedTabBarItemText({
   const activeColor = isTextVariant
     ? theme.text.val
     : theme[PILL_FOCUSED_TEXT].val;
-  const inactiveColor = isTextVariant ? theme.textSubdued.val : theme.text.val;
+  const inactiveColor = isTextVariant
+    ? theme.textSubdued.val
+    : theme[PILL_IDLE_TEXT].val;
 
   const animatedColorStyle = useAnimatedStyle(() => {
     const color = interpolateColor(
@@ -247,7 +252,11 @@ export function TabBarItem({
         ) : (
           <SizableText
             size={resolvedTextSize}
-            color={isFocused ? (`$${PILL_FOCUSED_TEXT}` as const) : '$text'}
+            color={
+              isFocused
+                ? (`$${PILL_FOCUSED_TEXT}` as const)
+                : (`$${PILL_IDLE_TEXT}` as const)
+            }
             userSelect="none"
           >
             {displayLabel}
@@ -506,7 +515,7 @@ function AnimatedPillTabBarItem({
 
   const theme = useTheme();
   const activeColor = theme[PILL_FOCUSED_TEXT].val;
-  const inactiveColor = theme.text.val;
+  const inactiveColor = theme[PILL_IDLE_TEXT].val;
 
   const animatedTextStyle = useAnimatedStyle(() => {
     const color = interpolateColor(

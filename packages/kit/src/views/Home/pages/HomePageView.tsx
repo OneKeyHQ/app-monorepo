@@ -1132,11 +1132,15 @@ function BaseHomePageView({
             backgroundColor: nativeTabsTheme.bgApp.val,
             // Web: the selected pill is a light gray chip with the regular
             // label color, so the balance stays the page's darkest element.
-            // Native tablets keep the inverse pill.
+            // The other labels are subdued, so the selection does not rest on
+            // the chip's faint gray alone. Native tablets keep the inverse
+            // pill.
             activeTextColor: platformEnv.isNative
               ? nativeTabsTheme.textInverse.val
               : nativeTabsTheme.text.val,
-            inactiveTextColor: nativeTabsTheme.text.val,
+            inactiveTextColor: platformEnv.isNative
+              ? nativeTabsTheme.text.val
+              : nativeTabsTheme.textSubdued.val,
             indicatorColor: platformEnv.isNative
               ? nativeTabsTheme.bgPrimary.val
               : nativeTabsTheme.bgActive.val,
