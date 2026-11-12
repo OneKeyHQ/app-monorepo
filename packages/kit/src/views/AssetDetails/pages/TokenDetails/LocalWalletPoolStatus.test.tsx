@@ -4,10 +4,6 @@ import type { ReactElement, ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 import {
   LocalWalletPoolStatus,
@@ -24,17 +20,10 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
-const mockPushModal = jest.fn();
-
 jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => false,
   Easing:
     jest.requireActual<typeof import('react-native')>('react-native').Easing,
-}));
-
-jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
-  __esModule: true,
-  default: () => ({ pushModal: mockPushModal }),
 }));
 
 const mockAssertAdmission = jest.fn(
@@ -374,12 +363,11 @@ describe('LocalWalletPoolStatus enable failure', () => {
     mockAssertAdmission.mockReset().mockResolvedValue(undefined);
     mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockShowSlotsFull.mockClear();
-    mockPushModal.mockClear();
     mockBirthday = { birthdayTimestamp: 1_700_000_000_000 };
   });
 
   it.each([undefined, 'home'] as const)(
-    'explains a full network before the birthday form, offering settings (%s)',
+    'lists a full network’s accounts to delete before the birthday form (%s)',
     async (presentation) => {
       mockAssertAdmission.mockRejectedValue(slotsFullError);
       const enableAccount = jest.fn(async () => undefined);
@@ -406,17 +394,8 @@ describe('LocalWalletPoolStatus enable failure', () => {
 
       expect(Dialog.show).not.toHaveBeenCalled();
       expect(enableAccount).not.toHaveBeenCalled();
-      const params = mockShowSlotsFull.mock.calls[0][0] as {
-        onOpenSettings?: () => void;
-      };
-      params.onOpenSettings?.();
-      expect(mockPushModal).toHaveBeenCalledTimes(1);
-      expect(mockPushModal).toHaveBeenCalledWith(
-        EModalRoutes.AccountManagerStacks,
-        {
-          screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-          params: { walletId: 'hd-1', networkId: 'zec--0' },
-        },
+      expect(mockShowSlotsFull).toHaveBeenCalledWith(
+        expect.objectContaining({ networkId: 'zec--0' }),
       );
     },
   );
