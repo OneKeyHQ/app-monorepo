@@ -737,10 +737,11 @@ function scheduleColdStartCleanupOnce(): void {
  * Cold-start hydrate hook (spec §7 T0). Call once from the home `TokenListBlock`
  * (the producer's mount owner), BEFORE the async fetch runs. It:
  *   - builds the SAME apply deps bag the producer uses (bound to this store);
- *   - runs `hydrateCellsFromColdStart` exactly once per (store, ownerKey) via a
- *     ref-guard, eagerly in a `useLayoutEffect` so the cells are painted at T0
- *     (the producer's own mount-prime flush + the real fetch then keep them
- *     fresh; a higher-generation real frame supersedes the hydrated one);
+ *   - attempts `hydrateCellsFromColdStart` once per store per hook mount via a
+ *     ref-guard, during render so child rows are ready on their first pass,
+ *     with a guarded `useLayoutEffect` fallback (the producer's mount-prime
+ *     flush + the real fetch then keep them fresh; a real frame supersedes
+ *     the provisional hydrated one);
  *   - schedules the one-time version-flag purge on HomePageReady.
  *
  * Thin shell: all logic lives in the pure / apply layers (spec §11.5).
@@ -778,10 +779,14 @@ export function useTokenListCellsColdStartHydrate(
   // by the per-owner replay in the producer instead.
   const hydratedStoreRef = useRef<IJotaiContextStore | undefined>(undefined);
 
-  // Hydrate synchronously before child `TokenListView` renders its first pass
-  // (`TokenListBlock` calls this hook before rendering `<TokenListView />` and
-  // does not subscribe to `listStructureAtom` itself). This avoids an empty
-  // `generation < 0` first render followed by a `useLayoutEffect` re-render.
+  // NativeList needs cached rows in its first render/snapshot. Even a synchronous
+  // layout effect runs after child rendering, so effect-only hydration creates
+  // an empty `generation < 0` pass followed by another list snapshot. Keep this
+  // eager bootstrap and the guarded layout-effect fallback for that requirement.
+  // This deliberately writes shared state during render: `TokenListBlock` has
+  // already read `listStructureAtom`, so its snapshot can lag the child's.
+  // The ref and existing-owner guard below limit replay; they do not make this
+  // a general-purpose render-time update path.
   const tryHydrateStore = useCallback(() => {
     if (!store || !deps || !ownerKey || !currencyId) {
       return;
