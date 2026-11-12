@@ -9,7 +9,6 @@ const crypto = require('node:crypto');
 
 const {
   CENTRAL_REPO,
-  PROJECT_ID,
   PROJECT_SLUG,
   githubApi,
   sourceFromRelease,
@@ -46,7 +45,7 @@ function sortKeysDeep(value) {
 const toStableJson = (value) =>
   `${JSON.stringify(sortKeysDeep(value), null, 2)}\n`;
 
-/** Git blob id of a file, to compare with the tree on main. */
+/** Git blob id of a file, to compare with the tree of the base branch. */
 function blobSha(text) {
   const data = Buffer.from(text, 'utf8');
   return crypto
@@ -70,9 +69,15 @@ function resolveRef(keyMeta, name) {
 }
 
 class CentralClient {
-  constructor({ api = githubApi(), source } = {}) {
+  constructor({
+    api = githubApi(),
+    source,
+    // Branch that copy PRs target. Another branch only to try unmerged
+    // onekey-i18n changes end to end; its CI must build the PR preview.
+    base = process.env.ONEKEY_I18N_BASE || 'main',
+  } = {}) {
     this.api = api;
-    this.projectId = PROJECT_ID;
+    this.base = base;
     // { tag, commit, files } of app.source.zip; injected by tests.
     this.source = source;
     this.state = null;
@@ -99,14 +104,9 @@ class CentralClient {
     return this.state;
   }
 
-  async project(expectedName) {
+  async project() {
     const { project } = await this.load();
-    if (expectedName && project.name !== expectedName)
-      throw new Error(
-        `onekey-i18n project "${project.name}" differs from "${expectedName}". No changes were made.`,
-      );
     return {
-      id: this.projectId,
       name: project.name,
       languages: project.languages.map(({ iso, name }) => ({
         lang_iso: iso,
@@ -263,37 +263,39 @@ class CentralClient {
   }
 
   /**
-   * Commit the changed files to a new onekey-i18n branch and open a PR.
-   * Refuses when main changed any of those files after the release that was
-   * read, so nobody else's edit is overwritten. Returns null without changes.
+   * Commit the changed files to a new onekey-i18n branch and open a PR
+   * against the base branch (main). Refuses when the base changed any of those
+   * files after the release that was read, so nobody else's edit is
+   * overwritten. Returns null without changes.
    */
   async finalize({ title, body, branchHint = PROJECT_SLUG }) {
     if (this.changed.size === 0) return null;
     const repo = `/repos/${CENTRAL_REPO}`;
     const files = [...this.changed].toSorted();
-    const main = (await this.api.get(`${repo}/git/ref/heads/main`)).object.sha;
-    if (main !== this.source.commit) {
+    const head = (await this.api.get(`${repo}/git/ref/heads/${this.base}`))
+      .object.sha;
+    if (head !== this.source.commit) {
       const listing = [
-        ...(await this.api.get(`${repo}/contents/${PROJECT_PATH}?ref=${main}`)),
+        ...(await this.api.get(`${repo}/contents/${PROJECT_PATH}?ref=${head}`)),
         ...(await this.api.get(
-          `${repo}/contents/${PROJECT_PATH}/locales?ref=${main}`,
+          `${repo}/contents/${PROJECT_PATH}/locales?ref=${head}`,
         )),
       ];
-      const onMain = Object.fromEntries(
+      const onBase = Object.fromEntries(
         listing.map((item) => [
           item.path.slice(PROJECT_PATH.length + 1),
           item.sha,
         ]),
       );
       const moved = files.filter(
-        (file) => onMain[file] !== blobSha(this.source.files[file] ?? ''),
+        (file) => onBase[file] !== blobSha(this.source.files[file] ?? ''),
       );
       if (moved.length)
         throw new Error(
-          `onekey-i18n main changed ${moved.join(', ')} after ${this.source.tag}. Wait for its release, then sync and preview again.`,
+          `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag}. Wait for its release, then sync and preview again.`,
         );
     }
-    const baseTree = (await this.api.get(`${repo}/git/commits/${main}`)).tree
+    const baseTree = (await this.api.get(`${repo}/git/commits/${head}`)).tree
       .sha;
     const tree = [];
     for (const file of files) {
@@ -315,7 +317,7 @@ class CentralClient {
     const commit = await this.api.request('POST', `${repo}/git/commits`, {
       message: title,
       tree: newTree.sha,
-      parents: [main],
+      parents: [head],
     });
     const branch = `i18n/${branchHint}-${commit.sha.slice(0, 7)}`;
     await this.api.request('POST', `${repo}/git/refs`, {
@@ -325,7 +327,7 @@ class CentralClient {
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
       head: branch,
-      base: 'main',
+      base: this.base,
       body,
     });
     this.changed.clear();

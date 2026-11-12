@@ -19,7 +19,6 @@ async function prepare(ctx, api, draft) {
   const plan = await preparePlan({
     draft,
     client: api.client,
-    projectName: 'Monorepo test',
     root: ctx.root,
   });
   const file = path.join(ctx.root, 'plan.json');

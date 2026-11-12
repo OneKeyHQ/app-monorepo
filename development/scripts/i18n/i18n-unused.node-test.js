@@ -27,13 +27,11 @@ test('deletion selects only the exact allowlist in its requested order', (t) => 
     '--delete-central',
     '--delete-keys-file',
     scopeFile(t, JSON.stringify(['old_second', 'old_first'])),
-    '--project-name=Monorepo v5',
   ]);
   assert.deepEqual(selectUnusedForDeletion(report, options), [
     { key: 'old_second' },
     { key: 'old_first' },
   ]);
-  assert.equal(options.projectName, 'Monorepo v5');
   assert.equal(options.deleteConfirm, false);
 });
 
@@ -81,7 +79,6 @@ test('scope flags reject empty paths, unrelated usage and ambiguous limits', () 
     ['--delete-keys-file='],
     ['--delete-keys-file=keys.json'],
     ['--delete-central', '--delete-keys-file=keys.json', '--delete-limit=1'],
-    ['--delete-central', '--project-name='],
     ['--yes'],
   ]) {
     assert.throws(() => parseArgs(args));

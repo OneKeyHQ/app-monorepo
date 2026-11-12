@@ -9,6 +9,8 @@ const zlib = require('node:zlib');
 const {
   LOCALE_ROOT,
   fromPullRequest,
+  githubApi,
+  resolveToken,
   fromRelease,
   verifyLock,
   writeLocaleFiles,
@@ -130,14 +132,14 @@ function sourceFixture() {
   };
 }
 
-function commitRoutes({ main = 'c1', listing } = {}) {
+function commitRoutes({ main = 'c1', listing, base = 'main' } = {}) {
   const blobs = [];
   const bodies = {};
   return {
     blobs,
     bodies,
     routes: {
-      [`GET ${REPO}/git/ref/heads/main`]: { object: { sha: main } },
+      [`GET ${REPO}/git/ref/heads/${base}`]: { object: { sha: main } },
       [`GET ${REPO}/git/commits/${main}`]: { tree: { sha: 't1' } },
       ...(listing
         ? {
@@ -178,13 +180,12 @@ test('reads release source data through the interface the workflow expects', asy
     api: fakeApi({}),
     source: sourceFixture(),
   });
-  const project = await client.project('Monorepo v5');
-  assert.equal(project.id, 'OneKeyHQ/onekey-i18n/app');
+  const project = await client.project();
+  assert.equal(project.name, 'Monorepo v5');
   assert.deepEqual(
     project.languages.map((item) => item.lang_iso),
     ['en_US', 'zh_CN'],
   );
-  await assert.rejects(client.project('Other'), /differs/);
 
   const key = await client.findKey('global.cancel');
   assert.equal(key.key_id, 'global::cancel');
@@ -306,6 +307,23 @@ test('finalize refuses to overwrite files main changed after the release', async
   );
   assert.equal((await client.finalize({ title: 't' })).number, 9);
   assert.deepEqual(untouched.bodies.commit.parents, ['c9']);
+});
+
+test('finalize can open the PR against another onekey-i18n branch', async () => {
+  const base = 'feat/per-project-releases';
+  const { routes, bodies } = commitRoutes({ main: 'c7', base });
+  const client = new CentralClient({
+    api: fakeApi(routes),
+    source: { ...sourceFixture(), commit: 'c7' },
+    base,
+  });
+  await client.updateTranslation(
+    translationId('global::cancel', 'zh_CN'),
+    '取消',
+  );
+  await client.finalize({ title: 't' });
+  assert.deepEqual(bodies.commit.parents, ['c7']);
+  assert.equal(bodies.pull.base, base);
 });
 
 test('pulls a release, pins it in the lock and verify guards the files', async (t) => {
@@ -446,15 +464,7 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
   assert.deepEqual(Object.keys(result.files), ['json/en_US.json']);
 });
 
-test('pull rejects plans made for another source', async () => {
-  await assert.rejects(
-    pull([
-      '--expected-project-id',
-      '442401716557769b6e4ef8.80991305',
-      '--verify',
-    ]),
-    /serves OneKeyHQ\/onekey-i18n\/app/,
-  );
+test('locale files are never written outside the locale directory', () => {
   assert.throws(
     () =>
       writeLocaleFiles(os.tmpdir(), {
@@ -463,5 +473,36 @@ test('pull rejects plans made for another source', async () => {
         files: { '../escape.json': '{}' },
       }),
     /Unsafe path/,
+  );
+});
+
+test('the shared read-only token is never used for writes', async () => {
+  const env = { ONEKEY_I18N_TOKEN: 'shared-read', GH_TOKEN: 'own' };
+  assert.equal(resolveToken({ env }), 'shared-read');
+  assert.equal(resolveToken({ write: true, env }), 'own');
+
+  const seen = [];
+  const api = githubApi({
+    token: 'shared-read',
+    writeToken: 'own',
+    fetchImpl: async (url, init) => {
+      seen.push(`${init.method} ${init.headers.Authorization}`);
+      return new Response('{}', { status: 200 });
+    },
+  });
+  await api.get(`${REPO}/git/ref/heads/main`);
+  await api.request('POST', `${REPO}/git/blobs`, { content: 'x' });
+  assert.deepEqual(seen, ['GET Bearer shared-read', 'POST Bearer own']);
+});
+
+test('a write the token cannot make explains the access it needs', async () => {
+  const api = githubApi({
+    token: 'r',
+    writeToken: 'w',
+    fetchImpl: async () => new Response('{}', { status: 404 }),
+  });
+  await assert.rejects(
+    api.request('POST', `${REPO}/pulls`, {}),
+    /needs write access to OneKeyHQ\/onekey-i18n/,
   );
 });

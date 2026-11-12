@@ -1,7 +1,9 @@
 // App translations come from OneKeyHQ/onekey-i18n (projects/app) through the
 // GitHub API: released archives for normal pulls, a PR's CI preview while an
 // onekey-i18n PR is open. No local checkout of onekey-i18n is involved.
-// Auth: ONEKEY_I18N_TOKEN, GH_TOKEN or GITHUB_TOKEN, else `gh auth token`.
+// Auth: reads may use ONEKEY_I18N_TOKEN, a shared read-only token that the
+// yarn scripts load from 1Password (yarn op). Writes, i.e. copy PRs, always use
+// the developer's own identity: GH_TOKEN, GITHUB_TOKEN or `gh auth token`.
 
 const { execFileSync } = require('node:child_process');
 const crypto = require('node:crypto');
@@ -13,16 +15,16 @@ const zlib = require('node:zlib');
 const ROOT = path.resolve(__dirname, '../../..');
 const CENTRAL_REPO = 'OneKeyHQ/onekey-i18n';
 const PROJECT_SLUG = 'app';
-// Project identity recorded in workflow sync records and plans.
-const PROJECT_ID = `${CENTRAL_REPO}/${PROJECT_SLUG}`;
 const PREVIEW_ARTIFACT = 'i18n-preview';
 const LOCALE_ROOT = 'packages/shared/src/locale';
 const LOCK_PATH = `${LOCALE_ROOT}/i18n.lock.json`;
 
 const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
 
-function resolveToken(env = process.env) {
-  const fromEnv = env.ONEKEY_I18N_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN;
+/** Token for reads; with write, the developer's own token for the copy PR. */
+function resolveToken({ write = false, env = process.env } = {}) {
+  const fromEnv =
+    (write ? '' : env.ONEKEY_I18N_TOKEN) || env.GH_TOKEN || env.GITHUB_TOKEN;
   if (fromEnv) return fromEnv;
   try {
     return execFileSync('gh', ['auth', 'token'], {
@@ -31,7 +33,9 @@ function resolveToken(env = process.env) {
     }).trim();
   } catch (error) {
     throw new Error(
-      `No GitHub token for ${CENTRAL_REPO}: set ONEKEY_I18N_TOKEN or run gh auth login.`,
+      write
+        ? `Opening the ${CENTRAL_REPO} PR uses your own GitHub identity; run gh auth login.`
+        : `No GitHub token for ${CENTRAL_REPO}: run the yarn script (it loads ONEKEY_I18N_TOKEN from 1Password) or gh auth login.`,
       { cause: error },
     );
   }
@@ -41,14 +45,21 @@ const RETRYABLE = (status) => status === 429 || status >= 500;
 
 /**
  * Minimal GitHub REST client; fetchImpl is injectable for tests. Reads retry
- * transient failures (5xx, 429, network) with backoff; writes never retry.
+ * transient failures (5xx, 429, network) with backoff; writes never retry and
+ * never use the shared read-only token.
  */
-function githubApi({ token, fetchImpl = fetch, retryDelayMs = 1000 } = {}) {
-  let resolvedToken = token;
-  const headers = () => {
-    resolvedToken = resolvedToken || resolveToken();
+function githubApi({
+  token,
+  writeToken,
+  fetchImpl = fetch,
+  retryDelayMs = 1000,
+} = {}) {
+  const tokens = { read: token, write: writeToken };
+  const headers = (write = false) => {
+    const kind = write ? 'write' : 'read';
+    tokens[kind] = tokens[kind] || resolveToken({ write });
     return {
-      Authorization: `Bearer ${resolvedToken}`,
+      Authorization: `Bearer ${tokens[kind]}`,
       'User-Agent': 'onekey-app-i18n',
       'X-GitHub-Api-Version': '2022-11-28',
     };
@@ -79,7 +90,7 @@ function githubApi({ token, fetchImpl = fetch, retryDelayMs = 1000 } = {}) {
         fetchImpl(url(endpoint), {
           method,
           headers: {
-            ...headers(),
+            ...headers(method !== 'GET'),
             Accept: 'application/vnd.github+json',
             ...(body === undefined
               ? {}
@@ -96,8 +107,15 @@ function githubApi({ token, fetchImpl = fetch, retryDelayMs = 1000 } = {}) {
         });
       }
       if (!response.ok) {
+        // GitHub answers 404 when the token cannot write to the repository.
+        const denied =
+          method !== 'GET' && [401, 403, 404].includes(response.status);
         const error = new Error(
-          `${method} ${endpoint}: HTTP ${response.status}`,
+          `${method} ${endpoint}: HTTP ${response.status}${
+            denied
+              ? `; your GitHub login needs write access to ${CENTRAL_REPO}`
+              : ''
+          }`,
         );
         error.status = response.status;
         throw error;
@@ -405,7 +423,6 @@ module.exports = {
   ROOT,
   CENTRAL_REPO,
   PROJECT_SLUG,
-  PROJECT_ID,
   LOCALE_ROOT,
   LOCK_PATH,
   githubApi,

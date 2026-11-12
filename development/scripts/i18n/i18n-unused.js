@@ -121,7 +121,6 @@ function parseArgs(argv) {
     limit: DEFAULT_LIMIT,
     maxFileSize: DEFAULT_MAX_FILE_SIZE,
     output: '',
-    projectName: '',
     pullAfterDelete: false,
     roots: [],
     verbose: false,
@@ -183,12 +182,6 @@ function parseArgs(argv) {
           : arg.slice('--delete-keys-file='.length);
       if (!options.deleteKeysFile.trim()) {
         throw new Error('--delete-keys-file requires a non-empty path');
-      }
-    } else if (arg === '--project-name' || arg.startsWith('--project-name=')) {
-      options.projectName =
-        arg === '--project-name' ? next() : arg.slice('--project-name='.length);
-      if (!options.projectName.trim()) {
-        throw new Error('--project-name requires a non-empty name');
       }
     } else if (arg === '--pull-after-delete') {
       options.pullAfterDelete = true;
@@ -253,7 +246,6 @@ Options:
   --yes                     Delete them: opens an onekey-i18n PR. Requires --delete-central
   --delete-limit <n>        Delete only the first n unused keys. 0 means all
   --delete-keys-file <path> Delete only keys in a non-empty JSON array; all must be unused
-  --project-name <name>     Verify the expected onekey-i18n project name before deletion
   --pull-after-delete       Wait for that PR's CI preview and pull it
   --max-file-size <bytes>   Skip larger files. Default: ${DEFAULT_MAX_FILE_SIZE}
   --verbose                 Print parse and dynamic-reference warnings
@@ -264,7 +256,7 @@ Examples:
   yarn i18n:unused --format json --output tmp/i18n-unused.json
   yarn i18n:unused --include-tests --root packages/kit
   yarn i18n:unused --delete-central
-  yarn i18n:unused --include-tests --delete-central --delete-keys-file .tmp/old-keys.json --project-name "Monorepo v5"
+  yarn i18n:unused --include-tests --delete-central --delete-keys-file .tmp/old-keys.json
   yarn i18n:unused --delete-central --yes --pull-after-delete
 `);
 }
@@ -890,10 +882,6 @@ async function applyCentralDeleteIfRequested(
   }
 
   const client = createClient();
-  if (options.projectName) {
-    const project = await client.project(options.projectName);
-    summary.project = { id: project.id, name: project.name };
-  }
 
   const plan = await buildCentralDeletePlan({ client, unused: selectedUnused });
   summary.matched = plan.toDelete.length;

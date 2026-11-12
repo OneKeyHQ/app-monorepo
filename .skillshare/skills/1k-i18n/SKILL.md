@@ -14,7 +14,7 @@ writes and verification. The model selects scope, judges reuse, writes copy and 
 ## Rules
 
 - Never manually edit generated locale JSON, `translations.ts`, `localeJsonMap.ts`
-  or `i18n.lock.json`. `yarn i18n:check-lock` fails on hand edits.
+  or `i18n.lock.json`.
 - Before writing or reviewing English source copy, read
   `.skillshare/skills/ui-copy/SKILL.md` and follow its rules.
 - Runtime translations come from bundled locale JSON (`localeLoaders.ts`). Deleting
@@ -36,17 +36,17 @@ Both modes use `upsert`. Do not silently switch modes to bypass a rejected overw
 
 ## Setup
 
-- Access to `OneKeyHQ/onekey-i18n` through GitHub: `gh auth login`, or a token in
-  `ONEKEY_I18N_TOKEN`. No checkout of onekey-i18n, Lokalise token or credential wrapper.
+- Reads use the read-only `ONEKEY_I18N_TOKEN` that the yarn scripts load from 1Password
+  (`yarn op`). Opening onekey-i18n PRs uses your own `gh auth login` identity, which needs
+  write access to `OneKeyHQ/onekey-i18n`. No checkout of onekey-i18n is needed.
 
 ## Workflow
 
 Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
 
 1. **Pull before selecting or translating copy**, in both modes:
-   `yarn i18n:sync --project-name "Monorepo v5" --out <dir>/sync.json`.
-   It pulls the latest `app` release. Verify the returned project
-   (`OneKeyHQ/onekey-i18n/app`). Preserve unknown local generated changes if the
+   `yarn i18n:sync --out <dir>/sync.json`.
+   It pulls the latest `app` release. Preserve unknown local generated changes if the
    script blocks; use [recovery guidance](references/rules/i18n.md#recovery).
 2. Locate the module with `rg`, then run
    `yarn i18n:workflow scan --mode <mode> --sync <dir>/sync.json --module <path> --out <dir>/draft.json`.
@@ -57,7 +57,7 @@ Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
    or requested translations using [the patch format](references/rules/i18n.md#fill-a-draft).
    Use `inspect --file <draft>` to check remaining work.
 4. Generate a plan with a new filename:
-   `yarn i18n:plan --file <dir>/draft.json --project-name "Monorepo v5" --out <dir>/plan.json`.
+   `yarn i18n:plan --file <dir>/draft.json --out <dir>/plan.json`.
    Scripts generate JSON, Markdown and HTML; never write one-off preview HTML.
 5. **Paste the generated Markdown into the conversation**, provide the HTML link,
    state mode/change scope, and wait for confirmation. Markdown shows only English
@@ -83,8 +83,7 @@ Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
 8. Wire generated keys into the requested module, rescan and run appropriate checks.
    Until the onekey-i18n PR merges, `i18n.lock.json` records that PR as the source and
    this repository's PR must not merge. After it merges and its release is published,
-   run `yarn i18n:pull` (latest release) and `yarn i18n:check-lock`, then commit the
-   files. Report the onekey-i18n PR, locale count, pull verification, unrelated
+   run `yarn i18n:pull` (latest release), then commit the files. Report the onekey-i18n PR, locale count, pull verification, unrelated
    generated changes and code wiring. A prepared preview is not a completed write.
 9. If keys changed, preserve the old → new mapping. After apply, pull verification
    and code migration succeed, prepare the [old-key cleanup](references/rules/i18n.md#old-key-cleanup)

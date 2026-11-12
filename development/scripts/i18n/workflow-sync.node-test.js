@@ -21,7 +21,6 @@ async function start(ctx, api, overrides = {}) {
   return syncWorkspace({
     file,
     root: ctx.root,
-    projectName: 'Monorepo test',
     client: api.client,
     pullImpl: (_sync, root) => {
       const values = Object.fromEntries(
@@ -69,7 +68,6 @@ test('initial pull precedes scan and its known generated diff remains usable thr
   const plan = await preparePlan({
     draft,
     client: api.client,
-    projectName: 'Monorepo test',
     root: ctx.root,
   });
   assert.deepEqual(plan.entries[0].changedLocales, ['zh_CN']);
@@ -112,7 +110,6 @@ test('remote changes between initial pull and preview cannot be proposed as stal
       preparePlan({
         draft,
         client: api.client,
-        projectName: 'Monorepo test',
         root: ctx.root,
       }),
     /changed since initial pull/,
@@ -120,17 +117,13 @@ test('remote changes between initial pull and preview cannot be proposed as stal
   assert.equal(api.writes.length, 0);
 });
 
-test('initial pull refuses a wrong project or local edits before invoking the generator', async (t) => {
+test('initial pull refuses local edits before invoking the generator', async (t) => {
   const ctx = fixture(t);
   const api = fakeClient(ctx);
   let pulls = 0;
   const pullImpl = async () => {
     pulls += 1;
   };
-  await assert.rejects(
-    () => start(ctx, api, { projectName: 'Wrong project', pullImpl }),
-    /Project name mismatch/,
-  );
   fs.appendFileSync(path.join(ctx.root, LOCALES_PATH, 'en_US.json'), '\n');
   await assert.rejects(() => start(ctx, api, { pullImpl }), /local changes/);
   assert.equal(pulls, 0);
@@ -161,7 +154,7 @@ test('later generated edits, extra files and modified sync records invalidate th
   assert.throws(() => readSync(file, ctx.root), /file set changed/);
   fs.unlinkSync(extra);
   const original = readJson(file);
-  writeJson(file, { ...original, project: { id: 'Other project' } });
+  writeJson(file, { ...original, localeMap: {} });
   assert.throws(() => readSync(file, ctx.root), /Invalid/);
   writeJson(file, original);
   fs.appendFileSync(path.join(ctx.root, LOCALES_PATH, 'en_US.json'), '\n');

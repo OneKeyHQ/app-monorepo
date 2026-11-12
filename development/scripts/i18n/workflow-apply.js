@@ -26,9 +26,7 @@ function desired(entry, records, locales) {
 }
 
 async function verifyProject(plan, client, root) {
-  if (client.projectId !== plan.project.id)
-    throw new Error('Credential project differs from approved project.');
-  const project = await client.project(plan.project.name);
+  const project = await client.project();
   const locales = loadCatalog(root).locales;
   if (
     digest(locales) !== digest(plan.locales) ||
@@ -147,7 +145,6 @@ async function applyPlan({
     schemaVersion: 1,
     kind: 'i18n-receipt',
     approval,
-    project: plan.project,
     status: 'preflight',
     operations: [],
   };

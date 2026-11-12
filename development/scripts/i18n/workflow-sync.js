@@ -62,13 +62,11 @@ function assertGeneratedBaseline(root, sync) {
 
 // Pulls the latest onekey-i18n release, or, after apply opened an onekey-i18n
 // PR, waits for that PR's CI preview and pulls it.
-function pull(projectContext, root, outputRoot, { pr } = {}) {
+function pull(_record, root, outputRoot, { pr } = {}) {
   execFileSync(
     process.execPath,
     [
       path.join(root, 'development/scripts/i18n/i18n-pull.js'),
-      '--expected-project-id',
-      projectContext.project.id,
       ...(pr ? ['--pr', String(pr), '--wait'] : []),
       ...(outputRoot ? ['--output-root', outputRoot] : []),
     ],
@@ -78,7 +76,6 @@ function pull(projectContext, root, outputRoot, { pr } = {}) {
 
 async function syncWorkspace({
   client,
-  projectName,
   file,
   root = ROOT,
   localeMap: overrides,
@@ -86,8 +83,6 @@ async function syncWorkspace({
   verifyCurrent = false,
   pullImpl = pull,
 }) {
-  if (!projectName)
-    throw new Error('Pass --project-name for the intended initial pull.');
   if (fs.existsSync(file))
     throw new Error('Initial pull record already exists; choose a new path.');
   const base = workspace(root);
@@ -96,13 +91,7 @@ async function syncWorkspace({
   if (!verifyCurrent) assertGeneratedBaseline(root, previousSync);
   const beforeHashes = generatedHashes(root);
   const before = loadCatalog(root);
-  const project = await client.project(projectName);
-  if (
-    previousSync &&
-    (project.id !== previousSync.project.id ||
-      project.name !== previousSync.project.name)
-  )
-    throw new Error('Refresh project differs from the initial pull.');
+  const project = await client.project();
   const localeMap = mapLanguages(
     before.locales,
     project.languages,
@@ -115,7 +104,6 @@ async function syncWorkspace({
     schemaVersion: 1,
     kind: 'i18n-sync',
     status: 'pulling',
-    project: { id: project.id, name: project.name },
     workspace: base,
     localeMap,
     startedAt: new Date().toISOString(),
