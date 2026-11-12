@@ -14,6 +14,7 @@ type IMockStackProps = {
   flex?: number;
   flexWrap?: string;
   flexShrink?: number;
+  overflow?: string;
 };
 
 // The row is laid out by Yoga on native only; web keeps its wrapping title.
@@ -29,18 +30,28 @@ jest.mock('@onekeyhq/components', () => {
     flex,
     flexWrap,
     flexShrink,
+    overflow,
   }: IMockStackProps) => (
     <div
       data-testid={testID}
       data-flex={flex}
       data-flex-wrap={flexWrap}
       data-flex-shrink={flexShrink}
+      data-overflow={overflow}
     >
       {children}
     </div>
   );
-  const MockBadge = ({ children }: { children?: ReactNode }) => (
-    <div data-testid="recommended-badge">{children}</div>
+  const MockBadge = ({
+    children,
+    flexShrink,
+  }: {
+    children?: ReactNode;
+    flexShrink?: number;
+  }) => (
+    <div data-testid="recommended-badge" data-flex-shrink={flexShrink}>
+      {children}
+    </div>
   );
   MockBadge.Text = ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
@@ -56,8 +67,18 @@ jest.mock('@onekeyhq/components', () => {
     ScrollView: ({ children }: { children?: ReactNode }) => (
       <div>{children}</div>
     ),
-    SizableText: ({ children }: { children?: ReactNode }) => (
-      <span>{children}</span>
+    SizableText: ({
+      children,
+      flexShrink,
+      numberOfLines,
+    }: {
+      children?: ReactNode;
+      flexShrink?: number;
+      numberOfLines?: number;
+    }) => (
+      <span data-flex-shrink={flexShrink} data-number-of-lines={numberOfLines}>
+        {children}
+      </span>
     ),
     Skeleton: () => null,
     Stack: MockStack,
@@ -186,6 +207,38 @@ describe('RecommendedSection mobile list row on native', () => {
     expect(titleRow?.getAttribute('data-flex')).toBeNull();
     expect(titleRow?.getAttribute('data-flex-wrap')).toBeNull();
     expect(badgeRow?.getAttribute('data-flex-wrap')).toBe('nowrap');
-    expect(badgeRow?.getAttribute('data-flex-shrink')).toBe('0');
+  });
+
+  it('lets the badges give way to the symbol when they do not fit', () => {
+    render(
+      <RecommendedSection
+        withHeader={false}
+        tokens={[
+          buildToken({
+            badges: [
+              { badgeType: 'success', tag: 'Rewards' },
+              { badgeType: 'info', tag: 'New' },
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    const symbol = screen.getByText('USDC');
+    const badges = screen.getAllByTestId('recommended-badge');
+    const badgeRow = badges[0]?.parentElement;
+
+    // The symbol identifies the row: it keeps its width (still one line, so a
+    // symbol wider than the row ends with an ellipsis) while the badge group
+    // and every badge in it shrink. A badge that got narrower ends its own
+    // label with an ellipsis, so the group is never cut off at the row edge.
+    expect(symbol.getAttribute('data-flex-shrink')).toBe('0');
+    expect(symbol.getAttribute('data-number-of-lines')).toBe('1');
+    expect(badgeRow?.getAttribute('data-flex-shrink')).toBe('1');
+    expect(badgeRow?.getAttribute('data-overflow')).toBe('hidden');
+    expect(badges).toHaveLength(2);
+    badges.forEach((badge) => {
+      expect(badge.getAttribute('data-flex-shrink')).toBe('1');
+    });
   });
 });

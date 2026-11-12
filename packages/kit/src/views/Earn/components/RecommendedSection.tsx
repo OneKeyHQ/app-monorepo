@@ -11,7 +11,11 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
-import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
+import type {
+  IBadgeProps,
+  IXStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -60,9 +64,11 @@ const RecommendedBadges = memo(
   ({
     token,
     containerProps,
+    badgeProps,
   }: {
     token: IRecommendAsset;
     containerProps?: IXStackProps;
+    badgeProps?: IBadgeProps;
   }) => {
     if (!token.badges?.length) {
       return null;
@@ -82,6 +88,7 @@ const RecommendedBadges = memo(
             badgeType={badge.badgeType}
             badgeSize="sm"
             userSelect="none"
+            {...badgeProps}
           >
             <Badge.Text>{badge.tag}</Badge.Text>
           </Badge>
@@ -263,11 +270,24 @@ function extractAvailableNumber(text?: string) {
 const LIST_TITLE_ROW_PROPS: IXStackProps = platformEnv.isNative
   ? { overflow: 'hidden' }
   : { flex: 1, flexWrap: 'wrap' };
-const LIST_BADGES_CONTAINER_PROPS: IXStackProps = {
-  justifyContent: 'flex-start',
-  flexShrink: 0,
-  ...(platformEnv.isNative ? { flexWrap: 'nowrap' } : undefined),
-};
+// One line also has to hold a badge set that is wider than the row (several
+// badges, a long translation, a narrow screen). The symbol is what identifies
+// the row, so on native it keeps its width and the badges give way: the group
+// and each badge shrink, and a badge that got narrower ends its label with an
+// ellipsis. Nothing is cut off at the row edge and the symbol is never
+// squeezed out.
+const LIST_SYMBOL_FLEX_SHRINK = platformEnv.isNative ? 0 : 1;
+const LIST_BADGES_CONTAINER_PROPS: IXStackProps = platformEnv.isNative
+  ? {
+      justifyContent: 'flex-start',
+      flexWrap: 'nowrap',
+      flexShrink: 1,
+      overflow: 'hidden',
+    }
+  : { justifyContent: 'flex-start', flexShrink: 0 };
+const LIST_BADGE_PROPS: IBadgeProps | undefined = platformEnv.isNative
+  ? { flexShrink: 1 }
+  : undefined;
 
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
   const onPress = useRecommendedItemPress(token);
@@ -286,12 +306,17 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
         flex={1}
         primary={
           <XStack gap="$2" ai="center" minWidth={0} {...LIST_TITLE_ROW_PROPS}>
-            <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
+            <SizableText
+              size="$bodyLgMedium"
+              flexShrink={LIST_SYMBOL_FLEX_SHRINK}
+              numberOfLines={1}
+            >
               {earnUtils.getDisplaySymbol(token)}
             </SizableText>
             <RecommendedBadges
               token={token}
               containerProps={LIST_BADGES_CONTAINER_PROPS}
+              badgeProps={LIST_BADGE_PROPS}
             />
           </XStack>
         }
