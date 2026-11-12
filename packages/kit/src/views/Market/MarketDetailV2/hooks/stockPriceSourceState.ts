@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
-import {
-  type IMarketPriceSource,
-  useMarketPriceSourceAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function resolveDisplayedStockPriceMode({
   stockId,
@@ -26,7 +23,6 @@ export function useStockPriceSourceState({
   stockDetail?: { marketStatus?: { isOpen?: boolean } } | null;
   isStockDetailError?: boolean;
 }) {
-  const [, setPriceSource] = useMarketPriceSourceAtom();
   const [selection, setSelection] = useState<{
     stockId?: string;
     source?: IMarketPriceSource;
@@ -44,23 +40,13 @@ export function useStockPriceSourceState({
     if (stockId && hasMarketStatus && !currentSelection) {
       setSelection({ stockId, source: defaultSource });
     }
-    if (stockId)
-      setPriceSource((prev) => (prev.source === source ? prev : { source }));
-  }, [
-    stockId,
-    hasMarketStatus,
-    currentSelection,
-    defaultSource,
-    source,
-    setPriceSource,
-  ]);
+  }, [stockId, hasMarketStatus, currentSelection, defaultSource]);
 
   const handlePriceModeChange = useCallback(
     (nextSource: IMarketPriceSource) => {
       if (stockId) setSelection({ stockId, source: nextSource });
-      else setPriceSource({ source: nextSource });
     },
-    [stockId, setPriceSource],
+    [stockId],
   );
 
   return useMemo(

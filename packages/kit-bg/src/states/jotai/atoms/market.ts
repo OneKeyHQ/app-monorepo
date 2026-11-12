@@ -182,19 +182,6 @@ export const {
 
 export type IMarketPriceSource = 'share' | 'token';
 
-export interface IMarketPriceSourceAtom {
-  source: IMarketPriceSource;
-}
-
-// Shared by the stock price header and chart. Start on the token quote until
-// the selected stock's market status can choose the initial price source.
-export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
-  globalAtom<IMarketPriceSourceAtom>({
-    persist: false,
-    name: EAtomNames.marketPriceSourceAtom,
-    initialValue: { source: 'token' },
-  });
-
 export interface IMarketDesktopLayout {
   chartHeight?: number;
   chartHeightUpdateId?: string;
