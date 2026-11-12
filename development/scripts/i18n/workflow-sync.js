@@ -2,7 +2,6 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { centralDir } = require('./central');
 const {
   ROOT,
   GENERATED_PATHS,
@@ -61,17 +60,16 @@ function assertGeneratedBaseline(root, sync) {
   else assertGeneratedClean(root);
 }
 
-// The workflow reads and writes the local onekey-i18n checkout, so it also pulls
-// from that checkout. Release pulls happen with plain yarn i18n:pull.
-function pull(projectContext, root, outputRoot) {
+// Pulls the latest onekey-i18n release, or, after apply opened an onekey-i18n
+// PR, waits for that PR's CI preview and pulls it.
+function pull(projectContext, root, outputRoot, { pr } = {}) {
   execFileSync(
     process.execPath,
     [
       path.join(root, 'development/scripts/i18n/i18n-pull.js'),
-      '--from',
-      centralDir(root),
       '--expected-project-id',
       projectContext.project.id,
+      ...(pr ? ['--pr', String(pr), '--wait'] : []),
       ...(outputRoot ? ['--output-root', outputRoot] : []),
     ],
     { cwd: root, stdio: 'inherit' },

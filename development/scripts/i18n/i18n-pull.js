@@ -2,13 +2,14 @@
 
 // Pull app translations from OneKeyHQ/onekey-i18n into packages/shared/src/locale.
 //
-//   yarn i18n:pull                  latest release (uses your `gh auth login`)
-//   yarn i18n:pull --tag <tag>      a specific release
-//   yarn i18n:pull --from <dir>     a local onekey-i18n checkout, for copy whose PR is
-//                                   not merged yet; such files cannot be merged into x
-//   yarn i18n:pull --verify         check generated files against i18n.lock.json
-//                                   (add --allow-local while the onekey-i18n PR is open)
+//   yarn i18n:pull                         latest release (app-latest)
+//   yarn i18n:pull --version 2026.11.12.1  a specific release (app-2026.11.12.1)
+//   yarn i18n:pull --pr 12 [--wait]        the CI preview of an open onekey-i18n PR;
+//                                          such files cannot be merged into x
+//   yarn i18n:check-lock                   check generated files against i18n.lock.json
+//                                          (--allow-preview while the onekey-i18n PR is open)
 //
+// Token: ONEKEY_I18N_TOKEN, GH_TOKEN or GITHUB_TOKEN, else `gh auth token`.
 // --output-root writes into another tree (workflow verification);
 // --expected-project-id rejects workflow plans made for another source.
 
@@ -18,22 +19,23 @@ const { parseArgs } = require('node:util');
 const {
   PROJECT_ID,
   ROOT,
-  fromCheckout,
+  fromPullRequest,
   fromRelease,
   verifyLock,
   writeLocaleFiles,
 } = require('./central');
 
-function run(args = process.argv.slice(2)) {
+async function run(args = process.argv.slice(2)) {
   const { values } = parseArgs({
     args,
     options: {
-      tag: { type: 'string' },
-      from: { type: 'string' },
+      version: { type: 'string' },
+      pr: { type: 'string' },
+      wait: { type: 'boolean' },
       'output-root': { type: 'string' },
       'expected-project-id': { type: 'string' },
       verify: { type: 'boolean' },
-      'allow-local': { type: 'boolean' },
+      'allow-preview': { type: 'boolean' },
     },
   });
   if (
@@ -45,34 +47,33 @@ function run(args = process.argv.slice(2)) {
     );
   // `yarn i18n:pull` runs inside packages/shared; resolve relative paths from
   // where the command was typed.
-  const base = process.env.INIT_CWD || process.cwd();
   const root = values['output-root']
-    ? path.resolve(base, values['output-root'])
+    ? path.resolve(process.env.INIT_CWD || process.cwd(), values['output-root'])
     : ROOT;
   if (values.verify) {
-    const lock = verifyLock(root, { allowLocal: values['allow-local'] });
-    return `Locale files match ${lock.source === 'release' ? lock.tag : `local ${lock.commit}`}.`;
+    const lock = verifyLock(root, { allowPreview: values['allow-preview'] });
+    return `Locale files match ${lock.source === 'release' ? lock.tag : `onekey-i18n PR #${lock.pr}`}.`;
   }
-  if (values.tag && values.from)
-    throw new Error('Choose either --tag or --from.');
-  const result = values.from
-    ? fromCheckout(path.resolve(base, values.from))
-    : fromRelease({ tag: values.tag });
+  if (values.version && values.pr)
+    throw new Error('Choose either --version or --pr.');
+  const result = values.pr
+    ? await fromPullRequest({ pr: values.pr, wait: values.wait })
+    : await fromRelease({ version: values.version });
   const lock = writeLocaleFiles(root, result);
   return `Pulled ${lock.files.length} files from ${
     lock.source === 'release'
       ? lock.tag
-      : `local checkout ${lock.commit.slice(0, 10)}${lock.dirty ? ' (uncommitted changes)' : ''}`
+      : `onekey-i18n PR #${lock.pr} (${lock.commit.slice(0, 10)})`
   }.`;
 }
 
 if (require.main === module) {
-  try {
-    console.log(run());
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 1;
-  }
+  run()
+    .then((message) => console.log(message))
+    .catch((error) => {
+      console.error(error.message);
+      process.exitCode = 1;
+    });
 }
 
 module.exports = { run };

@@ -104,8 +104,14 @@ function fakeClient(keys) {
         throw new Error(`Ambiguous key variants for ${key}`);
       return matches[0] ? { key_id: matches[0].ref } : null;
     },
-    remove(ref) {
+    async remove(ref) {
       this.removed.push(ref);
+    },
+    async finalize() {
+      return {
+        number: 7,
+        url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+      };
     },
   };
 }

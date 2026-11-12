@@ -249,14 +249,12 @@ Options:
   --root <path>             Root to scan. Can be repeated
   --include-tests           Count test/spec/e2e files as usage
   --include-server-dynamic  Include keys reserved for unconfirmed server APIs
-  --delete-central          Plan deleting unused keys from the onekey-i18n checkout
-                            (next to this repository or $ONEKEY_I18N_DIR)
-  --yes                     Actually delete them. Requires --delete-central and a
-                            non-main branch in onekey-i18n
+  --delete-central          Plan deleting unused keys from OneKeyHQ/onekey-i18n
+  --yes                     Delete them: opens an onekey-i18n PR. Requires --delete-central
   --delete-limit <n>        Delete only the first n unused keys. 0 means all
   --delete-keys-file <path> Delete only keys in a non-empty JSON array; all must be unused
   --project-name <name>     Verify the expected onekey-i18n project name before deletion
-  --pull-after-delete       Pull the regenerated files from the checkout after deletion
+  --pull-after-delete       Wait for that PR's CI preview and pull it
   --max-file-size <bytes>   Skip larger files. Default: ${DEFAULT_MAX_FILE_SIZE}
   --verbose                 Print parse and dynamic-reference warnings
 
@@ -773,8 +771,8 @@ function getServerDynamicReservationForKey(key) {
   );
 }
 
-// Old keys are removed from the OneKeyHQ/onekey-i18n checkout through the
-// workflow client; the app then pulls the regenerated files from it.
+// Old keys are removed in OneKeyHQ/onekey-i18n through the GitHub-backed
+// workflow client; the deletion lands as an onekey-i18n PR whose preview the app can pull.
 async function buildCentralDeletePlan({ client, unused }) {
   const plan = { toDelete: [], missing: [], ambiguous: [] };
   for (const item of unused) {
@@ -796,11 +794,11 @@ async function buildCentralDeletePlan({ client, unused }) {
   return plan;
 }
 
-function runPullAfterDelete(centralDirectory) {
+function runPullAfterDelete(pullRequest) {
   const scriptPath = path.resolve(__dirname, 'i18n-pull.js');
   const result = spawnSync(
     process.execPath,
-    [scriptPath, '--from', centralDirectory],
+    [scriptPath, '--pr', String(pullRequest), '--wait'],
     { cwd: REPO_ROOT, env: process.env, stdio: 'inherit' },
   );
 
@@ -919,7 +917,7 @@ async function applyCentralDeleteIfRequested(
 
   if (!options.deleteConfirm) {
     summary.note =
-      'Dry run: add --yes to delete the matched keys from the onekey-i18n checkout. Server dynamic reserved keys are excluded unless --include-server-dynamic is used.';
+      'Dry run: add --yes to delete the matched keys through an onekey-i18n PR. Server dynamic reserved keys are excluded unless --include-server-dynamic is used.';
     return;
   }
 
@@ -930,13 +928,24 @@ async function applyCentralDeleteIfRequested(
   }
 
   for (const item of plan.toDelete) {
-    client.remove(item.ref);
+    await client.remove(item.ref);
     summary.deleted += 1;
   }
-  summary.note = `Deleted ${summary.deleted} keys in ${client.dir}; commit there and open a PR.`;
+  const proposal = await client.finalize({
+    title: 'chore: remove unused app keys',
+    body: [
+      'Removed with `yarn i18n:unused --delete-central` in app-monorepo:',
+      '',
+      ...plan.toDelete.map((item) => `- \`${item.ref}\``),
+      '',
+    ].join('\n'),
+    branchHint: 'app-unused-keys',
+  });
+  summary.proposal = proposal;
+  summary.note = `Removed ${summary.deleted} keys in onekey-i18n PR #${proposal.number}: ${proposal.url}`;
 
   if (options.pullAfterDelete) {
-    runPullAfterDelete(client.dir);
+    runPullAfterDelete(proposal.number);
     summary.pulledAfterDelete = true;
   }
 }

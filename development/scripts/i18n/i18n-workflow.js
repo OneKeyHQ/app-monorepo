@@ -48,11 +48,11 @@ Default mode complete creates missing keys and fills empty translations only.
 Mode update supports upsert, including edits to existing non-empty translations.
 The preview binds the mode; apply cannot override it.
 Scan/inspect/fill/review/review-import are offline.
-Remote commands use the onekey-i18n checkout next to this repository (or $ONEKEY_I18N_DIR).
+Remote commands talk to OneKeyHQ/onekey-i18n through the GitHub API (gh auth login or ONEKEY_I18N_TOKEN).
 Preview reads it and generates Markdown plus editable HTML automatically.
 HTML shows EN/ZH initially; every other language can be expanded and edited/commented.
 Apply writes every repository locale to onekey-i18n, pulls generated files from it, and verifies them.
-Apply writes onekey-i18n on its current branch (never main); commit there and open a PR.
+Apply commits to a new onekey-i18n branch, opens its PR, waits for its CI preview and pulls it.
 Review the bilingual preview and get user confirmation before apply.`;
 
 function options(args) {

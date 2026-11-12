@@ -1,74 +1,172 @@
-// App translations come from OneKeyHQ/onekey-i18n: released bundles for normal
-// pulls, or a local checkout while an onekey-i18n PR is still open.
+// App translations come from OneKeyHQ/onekey-i18n (projects/app) through the
+// GitHub API: released archives for normal pulls, a PR's CI preview while an
+// onekey-i18n PR is open. No local checkout of onekey-i18n is involved.
+// Auth: ONEKEY_I18N_TOKEN, GH_TOKEN or GITHUB_TOKEN, else `gh auth token`.
 
 const { execFileSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
+const zlib = require('node:zlib');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const CENTRAL_REPO = 'OneKeyHQ/onekey-i18n';
 const PROJECT_SLUG = 'app';
 // Project identity recorded in workflow sync records and plans.
 const PROJECT_ID = `${CENTRAL_REPO}/${PROJECT_SLUG}`;
-const ASSET = `${PROJECT_SLUG}.bundle.json`;
-const BUNDLE_FORMAT = 1;
+const PREVIEW_ARTIFACT = 'i18n-preview';
 const LOCALE_ROOT = 'packages/shared/src/locale';
 const LOCK_PATH = `${LOCALE_ROOT}/i18n.lock.json`;
 
 const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
 
-/** Local onekey-i18n checkout: $ONEKEY_I18N_DIR or a sibling of this repository. */
-function centralDir(root = ROOT) {
-  const dir = path.resolve(
-    process.env.ONEKEY_I18N_DIR || path.join(root, '..', 'onekey-i18n'),
-  );
-  if (
-    !fs.existsSync(path.join(dir, 'projects', PROJECT_SLUG, 'project.json')) ||
-    !fs.existsSync(path.join(dir, 'tools', 'i18n.mjs'))
-  )
+function resolveToken(env = process.env) {
+  const fromEnv = env.ONEKEY_I18N_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN;
+  if (fromEnv) return fromEnv;
+  try {
+    return execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch (error) {
     throw new Error(
-      `No onekey-i18n checkout at ${dir}. Clone ${CENTRAL_REPO} next to this repository or set ONEKEY_I18N_DIR.`,
+      `No GitHub token for ${CENTRAL_REPO}: set ONEKEY_I18N_TOKEN or run gh auth login.`,
+      { cause: error },
     );
-  return dir;
+  }
 }
 
-function git(dir, args) {
-  return execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+const RETRYABLE = (status) => status === 429 || status >= 500;
+
+/**
+ * Minimal GitHub REST client; fetchImpl is injectable for tests. Reads retry
+ * transient failures (5xx, 429, network) with backoff; writes never retry.
+ */
+function githubApi({ token, fetchImpl = fetch, retryDelayMs = 1000 } = {}) {
+  let resolvedToken = token;
+  const headers = () => {
+    resolvedToken = resolvedToken || resolveToken();
+    return {
+      Authorization: `Bearer ${resolvedToken}`,
+      'User-Agent': 'onekey-app-i18n',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+  };
+  const url = (endpoint) =>
+    endpoint.startsWith('https://')
+      ? endpoint
+      : `https://api.github.com${endpoint}`;
+  // Runs a read up to three times; send returns a Response.
+  const read = async (send) => {
+    let lastError = new Error('No attempt was made.');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (attempt > 0) await delay(retryDelayMs * 2 ** attempt);
+      try {
+        const response = await send();
+        if (!RETRYABLE(response.status)) return response;
+        lastError = new Error(`HTTP ${response.status}`);
+        lastError.status = response.status;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    throw lastError;
+  };
+  return {
+    async request(method, endpoint, body) {
+      const send = () =>
+        fetchImpl(url(endpoint), {
+          method,
+          headers: {
+            ...headers(),
+            Accept: 'application/vnd.github+json',
+            ...(body === undefined
+              ? {}
+              : { 'Content-Type': 'application/json' }),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+      let response;
+      try {
+        response = method === 'GET' ? await read(send) : await send();
+      } catch (error) {
+        throw new Error(`${method} ${endpoint}: ${error.message}`, {
+          cause: error,
+        });
+      }
+      if (!response.ok) {
+        const error = new Error(
+          `${method} ${endpoint}: HTTP ${response.status}`,
+        );
+        error.status = response.status;
+        throw error;
+      }
+      return response.status === 204 ? null : response.json();
+    },
+    get(endpoint) {
+      return this.request('GET', endpoint);
+    },
+    // Assets and artifacts redirect to object storage; follow without the token.
+    async download(endpoint, accept = 'application/octet-stream') {
+      const response = await read(async () => {
+        const first = await fetchImpl(url(endpoint), {
+          headers: { ...headers(), Accept: accept },
+          redirect: 'manual',
+        });
+        return first.status >= 300 && first.status < 400
+          ? fetchImpl(first.headers.get('location'))
+          : first;
+      });
+      if (!response.ok)
+        throw new Error(`Download ${endpoint}: HTTP ${response.status}`);
+      return Buffer.from(await response.arrayBuffer());
+    },
+  };
 }
 
-function readTree(dir, prefix = '') {
+/** Entries of a ZIP archive (stored or deflated) as { name: Buffer }. */
+function readZip(buffer) {
+  let end = -1;
+  for (
+    let i = buffer.length - 22;
+    end === -1 && i >= Math.max(0, buffer.length - 65_557);
+    i -= 1
+  ) {
+    if (buffer.readUInt32LE(i) === 0x06_05_4b_50) end = i;
+  }
+  if (end === -1) throw new Error('Not a ZIP archive.');
   const files = {};
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory())
-      Object.assign(files, readTree(path.join(dir, entry.name), relative));
-    else files[relative] = fs.readFileSync(path.join(dir, entry.name), 'utf8');
+  let pointer = buffer.readUInt32LE(end + 16);
+  for (let index = buffer.readUInt16LE(end + 10); index > 0; index -= 1) {
+    const method = buffer.readUInt16LE(pointer + 10);
+    const size = buffer.readUInt32LE(pointer + 20);
+    const nameLength = buffer.readUInt16LE(pointer + 28);
+    const local = buffer.readUInt32LE(pointer + 42);
+    const name = buffer.toString(
+      'utf8',
+      pointer + 46,
+      pointer + 46 + nameLength,
+    );
+    pointer +=
+      46 +
+      nameLength +
+      buffer.readUInt16LE(pointer + 30) +
+      buffer.readUInt16LE(pointer + 32);
+    if (!name.endsWith('/')) {
+      const start =
+        local +
+        30 +
+        buffer.readUInt16LE(local + 26) +
+        buffer.readUInt16LE(local + 28);
+      const raw = buffer.subarray(start, start + size);
+      if (method === 0) files[name] = Buffer.from(raw);
+      else if (method === 8) files[name] = zlib.inflateRawSync(raw);
+      else
+        throw new Error(`Unsupported ZIP compression ${method} for ${name}.`);
+    }
   }
   return files;
-}
-
-/** Export the app files from a local checkout, including uncommitted edits. */
-function fromCheckout(dir) {
-  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-i18n-app-'));
-  try {
-    execFileSync(
-      process.execPath,
-      [path.join(dir, 'tools', 'export.mjs'), PROJECT_SLUG, '--out', out],
-      { stdio: ['ignore', 'ignore', 'inherit'] },
-    );
-    return {
-      source: 'local',
-      commit: git(dir, ['rev-parse', 'HEAD']),
-      dirty: Boolean(
-        git(dir, ['status', '--porcelain', '--', `projects/${PROJECT_SLUG}`]),
-      ),
-      files: readTree(out),
-    };
-  } finally {
-    fs.rmSync(out, { recursive: true, force: true });
-  }
 }
 
 function parseSums(text) {
@@ -80,62 +178,134 @@ function parseSums(text) {
   return sums;
 }
 
-function gh(args) {
-  try {
-    return execFileSync('gh', args, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } catch (error) {
-    const detail = error.stderr?.toString().trim() || error.message;
-    throw new Error(
-      `gh ${args.slice(0, 2).join(' ')} failed (${detail}). Install gh and run gh auth login with access to ${CENTRAL_REPO}.`,
-      { cause: error },
-    );
-  }
+function textFiles(files) {
+  return Object.fromEntries(
+    Object.entries(files).map(([name, data]) => [name, data.toString('utf8')]),
+  );
 }
 
-/** Download the app bundle of one release (latest by default) and verify SHA256SUMS. */
-function fromRelease({ tag } = {}) {
-  const resolvedTag =
-    tag ||
-    JSON.parse(
-      gh(['release', 'view', '--repo', CENTRAL_REPO, '--json', 'tagName']),
-    ).tagName;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-i18n-release-'));
-  try {
-    gh([
-      'release',
-      'download',
-      resolvedTag,
-      '--repo',
-      CENTRAL_REPO,
-      '--pattern',
-      ASSET,
-      '--pattern',
-      'SHA256SUMS',
-      '--dir',
-      dir,
-    ]);
-    const text = fs.readFileSync(path.join(dir, ASSET), 'utf8');
-    const expected = parseSums(
-      fs.readFileSync(path.join(dir, 'SHA256SUMS'), 'utf8'),
-    )[ASSET];
-    const actual = sha256(text);
-    if (expected !== actual)
-      throw new Error(`${ASSET} of ${resolvedTag} does not match SHA256SUMS.`);
-    const bundle = JSON.parse(text);
-    if (bundle.format !== BUNDLE_FORMAT || bundle.project !== PROJECT_SLUG)
-      throw new Error(`${ASSET} of ${resolvedTag} has an unexpected format.`);
-    return {
-      source: 'release',
-      tag: resolvedTag,
-      commit: bundle.source?.commit,
-      bundleSha256: actual,
-      files: bundle.files,
-    };
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+/** Verify one archive against SHA256SUMS and return its files as text. */
+function verifiedArchive(name, archive, sumsText) {
+  const expected = parseSums(sumsText)[name];
+  const actual = sha256(archive);
+  if (expected !== actual)
+    throw new Error(`${name} does not match SHA256SUMS.`);
+  return { sha256: actual, files: textFiles(readZip(archive)) };
+}
+
+/** Assets of one release: `${PROJECT_SLUG}-latest` by default. */
+async function releaseAssets({ version, api = githubApi() } = {}) {
+  const tag = version ? `${PROJECT_SLUG}-${version}` : `${PROJECT_SLUG}-latest`;
+  const release = await api.get(
+    `/repos/${CENTRAL_REPO}/releases/tags/${encodeURIComponent(tag)}`,
+  );
+  const download = (name) => {
+    const asset = release.assets.find((item) => item.name === name);
+    if (!asset) throw new Error(`${tag} has no ${name}.`);
+    return api.download(asset.url);
+  };
+  return {
+    manifest: JSON.parse((await download('manifest.json')).toString('utf8')),
+    sums: (await download('SHA256SUMS')).toString('utf8'),
+    download,
+  };
+}
+
+/** Ready-to-use app files of a release. */
+async function fromRelease({ version, api } = {}) {
+  const { manifest, sums, download } = await releaseAssets({ version, api });
+  const name = `${PROJECT_SLUG}.zip`;
+  const { sha256: zipSha256, files } = verifiedArchive(
+    name,
+    await download(name),
+    sums,
+  );
+  return {
+    source: 'release',
+    tag: manifest.tag,
+    version: manifest.version,
+    commit: manifest.commit,
+    zipSha256,
+    files,
+  };
+}
+
+/** Canonical project data of a release (project.json, keys.json, locales/*). */
+async function sourceFromRelease({ version, api } = {}) {
+  const { manifest, sums, download } = await releaseAssets({ version, api });
+  const name = `${PROJECT_SLUG}.source.zip`;
+  return {
+    tag: manifest.tag,
+    commit: manifest.commit,
+    files: verifiedArchive(name, await download(name), sums).files,
+  };
+}
+
+/**
+ * App files from an onekey-i18n PR's CI preview artifact. With wait, polls
+ * until the PR head's CI run has finished (up to timeoutMs).
+ */
+async function fromPullRequest({
+  pr,
+  wait = false,
+  timeoutMs = 10 * 60_000,
+  intervalMs = 10_000,
+  api = githubApi(),
+}) {
+  const pull = await api.get(`/repos/${CENTRAL_REPO}/pulls/${pr}`);
+  const headSha = pull.head.sha;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const { workflow_runs: runs } = await api.get(
+      `/repos/${CENTRAL_REPO}/actions/runs?event=pull_request&head_sha=${headSha}`,
+    );
+    const finished = runs.find(
+      (run) => run.status === 'completed' && run.conclusion === 'success',
+    );
+    const pending = runs.some((run) => run.status !== 'completed');
+    if (finished) {
+      const { artifacts } = await api.get(
+        `/repos/${CENTRAL_REPO}/actions/runs/${finished.id}/artifacts`,
+      );
+      const artifact = artifacts.find(
+        (item) => item.name === PREVIEW_ARTIFACT && !item.expired,
+      );
+      if (!artifact)
+        throw new Error(
+          `The CI run of PR #${pr} has no ${PREVIEW_ARTIFACT} artifact.`,
+        );
+      const outer = readZip(
+        await api.download(
+          artifact.archive_download_url,
+          'application/vnd.github+json',
+        ),
+      );
+      const sums = outer[`${PROJECT_SLUG}/SHA256SUMS`];
+      const archive = outer[`${PROJECT_SLUG}/${PROJECT_SLUG}.zip`];
+      if (!sums || !archive)
+        throw new Error(
+          `The preview of PR #${pr} has no ${PROJECT_SLUG} files.`,
+        );
+      const { sha256: zipSha256, files } = verifiedArchive(
+        `${PROJECT_SLUG}.zip`,
+        archive,
+        sums.toString('utf8'),
+      );
+      return {
+        source: 'pr',
+        pr: Number(pr),
+        commit: headSha,
+        zipSha256,
+        files,
+      };
+    }
+    if (!wait || (!pending && runs.length > 0) || Date.now() > deadline)
+      throw new Error(
+        pending || runs.length === 0
+          ? `The CI preview of onekey-i18n PR #${pr} is not ready yet; retry with --wait.`
+          : `The CI run of onekey-i18n PR #${pr} did not succeed; fix it there first.`,
+      );
+    await delay(intervalMs);
   }
 }
 
@@ -181,10 +351,10 @@ function writeLocaleFiles(outputRoot, result) {
     repo: CENTRAL_REPO,
     project: PROJECT_SLUG,
     source: result.source,
-    ...(result.tag ? { tag: result.tag } : {}),
+    ...(result.tag ? { tag: result.tag, version: result.version } : {}),
+    ...(result.pr ? { pr: result.pr } : {}),
     commit: result.commit,
-    ...(result.source === 'local' ? { dirty: result.dirty } : {}),
-    ...(result.bundleSha256 ? { bundleSha256: result.bundleSha256 } : {}),
+    zipSha256: result.zipSha256,
     filesSha256: filesDigest(result.files),
     files: Object.keys(result.files).toSorted(),
   };
@@ -196,23 +366,22 @@ function writeLocaleFiles(outputRoot, result) {
 }
 
 /**
- * Check generated files against i18n.lock.json. Files pulled from a local
- * checkout are rejected unless allowLocal: they must come from a release
+ * Check generated files against i18n.lock.json. Files from an onekey-i18n PR
+ * preview are rejected unless allowPreview: they must come from a release
  * before the change can merge.
  */
-function verifyLock(root = ROOT, { allowLocal = false } = {}) {
+function verifyLock(root = ROOT, { allowPreview = false } = {}) {
   const lockFile = path.join(root, LOCK_PATH);
   if (!fs.existsSync(lockFile))
     throw new Error(`${LOCK_PATH} is missing; run yarn i18n:pull.`);
   const lock = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
-  if (lock.source !== 'release' && !allowLocal)
+  if (lock.source !== 'release' && !allowPreview)
     throw new Error(
-      `Locale files come from a local onekey-i18n checkout (${lock.commit}${lock.dirty ? ', uncommitted' : ''}). Merge the onekey-i18n PR, then run yarn i18n:pull to pin its release.`,
+      `Locale files come from onekey-i18n PR #${lock.pr} (not merged). Merge it, then run yarn i18n:pull to pin its release.`,
     );
   const localeRoot = path.join(root, LOCALE_ROOT);
-  const jsonDir = path.join(localeRoot, 'json');
   const extra = fs
-    .readdirSync(jsonDir)
+    .readdirSync(path.join(localeRoot, 'json'))
     .filter(
       (name) => name.endsWith('.json') && !lock.files.includes(`json/${name}`),
     );
@@ -239,11 +408,13 @@ module.exports = {
   PROJECT_ID,
   LOCALE_ROOT,
   LOCK_PATH,
-  centralDir,
-  fromCheckout,
+  githubApi,
+  readZip,
+  resolveToken,
   fromRelease,
+  fromPullRequest,
+  sourceFromRelease,
   filesDigest,
-  git,
   parseSums,
   writeLocaleFiles,
   verifyLock,
