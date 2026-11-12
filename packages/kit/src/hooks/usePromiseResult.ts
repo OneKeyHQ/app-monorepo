@@ -614,8 +614,7 @@ export function usePromiseResult<T>(
         platformEnv.isNative &&
         !isLoadingRef.current &&
         isEmptyResultRef.current &&
-        optionsRef.current.revalidateOnReconnect &&
-        !isWithinFocusMinInterval;
+        optionsRef.current.revalidateOnReconnect;
       const shouldRevalidateOnFocus =
         prevFocusedRef.current === false &&
         optionsRef.current.revalidateOnFocus &&

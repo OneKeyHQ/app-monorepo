@@ -5,6 +5,7 @@ import {
   useSplitMainView,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
   ETabMarketRoutes,
@@ -23,6 +24,7 @@ export function useToMarketBannerDetail() {
   const toMarketBannerDetail = useCallback(
     (item: IMarketBannerItem) => {
       if (isMarketIndexQuoteBanner(item)) return;
+      defaultLogger.dex.banner.dexBannerEnter({ bannerId: item._id });
 
       const params = {
         tokenListId: item.tokenListId,

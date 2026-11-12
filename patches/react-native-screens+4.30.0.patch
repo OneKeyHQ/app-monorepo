@@ -1398,7 +1398,7 @@ index 049fd22..9403510 100644
      if (self.screenView.preventNativeDismiss) {
        // if we want to prevent the native dismiss, we do not send dismissal event,
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index 5da1196..fb56d5c 100644
+index 5da1196..5e4641a 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 @@ -21,6 +21,55 @@
@@ -1494,7 +1494,7 @@ index 5da1196..fb56d5c 100644
  }
  
  #pragma mark - helper methods
-@@ -326,6 +398,141 @@ - (void)emitOnFinishTransitioningEvent
+@@ -326,6 +398,146 @@ - (void)emitOnFinishTransitioningEvent
    }
  }
  
@@ -1542,13 +1542,15 @@ index 5da1196..fb56d5c 100644
 +    static const NSInteger kMaxPendingRetryCount = 4;
 +    static const int64_t kPendingRetryBaseDelayMs = 100;
 +    if (strongSelf->_pendingUpdateRetryCount >= kMaxPendingRetryCount) {
-+      strongSelf->_pendingUpdateRetryCount = 0;
-+      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: deferring to lifecycle hooks after %ld backoff retries (requestId=%ld, selfWindow=%@, superviewWindow=%@, parentWindow=%@)",
-+                                                   (long)kMaxPendingRetryCount,
-+                                                   (long)strongSelf->_pendingContainerUpdateRequestId,
-+                                                   selfWindowReady ? @"YES" : @"NIL",
-+                                                   superviewWindowReady ? @"YES" : @"NIL",
-+                                                   parentWindowReady ? @"YES" : @"NIL"]);
++      if (strongSelf->_pendingUpdateRetryCount == kMaxPendingRetryCount) {
++        strongSelf->_pendingUpdateRetryCount += 1;
++        RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: deferring to lifecycle hooks after %ld backoff retries (requestId=%ld, selfWindow=%@, superviewWindow=%@, parentWindow=%@)",
++                                                     (long)kMaxPendingRetryCount,
++                                                     (long)strongSelf->_pendingContainerUpdateRequestId,
++                                                     selfWindowReady ? @"YES" : @"NIL",
++                                                     superviewWindowReady ? @"YES" : @"NIL",
++                                                     parentWindowReady ? @"YES" : @"NIL"]);
++      }
 +      return;
 +    }
 +
@@ -1597,6 +1599,7 @@ index 5da1196..fb56d5c 100644
 +  if (!_pendingContainerUpdate) {
 +    return;
 +  }
++  _pendingUpdateRetryCount = 0;
 +  RNSScreenStackLog([NSString stringWithFormat:@"onApplicationDidBecomeActive: pending update detected, scheduling retry (requestId=%ld, %@)",
 +                                               (long)_pendingContainerUpdateRequestId,
 +                                               RNSSceneSummary(self.window)]);
@@ -1608,6 +1611,7 @@ index 5da1196..fb56d5c 100644
 +  if (!_pendingContainerUpdate) {
 +    return;
 +  }
++  _pendingUpdateRetryCount = 0;
 +  RNSScreenStackLog([NSString stringWithFormat:@"onSceneDidActivate: pending update detected, scheduling retry (requestId=%ld, %@)",
 +                                               (long)_pendingContainerUpdateRequestId,
 +                                               RNSSceneSummary(self.window)]);
@@ -1619,6 +1623,7 @@ index 5da1196..fb56d5c 100644
 +  if (!_pendingContainerUpdate) {
 +    return;
 +  }
++  _pendingUpdateRetryCount = 0;
 +  NSString *reason = notification.userInfo[@"reason"];
 +  UIViewController *parentVC = _controller.parentViewController;
 +  RNSScreenStackLog([NSString
@@ -1636,7 +1641,7 @@ index 5da1196..fb56d5c 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -366,21 +573,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -366,21 +578,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
  
  - (void)didMoveToWindow
  {
@@ -1686,7 +1691,7 @@ index 5da1196..fb56d5c 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -401,10 +632,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -401,10 +637,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -1732,7 +1737,7 @@ index 5da1196..fb56d5c 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -413,7 +677,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -413,7 +682,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -1741,7 +1746,7 @@ index 5da1196..fb56d5c 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -463,6 +727,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -463,6 +732,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -1750,7 +1755,7 @@ index 5da1196..fb56d5c 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -471,12 +737,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -471,12 +742,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -1773,7 +1778,7 @@ index 5da1196..fb56d5c 100644
      return;
    }
  
-@@ -517,6 +793,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -517,6 +798,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -1781,7 +1786,7 @@ index 5da1196..fb56d5c 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -532,6 +809,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -532,6 +814,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    };
  
    void (^finish)(void) = ^{
@@ -1789,7 +1794,7 @@ index 5da1196..fb56d5c 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -540,10 +818,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -540,10 +823,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -1807,7 +1812,7 @@ index 5da1196..fb56d5c 100644
        afterTransitions();
        return;
      }
-@@ -620,16 +901,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -620,16 +906,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -1835,7 +1840,7 @@ index 5da1196..fb56d5c 100644
                                  finish();
                                }];
          }
-@@ -666,12 +954,61 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -666,12 +959,61 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -1898,7 +1903,7 @@ index 5da1196..fb56d5c 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -681,6 +1018,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -681,6 +1023,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -1906,7 +1911,7 @@ index 5da1196..fb56d5c 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -747,8 +1085,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -747,8 +1090,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -1922,7 +1927,7 @@ index 5da1196..fb56d5c 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -762,6 +1107,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -762,6 +1112,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -1932,7 +1937,7 @@ index 5da1196..fb56d5c 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -831,6 +1179,10 @@ - (void)layoutSubviews
+@@ -831,6 +1184,10 @@ - (void)layoutSubviews
        modal.view.frame = correctFrame;
      }
    }
