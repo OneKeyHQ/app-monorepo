@@ -550,7 +550,7 @@ const STRIP_SHADOW_HOVER =
 const ANIMATE_ONLY_STRIP_CARD = ['box-shadow', 'transform', 'opacity'];
 const ANIMATE_ONLY_STRIP_CARD_REDUCED = ['box-shadow', 'opacity'];
 const ANIMATE_ONLY_STRIP_CONTENT = ['opacity', 'transform', 'filter'];
-const ANIMATE_ONLY_HEIGHT = ['height'];
+const ANIMATE_ONLY_FOLD = ['height', 'margin-top'];
 const ANIMATE_ONLY_BACKGROUND = ['background-color'];
 // Lengths of the `popoverQuick` (150ms) and `switch` (200ms) presets.
 const STRIP_SWAP_MS = 150;
@@ -819,10 +819,13 @@ function DesktopBannerStrip({
   return (
     <YStack
       h={collapseRow ? 0 : STRIP_HEIGHT}
+      // The fold takes the header stack's 32 gap above the strip with it, so
+      // nothing moves when the strip unmounts after the fold.
+      mt={collapseRow ? '$-8' : 0}
       overflow={collapseRow ? 'hidden' : 'visible'}
       {...(!reduceMotion && {
         transition: 'switch',
-        animateOnly: ANIMATE_ONLY_HEIGHT,
+        animateOnly: ANIMATE_ONLY_FOLD,
       })}
     >
       <XStack px="$pagePadding" gap="$3" bg="$bgApp">
