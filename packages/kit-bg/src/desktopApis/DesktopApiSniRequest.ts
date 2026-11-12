@@ -145,13 +145,9 @@ function formatNativeLogEvent(
           : logValue;
       if (displayedValue !== logValue) {
         displayedValue = logValue
-          .split('-')
-          .map((part) =>
-            part
-              .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-')
-              .replace(/%/g, '%25'),
-          )
-          .join('%2D');
+          .replace(/%/g, '%25')
+          .replace(/-/g, '%2D')
+          .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-');
       }
       return `${key}=${displayedValue}${displayedValue !== logValue ? ' requestIdFormat=hex32' : ''}`;
     })

@@ -45,7 +45,7 @@ describe('SNI request IDs through the final file logger', () => {
     ['c'.repeat(128), Array<string>(4).fill('c'.repeat(32)).join('-')],
     [
       `request-${'a'.repeat(64)}`,
-      `request%2D${'a'.repeat(32)}-${'a'.repeat(32)}`,
+      `request%2D${'a'.repeat(30)}-${'a'.repeat(34)}`,
     ],
     [
       '12345678-1234-1234-1234-123456789abc',
@@ -85,6 +85,9 @@ describe('SNI request IDs through the final file logger', () => {
       `${'a'.repeat(32)}-${hex}`,
       `${hex}-${'a'.repeat(32)}`,
       `request+%2D-${hex}-`,
+      `${hex}-${'b'.repeat(62)}`,
+      `${hex}-${'b'.repeat(63)}`,
+      `%${'a'.repeat(62)}g${'b'.repeat(64)}`,
     ];
     const outputs: string[] = [];
     for (const id of ids) {
