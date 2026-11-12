@@ -116,7 +116,8 @@ export type IStockSimpleChartRangeChange = {
 };
 
 /**
- * The move the drawn range has made, from its start to the line's live tail.
+ * The range move shown beside the title quote. A share uses that quote even
+ * when newer extended-hours candles keep it off the line's tail.
  * A share's 1D starts at the previous session close, as broker quotes do: the
  * feed opens in pre-market, so its first point is not "today's" reference.
  * Every other range, and every tokenized price, starts at its first point.
@@ -126,13 +127,16 @@ export function resolveStockSimpleChartRangeChange({
   previousClose,
   priceMode,
   range,
+  sharePrice,
 }: {
   points: IMarketTokenChart;
   previousClose?: number;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
+  sharePrice?: string;
 }): IStockSimpleChartRangeChange | undefined {
-  const latest = points.at(-1)?.[1];
+  const latest =
+    priceMode === 'share' ? Number(sharePrice) : points.at(-1)?.[1];
   const baseline =
     priceMode === 'share' && range === '1D' && previousClose !== undefined
       ? previousClose
@@ -141,6 +145,7 @@ export function resolveStockSimpleChartRangeChange({
     latest === undefined ||
     baseline === undefined ||
     !Number.isFinite(latest) ||
+    (priceMode === 'share' && latest <= 0) ||
     !Number.isFinite(baseline) ||
     baseline <= 0
   ) {
@@ -383,6 +388,29 @@ export function resolveStockSimpleChartBucketSeconds({
     return undefined;
   }
   return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
+}
+
+/**
+ * A regular-session quote may be older than extended-hours candles. Compare
+ * against the raw last bucket's start before any live-tail clipping.
+ */
+export function shouldMergeStockSimpleChartLivePrice({
+  points,
+  priceMode,
+  priceUpdatedAt,
+}: {
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+  priceUpdatedAt?: string;
+}): boolean {
+  if (priceMode === 'token') {
+    return true;
+  }
+  const lastTimestamp = points.at(-1)?.[0];
+  return (
+    lastTimestamp !== undefined &&
+    Date.parse(priceUpdatedAt ?? '') / 1000 >= lastTimestamp
+  );
 }
 
 function shouldDropLiveMergeTailPoint({
