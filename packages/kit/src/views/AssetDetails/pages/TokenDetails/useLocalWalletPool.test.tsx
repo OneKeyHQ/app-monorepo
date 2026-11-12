@@ -39,6 +39,10 @@ const mockListeners = new Map<
   string,
   Set<(payload: IPrivacyChangePayload) => void>
 >();
+const mockGetSupport = jest.fn<
+  Promise<ILocalWalletAccountSupport>,
+  [IAccountParams]
+>();
 const mockGetState = jest.fn<
   Promise<ILocalWalletAccountState>,
   [IAccountParams]
@@ -112,9 +116,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockDisableAccount(params),
       pauseLocalWalletScan: (params: { networkId: string }) =>
         mockPauseScan(params),
-      // jest hoists this factory above the `var` declarations below.
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      getLocalWalletAccountSupport: async () => mockWalletSupport,
+      getLocalWalletAccountSupport: (params: IAccountParams) =>
+        mockGetSupport(params),
     },
   },
 }));
@@ -265,6 +268,7 @@ beforeEach(() => {
   mockEnabled = true;
   mockPaused = false;
   mockWalletSupport = 'supported';
+  mockGetSupport.mockReset().mockImplementation(async () => mockWalletSupport);
   mockDisplay = undefined;
   mockListeners.clear();
   mockGetSyncProgress.mockReset().mockResolvedValue(undefined);
@@ -814,6 +818,118 @@ describe('useLocalWalletPool pause', () => {
   });
 });
 
+describe('useLocalWalletPool receive address safety', () => {
+  beforeEach(() => setPublishedScanState({}));
+  afterEach(() => setPublishedScanState({}));
+
+  it.each(['account', 'network'] as const)(
+    'hides only the private address while a %s pause address read is pending',
+    async (scope) => {
+      const { result } = renderHook(useLocalWalletPool, {
+        initialProps: props,
+      });
+      await flushReads();
+      expect(result.current.poolAddress).toBe('u-account-a');
+      const balance = result.current.balance;
+      mockGetAddresses.mockImplementation(() => new Promise(() => {}));
+      mockGetState.mockImplementation(() => new Promise(() => {}));
+      if (scope === 'network') {
+        act(() =>
+          setPublishedScanState({ pausedNetworkIds: [props.networkId] }),
+        );
+      }
+      emitPrivacyChange({
+        networkId: props.networkId,
+        accountIds: [props.accountId],
+        change: 'syncState',
+      });
+      expect(result.current.poolAddress).toBeUndefined();
+      expect(mockDisplay?.address).toBeUndefined();
+      expect(result.current.addresses?.publicAddress).toBe('t-account-a');
+      expect(result.current.balance).toBe(balance);
+      expect(result.current.isReady).toBe(true);
+      await flushReads();
+      expect(result.current.poolAddress).toBeUndefined();
+    },
+  );
+
+  it('does not revive a private address after a failed pause refresh or page reopen', async () => {
+    const first = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    mockEnabled = false;
+    mockPaused = true;
+    mockGetAddresses.mockRejectedValue(new Error('address lookup failed'));
+    emitPrivacyChange({
+      networkId: props.networkId,
+      accountIds: [props.accountId],
+      change: 'syncState',
+    });
+    await flushReads();
+    expect(first.result.current.state?.paused).toBe(true);
+    expect(first.result.current.poolAddress).toBeUndefined();
+    expect(first.result.current.addresses?.publicAddress).toBe('t-account-a');
+    expect(first.result.current.balance?.pools[0]?.totalParsed).toBe('1');
+    first.unmount();
+    mockGetAddresses.mockImplementation(() => new Promise(() => {}));
+    mockGetState.mockImplementation(() => new Promise(() => {}));
+    const second = renderHook(useLocalWalletPool, { initialProps: props });
+    expect(second.result.current.poolAddress).toBeUndefined();
+    expect(second.result.current.addresses?.privateAddress).toBeUndefined();
+    expect(second.result.current.addresses?.publicAddress).toBe('t-account-a');
+  });
+
+  it('does not restore a failed address read from the last-seen cache while still enabled', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    mockGetAddresses.mockRejectedValue(new Error('address lookup failed'));
+    act(() => result.current.refresh());
+    await flushReads();
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.poolAddress).toBeUndefined();
+    expect(result.current.addresses?.publicAddress).toBe('t-account-a');
+  });
+
+  it('ignores a prior owner address rejection after the next owner has loaded', async () => {
+    const { result, rerender } = renderHook(useLocalWalletPool, {
+      initialProps: props,
+    });
+    await flushReads();
+    let rejectPrevious: (error: Error) => void = () => {};
+    mockGetAddresses.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectPrevious = reject;
+        }),
+    );
+    act(() => result.current.refresh());
+    await flushMicrotasks();
+    rerender({ ...props, accountId: 'account-b' });
+    await flushReads();
+    expect(result.current.poolAddress).toBe('u-account-b');
+    await act(async () => rejectPrevious(new Error('previous owner failed')));
+    await flushMicrotasks();
+    expect(result.current.poolAddress).toBe('u-account-b');
+    expect(mockDisplay?.ownerKey).toBe('account-b_zec--0_4');
+  });
+
+  it('handles support rejection without interrupting sync-state revalidation', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    mockGetSupport.mockRejectedValueOnce(new Error('support unavailable'));
+    mockEnabled = false;
+    mockPaused = true;
+    emitPrivacyChange({
+      networkId: props.networkId,
+      accountIds: [props.accountId],
+      change: 'syncState',
+    });
+    await flushReads();
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.state?.paused).toBe(true);
+    expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+  });
+});
+
 describe('useLocalWalletPool retained-page lifecycle', () => {
   it.each([false, true])(
     'keeps the loaded page visible across a sync-state notification (was paused: %s)',
@@ -849,7 +965,8 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
       await flushReads();
       expect(result.current.isReady).toBe(true);
       expect(result.current.state?.paused).toBe(!wasPaused);
-      expect(result.current.poolAddress).toBe(address);
+      expect(result.current.poolAddress).toBeUndefined();
+      expect(result.current.addresses?.publicAddress).toBe('t-account-a');
     },
   );
 
