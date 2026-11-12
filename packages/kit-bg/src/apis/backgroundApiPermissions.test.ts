@@ -1,4 +1,5 @@
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import { EAtomNames } from '../states/jotai/atomNames';
@@ -53,6 +54,17 @@ describe('isProviderApiPrivateOriginDenied', () => {
 });
 
 describe('$private access from the opaque web-embed origins', () => {
+  const env = platformEnv as { isNative?: boolean };
+  const originalIsNative = env.isNative;
+
+  beforeEach(() => {
+    env.isNative = true;
+  });
+
+  afterEach(() => {
+    env.isNative = originalIsNative;
+  });
+
   const isDenied = (origin: string, method: string, isMarked: boolean) =>
     isProviderApiPrivateOriginDenied({
       method,
@@ -66,6 +78,15 @@ describe('$private access from the opaque web-embed origins', () => {
         isMarked,
       ),
     });
+
+  it.each(['null', 'file://'])(
+    'ignores a mark the page sends itself off native, e.g. through an extension port, at %s',
+    (origin) => {
+      env.isNative = false;
+      expect(isDenied(origin, 'getSensitiveEncodeKey', true)).toBe(true);
+      expect(isDenied(origin, 'wallet_showToast', true)).toBe(true);
+    },
+  );
 
   it.each(['null', 'file://'])(
     'treats an unmarked %s frame as an ordinary page',
