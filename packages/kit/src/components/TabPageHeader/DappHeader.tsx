@@ -14,7 +14,7 @@ import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector/atoms';
-import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeTokenListHeaderProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListHeaderProviderMirror';
 import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 
@@ -88,11 +88,11 @@ export function DappHeader({ sceneName, tabRoute }: ITabPageHeaderProp) {
   const renderHeaderRight = useCallback(
     () =>
       config ? (
-        <HomeTokenListProviderMirror>
+        <HomeTokenListHeaderProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
             <RightActions tabRoute={tabRoute} />
           </AccountSelectorProviderMirror>
-        </HomeTokenListProviderMirror>
+        </HomeTokenListHeaderProviderMirror>
       ) : null,
     [config, tabRoute],
   );
