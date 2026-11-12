@@ -8,6 +8,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { primeHomeTokenListCellsFromColdStart } from '../../states/jotai/contexts/tokenList/cells/coldStart';
+
 // Web/desktop gate the React mount on BOTH:
 //   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
 //     reconciled from JotaiStorage IDB into the jotai store, so first render
@@ -116,7 +118,13 @@ function isReadySync(): boolean {
 }
 
 export function GlobalJotaiReady({ children }: { children: any }) {
-  const [isReady, setIsReady] = useState(() => isReadySync());
+  const [isReady, setIsReady] = useState(() => {
+    const ready = isReadySync();
+    if (ready) {
+      primeHomeTokenListCellsFromColdStart();
+    }
+    return ready;
+  });
   logGlobalJotaiReady(`render isReady=${isReady}, syncReady=${isReadySync()}`);
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog(
@@ -127,6 +135,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
   useEffect(() => {
     if (isReadySync()) {
       logGlobalJotaiReady('effect sees ready=true, rendering children');
+      primeHomeTokenListCellsFromColdStart();
       setIsReady(true);
       return;
     }
@@ -135,6 +144,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
     const release = () => {
       if (!isMounted) return;
       logGlobalJotaiReady('gate releasing');
+      primeHomeTokenListCellsFromColdStart();
       startTransition(() => {
         if (process.env.NODE_ENV !== 'production') {
           debugLandingLog('GlobalJotaiReady resolved', 'released');
