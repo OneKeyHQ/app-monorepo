@@ -13,6 +13,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IHeaderOptions = {
+  headerRight?: () => ReactNode;
   headerContainerBackgroundColor?: string;
   headerStyle?: { backgroundColor?: string };
 };
@@ -29,7 +30,7 @@ jest.mock('@onekeyhq/components', () => {
           // Navigation merges new options into the current route's options.
           mockOptions = { ...mockOptions, ...options };
         }, [options]);
-        return null;
+        return options.headerRight?.() ?? null;
       },
     },
     XStack: ({ children }: { children?: ReactNode }) => children,
@@ -44,9 +45,12 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
-  default: {},
+  default: { hasNoUsableWallet: () => true },
 }));
-jest.mock('../../states/jotai/contexts/accountSelector', () => ({}));
+jest.mock('../../states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({ activeAccount: {} }),
+  useIsAccountSelectorSyncLoading: () => false,
+}));
 jest.mock('../../views/Discovery/pages/components/HistoryIconButton', () => ({
   HistoryIconButton: () => null,
 }));
@@ -55,7 +59,9 @@ jest.mock('./UniversalSearchInput', () => ({
 }));
 jest.mock('./components', () => ({
   GiftAction: () => null,
-  HeaderUpdateButton: () => null,
+  HeaderUpdateButton: () => (
+    <button data-testid="header-update-button">Update</button>
+  ),
   WalletConnectionForWeb: () => null,
   WalletConnectionGroup: () => null,
 }));
@@ -96,6 +102,42 @@ describe('desktop tab header background', () => {
 
       expect(mockOptions.headerStyle?.backgroundColor).toBe(background);
       expect(mockOptions.headerContainerBackgroundColor).toBe(background);
+    },
+  );
+});
+
+describe('desktop update entry placement', () => {
+  it.each(Object.values(ETabRoutes))(
+    'only renders the update entry on Home: %s',
+    (tabRoute) => {
+      const { queryByTestId } = render(
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={tabRoute}
+        />,
+      );
+
+      expect(Boolean(queryByTestId('header-update-button'))).toBe(
+        tabRoute === ETabRoutes.Home,
+      );
+    },
+  );
+
+  it.each([ETabRoutes.Swap, ETabRoutes.Perp])(
+    'preserves custom actions without an update entry on %s',
+    (tabRoute) => {
+      const { queryByTestId, getByTestId } = render(
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={tabRoute}
+          customHeaderRightItems={
+            <button data-testid="custom-action">Custom action</button>
+          }
+        />,
+      );
+
+      expect(queryByTestId('header-update-button')).toBeNull();
+      expect(getByTestId('custom-action')).toBeTruthy();
     },
   );
 });
