@@ -5,7 +5,10 @@ import { defaultAbiCoder } from 'ethers/lib/utils';
 import { ethers } from 'ethersV6';
 import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 
-import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  normalizeEvmAccessList,
+  validateEvmAddress,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -559,6 +562,9 @@ class EvmApiProvider extends BaseApiProvider {
       // type: encodedTx.type,
       to: encodedTx.to,
       data: encodedTx.data,
+      // The L1 data fee is charged on the serialized bytes, which include
+      // the access list.
+      accessList: normalizeEvmAccessList(encodedTx.accessList),
       value: encodedTx.value,
       gasLimit: encodedTx.gasLimit,
       nonce: Number(encodedTx.nonce ?? 1), // all >0 have the same effect
@@ -584,15 +590,22 @@ class EvmApiProvider extends BaseApiProvider {
   override async getGasLimit(
     params: IServerGasLimitParams,
   ): Promise<IServerGasLimitResponse> {
+    const encodedTx = params.encodedTx as IEncodedTxEvm;
+    const accessList = normalizeEvmAccessList(encodedTx?.accessList);
     const estimateGasLimitRes = await this.client.call<string>(
       'eth_estimateGas',
-      [pick(params.encodedTx, 'from', 'to', 'value', 'data')],
+      [
+        {
+          ...pick(encodedTx, 'from', 'to', 'value', 'data'),
+          ...(accessList ? { accessList } : {}),
+        },
+      ],
     );
 
     const estimateGasLimit = Number(estimateGasLimitRes);
 
     const gasLimit =
-      (params.encodedTx as IEncodedTxEvm)?.data === EMPTY_DATA
+      encodedTx?.data === EMPTY_DATA
         ? estimateGasLimit
         : estimateGasLimit * GAS_LIMIT_RATE;
 

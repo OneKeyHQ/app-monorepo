@@ -2,7 +2,10 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isNumber } from 'lodash';
 
-import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  normalizeEvmAccessList,
+  validateEvmAddress,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
@@ -1505,6 +1508,10 @@ export default class Vault extends VaultBase {
         this.networkId === getNetworkIdsMap().fevm ? '0x1' : '0x0';
     }
 
+    // The access list adds intrinsic gas and changes execution gas, so the
+    // estimate has to cover it.
+    const accessList = normalizeEvmAccessList(encodedTx.accessList);
+
     return Promise.resolve({
       encodedTx: {
         chainId,
@@ -1513,6 +1520,7 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+        ...(accessList ? { accessList } : {}),
       },
     });
   }
@@ -1592,6 +1600,13 @@ export default class Vault extends VaultBase {
       throw new OneKeyError('speedUpOrCancelTx ERROR: nonce is missing!');
     }
 
+    // Speeding up re-sends the same transaction, so it keeps the access
+    // list. The encrypted copy is preferred because it cannot be edited in
+    // local history.
+    const accessList = normalizeEvmAccessList(
+      (encodedTxOrigin ?? encodedTx).accessList,
+    );
+
     // set only fields of IEncodedTxEvm
     const encodedTxEvm: IEncodedTxEvm = {
       from: encodedTx.from,
@@ -1607,12 +1622,16 @@ export default class Vault extends VaultBase {
       gasPrice: encodedTx.gasPrice,
       maxFeePerGas: encodedTx.maxFeePerGas,
       maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
+      ...(accessList ? { accessList } : {}),
     };
 
     if (replaceType === EReplaceTxType.Cancel) {
       encodedTxEvm.to = encodedTxEvm.from;
       encodedTxEvm.value = '0x0';
       encodedTxEvm.data = '0x';
+      // A cancel is a plain self-transfer; the replaced call's list would
+      // only add gas.
+      delete encodedTxEvm.accessList;
     }
     if (replaceType === EReplaceTxType.SpeedUp) {
       if (
