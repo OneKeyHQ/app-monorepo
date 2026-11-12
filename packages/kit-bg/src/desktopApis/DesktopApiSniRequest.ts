@@ -128,22 +128,37 @@ function getErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function shortHashForLog(value: string | undefined | null): string {
-  if (!value) return 'none';
-  let hash = 0x81_1c_9d_c5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;
-  }
-  return hash.toString(16).padStart(8, '0');
-}
-
 function formatNativeLogEvent(
   event: string,
   fields: Record<string, unknown>,
 ): string {
   return Object.entries({ event, ...fields })
-    .map(([key, value]) => `${key}=${safeSniLogValue(value)}`)
+    .map(([key, value]) => {
+      const logValue =
+        key === 'requestId' || key === 'ip' || key === 'requestedHost'
+          ? String(value ?? 'none').replace(/[\r\n\s]+/g, '_')
+          : safeSniLogValue(value);
+      // Keep long diagnostic IDs recoverable without matching the logger's private-key filter.
+      let displayedValue = logValue;
+      let formatSuffix = '';
+      if (
+        key === 'requestId' &&
+        typeof value === 'string' &&
+        (value !== logValue || /[0-9a-fA-F]{64}/.test(value))
+      ) {
+        displayedValue = encodeURIComponent(
+          Buffer.from(value, 'utf8').toString('utf8'),
+        )
+          .replace(
+            /[!'()*~-]/g,
+            (character) =>
+              `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+          )
+          .replace(/([0-9a-fA-F]{32})(?=[0-9a-fA-F]{32})/g, '$1-');
+        formatSuffix = ' requestIdFormat=uri-hex32';
+      }
+      return `${key}=${displayedValue}${formatSuffix}`;
+    })
     .join(' ');
 }
 
@@ -818,7 +833,7 @@ export class SniRequestLimiter {
       const stats = this.snapshot(hostname, ip);
       writeNativeLog('warn', 'desktop_sni_resource_limit', {
         hostname: hostname.toLowerCase(),
-        ipHash: shortHashForLog(ip),
+        ip,
         ipFamily: getIpFamily(ip),
         activeRequests: stats.activeRequests,
         activeRequestsForPair: stats.activeRequestsForPair,
@@ -954,7 +969,7 @@ class DesktopApiSniRequest {
       code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
       failClosed: isSniFailClosedError(error),
       hostname: config.hostname ?? 'unknown',
-      ipHash: shortHashForLog(config.ip),
+      ip: config.ip,
       ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
       method: config.method ?? 'GET',
       timeout: config.timeout ?? 'unknown',
@@ -1036,7 +1051,7 @@ class DesktopApiSniRequest {
       if (previous) {
         writeNativeLog('warn', 'desktop_sni_lifecycle', {
           action: 'duplicate_request_id',
-          requestIdHash: shortHashForLog(normalizedConfig.requestId),
+          requestId: normalizedConfig.requestId,
           success: true,
           activeCount: this.allActiveRequests.size,
           pendingCount: this.requestLimiter.snapshot().pendingRequests,
@@ -1079,7 +1094,7 @@ class DesktopApiSniRequest {
         code: getErrorCode(error) ?? 'SNI_RESOURCE_LIMIT',
         failClosed: isSniFailClosedError(error),
         hostname: normalizedConfig.hostname,
-        ipHash: shortHashForLog(normalizedConfig.ip),
+        ip: normalizedConfig.ip,
         ipFamily: getIpFamily(normalizedConfig.ip),
         method: normalizedConfig.method,
         timeout: normalizedConfig.timeout,
@@ -1136,7 +1151,7 @@ class DesktopApiSniRequest {
           code: getErrorCode(error) ?? 'SNI_REQUEST_FAILED',
           failClosed: isSniFailClosedError(error),
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
@@ -1163,7 +1178,7 @@ class DesktopApiSniRequest {
           result: 'response',
           status: response.statusCode,
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
@@ -1250,9 +1265,9 @@ class DesktopApiSniRequest {
           normalizedConfig.ip,
         );
         writeNativeLog('info', 'desktop_sni_request_start', {
-          requestIdHash: shortHashForLog(normalizedConfig.requestId),
+          requestId: normalizedConfig.requestId,
           hostname: normalizedConfig.hostname,
-          ipHash: shortHashForLog(normalizedConfig.ip),
+          ip: normalizedConfig.ip,
           ipFamily: getIpFamily(normalizedConfig.ip),
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
@@ -1312,7 +1327,7 @@ class DesktopApiSniRequest {
     if (!requestState) {
       writeNativeLog('warn', 'desktop_sni_lifecycle', {
         action: 'cancel_request',
-        requestIdHash: shortHashForLog(requestId),
+        requestId,
         success: false,
         activeCount: this.allActiveRequests.size,
         pendingCount: this.requestLimiter.snapshot().pendingRequests,
@@ -1324,7 +1339,7 @@ class DesktopApiSniRequest {
     );
     writeNativeLog('info', 'desktop_sni_lifecycle', {
       action: 'cancel_request',
-      requestIdHash: shortHashForLog(requestId),
+      requestId,
       success: true,
       activeCount: this.allActiveRequests.size,
       pendingCount: this.requestLimiter.snapshot().pendingRequests,
