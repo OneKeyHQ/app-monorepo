@@ -23,6 +23,7 @@ import {
   type IClearPackage,
   type IDownloadASC,
   type IDownloadPackage,
+  type IDownloadProgressScope,
   type IInstallPackage,
   type IManualInstallPackage,
   type IUpdateDownloadedEvent,
@@ -249,17 +250,24 @@ const prepareQuitInstall: NonNullable<
   );
 };
 
-export const useDownloadProgress: IUseDownloadProgress = (scope) => {
+export const useDownloadProgressDetails = (scope?: IDownloadProgressScope) => {
   const latestVersion = scope?.latestVersion;
   const bundleVersion = scope?.bundleVersion;
-  const [percent, setPercent] = useState(0);
+  const [progress, setProgress] = useState({
+    percent: 0,
+    total: 0,
+    transferred: 0,
+  });
 
   const updatePercent = useThrottledCallback(
     (params: IUpdateProgressUpdate) => {
       console.log('update/downloading', params);
-      const { percent: progress } = params;
-      defaultLogger.update.app.log('downloading', progress);
-      setPercent(Number(Number(progress).toFixed()));
+      defaultLogger.update.app.log('downloading', params.percent);
+      setProgress({
+        percent: Math.round(params.percent),
+        total: params.total,
+        transferred: params.transferred,
+      });
     },
     10,
   );
@@ -268,13 +276,17 @@ export const useDownloadProgress: IUseDownloadProgress = (scope) => {
     (event: IUpdateDownloadedEvent) => {
       if (bundleVersion || event?.bundleVersion) return;
       defaultLogger.update.app.log('downloaded');
-      setPercent(100);
+      setProgress((current) => ({
+        ...current,
+        percent: 100,
+        transferred: current.total,
+      }));
     },
     [bundleVersion],
   );
 
   useEffect(() => {
-    setPercent(0);
+    setProgress({ percent: 0, total: 0, transferred: 0 });
     // Filter before throttling so another destination cannot replace queued progress.
     const onProgress = (event: IUpdateProgressUpdate) => {
       if (bundleVersion) {
@@ -296,8 +308,11 @@ export const useDownloadProgress: IUseDownloadProgress = (scope) => {
       updatePercent.cancel();
     };
   }, [updatedDownloaded, updatePercent, bundleVersion, latestVersion]);
-  return percent;
+  return progress;
 };
+
+export const useDownloadProgress: IUseDownloadProgress = (scope) =>
+  useDownloadProgressDetails(scope).percent;
 
 const clearPackage: IClearPackage = async () => {
   await runUpdateOperation('cleanup', () =>

@@ -4482,7 +4482,6 @@ function TokenListBlock({
         nativeTokenStatus={nativeTokenStatus}
         limit={6}
         plainMode
-        withHeader
         withFooter
         withPrice
         inTabList
