@@ -538,6 +538,43 @@ describe('reverse position confirmation', () => {
       expect(confirm.getAttribute('data-variant')).toBe(expectedVariant);
     },
   );
+  it('updates the order preview and confirms the latest same-direction size', async () => {
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText(`${ETranslations.global_sell} 2 ETH`)).toBeTruthy();
+
+    mockPosition = { ...mockPosition, szi: '1.5' };
+    view.rerender(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+
+    expect(view.getByText(`${ETranslations.perp_long} 1.5 ETH`)).toBeTruthy();
+    expect(view.getByText(`${ETranslations.perp_short} 1.5 ETH`)).toBeTruthy();
+    expect(view.getByText(`${ETranslations.global_sell} 3 ETH`)).toBeTruthy();
+    fireEvent.click(view.getByTestId('perp-reverse-position-confirm-button'));
+    await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+    expect(mockPlaceOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ size: '3', isBuy: false }),
+    );
+  });
+  it('clears the order quantity when the target position is missing', () => {
+    mockPosition = { ...mockPosition, szi: '1.5' };
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText(`${ETranslations.global_sell} 3 ETH`)).toBeTruthy();
+
+    mockPosition = { ...mockPosition, coin: 'BTC' };
+    view.rerender(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+
+    expect(view.queryByText(`${ETranslations.global_sell} 2 ETH`)).toBeNull();
+    expect(view.queryByText(`${ETranslations.global_sell} 3 ETH`)).toBeNull();
+    const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  });
   it('submits one market order, never cancels orders, and prevents duplicate submission', async () => {
     const pending = deferred();
     mockPlaceOrder.mockReturnValueOnce(pending.promise);
@@ -663,6 +700,8 @@ describe('reverse position confirmation', () => {
       });
       expect(mockPlaceOrder).not.toHaveBeenCalled();
       expect(mockToastError).toHaveBeenCalled();
+      const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+      expect((confirm as HTMLButtonElement).disabled).toBe(change !== 'size');
     },
   );
   it('does not submit if the confirmation is closed during preparation', async () => {
