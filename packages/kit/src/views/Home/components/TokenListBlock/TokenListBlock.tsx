@@ -4401,8 +4401,23 @@ function TokenListBlock({
     [updatePortfolioSyncUiState],
   );
 
+  // Wide desktop / web: the subtotal after "Tokens" only says something when
+  // DeFi or perps value is part of the balance above. Alone it repeats that
+  // balance, so the title stands without it.
+  const subtotalRepeatsBalance =
+    !!tableLayout &&
+    !platformEnv.isNative &&
+    !(
+      homePortfolioDisplay.ownerKey === portfolioCategoryOwnerKey &&
+      [
+        homePortfolioDisplay.defiFiatUsd,
+        homePortfolioDisplay.perpsFiatUsd,
+      ].some((value) => !!value && new BigNumber(value).gt(0))
+    );
+
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
+      if (subtotalRepeatsBalance) return null;
       if (
         (!tokenListState.initialized && tokenListState.isRefreshing) ||
         // The atom still holds another owner's worth (first visit of this
@@ -4428,6 +4443,7 @@ function TokenListBlock({
     return null;
   }, [
     tableLayout,
+    subtotalRepeatsBalance,
     accountTokensWorth.currency,
     accountTokensValue,
     isWorthForCurrentOwner,
