@@ -65,7 +65,10 @@ import { useHomeNativeListTheme } from '../../views/Home/hooks/useHomeNativeList
 import { ListLoading } from '../Loading';
 import { getNativeListTokenFallback } from '../Token/nativeListTokenFallback';
 
-import { formatNativeSelectorAmount } from './nativeSelectorFormat';
+import {
+  formatNativeSelectorAmount,
+  formatNativeSelectorPriceChange,
+} from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
 import { TOKEN_ROW_CONTAINER_STYLE } from './tokenListRowLayout';
@@ -671,21 +674,15 @@ export function NativeTokenSelectorList({
             const priceChangeValue = priceChangeValid
               ? Number(fiat?.price24h)
               : undefined;
-            const priceChangeText = formatNativeSelectorAmount(
+            const priceChange =
               priceChangeValue === undefined
-                ? UNAVAILABLE_DISPLAY
-                : String(priceChangeValue),
-              'priceChange',
-              undefined,
-              priceChangeValue !== undefined && priceChangeValue !== 0,
-            );
-            let priceChangeTone: 'secondary' | 'positive' | 'negative' =
-              'secondary';
-            if (priceChangeValue !== undefined && priceChangeValue > 0) {
-              priceChangeTone = 'positive';
-            } else if (priceChangeValue !== undefined && priceChangeValue < 0) {
-              priceChangeTone = 'negative';
-            }
+                ? undefined
+                : formatNativeSelectorPriceChange(priceChangeValue);
+            const priceChangeText = priceChange ?? {
+              text: UNAVAILABLE_DISPLAY,
+              segments: undefined,
+            };
+            const priceChangeTone = priceChange?.tone ?? 'secondary';
             const amount = fiat
               ? displayFiatValueOrUnavailable(fiat.fiatValue, balance)
               : '';

@@ -20,7 +20,10 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { cell } from '../../states/jotai/contexts/tokenList/cells/projection';
 
-import { formatNativeSelectorAmount } from './nativeSelectorFormat';
+import {
+  formatNativeSelectorAmount,
+  formatNativeSelectorPriceChange,
+} from './nativeSelectorFormat';
 import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 
 import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiContext';
@@ -193,6 +196,9 @@ jest.mock('./nativeSelectorFormat', () => {
   );
   return {
     formatNativeSelectorAmount: jest.fn(actual.formatNativeSelectorAmount),
+    formatNativeSelectorPriceChange: jest.fn(
+      actual.formatNativeSelectorPriceChange,
+    ),
   };
 });
 
@@ -768,6 +774,7 @@ it('formats and patches only changed selector rows on an immutable fiat update',
   const unchangedRow = getMockSnapshot()?.rows[500];
   mockApplyPatches.mockClear();
   jest.mocked(formatNativeSelectorAmount).mockClear();
+  jest.mocked(formatNativeSelectorPriceChange).mockClear();
   const stringifySpy = jest.spyOn(JSON, 'stringify');
   try {
     expect(planNativeListPatches(initialSnapshot, initialSnapshot)).toEqual([]);
@@ -779,6 +786,7 @@ it('formats and patches only changed selector rows on an immutable fiat update',
   expect(mockSnapshotProps.at(-1)).toBe(initialSnapshot);
   expect(mockApplyPatches).not.toHaveBeenCalled();
   expect(formatNativeSelectorAmount).not.toHaveBeenCalled();
+  expect(formatNativeSelectorPriceChange).not.toHaveBeenCalled();
   const changedIndices = [2, 15, 40, 95, 280, 350, 610, 704, 850, 999];
   const updatedFiat = { ...initialFiat };
   for (const index of changedIndices) {
