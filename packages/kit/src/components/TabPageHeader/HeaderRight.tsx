@@ -111,7 +111,7 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {tabRoute === ETabRoutes.Home ? <HeaderUpdateButton /> : null}
+        <HeaderUpdateButton />
         <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
       </>
