@@ -1,0 +1,296 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
+index 98974b4..79c1c7c 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
+@@ -702,6 +702,20 @@ function assertButtonGroup(row, path) {
+     }
+   });
+ }
++// OneKey patch: validate passive web badges without introducing an action slot.
++function assertWebLeadingBadge(value, path) {
++  if (value === undefined) return;
++  const badge = protocolObject(value, path);
++  assertUnknownKeys(badge, ['text', 'textColor', 'backgroundColor'], path, 'web leading badge key');
++  if (typeof badge.text !== 'string' || !badge.text.trim() || badge.text.length > MAX_TEXT_LENGTH)
++    fail(`${path}.text`, 'must be non-blank within the text limit');
++  for (const field of ['textColor', 'backgroundColor']) {
++    const color = badge[field];
++    if (typeof color !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(color))
++      fail(`${path}.${field}`, 'must be #RRGGBB or #RRGGBBAA');
++  }
++}
++
+ function assertIdentityExtras(row, path) {
+   for (const field of ['titleIcon', 'secondaryTitleIcon']) {
+     const titleIcon = row[field];
+@@ -982,6 +996,7 @@ function assertRow(row, index, path = `rows[${index}]`) {
+         assertKey(column.key, `${path}.columns[${columnIndex}].key`);
+         assertText(column.text, `${path}.columns[${columnIndex}].text`);
+         assertIdentityExtras(column, `${path}.columns[${columnIndex}]`);
++        assertWebLeadingBadge(column.webLeadingBadge, `${path}.columns[${columnIndex}].webLeadingBadge`);
+         for (const field of ['textSegments', 'secondaryTextSegments']) {
+           column[field]?.forEach((segment, segmentIndex) => {
+             assertText(segment.text, `${path}.columns[${columnIndex}].${field}[${segmentIndex}].text`);
+@@ -1370,6 +1385,7 @@ function assertRowProtocol(row, path) {
+       const columnPath = `${path}.columns[${index}]`;
+       protocolObject(column, columnPath);
+       if (isDevelopment()) assertIdentityExtras(column, columnPath);
++      assertWebLeadingBadge(column.webLeadingBadge, `${columnPath}.webLeadingBadge`);
+     });
+     if (isDevelopment()) assertTrailingAccessories(row.trailing, `${path}.trailing`);
+   }
+@@ -1576,7 +1592,7 @@ function sanitizeImage(value) {
+ }
+ const NESTED_DECORATION_FIELDS = {
+   webTable: ['columns', 'cells', 'testID', 'draggable', 'contextMenuActionKey'],
+-  columns: ['key', 'text', 'textSegments', 'titleIcon', 'secondaryTitleIcon', 'secondaryLeadingText', 'secondaryText', 'secondaryTextSegments', 'weight', 'alignment', 'tone', 'secondaryTone', 'width', 'minWidth', 'flex', 'paddingStart', 'paddingEnd'],
++  columns: ['key', 'text', 'textSegments', 'titleIcon', 'secondaryTitleIcon', 'webLeadingBadge', 'secondaryLeadingText', 'secondaryText', 'secondaryTextSegments', 'weight', 'alignment', 'tone', 'secondaryTone', 'width', 'minWidth', 'flex', 'paddingStart', 'paddingEnd'],
+   cells: ['key', 'kind', 'active', 'disabled', 'testID', 'hoverActionKey', 'actionKey', 'accessibilityLabel', 'leading', 'title', 'secondary', 'lineGap', 'secondaryBadges', 'hoverImages', 'hoverSecondary', 'hoverActionLabel', 'badges', 'primary', 'partGap', 'points', 'width', 'height', 'strokeColor', 'fillColor'],
+   badges: ['key', 'text', 'tone', 'iconName', 'icon', 'textColor', 'backgroundColor', 'actionKey', 'accessibilityLabel', 'style'],
+   overlays: ['position', 'size', 'width', 'height', 'padding', 'offset', 'offsetX', 'offsetY', 'image', 'fallbackIcon', 'name', 'text', 'fontWeight', 'tintColor', 'backgroundColor'],
+@@ -1585,6 +1601,17 @@ const NESTED_DECORATION_FIELDS = {
+ };
+ function sanitizeDecoration(value, field) {
+   if (value === undefined || value === null) return undefined;
++  // OneKey patch: drop malformed badges and never retain action/style fields.
++  if (field === 'webLeadingBadge') {
++    if (!isRecord(value) || typeof value.text !== 'string' || !value.text.trim() || value.text.length > MAX_TEXT_LENGTH)
++      return undefined;
++    const { textColor, backgroundColor } = value;
++    if (typeof textColor !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(textColor) ||
++        typeof backgroundColor !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(backgroundColor))
++      return undefined;
++    return { text: value.text, textColor, backgroundColor };
++  }
++
+   if (!Array.isArray(value) && ['image', 'networkImage', 'thumbnail', 'source', 'images', 'hoverImages'].includes(field)) return sanitizeImage(value);
+   if (['titleImage', 'titleIcon', 'secondaryTitleIcon', 'fallbackIcon', 'cornerIcon', 'media'].includes(field) && !isRecord(value)) return undefined;
+   if (field === 'style' && typeof value !== 'string' && !isRecord(value)) return undefined;
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
+index 2fc3a80..1a155e2 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/DataRowRenderer.js
+@@ -60,6 +60,30 @@ function bind(body, row, primitives) {
+     cell.primary.textContent = column.text;
+     applyValueSegments(cell.primary, column.textSegments, style?.columns?.fontSize ?? 14, style?.columns?.lineHeight ?? 20, fontWeight(style?.columns?.fontWeight, 500));
+     if (style?.columns) primitives.textStyle(cell.primary, style.columns);
++    // OneKey patch: a passive leading label leaves both numeric lines end-aligned.
++    const leadingBadge = column.webLeadingBadge;
++    cell.leadingBadge.hidden = !leadingBadge;
++    cell.leadingBadge.style.cssText = '';
++    cell.leadingBadge.textContent = leadingBadge?.text ?? '';
++    if (leadingBadge) {
++      cell.primaryLine.style.gap = '8px';
++      cell.leadingBadge.style.display = 'inline-flex';
++      cell.leadingBadge.style.alignItems = 'center';
++      cell.leadingBadge.style.flexShrink = '0';
++      cell.leadingBadge.style.padding = '2px 6px';
++      cell.leadingBadge.style.borderRadius = '4px';
++      cell.leadingBadge.style.fontSize = '12px';
++      cell.leadingBadge.style.lineHeight = '16px';
++      cell.leadingBadge.style.fontWeight = '400';
++      cell.leadingBadge.style.fontFamily = 'var(--nl-font-regular)';
++      cell.leadingBadge.style.color = leadingBadge.textColor;
++      cell.leadingBadge.style.backgroundColor = leadingBadge.backgroundColor;
++      cell.leadingBadge.style.pointerEvents = 'none';
++      cell.primary.style.minWidth = '0';
++      cell.primary.style.overflow = 'hidden';
++      cell.primary.style.textOverflow = 'ellipsis';
++      cell.primary.style.whiteSpace = 'nowrap';
++    }
+     cell.titleIcons.replaceChildren();
+     if (column.titleIcon || column.secondaryTitleIcon) {
+       cell.primary.style.minWidth = '0';
+@@ -118,10 +142,14 @@ function create(document, row, primitives) {
+     const cell = createElement(document, 'span', 'ok-native-list-data-cell');
+     const primaryLine = createElement(document, 'span', 'ok-native-list-data-primary');
+     const primary = tagSlot(createElement(document, 'span'), 'columns');
++    const leadingBadge = createElement(document, 'span', 'ok-native-list-data-leading-badge');
++    leadingBadge.hidden = true;
+     const titleIcons = createElement(document, 'span');
+     titleIcons.style.display = 'contents';
+     const badges = createElement(document, 'span');
+-    primaryLine.append(primary, titleIcons, badges);
++    // OneKey patch: optional badge appears before the amount.
++    // primaryLine.append(primary, titleIcons, badges);
++    primaryLine.append(leadingBadge, primary, titleIcons, badges);
+     const secondaryLine = createElement(document, 'span', 'ok-native-list-data-secondary-line');
+     const secondary = Array.from({
+       length: 2
+@@ -133,6 +161,7 @@ function create(document, row, primitives) {
+       body: cell,
+       primaryLine,
+       primary,
++      leadingBadge,
+       titleIcons,
+       badges,
+       secondaryLine,
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+index 4050327..4532613 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
+@@ -516,6 +516,12 @@ export type DataColumn = Readonly<{
+     textSegments?: readonly ValueTextSegment[];
+     titleIcon?: IdentityRow['titleIcon'];
+     secondaryTitleIcon?: IdentityRow['titleIcon'];
++    /** OneKey patch: passive Web-only badge before the primary column text. */
++    webLeadingBadge?: Readonly<{
++      text: string;
++      textColor: string;
++      backgroundColor: string;
++    }>;
+     secondaryLeadingText?: string;
+     secondaryText?: string;
+     secondaryTextSegments?: readonly ValueTextSegment[];
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+index 9ac00b5..28036df 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
+@@ -642,6 +642,12 @@ export type DataColumn = Readonly<{
+   textSegments?: readonly ValueTextSegment[];
+   titleIcon?: IdentityRow['titleIcon'];
+   secondaryTitleIcon?: IdentityRow['titleIcon'];
++  /** OneKey patch: passive Web-only badge before the primary column text. */
++  webLeadingBadge?: Readonly<{
++    text: string;
++    textColor: string;
++    backgroundColor: string;
++  }>;
+   secondaryLeadingText?: string;
+   secondaryText?: string;
+   secondaryTextSegments?: readonly ValueTextSegment[];
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+index 7e29386..6a14975 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
+@@ -1344,6 +1344,20 @@ function assertButtonGroup(
+   });
+ }
+ 
++// OneKey patch: validate passive web badges without introducing an action slot.
++function assertWebLeadingBadge(value: unknown, path: string): void {
++  if (value === undefined) return;
++  const badge = protocolObject(value, path);
++  assertUnknownKeys(badge, ['text', 'textColor', 'backgroundColor'], path, 'web leading badge key');
++  if (typeof badge.text !== 'string' || !badge.text.trim() || badge.text.length > MAX_TEXT_LENGTH)
++    fail(`${path}.text`, 'must be non-blank within the text limit');
++  for (const field of ['textColor', 'backgroundColor']) {
++    const color = badge[field];
++    if (typeof color !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(color))
++      fail(`${path}.${field}`, 'must be #RRGGBB or #RRGGBBAA');
++  }
++}
++
+ function assertIdentityExtras(
+   row: Pick<
+     IdentityRow,
+@@ -1922,6 +1936,7 @@ function assertRow(
+         assertKey(column.key, `${path}.columns[${columnIndex}].key`);
+         assertText(column.text, `${path}.columns[${columnIndex}].text`);
+         assertIdentityExtras(column, `${path}.columns[${columnIndex}]`);
++        assertWebLeadingBadge(column.webLeadingBadge, `${path}.columns[${columnIndex}].webLeadingBadge`);
+         for (const field of [
+           'textSegments',
+           'secondaryTextSegments',
+@@ -3030,6 +3045,7 @@ function assertRowProtocol(row: RowModel, path: string): void {
+       const columnPath = `${path}.columns[${index}]`;
+       protocolObject(column, columnPath);
+       if (isDevelopment()) assertIdentityExtras(column, columnPath);
++      assertWebLeadingBadge(column.webLeadingBadge, `${columnPath}.webLeadingBadge`);
+     });
+     if (isDevelopment())
+       assertTrailingAccessories(row.trailing, `${path}.trailing`);
+@@ -3488,6 +3504,8 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+     'textSegments',
+     'titleIcon',
+     'secondaryTitleIcon',
++    // OneKey patch: preserve the passive web column prefix.
++    'webLeadingBadge',
+     'secondaryLeadingText',
+     'secondaryText',
+     'secondaryTextSegments',
+@@ -3562,6 +3580,17 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+ 
+ function sanitizeDecoration(value: unknown, field: string): unknown {
+   if (value === undefined || value === null) return undefined;
++  // OneKey patch: drop malformed badges and never retain action/style fields.
++  if (field === 'webLeadingBadge') {
++    if (!isRecord(value) || typeof value.text !== 'string' || !value.text.trim() || value.text.length > MAX_TEXT_LENGTH)
++      return undefined;
++    const { textColor, backgroundColor } = value;
++    if (typeof textColor !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(textColor) ||
++        typeof backgroundColor !== 'string' || !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(backgroundColor))
++      return undefined;
++    return { text: value.text, textColor, backgroundColor };
++  }
++
+   if (
+     !Array.isArray(value) &&
+     [
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
+index 6515941..c5c1141 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/DataRowRenderer.ts
+@@ -11,6 +11,7 @@ type ColumnViews = {
+   body: HTMLElement;
+   primaryLine: HTMLElement;
+   primary: HTMLElement;
++  leadingBadge: HTMLElement;
+   titleIcons: HTMLElement;
+   badges: HTMLElement;
+   secondaryLine: HTMLElement;
+@@ -109,6 +110,30 @@ function bind(body: HTMLElement, row: DataRow, primitives: RowPrimitives) {
+       fontWeight(style?.columns?.fontWeight, 500)
+     );
+     if (style?.columns) primitives.textStyle(cell.primary, style.columns);
++    // OneKey patch: a passive leading label leaves both numeric lines end-aligned.
++    const leadingBadge = column.webLeadingBadge;
++    cell.leadingBadge.hidden = !leadingBadge;
++    cell.leadingBadge.style.cssText = '';
++    cell.leadingBadge.textContent = leadingBadge?.text ?? '';
++    if (leadingBadge) {
++      cell.primaryLine.style.gap = '8px';
++      cell.leadingBadge.style.display = 'inline-flex';
++      cell.leadingBadge.style.alignItems = 'center';
++      cell.leadingBadge.style.flexShrink = '0';
++      cell.leadingBadge.style.padding = '2px 6px';
++      cell.leadingBadge.style.borderRadius = '4px';
++      cell.leadingBadge.style.fontSize = '12px';
++      cell.leadingBadge.style.lineHeight = '16px';
++      cell.leadingBadge.style.fontWeight = '400';
++      cell.leadingBadge.style.fontFamily = 'var(--nl-font-regular)';
++      cell.leadingBadge.style.color = leadingBadge.textColor;
++      cell.leadingBadge.style.backgroundColor = leadingBadge.backgroundColor;
++      cell.leadingBadge.style.pointerEvents = 'none';
++      cell.primary.style.minWidth = '0';
++      cell.primary.style.overflow = 'hidden';
++      cell.primary.style.textOverflow = 'ellipsis';
++      cell.primary.style.whiteSpace = 'nowrap';
++    }
+     cell.titleIcons.replaceChildren();
+     if (column.titleIcon || column.secondaryTitleIcon) {
+       cell.primary.style.minWidth = '0';
+@@ -210,10 +235,14 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
+       'ok-native-list-data-primary'
+     );
+     const primary = tagSlot(createElement(document, 'span'), 'columns');
++    const leadingBadge = createElement(document, 'span', 'ok-native-list-data-leading-badge');
++    leadingBadge.hidden = true;
+     const titleIcons = createElement(document, 'span');
+     titleIcons.style.display = 'contents';
+     const badges = createElement(document, 'span');
+-    primaryLine.append(primary, titleIcons, badges);
++    // OneKey patch: optional badge appears before the amount.
++    // primaryLine.append(primary, titleIcons, badges);
++    primaryLine.append(leadingBadge, primary, titleIcons, badges);
+     const secondaryLine = createElement(
+       document,
+       'span',
+@@ -232,6 +261,7 @@ function create(document: Document, row: DataRow, primitives: RowPrimitives) {
+       body: cell,
+       primaryLine,
+       primary,
++      leadingBadge,
+       titleIcons,
+       badges,
+       secondaryLine,

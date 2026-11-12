@@ -784,6 +784,12 @@ function TokenDetailsHeaderContent({
                   : undefined
               }
             />
+            <LocalWalletPoolStatus
+              networkId={networkId}
+              accountId={accountId}
+              pool={localWalletPool}
+              presentation="tokenDetails"
+            />
             {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
@@ -851,11 +857,6 @@ function TokenDetailsHeaderContent({
                 </ReviewControl>
               </RawActions>
             )}
-            <LocalWalletPoolStatus
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-            />
           </Stack>
         ) : null}
 

@@ -21,6 +21,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { LocalWalletPasswordAlertContent } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import {
   getBirthdayInputError,
   readEnableBirthday,
@@ -92,6 +93,7 @@ function PrivacyTokenDetailsPreview() {
   );
   const [state, setState] = useState<ITokenPrivacyPanelState>('disabled');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(true);
   const [showReceive, setShowReceive] = useState(true);
   const [walletScenario, setWalletScenario] = useState<'new' | 'existing'>(
     'existing',
@@ -404,6 +406,16 @@ function PrivacyTokenDetailsPreview() {
           >
             {accountLimitReached ? '5 / 5 accounts' : 'Account limit'}
           </Button>
+          {chain === 'xmr' ? (
+            <Button
+              testID="privacy-preview-needs-verification"
+              size="small"
+              variant={needsVerification ? 'primary' : 'tertiary'}
+              onPress={() => setNeedsVerification(!needsVerification)}
+            >
+              Unverified funds
+            </Button>
+          ) : null}
         </XStack>
       </YStack>
 
@@ -535,7 +547,16 @@ function PrivacyTokenDetailsPreview() {
                     ? 'Unable to connect. Try again.'
                     : undefined
                 }
+                updatedAtLabel={
+                  state === 'stopped'
+                    ? intl.formatMessage(
+                        { id: ETranslations.backup_updated_time },
+                        { time: '14:17' },
+                      )
+                    : undefined
+                }
                 onEnable={() => openEnablePreview()}
+                onStop={() => setState('stopped')}
                 onSync={() => setState('syncing')}
               />
             ) : null}
@@ -557,6 +578,14 @@ function PrivacyTokenDetailsPreview() {
                       : undefined
                   }
                 />
+                {chain === 'xmr' && needsVerification ? (
+                  <LocalWalletPasswordAlertContent
+                    amount="0.025 XMR"
+                    presentation="tokenDetails"
+                    isVerifying={false}
+                    onVerify={async () => setNeedsVerification(false)}
+                  />
+                ) : null}
                 <RawActions flexWrap="wrap">
                   <RawActions.Send disabled />
                   <RawActions.Receive disabled />

@@ -4475,11 +4475,45 @@ function TokenListBlock({
     ready,
   ]);
 
+  const nativeTokenVerification = useMemo(() => {
+    if (
+      !ready ||
+      isNetworkNotMatched ||
+      !account?.id ||
+      !network?.id ||
+      network.isAllNetworks ||
+      showLpTokensOnly ||
+      networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR
+    )
+      return undefined;
+    const hasUnverifiedBalance =
+      privacyTokenStatus?.accountId === account.id &&
+      privacyTokenStatus?.networkId === network.id &&
+      privacyTokenStatus.needsVerification;
+    if (!hasUnverifiedBalance) return undefined;
+    return {
+      networkId: network.id,
+      label: intl.formatMessage({
+        id: ETranslations.privacy_balance_verification_pending__msg,
+      }),
+    };
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    ready,
+    isNetworkNotMatched,
+    showLpTokensOnly,
+    privacyTokenStatus,
+    intl,
+  ]);
+
   const renderContent = useCallback(() => {
     return (
       <TokenListView
         tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
         nativeTokenStatus={nativeTokenStatus}
+        nativeTokenVerification={nativeTokenVerification}
         limit={6}
         plainMode
         withHeader
@@ -4583,6 +4617,7 @@ function TokenListBlock({
     nativeListSidecarLayout,
     nativeRefreshing,
     nativeTokenStatus,
+    nativeTokenVerification,
     onNativeRefresh,
     renderSubTitle,
     scopedLpTokenList,

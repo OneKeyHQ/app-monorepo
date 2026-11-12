@@ -19,6 +19,7 @@ import {
   SizableText,
   Stack,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
@@ -91,6 +92,10 @@ type IHomeCellValue = {
   fiat: ITokenFiat | undefined;
   memberFiatMap: Record<string, ITokenFiat>;
 };
+// Native retains its existing passive verification icon.
+type IWebLeadingBadge = NonNullable<
+  DataRow['columns'][number]['webLeadingBadge']
+>;
 const EMPTY_HOME_CELL_VALUES: Record<string, IHomeCellValue> = {};
 
 // Synchronous, non-reactive read of a row's cells (same resolution as
@@ -123,6 +128,11 @@ export type INativeTokenStatus = {
   networkId: string;
   label: string;
   loading: boolean;
+};
+
+export type INativeTokenVerification = {
+  networkId: string;
+  label: string;
 };
 
 function HomeTokenCellMirror({
@@ -224,6 +234,7 @@ export function NativeTokenSelectorList({
   useExternalWebScrollHost,
   ownerKey,
   nativeTokenStatus,
+  nativeTokenVerification,
 }: {
   rows: ITokenSelectorListRow[];
   networkId: string;
@@ -270,9 +281,14 @@ export function NativeTokenSelectorList({
   useExternalWebScrollHost?: boolean;
   ownerKey?: string;
   nativeTokenStatus?: INativeTokenStatus;
+  nativeTokenVerification?: INativeTokenVerification;
 }) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
+  const uiTheme = useTheme();
+  const verificationIconColor = uiTheme.iconCaution.val;
+  const verificationBadgeTextColor = uiTheme.textCaution.val;
+  const verificationBadgeBackgroundColor = uiTheme.bgCautionSubdued.val;
   const { gtMd } = useMedia();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
@@ -407,6 +423,10 @@ export function NativeTokenSelectorList({
       withSwapAction,
       withAggregateBadge,
       nativeTokenStatus,
+      nativeTokenVerification,
+      verificationIconColor,
+      verificationBadgeTextColor,
+      verificationBadgeBackgroundColor,
       intl,
       settings.currencyInfo?.id,
       settingsValue.hideValue,
@@ -754,6 +774,31 @@ export function NativeTokenSelectorList({
               nativeTokenStatus?.networkId === networkId
                 ? nativeTokenStatus
                 : undefined;
+            const needsVerification =
+              !isTokenSelector &&
+              !isAllNetworks &&
+              !hideBalanceAndValue &&
+              token.isNative &&
+              token.networkId === networkId &&
+              nativeTokenVerification?.networkId === networkId;
+            const verificationIcon: IdentityRow['titleIcon'] =
+              needsVerification && platformEnv.isNative
+                ? {
+                    name: 'InfoCircleOutline',
+                    tintColor: verificationIconColor,
+                    accessibilityLabel: nativeTokenVerification?.label,
+                  }
+                : undefined;
+            const verificationBadge: IWebLeadingBadge | undefined =
+              needsVerification && !platformEnv.isNative
+                ? {
+                    text: intl.formatMessage({
+                      id: ETranslations.global_unverified,
+                    }),
+                    textColor: verificationBadgeTextColor,
+                    backgroundColor: verificationBadgeBackgroundColor,
+                  }
+                : undefined;
             const trailing: TrailingAccessory[] = [];
             if (
               tokenStatus?.loading &&
@@ -875,9 +920,8 @@ export function NativeTokenSelectorList({
               },
             };
             if (
-              platformEnv.isNative &&
               !tableLayout &&
-              tokenStatus &&
+              ((platformEnv.isNative && tokenStatus) || needsVerification) &&
               !creatingAddress &&
               !currentProcessing
             ) {
@@ -894,7 +938,9 @@ export function NativeTokenSelectorList({
                 testID: nativeRow.testID,
                 accessibilityLabel: [
                   nativeRow.title,
-                  tokenStatus.label,
+                  tokenStatus?.label,
+                  verificationBadge?.text ??
+                    verificationIcon?.accessibilityLabel,
                   nativeRow.subtitle,
                   balanceAccessory?.primary,
                   balanceAccessory?.secondary,
@@ -925,6 +971,10 @@ export function NativeTokenSelectorList({
                         {
                           key: 'balance',
                           text: balanceAccessory.primary,
+                          titleIcon: verificationIcon,
+                          ...(verificationBadge
+                            ? { webLeadingBadge: verificationBadge }
+                            : {}),
                           textSegments: balanceAccessory.primaryTextSegments,
                           secondaryText: balanceAccessory.secondary,
                           secondaryTextSegments:
@@ -935,7 +985,7 @@ export function NativeTokenSelectorList({
                       ]
                     : []),
                 ],
-                trailing: tokenStatus.loading ? [{ kind: 'spinner' }] : [],
+                trailing: tokenStatus?.loading ? [{ kind: 'spinner' }] : [],
                 disabled: nativeRow.disabled,
                 opacity: nativeRow.opacity,
                 style: {
@@ -1005,6 +1055,10 @@ export function NativeTokenSelectorList({
                   {
                     key: 'balance',
                     text: balanceText.text,
+                    titleIcon: verificationIcon,
+                    ...(verificationBadge
+                      ? { webLeadingBadge: verificationBadge }
+                      : {}),
                     textSegments: balanceText.segments,
                     secondaryText: valueText.text,
                     secondaryTextSegments: valueText.segments,
@@ -1137,6 +1191,10 @@ export function NativeTokenSelectorList({
     withSwapAction,
     withAggregateBadge,
     nativeTokenStatus,
+    nativeTokenVerification,
+    verificationIconColor,
+    verificationBadgeTextColor,
+    verificationBadgeBackgroundColor,
     swapDisabled,
     structuralTransition,
     disclosure,
