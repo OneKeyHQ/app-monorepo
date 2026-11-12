@@ -888,10 +888,12 @@ export function NativeTokenSelectorList({
                       actionKey: 'swap',
                       disabled: swapDisabled[key] ?? true,
                       testID: 'token-actions-swap-btn',
-                      // Says which token it swaps; every row has one.
-                      accessibilityLabel: `${intl.formatMessage({
-                        id: ETranslations.global_swap,
-                      })} ${nativeRow.title}`,
+                      // Says which token it swaps; every row has one. The
+                      // string orders verb and symbol per language.
+                      accessibilityLabel: intl.formatMessage(
+                        { id: ETranslations.defi_emode_swap_symbol__action },
+                        { symbol: nativeRow.title },
+                      ),
                       textColor: theme.primaryText,
                       ...swapButtonColors,
                     },

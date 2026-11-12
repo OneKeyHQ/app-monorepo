@@ -45,7 +45,12 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
 let mockHomeFiatMap: Record<string, ITokenFiat | undefined> = {};
 let mockCurrencyId = 'usd';
 const mockCurrencyMap = { usd: { unit: '$' }, eur: { unit: '€' } };
-let mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+let mockIntl = {
+  formatMessage: (
+    { id }: { id: string },
+    values?: Record<string, number | string>,
+  ) => (values ? `${id}:${JSON.stringify(values)}` : id),
+};
 const mockComponentTheme = {
   bgStrongHover: { val: '#E8E8E8' },
   bgStrongActive: { val: '#E0E0E0' },
