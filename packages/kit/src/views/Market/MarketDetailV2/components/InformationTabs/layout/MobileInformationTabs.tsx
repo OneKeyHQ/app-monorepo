@@ -401,14 +401,17 @@ export function MobileInformationTabs({
   );
 
   // Reset native header and page offsets when switching tokens. Stock network
-  // hydration must not remount the chart for the same stock.
+  // hydration and financial tab availability must not remount the chart.
   const tokenKey =
     detailKind === 'stock'
       ? `stock:${stockId ?? ''}`
       : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
   const tabsKey = useMemo(
-    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
-    [tabKeys, tokenKey],
+    () =>
+      detailKind === 'stock'
+        ? tokenKey
+        : `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [detailKind, tabKeys, tokenKey],
   );
 
   // Stock tabs are independent of the selected token network. Other tab sets

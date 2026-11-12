@@ -790,6 +790,31 @@ it.each(['annual', 'quarter'] as const)(
   },
 );
 
+it.each(['annual', 'quarter'] as const)(
+  'shows the next earnings date when only %s has a date and no charts',
+  (period) => {
+    mockResult = {
+      stockId: 'AAPL',
+      annual: { data: null, failed: false },
+      quarter: { data: null, failed: false },
+    };
+    mockResult[period].data = {
+      ...annual,
+      period,
+      performance: [],
+      debtLevelAndCoverage: [],
+      earnings: { items: [], nextEarningsDate: '2099-01-01' },
+    };
+    renderFinancials();
+    expect(
+      within(screen.getByTestId('stock-financials-earnings')).getByText(
+        'Next: --',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('stock-financials-earnings-chart')).toBeNull();
+  },
+);
+
 it('prefers valid API net margins and only computes missing margins', () => {
   const chart = (
     netMarginPercent: number | null,

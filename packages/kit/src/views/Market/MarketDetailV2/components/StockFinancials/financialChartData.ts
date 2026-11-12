@@ -10,6 +10,7 @@ import {
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
+  getUpcomingEarningsTimestamp,
   isFinancialNumber,
 } from './financialsUtils';
 
@@ -269,6 +270,12 @@ export function shouldHideStockFinancials(
     !result.quarter.failed &&
     !result.annual.data?.partial &&
     !result.quarter.data?.partial &&
+    getUpcomingEarningsTimestamp(
+      result.annual.data?.earnings.nextEarningsDate,
+    ) === undefined &&
+    getUpcomingEarningsTimestamp(
+      result.quarter.data?.earnings.nextEarningsDate,
+    ) === undefined &&
     !hasFinancialChartData(result.annual.data, labels) &&
     !hasFinancialChartData(result.quarter.data, labels),
   );

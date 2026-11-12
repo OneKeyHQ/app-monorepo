@@ -22,7 +22,10 @@ import {
   buildFinancialChart,
   shouldHideStockFinancials,
 } from './financialChartData';
-import { isFinancialNumber } from './financialsUtils';
+import {
+  getUpcomingEarningsTimestamp,
+  isFinancialNumber,
+} from './financialsUtils';
 import { useStockFinancialLabels } from './stockFinancialLabels';
 import { useStockFinancials } from './useStockFinancials';
 
@@ -70,15 +73,11 @@ function FinancialCard({
       ? quarterly
       : buildFinancialChart(annual?.data, kind, labels, compactConversion);
   const hasData = chart.rows.some((row) => row.values.some(isFinancialNumber));
-  const nextDate = result?.data?.earnings.nextEarningsDate;
   const nextTimestamp =
-    nextDate && /^\d{4}-\d{2}-\d{2}$/.test(nextDate)
-      ? Date.parse(`${nextDate}T00:00:00Z`)
-      : NaN;
-  const today = new Date().toISOString().slice(0, 10);
-  const showNextDate = Boolean(
-    nextDate && nextDate >= today && Number.isFinite(nextTimestamp),
-  );
+    getUpcomingEarningsTimestamp(result?.data?.earnings.nextEarningsDate) ??
+    getUpcomingEarningsTimestamp(
+      (period === 'annual' ? quarter : annual)?.data?.earnings.nextEarningsDate,
+    );
   const hasPartial = result?.data?.partial || quarter?.failed || annual?.failed;
   return (
     <YStack
@@ -107,7 +106,7 @@ function FinancialCard({
           <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
-          {kind === 'earnings' && showNextDate ? (
+          {kind === 'earnings' && nextTimestamp !== undefined ? (
             <SizableText
               size="$bodyXs"
               color="$textDisabled"
