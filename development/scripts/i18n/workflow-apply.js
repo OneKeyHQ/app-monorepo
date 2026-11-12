@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { translationRecords } = require('./workflow-client');
+const { translationRecords } = require('./workflow-client-central');
 const {
   ROOT,
   ENUM_PATH,

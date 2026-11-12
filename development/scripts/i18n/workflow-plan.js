@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { translationRecords } = require('./workflow-client');
+const { translationRecords } = require('./workflow-client-central');
 const {
   ROOT,
   digest,
@@ -55,7 +55,7 @@ async function preparePlan({
 }) {
   if (!projectName)
     throw new Error(
-      'Pass --project-name with the intended Lokalise project name. Inspect it with the project command first.',
+      'Pass --project-name with the intended onekey-i18n project name. Inspect it with the project command first.',
     );
   const catalog = loadCatalog(root);
   const mode = workflowMode(requestedMode ?? draft.mode);

@@ -12,7 +12,7 @@ const {
   verifyRemote,
   verifyProject,
 } = require('./workflow-apply');
-const { LokaliseClient } = require('./workflow-client');
+const { CentralClient } = require('./workflow-client-central');
 const {
   ROOT,
   readJson,
@@ -48,10 +48,11 @@ Default mode complete creates missing keys and fills empty translations only.
 Mode update supports upsert, including edits to existing non-empty translations.
 The preview binds the mode; apply cannot override it.
 Scan/inspect/fill/review/review-import are offline.
-Preview reads Lokalise and generates Markdown plus editable HTML automatically.
+Remote commands use the onekey-i18n checkout next to this repository (or $ONEKEY_I18N_DIR).
+Preview reads it and generates Markdown plus editable HTML automatically.
 HTML shows EN/ZH initially; every other language can be expanded and edited/commented.
-Apply uploads every repository locale, pulls generated files, and verifies them.
-Use yarn op/keychain/oenv to supply credentials for remote commands.
+Apply writes every repository locale to onekey-i18n, pulls generated files from it, and verifies them.
+Apply writes onekey-i18n on its current branch (never main); commit there and open a PR.
 Review the bilingual preview and get user confirmation before apply.`;
 
 function options(args) {
@@ -84,10 +85,7 @@ function requiredPath(value, option) {
 }
 
 function clientFromEnv() {
-  return new LokaliseClient({
-    token: process.env.LOKALISE_TOKEN,
-    projectId: process.env.LOKALISE_PROJECT_ID,
-  });
+  return new CentralClient();
 }
 
 function attachSync(draft, sync) {
@@ -251,13 +249,13 @@ async function runAdd(args = process.argv.slice(2)) {
   if (values.help || (!positionals.length && !values.file && !values.apply))
     return `i18n:add now supports full-locale create and update through a confirmed plan.
   yarn i18n:add <key> "English" "中文" [--mode <complete|update>] [--sync <sync.json>] --out <draft.json>
-    Creates an offline draft with slots for every locale; no upload.
+    Creates an offline draft with slots for every locale; nothing is written.
   yarn i18n:add <key> [--mode <complete|update>] [--sync <sync.json>] --translations <locale-to-text.json> --project-name <name> --out <plan.json>
     Previews a single key in all locales; defaults to filling missing translations.
   yarn i18n:add --file <draft.json> [--mode <complete|update>] --project-name <name> --out <plan.json>
     Previews a batch; inherits the draft mode unless explicitly overridden here.
   yarn i18n:add --apply <plan.json> --approve <confirmed hash>
-    Uploads all locales, pulls, and verifies.
+    Writes all locales to onekey-i18n, pulls, and verifies.
 ${HELP}`;
   if (values.apply) {
     if (values.mode)

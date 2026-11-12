@@ -112,6 +112,13 @@ jobs:
       - name: Check third-party native storage compatibility
         run: yarn check:third-party-native-storage
 
+      # Locale files must be an unedited onekey-i18n release (i18n.lock.json).
+      - name: Verify i18n files against their onekey-i18n release
+        run: yarn i18n:check-lock
+
+      - name: Test i18n scripts
+        run: yarn i18n:test
+
       # Runs, in order: tsc (tsgo) -> standard oxlint pass + oxfmt -> type-aware
       # oxlint pass -> lightweight concurrent checks. No ONEKEY_OXLINT_PASS or
       # ONEKEY_LINT_SKIP_TSC override, so this is the full local `yarn lint`.

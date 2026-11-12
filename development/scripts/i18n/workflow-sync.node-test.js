@@ -1,5 +1,4 @@
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -7,7 +6,6 @@ const { test } = require('node:test');
 const { applyPlan } = require('./workflow-apply');
 const {
   LOCALES_PATH,
-  ROOT,
   generatedHashes,
   loadCatalog,
   readJson,
@@ -17,29 +15,6 @@ const { preparePlan, savePlan } = require('./workflow-plan');
 const { scanModule } = require('./workflow-scan');
 const { syncWorkspace, readSync } = require('./workflow-sync');
 const { fixture, fakeClient, fakePull } = require('./workflow-test-fixture');
-
-test('the real locale generator supports an isolated output root without touching workspace translations', (t) => {
-  const ctx = fixture(t);
-  const before = generatedHashes(ROOT);
-  execFileSync(process.execPath, [
-    path.join(ROOT, 'development/scripts/i18n/build-locale-json-map.js'),
-    '--output-root',
-    ctx.root,
-  ]);
-  assert(
-    fs
-      .readFileSync(
-        path.join(ctx.root, 'packages/shared/src/locale/localeJsonMap.ts'),
-        'utf8',
-      )
-      .includes("import enUS from './json/en_US.json'"),
-  );
-  assert.deepEqual(generatedHashes(ROOT), before);
-  assert.equal(
-    loadCatalog(ctx.root).values.en_US['global.existing'],
-    ctx.old.en_US,
-  );
-});
 
 async function start(ctx, api, overrides = {}) {
   const file = path.join(ctx.root, 'sync.json');

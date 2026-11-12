@@ -1,90 +1,78 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('node:child_process');
-const fs = require('node:fs');
+// Pull app translations from OneKeyHQ/onekey-i18n into packages/shared/src/locale.
+//
+//   yarn i18n:pull                  latest release (uses your `gh auth login`)
+//   yarn i18n:pull --tag <tag>      a specific release
+//   yarn i18n:pull --from <dir>     a local onekey-i18n checkout, for copy whose PR is
+//                                   not merged yet; such files cannot be merged into x
+//   yarn i18n:pull --verify         check generated files against i18n.lock.json
+//                                   (add --allow-local while the onekey-i18n PR is open)
+//
+// --output-root writes into another tree (workflow verification);
+// --expected-project-id rejects workflow plans made for another source.
+
 const path = require('node:path');
+const { parseArgs } = require('node:util');
 
-const compatScriptPath = path.resolve(__dirname, 'fs-rmdir-compat.cjs');
-const lokaliseClientVersion = '1.2.0';
-const outputRootIndex = process.argv.indexOf('--output-root');
-if (outputRootIndex !== -1 && !process.argv[outputRootIndex + 1])
-  throw new Error('Missing --output-root value.');
-const outputRoot =
-  outputRootIndex === -1
-    ? undefined
-    : path.resolve(process.argv[outputRootIndex + 1]);
+const {
+  PROJECT_ID,
+  ROOT,
+  fromCheckout,
+  fromRelease,
+  verifyLock,
+  writeLocaleFiles,
+} = require('./central');
 
-const expectedProjectIndex = process.argv.indexOf('--expected-project-id');
-if (expectedProjectIndex !== -1) {
-  const expected = process.argv[expectedProjectIndex + 1];
-  const config = require('../../../packages/shared/config/default');
-  const projects = config.translations?.projects;
-  if (!expected || projects?.length !== 1 || projects[0].id !== expected) {
-    throw new Error(
-      'Pull configuration differs from the approved Lokalise project.',
-    );
-  }
-}
-
-function getCommandName(command) {
-  return process.platform === 'win32' ? `${command}.cmd` : command;
-}
-
-function runOrExit(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    stdio: 'inherit',
-    cwd: options.cwd ?? process.cwd(),
-    env: options.env ?? process.env,
+function run(args = process.argv.slice(2)) {
+  const { values } = parseArgs({
+    args,
+    options: {
+      tag: { type: 'string' },
+      from: { type: 'string' },
+      'output-root': { type: 'string' },
+      'expected-project-id': { type: 'string' },
+      verify: { type: 'boolean' },
+      'allow-local': { type: 'boolean' },
+    },
   });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (typeof result.status === 'number' && result.status !== 0) {
-    process.exit(result.status);
-  }
-
-  if (result.signal) {
-    process.kill(process.pid, result.signal);
-  }
-}
-
-const env = {
-  ...process.env,
-  ...(outputRoot
-    ? {
-        NODE_CONFIG: JSON.stringify({
-          translations: {
-            dist: path.join(outputRoot, 'packages/shared/src/locale/json'),
-            declaration: {
-              dist: path.join(outputRoot, 'packages/shared/src/locale/enum'),
-            },
-          },
-        }),
-      }
-    : {}),
-  NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${compatScriptPath}`]
-    .filter(Boolean)
-    .join(' '),
-};
-
-if (outputRoot) {
-  for (const directory of ['json', 'enum'])
-    fs.mkdirSync(
-      path.join(outputRoot, 'packages/shared/src/locale', directory),
-      {
-        recursive: true,
-      },
+  if (
+    values['expected-project-id'] !== undefined &&
+    values['expected-project-id'] !== PROJECT_ID
+  )
+    throw new Error(
+      `This pull serves ${PROJECT_ID}, not ${values['expected-project-id']}. Start a new sync.`,
     );
+  // `yarn i18n:pull` runs inside packages/shared; resolve relative paths from
+  // where the command was typed.
+  const base = process.env.INIT_CWD || process.cwd();
+  const root = values['output-root']
+    ? path.resolve(base, values['output-root'])
+    : ROOT;
+  if (values.verify) {
+    const lock = verifyLock(root, { allowLocal: values['allow-local'] });
+    return `Locale files match ${lock.source === 'release' ? lock.tag : `local ${lock.commit}`}.`;
+  }
+  if (values.tag && values.from)
+    throw new Error('Choose either --tag or --from.');
+  const result = values.from
+    ? fromCheckout(path.resolve(base, values.from))
+    : fromRelease({ tag: values.tag });
+  const lock = writeLocaleFiles(root, result);
+  return `Pulled ${lock.files.length} files from ${
+    lock.source === 'release'
+      ? lock.tag
+      : `local checkout ${lock.commit.slice(0, 10)}${lock.dirty ? ' (uncommitted changes)' : ''}`
+  }.`;
 }
 
-runOrExit(
-  getCommandName('npx'),
-  [`lokalise-client@${lokaliseClientVersion}`, 'fetch'],
-  { env },
-);
-runOrExit(process.execPath, [
-  path.resolve(__dirname, 'build-locale-json-map.js'),
-  ...(outputRoot ? ['--output-root', outputRoot] : []),
-]);
+if (require.main === module) {
+  try {
+    console.log(run());
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}
+
+module.exports = { run };

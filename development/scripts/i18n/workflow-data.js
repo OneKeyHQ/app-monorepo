@@ -14,6 +14,7 @@ const GENERATED_PATHS = [
   LOCALES_PATH,
   ENUM_PATH,
   'packages/shared/src/locale/localeJsonMap.ts',
+  'packages/shared/src/locale/i18n.lock.json',
 ];
 
 function workflowMode(mode = 'complete') {
@@ -277,7 +278,7 @@ function mapLanguages(locales, languages, overrides = {}) {
     );
     if (matches.length !== 1)
       throw new Error(
-        `No unique Lokalise language for ${locale}; specify localeMap.${locale} using the configured lang_iso.`,
+        `No unique project language for ${locale}; specify localeMap.${locale} using the configured lang_iso.`,
       );
     mapped[locale] = matches[0].lang_iso;
   }
