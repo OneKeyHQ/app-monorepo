@@ -958,20 +958,28 @@ export function useUniversalBorrowRepayWithCollateral({
             return pending();
           const setup = task.getSetupTask();
           if (setup.steps.some((step) => step.id === 'setup')) {
-            // Remote order sync failure does not make a finalized LUT ambiguous.
-            if (
-              setup.facts?.recording !== 'saved' &&
-              setup.facts?.recording !== 'remoteUnknown' &&
-              setup.facts?.recording !== 'notTracked'
-            )
-              return pending();
-            const finality =
-              setup.facts.finality === 'pending'
-                ? await task.refreshSetupFinality(makeOwner(task, false))
-                : setup.facts.finality;
-            if (!isCurrent()) return false;
-            if (finality !== 'confirmed' && finality !== 'failed')
-              return pending();
+            const setupStep = setup.steps.find((step) => step.id === 'setup');
+            const cancelledBeforeSend =
+              needsSetupLut &&
+              setupStep?.status.type === 'cancelled' &&
+              setup.facts?.recording === 'notStarted' &&
+              setup.facts.finality === 'notQueried';
+            if (!cancelledBeforeSend) {
+              // Remote order sync failure does not make a finalized LUT ambiguous.
+              if (
+                setup.facts?.recording !== 'saved' &&
+                setup.facts?.recording !== 'remoteUnknown' &&
+                setup.facts?.recording !== 'notTracked'
+              )
+                return pending();
+              const finality =
+                setup.facts.finality === 'pending'
+                  ? await task.refreshSetupFinality(makeOwner(task, false))
+                  : setup.facts.finality;
+              if (!isCurrent()) return false;
+              if (finality !== 'confirmed' && finality !== 'failed')
+                return pending();
+            }
           }
           const replacement = createTask(needsSetupLut ? 'setup' : 'direct');
           const nextToken = borrowCollateralRepayRegistry.replace(

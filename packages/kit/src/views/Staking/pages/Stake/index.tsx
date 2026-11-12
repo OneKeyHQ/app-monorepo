@@ -87,6 +87,12 @@ function BasicStakePage() {
   const retained = useRetainedDepositTask(retainedOwnerKey);
   const retainedTask = retained.status === 'ready' ? retained.value : null;
   const appNavigation = useAppNavigation();
+  const onTaskRecoveryComplete = useCallback(
+    (reason?: 'remoteUnknown') => {
+      if (reason === 'remoteUnknown') appNavigation.pop();
+    },
+    [appNavigation],
+  );
   const earnProtocol = useMemo(
     () => getEarnProtocol(providerName),
     [providerName],
@@ -709,6 +715,7 @@ function BasicStakePage() {
         retainedTask={retainedTask}
         assetsLoading={isStakeAssetsLoading !== false}
         onRetryAssets={() => void retryStakeAssets()}
+        onFinished={onTaskRecoveryComplete}
       />
     );
   }
@@ -725,6 +732,7 @@ function BasicStakePage() {
         {retainedView || (
           <EarnStakeForm
             retainedTask={retainedTask}
+            onTaskRecoveryComplete={onTaskRecoveryComplete}
             showStandaloneKeyboardFooter
             key={`stake-input-${selectedStakeTokenUniqueKey || tokenInfo?.token?.uniqueKey || 'default'}`}
             accountId={accountId}

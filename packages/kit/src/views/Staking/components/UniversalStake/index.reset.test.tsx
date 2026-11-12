@@ -3563,9 +3563,12 @@ describe('EtherFi USDT approval reset', () => {
     } satisfies ComponentProps<typeof UniversalStake>;
   }
 
-  async function beginDirectApproval(verify: () => Promise<boolean>) {
+  async function beginDirectApproval(
+    verify: () => Promise<boolean>,
+    extra?: { onTaskRecoveryComplete?: (reason?: 'remoteUnknown') => void },
+  ) {
     const overrides = directApprovalOverrides(verify);
-    const screen = render(<StakeTaskHarness {...overrides} />);
+    const screen = render(<StakeTaskHarness {...overrides} {...extra} />);
     fireEvent.change(screen.getByLabelText('amount'), {
       target: { value: '2' },
     });
@@ -3742,6 +3745,7 @@ describe('EtherFi USDT approval reset', () => {
   });
 
   it('only dismisses an uncertain remote order after a final transaction status without resending', async () => {
+    const onTaskRecoveryComplete = jest.fn();
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -3751,7 +3755,9 @@ describe('EtherFi USDT approval reset', () => {
       localStatus: 'saved',
       remoteStatus: 'failed',
     });
-    const { screen } = await beginDirectApproval(async () => true);
+    const { screen } = await beginDirectApproval(async () => true, {
+      onTaskRecoveryComplete,
+    });
     await submitConfirmation(0, 'approval-tx');
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
     await submitConfirmation(1, 'deposit-tx');
@@ -3780,6 +3786,7 @@ describe('EtherFi USDT approval reset', () => {
     );
     expect(mockAddOrder).toHaveBeenCalledTimes(1);
     expect(mockTaskSuccess).not.toHaveBeenCalled();
+    expect(onTaskRecoveryComplete).toHaveBeenCalledWith('remoteUnknown');
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 

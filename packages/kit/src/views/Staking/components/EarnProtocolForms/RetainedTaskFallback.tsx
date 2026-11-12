@@ -32,7 +32,7 @@ export function RetainedTaskFallback({
   retainedTask: IRetainedDepositTask;
   assetsLoading: boolean;
   onRetryAssets: () => void;
-  onFinished?: () => void;
+  onFinished?: (reason?: 'remoteUnknown') => void;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -91,7 +91,10 @@ export function RetainedTaskFallback({
           stillRetained,
           recording.status === 'remoteUnknown',
         );
-        if (finished && isCurrent()) onFinished?.();
+        if (finished && isCurrent())
+          onFinished?.(
+            recording.status === 'remoteUnknown' ? 'remoteUnknown' : undefined,
+          );
         else if (!finished && stillRetained()) {
           Toast.message({
             title: intl.formatMessage({

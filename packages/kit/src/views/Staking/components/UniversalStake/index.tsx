@@ -543,7 +543,7 @@ type IUniversalStakeProps = {
   >;
   isQuoteExpired?: boolean;
   onQuoteReset?: () => void;
-  onTaskRecoveryComplete?: () => void;
+  onTaskRecoveryComplete?: (reason?: 'remoteUnknown') => void;
   refreshKey?: number;
   onQuoteRefreshingChange?: (loading: boolean) => void;
   pendleSlippage?: number;
@@ -3896,7 +3896,11 @@ export function UniversalStake({
                 setAmountValue('');
                 updateAmountValidation({ message: '', alerts: [] });
                 onQuoteReset?.();
-                onTaskRecoveryComplete?.();
+                onTaskRecoveryComplete?.(
+                  depositRecording.status === 'remoteUnknown'
+                    ? 'remoteUnknown'
+                    : undefined,
+                );
               } else {
                 Toast.message({
                   title: intl.formatMessage({

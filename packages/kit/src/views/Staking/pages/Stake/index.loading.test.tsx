@@ -24,6 +24,8 @@ const mockStakeApproval = jest.fn<
 >();
 const mockStakeForm = jest.fn();
 const mockStakeFormRefresh = jest.fn();
+const mockTaskRecovery = jest.fn<void, [(reason?: 'remoteUnknown') => void]>();
+const mockPop = jest.fn();
 const mockPushModal = jest.fn<
   void,
   [
@@ -98,7 +100,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pushModal: mockPushModal, pop: jest.fn() }),
+  default: () => ({ pushModal: mockPushModal, pop: mockPop }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
   useAppRoute: () => {
@@ -168,6 +170,7 @@ jest.mock('../../components/EarnProtocolForms/Stake', () => ({
     tokenSelectorTriggerProps,
     postWrapApproveTarget,
     retainedTask,
+    onTaskRecoveryComplete,
   }: {
     retainedTask?:
       | import('../../earnDepositTask/useRetainedDepositTask').IRetainedDepositTask
@@ -179,10 +182,12 @@ jest.mock('../../components/EarnProtocolForms/Stake', () => ({
     beforeFooter?: import('react').ReactNode;
     tokenSelectorTriggerProps?: { onPress?: () => void };
     postWrapApproveTarget?: unknown;
+    onTaskRecoveryComplete: (reason?: 'remoteUnknown') => void;
   }) => {
     mockRetainedStakeForm(retainedTask);
     mockStakeForm(postWrapApproveTarget);
     mockStakeFormRefresh({ isDisabled, isStakeAssetRefreshing });
+    mockTaskRecovery(onTaskRecoveryComplete);
     return (
       <div>
         <span data-testid="stake-token">{tokenSymbol}</span>
@@ -262,6 +267,8 @@ beforeEach(() => {
     .mockReturnValue({ approve: undefined, error: false, retry: jest.fn() });
   mockStakeForm.mockReset();
   mockStakeFormRefresh.mockReset();
+  mockTaskRecovery.mockReset();
+  mockPop.mockReset();
   mockPushModal.mockReset();
   mockFocused = true;
   mockRoute = {
@@ -283,6 +290,22 @@ beforeEach(() => {
       },
     },
   };
+});
+
+it('returns to the previous page only after an uncertain order is dismissed', async () => {
+  const onSuccess = jest.fn();
+  mockRoute.params.onSuccess = onSuccess;
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(weth), item(eth)] });
+  render(<StakePage />);
+  await screen.findByTestId('stake-token');
+  const recovery = mockTaskRecovery.mock.calls.at(-1)?.[0];
+  expect(recovery).toBeDefined();
+  if (!recovery) throw new OneKeyLocalError('Missing recovery callback');
+  recovery();
+  expect(mockPop).not.toHaveBeenCalled();
+  recovery('remoteUnknown');
+  expect(mockPop).toHaveBeenCalledTimes(1);
+  expect(onSuccess).not.toHaveBeenCalled();
 });
 
 it.each([true, false])(

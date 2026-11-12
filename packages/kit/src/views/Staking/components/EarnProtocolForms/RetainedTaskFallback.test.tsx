@@ -284,6 +284,7 @@ it('warns about unknown remote sync and finishes only after checking the transac
     expect(view.getByText(/global.sync_error/)).toBeTruthy();
     fireEvent.click(view.getByText('global.done'));
     await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
+    expect(onFinished).toHaveBeenCalledWith('remoteUnknown');
     expect(mockReceipt).toHaveBeenCalledWith(
       expect.objectContaining({ txid: 'deposit-tx', maxAttempts: 1 }),
     );
