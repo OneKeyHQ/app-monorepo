@@ -143,9 +143,10 @@ function LowValueCoins({ tokens }: { tokens: IAccountToken[] }) {
             zIndex={COIN_SLOTS.length - index}
             w={COIN_SIZE}
             h={COIN_SIZE}
+            // A clear gap, not a page-colored ring: the faces sit on the
+            // row's own plate, so its hover tint does not swallow them.
             p={COIN_RING}
             borderRadius="$full"
-            bg="$bgApp"
           >
             <Stack flex={1} borderRadius="$full" bg="$bgStrong">
               {logoURI ? (

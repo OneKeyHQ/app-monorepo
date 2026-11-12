@@ -4570,7 +4570,12 @@ function TokenListBlock({
 
   return (
     <DustSweepEntryCapabilitiesProvider
-      isFocused={Boolean(isFocused && isRouteFocused)}
+      // The wide web table's Dust sweep sits in the tab row, under its own
+      // provider; this one would only repeat its requests.
+      isFocused={
+        Boolean(isFocused && isRouteFocused) &&
+        (platformEnv.isNative || !tableLayout)
+      }
     >
       {platformEnv.isNative ? (
         renderContent()

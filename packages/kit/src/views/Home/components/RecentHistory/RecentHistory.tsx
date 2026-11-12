@@ -496,25 +496,26 @@ function RecentActivityList({
   );
 
   return (
-    <YStack>
+    <YStack role="list">
       {rows.map((row) => (
-        <RecentActivityItem
-          key={row.history.id}
-          row={row}
-          entering={enteringIds.has(row.history.id)}
-          onPressHistory={onPressHistory}
-        />
+        <Stack key={row.history.id} role="listitem">
+          <RecentActivityItem
+            row={row}
+            entering={enteringIds.has(row.history.id)}
+            onPressHistory={onPressHistory}
+          />
+        </Stack>
       ))}
     </YStack>
   );
 }
 
-// Placeholder rows on the loaded rows' plate and line heights, so nothing
-// moves when the transactions arrive.
+// Placeholder rows on the loaded rows' plate and line heights, as many as the
+// column shows, so nothing moves when the transactions arrive.
 function RecentActivityLoading() {
   return (
     <YStack>
-      {[0, 1, 2].map((key) => (
+      {[0, 1, 2, 3, 4].map((key) => (
         <XStack key={key} h={60} mx="$2" px="$3" gap="$3" alignItems="center">
           <Skeleton w="$8" h="$8" radius="round" />
           <YStack flex={1} minWidth={0}>

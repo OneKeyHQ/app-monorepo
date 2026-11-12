@@ -955,12 +955,13 @@ export function NativeTokenSelectorList({
                 height: 60,
                 heightRounding: 'nearest',
                 testID: nativeRow.testID,
-                // Names the token, where the row would read "dataRow". It
+                // Web: names the token, where the row would read "dataRow". It
                 // leaves the numbers out: a price or value update may only
                 // patch cells, and a changed label would rebuild the list.
-                accessibilityLabel: [nativeRow.title, token.name]
-                  .filter(Boolean)
-                  .join(', '),
+                // Native rows read their cells, which a label would replace.
+                accessibilityLabel: platformEnv.isNative
+                  ? undefined
+                  : [nativeRow.title, token.name].filter(Boolean).join(', '),
                 leading,
                 badges: nativeRow.badges,
                 columns: tableColumns,

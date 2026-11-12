@@ -97,8 +97,9 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
     nativeMinHeight,
   } = layout;
   // Wide desktop / web: the action row joins the total's row, on the right.
-  const { gtMd } = useMedia();
-  const actionsInBalanceRow = !platformEnv.isNative && gtMd;
+  // From the large breakpoint up only: narrower, a long total runs under it.
+  const { gtLg } = useMedia();
+  const actionsInBalanceRow = !platformEnv.isNative && gtLg;
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -150,7 +151,14 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
               <HomeOverviewContainer />
             </Stack>
             {isWalletNotBackedUp ? null : (
-              <WalletActions inBalanceRow flexShrink={0} />
+              // On the total's 48 line, not the column's middle: networks
+              // with a frozen balance add a link under the total.
+              <WalletActions
+                inBalanceRow
+                flexShrink={0}
+                alignSelf="flex-start"
+                mt={5}
+              />
             )}
           </XStack>
         ) : (

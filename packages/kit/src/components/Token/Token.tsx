@@ -113,7 +113,10 @@ export function Token({
   const fallbackElement = useMemo(
     () =>
       fallbackLetter ? (
+        // Decorative, like the coin icon it stands in for: the symbol is
+        // named beside it.
         <Stack
+          aria-hidden
           bg="$bgInverse"
           ai="center"
           jc="center"

@@ -68,6 +68,7 @@ function DesktopHeaderCopyButton({
           p="$1.5"
           m="$-1.5"
           aria-label={label}
+          aria-disabled={disabled || undefined}
           hoverStyle={{ bg: disabled ? '$transparent' : '$bgHover' }}
           pressStyle={{ bg: disabled ? '$transparent' : '$bgActive' }}
           opacity={disabled ? 0.5 : 1}

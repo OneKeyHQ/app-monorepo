@@ -354,11 +354,13 @@ textarea {
 /* Home token rows on wide desktop / web show their Swap button only while the
    row is hovered or holds keyboard focus. A mouse press leaves focus on the
    row, so only keyboard focus (:focus-visible) keeps it. Screens that cannot
-   hover keep it. */
+   hover keep it. Hidden, it also lets a touch on a hybrid screen through to
+   the row instead of pressing an invisible Swap. */
 @media (hover: hover) and (pointer: fine) {
   .ok-native-list-item[data-testid^='home-token-item-']:not(:hover):not(:focus-visible):not(:has(:focus-visible))
     [data-native-list-action='swap'] {
     opacity: 0;
+    pointer-events: none;
   }
 }
 

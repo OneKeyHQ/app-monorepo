@@ -150,7 +150,11 @@ function BannerItem({
             <Image
               size={WALLET_BANNER_IMAGE_SIZE}
               source={{ uri: item.src }}
-              placeholder={BANNER_IMAGE_PLACEHOLDER}
+              // Native images show a placeholder from the first frame, with
+              // no delay, so phones keep none.
+              placeholder={
+                platformEnv.isNative ? undefined : BANNER_IMAGE_PLACEHOLDER
+              }
             />
           </YStack>
         ) : null}
@@ -741,12 +745,16 @@ function DesktopBannerStrip({
   // `dir` 0 is a keyboard pick: it swaps instantly.
   const switchTo = useCallback(
     (id: string, dir: 1 | -1 | 0) => {
+      // A pick while a switch is still sliding cuts instantly, rather than
+      // remounting the half-faded banner at full opacity.
       setLeaving(
-        dir !== 0 && item && item.id !== id ? { item, dir } : undefined,
+        dir !== 0 && item && item.id !== id && !leaving
+          ? { item, dir }
+          : undefined,
       );
       show(id);
     },
-    [item, show],
+    [item, leaving, show],
   );
 
   const go = useCallback(
@@ -853,7 +861,9 @@ function DesktopBannerStrip({
               outlineOffset: -2,
             }}
             role="button"
-            aria-label={item.title}
+            aria-label={[item.title, item.description]
+              .filter(Boolean)
+              .join(', ')}
             onPressIn={() => setPressed(true)}
             onPressOut={() => setPressed(false)}
             onPress={() => handleBannerOnPress(item)}
