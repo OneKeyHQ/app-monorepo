@@ -9,9 +9,13 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
-import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
+import {
+  WINDOWS_OVERLAY_BUTTONS_WIDTH,
+  shouldReserveWindowControlsInset,
+} from '../../../utils/sidebar';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
@@ -101,6 +105,20 @@ function HeaderView({
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
+  // Surface the page is rendered in: a page pushed inside a modal / full-screen
+  // surface (e.g. the Settings sheet) is not in the window's top-right corner,
+  // even though its nested navigator reports a plain page type. WebView pages
+  // span the window and keep the reservation.
+  const pageType = usePageType();
+  const isInsideInsetSurface =
+    pageType === EPageType.modal || pageType === EPageType.fullScreen;
+  const shouldReserveWindowControls = shouldReserveWindowControlsInset({
+    isDesktopWin: Boolean(platformEnv.isDesktopWin),
+    isDesktopLinux: Boolean(platformEnv.isDesktopLinux),
+    isOnboardingScreen,
+    isModelScreen,
+    isInsideInsetSurface,
+  });
 
   const onBackCallback = useCallback(() => {
     if (canGoBack) {
@@ -290,9 +308,7 @@ function HeaderView({
           alignSelf="stretch"
           px={isOnboardingScreen ? '$16' : '$5'}
           pr={
-            (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
-            !isOnboardingScreen &&
-            !isModelScreen
+            shouldReserveWindowControls
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }
