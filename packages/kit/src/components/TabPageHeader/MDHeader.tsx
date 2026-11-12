@@ -30,7 +30,7 @@ import {
   useActiveAccount,
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
-import { HomeTokenListHeaderProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListHeaderProviderMirror';
+import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
@@ -157,9 +157,9 @@ export function MDHeader({
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
       <XStack flexShrink={1}>
-        <HomeTokenListHeaderProviderMirror>
+        <HomeTokenListProviderMirror>
           <SelectorTrigger />
-        </HomeTokenListHeaderProviderMirror>
+        </HomeTokenListProviderMirror>
       </XStack>
     ) : (
       <HeaderRight

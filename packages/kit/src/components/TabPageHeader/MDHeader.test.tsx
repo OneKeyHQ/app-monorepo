@@ -72,13 +72,10 @@ jest.mock('../../states/jotai/contexts/accountSelector', () => ({
   useIsAccountSelectorSyncLoading: () => false,
 }));
 jest.mock(
-  '../../views/Home/components/HomeTokenListProvider/HomeTokenListHeaderProviderMirror',
+  '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror',
   () => ({
-    HomeTokenListHeaderProviderMirror: ({
+    HomeTokenListProviderMirror: ({ children }: { children?: ReactNode }) =>
       children,
-    }: {
-      children?: ReactNode;
-    }) => children,
   }),
 );
 jest.mock('../MoreActionButton/LazyMoreActionButton', () => ({
