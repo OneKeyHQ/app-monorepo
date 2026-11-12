@@ -94,6 +94,7 @@ const IGNORED_TARGET_TTL_MS = timerUtils.getTimeDurationMs({ day: 30 });
 const FULL_FLOW_RETRY_TTL_MS = timerUtils.getTimeDurationMs({ day: 7 });
 const MAX_IGNORED_TARGETS = 50;
 const MAX_FULL_FLOW_RETRY_TARGETS = 100;
+const PENDING_INSTALL_TASK_TTL_MS = timerUtils.getTimeDurationMs({ day: 7 });
 const TERMINAL_REASON_RETRY_EXHAUSTED = 'RETRY_EXHAUSTED';
 const TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED = 'FULL_FLOW_RETRY_EXHAUSTED';
 const PENDING_ACTION_SWITCH_BUNDLE = EPendingInstallTaskAction.switchBundle;
@@ -667,7 +668,7 @@ class ServicePendingInstallTask {
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
       scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
-      expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
+      expiresAt: now + PENDING_INSTALL_TASK_TTL_MS,
       retryCount: 0,
       status: EPendingInstallTaskStatus.pending,
       payload: {
@@ -701,6 +702,15 @@ class ServicePendingInstallTask {
       BundleUpdate.getNativeBuildNumber(),
     ]);
     const now = Date.now();
+    const createdAt =
+      platformEnv.isDesktop &&
+      appInfo.updateStrategy === EUpdateStrategy.manual &&
+      Number.isFinite(appInfo.readyAt) &&
+      appInfo.readyAt &&
+      appInfo.readyAt > 0 &&
+      appInfo.readyAt <= now
+        ? appInfo.readyAt
+        : now;
     return {
       taskId: `appShell:${appInfo.latestVersion}:direct`,
       revision,
@@ -712,8 +722,8 @@ class ServicePendingInstallTask {
       scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
       scheduledEnvBuildNumber: nativeBuildNumber || '',
-      createdAt: now,
-      expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
+      createdAt,
+      expiresAt: createdAt + PENDING_INSTALL_TASK_TTL_MS,
       retryCount: 0,
       status: EPendingInstallTaskStatus.pending,
       payload: {
@@ -920,6 +930,17 @@ class ServicePendingInstallTask {
       return;
     }
 
+    if (isManualDesktopAppUpdate && task.expiresAt <= Date.now()) {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'ready_window_expired',
+        stage,
+      });
+      return;
+    }
+
     if (
       task.type === EPendingInstallTaskType.jsBundleSwitch &&
       task.payload.bundleVersion !== '0' &&
@@ -1075,10 +1096,14 @@ class ServicePendingInstallTask {
       if (!(await isCurrentTarget())) return;
       await setPendingInstallTask({
         ...task,
+        ...(isManualDesktopAppUpdate
+          ? { createdAt: existing.createdAt, expiresAt: existing.expiresAt }
+          : undefined),
         retryCount: existing.retryCount,
         nextRetryAt: existing.nextRetryAt,
         status: existing.status,
         runningStartedAt: existing.runningStartedAt,
+        startupProcessStartAt: existing.startupProcessStartAt,
         lastError: existing.lastError,
       });
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
@@ -1652,18 +1677,6 @@ class ServicePendingInstallTask {
       });
     }
     const appInfo = await appUpdatePersistAtom.get();
-    const processStartAt = globalThis.desktopApi?.processStartAt;
-    if (
-      platformEnv.isDesktop &&
-      payload.updateStrategy === EUpdateStrategy.manual &&
-      processStartAt &&
-      appInfo.readyAt &&
-      appInfo.readyAt >= processStartAt
-    ) {
-      // A renderer reload is not a new app launch. Leave this process's ready
-      // update to the quit installer or an explicit user action.
-      return false;
-    }
     const downloadUrl = appInfo.downloadedEvent?.downloadUrl;
     if (
       !downloadUrl ||
@@ -1899,10 +1912,15 @@ class ServicePendingInstallTask {
           appInfo.status === EAppUpdateStatus.ready &&
           appInfo.updateStrategy === EUpdateStrategy.manual &&
           !appInfo.storeUrl &&
-          getUpdateFileType(appInfo) === EUpdateFileType.appShell
+          getUpdateFileType(appInfo) === EUpdateFileType.appShell &&
+          typeof appInfo.readyAt === 'number' &&
+          Number.isFinite(appInfo.readyAt) &&
+          appInfo.readyAt > 0 &&
+          appInfo.readyAt <= Date.now() &&
+          appInfo.readyAt + PENDING_INSTALL_TASK_TTL_MS > Date.now()
         ) {
           // Older clients could persist ready without a pending task. Restore
-          // it before startup dispatch, using the same identity/control gates.
+          // it within the original ready window, without renewing its lifetime.
           await this.syncPendingInstallTaskWithReleaseInfo({
             releaseInfo: {
               version: appInfo.latestVersion,
@@ -2176,10 +2194,33 @@ class ServicePendingInstallTask {
         return;
       }
 
+      let startupProcessStartAt: number | undefined;
+      if (
+        platformEnv.isDesktop &&
+        task.type === EPendingInstallTaskType.appInstall &&
+        task.payload.updateStrategy === EUpdateStrategy.manual
+      ) {
+        const processStartAt = globalThis.desktopApi?.processStartAt;
+        const appInfo = await appUpdatePersistAtom.get();
+        if (
+          !processStartAt ||
+          !Number.isFinite(processStartAt) ||
+          processStartAt <= 0 ||
+          (appInfo.readyAt && appInfo.readyAt >= processStartAt) ||
+          task.startupProcessStartAt === processStartAt
+        ) {
+          // Renderer reloads must not retry a startup attempt that was already
+          // cancelled or deferred in this native process. Explicit UI installs
+          // and the quit installer remain available.
+          return;
+        }
+        startupProcessStartAt = processStartAt;
+      }
       const runningTask: IPendingInstallTask = {
         ...task,
         status: EPendingInstallTaskStatus.running,
         runningStartedAt: Date.now(),
+        ...(startupProcessStartAt ? { startupProcessStartAt } : undefined),
       };
       await setPendingInstallTask(runningTask);
       const startedAt = Date.now();

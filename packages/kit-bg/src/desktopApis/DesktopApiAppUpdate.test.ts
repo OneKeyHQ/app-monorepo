@@ -1029,6 +1029,46 @@ test('Linux AppImage without a writable current path offers the verified downloa
   expect(mockSpawn).not.toHaveBeenCalled();
 });
 
+test.each(['missing', 'read-only-file', 'read-only-directory'] as const)(
+  'Linux startup with %s AppImage defers to explicit installation without reporting a handoff',
+  async (scenario) => {
+    const current = path.join(mockTempDir, 'OneKey.AppImage');
+    if (scenario === 'missing') delete process.env.APPIMAGE;
+    else {
+      fs.writeFileSync(current, 'old app');
+      process.env.APPIMAGE = current;
+    }
+    const { api, file, params } = await preparePackage('linux', 'appImage');
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    const accessSync = fs.accessSync;
+    const readOnlyPath =
+      scenario === 'read-only-file' ? current : path.dirname(current);
+    jest.spyOn(fs, 'accessSync').mockImplementation((filePath, mode) => {
+      if (filePath === readOnlyPath && mode === fs.constants.W_OK) {
+        throw Object.assign(new Error('read-only'), { code: 'EACCES' });
+      }
+      return accessSync(filePath, mode);
+    });
+
+    expect(
+      await api.installPackage({ ...params, installSource: 'startup' }),
+    ).toBe(false);
+    expect(mockOpenPath).not.toHaveBeenCalled();
+    expect(mockAppQuit).not.toHaveBeenCalled();
+    expect(mockAppRelaunch).not.toHaveBeenCalled();
+    expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+    expect(await api.installPackage({ ...params, userInitiated: true })).toBe(
+      true,
+    );
+    expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(file));
+  },
+);
+
 test('Linux replaces a writable AppImage and relaunches it', async () => {
   const current = path.join(mockTempDir, 'OneKey.AppImage');
   fs.writeFileSync(current, 'old app');

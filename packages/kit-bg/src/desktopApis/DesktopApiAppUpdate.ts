@@ -1716,6 +1716,12 @@ class DesktopApiAppUpdate {
       return true;
     }
     if (isAppImage) {
+      if (
+        params.installSource === 'startup' &&
+        !this.canAutoInstallAppImage()
+      ) {
+        return false;
+      }
       this.quitInstallParams = undefined;
       return this.installAppImage(record, params.buildNumber);
     }
