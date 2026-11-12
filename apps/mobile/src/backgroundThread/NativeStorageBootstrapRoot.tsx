@@ -36,7 +36,6 @@ import type {
 import {
   bootstrapNativeStorage,
   hydrateColdStartSnapshotAfterRuntimeLaunch,
-  waitForColdStartCriticalImagesBeforeMount,
 } from './bootstrapNativeStorage';
 import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
@@ -320,10 +319,6 @@ function startBootstrap(force = false) {
       }
     }
 
-    // The home header/banner images were started by the snapshot hydration
-    // above; give them a bounded chance to land in the memory cache before
-    // the first React frame lays them out (OK-61505).
-    await waitForColdStartCriticalImagesBeforeMount();
     return generation === bootstrapGeneration;
   })();
   const nextPromise = withNativeBootstrapTimeout(bootstrapWork)
