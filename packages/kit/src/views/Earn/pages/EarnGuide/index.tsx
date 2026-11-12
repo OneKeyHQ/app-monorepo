@@ -30,9 +30,15 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { useFiatCrypto } from '../../../FiatCrypto/hooks';
@@ -56,6 +62,7 @@ import {
   EARN_GUIDE_SYMBOL,
   getEarnGuideNetworkId,
   isGuideVaultOffer,
+  pickGuideSwapFrom,
 } from '../../components/desktopHome/earnGuide.utils';
 import { EarnGuideHeader } from '../../components/desktopHome/EarnGuideHeader';
 import {
@@ -69,7 +76,9 @@ import {
   EarnOfferOptionCard,
 } from '../EarnRouter/EarnOfferOptionCard';
 import { EarnOffersDeposit } from '../EarnRouter/EarnOffersDeposit';
+import { buildEarnSwapToken } from '../EarnRouter/earnRouter.utils';
 import { useEarnRouterOffers } from '../EarnRouter/EarnRouterOffer';
+import { usePayTokens } from '../EarnRouter/EarnRouterPayWith';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 import type { IEarnGuideStep } from '../../components/desktopHome/earnGuide.utils';
@@ -510,6 +519,56 @@ function EarnGuidePage() {
   const reduceMotion = useReducedMotion();
   const hasGas = state.done[0];
 
+  // Swap is the other way to the ETH for a wallet that holds something on
+  // another network: it opens on a bridge from there to ETH on Base, and the
+  // step ticks itself when the ETH lands
+  const accountId = earnAccount?.accountId ?? '';
+  const pay = usePayTokens({
+    accountId,
+    networkId,
+    depositSymbol: 'ETH',
+    enabled: hasWallet && !hasGas,
+    acrossNetworks: true,
+  });
+  const swapFrom = useMemo(
+    () => pickGuideSwapFrom(pay.heldTokens, networkId),
+    [networkId, pay.heldTokens],
+  );
+  const networkLogoURI = network?.logoURI;
+  const handleSwap = useCallback(async () => {
+    if (!swapFrom) {
+      return;
+    }
+    const [toToken, fromNetwork] = await Promise.all([
+      backgroundApiProxy.serviceToken.getNativeToken({ networkId, accountId }),
+      backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId: swapFrom.networkId,
+      }),
+    ]);
+    if (!toToken) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importFromToken: {
+          ...buildEarnSwapToken({
+            networkId: swapFrom.networkId,
+            token: swapFrom.token,
+            priceUsd: swapFrom.priceUsd,
+          }),
+          networkLogoURI: fromNetwork?.logoURI,
+        },
+        importToToken: {
+          ...buildEarnSwapToken({ networkId, token: toToken }),
+          networkLogoURI,
+        },
+        swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+        swapSource: ESwapSource.EARN,
+      },
+    });
+  }, [accountId, navigation, networkId, networkLogoURI, swapFrom]);
+
   const handleClose = useCallback(() => {
     navigation.pop();
   }, [navigation]);
@@ -637,7 +696,8 @@ function EarnGuidePage() {
       />
     );
     // Without a wallet: connect one. With one, the address copies from its
-    // row as on the receive page, and Buy is the other way to get ETH
+    // row as on the receive page; Swap brings ETH from another network the
+    // wallet holds something on, and Buy is the way with money
     if (!hasWallet && !isPreview) {
       footer = (
         <Page.Footer
@@ -653,7 +713,33 @@ function EarnGuidePage() {
           }}
         />
       );
-    } else if (canBuy || isPreview) {
+    } else if (swapFrom || isPreview) {
+      const showsBuy = canBuy || isPreview;
+      footer = (
+        <Page.Footer
+          key={showsBuy ? 'swap-buy' : 'swap'}
+          onConfirmText={intl.formatMessage({ id: ETranslations.global_swap })}
+          onConfirm={() => void handleSwap()}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+          confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
+            testID: 'earn-guide-swap',
+          }}
+          onCancelText={
+            showsBuy
+              ? intl.formatMessage({ id: ETranslations.global_buy })
+              : undefined
+          }
+          // Taking the close argument keeps the footer from closing the guide
+          onCancel={
+            showsBuy
+              ? (_close) => (canBuy ? handleFiatCrypto(undefined) : undefined)
+              : undefined
+          }
+          cancelButtonProps={{ ...EARN_HALF_BUTTON, testID: 'earn-guide-buy' }}
+        />
+      );
+    } else if (canBuy) {
       footer = (
         <Page.Footer
           key="buy"

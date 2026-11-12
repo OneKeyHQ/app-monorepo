@@ -5,11 +5,13 @@ import {
   EARN_GUIDE_VAULT,
   deriveGuideState,
   findGuideGas,
+  getEarnGuideNetworkId,
   getGuideScope,
   getPreviewGuideState,
   hasGuideGas,
   isGuideVaultOffer,
   nextPreviewStep,
+  pickGuideSwapFrom,
   shouldShowGuide,
 } from './earnGuide.utils';
 
@@ -232,5 +234,42 @@ describe('guide gas and vault', () => {
     expect(getGuideScope({})).toBe('none');
     expect(getGuideScope({ accountId: 'a', indexedAccountId: 'i' })).toBe('i');
     expect(getGuideScope({ accountId: 'a' })).toBe('a');
+  });
+});
+
+describe('what Swap starts on for the ETH on Base', () => {
+  const base = getEarnGuideNetworkId();
+  const held = (
+    networkId: string,
+    fiatValueUsd: string,
+    isNative = false,
+    amount = '1',
+  ) => ({ networkId, amount, fiatValueUsd, token: { isNative } });
+
+  it("takes the most valuable coin of a network's own on another network", () => {
+    const eth = held('evm--42161', '8', true);
+    expect(
+      pickGuideSwapFrom(
+        [held('evm--1', '300'), eth, held('evm--4663', '5', true)],
+        base,
+      ),
+    ).toBe(eth);
+  });
+
+  it('takes the most valuable token elsewhere when no coin of a network is held', () => {
+    const usdc = held('evm--1', '300');
+    expect(pickGuideSwapFrom([held('evm--42161', '20'), usdc], base)).toBe(
+      usdc,
+    );
+  });
+
+  it('never takes a token on Base: the swap fee is the ETH that is missing', () => {
+    expect(pickGuideSwapFrom([held(base, '500')], base)).toBeUndefined();
+  });
+
+  it('leaves out empty balances', () => {
+    expect(
+      pickGuideSwapFrom([held('evm--1', '0', true, '0')], base),
+    ).toBeUndefined();
   });
 });

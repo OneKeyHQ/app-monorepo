@@ -163,6 +163,29 @@ export function findGuideGas(
 export const hasGuideGas = (amount: number | string | undefined) =>
   new BigNumber(amount ?? 0).gte(EARN_GUIDE_MIN_GAS);
 
+// What Swap starts on to bring ETH to Base: the wallet's most valuable coin
+// of a network's own on another network, where it pays its own fee; else its
+// most valuable token there. A token on Base itself can't pay: the swap's
+// fee is the very ETH that is missing. Nothing held elsewhere: no swap
+export function pickGuideSwapFrom<
+  T extends {
+    networkId: string;
+    amount: string;
+    fiatValueUsd: string;
+    token: { isNative?: boolean };
+  },
+>(heldTokens: T[], guideNetworkId: string): T | undefined {
+  const byValue = (a: T, b: T) =>
+    new BigNumber(b.fiatValueUsd || 0).comparedTo(a.fiatValueUsd || 0) ?? 0;
+  const elsewhere = heldTokens
+    .filter(
+      (item) =>
+        item.networkId !== guideNetworkId && new BigNumber(item.amount).gt(0),
+    )
+    .toSorted(byValue);
+  return elsewhere.find((item) => item.token.isNative) ?? elsewhere[0];
+}
+
 /** The PO's example vault among the deposit modal's offers */
 export function isGuideVaultOffer(offer: IEarnDesktopHoldOffer) {
   return (
