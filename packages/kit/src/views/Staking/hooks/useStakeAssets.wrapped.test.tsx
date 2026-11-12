@@ -3,16 +3,30 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IEarnAssetsList,
   IEarnTokenItem,
 } from '@onekeyhq/shared/types/staking';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useStakeAssets } from './useStakeAssets';
 
 const mockAssets = jest.fn<Promise<IEarnAssetsList>, [unknown]>();
 const mockToken = jest.fn<Promise<IFetchTokenDetailItem[]>, [unknown]>();
+const mockWaitForFinal = jest.fn<
+  Promise<EOnChainHistoryTxStatus | undefined>,
+  [unknown]
+>();
+
+jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
+  waitForTxFinalStatus: (params: unknown) => mockWaitForFinal(params),
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -77,6 +91,7 @@ describe('EtherFi wrapped token metadata', () => {
   beforeEach(() => {
     mockAssets.mockReset();
     mockToken.mockReset();
+    mockWaitForFinal.mockReset();
   });
 
   it('keeps ETH selectable while independently loading WETH omitted from the input list', async () => {
@@ -173,5 +188,180 @@ describe('EtherFi wrapped token metadata', () => {
     await waitFor(() => expect(result.current.result?.status).toBe('success'));
     expect(mockToken).not.toHaveBeenCalled();
     expect(result.current.wrappedToken).toBeUndefined();
+  });
+});
+
+describe('stake asset reconciliation after submission', () => {
+  beforeEach(() => {
+    mockAssets.mockReset().mockResolvedValue({ assets: [] });
+    mockToken.mockReset();
+    mockWaitForFinal.mockReset();
+  });
+
+  it.each([EOnChainHistoryTxStatus.Success, EOnChainHistoryTxStatus.Failed])(
+    'refreshes after a submitted transaction reaches %s without a history event',
+    async (status) => {
+      mockWaitForFinal.mockResolvedValue(status);
+      const view = renderHook(() => useStakeAssets(params));
+      await waitFor(() =>
+        expect(view.result.current.result?.status).toBe('success'),
+      );
+      jest.useFakeTimers();
+      try {
+        await act(async () => {
+          view.result.current.trackSubmittedTransaction('tx-1', '0xaccount');
+          await Promise.resolve();
+        });
+        expect(mockWaitForFinal).toHaveBeenCalledWith(
+          expect.objectContaining({
+            accountId: 'account-a',
+            networkId: 'evm--1',
+            txid: 'tx-1',
+            expectedAccountAddress: '0xaccount',
+            signal: expect.any(AbortSignal),
+          }),
+        );
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(3000);
+        });
+        expect(mockAssets).toHaveBeenCalledTimes(2);
+        expect(mockAssets).toHaveBeenLastCalledWith(
+          expect.objectContaining({ forceRefresh: true }),
+        );
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(7000);
+        });
+        expect(mockAssets).toHaveBeenCalledTimes(3);
+      } finally {
+        view.unmount();
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('does not refresh on timeout and permits later history confirmation', async () => {
+    mockWaitForFinal.mockResolvedValue(undefined);
+    const view = renderHook(() => useStakeAssets(params));
+    await waitFor(() =>
+      expect(view.result.current.result?.status).toBe('success'),
+    );
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        view.result.current.trackSubmittedTransaction('tx-1');
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockAssets).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+          accountId: 'account-a',
+          networkId: 'evm--1',
+          txid: 'tx-1',
+          status: EDecodedTxStatus.Confirmed,
+        });
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(3000);
+      });
+      expect(mockAssets).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('deduplicates direct polling and the matching confirmation event', async () => {
+    let finish: (value: EOnChainHistoryTxStatus) => void = () => undefined;
+    mockWaitForFinal.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const view = renderHook(() => useStakeAssets(params));
+    await waitFor(() =>
+      expect(view.result.current.result?.status).toBe('success'),
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => {
+        view.result.current.trackSubmittedTransaction('tx-1');
+        view.result.current.trackSubmittedTransaction('tx-1');
+        appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+          accountId: 'account-a',
+          networkId: 'evm--1',
+          txid: 'tx-1',
+          status: EDecodedTxStatus.Confirmed,
+        });
+      });
+      expect(mockWaitForFinal).toHaveBeenCalledTimes(1);
+      await act(async () => finish(EOnChainHistoryTxStatus.Success));
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockAssets).toHaveBeenCalledTimes(3);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('aborts and discards a late confirmation after switching account', async () => {
+    let finish: (value: EOnChainHistoryTxStatus) => void = () => undefined;
+    mockWaitForFinal.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const view = renderHook((p: typeof params) => useStakeAssets(p), {
+      initialProps: params,
+    });
+    await waitFor(() =>
+      expect(view.result.current.result?.status).toBe('success'),
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => view.result.current.trackSubmittedTransaction('tx-1'));
+      const call = mockWaitForFinal.mock.calls[0][0] as { signal: AbortSignal };
+      view.rerender({ ...params, accountId: 'account-b' });
+      expect(call.signal.aborted).toBe(true);
+      await act(async () => finish(EOnChainHistoryTxStatus.Success));
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockAssets).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it('aborts an outstanding observation when the hook unmounts', async () => {
+    let finish: (value: EOnChainHistoryTxStatus) => void = () => undefined;
+    mockWaitForFinal.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const view = renderHook(() => useStakeAssets(params));
+    await waitFor(() =>
+      expect(view.result.current.result?.status).toBe('success'),
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => view.result.current.trackSubmittedTransaction('tx-1'));
+      const call = mockWaitForFinal.mock.calls[0][0] as { signal: AbortSignal };
+      view.unmount();
+      expect(call.signal.aborted).toBe(true);
+      await act(async () => finish(EOnChainHistoryTxStatus.Success));
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockAssets).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

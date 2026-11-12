@@ -154,6 +154,7 @@ jest.mock('@onekeyhq/components', () => {
         type="button"
         onClick={confirmButtonProps.onPress}
         disabled={confirmButtonProps.disabled || confirmButtonProps.loading}
+        data-loading={confirmButtonProps.loading ? 'true' : 'false'}
       >
         {onConfirmText}
       </button>
@@ -4228,6 +4229,22 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it('does not continue direct approval when a refresh starts during the guard recheck', async () => {
+    const verify = jest.fn<Promise<boolean>, []>().mockResolvedValue(true);
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitStatus.mockReturnValue(receipt.promise);
+    const { screen, overrides } = await beginDirectApproval(verify);
+    await submitConfirmation(0, 'approval-tx');
+    const pendingGuard = deferred<boolean>();
+    verify.mockClear().mockReturnValueOnce(pendingGuard.promise);
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
+    screen.rerender(<StakeTaskHarness {...overrides} isStakeAssetRefreshing />);
+    await act(async () => pendingGuard.resolve(true));
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
   it('does not start a new approval while the reset transaction is pending', async () => {
     const pending = deferred<EOnChainHistoryTxStatus | undefined>();
     mockWaitStatus.mockReturnValue(pending.promise);
@@ -4306,6 +4323,41 @@ describe('EtherFi USDT approval reset', () => {
     await submitConfirmation(0, 'reset-tx');
     mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
     screen.rerender(<StakeTaskHarness {...props} isDisabled />);
+    await act(async () => pending.resolve(EOnChainHistoryTxStatus.Success));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the input and button text visible during a silent balance refresh', async () => {
+    const screen = render(<StakeTaskHarness {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+
+    screen.rerender(<StakeTaskHarness {...props} isStakeAssetRefreshing />);
+    const input = screen.getByLabelText('amount') as HTMLInputElement;
+    expect(input.value).toBe('2');
+    expect(input.disabled).toBe(false);
+    expect(button.textContent).toBe('global.approve');
+    expect(button.getAttribute('data-loading')).toBe('false');
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    screen.rerender(<StakeTaskHarness {...props} />);
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('does not continue an approval while assets are refreshing', async () => {
+    const pending = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitStatus.mockReturnValue(pending.promise);
+    const screen = await beginReset();
+    await submitConfirmation(0, 'reset-tx');
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    screen.rerender(<StakeTaskHarness {...props} isStakeAssetRefreshing />);
     await act(async () => pending.resolve(EOnChainHistoryTxStatus.Success));
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });

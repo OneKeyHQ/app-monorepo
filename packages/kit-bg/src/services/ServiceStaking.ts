@@ -1022,14 +1022,21 @@ class ServiceStaking extends ServiceBase {
   );
 
   @backgroundMethod()
-  async getEarnAssetsList(params: {
+  async getEarnAssetsList({
+    forceRefresh,
+    ...params
+  }: {
     networkId: string;
     provider: string;
     symbol: string;
     vault?: string;
     accountId: string;
     action: 'stake' | 'unstake';
+    forceRefresh?: boolean;
   }) {
+    if (forceRefresh) {
+      void this._getEarnAssetsList.delete(params);
+    }
     return this._getEarnAssetsList(params);
   }
 

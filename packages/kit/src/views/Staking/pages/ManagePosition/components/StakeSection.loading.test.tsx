@@ -18,6 +18,7 @@ const mockHandleStake = jest.fn<
   ]
 >();
 const mockRemovePermitCache = jest.fn();
+const mockWaitForTxFinalStatus = jest.fn<Promise<undefined>, [unknown]>();
 const mockConfirmStake = jest.fn<
   void,
   [
@@ -46,6 +47,7 @@ const mockStakeRender = jest.fn<
       tokenSymbol?: string;
       isDisabled?: boolean;
       isStakeAssetLoading?: boolean;
+      isStakeAssetRefreshing?: boolean;
     },
   ]
 >();
@@ -69,6 +71,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocusedWhenEnabled: () => true,
+}));
+jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => ({
+  waitForTxFinalStatus: (params: unknown) => mockWaitForTxFinalStatus(params),
 }));
 jest.mock('@onekeyhq/components', () => {
   const { useDeferredPromise } = jest.requireActual<
@@ -196,6 +201,7 @@ jest.mock('../../../components/UniversalStake', () => ({
     tokenSymbol,
     tokenSelectorTriggerProps,
     isStakeAssetLoading,
+    isStakeAssetRefreshing,
     isDisabled,
     isInModalContext,
     beforeFooter,
@@ -209,6 +215,7 @@ jest.mock('../../../components/UniversalStake', () => ({
     tokenSymbol?: string;
     tokenSelectorTriggerProps?: { onPress?: () => void };
     isStakeAssetLoading?: boolean;
+    isStakeAssetRefreshing?: boolean;
     isDisabled?: boolean;
     isInModalContext?: boolean;
     beforeFooter?: import('react').ReactNode;
@@ -219,7 +226,13 @@ jest.mock('../../../components/UniversalStake', () => ({
   }) => {
     mockRetainedStakeForm(retainedTask);
     mockConfirmStake({ amount: '1' }, onConfirm);
-    mockStakeRender({ balance, tokenSymbol, isDisabled, isStakeAssetLoading });
+    mockStakeRender({
+      balance,
+      tokenSymbol,
+      isDisabled,
+      isStakeAssetLoading,
+      isStakeAssetRefreshing,
+    });
     return (
       <div>
         {isStakeAssetLoading ? (
@@ -256,6 +269,10 @@ import {
 
 import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IEarnAssetsList,
   IEarnTokenInfo,
@@ -263,6 +280,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { depositTaskRegistry } from '../../../earnDepositTask/registry';
 import {
@@ -336,6 +354,7 @@ beforeEach(() => {
   mockStakeRender.mockReset();
   mockHandleStake.mockReset();
   mockRemovePermitCache.mockReset();
+  mockWaitForTxFinalStatus.mockReset().mockResolvedValue(undefined);
   mockConfirmStake.mockReset();
 });
 
@@ -893,6 +912,350 @@ it('waits for EtherFi assets and selects the entry token from the current vault'
     expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
   );
   expect(screen.queryByTestId('stake-skeleton')).toBeNull();
+});
+
+it('refreshes the selected EtherFi asset after a matching transaction confirmation', async () => {
+  const usdc = {
+    ...tokenInfo.token,
+    symbol: 'USDC',
+    address: '0xusdc',
+    decimals: 6,
+  };
+  const usdt = {
+    ...tokenInfo.token,
+    symbol: 'USDT',
+    address: '0xusdt',
+    decimals: 6,
+  };
+  const original = { ...item(usdc), balanceParsed: '24.271469' };
+  const updated = { ...item(usdc), balanceParsed: '23.271469' };
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [item(usdt), original] })
+    .mockResolvedValueOnce({ assets: [item(usdt), original] })
+    .mockResolvedValue({ assets: [item(usdt), updated] });
+  const view = render(
+    <StakeSection
+      accountId="account-1"
+      networkId="evm--1"
+      tokenInfo={{ ...tokenInfo, token: usdt }}
+      protocolInfo={{ ...nativeProtocol, provider: 'etherfi', symbol: 'USDT' }}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('USDT'),
+  );
+  fireEvent.click(screen.getByText('Select token'));
+  act(() => mockPushModal.mock.calls[0]?.[1].params.onSelect(original));
+  expect(mockStakeRender.mock.calls.at(-1)?.[0]).toEqual(
+    expect.objectContaining({ tokenSymbol: 'USDC', balance: '24.271469' }),
+  );
+
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        txid: 'deposit',
+        status: EDecodedTxStatus.Confirmed,
+      });
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(2);
+    expect(mockGetEarnAssetsList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ forceRefresh: true, accountId: 'account-1' }),
+    );
+    expect(mockStakeRender.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ tokenSymbol: 'USDC', balance: '24.271469' }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(7000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(3);
+    expect(mockGetEarnAssetsList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ forceRefresh: true, accountId: 'account-1' }),
+    );
+    expect(mockStakeRender.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ tokenSymbol: 'USDC', balance: '23.271469' }),
+    );
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('ignores confirmation events for another account or network', async () => {
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(weth)] });
+  const view = renderStake({ ...nativeProtocol, provider: 'etherfi' });
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+  );
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      for (const [accountId, networkId] of [
+        ['account-2', 'evm--1'],
+        ['account-1', 'evm--10'],
+      ]) {
+        appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+          accountId,
+          networkId,
+          txid: 'unrelated',
+          status: EDecodedTxStatus.Confirmed,
+        });
+      }
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(1);
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('keeps the selected asset and form visible while the confirmed balance refresh is pending', async () => {
+  const usdc = {
+    ...tokenInfo.token,
+    symbol: 'USDC',
+    address: '0xusdc',
+    decimals: 6,
+  };
+  const usdt = {
+    ...tokenInfo.token,
+    symbol: 'USDT',
+    address: '0xusdt',
+    decimals: 6,
+  };
+  const original = { ...item(usdc), balanceParsed: '24.271469' };
+  let resolveRefresh: (value: IEarnAssetsList) => void = () => undefined;
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [item(usdt), original] })
+    .mockReturnValueOnce(
+      new Promise<IEarnAssetsList>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+    );
+  mockStakeApproval.mockReturnValue({
+    approve: { approveType: 'legacy', approveTarget: '0xspender' },
+    error: false,
+    retry: jest.fn(),
+  });
+  const view = render(
+    <StakeSection
+      accountId="account-1"
+      networkId="evm--1"
+      tokenInfo={{ ...tokenInfo, token: usdt }}
+      protocolInfo={{ ...nativeProtocol, provider: 'etherfi', symbol: 'USDT' }}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('USDT'),
+  );
+  fireEvent.click(screen.getByText('Select token'));
+  act(() => mockPushModal.mock.calls[0]?.[1].params.onSelect(original));
+  expect(mockStakeRender.mock.calls.at(-1)?.[0].balance).toBe('24.271469');
+
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        txid: 'deposit',
+        status: EDecodedTxStatus.Confirmed,
+      });
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('stake-skeleton')).toBeNull();
+    expect(screen.getByTestId('stake-form').textContent).toBe('USDC');
+    expect(mockStakeRender.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        tokenSymbol: 'USDC',
+        balance: '24.271469',
+        isStakeAssetLoading: false,
+        isStakeAssetRefreshing: true,
+      }),
+    );
+
+    await act(async () => {
+      resolveRefresh({
+        assets: [item(usdt), { ...item(usdc), balanceParsed: '23.271469' }],
+      });
+    });
+    expect(screen.getByTestId('stake-form').textContent).toBe('USDC');
+    expect(mockStakeRender.mock.calls.at(-1)?.[0].balance).toBe('23.271469');
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('shows an error and disables EtherFi submission if a balance refresh fails', async () => {
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [item(weth)] })
+    .mockRejectedValueOnce(new Error('offline'));
+  mockStakeApproval.mockReturnValue({
+    approve: { approveType: 'legacy', approveTarget: '0xspender' },
+    error: false,
+    retry: jest.fn(),
+  });
+  const view = renderStake({ ...nativeProtocol, provider: 'etherfi' });
+  await waitFor(() =>
+    expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(false),
+  );
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        txid: 'deposit',
+        status: EDecodedTxStatus.Confirmed,
+      });
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(screen.getByTestId('stake-assets-retry')).toBeTruthy();
+    expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(true);
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
+});
+
+it('requests a fresh asset list when returning after a confirmation was missed', async () => {
+  const usdc = {
+    ...tokenInfo.token,
+    symbol: 'USDC',
+    address: '0xusdc',
+    decimals: 6,
+  };
+  const original = { ...item(usdc), balanceParsed: '24.271469' };
+  const updated = { ...item(usdc), balanceParsed: '23.271469' };
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [original] })
+    .mockResolvedValueOnce({ assets: [updated] });
+  const props = {
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    tokenInfo: { ...tokenInfo, token: usdc },
+    protocolInfo: { ...nativeProtocol, provider: 'etherfi', symbol: 'USDC' },
+  };
+  const first = render(<StakeSection {...props} />);
+  await waitFor(() =>
+    expect(mockStakeRender.mock.calls.at(-1)?.[0].balance).toBe('24.271469'),
+  );
+  first.unmount();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      txid: 'deposit',
+      status: EDecodedTxStatus.Confirmed,
+    });
+  });
+  render(<StakeSection {...props} />);
+  await waitFor(() =>
+    expect(mockStakeRender.mock.calls.at(-1)?.[0].balance).toBe('23.271469'),
+  );
+  expect(mockGetEarnAssetsList).toHaveBeenLastCalledWith(
+    expect.objectContaining({ forceRefresh: true, accountId: 'account-1' }),
+  );
+});
+
+it('tracks the submitted EtherFi transaction with its original account and network', async () => {
+  mockGetEarnAssetsList.mockResolvedValue({ assets: [item(weth)] });
+  mockStakeApproval.mockReturnValue({
+    approve: { approveType: 'legacy', approveTarget: '0xspender' },
+    error: false,
+    retry: jest.fn(),
+  });
+  mockHandleStake.mockImplementation(async (params) => {
+    await params.onSubmitted?.('deposit-tx');
+    return true;
+  });
+  renderStake({ ...nativeProtocol, provider: 'etherfi' });
+  await waitFor(() =>
+    expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(false),
+  );
+  const onConfirm = mockConfirmStake.mock.calls.at(-1)?.[1];
+  if (!onConfirm)
+    throw new OneKeyLocalError('Stake confirmation is unavailable');
+  await act(async () => {
+    await onConfirm({ amount: '1', taskAccountAddress: '0xowner' });
+  });
+  expect(mockWaitForTxFinalStatus).toHaveBeenCalledWith(
+    expect.objectContaining({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      txid: 'deposit-tx',
+      expectedAccountAddress: '0xowner',
+      signal: expect.any(AbortSignal),
+    }),
+  );
+});
+
+it('does not apply a confirmation refresh to a different account', async () => {
+  let resolveOld: (value: IEarnAssetsList) => void = () => undefined;
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [item(weth)] })
+    .mockReturnValueOnce(
+      new Promise<IEarnAssetsList>((resolve) => {
+        resolveOld = resolve;
+      }),
+    )
+    .mockResolvedValue({ assets: [{ ...item(weth), balanceParsed: '8' }] });
+  const provider = { ...nativeProtocol, provider: 'etherfi' };
+  const view = renderStake(provider);
+  await waitFor(() =>
+    expect(screen.getByTestId('stake-form').textContent).toBe('WETH'),
+  );
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        txid: 'deposit',
+        status: EDecodedTxStatus.Confirmed,
+      });
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(2);
+    view.rerender(
+      <StakeSection
+        accountId="account-2"
+        networkId="evm--1"
+        tokenInfo={tokenInfo}
+        protocolInfo={provider}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(3);
+    await act(async () =>
+      resolveOld({ assets: [{ ...item(weth), balanceParsed: '99' }] }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(7000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(3);
+    expect(mockStakeRender.mock.calls.at(-1)?.[0].balance).toBe('8');
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
 });
 
 it('keeps loaded assets when an account render is abandoned', async () => {

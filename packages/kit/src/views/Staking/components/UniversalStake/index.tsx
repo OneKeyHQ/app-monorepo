@@ -482,6 +482,7 @@ type IUniversalStakeProps = {
   tokenImageLoading?: boolean;
   tokenSymbol?: string;
   isStakeAssetLoading?: boolean;
+  isStakeAssetRefreshing?: boolean;
 
   decimals?: number;
 
@@ -559,6 +560,7 @@ export function UniversalStake({
   tokenImageLoading,
   tokenSymbol,
   isStakeAssetLoading,
+  isStakeAssetRefreshing,
   providerName = '',
   providerLogo,
   estimateFeeUTXO,
@@ -1763,6 +1765,7 @@ export function UniversalStake({
     footerActionOverride,
     isDisabled,
     isStakeAssetLoading,
+    isStakeAssetRefreshing,
     isInvalid: isDisable,
     isInvalidWithoutValidation: false,
     isInvalidAfterWrapWithoutValidation: false,
@@ -1773,6 +1776,7 @@ export function UniversalStake({
       footerActionOverride,
       isDisabled,
       isStakeAssetLoading,
+      isStakeAssetRefreshing,
       isInvalid: isDisable,
       isInvalidWithoutValidation:
         !new BigNumber(amountValue).isFinite() ||
@@ -1789,6 +1793,7 @@ export function UniversalStake({
       footerActionOverride,
       isDisabled,
       isStakeAssetLoading,
+      isStakeAssetRefreshing,
       isDisable,
       amountValue,
       isInsufficientBalance,
@@ -1804,6 +1809,7 @@ export function UniversalStake({
       !isCurrent() ||
       actionState.isDisabled ||
       actionState.isStakeAssetLoading ||
+      actionState.isStakeAssetRefreshing ||
       actionState.isInvalid ||
       actionState.footerActionOverride ||
       actionState.actionGuard?.action ||
@@ -1820,6 +1826,7 @@ export function UniversalStake({
       isCurrent() &&
       !current.isDisabled &&
       !current.isStakeAssetLoading &&
+      !current.isStakeAssetRefreshing &&
       !current.isInvalid &&
       !current.footerActionOverride &&
       !current.actionGuard?.action &&
@@ -1840,6 +1847,7 @@ export function UniversalStake({
         isCurrent() &&
         !state.isDisabled &&
         !state.isStakeAssetLoading &&
+        !state.isStakeAssetRefreshing &&
         !checkAmountLoadingRef.current &&
         (isWrapStake && step !== 'wrap'
           ? !state.isInvalidAfterWrapWithoutValidation
@@ -4039,6 +4047,10 @@ export function UniversalStake({
         (isStakeAssetLoading &&
           !depositTaskCanQuery &&
           !depositRecordingCanRetry &&
+          !depositRecordingCanFinish) ||
+        (isStakeAssetRefreshing &&
+          !depositTaskCanQuery &&
+          !depositRecordingCanRetry &&
           !depositRecordingCanFinish),
       ),
     },
@@ -4072,6 +4084,10 @@ export function UniversalStake({
   const effectiveConfirmDisabled = Boolean(
     submitting ||
     (isStakeAssetLoading &&
+      !depositRecordingCanRetry &&
+      !depositRecordingCanFinish) ||
+    (isStakeAssetRefreshing &&
+      !depositTaskCanQuery &&
       !depositRecordingCanRetry &&
       !depositRecordingCanFinish) ||
     guardedAction.disabled,

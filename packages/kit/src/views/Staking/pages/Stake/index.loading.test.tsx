@@ -23,6 +23,7 @@ const mockStakeApproval = jest.fn<
   [unknown]
 >();
 const mockStakeForm = jest.fn();
+const mockStakeFormRefresh = jest.fn();
 const mockPushModal = jest.fn<
   void,
   [
@@ -162,6 +163,7 @@ jest.mock('../../components/EarnProtocolForms/Stake', () => ({
     tokenSymbol,
     balance,
     isDisabled,
+    isStakeAssetRefreshing,
     beforeFooter,
     tokenSelectorTriggerProps,
     postWrapApproveTarget,
@@ -173,12 +175,14 @@ jest.mock('../../components/EarnProtocolForms/Stake', () => ({
     tokenSymbol?: string;
     balance?: string;
     isDisabled?: boolean;
+    isStakeAssetRefreshing?: boolean;
     beforeFooter?: import('react').ReactNode;
     tokenSelectorTriggerProps?: { onPress?: () => void };
     postWrapApproveTarget?: unknown;
   }) => {
     mockRetainedStakeForm(retainedTask);
     mockStakeForm(postWrapApproveTarget);
+    mockStakeFormRefresh({ isDisabled, isStakeAssetRefreshing });
     return (
       <div>
         <span data-testid="stake-token">{tokenSymbol}</span>
@@ -207,10 +211,15 @@ import {
 
 import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IEarnAssetsList,
   IEarnTokenItem,
 } from '@onekeyhq/shared/types/staking';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { depositTaskRegistry } from '../../earnDepositTask/registry';
 import {
@@ -252,6 +261,7 @@ beforeEach(() => {
     .mockReset()
     .mockReturnValue({ approve: undefined, error: false, retry: jest.fn() });
   mockStakeForm.mockReset();
+  mockStakeFormRefresh.mockReset();
   mockPushModal.mockReset();
   mockFocused = true;
   mockRoute = {
@@ -460,6 +470,69 @@ it('allows the ETH entry when WETH is only available as preparation metadata', a
   expect(mockStakeForm).toHaveBeenLastCalledWith(
     expect.objectContaining({ token: weth }),
   );
+});
+
+it('keeps the ETH wrap form enabled and visible during a background balance refresh', async () => {
+  mockRoute.params.tokenInfo = { token: eth, balanceParsed: '1', price: '1' };
+  mockRoute.params.protocolInfo = {
+    provider: 'etherfi',
+    providerDetail: { name: 'EtherFi', logoURI: '' },
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    vault: 'vault',
+    stakeTag: '',
+  };
+  let finishRefresh: (value: IEarnAssetsList) => void = () => undefined;
+  mockGetEarnAssetsList
+    .mockResolvedValueOnce({ assets: [item(eth, '1'), item(weth)] })
+    .mockReturnValueOnce(
+      new Promise<IEarnAssetsList>((resolve) => {
+        finishRefresh = resolve;
+      }),
+    );
+  mockStakeApproval.mockReturnValue({
+    approve: { approveType: 'legacy', approveTarget: '0xspender' },
+    error: false,
+    retry: jest.fn(),
+  });
+  const view = render(<StakePage />);
+  await waitFor(() =>
+    expect(screen.getByTestId('confirm').hasAttribute('disabled')).toBe(false),
+  );
+  expect(screen.getByTestId('stake-token').textContent).toBe('ETH');
+  expect(screen.getByTestId('stake-balance').textContent).toBe('1');
+  jest.useFakeTimers();
+  try {
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        txid: 'deposit',
+        status: EDecodedTxStatus.Confirmed,
+      });
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(mockGetEarnAssetsList).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('stake-token').textContent).toBe('ETH');
+    expect(screen.getByTestId('stake-balance').textContent).toBe('1');
+    expect(mockStakeFormRefresh).toHaveBeenLastCalledWith({
+      isDisabled: false,
+      isStakeAssetRefreshing: true,
+    });
+    await act(async () => {
+      finishRefresh({ assets: [item(eth, '0.5'), item(weth)] });
+    });
+    expect(screen.getByTestId('stake-balance').textContent).toBe('0.5');
+    expect(mockStakeFormRefresh).toHaveBeenLastCalledWith({
+      isDisabled: false,
+      isStakeAssetRefreshing: false,
+    });
+  } finally {
+    view.unmount();
+    jest.useRealTimers();
+  }
 });
 
 it('retains the selected ETH and blocks wrapping across failed and successful retries', async () => {

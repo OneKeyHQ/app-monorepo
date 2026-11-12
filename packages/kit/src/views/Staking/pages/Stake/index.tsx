@@ -114,6 +114,7 @@ function BasicStakePage() {
     wrappedToken,
     isWrappedTokenLoading,
     retryWrappedToken,
+    trackSubmittedTransaction,
   } = useStakeAssets({
     enabled: stakeAssetPolicy.selection === 'wrapped',
     accountId,
@@ -130,6 +131,12 @@ function BasicStakePage() {
       ? stakeAssetsList.assets
       : [];
   }, [stakeAssetsList, stakeAssetsScopeKey]);
+  const isStakeAssetRefreshing = Boolean(
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.isCurrentScope() &&
+    stakeAssetsList.status === 'success' &&
+    isStakeAssetsLoading === true,
+  );
   const stakeAssetsError =
     stakeAssetPolicy.assetError === 'always' &&
     isStakeAssetsLoading !== true &&
@@ -294,7 +301,7 @@ function BasicStakePage() {
         stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
         stakeAssetsList.isCurrentScope() &&
         stakeAssetsList.status === 'success' &&
-        isStakeAssetsLoading !== true,
+        (isStakeAssetsLoading !== true || isStakeAssetRefreshing),
       )) &&
     (stakeAssetPolicy.approval !== 'selected-asset' ||
       Boolean(
@@ -554,6 +561,7 @@ function BasicStakePage() {
           ? protocolInfo?.vault
           : undefined,
         onSubmitted: async (txid) => {
+          trackSubmittedTransaction(txid, taskAccountAddress);
           if (
             !workflowHandoff &&
             approveType === EApproveType.Permit &&
@@ -622,6 +630,7 @@ function BasicStakePage() {
       stakeType,
       wrappedStakeAsset,
       approveSpenderAddress,
+      trackSubmittedTransaction,
     ],
   );
 
@@ -728,6 +737,7 @@ function BasicStakePage() {
             providerName={protocolInfo?.provider}
             onConfirm={onConfirm}
             isDisabled={!isStakeAssetReady}
+            isStakeAssetRefreshing={isStakeAssetRefreshing}
             beforeFooter={
               stakeAssetsError ||
               wrappedStakeAssetsError ||

@@ -1,9 +1,22 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
 
 import { isValidWrappedStakeToken } from '../utils/utils';
@@ -67,6 +80,8 @@ export function useStakeAssets({
     committedScopeRef.current = requestScope;
   }, [requestScope]);
   const requestRef = useRef(0);
+  // A newly mounted scope may have missed a transaction confirmation event.
+  const forceNextRequestRef = useRef(true);
   const lastAssetsRef = useRef<
     { isCurrent: () => boolean; assets: IEarnTokenItem[] } | undefined
   >(undefined);
@@ -88,6 +103,8 @@ export function useStakeAssets({
       if (!isCurrentScope()) return undefined;
       requestRef.current += 1;
       const requestId = requestRef.current;
+      const forceRefresh = forceNextRequestRef.current;
+      forceNextRequestRef.current = false;
       try {
         const response =
           await backgroundApiProxy.serviceStaking.getEarnAssetsList({
@@ -97,6 +114,7 @@ export function useStakeAssets({
             symbol: currentScope.symbol,
             vault: currentScope.vault || undefined,
             action: 'stake',
+            ...(forceRefresh ? { forceRefresh: true } : {}),
           });
         if (isCurrentScope() && requestId === requestRef.current) {
           lastAssetsRef.current = {
@@ -131,7 +149,111 @@ export function useStakeAssets({
       }
     },
     [nativeWrapSelectedRef, requestScope],
-    { watchLoading: true, resumeOnEffectReconnect: true },
+    {
+      watchLoading: true,
+      revalidateOnFocus: true,
+      resumeOnEffectReconnect: true,
+    },
+  );
+  const runAssets = result.run;
+  const trackerRef = useRef<
+    | {
+        scope: typeof scopeGuard;
+        track: (txid: string, expectedAccountAddress?: string) => void;
+      }
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!enabled || !accountId || !networkId) return undefined;
+    const isCurrent = scopeGuard.capture();
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const controllers = new Map<string, AbortController>();
+    const settled = new Set<string>();
+    const scheduleRefresh = (txid: string) => {
+      if (!isCurrent() || settled.has(txid)) return;
+      settled.add(txid);
+      controllers.get(txid)?.abort();
+      controllers.delete(txid);
+      // The provider's balance index can lag behind the transaction history.
+      for (const delay of [3000, 10_000]) {
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          if (!isCurrent()) return;
+          forceNextRequestRef.current = true;
+          void runAssets().catch(() => {
+            if (isCurrent()) console.error('Unable to refresh Earn assets');
+          });
+        }, delay);
+        timers.add(timer);
+      }
+    };
+    const tracker = {
+      scope: scopeGuard,
+      track: (txid: string, expectedAccountAddress?: string) => {
+        const key = txid.trim();
+        if (!key || !isCurrent() || settled.has(key) || controllers.has(key))
+          return;
+        const controller = new AbortController();
+        controllers.set(key, controller);
+        void waitForTxFinalStatus({
+          accountId,
+          networkId,
+          txid: key,
+          signal: controller.signal,
+          ...(expectedAccountAddress ? { expectedAccountAddress } : {}),
+        })
+          .then((status) => {
+            if (controller.signal.aborted || !isCurrent()) return;
+            if (
+              status === EOnChainHistoryTxStatus.Success ||
+              status === EOnChainHistoryTxStatus.Failed
+            ) {
+              scheduleRefresh(key);
+            }
+          })
+          .catch(() => {
+            if (!controller.signal.aborted && isCurrent()) {
+              console.error('Unable to observe Earn transaction status');
+            }
+          })
+          .finally(() => {
+            if (controllers.get(key) === controller) controllers.delete(key);
+          });
+      },
+    };
+    trackerRef.current = tracker;
+    const onTransactionConfirmed = (
+      payload: IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed],
+    ) => {
+      if (payload.accountId !== accountId || payload.networkId !== networkId) {
+        return;
+      }
+      const txid = payload.txid.trim();
+      if (txid) scheduleRefresh(txid);
+    };
+    appEventBus.on(
+      EAppEventBusNames.LocalPendingTxConfirmed,
+      onTransactionConfirmed,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.LocalPendingTxConfirmed,
+        onTransactionConfirmed,
+      );
+      if (trackerRef.current === tracker) trackerRef.current = undefined;
+      controllers.forEach((controller) => controller.abort());
+      timers.forEach(clearTimeout);
+      forceNextRequestRef.current = true;
+    };
+  }, [enabled, accountId, networkId, scopeGuard, runAssets]);
+  const trackSubmittedTransaction = useCallback(
+    (txid: string, expectedAccountAddress?: string) => {
+      const tracker = trackerRef.current;
+      if (tracker?.scope === scopeGuard && scopeGuard.isCurrent()) {
+        tracker.track(txid, expectedAccountAddress);
+      }
+    },
+    [scopeGuard],
   );
   const assetsResult = result.result;
   const needsWrappedToken = Boolean(
@@ -203,6 +325,7 @@ export function useStakeAssets({
       : undefined;
   return {
     ...result,
+    trackSubmittedTransaction,
     scopeKey,
     wrappedToken: currentWrapped?.token,
     wrappedTokenError: Boolean(currentWrapped?.error),

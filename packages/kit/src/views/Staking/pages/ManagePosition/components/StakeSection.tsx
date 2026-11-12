@@ -235,6 +235,7 @@ const StakeSectionContent = ({
     wrappedToken,
     isWrappedTokenLoading,
     retryWrappedToken,
+    trackSubmittedTransaction,
   } = useStakeAssets({
     enabled: Boolean(hasRequiredData && stakeAssetPolicy.selection !== 'fixed'),
     accountId,
@@ -251,6 +252,15 @@ const StakeSectionContent = ({
       ? stakeAssetsList.assets
       : [];
   }, [stakeAssetsList, stakeAssetsScopeKey]);
+  const hasCurrentStakeAssets = Boolean(
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.isCurrentScope(),
+  );
+  const isStakeAssetRefreshing = Boolean(
+    hasCurrentStakeAssets &&
+    stakeAssetsList?.status === 'success' &&
+    isStakeAssetsLoading === true,
+  );
   const stakeAssetsError =
     stakeAssetPolicy.assetError === 'always' &&
     isStakeAssetsLoading !== true &&
@@ -265,7 +275,7 @@ const StakeSectionContent = ({
     !isBorrowStake &&
     stakeAssetPolicy.selection !== 'fixed' &&
     (stakeAssetPolicy.assetResolution === 'initial-token'
-      ? isStakeAssetsLoading !== false ||
+      ? (isStakeAssetsLoading !== false && !isStakeAssetRefreshing) ||
         Boolean(
           stakeAssetsList &&
           (stakeAssetsList.scopeKey !== stakeAssetsScopeKey ||
@@ -451,7 +461,7 @@ const StakeSectionContent = ({
         stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
         stakeAssetsList.isCurrentScope() &&
         stakeAssetsList.status === 'success' &&
-        isStakeAssetsLoading !== true,
+        (isStakeAssetsLoading !== true || isStakeAssetRefreshing),
       )) &&
     (stakeAssetPolicy.approval !== 'selected-asset' ||
       Boolean(
@@ -831,6 +841,7 @@ const StakeSectionContent = ({
         // Stakefish specific param
         validatorPublicKey: validatorPubkey,
         onSubmitted: async (txid) => {
+          trackSubmittedTransaction(txid, taskAccountAddress);
           if (
             !workflowHandoff &&
             approveType === EApproveType.Permit &&
@@ -901,6 +912,7 @@ const StakeSectionContent = ({
       stakeType,
       wrappedStakeAsset?.info,
       approveSpenderAddress,
+      trackSubmittedTransaction,
     ],
   );
 
@@ -1178,6 +1190,7 @@ const StakeSectionContent = ({
             }
             tokenSymbol={effectiveStakeTokenInfo?.token.symbol}
             isStakeAssetLoading={isWaitingForStakeAsset}
+            isStakeAssetRefreshing={isStakeAssetRefreshing}
             providerLogo={protocolInfo?.providerDetail.logoURI}
             providerName={protocolInfo?.provider}
             onConfirm={onConfirm}
