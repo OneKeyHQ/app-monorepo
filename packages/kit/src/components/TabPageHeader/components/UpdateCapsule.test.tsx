@@ -93,7 +93,13 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Container,
     YStack: Container,
     SizableText: Container,
-    Tooltip: ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
+    Tooltip: ({
+      renderTrigger,
+      renderContent,
+    }: {
+      renderTrigger: ReactNode;
+      renderContent: string;
+    }) => <span data-tooltip={renderContent}>{renderTrigger}</span>,
     Popover: ({
       renderTrigger,
       renderContent,
@@ -157,6 +163,9 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
 jest.mock('../../AppUpdate/AppUpdateForeground', () => ({
+  consumeDesktopUpdateBanner: (version: string) => {
+    if (mockBanner?.version === version) mockBanner = undefined;
+  },
   peekDesktopUpdateBanner: () => {
     if (mockBanner?.expiresAt && mockBanner.expiresAt <= Date.now())
       mockBanner = undefined;
@@ -198,6 +207,36 @@ afterEach(() => {
   jest.restoreAllMocks();
   jest.useRealTimers();
 });
+
+test.each([false, true])(
+  'ready details has its own tooltip at wide=%s',
+  (wide) => {
+    mockWideHeader = wide;
+    const view = render(
+      <UpdateCapsule
+        data={{
+          latestVersion: '2.0.0',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status: EAppUpdateStatus.ready,
+        }}
+        showUpdate
+        onWhatsNew={() => {}}
+      />,
+    );
+    const details = view.getByTestId('header-update-details');
+    const restart = view.getByTestId('header-update-restart');
+    expect(
+      details.closest('[data-tooltip]')?.getAttribute('data-tooltip'),
+    ).toBe(ETranslations.app_update_details__title);
+    expect(
+      restart.closest('[data-tooltip]')?.getAttribute('data-tooltip'),
+    ).toBe(ETranslations.app_update_restart__action);
+    expect(details.getAttribute('aria-label')).toBe(
+      `${ETranslations.app_update_restart__action} · ${ETranslations.app_update_details__title}`,
+    );
+  },
+);
 
 test('keeps app-shell progress scope stable until the target version changes', () => {
   const data = {
@@ -461,20 +500,93 @@ test.each([
     expect(view.getByTestId('header-update-completed')).toBeTruthy();
     fireEvent.click(view.getByTestId('header-update-completed'));
     expect(onWhatsNew).toHaveBeenCalledTimes(1);
-    const remaining = (mockBanner?.expiresAt ?? 0) - Date.now();
-    expect(remaining).toBeGreaterThanOrEqual(5900);
-    await act(async () => {
-      jest.advanceTimersByTime(remaining - 1);
-    });
-    expect(view.getByTestId('header-update-completed')).toBeTruthy();
-    await act(async () => {
-      jest.advanceTimersByTime(101);
-    });
+    expect(mockBanner).toBeUndefined();
+    expect(view.queryByTestId('header-update-completed')).toBeNull();
+    view.rerender(<></>);
+    view.rerender(
+      <UpdateCapsule data={data} showUpdate={false} onWhatsNew={onWhatsNew} />,
+    );
     expect(view.queryByTestId('header-update-completed')).toBeNull();
     view.unmount();
     host.remove();
   },
 );
+
+test('unclicked completion banner expires naturally after six seconds', async () => {
+  jest.useFakeTimers();
+  jest
+    .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+    .mockReturnValue(document.body);
+  mockBanner = { version: '2.0.0' };
+  const view = render(
+    <UpdateCapsule
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.done,
+      }}
+      showUpdate={false}
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(view.getByTestId('header-update-completed')).toBeTruthy();
+  await act(async () => {
+    jest.advanceTimersByTime(5900);
+  });
+  expect(view.getByTestId('header-update-completed')).toBeTruthy();
+  await act(async () => {
+    jest.advanceTimersByTime(200);
+  });
+  expect(view.queryByTestId('header-update-completed')).toBeNull();
+  expect(mockBanner).toBeUndefined();
+});
+
+test('clicking an old completion banner preserves a newer version', () => {
+  jest
+    .spyOn(HTMLElement.prototype, 'offsetParent', 'get')
+    .mockReturnValue(document.body);
+  mockBanner = { version: '2.0.0' };
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.done,
+  };
+  const view = render(
+    <UpdateCapsule data={data} showUpdate={false} onWhatsNew={() => {}} />,
+  );
+  mockBanner = { version: '3.0.0' };
+  fireEvent.click(view.getByTestId('header-update-completed'));
+  expect(mockBanner?.version).toBe('3.0.0');
+  expect(view.queryByTestId('header-update-completed')).toBeNull();
+  view.unmount();
+  const remounted = render(
+    <UpdateCapsule data={data} showUpdate={false} onWhatsNew={() => {}} />,
+  );
+  expect(remounted.getByTestId('header-update-completed')).toBeTruthy();
+  expect(mockBanner?.version).toBe('3.0.0');
+});
+
+test('ordinary details link does not consume a completion banner', () => {
+  const onWhatsNew = jest.fn();
+  const view = render(
+    <UpdateCapsule
+      data={{
+        latestVersion: '2.0.0',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.ready,
+      }}
+      showUpdate
+      onWhatsNew={onWhatsNew}
+    />,
+  );
+  mockBanner = { version: '3.0.0' };
+  fireEvent.click(view.getByTestId('header-update-whats-new'));
+  expect(onWhatsNew).toHaveBeenCalledTimes(1);
+  expect(mockBanner?.version).toBe('3.0.0');
+});
 
 test('route focus changes keep transient update timers active', async () => {
   jest.useFakeTimers();

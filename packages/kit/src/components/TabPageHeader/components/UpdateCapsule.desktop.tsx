@@ -46,6 +46,7 @@ import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
+  consumeDesktopUpdateBanner,
   peekDesktopUpdateBanner,
   startDesktopUpdateBanner,
 } from '../../AppUpdate/AppUpdateForeground';
@@ -470,6 +471,12 @@ export function UpdateCapsule({
     onWhatsNew();
   }, [onWhatsNew]);
 
+  const showCompletedWhatsNew = useCallback(() => {
+    if (completedVersion) consumeDesktopUpdateBanner(completedVersion);
+    setVisibleCompleted(false);
+    onWhatsNew();
+  }, [completedVersion, onWhatsNew]);
+
   const isReady = mode === 'ready';
   const isError = mode === 'error' || mode === 'securityError';
   const isRetrying =
@@ -548,7 +555,7 @@ export function UpdateCapsule({
   } else {
     detailIcon = <Icon name="DotHorOutline" size="$4.5" color="$iconInverse" />;
   }
-  const tooltip = stateLabel;
+  const tooltip = isReady ? detailsLabel : stateLabel;
   const detailsButton = (
     <Button
       testID="header-update-details"
@@ -703,7 +710,7 @@ export function UpdateCapsule({
             height={30}
             borderRadius="$full"
             aria-label={completedLabel}
-            onPress={closeAndShowWhatsNew}
+            onPress={showCompletedWhatsNew}
             style={{
               opacity: visibleCompleted === 'exiting' ? 0 : 1,
               transform:
