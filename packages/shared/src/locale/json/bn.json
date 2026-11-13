@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "নেট আমানত",
   "perp_portfolio_net_deposits_tooltip": "এই সময়কালে মোট আমানত বিয়োগ মোট উত্তোলন।",
   "perp_portfolio_open_positions": "খোলা পজিশন",
+  "perp_portfolio_payoff_ratio": "লাভ-ক্ষতির অনুপাত",
+  "perp_portfolio_payoff_ratio_tooltip": "লাভজনক লেনদেনগুলোর গড় লাভকে লোকসানি লেনদেনগুলোর গড় ক্ষতির পরিমাণ দিয়ে ভাগ করা হয়। অনুপাত যত বেশি, গড় ক্ষতির তুলনায় গড় লাভ তত বেশি।",
   "perp_portfolio_performance": "পারফরম্যান্স",
   "perp_portfolio_period_1d": "১ দিন",
   "perp_portfolio_period_1m": "১ মাস",
