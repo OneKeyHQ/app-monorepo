@@ -122,7 +122,8 @@ function TaskMarkFace({
     >
       <SizableText
         size="$bodySmMedium"
-        color={isCurrent ? '$textOnColor' : '$textSubdued'}
+        // The primary button's pair: the number reads on the mark in both themes
+        color={isCurrent ? '$textInverse' : '$textSubdued'}
       >
         {step}
       </SizableText>
