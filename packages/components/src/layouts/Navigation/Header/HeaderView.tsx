@@ -9,6 +9,7 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useIsModalPage } from '../../../hocs';
 import { useIsDesktopModeUIInTabPages } from '../../../hooks';
 import { Stack, XStack } from '../../../primitives';
 import { WINDOWS_OVERLAY_BUTTONS_WIDTH } from '../../../utils/sidebar';
@@ -160,6 +161,7 @@ function HeaderView({
   }, [isGtMd, isModelScreen, modalContentMaxWidth]);
 
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
+  const isModalPage = useIsModalPage();
   const headerBackgroundColor = useMemo(() => {
     if (headerTransparent) {
       return 'transparent';
@@ -292,7 +294,8 @@ function HeaderView({
           pr={
             (platformEnv.isDesktopWin || platformEnv.isDesktopLinux) &&
             !isOnboardingScreen &&
-            !isModelScreen
+            !isModelScreen &&
+            !isModalPage
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }

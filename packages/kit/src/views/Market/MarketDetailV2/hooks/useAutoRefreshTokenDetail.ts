@@ -9,11 +9,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
-import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
+
+import { setCurrentTokenLiveData } from '../components/TokenSelector/useLiveTokenOverride';
 
 interface IUseMarketDetailDataProps {
   active?: boolean;
@@ -36,7 +37,6 @@ function toFiniteNumber(value?: string | number) {
 // Keep live quote mirroring in a leaf so price ticks do not render the page.
 export function useSyncMarketCurrentTokenLiveData() {
   const { tokenDetail, networkId } = useTokenDetail();
-  const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
 
   useEffect(() => {
     if (!tokenDetail || tokenDetail.address === undefined || !networkId) {
@@ -61,13 +61,13 @@ export function useSyncMarketCurrentTokenLiveData() {
           ? { buy: buy ?? 0, sell: sell ?? 0 }
           : undefined,
     });
-  }, [tokenDetail, networkId, setCurrentTokenLiveData]);
+  }, [tokenDetail, networkId]);
 
   useEffect(
     () => () => {
       setCurrentTokenLiveData(undefined);
     },
-    [setCurrentTokenLiveData],
+    [],
   );
 }
 

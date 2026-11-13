@@ -2,7 +2,7 @@ import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/is
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 /**
- * The desktop home header centers the search pill between two `flexBasis: 0`
+ * The desktop header centers the search pill between two `flexBasis: 0`
  * spacers, so each side only ever gets `(rowWidth - pillWidth) / 2` and the
  * header actions paint over the pill once they need more than that — every
  * pixel of pill width costs two pixels of room for the actions (OK-58363).
@@ -13,7 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
  * icon. Moving one without the other reopens the overlap in the gap between
  * the two thresholds, silently and only at certain window widths.
  *
- * Electron Home is the only header that renders the update button
+ * Electron is the only platform that renders the update button
  * (`HeaderUpdateButton` is `platformEnv.isDesktop` gated), so it is also the
  * only one that has to give up the floor a breakpoint earlier; web and
  * extension keep the wider pill from `$gtLg` up.

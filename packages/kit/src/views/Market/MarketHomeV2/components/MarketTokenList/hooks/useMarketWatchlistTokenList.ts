@@ -270,21 +270,44 @@ export function useMarketWatchlistTokenList({
       const limit = pLimit(4);
       // Unavailable listings get no quote but stay removable from the watchlist.
       const [assetQuotes, stockQuoteById] = await Promise.all([
-        Promise.all(
-          assetItems.map((item) =>
-            limit(async () => {
+        typeof backgroundApiProxy.serviceMarketV2
+          .fetchMarketListingWatchlistQuotes === 'function'
+          ? (async () => {
+              if (assetItems.length === 0) return [];
               try {
-                const quote =
-                  await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
-                    item,
+                const quotes =
+                  await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuotes(
+                    assetItems,
                   );
-                return { key: getMarketWatchlistKey(item), quote };
+                return assetItems.map((item, idx) => ({
+                  key: getMarketWatchlistKey(item),
+                  quote: quotes[idx],
+                }));
               } catch {
-                return { key: getMarketWatchlistKey(item), quote: undefined };
+                return assetItems.map((item) => ({
+                  key: getMarketWatchlistKey(item),
+                  quote: undefined,
+                }));
               }
-            }),
-          ),
-        ),
+            })()
+          : Promise.all(
+              assetItems.map((item) =>
+                limit(async () => {
+                  try {
+                    const quote =
+                      await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                        item,
+                      );
+                    return { key: getMarketWatchlistKey(item), quote };
+                  } catch {
+                    return {
+                      key: getMarketWatchlistKey(item),
+                      quote: undefined,
+                    };
+                  }
+                }),
+              ),
+            ),
         // The batch API returns the Stocks list item, which carries the
         // variants the stock row reveals on hover; the detail API does not.
         (async () => {
@@ -315,6 +338,9 @@ export function useMarketWatchlistTokenList({
       pollingInterval,
       watchLoading: true,
       revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
       revalidateOnReconnect: true,
       overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
       checkIsFocused: true,
@@ -392,6 +418,9 @@ export function useMarketWatchlistTokenList({
       pollingInterval,
       watchLoading: true,
       revalidateOnFocus: true,
+      focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
+        seconds: 15,
+      }),
       revalidateOnReconnect: true,
       overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
       checkIsFocused: true,

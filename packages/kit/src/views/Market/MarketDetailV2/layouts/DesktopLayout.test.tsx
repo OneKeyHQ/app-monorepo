@@ -114,7 +114,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketDetailChartDisplayModePersistAtom: jest.fn(() => [
     { mode: mockChartDisplayMode },
   ]),
-  useMarketPriceSourceAtom: jest.fn(() => [{ source: mockMarketPriceSource }]),
 }));
 
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
