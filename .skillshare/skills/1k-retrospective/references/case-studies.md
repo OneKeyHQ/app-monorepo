@@ -1639,3 +1639,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Page overlays and root modals did not share navigation order. Hiding covered modal content remounted the draft; a non-dismissible root entry swallowed Escape, and recreating that entry after full-screen coverage assigned it a newer order than its child Dialog.
 **Fix**: Order web root hosts by mount order, retain covered modal content and let the highest root modal own interaction. Route Escape through the focused navigation tree, and suspend/resume the existing root entry so child Dialog order and state survive full-screen coverage.
 **Catchable by**: Sections 3, 4 and 8: Repeat Deposit/Receive/Swap/back with an edited draft; test complete Escape keydown/keyup pairs with nested pages and a higher Dialog; verify Dialog identity, order, focus and editable draft after a full-screen round trip.
+
+## Case: Native overlay host split omitted its stable module ID (OK-67016)
+**Date**: 2026-11-13 | **Platforms**: iOS/Android main UI module, validated by the union main/background build. Runtime initialization, JS heap copies and native-resource ownership are unchanged.
+**Symptom**: The Native startup-graph CI job stopped before checking budgets with `Module is not registered` for `withOverlayPageHost.native.tsx`.
+**Root Cause**: Separating the native host changed the resolved module path, but the stable module-ID registry still contained only the original shared path. Unit tests and type checking did not exercise strict bundle lookup.
+**Fix**: Register the new native path through the existing allocator, preserving all existing IDs and tombstones.
+**Catchable by**: Section 6: When adding or splitting native module files, verify their strict registry lookup and run the union build before treating mobile build validation as complete.
