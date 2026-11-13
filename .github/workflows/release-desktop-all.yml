@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: ''
+      upstream_run_id:
+        description: 'Run id of the upstream daily-build run. Verified against the GitHub API before Windows signing is enabled.'
+        required: false
+        type: string
+        default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
         description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
@@ -116,7 +121,7 @@ jobs:
       MAS_BUILD_NUMBER: ${{ github.event.inputs.mas_build_number || '' }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -194,7 +199,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -221,7 +226,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -240,7 +245,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -306,7 +311,7 @@ jobs:
 
       - name: Upload Mac autoupdate metadata
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mac-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -314,7 +319,7 @@ jobs:
 
       - name: Upload universal Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -322,7 +327,7 @@ jobs:
 
       - name: Upload x64 Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -330,7 +335,7 @@ jobs:
 
       - name: Upload arm64 Mac DMG
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -338,7 +343,7 @@ jobs:
 
       - name: Upload all Mac ZIPs
         if: steps.phase1_dmg.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mac-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -416,7 +421,7 @@ jobs:
 
       - name: Upload MAS Artifacts
         if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -469,10 +474,78 @@ jobs:
           exit 0
 
   # ═══════════════════════════════════════════════════
+  # Windows signing provenance (ubuntu)
+  # ═══════════════════════════════════════════════════
+  # The AWS signing role trusts only the `windows-release-signing` environment.
+  # Release refs qualify by ref name. A daily-build dispatch instead passes its
+  # upstream run id, and this job verifies that id against the GitHub API: it
+  # must be a real `daily-build` run of this repository for the same branch, at
+  # or before the commit being packaged. Only then is the signing environment
+  # attached to package-win, so a caller cannot self-report signing rights.
+  windows-signing-source:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      upstream_verified: ${{ steps.verify.outputs.upstream_verified }}
+    steps:
+      - name: Verify upstream daily-build run
+        id: verify
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_RUN_ID: ${{ github.event.inputs.upstream_run_id }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$UPSTREAM_RUN_ID" ]]; then
+            echo "upstream_verified=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream_run_id input; Windows signing stays limited to release refs."
+            exit 0
+          fi
+          if [[ ! "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::upstream_run_id must be numeric"
+            exit 1
+          fi
+
+          run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}")
+          workflow_path=$(jq -r '.path' <<<"$run")
+          head_repo=$(jq -r '.head_repository.full_name // ""' <<<"$run")
+          head_branch=$(jq -r '.head_branch // ""' <<<"$run")
+          head_sha=$(jq -r '.head_sha' <<<"$run")
+
+          if [[ "$workflow_path" != ".github/workflows/daily-build.yml" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} is not a daily-build run (${workflow_path})"
+            exit 1
+          fi
+          if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} belongs to ${head_repo}, not ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          if [[ "$head_branch" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_branch}, but this dispatch packages ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          if [[ "$head_sha" != "$GITHUB_SHA" ]]; then
+            # Accept the verified run's commit as an ancestor of the packaged
+            # commit, so a push during the daily-build run cannot silently
+            # downgrade the artifacts to unsigned.
+            compare=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${head_sha}...${GITHUB_SHA}" --jq '.status')
+            if [[ "$compare" != "ahead" && "$compare" != "identical" ]]; then
+              echo "::error::Run ${UPSTREAM_RUN_ID} built ${head_sha}, which is not an ancestor of ${GITHUB_SHA}"
+              exit 1
+            fi
+          fi
+
+          echo "upstream_verified=true" >> "$GITHUB_OUTPUT"
+          echo "Verified daily-build run ${UPSTREAM_RUN_ID} for ${GITHUB_REF_NAME}."
+
+  # ═══════════════════════════════════════════════════
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
   # ═══════════════════════════════════════════════════
   package-win:
-    needs: [renderer, private-fonts]
+    needs: [renderer, private-fonts, windows-signing-source]
     permissions:
       contents: read
       id-token: write
@@ -482,18 +555,19 @@ jobs:
     # breaking every native module rebuild during `install-app-deps`.
     runs-on: windows-2022
     # The AWS signing role trusts only this environment's OIDC subject.
-    # Other branches run without an environment and stay unsigned.
-    environment: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) && 'windows-release-signing' || '' }}
+    # Release refs sign by ref name; a daily-build dispatch signs only after
+    # `windows-signing-source` verified its upstream run against the GitHub API.
+    environment: ${{ ((github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))) || needs.windows-signing-source.outputs.upstream_verified == 'true') && 'windows-release-signing' || '' }}
     strategy:
       matrix:
         node-version: [24.x]
     env:
       NODE_ENV: production
       YARN_ENABLE_GLOBAL_CACHE: true
-      WIN_HSM_SIGNING_ENABLED: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) }}
+      WIN_HSM_SIGNING_ENABLED: ${{ (github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))) || needs.windows-signing-source.outputs.upstream_verified == 'true' }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -580,7 +654,7 @@ jobs:
           Add-MpPreference -ExclusionPath "${{ runner.temp }}"
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -607,7 +681,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -627,7 +701,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -722,7 +796,7 @@ jobs:
             } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
             $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
           }
-          & npx @builderArgs
+          & yarn exec @builderArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify Windows NSIS signatures
@@ -744,7 +818,7 @@ jobs:
 
       - name: Upload x64 Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -752,7 +826,7 @@ jobs:
 
       - name: Upload arm64 Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -760,7 +834,7 @@ jobs:
 
       - name: Upload universal Windows exe
         if: steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-win-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -770,7 +844,7 @@ jobs:
 
       - name: Upload Windows autoupdate metadata
         if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -866,7 +940,7 @@ jobs:
             } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
             $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
           }
-          & npx @builderArgs
+          & yarn exec @builderArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify Windows Store signatures
@@ -886,7 +960,7 @@ jobs:
 
       - name: Upload WinMS exe
         if: always() && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}${{ env.WIN_HSM_SIGNING_ENABLED != 'true' && '-unsigned' || '' }}
           path: |
@@ -947,7 +1021,7 @@ jobs:
       YARN_ENABLE_GLOBAL_CACHE: true
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
 
@@ -1050,7 +1124,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           package-manager-cache: false
@@ -1077,7 +1151,7 @@ jobs:
           NODE
 
       - name: Restore Yarn cache from x
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ steps.yarn-cache.outputs.path }}
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -1105,7 +1179,7 @@ jobs:
           yarn install --immutable
 
       - name: Download Renderer Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
@@ -1139,7 +1213,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apps/desktop
-          npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
+          yarn exec electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Preserve AppImage artifacts until Snap runtime verification
         if: steps.phase1_appimage.outcome == 'success'
@@ -1175,7 +1249,7 @@ jobs:
           SNAP: true
         run: |
           cd apps/desktop
-          npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+          yarn exec electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Install packaged Snap for runtime verification
         id: install_snap_runtime_integrity
@@ -1192,7 +1266,7 @@ jobs:
 
       - name: Upload AppImage
         if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -1200,7 +1274,7 @@ jobs:
 
       - name: Upload Linux autoupdate metadata
         if: always() && steps.phase1_appimage.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
@@ -1223,7 +1297,7 @@ jobs:
 
       - name: Upload Snap
         if: always() && steps.phase2_snap.outcome == 'success' && steps.linux_runtime_integrity.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |

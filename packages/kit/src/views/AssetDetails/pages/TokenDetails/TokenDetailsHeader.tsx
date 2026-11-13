@@ -74,10 +74,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import {
-  LocalWalletPoolStatus,
-  LocalWalletSyncRow,
-} from './LocalWalletPoolStatus';
+import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -305,8 +302,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
+  const poolDisplayKey = privacyChainPoolOwnerKey({
+    accountId,
+    networkId,
+    poolId: privacyHistoryPoolId,
+  });
   const privacyStatus = useTokenPrivacyStatus({
     pool: localWalletPool,
+    ownerKey: poolDisplayKey,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
   // One gate for every private-UI decision below, so the page settles once.
@@ -321,11 +324,6 @@ function TokenDetailsHeaderContent({
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
-  const poolDisplayKey = privacyChainPoolOwnerKey({
-    accountId,
-    networkId,
-    poolId: privacyHistoryPoolId,
-  });
   const poolDisplay =
     privacyChainPoolDisplay?.ownerKey === poolDisplayKey
       ? privacyChainPoolDisplay
@@ -879,17 +877,7 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        {isPrivatePool ? (
-          <>
-            <LocalWalletSyncRow
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-              settingsOnly
-            />
-            <TokenPrivacyPreviewEntry />
-          </>
-        ) : null}
+        {isPrivatePool ? <TokenPrivacyPreviewEntry /> : null}
         {/* History */}
         <Divider mb="$3" />
       </>

@@ -81,6 +81,7 @@ import {
 } from './TokenListViewContext';
 import { getHomeTokenListRowKeys } from './utils';
 
+import type { INativeTokenStatus } from './NativeTokenSelectorList';
 import type {
   IScopedActiveTokenList,
   IScopedActiveTokenListState,
@@ -94,6 +95,7 @@ let nextDisclosureScopeId = 0;
 
 type IProps = {
   accountId: string;
+  nativeTokenStatus?: INativeTokenStatus;
   networkId: string;
   indexedAccountId: string | undefined;
   // When true, the per-owner rendered cache is keyed by `indexedAccountId`
@@ -721,7 +723,11 @@ function TokenListViewCmp(props: IProps) {
   ]);
 
   const limitedTokens = useMemo(() => {
-    if (overFlowState.isOverflow && overFlowState.isSliced) {
+    if (
+      overFlowState.isSliced &&
+      limit &&
+      (overFlowState.isOverflow || filteredTokens.length > limit)
+    ) {
       return filteredTokens.slice(0, limit);
     }
     return filteredTokens;
@@ -813,7 +819,11 @@ function TokenListViewCmp(props: IProps) {
     if (!homeProjectedIds) {
       return undefined;
     }
-    if (overFlowState.isOverflow && overFlowState.isSliced && limit) {
+    if (
+      overFlowState.isSliced &&
+      limit &&
+      (overFlowState.isOverflow || homeProjectedIds.length > limit)
+    ) {
       return homeProjectedIds.slice(0, limit);
     }
     return homeProjectedIds;
@@ -1110,17 +1120,25 @@ function TokenListViewCmp(props: IProps) {
     browseEmptyTitle,
   ]);
 
+  const hasOverflow =
+    overFlowState.isOverflow || (!!limit && displayCountForOverflow > limit);
+
   useEffect(() => {
     if (limit) {
-      setOverFlowState((prev) => ({
-        ...prev,
-        isOverflow: displayCountForOverflow > limit,
-      }));
+      const nextIsOverflow = displayCountForOverflow > limit;
+      setOverFlowState((prev) =>
+        prev.isOverflow === nextIsOverflow
+          ? prev
+          : {
+              ...prev,
+              isOverflow: nextIsOverflow,
+            },
+      );
     }
   }, [displayCountForOverflow, limit]);
 
   const renderPlainModeFooter = useCallback(() => {
-    if (overFlowState.isOverflow && overFlowState.isSliced) {
+    if (hasOverflow && overFlowState.isSliced) {
       return (
         <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
@@ -1154,7 +1172,7 @@ function TokenListViewCmp(props: IProps) {
             </SizableText>
           </Stack>
         ) : null}
-        {overFlowState.isOverflow && !overFlowState.isSliced ? (
+        {hasOverflow && !overFlowState.isSliced ? (
           <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
               testID="token-list-show-less-btn"
@@ -1170,7 +1188,7 @@ function TokenListViewCmp(props: IProps) {
       </Stack>
     );
   }, [
-    overFlowState.isOverflow,
+    hasOverflow,
     overFlowState.isSliced,
     withFooter,
     tableLayout,
@@ -1188,8 +1206,7 @@ function TokenListViewCmp(props: IProps) {
   const disclosureEnabled =
     (platformEnv.isNative || platformEnv.isWeb) &&
     plainMode &&
-    (overFlowState.isOverflow ||
-      (!!limit && displayCountForOverflow > limit)) &&
+    hasOverflow &&
     !showSkeleton &&
     listData.length > 0;
   useEffect(() => {
@@ -1309,6 +1326,7 @@ function TokenListViewCmp(props: IProps) {
   return (
     <NativeTokenSelectorList
       rows={showSkeleton ? [] : selectorListRows}
+      nativeTokenStatus={props.nativeTokenStatus}
       networkId={networkId}
       networksMap={networksMap}
       tokenListMap={visibleTokenListMap}

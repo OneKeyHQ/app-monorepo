@@ -7,6 +7,7 @@ import { createIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ReceivePrivacyPromotion } from '../../../Receive/components/ReceivePrivacyPromotion';
 
@@ -18,17 +19,49 @@ import {
 
 type ITestDialog = {
   renderContent: ReactNode;
+  boundedSheetLayout?: boolean;
+  fixedHeaderFooterHeight?: number;
+  sheetDragArea?: 'sheet' | 'header';
+};
+
+type ITestRadioOption = {
+  value: string;
+  label: string;
+  description?: string;
+  children?: ReactNode;
 };
 
 const mockDialog = jest.fn((_options: ITestDialog) => undefined);
 const mockToast = jest.fn((_options: unknown) => undefined);
 const mockPreventClose = jest.fn();
+const mockDismissKeyboard = jest.fn<void, []>();
+const mockScrollViewContext = {
+  scrollViewRef: { current: null },
+  pageOffsetRef: { current: { x: 0, y: 0 } },
+};
+const originalNative = platformEnv.isNative;
 let mockChainTip: number | undefined;
 let mockIntl: ReturnType<typeof createIntl> | undefined;
 const earliest = {
   height: 3_428_143,
   timestamp: Date.UTC(2026, 6, 28),
 };
+
+jest.mock('react-native', () => {
+  const actual =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    ...actual,
+    Keyboard: {
+      dismiss: () => mockDismissKeyboard(),
+      addListener: () => ({ remove: () => {} }),
+    },
+  };
+});
+jest.mock('react-native-reanimated', () => ({
+  Easing:
+    jest.requireActual<typeof import('react-native')>('react-native').Easing,
+}));
 
 jest.mock('react-intl', () => {
   const actual = jest.requireActual<typeof import('react-intl')>('react-intl');
@@ -66,12 +99,32 @@ jest.mock('@onekeyhq/components', () => {
   const Stack = ({
     children,
     testID,
+    minHeight,
+    display,
   }: {
     children?: ReactNode;
     testID?: string;
-  }) => <div data-testid={testID}>{children}</div>;
+    minHeight?: string;
+    display?: string;
+  }) => (
+    <div
+      data-testid={testID}
+      data-min-height={minHeight}
+      data-display={display}
+    >
+      {children}
+    </div>
+  );
   return {
     Icon: () => null,
+    useScrollView: () => mockScrollViewContext,
+    HeightTransition: ({
+      children,
+      hide,
+    }: {
+      children?: ReactNode;
+      hide?: boolean;
+    }) => (hide ? null : <>{children}</>),
     YStack: Stack,
     XStack: Stack,
     SizableText: Stack,
@@ -93,33 +146,37 @@ jest.mock('@onekeyhq/components', () => {
       testID,
       onChange,
       options,
+      renderItem,
     }: {
       value: string;
       testID: string;
       onChange: (value: string) => void;
-      options: {
-        value: string;
-        label: string;
-        description?: string;
-        children?: ReactNode;
-      }[];
+      options: ITestRadioOption[];
+      renderItem?: (item: ReactNode, option: ITestRadioOption) => ReactNode;
     }) => (
-      <div>
-        {options.map((option) => (
-          <div key={option.value}>
-            <label>
-              <input
-                type="radio"
-                data-testid={`${testID}-${option.value}`}
-                checked={option.value === value}
-                onChange={() => onChange(option.value)}
-              />
-              {option.label}
-            </label>
-            <span>{option.description}</span>
-            {option.children}
-          </div>
-        ))}
+      <div role="radiogroup">
+        {options.map((option) => {
+          const item = (
+            <div>
+              <label>
+                <input
+                  type="radio"
+                  data-testid={`${testID}-${option.value}`}
+                  checked={option.value === value}
+                  onChange={() => onChange(option.value)}
+                />
+                {option.label}
+              </label>
+              <span>{option.description}</span>
+              {option.children}
+            </div>
+          );
+          return (
+            <div key={option.value}>
+              {renderItem ? renderItem(item, option) : item}
+            </div>
+          );
+        })}
       </div>
     ),
     DatePicker: ({
@@ -140,24 +197,53 @@ jest.mock('@onekeyhq/components', () => {
       testID,
       onChangeText,
       onBlur,
+      onFocus,
       error,
+      disabled,
       placeholder,
+      addOns,
+      size,
+      autoFocus,
     }: {
       value: string;
       testID: string;
       error?: boolean;
+      disabled?: boolean;
       placeholder?: string;
+      size?: string;
+      autoFocus?: boolean;
       onChangeText: (value: string) => void;
-      onBlur: () => void;
+      onBlur?: () => void;
+      onFocus?: () => void;
+      addOns?: {
+        testID?: string;
+        accessibilityLabel?: string;
+        onPress?: () => void;
+      }[];
     }) => (
-      <input
-        data-testid={testID}
-        value={value}
-        aria-invalid={error}
-        placeholder={placeholder}
-        onBlur={onBlur}
-        onChange={(event) => onChangeText(event.target.value)}
-      />
+      <>
+        <input
+          data-testid={testID}
+          value={value}
+          aria-invalid={error}
+          disabled={disabled}
+          placeholder={placeholder}
+          data-size={size}
+          data-auto-focus={String(!!autoFocus)}
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChange={(event) => onChangeText(event.target.value)}
+        />
+        {addOns?.map((addOn) => (
+          <button
+            key={addOn.testID}
+            type="button"
+            data-testid={addOn.testID}
+            aria-label={addOn.accessibilityLabel}
+            onClick={() => addOn.onPress?.()}
+          />
+        ))}
+      </>
     ),
     Dialog: {
       show: (options: ITestDialog) => mockDialog(options),
@@ -193,12 +279,162 @@ describe('privacy enable start selection', () => {
     mockDialog.mockClear();
     mockToast.mockClear();
     mockPreventClose.mockClear();
+    mockDismissKeyboard.mockClear();
+    platformEnv.isNative = false;
     mockChainTip = undefined;
     mockIntl = undefined;
     jest.useFakeTimers().setSystemTime(new Date(2026, 10, 4, 12));
   });
 
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => {
+    platformEnv.isNative = originalNative;
+    jest.useRealTimers();
+  });
+
+  it('reveals the height option before its compact input and keeps the chosen draft when Advanced collapses', () => {
+    const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
+    const page = render(
+      <PrivacyEnableContent
+        accountId="hd-1--0"
+        networkId="zec--0"
+        formRef={formRef}
+        earliestBirthday={earliest}
+      />,
+    );
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const editor = render(mockDialog.mock.calls[0][0].renderContent);
+    const advanced = editor.getByTestId('privacy-sync-start-advanced');
+    expect(editor.queryByTestId('privacy-sync-start-choice-height')).toBeNull();
+    expect(editor.queryByTestId('privacy-sync-start-height')).toBeNull();
+
+    fireEvent.click(advanced);
+    expect(editor.getAllByRole('radiogroup')).toHaveLength(1);
+    const heightChoice = editor.getByTestId('privacy-sync-start-choice-height');
+    expect(advanced.compareDocumentPosition(heightChoice)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(editor.queryByTestId('privacy-sync-start-height')).toBeNull();
+    expect(
+      editor.getByTestId('privacy-sync-start-choice-today'),
+    ).toHaveProperty('checked', true);
+
+    fireEvent.click(heightChoice);
+    const input = editor.getByTestId('privacy-sync-start-height');
+    expect(input.getAttribute('data-size')).toBe('small');
+    expect(input.getAttribute('data-auto-focus')).toBe('false');
+    fireEvent.change(input, { target: { value: '3500000' } });
+    fireEvent.click(advanced);
+    expect(editor.queryByTestId('privacy-sync-start-height')).toBeNull();
+    expect(
+      editor.getByTestId('privacy-sync-start-collapsed-height').textContent,
+    ).toContain('3500000');
+    fireEvent.click(advanced);
+    expect(
+      editor.getByTestId('privacy-sync-start-choice-height'),
+    ).toHaveProperty('checked', true);
+    expect(editor.getByTestId('privacy-sync-start-height')).toHaveProperty(
+      'value',
+      '3500000',
+    );
+
+    fireEvent.click(advanced);
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(formRef.current.startChoice).toBe('height');
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayHeight: 3_500_000,
+    });
+  });
+
+  it('reopens a collapsed invalid height on Save without changing or losing the draft', () => {
+    const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
+    const page = render(
+      <PrivacyEnableContent
+        accountId="hd-1--0"
+        networkId="zec--0"
+        formRef={formRef}
+        earliestBirthday={earliest}
+      />,
+    );
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const editor = render(mockDialog.mock.calls[0][0].renderContent);
+    fireEvent.click(editor.getByTestId('privacy-sync-start-advanced'));
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-height'));
+    fireEvent.change(editor.getByTestId('privacy-sync-start-height'), {
+      target: { value: '1' },
+    });
+    fireEvent.click(editor.getByTestId('privacy-sync-start-advanced'));
+    expect(editor.queryByTestId('privacy-sync-start-height')).toBeNull();
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(editor.getByTestId('privacy-sync-start-height')).toHaveProperty(
+      'value',
+      '1',
+    );
+    expect(
+      editor.getByTestId('privacy-sync-start-height-error').textContent,
+    ).toBe(`${ETranslations.global_block_height} ≥ ${earliest.height}`);
+    expect(formRef.current.startChoice).toBe('today');
+    fireEvent.change(editor.getByTestId('privacy-sync-start-height'), {
+      target: { value: String(earliest.height) },
+    });
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayHeight: earliest.height,
+    });
+  });
+
+  it('lets native users dismiss the height keyboard without losing an invalid draft', () => {
+    platformEnv.isNative = true;
+    const formRef = createPrivacyEnableForm({ earliestBirthday: earliest });
+    const page = render(
+      <PrivacyEnableContent
+        accountId="hd-1--0"
+        networkId="zec--0"
+        formRef={formRef}
+        earliestBirthday={earliest}
+      />,
+    );
+    fireEvent.click(page.getByTestId('privacy-enable-edit-start'));
+    const options = mockDialog.mock.calls[0][0];
+    expect(options.boundedSheetLayout).toBe(true);
+    expect(options.fixedHeaderFooterHeight).toBe(600);
+    expect(options.sheetDragArea).toBe('header');
+    const editor = render(options.renderContent);
+    fireEvent.click(editor.getByTestId('privacy-sync-start-advanced'));
+    fireEvent.click(editor.getByTestId('privacy-sync-start-choice-height'));
+    const input = editor.getByTestId(
+      'privacy-sync-start-height',
+    ) as HTMLInputElement;
+    expect(
+      editor.queryByTestId('privacy-sync-start-height-hide-keyboard'),
+    ).toBeNull();
+    const feedback = editor.getByTestId('privacy-sync-start-height-feedback');
+    expect(feedback.getAttribute('data-min-height')).toBe('$6');
+    expect(editor.queryByTestId('privacy-sync-start-height-error')).toBeNull();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: String(earliest.height - 1) } });
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(mockPreventClose).toHaveBeenCalledTimes(1);
+    expect(editor.getByTestId('privacy-sync-start-height-feedback')).toBe(
+      feedback,
+    );
+    fireEvent.click(
+      editor.getByTestId('privacy-sync-start-height-hide-keyboard'),
+    );
+    expect(mockDismissKeyboard).toHaveBeenCalledTimes(1);
+    fireEvent.blur(input);
+    expect(
+      editor.queryByTestId('privacy-sync-start-height-hide-keyboard'),
+    ).toBeNull();
+    expect(input.value).toBe(String(earliest.height - 1));
+    expect(editor.getByTestId('privacy-sync-start-height-error')).toBeTruthy();
+    expect(formRef.current.startChoice).toBe('today');
+    fireEvent.change(input, { target: { value: String(earliest.height) } });
+    fireEvent.click(editor.getByTestId('privacy-start-save'));
+    expect(readEnableBirthday(formRef.current, earliest, 'zec--0')).toEqual({
+      birthdayHeight: earliest.height,
+    });
+  });
 
   it('localizes receive and sync setup after a language change without resetting the start', async () => {
     const onIntlError = jest.fn();

@@ -66,32 +66,33 @@ export function PrivacyAccountRow({
         py="$3"
         testID={AccountManagerTestIDs.privacyNetworkAccount(accountId)}
         renderAvatar={
-          <NetworkAvatarBase
-            logoURI={network?.logoURI ?? ''}
-            networkName={networkName}
-            size="$6"
-          />
+          <YStack
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={networkName}
+          >
+            <NetworkAvatarBase
+              logoURI={network?.logoURI ?? ''}
+              networkName={networkName}
+              size="$6"
+            />
+          </YStack>
         }
         renderItemText={
           <YStack flex={1} minWidth={0}>
-            <XStack alignItems="center" gap="$2" flexWrap="wrap">
-              <SizableText
-                size="$bodyLgMedium"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {accountName}
-              </SizableText>
-              <SizableText
-                testID={`privacy-network-chain-${accountId}`}
-                size="$bodyMd"
-                color="$textSubdued"
-                flexShrink={0}
-              >
-                {networkName}
-              </SizableText>
-            </XStack>
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {accountName}
+            </SizableText>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              numberOfLines={2}
+              minHeight="$10"
+            >
               {subtitle}
             </SizableText>
           </YStack>

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +22,8 @@ import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/context
 import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -31,6 +34,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -48,6 +52,22 @@ import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
 
 import type { IActionCustomization, IWalletActionType } from './types';
+import type {
+  HomePrivacyActions,
+  IHomePrivacyActionsPresentation,
+} from '../HomePrivacyActions';
+
+// Privacy account controls load only for Monero, keeping vault helpers out of startup.
+const LazyHomePrivacyActions = LazyLoad<
+  ComponentProps<typeof HomePrivacyActions>
+>(
+  () =>
+    import('../HomePrivacyActions').then((module) => ({
+      default: module.HomePrivacyActions,
+    })),
+  undefined,
+  <RawActions.Placeholder testID={HomeTestIDs.walletActionsLoading} />,
+);
 
 function WalletActionSend({
   customization,
@@ -431,7 +451,7 @@ function WalletActionSend({
   );
 }
 
-function WalletActions({ ...rest }: IXStackProps) {
+function WalletActionsContent({ ...rest }: IXStackProps) {
   const intl = useIntl();
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
@@ -529,6 +549,34 @@ function WalletActions({ ...rest }: IXStackProps) {
         <WalletActionMore iconOnly />
       </RawActions>
     </YStack>
+  );
+}
+
+function WalletActions({
+  onPresentationChange,
+  ...props
+}: IXStackProps & {
+  onPresentationChange?: (
+    presentation: IHomePrivacyActionsPresentation,
+  ) => void;
+}) {
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num: 0 });
+  if (
+    !network?.id ||
+    network.isAllNetworks ||
+    networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR
+  ) {
+    return <WalletActionsContent {...props} />;
+  }
+  return (
+    <LazyHomePrivacyActions
+      {...props}
+      onPresentationChange={onPresentationChange}
+    >
+      <WalletActionsContent {...props} />
+    </LazyHomePrivacyActions>
   );
 }
 

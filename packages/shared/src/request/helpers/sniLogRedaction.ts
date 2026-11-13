@@ -47,6 +47,8 @@ function isLikelyIpv6Literal(candidate: string): boolean {
   return hasDoubleColon ? groupCount < 8 : groupCount === 8;
 }
 
+const MAX_DIAGNOSTIC_TEXT_LENGTH = 120;
+
 export function redactIpLiterals(value: string): string {
   return value
     .replace(BRACKETED_IPV6_RE, (match, candidate: string) =>
@@ -58,6 +60,16 @@ export function redactIpLiterals(value: string): string {
         : `${prefix}${candidate}`,
     )
     .replace(IPV4_RE, '$1<ip>');
+}
+
+export function sanitizeSniDiagnosticText(
+  value: string,
+  maxLength = MAX_DIAGNOSTIC_TEXT_LENGTH,
+): string {
+  // eslint-disable-next-line no-control-regex
+  const singleLine = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+  const redacted = redactIpLiterals(singleLine);
+  return redacted.length > maxLength ? redacted.slice(0, maxLength) : redacted;
 }
 
 export function safeSniLogValue(value: unknown): string {

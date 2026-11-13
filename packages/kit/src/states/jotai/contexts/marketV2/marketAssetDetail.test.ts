@@ -57,6 +57,8 @@ describe('buildMarketAssetTokenDetail', () => {
     expect(
       buildMarketAssetTokenDetail({
         assetDetail: dogeAssetDetail,
+        currencyId: 'usd',
+        currencyMap: {},
         decimals: 8,
         lastUpdated: 1_788_332_400_000,
       }),
@@ -78,3 +80,49 @@ describe('buildMarketAssetTokenDetail', () => {
     });
   });
 });
+
+it.each(['0.25', '--', 'invalid', 'NaN', 'Infinity', '0', '-1'])(
+  'converts only finite positive USD prices to CNY: %s',
+  (price) => {
+    const detail = buildMarketAssetTokenDetail({
+      assetDetail: {
+        ...dogeAssetDetail,
+        market: { ...dogeAssetDetail.market, price },
+      },
+      lastUpdated: 1,
+      currencyId: 'cny',
+      currencyMap: {
+        usd: {
+          id: 'usd',
+          name: 'US Dollar',
+          unit: '$',
+          value: '1',
+          type: ['fiat'],
+        },
+        cny: {
+          id: 'cny',
+          name: 'Chinese Yuan',
+          unit: '¥',
+          value: '7.1',
+          type: ['fiat'],
+        },
+      },
+    });
+    expect(detail.price).toBe(price);
+    expect(detail.priceConverted).toBe(price === '0.25' ? '1.775' : undefined);
+  },
+);
+
+it.each(['usd', 'cny'])(
+  'omits the secondary quote for %s when conversion is unavailable',
+  (currencyId) => {
+    const detail = buildMarketAssetTokenDetail({
+      assetDetail: dogeAssetDetail,
+      lastUpdated: 1,
+      currencyId,
+      currencyMap: {},
+    });
+    expect(detail.price).toBe('0.25');
+    expect(detail.priceConverted).toBeUndefined();
+  },
+);

@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { useDownloadProgressDetails } from '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop';
 
 import { UpdateCapsule } from './UpdateCapsule';
 
@@ -17,6 +18,9 @@ const mockDownloadASC = jest.fn();
 const mockVerifyASC = jest.fn();
 const mockCanDownload = jest.fn(async () => true);
 const mockCanRestart = jest.fn(async () => true);
+const mockPrepareUserUpdateRetry = jest.fn(
+  async (_opts?: { preserveArtifact?: boolean }) => ({}),
+);
 const mockStartBanner = jest.fn();
 let mockRouteFocused = true;
 let mockBanner: { version: string; expiresAt?: number } | undefined;
@@ -54,6 +58,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Icon: () => null,
     Spinner: () => null,
+    Divider: Container,
     Toast: { error: jest.fn() },
     XStack: Container,
     YStack: Container,
@@ -86,6 +91,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAppUpdate: {
       canDownloadCurrentTarget: () => mockCanDownload(),
       canRestartForUpdate: () => mockCanRestart(),
+      prepareUserUpdateRetry: (opts?: { preserveArtifact?: boolean }) =>
+        mockPrepareUserUpdateRetry(opts),
     },
   },
 }));
@@ -100,9 +107,16 @@ jest.mock('@onekeyhq/kit/src/components/AppUpdate', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocused,
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
-  useDownloadProgress: () => 0,
-}));
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/auto-update/index.desktop',
+  () => ({
+    useDownloadProgressDetails: jest.fn(() => ({
+      percent: 0,
+      total: 0,
+      transferred: 0,
+    })),
+  }),
+);
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
@@ -143,6 +157,34 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+test('keeps app-shell progress scope stable until the target version changes', () => {
+  const data = {
+    latestVersion: '2.0.0',
+    updateAt: 0,
+    updateStrategy: EUpdateStrategy.manual,
+    status: EAppUpdateStatus.downloadPackage,
+  };
+  const progressHook = jest.mocked(useDownloadProgressDetails);
+  const view = render(
+    <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+  );
+  const scope = progressHook.mock.lastCall?.[0];
+  expect(scope).toEqual({ latestVersion: '2.0.0' });
+  view.rerender(
+    <UpdateCapsule data={{ ...data }} showUpdate onWhatsNew={() => {}} />,
+  );
+  expect(progressHook.mock.lastCall?.[0]).toBe(scope);
+  view.rerender(
+    <UpdateCapsule
+      data={{ ...data, latestVersion: '3.0.0' }}
+      showUpdate
+      onWhatsNew={() => {}}
+    />,
+  );
+  expect(progressHook.mock.lastCall?.[0]).not.toBe(scope);
+  expect(progressHook.mock.lastCall?.[0]).toEqual({ latestVersion: '3.0.0' });
+});
+
 test.each([
   [EAppUpdateStatus.downloadPackageFailed, mockDownloadPackage],
   [EAppUpdateStatus.downloadASCFailed, mockDownloadASC],
@@ -168,6 +210,9 @@ test.each([
   await act(async () => {
     fireEvent.click(view.getByTestId('header-update-retry'));
   });
+  expect(view.getByTestId('header-update-whats-new').textContent).toBe(
+    ETranslations.app_update_details__title,
+  );
   expect(expected).toHaveBeenCalledTimes(1);
   expect(mockDownloadPackage).toHaveBeenCalledTimes(
     status === EAppUpdateStatus.downloadPackageFailed ||
@@ -443,4 +488,186 @@ test('route focus changes keep transient update timers active', async () => {
     jest.advanceTimersByTime(100);
   });
   expect(view.queryByTestId('header-update-notify-exit')).toBeNull();
+});
+
+test('jsBundle integrity failure renders retry button instead of locking out to GitHub releases', async () => {
+  mockDownloadPackage.mockClear();
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '1.0.0',
+        jsBundleVersion: '25',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyPackageFailed,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        },
+      }}
+    />,
+  );
+  expect(view.getByTestId('header-update-retry')).toBeTruthy();
+  expect(view.queryByTestId('header-update-github')).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+});
+
+test.each([
+  EUpdateErrorCode.integrityFailed,
+  EUpdateErrorCode.securityRejected,
+])(
+  'jsBundle verifyASCFailed with %s clears artifact and re-downloads cleanly instead of re-verifying rejected bytes',
+  async (errorCode) => {
+    mockPrepareUserUpdateRetry.mockClear();
+    mockDownloadPackage.mockClear();
+    mockVerifyASC.mockClear();
+    const view = render(
+      <UpdateCapsule
+        showUpdate
+        onWhatsNew={() => {}}
+        data={{
+          latestVersion: '1.0.0',
+          jsBundleVersion: '25',
+          updateAt: 0,
+          updateStrategy: EUpdateStrategy.manual,
+          status: EAppUpdateStatus.verifyASCFailed,
+          updateError: {
+            code: errorCode,
+            step: 'verifyASC',
+          },
+        }}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(view.getByTestId('header-update-retry'));
+    });
+    expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+      preserveArtifact: false,
+    });
+    expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+    expect(mockVerifyASC).not.toHaveBeenCalled();
+  },
+);
+
+test('capsule retry calls prepareUserUpdateRetry before target gate so frozen/exhausted targets recover', async () => {
+  let targetFrozen = true;
+  mockPrepareUserUpdateRetry.mockImplementationOnce(async () => {
+    targetFrozen = false;
+    return {};
+  });
+  mockCanDownload.mockImplementationOnce(async () => !targetFrozen);
+  mockDownloadPackage.mockClear();
+
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadPackageFailed,
+        downloadRetryExhausted: true,
+        updateError: {
+          code: EUpdateErrorCode.networkError,
+          step: 'download',
+        },
+      }}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+    preserveArtifact: false,
+  });
+  expect(mockDownloadPackage).toHaveBeenCalledWith({ userInitiated: true });
+});
+
+test('capsule downloadASCFailed retry preserves artifact when clearing user retry freeze', async () => {
+  mockPrepareUserUpdateRetry.mockClear();
+  mockDownloadASC.mockClear();
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadASCFailed,
+        updateError: {
+          code: EUpdateErrorCode.networkError,
+          step: 'downloadASC',
+        },
+      }}
+    />,
+  );
+  await act(async () => {
+    fireEvent.click(view.getByTestId('header-update-retry'));
+  });
+  expect(mockPrepareUserUpdateRetry).toHaveBeenCalledWith({
+    preserveArtifact: true,
+  });
+  expect(mockDownloadASC).toHaveBeenCalledTimes(1);
+});
+
+test('install-time integrityFailed marks receipt Contents as Changed instead of Unchanged', () => {
+  const { UpdateVerifyReceipt: RealReceipt } = jest.requireActual(
+    './UpdateVerifyReceipt',
+  ) as typeof import('./UpdateVerifyReceipt');
+  const view = render(
+    <RealReceipt
+      progress={{ percent: 100, total: 0, transferred: 0 }}
+      reducedMotion
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.verifyPackageFailed,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'install',
+        },
+      }}
+    />,
+  );
+  expect(
+    view.getByText(ETranslations.app_update_contents_changed__msg),
+  ).toBeTruthy();
+  expect(
+    view.queryByText(ETranslations.app_update_contents_unchanged__msg),
+  ).toBeNull();
+});
+
+test('stale integrityFailed error does not lock active download into securityError mode', () => {
+  const view = render(
+    <UpdateCapsule
+      showUpdate
+      onWhatsNew={() => {}}
+      data={{
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/OneKey-Wallet-2.0.0.dmg',
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.downloadPackage,
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        },
+      }}
+    />,
+  );
+  expect(view.queryByTestId('header-update-github')).toBeNull();
+  expect(
+    view.queryByText(ETranslations.app_update_cant_continue__msg),
+  ).toBeNull();
 });

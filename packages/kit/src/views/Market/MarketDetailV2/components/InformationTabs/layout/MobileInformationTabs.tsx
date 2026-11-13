@@ -1,3 +1,4 @@
+// cspell:ignore financials
 import { useCallback, useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -26,6 +27,9 @@ import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV
 import { useStockDetail } from '../../../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
+import { shouldHideStockFinancials } from '../../StockFinancials/financialChartData';
+import { useStockFinancialLabels } from '../../StockFinancials/stockFinancialLabels';
+import { useStockFinancials } from '../../StockFinancials/useStockFinancials';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
 import { Portfolio } from '../components/Portfolio';
@@ -101,7 +105,13 @@ function MobileInformationTabsHeader({
 
   return (
     <MarketDetailHeaderGesture panActiveOffsetY={[-4, 4]} scrollScale={1}>
-      <YStack bg="$bgApp" pointerEvents="box-none">
+      <YStack
+        bg="$bgApp"
+        pointerEvents="box-none"
+        {...(!platformEnv.isNative
+          ? { position: 'sticky', top: 0, zIndex: 10 }
+          : undefined)}
+      >
         <Tabs.TabBar
           {...props}
           scrollable
@@ -178,6 +188,11 @@ export function MobileInformationTabs({
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
     useTokenDetail();
   const { stockId } = useStockDetail();
+  const financials = useStockFinancials(
+    detailKind === 'stock' ? stockId : undefined,
+  );
+  const financialLabels = useStockFinancialLabels();
+  const hideFinancials = shouldHideStockFinancials(financials, financialLabels);
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
   const holdersTabName = intl.formatMessage({
@@ -207,6 +222,7 @@ export function MobileInformationTabs({
     const portfolioTab = (
       <Tabs.Tab
         key="portfolio"
+        startMounted={platformEnv.isNativeAndroid}
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
         })}
@@ -250,7 +266,7 @@ export function MobileInformationTabs({
             <MobileStockOverviewPanel scrollEnabled={scrollEnabled} />
           </DelayedFreeze>
         </Tabs.Tab>,
-        stockId ? (
+        stockId && !hideFinancials ? (
           <Tabs.Tab
             key="financials"
             name={intl.formatMessage({
@@ -258,7 +274,11 @@ export function MobileInformationTabs({
             })}
           >
             <DelayedFreeze freeze={freezeContent}>
-              <MobileStockFinancialsPanel scrollEnabled={scrollEnabled} />
+              <MobileStockFinancialsPanel
+                scrollEnabled={scrollEnabled}
+                stockId={stockId}
+                financials={financials}
+              />
             </DelayedFreeze>
           </Tabs.Tab>
         ) : null,
@@ -350,6 +370,8 @@ export function MobileInformationTabs({
     marketAssetDetail,
     isMarketAssetDetailLoading,
     stockId,
+    financials,
+    hideFinancials,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
@@ -379,14 +401,17 @@ export function MobileInformationTabs({
   );
 
   // Reset native header and page offsets when switching tokens. Stock network
-  // hydration must not remount the chart for the same stock.
+  // hydration and financial tab availability must not remount the chart.
   const tokenKey =
     detailKind === 'stock'
       ? `stock:${stockId ?? ''}`
       : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
   const tabsKey = useMemo(
-    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
-    [tabKeys, tokenKey],
+    () =>
+      detailKind === 'stock'
+        ? tokenKey
+        : `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [detailKind, tabKeys, tokenKey],
   );
 
   // Stock tabs are independent of the selected token network. Other tab sets

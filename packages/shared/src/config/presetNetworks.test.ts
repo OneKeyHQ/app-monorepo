@@ -1,7 +1,31 @@
 import networkUtils from '../utils/networkUtils';
 
 import { getNetworkIdsMap } from './networkIds';
-import { getPresetNetworks, presetNetworksMap } from './presetNetworks';
+import {
+  getDefaultEnabledNetworkIdsInAllNetworks,
+  getDefaultEnabledNetworksInAllNetworks,
+  getPresetNetworks,
+  presetNetworksMap,
+} from './presetNetworks';
+
+describe('Delisted preset networks', () => {
+  it.each([
+    { name: 'Blast', networkId: 'evm--81457' },
+    { name: 'Aleph Zero EVM', networkId: 'evm--41455' },
+  ])('does not offer $name as a preset or default network', ({ networkId }) => {
+    expect(
+      Object.values(presetNetworksMap).map((network) => network.id),
+    ).not.toContain(networkId);
+    expect(getPresetNetworks().map((network) => network.id)).not.toContain(
+      networkId,
+    );
+    expect(Object.values(getNetworkIdsMap())).not.toContain(networkId);
+    expect(
+      getDefaultEnabledNetworksInAllNetworks().map((network) => network.id),
+    ).not.toContain(networkId);
+    expect(getDefaultEnabledNetworkIdsInAllNetworks()).not.toContain(networkId);
+  });
+});
 
 describe('Zcash preset network', () => {
   it('matches the indexed server network identity', () => {
