@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-index 98974b4..79c1c7c 100644
+index 9fab25a..51e4f84 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
 @@ -702,6 +702,20 @@ function assertButtonGroup(row, path) {
@@ -23,7 +23,7 @@ index 98974b4..79c1c7c 100644
  function assertIdentityExtras(row, path) {
    for (const field of ['titleIcon', 'secondaryTitleIcon']) {
      const titleIcon = row[field];
-@@ -982,6 +996,7 @@ function assertRow(row, index, path = `rows[${index}]`) {
+@@ -991,6 +1005,7 @@ function assertRow(row, index, path = `rows[${index}]`) {
          assertKey(column.key, `${path}.columns[${columnIndex}].key`);
          assertText(column.text, `${path}.columns[${columnIndex}].text`);
          assertIdentityExtras(column, `${path}.columns[${columnIndex}]`);
@@ -31,7 +31,7 @@ index 98974b4..79c1c7c 100644
          for (const field of ['textSegments', 'secondaryTextSegments']) {
            column[field]?.forEach((segment, segmentIndex) => {
              assertText(segment.text, `${path}.columns[${columnIndex}].${field}[${segmentIndex}].text`);
-@@ -1370,6 +1385,7 @@ function assertRowProtocol(row, path) {
+@@ -1379,6 +1394,7 @@ function assertRowProtocol(row, path) {
        const columnPath = `${path}.columns[${index}]`;
        protocolObject(column, columnPath);
        if (isDevelopment()) assertIdentityExtras(column, columnPath);
@@ -39,7 +39,7 @@ index 98974b4..79c1c7c 100644
      });
      if (isDevelopment()) assertTrailingAccessories(row.trailing, `${path}.trailing`);
    }
-@@ -1576,7 +1592,7 @@ function sanitizeImage(value) {
+@@ -1585,7 +1601,7 @@ function sanitizeImage(value) {
  }
  const NESTED_DECORATION_FIELDS = {
    webTable: ['columns', 'cells', 'testID', 'draggable', 'contextMenuActionKey'],
@@ -48,7 +48,7 @@ index 98974b4..79c1c7c 100644
    cells: ['key', 'kind', 'active', 'disabled', 'testID', 'hoverActionKey', 'actionKey', 'accessibilityLabel', 'leading', 'title', 'secondary', 'lineGap', 'secondaryBadges', 'hoverImages', 'hoverSecondary', 'hoverActionLabel', 'badges', 'primary', 'partGap', 'points', 'width', 'height', 'strokeColor', 'fillColor'],
    badges: ['key', 'text', 'tone', 'iconName', 'icon', 'textColor', 'backgroundColor', 'actionKey', 'accessibilityLabel', 'style'],
    overlays: ['position', 'size', 'width', 'height', 'padding', 'offset', 'offsetX', 'offsetY', 'image', 'fallbackIcon', 'name', 'text', 'fontWeight', 'tintColor', 'backgroundColor'],
-@@ -1585,6 +1601,17 @@ const NESTED_DECORATION_FIELDS = {
+@@ -1594,6 +1610,17 @@ const NESTED_DECORATION_FIELDS = {
  };
  function sanitizeDecoration(value, field) {
    if (value === undefined || value === null) return undefined;
@@ -139,10 +139,10 @@ index 94c6a1b..a9f7b95 100644
        badges,
        secondaryLine,
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index 4050327..4532613 100644
+index f35e180..6689c28 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-@@ -516,6 +516,12 @@ export type DataColumn = Readonly<{
+@@ -524,6 +524,12 @@ export type DataColumn = Readonly<{
      textSegments?: readonly ValueTextSegment[];
      titleIcon?: IdentityRow['titleIcon'];
      secondaryTitleIcon?: IdentityRow['titleIcon'];
@@ -156,10 +156,10 @@ index 4050327..4532613 100644
      secondaryText?: string;
      secondaryTextSegments?: readonly ValueTextSegment[];
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index 9ac00b5..28036df 100644
+index 9b49ade..e790955 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-@@ -642,6 +642,12 @@ export type DataColumn = Readonly<{
+@@ -650,6 +650,12 @@ export type DataColumn = Readonly<{
    textSegments?: readonly ValueTextSegment[];
    titleIcon?: IdentityRow['titleIcon'];
    secondaryTitleIcon?: IdentityRow['titleIcon'];
@@ -173,7 +173,7 @@ index 9ac00b5..28036df 100644
    secondaryText?: string;
    secondaryTextSegments?: readonly ValueTextSegment[];
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-index 7e29386..6a14975 100644
+index bb6f101..d4cc595 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
 @@ -1344,6 +1344,20 @@ function assertButtonGroup(
@@ -197,7 +197,7 @@ index 7e29386..6a14975 100644
  function assertIdentityExtras(
    row: Pick<
      IdentityRow,
-@@ -1922,6 +1936,7 @@ function assertRow(
+@@ -1939,6 +1953,7 @@ function assertRow(
          assertKey(column.key, `${path}.columns[${columnIndex}].key`);
          assertText(column.text, `${path}.columns[${columnIndex}].text`);
          assertIdentityExtras(column, `${path}.columns[${columnIndex}]`);
@@ -205,7 +205,7 @@ index 7e29386..6a14975 100644
          for (const field of [
            'textSegments',
            'secondaryTextSegments',
-@@ -3030,6 +3045,7 @@ function assertRowProtocol(row: RowModel, path: string): void {
+@@ -3049,6 +3064,7 @@ function assertRowProtocol(row: RowModel, path: string): void {
        const columnPath = `${path}.columns[${index}]`;
        protocolObject(column, columnPath);
        if (isDevelopment()) assertIdentityExtras(column, columnPath);
@@ -213,7 +213,7 @@ index 7e29386..6a14975 100644
      });
      if (isDevelopment())
        assertTrailingAccessories(row.trailing, `${path}.trailing`);
-@@ -3488,6 +3504,8 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+@@ -3507,6 +3523,8 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
      'textSegments',
      'titleIcon',
      'secondaryTitleIcon',
@@ -222,7 +222,7 @@ index 7e29386..6a14975 100644
      'secondaryLeadingText',
      'secondaryText',
      'secondaryTextSegments',
-@@ -3562,6 +3580,17 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
+@@ -3581,6 +3599,17 @@ const NESTED_DECORATION_FIELDS: Readonly<Record<string, readonly string[]>> = {
  
  function sanitizeDecoration(value: unknown, field: string): unknown {
    if (value === undefined || value === null) return undefined;
