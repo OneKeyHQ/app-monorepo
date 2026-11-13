@@ -17,6 +17,10 @@ running instance of that application. The job executable must be that app's own
 ShipIt, its request must target that app, and the staged app must match the
 expected version and designated code-signing requirement. Ambiguous, foreign,
 missing, timed-out or legacy preparations cannot be cancelled as known Ready.
+A staging timeout remains uncertain until a subsequent preparation completes and
+the native helper captures its verified job/request/bundle snapshot. Only that
+successful reconciliation releases the timeout guard; a native downloaded event
+alone or a failed capture cannot make manual cache clearing safe.
 
 `cancel` revalidates that snapshot while the original application still runs,
 unregisters the matching job with SMJobRemove(wait=true), and verifies it stopped

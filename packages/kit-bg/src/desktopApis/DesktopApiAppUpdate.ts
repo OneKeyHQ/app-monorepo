@@ -1,3 +1,4 @@
+// cspell:ignore HKCU HKLM LOCALAPPDATA
 import { execFileSync, spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -1644,11 +1645,15 @@ class DesktopApiAppUpdate {
       }
       const record = await this.getInstallRecord(params);
       await this.stageMacUpdate(record);
+      this.macCancellationSnapshot = undefined;
       try {
         this.macCancellationSnapshot = await captureMacUpdate(
           record.version,
           this.macStageStartedAt,
         );
+        // A timeout is recoverable only after native job/request/bundle identity
+        // has been reconciled, not merely after another downloaded event.
+        this.macStageUncertain = false;
       } catch (error) {
         logger.warn(
           'auto-updater',

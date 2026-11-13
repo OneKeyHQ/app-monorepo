@@ -266,6 +266,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockApp.isPackaged = false;
   mockCancelMacUpdate.mockReset().mockResolvedValue(undefined);
+  mockCaptureMacUpdate.mockReset().mockResolvedValue({ captured: true });
   mockSpawn.mockReset();
   mockExecFileSync.mockReset();
   mockApp.removeAllListeners();
@@ -1203,6 +1204,59 @@ test('macOS prepares a native quit update without quitting or relaunching early'
   expect(mockAppQuit).not.toHaveBeenCalled();
   expect(mockAppRelaunch).not.toHaveBeenCalled();
 });
+
+test.each([false, true])(
+  'macOS timeout recovery requires a successful native snapshot (failed capture first: %s)',
+  async (failCaptureFirst) => {
+    const { api, params, file } = await preparePackage('darwin');
+    mockApp.isPackaged = true;
+    jest.spyOn(fs, 'realpathSync').mockReturnValue('/Applications/OneKey.app');
+    const timers = jest.spyOn(globalThis, 'setTimeout');
+    let started!: () => void;
+    const nativeStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => started());
+    const preparation = api.prepareMacInstall(params);
+    const failure = preparation.catch((error: unknown) => error);
+    await nativeStarted;
+    const calls = timers.mock.calls as Array<[() => void, number | undefined]>;
+    const timeout = calls.find(([, delay]) => delay === 120_000)?.[0];
+    if (typeof timeout !== 'function')
+      throw new OneKeyLocalError('Missing staging timeout');
+    timeout();
+    await expect(failure).resolves.toMatchObject({
+      message: expect.stringContaining('"code":"TIMEOUT"'),
+    });
+    await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
+      'INSTALL_FAILED',
+    );
+    expect(fs.existsSync(file)).toBe(true);
+    expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+
+    if (failCaptureFirst) {
+      mockCaptureMacUpdate.mockRejectedValueOnce(
+        new OneKeyLocalError('Native state remains uncertain'),
+      );
+      await api.prepareMacInstall(params);
+      await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
+        'INSTALL_FAILED',
+      );
+      expect(fs.existsSync(file)).toBe(true);
+      expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+    }
+
+    await api.prepareMacInstall(params);
+    // Automatic clearing must still preserve the successfully prepared update.
+    await expect(api.clearUpdateCache()).rejects.toThrow('INSTALL_FAILED');
+    await api.clearUpdateCache({ manual: true });
+    await api.clearUpdateCache({ manual: true, complete: true });
+    expect(mockCancelMacUpdate).toHaveBeenCalledWith(expect.any(String), {
+      captured: true,
+    });
+    expect(fs.existsSync(file)).toBe(false);
+  },
+);
 
 test('Windows rejects a concurrent install before a second confirmation and keeps the handoff locked', async () => {
   const { api, params } = await preparePackage('win32');
