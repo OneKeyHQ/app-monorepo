@@ -196,6 +196,7 @@ import {
   SwapHistoryChannelIntentContext,
   SwapHistoryTradeAgainContext,
   SwapInitialSelectionTimeoutContext,
+  canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
@@ -2203,6 +2204,8 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     initialInputAmountDraft,
     pageType,
     singleSwapBridgeHeader,
+    stockTradeIdentityLoading,
+    stockTradeToken,
     storeName: providedStoreName,
     swapInitParams,
   } = props;
@@ -2213,6 +2216,10 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
   const sourceIntentKeyRef = useRef(sourceIntentKey);
   sourceIntentKeyRef.current = sourceIntentKey;
+  const controlledStockTokenRef = useRef(stockTradeToken);
+  controlledStockTokenRef.current = stockTradeToken;
+  const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
+  stockTradeIdentityLoadingRef.current = stockTradeIdentityLoading;
   const historyMatchesSource =
     historyEntry?.sourceIntentKey === sourceIntentKey;
   useEffect(() => {
@@ -2237,7 +2244,13 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     };
   }, []);
   const onTradeAgainFromHistory = useCallback((params: ISwapInitParams) => {
-    if (!historySourceMountedRef.current) return false;
+    if (
+      !historySourceMountedRef.current ||
+      stockTradeIdentityLoadingRef.current ||
+      !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
+    ) {
+      return false;
+    }
     historyRequestIdRef.current += 1;
     setHistoryEntry({
       params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },

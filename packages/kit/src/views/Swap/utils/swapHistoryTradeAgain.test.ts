@@ -11,7 +11,10 @@ import {
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { getSwapHistorySourceIntentKey } from '../pages/components/SwapHistoryTradeAgainContext';
+import {
+  canHandleTradeAgainInSource,
+  getSwapHistorySourceIntentKey,
+} from '../pages/components/SwapHistoryTradeAgainContext';
 
 import {
   buildLimitOrderTradeAgainParams,
@@ -64,6 +67,36 @@ function history(): ISwapTxHistory {
 }
 
 describe('swap history Trade Again', () => {
+  it('keeps a controlled stock entry only for its own stock history', () => {
+    const stockA = { ...toToken, isStock: true };
+    const stockB = { ...stockA, contractAddress: '0xdef' };
+    const params = {
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      importFromToken: fromToken,
+      importToToken: stockB,
+    };
+    expect(canHandleTradeAgainInSource(params, stockA)).toBe(false);
+    expect(canHandleTradeAgainInSource(params, stockB)).toBe(true);
+    expect(
+      canHandleTradeAgainInSource(
+        { ...params, importFromToken: stockB, importToToken: fromToken },
+        stockB,
+      ),
+    ).toBe(true);
+    expect(
+      canHandleTradeAgainInSource(params, {
+        ...stockB,
+        contractAddress: '0xDEF',
+      }),
+    ).toBe(false);
+    expect(canHandleTradeAgainInSource(params)).toBe(true);
+    expect(
+      canHandleTradeAgainInSource(
+        { ...params, importFromToken: stockA },
+        stockA,
+      ),
+    ).toBe(false);
+  });
   it('distinguishes a later route intent while ignoring refreshed balances', () => {
     const route = {
       swapTabSwitchType: ESwapTabSwitchType.SWAP,

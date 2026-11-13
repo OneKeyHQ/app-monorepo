@@ -1,7 +1,12 @@
 import { createContext, useContext } from 'react';
 
-import type { ISwapInitParams } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapInitParams,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
+import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { buildSwapInitParamsConsumptionKey } from '../../utils/swapColdStartTokenCacheUtils';
 
 export type ISwapHistoryTradeAgainHandler = (
@@ -16,6 +21,30 @@ export const useSwapHistoryTradeAgainHandler = () =>
   useContext(SwapHistoryTradeAgainContext);
 
 export const SwapInitialSelectionTimeoutContext = createContext(true);
+
+export function canHandleTradeAgainInSource(
+  params: ISwapInitParams,
+  controlledStockToken?: ISwapToken,
+) {
+  if (
+    !controlledStockToken ||
+    params.swapTabSwitchType !== ESwapTabSwitchType.STOCK
+  ) {
+    return true;
+  }
+  const stocks = [params.importFromToken, params.importToToken].filter(
+    (token) => token?.isStock,
+  );
+  const stock = stocks[0];
+  return Boolean(
+    stocks.length === 1 &&
+    stock?.networkId &&
+    controlledStockToken.networkId &&
+    (stock.isNative || stock.contractAddress) &&
+    (controlledStockToken.isNative || controlledStockToken.contractAddress) &&
+    getTokenIdentityKey(stock) === getTokenIdentityKey(controlledStockToken),
+  );
+}
 
 export const SwapHistoryChannelIntentContext = createContext<
   | {
