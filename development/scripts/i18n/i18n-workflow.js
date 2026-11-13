@@ -227,6 +227,8 @@ async function run(args = process.argv.slice(2)) {
     const receipt = await applyPlan({ file, approval: values.approve, client });
     return {
       status: receipt.status,
+      onekeyI18nPr: receipt.proposal?.url,
+      prAuthor: receipt.proposal?.author,
       receipt: `${file}.receipt.json`,
       verifiedKeys: receipt.verification.verifiedKeys,
       locales: receipt.verification.verifiedLocales,

@@ -14,6 +14,7 @@ const {
   fromRelease,
   writeLocaleFiles,
 } = require('./central');
+const { run: pull } = require('./i18n-pull');
 const {
   CentralClient,
   blobSha,
@@ -336,6 +337,7 @@ test('pulls the release of a channel into the locale directory', async (t) => {
   const zip = createZip(exported);
   const release = (tag, sums = `${sha256(zip)}  app.zip\n`) => ({
     [`GET ${REPO}/releases/tags/${tag}`]: {
+      html_url: `https://github.com/OneKeyHQ/onekey-i18n/releases/tag/${tag}`,
       assets: ['app.zip', 'SHA256SUMS', 'manifest.json'].map((name) => ({
         name,
         url: `${tag}:${name}`,
@@ -356,6 +358,10 @@ test('pulls the release of a channel into the locale directory', async (t) => {
   assert.deepEqual(
     { tag: latest.tag, version: latest.version, commit: latest.commit },
     { tag: 'app-latest', version: '2026.11.13.2', commit: 'c1' },
+  );
+  assert.equal(
+    latest.url,
+    'https://github.com/OneKeyHQ/onekey-i18n/releases/tag/app-latest',
   );
   assert.equal(writeLocaleFiles(root, latest), 4);
   assert.equal(
@@ -390,6 +396,21 @@ test('pulls the release of a channel into the locale directory', async (t) => {
   });
   await fromRelease({ api: fakeApi(racing), retryDelayMs: 0 });
   assert.equal(downloads, 2);
+
+  // The command says which credentials and which release it used.
+  const logs = [];
+  await pull(['--output-root', root], {
+    api: {
+      ...fakeApi(release('app-latest')),
+      identity: async () => ({ source: 'gh auth token', login: 'originalix' }),
+    },
+    log: (line) => logs.push(line),
+  });
+  assert.deepEqual(logs.slice(0, 2), [
+    'GitHub access: gh auth token, GitHub user originalix',
+    'Release: https://github.com/OneKeyHQ/onekey-i18n/releases/tag/app-latest (app-latest 2026.11.13.2, commit c1)',
+  ]);
+  assert.match(logs[2], /^Pulled 4 files into /);
 
   // Files that never match SHA256SUMS are rejected.
   await assert.rejects(
@@ -461,9 +482,19 @@ test('locale files are never written outside the locale directory', () => {
 });
 
 test('the shared read-only token is never used for writes', async () => {
-  const env = { ONEKEY_I18N_TOKEN: 'shared-read', GH_TOKEN: 'own' };
-  assert.equal(resolveToken({ env }), 'shared-read');
-  assert.equal(resolveToken({ write: true, env }), 'own');
+  const env = {
+    ONEKEY_I18N_TOKEN: 'shared-read',
+    GH_TOKEN: 'own',
+    OP_RUN_LOADED: 'LOKALISE_TOKEN ONEKEY_I18N_TOKEN',
+  };
+  assert.deepEqual(resolveToken({ env }), {
+    token: 'shared-read',
+    source: 'ONEKEY_I18N_TOKEN from 1Password (yarn op)',
+  });
+  assert.deepEqual(resolveToken({ write: true, env }), {
+    token: 'own',
+    source: 'GH_TOKEN environment variable',
+  });
 
   const seen = [];
   const api = githubApi({
@@ -489,4 +520,18 @@ test('a write the token cannot make explains the access it needs', async () => {
     api.request('POST', `${REPO}/pulls`, {}),
     /needs write access to OneKeyHQ\/onekey-i18n/,
   );
+});
+
+test('identity names the token source and its GitHub account', async () => {
+  const api = githubApi({
+    token: 'r',
+    fetchImpl: async (url, init) =>
+      url.endsWith('/user') && init.headers.Authorization === 'Bearer r'
+        ? Response.json({ login: 'originalix' })
+        : new Response('{}', { status: 404 }),
+  });
+  assert.deepEqual(await api.identity(), {
+    source: 'token argument',
+    login: 'originalix',
+  });
 });

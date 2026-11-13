@@ -17,13 +17,18 @@ const path = require('node:path');
 const { parseArgs } = require('node:util');
 
 const {
+  LOCALE_ROOT,
   ROOT,
   fromPullRequest,
   fromRelease,
+  githubApi,
   writeLocaleFiles,
 } = require('./central');
 
-async function run(args = process.argv.slice(2)) {
+async function run(
+  args = process.argv.slice(2),
+  { api = githubApi(), log = console.log } = {},
+) {
   const { values } = parseArgs({
     args,
     options: {
@@ -34,27 +39,35 @@ async function run(args = process.argv.slice(2)) {
   });
   // `yarn i18n:pull` runs inside packages/shared; resolve relative paths from
   // where the command was typed.
+  const cwd = process.env.INIT_CWD || process.cwd();
   const root = values['output-root']
-    ? path.resolve(process.env.INIT_CWD || process.cwd(), values['output-root'])
+    ? path.resolve(cwd, values['output-root'])
     : ROOT;
+  // Said first, so a failed download still shows which credentials it used.
+  const { source, login } = await api.identity();
+  log(`GitHub access: ${source}${login ? `, GitHub user ${login}` : ''}`);
   const result = values.pr
-    ? await fromPullRequest({ pr: values.pr, wait: values.wait })
-    : await fromRelease();
-  const count = writeLocaleFiles(root, result);
-  const from =
+    ? await fromPullRequest({ pr: values.pr, wait: values.wait, api })
+    : await fromRelease({ api });
+  const commit = result.commit.slice(0, 10);
+  log(
     result.source === 'release'
-      ? `${result.tag} ${result.version}`
-      : `onekey-i18n PR #${result.pr}`;
-  return `Pulled ${count} files from ${from} (${result.commit.slice(0, 10)}).`;
+      ? `Release: ${result.url} (${result.tag} ${result.version}, commit ${commit})`
+      : `Preview: ${result.url}, CI run ${result.runUrl} (commit ${commit})`,
+  );
+  const count = writeLocaleFiles(root, result);
+  const target = path.join(root, LOCALE_ROOT);
+  const shown = target.startsWith(`${cwd}${path.sep}`)
+    ? path.relative(cwd, target)
+    : target;
+  log(`Pulled ${count} files into ${shown}.`);
 }
 
 if (require.main === module) {
-  run()
-    .then((message) => console.log(message))
-    .catch((error) => {
-      console.error(error.message);
-      process.exitCode = 1;
-    });
+  run().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
 }
 
 module.exports = { run };

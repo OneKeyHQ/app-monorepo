@@ -334,6 +334,7 @@ class CentralClient {
     return {
       number: pull.number,
       url: pull.html_url,
+      author: pull.user?.login ?? null,
       branch,
       commit: commit.sha,
       files,

@@ -23,16 +23,33 @@ const LOCALE_ROOT = 'packages/shared/src/locale';
 const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
 const releaseChannel = () => process.env.ONEKEY_I18N_CHANNEL || 'latest';
 
-/** Token for reads; with write, the developer's own token for the copy PR. */
+/**
+ * Token for reads, or with write the developer's own token for the copy PR,
+ * and where it came from. yarn op lists the variables it loaded from 1Password
+ * in OP_RUN_LOADED.
+ */
 function resolveToken({ write = false, env = process.env } = {}) {
-  const fromEnv =
-    (write ? '' : env.ONEKEY_I18N_TOKEN) || env.GH_TOKEN || env.GITHUB_TOKEN;
-  if (fromEnv) return fromEnv;
+  const name = (
+    write
+      ? ['GH_TOKEN', 'GITHUB_TOKEN']
+      : ['ONEKEY_I18N_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN']
+  ).find((item) => env[item]);
+  if (name) {
+    const fromVault = (env.OP_RUN_LOADED || '').split(' ').includes(name);
+    return {
+      token: env[name],
+      source: fromVault
+        ? `${name} from 1Password (yarn op)`
+        : `${name} environment variable`,
+    };
+  }
   try {
-    return execFileSync('gh', ['auth', 'token'], {
+    const token = execFileSync('gh', ['auth', 'token'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
+    if (!token) throw new Error('gh returned no token.');
+    return { token, source: 'gh auth token' };
   } catch (error) {
     throw new Error(
       write
@@ -56,12 +73,19 @@ function githubApi({
   fetchImpl = fetch,
   retryDelayMs = 1000,
 } = {}) {
-  const tokens = { read: token, write: writeToken };
-  const headers = (write = false) => {
+  const credentials = {
+    read: token ? { token, source: 'token argument' } : null,
+    write: writeToken ? { token: writeToken, source: 'token argument' } : null,
+  };
+  const credential = (write) => {
     const kind = write ? 'write' : 'read';
-    tokens[kind] = tokens[kind] || resolveToken({ write });
+    credentials[kind] = credentials[kind] || resolveToken({ write });
+    return credentials[kind];
+  };
+  const logins = {};
+  const headers = (write = false) => {
     return {
-      Authorization: `Bearer ${tokens[kind]}`,
+      Authorization: `Bearer ${credential(write).token}`,
       'User-Agent': 'onekey-app-i18n',
       'X-GitHub-Api-Version': '2022-11-28',
     };
@@ -141,6 +165,20 @@ function githubApi({
       if (!response.ok)
         throw new Error(`Download ${endpoint}: HTTP ${response.status}`);
       return Buffer.from(await response.arrayBuffer());
+    },
+    /** Where the read (or write) token came from and whose GitHub account it is. */
+    async identity(write = false) {
+      const kind = write ? 'write' : 'read';
+      const { source } = credential(write);
+      logins[kind] =
+        logins[kind] ||
+        fetchImpl(url('/user'), {
+          headers: { ...headers(write), Accept: 'application/vnd.github+json' },
+        })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((user) => user?.login ?? null)
+          .catch(() => null);
+      return { source, login: await logins[kind] };
     },
   };
 }
@@ -229,6 +267,7 @@ async function releaseAssets({
   };
   return {
     tag,
+    url: release.html_url,
     manifest: JSON.parse((await download('manifest.json')).toString('utf8')),
     sums: (await download('SHA256SUMS')).toString('utf8'),
     download,
@@ -251,7 +290,7 @@ async function readRelease(read, retryDelayMs = 3000) {
 /** Ready-to-use app files of a release. */
 async function fromRelease({ channel, api, retryDelayMs } = {}) {
   return readRelease(async () => {
-    const { tag, manifest, sums, download } = await releaseAssets({
+    const { tag, url, manifest, sums, download } = await releaseAssets({
       channel,
       api,
     });
@@ -259,6 +298,7 @@ async function fromRelease({ channel, api, retryDelayMs } = {}) {
     return {
       source: 'release',
       tag,
+      url,
       version: manifest.version,
       commit: manifest.commit,
       files: verifiedArchive(name, await download(name), sums).files,
@@ -333,7 +373,14 @@ async function fromPullRequest({
         archive,
         sums.toString('utf8'),
       );
-      return { source: 'pr', pr: Number(pr), commit: headSha, files };
+      return {
+        source: 'pr',
+        pr: Number(pr),
+        url: pull.html_url,
+        runUrl: finished.html_url,
+        commit: headSha,
+        files,
+      };
     }
     if (!wait || (!pending && runs.length > 0) || Date.now() > deadline)
       throw new Error(
