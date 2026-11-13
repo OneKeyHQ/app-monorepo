@@ -36,9 +36,14 @@ describe('privacy lifecycle invalidation', () => {
     mockSetProgress.mockReset().mockResolvedValue(undefined);
   });
 
-  it.each(['progress', 'scheduler'])(
-    'invalidates retained pages even when %s notification work fails',
-    async (failedStep) => {
+  it.each([
+    ['progress', undefined],
+    ['scheduler', undefined],
+    ['progress', 'syncState'],
+    ['scheduler', 'syncState'],
+  ] as const)(
+    'notifies retained pages even when %s work fails (change: %s)',
+    async (failedStep, change) => {
       const error = new Error(`${failedStep} unavailable`);
       const init = jest.fn().mockResolvedValue(undefined);
       if (failedStep === 'progress') {
@@ -62,6 +67,7 @@ describe('privacy lifecycle invalidation', () => {
         networkId: 'zec--0',
         accountIds: ['account-a'],
         backfillActive: false,
+        ...(change ? { change } : {}),
       };
 
       await expect(service.onLocalWalletAccountsChanged(params)).rejects.toBe(
@@ -69,7 +75,11 @@ describe('privacy lifecycle invalidation', () => {
       );
       expect(mockEmit).toHaveBeenCalledWith(
         EAppEventBusNames.LocalWalletAccountsChanged,
-        { networkId: params.networkId, accountIds: params.accountIds },
+        {
+          networkId: params.networkId,
+          accountIds: params.accountIds,
+          ...(change ? { change } : {}),
+        },
       );
       expect(mockEmit).toHaveBeenCalledTimes(1);
     },

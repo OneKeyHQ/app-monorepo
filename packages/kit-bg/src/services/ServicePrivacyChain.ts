@@ -1335,14 +1335,17 @@ class ServicePrivacyChain extends ServiceBase {
     networkId,
     accountIds,
     backfillActive,
+    change,
   }: {
     networkId: string;
     accountIds: string[];
     backfillActive: boolean;
+    change?: 'syncState';
   }): Promise<void> {
     appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
       networkId,
       accountIds,
+      ...(change ? { change } : {}),
     });
     this.clearSyncFailureBackoff(networkId);
     this.markLocalWalletOrphanCleanupDue(networkId);
@@ -1845,6 +1848,7 @@ class ServicePrivacyChain extends ServiceBase {
         appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
           networkId,
           accountIds,
+          ...(event === 'networkPause' ? { change: 'syncState' as const } : {}),
         });
       }
     }
