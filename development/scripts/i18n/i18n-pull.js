@@ -57,8 +57,9 @@ async function run(
   );
   const count = writeLocaleFiles(root, result);
   const target = path.join(root, LOCALE_ROOT);
-  const shown = target.startsWith(`${cwd}${path.sep}`)
-    ? path.relative(cwd, target)
+  // Relative to the repository root: under yarn workspace the cwd is packages/shared.
+  const shown = target.startsWith(`${ROOT}${path.sep}`)
+    ? path.relative(ROOT, target)
     : target;
   log(`Pulled ${count} files into ${shown}.`);
 }
