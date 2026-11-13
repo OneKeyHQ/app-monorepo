@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "淨入金",
   "perp_portfolio_net_deposits_tooltip": "該時段內總入金減去總出金。",
   "perp_portfolio_open_positions": "當前持倉",
+  "perp_portfolio_payoff_ratio": "盈虧比",
+  "perp_portfolio_payoff_ratio_tooltip": "將盈利成交的平均盈利金額除以虧損成交的平均虧損金額。比值越高，表示平均每筆盈利相對於平均每筆虧損越大。",
   "perp_portfolio_performance": "交易表現",
   "perp_portfolio_period_1d": "1天",
   "perp_portfolio_period_1m": "1月",
