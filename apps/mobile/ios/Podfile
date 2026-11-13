@@ -10,6 +10,7 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 
 
 require 'json'
+require 'digest'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 mac_catalyst_enabled = ENV['ONEKEY_MAC_CATALYST'] == '1'
 
@@ -152,6 +153,21 @@ target 'OneKeyWallet' do
 
   post_install do |installer|
     unless mac_catalyst_enabled
+      # YttriumWrapper downloads its prebuilt library in prepare_command, which
+      # Podfile.lock does not cover, so pin every file it installs. To upgrade,
+      # check the new release asset against GitHub's digest, then copy the
+      # digest this check prints.
+      yttrium_root = File.join(installer.sandbox.root.to_s, 'YttriumWrapper')
+      yttrium_files = Dir.glob('**/*', File::FNM_DOTMATCH, base: yttrium_root).sort.select do |path|
+        File.file?(File.join(yttrium_root, path))
+      end
+      yttrium_digest = Digest::SHA256.hexdigest(yttrium_files.map do |path|
+        "#{path} #{Digest::SHA256.file(File.join(yttrium_root, path)).hexdigest}\n"
+      end.join)
+      unless yttrium_digest == '917571b41877c11047cddae5a1220242fe9cfe4a5d27b20eff1e95d0f68f5dd6'
+        raise "[YttriumWrapper] #{yttrium_files.length} installed files hash to #{yttrium_digest}, not the pinned digest"
+      end
+
       # Remove recording code and voice UI from the exact reviewed SDK bytes.
       intercom_framework = File.join(installer.sandbox.root.to_s, 'Intercom', 'Intercom.xcframework')
       intercom_patch = File.join(__dir__, '..', 'scripts', 'patch-intercom-ios.py')
