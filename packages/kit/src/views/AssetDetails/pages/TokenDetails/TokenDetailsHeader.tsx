@@ -6,7 +6,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Alert,
   DebugRenderTracker,
   Divider,
@@ -75,10 +74,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import {
-  LocalWalletPoolStatus,
-  LocalWalletSyncRow,
-} from './LocalWalletPoolStatus';
+import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -306,8 +302,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
+  const poolDisplayKey = privacyChainPoolOwnerKey({
+    accountId,
+    networkId,
+    poolId: privacyHistoryPoolId,
+  });
   const privacyStatus = useTokenPrivacyStatus({
     pool: localWalletPool,
+    ownerKey: poolDisplayKey,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
   // One gate for every private-UI decision below, so the page settles once.
@@ -322,11 +324,6 @@ function TokenDetailsHeaderContent({
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
-  const poolDisplayKey = privacyChainPoolOwnerKey({
-    accountId,
-    networkId,
-    poolId: privacyHistoryPoolId,
-  });
   const poolDisplay =
     privacyChainPoolDisplay?.ownerKey === poolDisplayKey
       ? privacyChainPoolDisplay
@@ -833,66 +830,26 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {/* Every pool page, public or private, folds Swap and Buy into More. */}
-                {hasSelectedPool ? (
-                  <RawActions.More
-                    testID="token-details-more-btn"
-                    renderItems={({ handleActionListClose }) => (
-                      <>
-                        <ActionList.Item
-                          testID="token-details-more-swap"
-                          icon="SwitchHorOutline"
-                          label={intl.formatMessage({
-                            id: ETranslations.global_swap,
-                          })}
-                          disabled={disableSwapAction}
-                          onClose={handleActionListClose}
-                          onPress={handleOnSwap}
-                          trackID="wallet-token-details-swap"
-                        />
-                        <ReviewControl>
-                          <ActionBuy
-                            inList
-                            onClose={handleActionListClose}
-                            disabled={showLoadingState}
-                            isTabView={isTabView}
-                            walletId={wallet?.id ?? ''}
-                            networkId={networkId}
-                            accountId={accountId}
-                            walletType={wallet?.type}
-                            tokenAddress={tokenInfo.address}
-                            tokenSymbol={tokenInfo.symbol}
-                            source="tokenDetails"
-                            trackID="wallet-token-details-buy"
-                          />
-                        </ReviewControl>
-                      </>
-                    )}
+                <RawActions.Swap
+                  testID={AssetDetailsTestIDs.swapBtn}
+                  onPress={handleOnSwap}
+                  disabled={disableSwapAction}
+                  trackID="wallet-token-details-swap"
+                />
+                <ReviewControl>
+                  <ActionBuy
+                    disabled={showLoadingState}
+                    isTabView={isTabView}
+                    walletId={wallet?.id ?? ''}
+                    networkId={networkId}
+                    accountId={accountId}
+                    walletType={wallet?.type}
+                    tokenAddress={tokenInfo.address}
+                    tokenSymbol={tokenInfo.symbol}
+                    source="tokenDetails"
+                    trackID="wallet-token-details-buy"
                   />
-                ) : (
-                  <>
-                    <RawActions.Swap
-                      testID={AssetDetailsTestIDs.swapBtn}
-                      onPress={handleOnSwap}
-                      disabled={disableSwapAction}
-                      trackID="wallet-token-details-swap"
-                    />
-                    <ReviewControl>
-                      <ActionBuy
-                        disabled={showLoadingState}
-                        isTabView={isTabView}
-                        walletId={wallet?.id ?? ''}
-                        networkId={networkId}
-                        accountId={accountId}
-                        walletType={wallet?.type}
-                        tokenAddress={tokenInfo.address}
-                        tokenSymbol={tokenInfo.symbol}
-                        source="tokenDetails"
-                        trackID="wallet-token-details-buy"
-                      />
-                    </ReviewControl>
-                  </>
-                )}
+                </ReviewControl>
               </RawActions>
             )}
             <LocalWalletPoolStatus
@@ -920,17 +877,7 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        {isPrivatePool ? (
-          <>
-            <LocalWalletSyncRow
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-              settingsOnly
-            />
-            <TokenPrivacyPreviewEntry />
-          </>
-        ) : null}
+        {isPrivatePool ? <TokenPrivacyPreviewEntry /> : null}
         {/* History */}
         <Divider mb="$3" />
       </>

@@ -1,28 +1,25 @@
 import { Dialog } from '@onekeyhq/components';
+import { PrivacyChainPlacesList } from '@onekeyhq/kit/src/components/PrivacyChainPlacesList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
 // The network holds its most accounts with local data, paused ones included.
-// Away from the settings page it offers that page, where one can be deleted.
+// Only deleting one makes room, so they are listed here to delete on the spot.
 export function showPrivacyChainSlotsFullDialog({
   intl,
-  onOpenSettings,
+  networkId,
 }: {
   intl: IntlShape;
-  onOpenSettings?: () => void;
+  networkId: string;
 }) {
   Dialog.show({
     title: intl.formatMessage({ id: ETranslations.privacy_slots_full__title }),
     description: intl.formatMessage({
       id: ETranslations.privacy_slots_delete__desc,
     }),
-    onConfirmText: intl.formatMessage({
-      id: onOpenSettings
-        ? ETranslations.global_go_to_settings
-        : ETranslations.global_got_it,
-    }),
-    showCancelButton: !!onOpenSettings,
-    onConfirm: onOpenSettings,
+    renderContent: <PrivacyChainPlacesList networkId={networkId} />,
+    onConfirmText: intl.formatMessage({ id: ETranslations.global_close }),
+    showCancelButton: false,
   });
 }

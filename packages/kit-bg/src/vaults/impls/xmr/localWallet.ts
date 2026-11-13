@@ -488,6 +488,7 @@ export function buildXmrLocalWalletCapability(
   const notifyAccountsChanged = async (params: {
     accountId: string;
     backfillActive: boolean;
+    change?: 'syncState';
   }) => {
     try {
       await vault.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged(
@@ -495,6 +496,7 @@ export function buildXmrLocalWalletCapability(
           networkId: vault.networkId,
           accountIds: [params.accountId],
           backfillActive: params.backfillActive,
+          ...(params.change ? { change: params.change } : {}),
         },
       );
     } catch (error) {
@@ -587,7 +589,16 @@ export function buildXmrLocalWalletCapability(
       birthdaySource,
     });
     if (accepted)
-      void notifyAccountsChanged({ accountId, backfillActive: true });
+      void notifyAccountsChanged({
+        accountId,
+        backfillActive: true,
+        ...(previous.intent === 'off' &&
+        previous.resumeFromHeight !== undefined &&
+        birthdayHeight === undefined &&
+        birthdayTimestamp === undefined
+          ? { change: 'syncState' as const }
+          : {}),
+      });
     else if (!expectedState)
       throw new OneKeyLocalError(
         'xmr: privacy request changed during authorization',
@@ -632,7 +643,11 @@ export function buildXmrLocalWalletCapability(
         resumeFromHeight:
           progress?.tipScannedHeight ?? state.birthdayHeight ?? 0,
       });
-      await notifyAccountsChanged({ accountId, backfillActive: false });
+      await notifyAccountsChanged({
+        accountId,
+        backfillActive: false,
+        change: 'syncState',
+      });
     },
 
     async getAccountAddresses({
@@ -1151,6 +1166,7 @@ export function buildXmrLocalWalletCapability(
         fromHeight = estimateXmrHeightDaysAgo({
           daysAgo: from.daysAgo,
           chainTip: tip,
+          now: Date.now(),
         });
       }
       if (dryRun) return { fromHeight };

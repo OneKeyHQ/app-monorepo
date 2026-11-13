@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import pLimit from 'p-limit';
+
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import { getTokenImageResizeWidth } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { createTimeoutPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -23,10 +28,23 @@ import {
 } from '../../../utils/marketBannerUtils';
 
 import {
+  getMarketIndexDisplayConfig,
+  getMarketIndexTokens,
+} from './marketBannerIndexConfig';
+import {
   fetchMarketBannerListForPlatform,
   fetchMarketBannerStockTokenListForPlatform,
   fetchMarketBannerTokenListForPlatform,
 } from './marketBannerListPlatformApi';
+
+function getMarketBannerLogoUris(banner: IMarketBannerItem): string[] {
+  if (isMarketIndexQuoteBanner(banner)) {
+    return getMarketIndexTokens(
+      banner.indices?.length ? banner.indices : banner.tokens,
+    ).map((token) => getMarketIndexDisplayConfig(token)?.logoUrl || token.logo);
+  }
+  return getMarketBannerTopTokens(banner.tokens).map((token) => token.logo);
+}
 
 function canReuseBannerQuotes(
   banner: IMarketBannerItem,
@@ -156,7 +174,7 @@ async function hydrateMarketBannerQuote(
 export async function hydrateMarketBannerQuotes(
   banners: IMarketBannerItem[],
   previous?: IMarketBannerItem[],
-  onHydrated?: (banner: IMarketBannerItem) => void,
+  onHydrated?: (banner: IMarketBannerItem) => void | Promise<void>,
 ): Promise<IMarketBannerItem[]> {
   const previousById = new Map(previous?.map((banner) => [banner._id, banner]));
   return Promise.all(
@@ -165,7 +183,7 @@ export async function hydrateMarketBannerQuotes(
         banner,
         previousById.get(banner._id),
       );
-      onHydrated?.(hydrated);
+      await onHydrated?.(hydrated);
       return hydrated;
     }),
   );
@@ -178,12 +196,14 @@ function mergeBannerQuotes(
   const quotes = new Map(previous?.map((banner) => [banner._id, banner]));
   return banners.map((banner) => {
     const cached = quotes.get(banner._id);
-    // Keep hydrated quote rows across list polls so preview membership does
-    // not flash. Overlay the latest preview logos onto those rows.
+    // Desktop publishes refreshed artwork only after the bounded preload.
+    // Other platforms overlay the latest preview artwork immediately.
     if (canReuseBannerQuotes(banner, cached)) {
       return {
         ...banner,
-        tokens: applyPreviewLogos(cached.tokens, banner.tokens),
+        tokens: platformEnv.isDesktop
+          ? cached.tokens
+          : applyPreviewLogos(cached.tokens, banner.tokens),
       };
     }
     return banner;
@@ -240,9 +260,14 @@ export function useMarketBannerList(): {
     [enableMockMarketBanner, locale, requestScope, scope], // Used to trigger refetch when dev setting changes
     {
       checkIsFocused: !platformEnv.isWeb,
-      swrKey: platformEnv.isNative
-        ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
+      // Preload once on desktop; subsequent polling still follows tab focus.
+      overrideIsFocused: platformEnv.isDesktop
+        ? (focused) => focused || settledScope !== requestScope
         : undefined,
+      swrKey:
+        platformEnv.isNative || platformEnv.isDesktop
+          ? swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner))
+          : undefined,
       // Persist the rendered snapshot below, never overwrite it with raw previews.
       swrShouldPersist: () => false,
       watchLoading: true,
@@ -252,11 +277,12 @@ export function useMarketBannerList(): {
     },
   );
 
-  // Native SWR replays arrays from a locale/mode-specific key. Network
+  // SWR replays arrays from a locale/mode-specific key. Network
   // results carry their producing scope because hooks without a cache key retain old data.
   let bannerList: IMarketBannerItem[] | undefined;
   if (Array.isArray(scopedResult)) {
-    if (platformEnv.isNative) bannerList = scopedResult;
+    if (platformEnv.isNative || platformEnv.isDesktop)
+      bannerList = scopedResult;
   } else if (scopedResult?.scope === scope) {
     bannerList = scopedResult.banners;
   }
@@ -283,6 +309,34 @@ export function useMarketBannerList(): {
     source: IMarketBannerItem[];
     banners: IMarketBannerItem[];
   }>();
+  const preloadBannerImages = useMemo(() => {
+    const limit = pLimit(4);
+    return (uris: string[]) => {
+      // Include time spent queued so stalled artwork cannot hold up quotes.
+      const deadline = Date.now() + 1000;
+      const loaded = new Set<string>();
+      return createTimeoutPromise({
+        asyncFunc: async () => {
+          await Promise.all(
+            [...new Set(uris)].filter(Boolean).map((uri) =>
+              limit(async () => {
+                if (Date.now() >= deadline) return;
+                // Keep the slot until the actual request settles, even if
+                // the caller has already stopped waiting for artwork.
+                const success = await preloadImages([
+                  { uri, resizeWidth: getTokenImageResizeWidth('xs') },
+                ]).catch(() => false);
+                if (success) loaded.add(uri);
+              }),
+            ),
+          );
+          return loaded;
+        },
+        timeout: 1000,
+        timeoutResult: loaded,
+      });
+    };
+  }, []);
   const hydrationSequenceRef = useRef(0);
   useEffect(
     () => () => {
@@ -302,7 +356,7 @@ export function useMarketBannerList(): {
       const previews = new Map(source.map((banner) => [banner._id, banner]));
       // Publish each desktop card as it settles, independently of slow peers.
       const onHydrated = platformEnv.isDesktop
-        ? (hydrated: IMarketBannerItem) => {
+        ? async (hydrated: IMarketBannerItem) => {
             if (
               currentScopeRef.current !== requestScope ||
               bannerListRef.current !== source ||
@@ -341,6 +395,54 @@ export function useMarketBannerList(): {
                     : getMarketBannerTopTokens(hydrated.tokens),
               };
             }
+            if (
+              source.slice(0, 4).some((banner) => banner._id === updated._id)
+            ) {
+              const displayed = committedResultRef.current?.bannerList?.find(
+                (banner) => banner._id === updated._id,
+              );
+              const displayedLogos = new Set(
+                displayed ? getMarketBannerLogoUris(displayed) : [],
+              );
+              // Warm incoming rows before replacing cached rows so their
+              // images paint on mount instead of flashing a loading skeleton.
+              const loadedLogos = await preloadBannerImages(
+                getMarketBannerLogoUris(updated).filter(
+                  (uri) => !displayedLogos.has(uri),
+                ),
+              );
+              const tokens = updated.tokens;
+              const previousTokens = displayed?.tokens;
+              if (
+                tokens &&
+                previousTokens &&
+                !isMarketIndexQuoteBanner(updated)
+              ) {
+                updated = {
+                  ...updated,
+                  tokens: tokens.map((token) => {
+                    const previous = findMatchingMarketBannerToken(
+                      token,
+                      tokens,
+                      previousTokens,
+                    );
+                    // A failed or timed-out artwork refresh must not blank
+                    // an existing token's icon or hold back its quote.
+                    return previous?.logo &&
+                      !displayedLogos.has(token.logo) &&
+                      !loadedLogos.has(token.logo)
+                      ? { ...token, logo: previous.logo }
+                      : token;
+                  }),
+                };
+              }
+            }
+            if (
+              currentScopeRef.current !== requestScope ||
+              bannerListRef.current !== source ||
+              hydrationSequenceRef.current !== sequence
+            )
+              return;
             setDesktopQuotes((previous) => ({
               scope: requestScope,
               source,
@@ -368,7 +470,7 @@ export function useMarketBannerList(): {
         ),
       };
     },
-    [bannerList, enableMockMarketBanner, requestScope],
+    [bannerList, enableMockMarketBanner, requestScope, preloadBannerImages],
     { checkIsFocused: !platformEnv.isWeb },
   );
   const normalizedBanners = useMemo(() => {
@@ -439,12 +541,13 @@ export function useMarketBannerList(): {
         requestScope,
         bannerList: normalizedBanners,
       };
-      if (platformEnv.isNative) {
+      if (platformEnv.isNative || platformEnv.isDesktop) {
         swrCacheUtils.set(
           swrKeys.marketHomeBanners(locale, Boolean(enableMockMarketBanner)),
           normalizedBanners,
         );
       }
+      if (platformEnv.isDesktop) setSettledScope(requestScope);
     } else if (committedResultRef.current?.requestScope === requestScope) {
       committedResultRef.current = undefined;
     }
@@ -455,6 +558,15 @@ export function useMarketBannerList(): {
     locale,
     enableMockMarketBanner,
   ]);
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop || !bannerList) return undefined;
+    // Warm the first four cards only, without competing with Wallet startup
+    // for every off-screen logo. Match the quote row's optimized rendition.
+    void preloadBannerImages(
+      bannerList.slice(0, 4).flatMap(getMarketBannerLogoUris),
+    );
+  }, [bannerList, preloadBannerImages]);
 
   return {
     scope,

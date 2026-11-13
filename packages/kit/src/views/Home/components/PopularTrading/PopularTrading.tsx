@@ -29,6 +29,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -41,7 +45,10 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketWatchListDataV2,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -407,6 +414,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const [watchListItems, setWatchListItems] = useState<
     IMarketWatchListItemV2[]
   >([]);
+  const watchListItemsRef = useRef<IMarketWatchListItemV2[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     FAVORITES_CATEGORY_ID,
   );
@@ -416,6 +424,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const hasShownCategorySelectorRef = useRef(false);
   const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
+  const favoriteRefreshIdRef = useRef(0);
+  const pendingWatchlistKeysRef = useRef(new Set<string>());
+  const displayTokenCacheRef = useRef(new Map<string, IFavoriteTokenDisplay>());
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
   >(() => {});
@@ -519,22 +530,30 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     marketCategories: homeCategories,
   });
 
+  useEffect(() => {
+    for (const token of [
+      ...favoriteTokens,
+      ...(recommendedDisplayTokens ?? []),
+      ...categoryTokens,
+    ]) {
+      displayTokenCacheRef.current.set(getMarketWatchlistKey(token), token);
+    }
+  }, [categoryTokens, favoriteTokens, recommendedDisplayTokens]);
+
   const isTokenInWatchList = useCallback(
-    (record: IFavoriteTokenDisplay) => {
+    (record: IFavoriteTokenDisplay, items = watchListItems) => {
       if (record.assetId || record.stockId) {
-        return watchListItems.some(
+        return items.some(
           (item) =>
             getMarketWatchlistKey(item) === getMarketWatchlistKey(record),
         );
       }
 
       if (record.perpsCoin) {
-        return watchListItems.some(
-          (item) => item.perpsCoin === record.perpsCoin,
-        );
+        return items.some((item) => item.perpsCoin === record.perpsCoin);
       }
 
-      return watchListItems.some((item) =>
+      return items.some((item) =>
         equalTokenNoCaseSensitive({
           token1: {
             networkId: record.chainId,
@@ -552,7 +571,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      const checked = isTokenInWatchList(record);
+      const key = getMarketWatchlistKey(record);
+      if (pendingWatchlistKeysRef.current.has(key)) return;
+      pendingWatchlistKeysRef.current.add(key);
+      displayTokenCacheRef.current.set(key, record);
+      const checked = isTokenInWatchList(record, watchListItemsRef.current);
 
       try {
         const firstSortIndex =
@@ -649,6 +672,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             id: ETranslations.global_an_error_occurred,
           }),
         });
+      } finally {
+        pendingWatchlistKeysRef.current.delete(key);
       }
     },
     [intl, isTokenInWatchList, watchListItems],
@@ -687,13 +712,52 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     });
   }, [intl, shouldUseTableLayout]);
 
-  const { isLoading, run: refreshData } = usePromiseResult(
-    async () => {
-      // Get user's favorites from local storage (synced via Prime Cloud Sync)
-      const watchList =
-        await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
-      setWatchListItems(watchList.data);
+  const refreshMembership = useCallback(async () => {
+    favoriteRefreshIdRef.current += 1;
+    const refreshId = favoriteRefreshIdRef.current;
+    const watchList =
+      await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+    if (refreshId !== favoriteRefreshIdRef.current) return undefined;
 
+    const previousItems = watchListItemsRef.current;
+    const membershipChanged =
+      previousItems.length !== watchList.data.length ||
+      watchList.data.some(
+        (item, index) =>
+          getMarketWatchlistKey(item) !==
+          getMarketWatchlistKey(previousItems[index]),
+      );
+    watchListItemsRef.current = watchList.data;
+    setWatchListItems(watchList.data);
+
+    // Only membership changes may replace the current view with cached rows.
+    // Quote polling must preserve recommendation choices when no quote is available.
+    if (membershipChanged && watchList.data.length > 0) {
+      const cachedTokens = watchList.data
+        .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT)
+        .map((item) =>
+          displayTokenCacheRef.current.get(getMarketWatchlistKey(item)),
+        )
+        .filter((item): item is IFavoriteTokenDisplay => Boolean(item));
+      if (cachedTokens.length > 0) {
+        setFavoriteTokens(cachedTokens);
+        setHasUserFavorites(true);
+        setShowRecommendCards(false);
+        setTotalFavoritesCount(watchList.data.length);
+        initializedRef.current = true;
+      }
+    }
+    return { watchList, refreshId };
+  }, []);
+
+  const refreshFavoriteQuotes = useCallback(
+    async ({
+      watchList,
+      refreshId,
+    }: {
+      watchList: IMarketWatchListDataV2;
+      refreshId: number;
+    }) => {
       // Check if user has any favorites
       const userHasFavorites = watchList.data.length > 0;
 
@@ -751,6 +815,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 }),
             ),
           ]);
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         const spotResponse =
           spotResult.status === 'fulfilled'
             ? spotResult.value
@@ -860,12 +925,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ? (recommendedDisplayTokens ??
             (await loadRecommendations().catch(() => [])))
           : displayTokens;
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(recommendInstead);
       } else {
         const nextTokens =
           recommendedDisplayTokens ??
           (await loadRecommendations().catch(() => []));
+        if (refreshId !== favoriteRefreshIdRef.current) return;
         setFavoriteTokens(nextTokens);
         setShowRecommendCards(false);
       }
@@ -876,6 +943,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       initializedRef.current = true;
     },
     [loadRecommendations, recommendedDisplayTokens],
+  );
+
+  const { isLoading, run: refreshData } = usePromiseResult(
+    async () => {
+      const snapshot = await refreshMembership();
+      if (snapshot) await refreshFavoriteQuotes(snapshot);
+    },
+    [refreshMembership, refreshFavoriteQuotes],
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
@@ -884,7 +959,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       revalidateOnReconnect: true,
     },
   );
-  refreshDataRef.current = refreshData;
+  refreshDataRef.current = async () => {
+    try {
+      const snapshot = await refreshMembership();
+      if (snapshot) {
+        void refreshFavoriteQuotes(snapshot).catch(
+          errorToastUtils.toastIfErrorDisable,
+        );
+      }
+    } catch (error) {
+      // A saved mutation must not be reported as failed because revalidation failed.
+      errorToastUtils.toastIfErrorDisable(error);
+    }
+  };
 
   const isMarketConfigInitialLoading =
     isMarketBasicConfigLoading !== false &&
@@ -1015,6 +1102,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
     async (record: IFavoriteTokenDisplay) => {
+      const key = getMarketWatchlistKey(record);
+      if (pendingWatchlistKeysRef.current.has(key)) return;
+      pendingWatchlistKeysRef.current.add(key);
       try {
         await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
           items: [
@@ -1044,16 +1134,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         // Notify Market page to refresh watchlist
         appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
-        await refreshData();
+        await refreshDataRef.current();
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_an_error_occurred,
           }),
         });
+      } finally {
+        pendingWatchlistKeysRef.current.delete(key);
       }
     },
-    [intl, refreshData],
+    [intl],
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 
@@ -1064,9 +1156,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const shortCode = record.chainId
         ? networkUtils.getNetworkShortCode({ networkId: record.chainId })
         : '';
-      const marketTokenCategory = record.assetId
-        ? MARKET_TOP_COINS_CATEGORY_ID
-        : selectedMarketCategoryId;
+      const marketTokenCategory =
+        record.assetId || record.marketAsset
+          ? MARKET_TOP_COINS_CATEGORY_ID
+          : selectedMarketCategoryId;
 
       if (
         platformEnv.isExtensionUiPopup ||
@@ -1106,24 +1199,54 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         const routeName = record.stockId
           ? ETabMarketRoutes.MarketStockDetail
           : ETabMarketRoutes.MarketDetailV2;
+        const pendingMarketAssetId =
+          platformEnv.isNative && !record.stockId
+            ? (record.assetId ?? record.marketAsset?.assetId)
+            : undefined;
         const params = {
           stockId: record.stockId,
           stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
           stockPreviewName: record.stockId ? record.name : undefined,
           stockPreviewSymbol: record.stockId ? record.symbol : undefined,
           tokenAddress: record.contractAddress,
-          network: shortCode || record.chainId,
+          network: pendingMarketAssetId
+            ? record.chainId
+            : shortCode || record.chainId,
           isNative: record.isNative,
-          marketTokenId: record.marketTokenId,
+          marketTokenId: pendingMarketAssetId ?? record.marketTokenId,
+          pendingMarketAsset: pendingMarketAssetId
+            ? {
+                symbol: record.symbol || pendingMarketAssetId,
+                name: record.name,
+                logoUrl: record.logoUrl,
+                price: record.price,
+                change24h: record.priceChange24h,
+              }
+            : undefined,
           marketVariantId: record.marketVariantId,
           marketTokenCategory,
         };
+        if (platformEnv.isNative) {
+          defaultLogger.market.navigation.homeTokenNavigation({
+            stage: 'detailDispatch',
+            symbol: record.symbol,
+            routeName,
+            hasRootNavigationRef: Boolean(rootNavigationRef.current),
+          });
+        }
         if (
           openOrReplaceMarketDetailRoute({
             routeName,
             params,
           })
         ) {
+          if (platformEnv.isNative) {
+            defaultLogger.market.navigation.homeTokenNavigation({
+              stage: 'detailDispatched',
+              symbol: record.symbol,
+              routeName,
+            });
+          }
           return;
         }
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
@@ -1133,10 +1256,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             params,
           },
         });
+        if (platformEnv.isNative) {
+          defaultLogger.market.navigation.homeTokenNavigation({
+            stage: 'detailDispatched',
+            symbol: record.symbol,
+            routeName,
+            hasRootNavigationRef: Boolean(rootNavigationRef.current),
+          });
+        }
       };
 
       if (platformEnv.isNative) {
         navigateToMarketTab({
+          entrySource: EMarketHomeEntrySource.WalletHome,
           tabToSelect:
             resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
               ? EMarketHomeTab.Watchlist
@@ -1145,6 +1277,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
         return;
       }
+      markMarketHomeEntry(EMarketHomeEntrySource.WalletHome);
       navigation.switchTab(marketTab);
 
       setTimeout(navigateToTokenDetail, 300);
@@ -1162,8 +1295,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Navigate to Market Detail page or Perps trading page
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      if (platformEnv.isNative) {
+        defaultLogger.market.navigation.homeTokenNavigation({
+          stage: 'rowPress',
+          symbol: record.symbol,
+        });
+      }
       navigationRequestIdRef.current += 1;
       const requestId = navigationRequestIdRef.current;
+      if (platformEnv.isNative && (record.assetId || record.marketAsset)) {
+        navigateToMarketTokenDetail(record, requestId);
+        return;
+      }
       if (record.assetId) {
         void backgroundApiProxy.serviceMarket
           .fetchMarketAssetDetail({
@@ -1278,6 +1421,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
+        entrySource: EMarketHomeEntrySource.WalletHome,
         tabToSelect: EMarketHomeTab.Perps,
         perpsCategoryToSelect: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
       });
@@ -1285,11 +1429,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
 
     if (selectedMarketCategoryId) {
-      navigateToMarketTab({ spotCategoryToSelect: selectedMarketCategoryId });
+      navigateToMarketTab({
+        spotCategoryToSelect: selectedMarketCategoryId,
+        entrySource: EMarketHomeEntrySource.WalletHome,
+      });
       return;
     }
 
-    navigateToMarketTab({ tabToSelect: EMarketHomeTab.Watchlist });
+    navigateToMarketTab({
+      tabToSelect: EMarketHomeTab.Watchlist,
+      entrySource: EMarketHomeEntrySource.WalletHome,
+    });
   }, [navigateToMarketTab, selectedMarketCategoryId]);
 
   // Render table/list layout for user favorites
@@ -1300,10 +1450,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return (
       <YStack>
         <YStack
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0)
+          // Native virtualized lists cannot size their viewport from content.
+          height={
+            platformEnv.isNative
+              ? favoriteTokens.length * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+                (shouldUseTableLayout ? 32 : 0)
+              : undefined
           }
         >
           <RichTable<IFavoriteTokenDisplay>
@@ -1331,6 +1483,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             }}
             onRow={(record) => ({
               onPress: () => handleTokenPress(record),
+              onPressIn: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressIn',
+                  symbol: record.symbol,
+                });
+              },
+              onPressOut: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressOut',
+                  symbol: record.symbol,
+                });
+              },
             })}
           />
         </YStack>
@@ -1354,9 +1518,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               {intl.formatMessage({ id: ETranslations.global_view_more })}
             </Button>
           </XStack>
-        ) : (
-          <Stack height={50} />
-        )}
+        ) : null}
       </YStack>
     );
   }, [
@@ -1390,6 +1552,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const renderContent = useCallback(() => {
+    let contentMinHeight: number | undefined;
+    const isUserFavoritesList =
+      !selectedMarketCategoryId && hasUserFavorites && !showRecommendCards;
+    if (!isUserFavoritesList) {
+      if (shouldUseTableLayout) {
+        contentMinHeight =
+          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+          32 +
+          50;
+      } else if (
+        !platformEnv.isNativeAndroid &&
+        hasUserFavorites &&
+        !showRecommendCards
+      ) {
+        contentMinHeight =
+          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
+            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+          50;
+      }
+    }
+
     const listContent = (() => {
       if (selectedMarketCategoryId) {
         return (
@@ -1460,15 +1644,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         return (
           <YStack px="$pagePadding">
-            <YStack
-              minHeight={
-                HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-                  HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              }
-            >
-              {renderEmptyStateCards()}
-            </YStack>
+            {renderEmptyStateCards()}
             <YStack height={50} pt="$4" alignItems="center">
               {addTokensButton}
             </YStack>
@@ -1497,14 +1673,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         </YStack>
         <YStack
           testID="home-market-content"
-          // Reserve three rows, the desktop header, and the bottom action band
-          // across categories, loading, empty states, and recommendation cards.
-          minHeight={
-            HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-              HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-            (shouldUseTableLayout ? 32 : 0) +
-            50
-          }
+          // Categories and desktop recommendations reserve their content space;
+          // user favorites and mobile recommendation cards size to their rows.
+          minHeight={contentMinHeight}
         >
           {listContent}
         </YStack>

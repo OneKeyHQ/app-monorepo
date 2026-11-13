@@ -42,7 +42,10 @@ import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/Le
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
-import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytics';
+import {
+  useMarketHomePageEnterAnalytics,
+  useMarketHomeViewAnalytics,
+} from '../hooks/useMarketEnterAnalytics';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed';
@@ -362,9 +365,11 @@ const useMarketHomeLayoutProps = () => {
 };
 
 function MarketHomeLayoutContent({
+  isLayoutActive,
   externalTopOverlayTag,
   externalTopOverlayHeight,
 }: {
+  isLayoutActive: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
 }) {
@@ -402,31 +407,46 @@ function MarketHomeLayoutContent({
             : {})}
         />
       ) : (
-        <DesktopLayout {...layoutProps} />
+        <DesktopLayout {...layoutProps} isLayoutActive={isLayoutActive} />
       )}
     </LazyPageContainer>
   );
 }
 
 function BaseMarketHomeLayout({
+  freeze,
   externalTopOverlayTag,
   externalTopOverlayHeight,
 }: {
+  freeze: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
 }) {
+  const content = (
+    <MarketHomeLayoutContent
+      isLayoutActive={!freeze}
+      externalTopOverlayTag={externalTopOverlayTag}
+      externalTopOverlayHeight={externalTopOverlayHeight}
+    />
+  );
+  if (!platformEnv.isDesktop) {
+    return (
+      <DelayedFreeze freeze={freeze}>
+        <MarketBannerProvider>{content}</MarketBannerProvider>
+      </DelayedFreeze>
+    );
+  }
+  // Keep only the small header data owner active during tab preloading.
   return (
     <MarketBannerProvider>
-      <MarketHomeLayoutContent
-        externalTopOverlayTag={externalTopOverlayTag}
-        externalTopOverlayHeight={externalTopOverlayHeight}
-      />
+      <DelayedFreeze freeze={freeze}>{content}</DelayedFreeze>
     </MarketBannerProvider>
   );
 }
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  useMarketHomeViewAnalytics(isFocused);
   const rootRoutersLength = getRootRoutersLength();
   const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
   const ownsModalBackgroundRef = useRef(isFocused);
@@ -529,14 +549,11 @@ function BaseMarketHome() {
         />
       )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze
+        <BaseMarketHomeLayout
           freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
-        >
-          <BaseMarketHomeLayout
-            externalTopOverlayTag={headerReady ? headerTag : undefined}
-            externalTopOverlayHeight={headerReady ? headerHeight : undefined}
-          />
-        </DelayedFreeze>
+          externalTopOverlayTag={headerReady ? headerTag : undefined}
+          externalTopOverlayHeight={headerReady ? headerHeight : undefined}
+        />
       </Page.Body>
     </Page>
   );

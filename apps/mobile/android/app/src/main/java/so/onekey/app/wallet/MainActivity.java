@@ -25,12 +25,6 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
 import com.facebook.react.views.view.WindowUtilKt;
 
-import org.greenrobot.eventbus.EventBus;
-import org.greenrobot.eventbus.Subscribe;
-import org.greenrobot.eventbus.ThreadMode;
-
-import java.util.List;
-
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
 
@@ -193,7 +187,6 @@ public class MainActivity extends ReactActivity {
     }
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
-    EventBus.getDefault().register(this);
 
     long tActivityDone = System.currentTimeMillis();
     OneKeyLog.info(
@@ -262,14 +255,6 @@ public class MainActivity extends ReactActivity {
     }
     super.onSaveInstanceState(outState);
   }
-
-    @Subscribe(threadMode = ThreadMode.ASYNC)
-    public void onLogEvent(Object event)
-    {
-        List<String> messages = (List<String>) event;
-        OneKeyLog.info("App", "native => " + messages.get(0) + ": " + messages.get(1));
-    };
-
 
   /**
    * Returns the name of the main component registered from JavaScript.

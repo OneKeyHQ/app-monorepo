@@ -19,12 +19,12 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
@@ -63,6 +63,10 @@ function WalletEditButtonView({
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
+  // Capture the source page before the global ActionList clears its scope.
+  const { bindWalletInviteCode } = useWalletBoundReferralCode({
+    entry: 'modal',
+  });
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: num ?? 0 });
@@ -214,16 +218,6 @@ function WalletEditButtonView({
     [goToOneKeyIDLoginPageForKeylessWallet, intl],
   );
 
-  const { result: hasPrivacyWalletAccount } = usePromiseResult(
-    async () =>
-      wallet?.id
-        ? backgroundApiProxy.servicePrivacyChain.hasLocalWalletAccounts({
-            walletId: wallet.id,
-          })
-        : false,
-    [wallet?.id],
-  );
-
   const renderItems = useCallback(
     ({ handleActionListClose }: { handleActionListClose: () => void }) => {
       if (!config) {
@@ -237,6 +231,7 @@ function WalletEditButtonView({
             <WalletBoundReferralCodeButton
               wallet={wallet}
               onClose={handleActionListClose}
+              bindWalletInviteCode={bindWalletInviteCode}
             />
           )}
 
@@ -313,22 +308,6 @@ function WalletEditButtonView({
             />
           ) : null}
 
-          {hasPrivacyWalletAccount ? (
-            <ActionList.Item
-              testID={AccountManagerTestIDs.privacyNetworksButton}
-              icon="ShieldOutline"
-              label={intl.formatMessage({
-                id: ETranslations.privacy_sync_menu__title,
-              })}
-              onClose={handleActionListClose}
-              onPress={() => {
-                navigation.push(EAccountManagerStacksRoutes.PrivacyNetworks, {
-                  walletId: wallet?.id || '',
-                });
-              }}
-            />
-          ) : null}
-
           {showAddHiddenWalletButton ? (
             <AddHiddenWalletButton
               wallet={wallet}
@@ -376,8 +355,8 @@ function WalletEditButtonView({
       );
     },
     [
-      hasPrivacyWalletAccount,
       config,
+      bindWalletInviteCode,
       wallet,
       isKeyless,
       intl,

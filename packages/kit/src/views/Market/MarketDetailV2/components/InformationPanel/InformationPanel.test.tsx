@@ -16,6 +16,7 @@ let mockSecurityData: IMarketTokenSecurityData | null = null;
 let mockDetail: IMarketTokenDetail;
 let mockMissingDetail = false;
 let mockStockRoute = false;
+let mockCurrency = { id: 'usd', symbol: '$' };
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -34,15 +35,19 @@ jest.mock('@onekeyhq/components', () => {
   return {
     XStack: View,
     YStack: View,
+    Stack: View,
+    Skeleton: () => null,
     SizableText: View,
     NumberSizeableText: View,
   };
 });
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
-  useCurrency: () => ({ symbol: '$' }),
+  useCurrency: () => mockCurrency,
 }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
-  BaseMarketTokenPrice: () => null,
+  BaseMarketTokenPrice: ({ price }: { price: string }) => (
+    <span data-testid="preview-price">{price}</span>
+  ),
   MarketTokenPrice: () => null,
 }));
 jest.mock(
@@ -74,9 +79,6 @@ jest.mock('../TokenSecurityAlert/hooks', () => ({
 jest.mock('../TokenSecurityAlert', () => ({
   TokenSecurityAlert: () => <span>risk result</span>,
 }));
-jest.mock('./InformationPanelSkeleton', () => ({
-  InformationPanelSkeleton: () => <span>generic price skeleton</span>,
-}));
 jest.mock('./StockMobilePriceHeader', () => ({
   StockMobilePriceHeader: () => <span>stock price header</span>,
 }));
@@ -86,6 +88,7 @@ beforeEach(() => {
   mockSecurityData = null;
   mockStockRoute = false;
   mockMissingDetail = false;
+  mockCurrency = { id: 'usd', symbol: '$' };
   mockDetail = {
     address: '0xabc',
     networkId: 'evm--1',
@@ -95,6 +98,60 @@ beforeEach(() => {
     logoUrl: '',
     price: '1',
   };
+});
+
+it('keeps the native converted price row through loading, preview, detail and token switches', () => {
+  mockCurrency = { id: 'cny', symbol: '¥' };
+  mockMissingDetail = true;
+  const { rerender } = render(<InformationPanel mobileDetailKind="trending" />);
+  expect(screen.getByTestId('market-detail-converted-price')).toBeTruthy();
+
+  mockMissingDetail = false;
+  rerender(<InformationPanel mobileDetailKind="trending" />);
+  const convertedPrice = screen.getByTestId('market-detail-converted-price');
+  expect(convertedPrice.textContent).toBe('--');
+
+  mockDetail = { ...mockDetail, priceConverted: '7.1' };
+  rerender(<InformationPanel mobileDetailKind="trending" />);
+  expect(screen.getByTestId('market-detail-converted-price')).toBe(
+    convertedPrice,
+  );
+  expect(convertedPrice.textContent).toBe('7.1');
+
+  rerender(
+    <InformationPanel
+      mobileDetailKind="topCoin"
+      pendingMarketAsset={{ symbol: 'ETH', price: 3000, change24h: 1 }}
+    />,
+  );
+  expect(screen.getByTestId('market-detail-converted-price')).toBe(
+    convertedPrice,
+  );
+  expect(convertedPrice.textContent).toBe('--');
+});
+
+it.each([true, false])(
+  'does not reserve an unavailable USD price row on native %p',
+  (isNative) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    const { rerender } = render(
+      <InformationPanel mobileDetailKind="trending" />,
+    );
+    expect(screen.queryByTestId('market-detail-converted-price')).toBeNull();
+    mockMissingDetail = true;
+    rerender(<InformationPanel mobileDetailKind="trending" />);
+    expect(screen.queryByTestId('market-detail-converted-price')).toBeNull();
+  },
+);
+
+it('preserves the non-native converted price visibility', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  mockCurrency = { id: 'cny', symbol: '¥' };
+  const { rerender } = render(<InformationPanel />);
+  expect(screen.queryByText('7.1')).toBeNull();
+  mockDetail = { ...mockDetail, priceConverted: '7.1' };
+  rerender(<InformationPanel />);
+  expect(screen.getByText('7.1')).toBeTruthy();
 });
 
 it('shows audit in the native trending price header once security data arrives', () => {
@@ -216,6 +273,26 @@ it('uses the stock price header on narrow web while token detail is pending', ()
   expect(screen.getByText('stock price header')).toBeTruthy();
 });
 
+it.each([
+  [NaN, NaN, '--'],
+  [Infinity, -Infinity, '--'],
+  [0, 0, '0'],
+])(
+  'renders the pending quote with price %s and change %s',
+  (price, change24h, expected) => {
+    mockMissingDetail = true;
+    render(
+      <InformationPanel
+        mobileDetailKind="topCoin"
+        pendingMarketAsset={{ symbol: 'BNB', price, change24h }}
+      />,
+    );
+
+    expect(screen.getByTestId('preview-price').textContent).toBe(expected);
+    expect(screen.getByText(`percent:${expected}`)).toBeTruthy();
+  },
+);
+
 it.each(['trending', 'topCoin'] as const)(
   'shows the dollar move and percentage for %s',
   (mobileDetailKind) => {
@@ -243,7 +320,9 @@ it('uses the stock price header before any token preview or detail is available'
   mockMissingDetail = true;
   const { rerender } = render(<InformationPanel mobileDetailKind="stock" />);
   expect(screen.getByText('stock price header')).toBeTruthy();
-  expect(screen.queryByText('generic price skeleton')).toBeNull();
+  expect(
+    screen.queryByTestId('market-detail-information-panel-skeleton'),
+  ).toBeNull();
 
   mockMissingDetail = false;
   mockDetail = {
@@ -256,5 +335,7 @@ it('uses the stock price header before any token preview or detail is available'
   };
   rerender(<InformationPanel mobileDetailKind="stock" />);
   expect(screen.getByText('stock price header')).toBeTruthy();
-  expect(screen.queryByText('generic price skeleton')).toBeNull();
+  expect(
+    screen.queryByTestId('market-detail-information-panel-skeleton'),
+  ).toBeNull();
 });

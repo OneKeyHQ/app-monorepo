@@ -80,6 +80,8 @@ export interface IPendingInstallTaskBase {
   retryCount: number;
   status: EPendingInstallTaskStatus;
   runningStartedAt?: number;
+  /** Native process that already consumed this task's manual startup attempt. */
+  startupProcessStartAt?: number;
   nextRetryAt?: number;
   lastError?: string;
 }

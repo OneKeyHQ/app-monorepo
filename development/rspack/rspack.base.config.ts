@@ -718,6 +718,19 @@ export function createBaseConfig({
                   // the webpack babel chain (babelTools.js, !isJest). Runs while
                   // JSX is still intact (babel-loader precedes swc here). Builds
                   // are never jest, so no isJest guard is needed.
+                  // Absolute checkout paths otherwise change emitted sizes and
+                  // can push CI past a splitChunks boundary compared to local.
+                  ...(!isDev && platform === 'web'
+                    ? [
+                        [
+                          path.join(
+                            __dirname,
+                            '../babel-plugins/sentry-relative-source-path',
+                          ),
+                          { rootDir: path.resolve(__dirname, '../..') },
+                        ],
+                      ]
+                    : []),
                   ['@sentry/babel-plugin-component-annotate'],
                   // Function-level perf instrumentation (parity with webpack
                   // babelTools.js, gated on PERF_MONITOR_ENABLED=1). Must run

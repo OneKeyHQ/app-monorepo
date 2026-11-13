@@ -42,7 +42,7 @@ jest.mock('@floating-ui/dom', () => ({
     update();
     return jest.fn();
   }),
-  computePosition: jest.fn(async () => ({ x: 10, y: 20 })),
+  computePosition: jest.fn(async () => ({ x: 10, y: 20, placement: 'top' })),
   flip: () => ({}),
   offset: jest.fn(() => ({})),
   shift: () => ({}),
@@ -50,6 +50,7 @@ jest.mock('@floating-ui/dom', () => ({
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   OVERLAY_LEVEL_ORDER: { modal: 0 },
+  getAnchoredTransformOrigin: () => 'center bottom',
   useNestedOverlayLevel: () => 'modal',
   OverlayView: ({
     visible,
@@ -132,6 +133,7 @@ it('reanchors the actual positioning hook to B while open and cleans up A', asyn
     a,
     expect.any(HTMLDivElement),
     expect.any(Function),
+    { animationFrame: false },
   );
   const releaseA = jest.mocked(autoUpdate).mock.results.at(-1)
     ?.value as jest.Mock;
@@ -149,6 +151,7 @@ it('reanchors the actual positioning hook to B while open and cleans up A', asyn
     b,
     expect.any(HTMLDivElement),
     expect.any(Function),
+    { animationFrame: false },
   );
   expect(computePosition).toHaveBeenLastCalledWith(
     b,

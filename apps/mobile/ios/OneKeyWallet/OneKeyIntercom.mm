@@ -22,6 +22,7 @@ extern "C" void OneKeyInitializeIntercom(void)
   @try {
     [IntercomModule initialize:apiKey withAppId:@"vbbj4ssb"];
     [Intercom setLauncherVisible:NO];
+    // In-app messages stay off; unread dots and OneKey push cover replies.
     [Intercom setInAppMessagesVisible:NO];
     [Intercom suppressProactiveContent:@[@(IntercomProactiveContentTypeCarousel),
                                         @(IntercomProactiveContentTypeSurvey)]];

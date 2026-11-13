@@ -17,6 +17,7 @@ import {
   rootNavigationRef,
   useShortcuts,
   useSplitSubView,
+  willTabFocusTransition,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -27,11 +28,13 @@ import {
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
   getUpdateFileType,
+  isUsableUpdateDownloadUrl,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   PERPS_CONFIG_FETCH_MAX_RETRIES,
@@ -44,6 +47,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
@@ -182,7 +189,9 @@ const useDesktopEvents = platformEnv.isDesktop
           response.updateStrategy !== EUpdateStrategy.seamless &&
           response.status !== EAppUpdateStatus.manualInstall &&
           !response.storeUrl &&
-          response.downloadUrl?.startsWith('https://')
+          // A real HTTPS URL and the known desktop placeholder are the only
+          // usable download sources (desktop resolves installers via the feed).
+          isUsableUpdateDownloadUrl(response.downloadUrl)
         ) {
           if (response.status === EAppUpdateStatus.notify) {
             onUpdateAction();
@@ -421,11 +430,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Swap);
             });
             break;
-          case EShortcutEvents.TabMarket:
+          case EShortcutEvents.TabMarket: {
+            // Checked before closing modals: pressing it while already on
+            // Market is not an entry, and an unconsumed marker would mislabel
+            // a later return from a detail page.
+            const isMarketEntry = willTabFocusTransition(ETabRoutes.Market);
             ensureModalClosedAndNavigate(() => {
+              if (isMarketEntry) {
+                markMarketHomeEntry(EMarketHomeEntrySource.Shortcut);
+              }
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          }
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
               setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
@@ -631,14 +648,16 @@ const useLogVersionInfo = () => {
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
   const theme = useThemeVariant();
+  const [{ theme: themeSetting }] = useSettingsPersistAtom();
+  const followSystemTheme = themeSetting === 'system';
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
   const previousIdentityRef = useRef({ onekeyUserId, isLoggedIn });
 
   useEffect(() => {
-    void setIntercomTheme(theme).catch(() => {
+    void setIntercomTheme(theme, followSystemTheme).catch(() => {
       console.warn('Failed to update Intercom theme');
     });
-  }, [theme]);
+  }, [theme, followSystemTheme]);
 
   useEffect(() => {
     const syncIntercom = () => {

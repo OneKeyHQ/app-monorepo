@@ -71,6 +71,10 @@ class DesktopApiInAppPurchase {
     return this._callRevenueCat('getOfferings', undefined);
   }
 
+  async revenueCatGetStorefront() {
+    return this._callRevenueCat('getStorefront', undefined);
+  }
+
   async revenueCatPurchasePackage(
     params: IRevenueCatRequestMap['purchasePackage'],
   ) {

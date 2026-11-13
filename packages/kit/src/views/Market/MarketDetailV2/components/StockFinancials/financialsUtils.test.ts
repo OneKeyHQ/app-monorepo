@@ -13,7 +13,32 @@ import {
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
+  getUpcomingEarningsTimestamp,
 } from './financialsUtils';
+
+describe('upcoming earnings dates', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-12T22:30:00Z'));
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each(['2026-11-12', '2026-11-13', '2028-02-29'])(
+    'retains a valid upcoming date: %s',
+    (date) => {
+      expect(getUpcomingEarningsTimestamp(date)).toBe(
+        Date.parse(`${date}T00:00:00Z`),
+      );
+    },
+  );
+  it.each([undefined, '', '2025-11-12', '2027-02-30', '2099-1-1', 'invalid'])(
+    'ignores missing, past, or invalid dates: %s',
+    (date) => {
+      expect(getUpcomingEarningsTimestamp(date)).toBeUndefined();
+    },
+  );
+});
 
 const conversion: IStockFinancialConversion = {
   date: '2025-09-27',

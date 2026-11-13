@@ -1,16 +1,15 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
 import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
-  isStockSwapHistoryItem,
-  isSwapHistoryProtocolExcluded,
   isSwapHistoryTerminalStatus,
+  shouldDeleteSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
-  EProtocolOfExchange,
   ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -315,34 +314,10 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   @backgroundMethod()
   async deleteSwapHistoryItem(
     statuses?: ESwapTxHistoryStatus[],
-    options?: {
-      excludeProtocols?: EProtocolOfExchange[];
-      // Keep stock trades. The Swap/Bridge list hides stock via the token-level
-      // isStock flag, so clearing it must use the same rule (protocol exclusion
-      // alone would delete stock orders the user can't see on that tab).
-      excludeStock?: boolean;
-      // Mirror of excludeStock for the Stock history surface: only clear stock
-      // trades, keeping everything the Swap/Bridge list owns.
-      onlyStock?: boolean;
-    },
+    options?: ISwapHistoryClearOptions,
   ) {
-    const shouldKeepHistory = (history: ISwapTxHistory) => {
-      if (
-        isSwapHistoryProtocolExcluded({
-          item: history,
-          excludeProtocols: options?.excludeProtocols,
-        })
-      ) {
-        return true;
-      }
-      if (options?.excludeStock && isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      if (options?.onlyStock && !isStockSwapHistoryItem(history)) {
-        return true;
-      }
-      return statuses ? !statuses.includes(history.status) : false;
-    };
+    const shouldKeepHistory = (history: ISwapTxHistory) =>
+      !shouldDeleteSwapHistoryItem(history, statuses, options);
     await this.setRawData((currentData) => ({
       ...currentData,
       histories: (currentData?.histories ?? []).filter(shouldKeepHistory),

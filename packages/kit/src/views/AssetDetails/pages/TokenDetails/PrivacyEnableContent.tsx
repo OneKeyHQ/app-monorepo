@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 
 import {
   Button,
   DatePicker,
   Dialog,
-  Input,
+  HeightTransition,
   Radio,
   SizableText,
   Toast,
@@ -15,9 +17,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  BirthdayHeightInput,
   PrivacyEnableDisclosure,
   createEnableBirthdayForm,
   getBirthdayHeightHint,
@@ -29,6 +32,8 @@ import type {
   IBirthdayFormState,
   IEarliestBirthday,
 } from './LocalWalletRepairControls';
+
+const expansionEasing = Easing.out(Easing.cubic);
 
 type IStartChoice = 'today' | 'date' | 'earliest' | 'height';
 type IFormRef = {
@@ -82,6 +87,7 @@ function PrivacySyncStartEditor({
   );
   const [height, setHeight] = useState(formRef.current.height ?? '');
   const [heightTouched, setHeightTouched] = useState(false);
+  const [heightRevealRequest, setHeightRevealRequest] = useState(0);
   const [advanced, setAdvanced] = useState(formRef.current.mode === 'height');
   const [choice, setChoice] = useState<IStartChoice>(() => {
     if (formRef.current.fromEarliest && earliestBirthday) return 'earliest';
@@ -124,6 +130,15 @@ function PrivacySyncStartEditor({
       earliestBirthday,
       networkId,
     );
+  const invalidHeightRef = useRef(invalidHeight);
+  useEffect(() => {
+    invalidHeightRef.current = invalidHeight;
+  }, [invalidHeight]);
+  const revealHeightError = useCallback(() => {
+    if (invalidHeightRef.current) {
+      setHeightRevealRequest((request) => request + 1);
+    }
+  }, []);
   const minHeight = Math.max(1, earliestBirthday?.height ?? 1);
   const minimumHeightLabel = `${intl.formatMessage({ id: ETranslations.global_block_height })} ≥ ${intl.formatNumber(minHeight)}`;
 
@@ -133,6 +148,7 @@ function PrivacySyncStartEditor({
         testID="privacy-sync-start-choice"
         value={choice}
         gap="$3"
+        itemAlign="start"
         onChange={(value) => {
           if (
             value === 'today' ||
@@ -143,133 +159,160 @@ function PrivacySyncStartEditor({
             selectChoice(value);
           }
         }}
+        renderItem={(item, option) =>
+          option.value === 'height' ? (
+            <YStack gap="$3" alignSelf="stretch">
+              <Button
+                testID="privacy-sync-start-advanced"
+                alignSelf="flex-start"
+                size="small"
+                variant="tertiary"
+                iconAfter={
+                  advanced ? 'ChevronTopOutline' : 'ChevronDownSmallOutline'
+                }
+                onPress={() => {
+                  if (advanced) Keyboard.dismiss();
+                  setAdvanced(!advanced);
+                }}
+              >
+                {intl.formatMessage({ id: ETranslations.global_advanced })}
+              </Button>
+              {!advanced && choice === 'height' ? (
+                <SizableText
+                  testID="privacy-sync-start-collapsed-height"
+                  size="$bodySm"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_block_height,
+                  })}
+                  {height.trim() ? `: ${height.trim()}` : ''}
+                </SizableText>
+              ) : null}
+              <HeightTransition
+                duration={240}
+                opacityDuration={160}
+                easing={expansionEasing}
+                roundHeightToNearestPixel
+                onHeightDidAnimate={revealHeightError}
+              >
+                {advanced ? item : null}
+              </HeightTransition>
+            </YStack>
+          ) : (
+            item
+          )
+        }
         options={[
           {
             value: 'today',
             label: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_new__title,
-              defaultMessage: ETranslationsMock.privacy_sync_start_new__title,
+              id: ETranslations.privacy_sync_start_new__title,
             }),
             description: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_new__desc,
-              defaultMessage: ETranslationsMock.privacy_sync_start_new__desc,
+              id: ETranslations.privacy_sync_start_new__desc,
             }),
           },
           {
             value: 'date',
             label: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_used__title,
-              defaultMessage: ETranslationsMock.privacy_sync_start_used__title,
+              id: ETranslations.privacy_sync_start_used__title,
             }),
             description: intl.formatMessage({
-              id: ETranslationsMock.privacy_sync_start_used__desc,
-              defaultMessage: ETranslationsMock.privacy_sync_start_used__desc,
+              id: ETranslations.privacy_sync_start_used__desc,
             }),
-            children:
-              choice === 'date' ? (
-                <YStack pt="$3">
-                  <DatePicker
-                    title={intl.formatMessage({
-                      id: ETranslations.global_select_date,
-                    })}
-                    value={date}
-                    minDate={earliestDate}
-                    maxDate={new Date()}
-                    showTodayShortcut={false}
-                    onChange={(next) => {
-                      setDate(next);
-                      formRef.current.date = next;
-                    }}
-                  />
-                </YStack>
-              ) : undefined,
+            children: (
+              <HeightTransition
+                duration={240}
+                opacityDuration={160}
+                easing={expansionEasing}
+                roundHeightToNearestPixel
+              >
+                {choice === 'date' ? (
+                  <YStack pt="$3">
+                    <DatePicker
+                      title={intl.formatMessage({
+                        id: ETranslations.global_select_date,
+                      })}
+                      value={date}
+                      minDate={earliestDate}
+                      maxDate={new Date()}
+                      showTodayShortcut={false}
+                      onChange={(next) => {
+                        setDate(next);
+                        formRef.current.date = next;
+                      }}
+                    />
+                  </YStack>
+                ) : null}
+              </HeightTransition>
+            ),
           },
           ...(earliestDate
             ? [
                 {
                   value: 'earliest',
                   label: intl.formatMessage({
-                    id: ETranslationsMock.privacy_sync_start_unknown__title,
-                    defaultMessage:
-                      ETranslationsMock.privacy_sync_start_unknown__title,
+                    id: ETranslations.privacy_sync_start_unknown__title,
                   }),
                   description: intl.formatMessage({
-                    id: ETranslationsMock.privacy_sync_start_unknown__desc,
-                    defaultMessage:
-                      ETranslationsMock.privacy_sync_start_unknown__desc,
+                    id: ETranslations.privacy_sync_start_unknown__desc,
                   }),
                 },
               ]
             : []),
-          ...(advanced
-            ? [
-                {
-                  value: 'height',
-                  label: intl.formatMessage({
-                    id: ETranslations.global_block_height,
-                  }),
-                  children:
-                    choice === 'height' ? (
-                      <YStack pt="$3" gap="$1">
-                        <Input
-                          testID="privacy-sync-start-height"
-                          size="small"
-                          keyboardType="number-pad"
-                          placeholder={minimumHeightLabel}
-                          value={height}
-                          error={!!invalidHeight}
-                          onBlur={() => {
-                            if (height.trim()) setHeightTouched(true);
-                          }}
-                          onChangeText={(value) => {
-                            setHeight(value);
-                            formRef.current.height = value;
-                          }}
-                        />
-                        {invalidHeight ? (
-                          <SizableText
-                            testID="privacy-sync-start-height-error"
-                            size="$bodySm"
-                            color="$textCritical"
-                            accessibilityRole="alert"
-                          >
-                            {getBirthdayHeightHint({
-                              height: height.trim(),
-                              invalid: true,
-                              minHeight,
-                              maxHeight,
-                              label: intl.formatMessage({
-                                id: ETranslations.global_block_height,
-                              }),
-                              invalidText: intl.formatMessage({
-                                id: ETranslationsMock.privacy_sync_start_height_invalid__msg,
-                                defaultMessage:
-                                  ETranslationsMock.privacy_sync_start_height_invalid__msg,
-                              }),
-                              format: (value) => intl.formatNumber(value),
-                            })}
-                          </SizableText>
-                        ) : null}
-                      </YStack>
-                    ) : undefined,
-                },
-              ]
-            : []),
+          {
+            value: 'height',
+            label: intl.formatMessage({
+              id: ETranslations.global_block_height,
+            }),
+            children:
+              choice === 'height' ? (
+                <YStack pt="$3">
+                  <BirthdayHeightInput
+                    testID="privacy-sync-start-height"
+                    size="small"
+                    revealRequest={heightRevealRequest}
+                    placeholder={minimumHeightLabel}
+                    value={height}
+                    error={!!invalidHeight}
+                    onBlur={() => {
+                      if (height.trim()) setHeightTouched(true);
+                    }}
+                    onChangeText={(value) => {
+                      setHeight(value);
+                      formRef.current.height = value;
+                    }}
+                    feedback={
+                      invalidHeight ? (
+                        <SizableText
+                          testID="privacy-sync-start-height-error"
+                          size="$bodySm"
+                          color="$textCritical"
+                          accessibilityRole="alert"
+                        >
+                          {getBirthdayHeightHint({
+                            height: height.trim(),
+                            invalid: true,
+                            minHeight,
+                            maxHeight,
+                            label: intl.formatMessage({
+                              id: ETranslations.global_block_height,
+                            }),
+                            invalidText: intl.formatMessage({
+                              id: ETranslations.privacy_sync_start_height_invalid__msg,
+                            }),
+                            format: (value) => intl.formatNumber(value),
+                          })}
+                        </SizableText>
+                      ) : null
+                    }
+                  />
+                </YStack>
+              ) : null,
+          },
         ]}
       />
-      <Button
-        testID="privacy-sync-start-advanced"
-        alignSelf="flex-start"
-        size="small"
-        variant="tertiary"
-        iconAfter={advanced ? 'ChevronTopOutline' : 'ChevronDownSmallOutline'}
-        onPress={() => {
-          if (advanced && choice === 'height') selectChoice('date');
-          setAdvanced(!advanced);
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.global_advanced })}
-      </Button>
       <Dialog.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.action_save })}
         onConfirm={({ preventClose }) => {
@@ -277,7 +320,10 @@ function PrivacySyncStartEditor({
           if (
             !readEnableBirthday(formRef.current, earliestBirthday, networkId)
           ) {
-            if (formRef.current.mode !== 'height') {
+            if (formRef.current.mode === 'height') {
+              setAdvanced(true);
+              setHeightRevealRequest((request) => request + 1);
+            } else {
               Toast.error({
                 title: intl.formatMessage({
                   id: getBirthdayInputError(formRef.current.mode),
@@ -322,9 +368,9 @@ export function PrivacyEnableContent({
   if (form.fromEarliest) choice = 'earliest';
   else if (form.mode === 'height') choice = 'height';
   const summaryTitle = {
-    today: ETranslationsMock.privacy_sync_start_new__title,
-    earliest: ETranslationsMock.privacy_sync_start_unknown__title,
-    date: ETranslationsMock.privacy_sync_start_used__title,
+    today: ETranslations.privacy_sync_start_new__title,
+    earliest: ETranslations.privacy_sync_start_unknown__title,
+    date: ETranslations.privacy_sync_start_used__title,
     height: ETranslations.global_block_height,
   }[choice];
 
@@ -342,6 +388,9 @@ export function PrivacyEnableContent({
       }),
       showConfirmButton: true,
       showCancelButton: true,
+      boundedSheetLayout: true,
+      fixedHeaderFooterHeight: 600,
+      sheetDragArea: 'header',
       renderContent: (
         <PrivacySyncStartEditor
           networkId={networkId}
@@ -377,7 +426,6 @@ export function PrivacyEnableContent({
         <SizableText flex={1} size="$bodyMdMedium">
           {intl.formatMessage({
             id: summaryTitle,
-            defaultMessage: summaryTitle,
           })}
         </SizableText>
         <Button

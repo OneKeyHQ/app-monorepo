@@ -64,6 +64,50 @@ describe('getSwapHistoryTransactionIdRows', () => {
     ]);
   });
 
+  it('shows the explorer link on the stock transaction hash row', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({ protocol: EProtocolOfExchange.STOCK }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xsource',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('uses the target network for a stock order with only a target hash', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({
+          protocol: EProtocolOfExchange.STOCK,
+          fromNetworkId: 'evm--56',
+          toNetworkId: 'evm--1',
+          txId: null,
+          receiverTransactionId: '0xtarget',
+        }),
+      ),
+    ).toEqual([
+      {
+        kind: 'transaction',
+        transactionId: '0xtarget',
+        networkId: 'evm--1',
+        showExplorer: true,
+      },
+    ]);
+  });
+
+  it('does not render a stock transaction row without a hash', () => {
+    expect(
+      getSwapHistoryTransactionIdRows(
+        createHistory({ protocol: EProtocolOfExchange.STOCK, txId: null }),
+      ),
+    ).toEqual([]);
+  });
+
   it('renders pending sent and received rows for a known same-chain provider', () => {
     expect(
       getSwapHistoryTransactionIdRows(

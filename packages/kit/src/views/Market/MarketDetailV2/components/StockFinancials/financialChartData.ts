@@ -10,6 +10,7 @@ import {
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
+  getUpcomingEarningsTimestamp,
   isFinancialNumber,
 } from './financialsUtils';
 
@@ -18,12 +19,20 @@ import type {
   IFinancialChartSeries,
 } from './FinancialChart';
 import type { IFinancialWaterfallKey } from './financialsUtils';
+import type { useStockFinancials } from './useStockFinancials';
 
 export type IFinancialChartKind =
   | 'performance'
   | 'conversion'
   | 'debt'
   | 'earnings';
+
+export const FINANCIAL_CHART_KINDS: readonly IFinancialChartKind[] = [
+  'performance',
+  'conversion',
+  'debt',
+  'earnings',
+];
 
 export type IStockFinancialLabels = Record<IFinancialWaterfallKey, string> & {
   financials: string;
@@ -232,4 +241,42 @@ export function buildFinancialChart(
       values: [row.actual, row.estimate],
     })),
   };
+}
+
+// Whether any card would draw a value from this period's payload.
+export function hasFinancialChartData(
+  data: IStockFinancials | null | undefined,
+  labels: IStockFinancialLabels,
+): boolean {
+  return FINANCIAL_CHART_KINDS.some((kind) =>
+    buildFinancialChart(data, kind, labels).rows.some((row) =>
+      row.values.some(isFinancialNumber),
+    ),
+  );
+}
+
+export function shouldHideStockFinancials(
+  {
+    result,
+    isLoading,
+  }: Pick<ReturnType<typeof useStockFinancials>, 'result' | 'isLoading'>,
+  labels: IStockFinancialLabels,
+): boolean {
+  // Partial payloads can recover on retry even when neither period has values.
+  return Boolean(
+    !isLoading &&
+    result &&
+    !result.annual.failed &&
+    !result.quarter.failed &&
+    !result.annual.data?.partial &&
+    !result.quarter.data?.partial &&
+    getUpcomingEarningsTimestamp(
+      result.annual.data?.earnings.nextEarningsDate,
+    ) === undefined &&
+    getUpcomingEarningsTimestamp(
+      result.quarter.data?.earnings.nextEarningsDate,
+    ) === undefined &&
+    !hasFinancialChartData(result.annual.data, labels) &&
+    !hasFinancialChartData(result.quarter.data, labels),
+  );
 }

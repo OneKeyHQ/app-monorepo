@@ -491,6 +491,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalWalletAccountsChanged]: {
     networkId: string;
     accountIds: string[];
+    // Only pause/resume preserves the current display; absent means invalidate.
+    change?: 'syncState';
   };
   // A display read gave up and showed a saved balance; the live one is in.
   [EAppEventBusNames.LocalWalletBalanceLanded]: {
@@ -746,6 +748,8 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
+    navigationAction?: 'push';
+    isNativeBackgroundNavigation?: true;
     extras?: {
       params?: {
         coin?: string;
@@ -820,6 +824,7 @@ export interface IAppEventBusPayload {
     action: string;
     data?: Record<string, unknown>;
   };
+  [EAppEventBusNames.SupportReplyReceived]: undefined;
   [EAppEventBusNames.ShowRookieShare]: {
     data: IRookieShareData;
   };
