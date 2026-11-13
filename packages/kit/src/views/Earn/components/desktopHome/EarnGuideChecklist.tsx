@@ -284,7 +284,7 @@ function StepRow({
               <Button
                 key={action.testID}
                 testID={action.testID}
-                size="small"
+                size="medium"
                 variant={index === 0 ? 'primary' : 'secondary'}
                 iconAfter={index === 0 ? 'ArrowRightOutline' : undefined}
                 onPress={action.onPress}
@@ -483,12 +483,16 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
   }, [accountId, navigation, networkId, walletId]);
 
   // Which step is open: the current one, until the user opens another or
-  // closes it; the next current one opens itself again
+  // closes it. Once that other one is done, or the guide moves on, the
+  // current one opens itself again
   const [openPick, setOpenPick] = useState<{
     at: IEarnGuideStep;
     step?: IEarnGuideStep;
   }>();
-  const openStep = openPick?.at === current ? openPick.step : current;
+  const isPickKept =
+    openPick?.at === current &&
+    !(openPick.step && state.done[openPick.step - 1]);
+  const openStep = isPickKept ? openPick?.step : current;
   const handleToggle = useCallback(
     (step: IEarnGuideStep) =>
       setOpenPick({ at: current, step: openStep === step ? undefined : step }),
@@ -626,6 +630,9 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     () => openUrlExternal(HELP_CENTER_URL),
     [],
   );
+  const collapseLabel = intl.formatMessage({
+    id: ETranslations.global_collapse,
+  });
   const total = EARN_GUIDE_STEPS.length;
   const doneCount = state.done.filter(Boolean).length;
   const enterProps = reduceMotion
@@ -702,9 +709,8 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
               <XStack gap="$1" mr="$-1.5">
                 <IconButton
                   testID="earn-guide-collapse"
-                  aria-label={intl.formatMessage({
-                    id: ETranslations.global_collapse,
-                  })}
+                  aria-label={collapseLabel}
+                  title={collapseLabel}
                   icon="MinusSmallOutline"
                   variant="tertiary"
                   size="small"
@@ -713,6 +719,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
                 <IconButton
                   testID="earn-guide-close"
                   aria-label={copy.guideSkip}
+                  title={copy.guideSkip}
                   icon="CrossedSmallOutline"
                   variant="tertiary"
                   size="small"
@@ -750,7 +757,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
                 key={step}
                 step={step}
                 status={getStepStatus(state, step)}
-                isOpen={openStep === step && !state.done[step - 1]}
+                isOpen={openStep === step}
                 label={copy.guideSteps[step - 1]}
                 info={stepInfo[step]}
                 actions={stepActions[step]}
@@ -765,6 +772,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
             testID="earn-guide-tutorial"
             size="small"
             variant="tertiary"
+            color="$text"
             iconAfter="ArrowTopRightOutline"
             onPress={handleTutorial}
           >
@@ -774,7 +782,6 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
             testID="earn-guide-skip"
             size="small"
             variant="tertiary"
-            color="$textSubdued"
             onPress={handleSkip}
           >
             {copy.guideSkip}
