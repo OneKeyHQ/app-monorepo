@@ -2,7 +2,11 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isNumber } from 'lodash';
 
-import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  getEvmAccessListForChain,
+  normalizeEvmAccessList,
+  validateEvmAddress,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
@@ -25,6 +29,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { isGasAccountSubmitRejectedCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -1505,6 +1510,20 @@ export default class Vault extends VaultBase {
         this.networkId === getNetworkIdsMap().fevm ? '0x1' : '0x0';
     }
 
+    // The access list adds intrinsic gas and changes execution gas, so the
+    // estimate has to price the list the signer will put on chain. A QR
+    // wallet signs without it and some chains reject it. Hardware also drops
+    // it from a gas-price transaction, but the fee mode is only known from
+    // the estimate itself.
+    const accessList = accountUtils.isQrWallet({ walletId: this.walletId })
+      ? undefined
+      : getEvmAccessListForChain({
+          accessList: encodedTx.accessList,
+          chainId: networkUtils.getNetworkChainId({
+            networkId: this.networkId,
+          }),
+        });
+
     return Promise.resolve({
       encodedTx: {
         chainId,
@@ -1513,6 +1532,7 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+        ...(accessList ? { accessList } : {}),
       },
     });
   }
@@ -1592,6 +1612,13 @@ export default class Vault extends VaultBase {
       throw new OneKeyError('speedUpOrCancelTx ERROR: nonce is missing!');
     }
 
+    // Speeding up re-sends the same transaction, so it keeps the access
+    // list. The encrypted copy is preferred because it cannot be edited in
+    // local history.
+    const accessList = normalizeEvmAccessList(
+      (encodedTxOrigin ?? encodedTx).accessList,
+    );
+
     // set only fields of IEncodedTxEvm
     const encodedTxEvm: IEncodedTxEvm = {
       from: encodedTx.from,
@@ -1607,12 +1634,16 @@ export default class Vault extends VaultBase {
       gasPrice: encodedTx.gasPrice,
       maxFeePerGas: encodedTx.maxFeePerGas,
       maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas,
+      ...(accessList ? { accessList } : {}),
     };
 
     if (replaceType === EReplaceTxType.Cancel) {
       encodedTxEvm.to = encodedTxEvm.from;
       encodedTxEvm.value = '0x0';
       encodedTxEvm.data = '0x';
+      // A cancel is a plain self-transfer; the replaced call's list would
+      // only add gas.
+      delete encodedTxEvm.accessList;
     }
     if (replaceType === EReplaceTxType.SpeedUp) {
       if (
