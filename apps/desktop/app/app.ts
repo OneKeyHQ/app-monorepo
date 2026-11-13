@@ -12,7 +12,10 @@ import {
   disposeNobleBleSupport,
   initNobleBleSupport,
 } from '@onekeyfe/hd-transport-electron';
-import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import {
+  initThirdPartyBleSupport,
+  withThirdPartyBleIpcErrors,
+} from '@onekeyfe/hwk-desktop-noble-ble';
 import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
@@ -2159,8 +2162,10 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
+    // Errors cross IPC as data so their `code` survives; wrapped outside the
+    // pairing layer so its retries and logs still see the throws.
     ipcMain: createTrezorBlePairingIpcMain(
-      thirdPartyBleSenderGatedIpcMain,
+      withThirdPartyBleIpcErrors(thirdPartyBleSenderGatedIpcMain),
       browserWindow,
     ),
     logger: (entry) => {

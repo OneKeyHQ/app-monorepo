@@ -20,6 +20,7 @@ import {
   getDeviceErrorPayloadMessage,
   toPlainErrorObject,
 } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { THIRD_PARTY_HW_SILENT_CANCEL_CODES } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -120,6 +121,7 @@ const SILENT_CANCEL_CODES = [
   HardwareErrorCode.CallQueueActionCancelled,
   HardwareErrorCode.DeviceInterruptedFromUser,
   HardwareErrorCode.DeviceInterruptedFromOutside,
+  ...THIRD_PARTY_HW_SILENT_CANCEL_CODES,
 ];
 /** The person ending the run on the device. Only these close the stage
  * outright from a call's end. `DeviceInterruptedFromOutside` is raised on
@@ -131,6 +133,8 @@ const SILENT_CANCEL_CODES = [
 const USER_CANCEL_CODES = [
   HardwareErrorCode.PinCancelled,
   HardwareErrorCode.DeviceInterruptedFromUser,
+  // Declining a third-party Bluetooth pairing, like a PIN cancel, ends the run.
+  ThirdPartyHwErrorCode.BlePairingCancelled,
 ];
 
 /** These errors already open a recovery dialog outside DeviceStage. The
@@ -1136,6 +1140,11 @@ export class DeviceStageBurstScope {
             ? { key: error.key, info: error.info }
             : undefined,
       });
+      return;
+    }
+    // A silent cancel lands no outcome; the ✓ below is for success only.
+    if (error) {
+      this.scheduleOff(END_GRACE_MS);
       return;
     }
     // The token owner lands success and releases its hold in one operation.

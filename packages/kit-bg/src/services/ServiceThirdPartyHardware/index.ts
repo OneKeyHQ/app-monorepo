@@ -93,13 +93,7 @@ type IThirdPartySearchDevicesResponse =
     }
   | {
       success: false;
-      payload: {
-        code: number;
-        error: string;
-        params?: {
-          permissionDeniedReason: string;
-        };
-      };
+      payload: IThirdPartySearchFailurePayload;
     };
 
 type IThirdPartyDeviceSearchTargetsResponse =
@@ -109,8 +103,43 @@ type IThirdPartyDeviceSearchTargetsResponse =
     }
   | {
       success: false;
-      payload: { code: number; error: string };
+      payload: IThirdPartySearchFailurePayload;
     };
+
+type IThirdPartySearchFailurePayload = {
+  code: number;
+  error: string;
+  params?: {
+    permissionDeniedReason: string;
+  };
+};
+
+/**
+ * Keeps HWK's structured error (code + message) so downstream can route to the
+ * right error class. Both SDKs and the desktop BLE host put a permission
+ * denial's reason in `params.permissionDeniedReason`.
+ */
+function toSearchFailurePayload(
+  error: unknown,
+): IThirdPartySearchFailurePayload {
+  const err = error as
+    | {
+        code?: number | string;
+        message?: string;
+        params?: { permissionDeniedReason?: unknown };
+      }
+    | undefined;
+  const rawCode = typeof err?.code === 'number' ? err.code : Number(err?.code);
+  const permissionDeniedReason = err?.params?.permissionDeniedReason;
+  return {
+    code: Number.isFinite(rawCode) ? rawCode : -1,
+    error: err?.message ?? String(error),
+    params:
+      typeof permissionDeniedReason === 'string'
+        ? { permissionDeniedReason }
+        : undefined,
+  };
+}
 
 type IThirdPartyConnectDeviceParams = {
   vendor: EHardwareVendor;
@@ -980,24 +1009,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
         payload,
       };
     } catch (error) {
-      // Preserve HWK's structured error (code + message) so downstream
-      // can route to the correct error class.
-      const err = error as { code?: number | string; message?: string };
-      const rawCode =
-        typeof err?.code === 'number' ? err.code : Number(err?.code);
-      const permissionDeniedReason = (err as { reason?: string }).reason;
       return {
         success: false as const,
-        payload: {
-          code: Number.isFinite(rawCode) ? rawCode : -1,
-          error: err?.message ?? String(error),
-          params:
-            typeof permissionDeniedReason === 'string'
-              ? {
-                  permissionDeniedReason,
-                }
-              : undefined,
-        },
+        payload: toSearchFailurePayload(error),
       };
     }
   }
@@ -1027,16 +1041,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         : targets;
       return { success: true, payload };
     } catch (error) {
-      const err = error as { code?: number | string; message?: string };
-      const rawCode =
-        typeof err.code === 'number' ? err.code : Number(err.code);
-      return {
-        success: false,
-        payload: {
-          code: Number.isFinite(rawCode) ? rawCode : -1,
-          error: err.message ?? String(error),
-        },
-      };
+      return { success: false, payload: toSearchFailurePayload(error) };
     }
   }
 

@@ -67,6 +67,16 @@ export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
   );
 }
 
+/** Third-party cancels that land no outcome, as OneKey's own cancels do. */
+export const THIRD_PARTY_HW_SILENT_CANCEL_CODES: readonly number[] = [
+  ThirdPartyHwErrorCode.UserAborted,
+  ThirdPartyErrors.THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+];
+
+export function isThirdPartyHardwareCancelCode(code: unknown): boolean {
+  return THIRD_PARTY_HW_SILENT_CANCEL_CODES.includes(Number(code));
+}
+
 const HWK_RECOVERY_SCOPES = new Set<IHardwareErrorRecoveryHint['scope']>([
   'call',
   'operation',
