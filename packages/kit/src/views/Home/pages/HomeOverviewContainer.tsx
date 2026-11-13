@@ -30,6 +30,7 @@ import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { SHOW_WALLET_FUNCTION_BLOCK_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -39,6 +40,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateAccountTokensValue,
@@ -1362,7 +1364,8 @@ function HomeOverviewContainer() {
       {vaultSettings?.localWallet &&
       account?.id &&
       network?.id &&
-      !network.isAllNetworks ? (
+      !network.isAllNetworks &&
+      networkUtils.getNetworkImpl({ networkId: network.id }) !== IMPL_XMR ? (
         <YStack w="100%">
           <LocalWalletPasswordAlert
             networkId={network.id}
