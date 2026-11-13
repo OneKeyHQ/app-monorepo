@@ -38,7 +38,6 @@ const toToken: ISwapToken = {
   name: 'Test Token',
   logoURI: 'https://example.com/logo.png',
   riskLevel: ETokenRiskLevel.WARNING,
-  isStock: true,
   balanceMultiplier: '2',
   balanceParsed: '90',
   fiatValue: '180',
@@ -185,7 +184,6 @@ describe('swap history Trade Again', () => {
         name: 'Test Token',
         logoURI: 'https://example.com/logo.png',
         riskLevel: ETokenRiskLevel.WARNING,
-        isStock: true,
         balanceMultiplier: '2',
       },
     });
@@ -199,6 +197,19 @@ describe('swap history Trade Again', () => {
     expect(result?.importFromToken.networkId).toBe('evm--1');
     expect(result?.importToToken.networkId).toBe('sol--101');
     expect(result?.fromAmount).toBe('1.2300');
+  });
+
+  it('routes Stock history and legacy stock tokens to the Stock tab', () => {
+    const item = history();
+    item.baseInfo.toToken = { ...toToken, isStock: true };
+    expect(buildSwapHistoryTradeAgainParams(item)?.swapTabSwitchType).toBe(
+      ESwapTabSwitchType.STOCK,
+    );
+    item.protocol = EProtocolOfExchange.STOCK;
+    item.baseInfo.toToken = toToken;
+    expect(buildSwapHistoryTradeAgainParams(item)?.swapTabSwitchType).toBe(
+      ESwapTabSwitchType.STOCK,
+    );
   });
 
   it('converts the original limit order input from base units', () => {

@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import {
   isPrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
@@ -24,6 +25,7 @@ type ITradeAgainRouteParams =
     swapTabSwitchType:
       | ESwapTabSwitchType.SWAP
       | ESwapTabSwitchType.BRIDGE
+      | ESwapTabSwitchType.STOCK
       | ESwapTabSwitchType.LIMIT;
     tradeAgainFromHistory: true;
   };
@@ -83,10 +85,13 @@ export function buildSwapHistoryTradeAgainParams(
   const toToken = getTokenIdentity(item.baseInfo?.toToken);
   if (!fromToken || !toToken) return undefined;
 
-  const swapTabSwitchType: ITradeAgainRouteParams['swapTabSwitchType'] =
+  let swapTabSwitchType: ITradeAgainRouteParams['swapTabSwitchType'] =
     fromToken.networkId === toToken.networkId
       ? ESwapTabSwitchType.SWAP
       : ESwapTabSwitchType.BRIDGE;
+  if (isStockSwapHistoryItem(item)) {
+    swapTabSwitchType = ESwapTabSwitchType.STOCK;
+  }
   return {
     tradeAgainFromHistory: true,
     importFromToken: fromToken,

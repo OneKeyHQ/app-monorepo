@@ -1167,6 +1167,14 @@ export function useSwapInit(params?: ISwapInitParams) {
         return;
       }
     }
+    if (
+      params?.tradeAgainFromHistory &&
+      normalizedSwapTabSwitchType === ESwapTabSwitchType.STOCK
+    ) {
+      // The Stock channel owns its local side and token state.
+      finishSwapInitParamsSync();
+      return;
+    }
     const shouldDeferForNativePro = () =>
       shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
         isNative: Boolean(platformEnv.isNative),
