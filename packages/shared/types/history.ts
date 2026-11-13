@@ -191,6 +191,12 @@ export type IAccountHistoryTx = {
 
   isLocalCreated?: boolean;
 
+  // Currency id (e.g. `usd`) the server priced this row in: its transfer
+  // prices and `totalFeeFiatValue`. Rows without it (locally built, or cached
+  // by older app versions) have an unknown fiat currency and are shown as
+  // stored.
+  fiatCurrency?: string;
+
   displayStatus?: EDecodedTxStatus;
   displayStatusSource?: 'privateSendOrder';
 

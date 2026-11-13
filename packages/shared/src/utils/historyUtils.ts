@@ -400,6 +400,94 @@ export function checkIsLowValueReceiveTx({
   return totalFiatValue.lt(LOW_VALUE_RECEIVE_TX_THRESHOLD);
 }
 
+function convertHistoryTxFiatCurrency({
+  tx,
+  targetCurrency,
+  currencyMap,
+}: {
+  tx: IAccountHistoryTx;
+  targetCurrency: string;
+  currencyMap?: Record<string, ICurrencyItem>;
+}): IAccountHistoryTx {
+  const sourceCurrency = tx.fiatCurrency;
+  if (!sourceCurrency || sourceCurrency === targetCurrency) {
+    return tx;
+  }
+  const sourceRate = new BigNumber(currencyMap?.[sourceCurrency]?.value ?? NaN);
+  const targetRate = new BigNumber(currencyMap?.[targetCurrency]?.value ?? NaN);
+  const rate =
+    sourceRate.gt(0) && targetRate.gt(0)
+      ? targetRate.div(sourceRate)
+      : undefined;
+  // Without both rates the snapshot cannot be converted, and showing no fiat
+  // value is better than showing one in the wrong currency.
+  const convert = (value: string | undefined) => {
+    if (isNil(value) || !rate) {
+      return undefined;
+    }
+    const converted = new BigNumber(value).times(rate);
+    return converted.isNaN() ? undefined : converted.toFixed();
+  };
+  const convertActions = (actions: IAccountHistoryTx['decodedTx']['actions']) =>
+    actions.map((action) => {
+      const { assetTransfer } = action;
+      if (!assetTransfer) {
+        return action;
+      }
+      return {
+        ...action,
+        assetTransfer: {
+          ...assetTransfer,
+          sends: assetTransfer.sends.map((transfer) => ({
+            ...transfer,
+            price: convert(transfer.price),
+          })),
+          receives: assetTransfer.receives.map((transfer) => ({
+            ...transfer,
+            price: convert(transfer.price),
+          })),
+        },
+      };
+    });
+  const { decodedTx } = tx;
+  return {
+    ...tx,
+    fiatCurrency: rate ? targetCurrency : undefined,
+    decodedTx: {
+      ...decodedTx,
+      totalFeeFiatValue: convert(decodedTx.totalFeeFiatValue),
+      actions: convertActions(decodedTx.actions),
+      ...(decodedTx.outputActions
+        ? { outputActions: convertActions(decodedTx.outputActions) }
+        : {}),
+    },
+  };
+}
+
+// The server prices history rows in the currency of the request, and rows are
+// cached with that snapshot. Rows fetched under another display currency are
+// converted here, so they are never shown with the new currency's symbol on
+// the old currency's numbers (OK-67171).
+export function convertHistoryTxsFiatCurrency({
+  txs,
+  targetCurrency,
+  currencyMap,
+}: {
+  txs: IAccountHistoryTx[];
+  targetCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
+}): IAccountHistoryTx[] {
+  if (
+    !targetCurrency ||
+    txs.every((tx) => !tx.fiatCurrency || tx.fiatCurrency === targetCurrency)
+  ) {
+    return txs;
+  }
+  return txs.map((tx) =>
+    convertHistoryTxFiatCurrency({ tx, targetCurrency, currencyMap }),
+  );
+}
+
 export function checkIsScamTx({ tx }: { tx: IAccountHistoryTx }) {
   return (
     tx.decodedTx.riskyLevel && tx.decodedTx.riskyLevel >= TX_RISKY_LEVEL_SPAM
