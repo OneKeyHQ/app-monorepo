@@ -312,20 +312,21 @@ function ActionMore({
         onPress={handleMobilePress}
         testID={testID}
       >
-        <Stack>
-          <Icon name="DotHorOutline" size="$6" color="$icon" />
-          {showDot ? (
-            <RiskApprovalsDot
-              position="absolute"
-              top="$-0.5"
-              right="$-1"
-              borderColor="$bgStrong"
-            />
-          ) : null}
-        </Stack>
+        <Icon name="DotHorOutline" size="$6" color="$icon" />
         <SizableText my="$1" textAlign="center" size="$bodySm" color="$text">
           {label}
         </SizableText>
+        {/* In the card corner, like the desktop button's dot: anchored to the
+            icon it sat on the last dot of the "..." glyph (OK-67210). */}
+        {showDot ? (
+          <RiskApprovalsDot
+            position="absolute"
+            top="$1.5"
+            right="$1.5"
+            borderColor="$bgStrong"
+            testID={testID ? `${testID}-card-dot` : undefined}
+          />
+        ) : null}
       </Stack>
 
       {/* Desktop: Icon only button */}
