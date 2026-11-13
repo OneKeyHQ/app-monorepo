@@ -316,16 +316,45 @@ describe('ServiceSwap quote event request ownership', () => {
     await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
 
-  it('preserves Sweep source and merges request restrictions with disabled providers', async () => {
+  it('keeps disabled single-swap providers in ordinary quote requests', async () => {
     const { getUri, service } = createService();
     jest
+      .spyOn(service, 'getDenySingleSwapProvider')
+      .mockResolvedValue('SwapOKX');
+    await service.fetchQuotesEvents(
+      createQuoteParams('ordinary-quote-request'),
+    );
+    expect(getUri.mock.calls[0]?.[0]?.params).toMatchObject({
+      denySingleSwapProvider: 'SwapOKX',
+    });
+    await service.cancelFetchQuoteEvents('ordinary-quote-request');
+  });
+
+  it('keeps the cross-chain deny list for non-Sweep requests', async () => {
+    const { getUri, service } = createService();
+    jest
+      .spyOn(service, 'getDenyCrossChainProvider')
+      .mockResolvedValue('BridgeDisabled');
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('bridge-quote-request'),
+      toToken: { ...toToken, networkId: 'evm--56' },
+    });
+    expect(getUri.mock.calls[0]?.[0]?.params).toMatchObject({
+      denyCrossChainProvider: 'BridgeDisabled',
+    });
+    await service.cancelFetchQuoteEvents('bridge-quote-request');
+  });
+
+  it('preserves Sweep source without sending provider restrictions', async () => {
+    const { getUri, service } = createService();
+    const getDenySingleSwapProvider = jest
       .spyOn(service, 'getDenySingleSwapProvider')
       .mockResolvedValue('SwapOKX,SwapLiquidMesh');
 
     await service.fetchQuotesEvents({
       ...createQuoteParams('sweep-quote-request'),
       source: ESwapQuoteSource.SWEEP,
-      denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
+      skipSingleSwapProviderDenyList: true,
     });
 
     expect(getUri).toHaveBeenCalledWith(
@@ -334,10 +363,16 @@ describe('ServiceSwap quote event request ownership', () => {
         params: expect.objectContaining({
           source: 'Sweep',
           protocol: 'Swap',
-          denySingleSwapProvider: 'SwapOKX,SwapLiquidMesh,Swap0x',
           fromTokenAmount: '1',
         }),
       }),
+    );
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'denySingleSwapProvider',
+    );
+    expect(getDenySingleSwapProvider).not.toHaveBeenCalled();
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'skipSingleSwapProviderDenyList',
     );
     await service.cancelFetchQuoteEvents('sweep-quote-request');
   });

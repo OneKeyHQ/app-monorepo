@@ -545,7 +545,6 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     { accountId: 'other-account' },
     { address: 'other-address' },
     { deriveAddressEncoding: 'other' as typeof ethereum.deriveAddressEncoding },
-    { denySingleSwapProvider: 'changed-provider' },
   ])(
     'does not authorize cached data for a changed network context %o',
     (change) => {
@@ -639,7 +638,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     const reconciliation = new Promise<IDustSweepNetwork>((resolve) => {
       finishReconciliation = resolve;
     });
-    const changed = { ...base, denySingleSwapProvider: 'new-provider-rule' };
+    const changed = { ...base, address: 'new-address' };
     mockRefreshNetwork.mockReturnValueOnce(reconciliation);
     mockValidateContexts.mockResolvedValueOnce([changed, ethereum]);
     const { result } = renderController();
@@ -674,7 +673,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     const validation = new Promise<IDustSweepNetwork[]>((resolve) => {
       finishValidation = resolve;
     });
-    const changed = { ...base, denySingleSwapProvider: 'new-provider-rule' };
+    const changed = { ...base, address: 'new-address' };
     mockValidateContexts.mockReturnValueOnce(validation);
     const { result, rerender } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));

@@ -1336,6 +1336,7 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchQuotesEvents({
     source,
+    skipSingleSwapProviderDenyList,
     denySingleSwapProvider: inputDenySingleSwapProvider,
     fromToken,
     toToken,
@@ -1364,11 +1365,12 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
-    const configuredDenySingleSwapProvider =
-      await this.getDenySingleSwapProvider(
-        fromToken.networkId,
-        toToken.networkId,
-      );
+    const configuredDenySingleSwapProvider = skipSingleSwapProviderDenyList
+      ? undefined
+      : await this.getDenySingleSwapProvider(
+          fromToken.networkId,
+          toToken.networkId,
+        );
     const denySingleSwapProvider = inputDenySingleSwapProvider
       ? mergeDenyProviderStrings(
           configuredDenySingleSwapProvider,
@@ -1398,7 +1400,7 @@ export default class ServiceSwap extends ServiceBase {
       ...(toTokenAmount ? { toTokenAmount } : {}),
       userMarketPriceRate,
       denyCrossChainProvider,
-      denySingleSwapProvider,
+      ...(skipSingleSwapProviderDenyList ? {} : { denySingleSwapProvider }),
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };

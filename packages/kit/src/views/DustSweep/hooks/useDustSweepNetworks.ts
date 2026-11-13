@@ -69,8 +69,7 @@ function matchesVerifiedContext(
     verified.network.networkId === entry.network.networkId &&
     verified.accountId === entry.accountId &&
     verified.address === entry.address &&
-    verified.deriveAddressEncoding === entry.deriveAddressEncoding &&
-    verified.denySingleSwapProvider === entry.denySingleSwapProvider
+    verified.deriveAddressEncoding === entry.deriveAddressEncoding
   );
 }
 
