@@ -1,6 +1,8 @@
 // App translations come from OneKeyHQ/onekey-i18n (projects/app) through the
-// GitHub API: released archives for normal pulls, a PR's CI preview while an
+// GitHub API: the project's release for normal pulls, a PR's CI preview while an
 // onekey-i18n PR is open. No local checkout of onekey-i18n is involved.
+// The release is app-latest (published from onekey-i18n main), or app-test with
+// ONEKEY_I18N_CHANNEL=test (published from a branch while it is being tried).
 // Auth: reads may use ONEKEY_I18N_TOKEN, a shared read-only token that the
 // yarn scripts load from 1Password (yarn op). Writes, i.e. copy PRs, always use
 // the developer's own identity: GH_TOKEN, GITHUB_TOKEN or `gh auth token`.
@@ -17,9 +19,9 @@ const CENTRAL_REPO = 'OneKeyHQ/onekey-i18n';
 const PROJECT_SLUG = 'app';
 const PREVIEW_ARTIFACT = 'i18n-preview';
 const LOCALE_ROOT = 'packages/shared/src/locale';
-const LOCK_PATH = `${LOCALE_ROOT}/i18n.lock.json`;
 
 const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
+const releaseChannel = () => process.env.ONEKEY_I18N_CHANNEL || 'latest';
 
 /** Token for reads; with write, the developer's own token for the copy PR. */
 function resolveToken({ write = false, env = process.env } = {}) {
@@ -211,9 +213,12 @@ function verifiedArchive(name, archive, sumsText) {
   return { sha256: actual, files: textFiles(readZip(archive)) };
 }
 
-/** Assets of one release: `${PROJECT_SLUG}-latest` by default. */
-async function releaseAssets({ version, api = githubApi() } = {}) {
-  const tag = version ? `${PROJECT_SLUG}-${version}` : `${PROJECT_SLUG}-latest`;
+/** Assets of the project's release in a channel: app-latest by default. */
+async function releaseAssets({
+  channel = releaseChannel(),
+  api = githubApi(),
+} = {}) {
+  const tag = `${PROJECT_SLUG}-${channel}`;
   const release = await api.get(
     `/repos/${CENTRAL_REPO}/releases/tags/${encodeURIComponent(tag)}`,
   );
@@ -223,40 +228,59 @@ async function releaseAssets({ version, api = githubApi() } = {}) {
     return api.download(asset.url);
   };
   return {
+    tag,
     manifest: JSON.parse((await download('manifest.json')).toString('utf8')),
     sums: (await download('SHA256SUMS')).toString('utf8'),
     download,
   };
 }
 
+// Releases are replaced in place; a read caught between the files of an update
+// fails its checksum or misses a file, and succeeds when read once more.
+async function readRelease(read, retryDelayMs = 3000) {
+  try {
+    return await read();
+  } catch (error) {
+    if (!/does not match SHA256SUMS|has no |HTTP 404/.test(error.message))
+      throw error;
+    await delay(retryDelayMs);
+    return read();
+  }
+}
+
 /** Ready-to-use app files of a release. */
-async function fromRelease({ version, api } = {}) {
-  const { manifest, sums, download } = await releaseAssets({ version, api });
-  const name = `${PROJECT_SLUG}.zip`;
-  const { sha256: zipSha256, files } = verifiedArchive(
-    name,
-    await download(name),
-    sums,
-  );
-  return {
-    source: 'release',
-    tag: manifest.tag,
-    version: manifest.version,
-    commit: manifest.commit,
-    zipSha256,
-    files,
-  };
+async function fromRelease({ channel, api, retryDelayMs } = {}) {
+  return readRelease(async () => {
+    const { tag, manifest, sums, download } = await releaseAssets({
+      channel,
+      api,
+    });
+    const name = `${PROJECT_SLUG}.zip`;
+    return {
+      source: 'release',
+      tag,
+      version: manifest.version,
+      commit: manifest.commit,
+      files: verifiedArchive(name, await download(name), sums).files,
+    };
+  }, retryDelayMs);
 }
 
 /** Canonical project data of a release (project.json, keys.json, locales/*). */
-async function sourceFromRelease({ version, api } = {}) {
-  const { manifest, sums, download } = await releaseAssets({ version, api });
-  const name = `${PROJECT_SLUG}.source.zip`;
-  return {
-    tag: manifest.tag,
-    commit: manifest.commit,
-    files: verifiedArchive(name, await download(name), sums).files,
-  };
+async function sourceFromRelease({ channel, api, retryDelayMs } = {}) {
+  return readRelease(async () => {
+    const { tag, manifest, sums, download } = await releaseAssets({
+      channel,
+      api,
+    });
+    const name = `${PROJECT_SLUG}.source.zip`;
+    return {
+      tag,
+      version: manifest.version,
+      commit: manifest.commit,
+      files: verifiedArchive(name, await download(name), sums).files,
+    };
+  }, retryDelayMs);
 }
 
 /**
@@ -304,18 +328,12 @@ async function fromPullRequest({
         throw new Error(
           `The preview of PR #${pr} has no ${PROJECT_SLUG} files.`,
         );
-      const { sha256: zipSha256, files } = verifiedArchive(
+      const { files } = verifiedArchive(
         `${PROJECT_SLUG}.zip`,
         archive,
         sums.toString('utf8'),
       );
-      return {
-        source: 'pr',
-        pr: Number(pr),
-        commit: headSha,
-        zipSha256,
-        files,
-      };
+      return { source: 'pr', pr: Number(pr), commit: headSha, files };
     }
     if (!wait || (!pending && runs.length > 0) || Date.now() > deadline)
       throw new Error(
@@ -327,15 +345,6 @@ async function fromPullRequest({
   }
 }
 
-/** Digest of generated files, independent of the order they are listed in. */
-function filesDigest(files) {
-  const hash = crypto.createHash('sha256');
-  for (const relative of Object.keys(files).toSorted()) {
-    hash.update(relative).update('\0').update(files[relative]).update('\0');
-  }
-  return hash.digest('hex');
-}
-
 function assertSafePath(relative) {
   if (
     !relative ||
@@ -345,7 +354,7 @@ function assertSafePath(relative) {
     throw new Error(`Unsafe path in exported files: ${relative}`);
 }
 
-/** Write exported files under LOCALE_ROOT and record them in i18n.lock.json. */
+/** Write exported files under LOCALE_ROOT; returns how many were written. */
 function writeLocaleFiles(outputRoot, result) {
   const localeRoot = path.join(outputRoot, LOCALE_ROOT);
   for (const relative of Object.keys(result.files)) assertSafePath(relative);
@@ -365,58 +374,7 @@ function writeLocaleFiles(outputRoot, result) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, content);
   }
-  const lock = {
-    repo: CENTRAL_REPO,
-    project: PROJECT_SLUG,
-    source: result.source,
-    ...(result.tag ? { tag: result.tag, version: result.version } : {}),
-    ...(result.pr ? { pr: result.pr } : {}),
-    commit: result.commit,
-    zipSha256: result.zipSha256,
-    filesSha256: filesDigest(result.files),
-    files: Object.keys(result.files).toSorted(),
-  };
-  fs.writeFileSync(
-    path.join(outputRoot, LOCK_PATH),
-    `${JSON.stringify(lock, null, 2)}\n`,
-  );
-  return lock;
-}
-
-/**
- * Check generated files against i18n.lock.json. Files from an onekey-i18n PR
- * preview are rejected unless allowPreview: they must come from a release
- * before the change can merge.
- */
-function verifyLock(root = ROOT, { allowPreview = false } = {}) {
-  const lockFile = path.join(root, LOCK_PATH);
-  if (!fs.existsSync(lockFile))
-    throw new Error(`${LOCK_PATH} is missing; run yarn i18n:pull.`);
-  const lock = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
-  if (lock.source !== 'release' && !allowPreview)
-    throw new Error(
-      `Locale files come from onekey-i18n PR #${lock.pr} (not merged). Merge it, then run yarn i18n:pull to pin its release.`,
-    );
-  const localeRoot = path.join(root, LOCALE_ROOT);
-  const extra = fs
-    .readdirSync(path.join(localeRoot, 'json'))
-    .filter(
-      (name) => name.endsWith('.json') && !lock.files.includes(`json/${name}`),
-    );
-  if (extra.length)
-    throw new Error(
-      `Locale files missing from ${LOCK_PATH}: ${extra.join(', ')}`,
-    );
-  const files = {};
-  for (const relative of lock.files) {
-    assertSafePath(relative);
-    files[relative] = fs.readFileSync(path.join(localeRoot, relative), 'utf8');
-  }
-  if (filesDigest(files) !== lock.filesSha256)
-    throw new Error(
-      `Generated locale files differ from ${LOCK_PATH}. Do not edit them by hand; change copy in ${CENTRAL_REPO} and run yarn i18n:pull.`,
-    );
-  return lock;
+  return Object.keys(result.files).length;
 }
 
 module.exports = {
@@ -424,15 +382,12 @@ module.exports = {
   CENTRAL_REPO,
   PROJECT_SLUG,
   LOCALE_ROOT,
-  LOCK_PATH,
   githubApi,
   readZip,
   resolveToken,
   fromRelease,
   fromPullRequest,
   sourceFromRelease,
-  filesDigest,
   parseSums,
   writeLocaleFiles,
-  verifyLock,
 };

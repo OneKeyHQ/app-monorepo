@@ -14,7 +14,6 @@ const GENERATED_PATHS = [
   LOCALES_PATH,
   ENUM_PATH,
   'packages/shared/src/locale/localeJsonMap.ts',
-  'packages/shared/src/locale/i18n.lock.json',
 ];
 
 function workflowMode(mode = 'complete') {

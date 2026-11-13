@@ -187,7 +187,9 @@ function createReviewedDraft(
   }
   if (!revised) throw new Error('Revision contains no changes.');
   if (baseline && (!baseline.sync || baseline.kind !== 'i18n-draft'))
-    throw new Error('A refreshed baseline must be a scanned draft with a sync.');
+    throw new Error(
+      'A refreshed baseline must be a scanned draft with a sync.',
+    );
   const names = new Set();
   const members = new Set();
   const revisedEntries = plan.entries.map((entry) => {

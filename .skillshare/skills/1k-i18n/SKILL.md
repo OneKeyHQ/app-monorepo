@@ -13,8 +13,7 @@ writes and verification. The model selects scope, judges reuse, writes copy and 
 
 ## Rules
 
-- Never manually edit generated locale JSON, `translations.ts`, `localeJsonMap.ts`
-  or `i18n.lock.json`.
+- Never manually edit generated locale JSON, `translations.ts` or `localeJsonMap.ts`.
 - Before writing or reviewing English source copy, read
   `.skillshare/skills/ui-copy/SKILL.md` and follow its rules.
 - Runtime translations come from bundled locale JSON (`localeLoaders.ts`). Deleting
@@ -81,7 +80,7 @@ Paths are relative to the repository root; use `.tmp/i18n/<task>/` for `<dir>`.
    interrupted. A rerun with the same hash reuses the opened PR.
 7. The onekey-i18n PR needs its CI and one reviewer. Report its link.
 8. Wire generated keys into the requested module, rescan and run appropriate checks.
-   Until the onekey-i18n PR merges, `i18n.lock.json` records that PR as the source and
+   Until the onekey-i18n PR merges, the generated files come from its preview and
    this repository's PR must not merge. After it merges and its release is published,
    run `yarn i18n:pull` (latest release), then commit the files. Report the onekey-i18n PR, locale count, pull verification, unrelated
    generated changes and code wiring. A prepared preview is not a completed write.

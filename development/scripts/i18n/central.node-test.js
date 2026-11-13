@@ -12,10 +12,8 @@ const {
   githubApi,
   resolveToken,
   fromRelease,
-  verifyLock,
   writeLocaleFiles,
 } = require('./central');
-const { run: pull } = require('./i18n-pull');
 const {
   CentralClient,
   blobSha,
@@ -100,7 +98,8 @@ function fakeApi(routes) {
 
 function sourceFixture() {
   return {
-    tag: 'app-2026.11.12.1',
+    tag: 'app-latest',
+    version: '2026.11.12.1',
     commit: 'c1',
     files: {
       'project.json': toStableJson({
@@ -290,7 +289,7 @@ test('finalize refuses to overwrite files main changed after the release', async
   );
   await assert.rejects(
     moved.finalize({ title: 't' }),
-    /main changed locales\/zh_CN\.json after app-2026\.11\.12\.1/,
+    /main changed locales\/zh_CN\.json after app-latest 2026\.11\.12\.1/,
   );
 
   const untouched = commitRoutes({
@@ -326,7 +325,7 @@ test('finalize can open the PR against another onekey-i18n branch', async () => 
   assert.equal(bodies.pull.base, base);
 });
 
-test('pulls a release, pins it in the lock and verify guards the files', async (t) => {
+test('pulls the release of a channel into the locale directory', async (t) => {
   const exported = {
     'json/en_US.json': '{\n  "global.cancel": "Cancel"\n}',
     'json/zh_CN.json': '{\n  "global.cancel": "取消"\n}',
@@ -335,21 +334,17 @@ test('pulls a release, pins it in the lock and verify guards the files', async (
     'localeJsonMap.ts': 'export const LOCALES = {};\n',
   };
   const zip = createZip(exported);
-  const api = fakeApi({
-    [`GET ${REPO}/releases/tags/app-latest`]: {
+  const release = (tag, sums = `${sha256(zip)}  app.zip\n`) => ({
+    [`GET ${REPO}/releases/tags/${tag}`]: {
       assets: ['app.zip', 'SHA256SUMS', 'manifest.json'].map((name) => ({
         name,
-        url: `asset:${name}`,
+        url: `${tag}:${name}`,
       })),
     },
-    'DOWNLOAD asset:app.zip': zip,
-    'DOWNLOAD asset:SHA256SUMS': Buffer.from(`${sha256(zip)}  app.zip\n`),
-    'DOWNLOAD asset:manifest.json': Buffer.from(
-      JSON.stringify({
-        tag: 'app-2026.11.12.1',
-        version: '2026.11.12.1',
-        commit: 'c1',
-      }),
+    [`DOWNLOAD ${tag}:app.zip`]: zip,
+    [`DOWNLOAD ${tag}:SHA256SUMS`]: Buffer.from(sums),
+    [`DOWNLOAD ${tag}:manifest.json`]: Buffer.from(
+      JSON.stringify({ version: '2026.11.13.2', commit: 'c1' }),
     ),
   });
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-'));
@@ -357,9 +352,12 @@ test('pulls a release, pins it in the lock and verify guards the files', async (
   fs.mkdirSync(path.join(root, LOCALE_ROOT, 'json'), { recursive: true });
   fs.writeFileSync(path.join(root, LOCALE_ROOT, 'json/stale.json'), '{}');
 
-  const lock = writeLocaleFiles(root, await fromRelease({ api }));
-  assert.equal(lock.tag, 'app-2026.11.12.1');
-  assert.equal(lock.source, 'release');
+  const latest = await fromRelease({ api: fakeApi(release('app-latest')) });
+  assert.deepEqual(
+    { tag: latest.tag, version: latest.version, commit: latest.commit },
+    { tag: 'app-latest', version: '2026.11.13.2', commit: 'c1' },
+  );
+  assert.equal(writeLocaleFiles(root, latest), 4);
   assert.equal(
     fs.existsSync(path.join(root, LOCALE_ROOT, 'json/stale.json')),
     false,
@@ -368,51 +366,37 @@ test('pulls a release, pins it in the lock and verify guards the files', async (
     fs.readFileSync(path.join(root, LOCALE_ROOT, 'json/zh_CN.json'), 'utf8'),
     exported['json/zh_CN.json'],
   );
-  assert.match(
-    await pull(['--verify', '--output-root', root]),
-    /match app-2026\.11\.12\.1/,
-  );
 
-  fs.writeFileSync(path.join(root, LOCALE_ROOT, 'json/zh_CN.json'), 'edited');
-  await assert.rejects(
-    pull(['--verify', '--output-root', root]),
-    /differ from/,
-  );
-  fs.writeFileSync(
-    path.join(root, LOCALE_ROOT, 'json/zh_CN.json'),
-    exported['json/zh_CN.json'],
-  );
-  fs.writeFileSync(path.join(root, LOCALE_ROOT, 'json/extra.json'), '{}');
-  await assert.rejects(
-    pull(['--verify', '--output-root', root]),
-    /missing from/,
-  );
-
-  fs.rmSync(path.join(root, LOCALE_ROOT, 'json/extra.json'));
-  writeLocaleFiles(root, {
-    source: 'pr',
-    pr: 12,
-    commit: 'h1',
-    zipSha256: 'x',
-    files: exported,
+  // ONEKEY_I18N_CHANNEL=test reads the release an onekey-i18n branch publishes.
+  const previous = process.env.ONEKEY_I18N_CHANNEL;
+  t.after(() => {
+    if (previous === undefined) delete process.env.ONEKEY_I18N_CHANNEL;
+    else process.env.ONEKEY_I18N_CHANNEL = previous;
   });
-  assert.throws(() => verifyLock(root), /onekey-i18n PR #12/);
-  assert.equal(verifyLock(root, { allowPreview: true }).pr, 12);
-
-  const tampered = fakeApi({
-    [`GET ${REPO}/releases/tags/app-latest`]: {
-      assets: [
-        { name: 'app.zip', url: 'asset:app.zip' },
-        { name: 'SHA256SUMS', url: 'asset:bad' },
-        { name: 'manifest.json', url: 'asset:manifest.json' },
-      ],
-    },
-    'DOWNLOAD asset:bad': Buffer.from(`${'0'.repeat(64)}  app.zip\n`),
-    'DOWNLOAD asset:app.zip': zip,
-    'DOWNLOAD asset:manifest.json': Buffer.from('{}'),
+  process.env.ONEKEY_I18N_CHANNEL = 'test';
+  const branchBuild = await fromRelease({
+    api: fakeApi(release('app-test')),
   });
+  assert.equal(branchBuild.tag, 'app-test');
+  delete process.env.ONEKEY_I18N_CHANNEL;
+
+  // A read caught in the middle of a release update is retried once.
+  const racing = release('app-latest');
+  const stale = createZip({ 'json/en_US.json': '{}' });
+  let downloads = 0;
+  Object.defineProperty(racing, 'DOWNLOAD app-latest:app.zip', {
+    enumerable: true,
+    get: () => ((downloads += 1) === 1 ? stale : zip),
+  });
+  await fromRelease({ api: fakeApi(racing), retryDelayMs: 0 });
+  assert.equal(downloads, 2);
+
+  // Files that never match SHA256SUMS are rejected.
   await assert.rejects(
-    fromRelease({ api: tampered }),
+    fromRelease({
+      api: fakeApi(release('app-latest', `${'0'.repeat(64)}  app.zip\n`)),
+      retryDelayMs: 0,
+    }),
     /does not match SHA256SUMS/,
   );
 });

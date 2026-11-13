@@ -292,7 +292,7 @@ class CentralClient {
       );
       if (moved.length)
         throw new Error(
-          `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag}. Wait for its release, then sync and preview again.`,
+          `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag} ${this.source.version}. Wait for its release, then sync and preview again.`,
         );
     }
     const baseTree = (await this.api.get(`${repo}/git/commits/${head}`)).tree
