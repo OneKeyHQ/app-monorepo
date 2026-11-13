@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Setoran bersih",
   "perp_portfolio_net_deposits_tooltip": "Total setoran dikurangi total penarikan selama periode ini.",
   "perp_portfolio_open_positions": "Posisi terbuka",
+  "perp_portfolio_payoff_ratio": "Rasio untung/rugi",
+  "perp_portfolio_payoff_ratio_tooltip": "Rata-rata keuntungan per eksekusi yang untung dibagi nilai absolut rata-rata kerugian per eksekusi yang rugi. Rasio 2,00 berarti rata-rata keuntungan dua kali rata-rata kerugian. Jika tidak ada eksekusi yang untung atau tidak ada yang rugi, yang ditampilkan adalah --.",
   "perp_portfolio_performance": "Performa",
   "perp_portfolio_period_1d": "1H",
   "perp_portfolio_period_1m": "1Bl",

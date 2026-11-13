@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Net Deposits",
   "perp_portfolio_net_deposits_tooltip": "Total deposits minus total withdrawals during this period.",
   "perp_portfolio_open_positions": "Open Positions",
+  "perp_portfolio_payoff_ratio": "Payoff ratio",
+  "perp_portfolio_payoff_ratio_tooltip": "Average gain per winning fill divided by the size of the average loss per losing fill. A ratio of 2.00 means the average gain is twice the average loss. Shows -- if there are no winning fills or no losing fills.",
   "perp_portfolio_performance": "Performance",
   "perp_portfolio_period_1d": "1D",
   "perp_portfolio_period_1m": "1M",

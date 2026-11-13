@@ -3972,6 +3972,8 @@ export enum ETranslations {
   perp_portfolio_net_deposits = 'perp_portfolio_net_deposits',
   perp_portfolio_net_deposits_tooltip = 'perp_portfolio_net_deposits_tooltip',
   perp_portfolio_open_positions = 'perp_portfolio_open_positions',
+  perp_portfolio_payoff_ratio = 'perp_portfolio_payoff_ratio',
+  perp_portfolio_payoff_ratio_tooltip = 'perp_portfolio_payoff_ratio_tooltip',
   perp_portfolio_performance = 'perp_portfolio_performance',
   perp_portfolio_period_1d = 'perp_portfolio_period_1d',
   perp_portfolio_period_1m = 'perp_portfolio_period_1m',

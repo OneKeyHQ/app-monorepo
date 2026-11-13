@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "नेट जमा",
   "perp_portfolio_net_deposits_tooltip": "इस अवधि में कुल जमा घटाकर कुल निकासी।",
   "perp_portfolio_open_positions": "खुली पोजीशन",
+  "perp_portfolio_payoff_ratio": "लाभ-हानि अनुपात",
+  "perp_portfolio_payoff_ratio_tooltip": "लाभ वाले निष्पादनों के औसत लाभ को हानि वाले निष्पादनों की औसत हानि के निरपेक्ष मान से भाग देकर यह अनुपात मिलता है। 2.00 का अर्थ है कि औसत लाभ औसत हानि का दोगुना है। यदि लाभ वाला या हानि वाला कोई निष्पादन नहीं है, तो -- दिखता है।",
   "perp_portfolio_performance": "प्रदर्शन",
   "perp_portfolio_period_1d": "1 दिन",
   "perp_portfolio_period_1m": "1 महीना",

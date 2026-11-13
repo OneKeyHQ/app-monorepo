@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Чисті депозити",
   "perp_portfolio_net_deposits_tooltip": "Загальна сума поповнень мінус загальна сума виводів за цей період.",
   "perp_portfolio_open_positions": "Відкриті позиції",
+  "perp_portfolio_payoff_ratio": "Співвідношення прибутку й збитку",
+  "perp_portfolio_payoff_ratio_tooltip": "Середній прибуток за прибутковими виконаннями, поділений на модуль середнього збитку за збитковими виконаннями. Значення 2,00 означає, що середній прибуток удвічі перевищує середній збиток. Якщо немає прибуткових або немає збиткових виконань, відображається --.",
   "perp_portfolio_performance": "Показники",
   "perp_portfolio_period_1d": "1Д",
   "perp_portfolio_period_1m": "1М",

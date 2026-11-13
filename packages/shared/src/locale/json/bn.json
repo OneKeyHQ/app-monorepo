@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "নেট আমানত",
   "perp_portfolio_net_deposits_tooltip": "এই সময়কালে মোট আমানত বিয়োগ মোট উত্তোলন।",
   "perp_portfolio_open_positions": "খোলা পজিশন",
+  "perp_portfolio_payoff_ratio": "লাভ-ক্ষতির অনুপাত",
+  "perp_portfolio_payoff_ratio_tooltip": "লাভজনক প্রতিটি অর্ডার পূরণের গড় লাভকে ক্ষতিতে পূরণ হওয়া অর্ডারগুলোর গড় ক্ষতির পরম মান দিয়ে ভাগ করা হয়। 2.00 মানে গড় লাভ গড় ক্ষতির দ্বিগুণ। লাভে বা ক্ষতিতে পূরণ হওয়া অর্ডারের কোনো একটি ধরন অনুপস্থিত থাকলে -- দেখানো হয়।",
   "perp_portfolio_performance": "পারফরম্যান্স",
   "perp_portfolio_period_1d": "১ দিন",
   "perp_portfolio_period_1m": "১ মাস",

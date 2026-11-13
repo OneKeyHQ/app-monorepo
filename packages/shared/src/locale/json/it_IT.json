@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Depositi netti",
   "perp_portfolio_net_deposits_tooltip": "Depositi totali meno prelievi totali nel corso di questo periodo.",
   "perp_portfolio_open_positions": "Posizioni aperte",
+  "perp_portfolio_payoff_ratio": "Rapporto guadagno/perdita",
+  "perp_portfolio_payoff_ratio_tooltip": "Guadagno medio per esecuzione in profitto diviso per il valore assoluto della perdita media per esecuzione in perdita. Con un rapporto di 2,00, il guadagno medio è il doppio della perdita media. Se mancano esecuzioni in profitto o in perdita, viene mostrato --.",
   "perp_portfolio_performance": "Performance",
   "perp_portfolio_period_1d": "1G",
   "perp_portfolio_period_1m": "1M",
