@@ -68,16 +68,28 @@ const EN = {
   networkPairs: 'Pairs',
   loanNetApyInfo: (ltv: string) =>
     `What the collateral earns less what the loan costs in a year, over your net worth in the market. Worked out for a loan of half the collateral's value (${ltv} LTV), so every row compares the same loan. Pairs that can't lend that much aren't listed.`,
-  // The guide for a wallet without positions: the checklist's title and
-  // its three tasks
+  // The guide for a wallet without positions: the checklist's heading, its
+  // four steps, and what an open step says under its name
   guideTitle: 'Start earning',
-  guideSteps: ['Add ETH on Base', 'Deposit USDC', 'View your position'],
-  // Why and how much, in the window a task's name opens on hover
+  guideSubtitle: 'Make your first deposit in 4 steps.',
+  guideProgress: (done: number, total: number) =>
+    `${done} of ${total} complete`,
+  guideSteps: [
+    'Add ETH for network fees',
+    'Choose a vault',
+    'Deposit USDC',
+    'View your portfolio',
+  ],
   guideGasInfo: (amount: string) =>
-    `Network fees are paid in ETH, not USDC. Add about ${amount} ETH, enough for this deposit and a later withdrawal.`,
+    `Fees on Base are paid in ETH, not USDC. About ${amount} ETH covers this deposit and a later withdrawal.`,
+  guideVaultInfo: 'Compare assets, networks and yields to find a vault.',
   guideDepositInfo:
-    "A vault lends your USDC to borrowers and pays you the interest. Withdraw anytime from My portfolio, unless the vault's funds are all lent out at that moment.",
+    'The vault lends your USDC to borrowers and pays you the interest. Withdraw anytime, unless all its funds are lent out at that moment.',
+  guidePortfolioInfo: 'Your deposit and what it earns show in My portfolio.',
+  guideChooseVault: 'Choose a vault',
   guideGoToPortfolio: 'My portfolio',
+  guideTutorial: 'View tutorial',
+  guideSkip: 'Skip for now',
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
   // Paid with another token: the swap that brings the collateral first
@@ -192,12 +204,24 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   loanNetApyInfo: (ltv: string) =>
     `抵押品一年的收益减去借款一年的成本，再除以你在该市场的净值。按借出抵押品价值的一半（${ltv} LTV）计算，所以每一行比较的是同一笔借款。借不出这么多的组合不会列出。`,
   guideTitle: '开始赚币',
-  guideSteps: ['在 Base 上添加 ETH', '认购 USDC', '查看持仓'],
+  guideSubtitle: '4 步完成首次认购。',
+  guideProgress: (done: number, total: number) => `已完成 ${done}/${total}`,
+  guideSteps: [
+    '添加 ETH 支付网络费用',
+    '选择金库',
+    '认购 USDC',
+    '查看投资组合',
+  ],
   guideGasInfo: (amount: string) =>
-    `网络费用用 ETH 支付，不能用 USDC。添加约 ${amount} ETH，够这次认购和之后的一次赎回。`,
+    `Base 上的网络费用用 ETH 支付，不能用 USDC。约 ${amount} ETH 够这次认购和之后的一次赎回。`,
+  guideVaultInfo: '比较资产、网络和收益率，选出一个金库。',
   guideDepositInfo:
-    '金库把你的 USDC 借给借款人，并把利息付给你。可随时在“我的投资组合”赎回，除非那一刻金库的资金已全部借出。',
+    '金库把你的 USDC 借给借款人，并把利息付给你。可随时赎回，除非那一刻金库的资金已全部借出。',
+  guidePortfolioInfo: '你的认购和它的收益会显示在“我的投资组合”。',
+  guideChooseVault: '选择金库',
   guideGoToPortfolio: '我的投资组合',
+  guideTutorial: '查看教程',
+  guideSkip: '暂时跳过',
   supplyAndBorrow: '存入并借币',
   swapSupplyAndBorrow: '兑换、存入并借币',
   loanLtv: 'LTV',

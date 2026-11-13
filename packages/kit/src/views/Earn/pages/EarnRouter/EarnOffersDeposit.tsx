@@ -61,6 +61,8 @@ import {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { isGuideVaultPick } from '../../components/desktopHome/earnGuide.utils';
+import { earnGuideStore } from '../../components/desktopHome/earnGuideStore';
 import { EarnNavigation } from '../../earnUtils';
 import { useEarnAccountKey } from '../../hooks/useEarnAccountKey';
 import {
@@ -1107,27 +1109,50 @@ export function EarnOffersDeposit({
     },
     [shown?.key, warmListedOffers],
   );
-  const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
-    setShownKey(offer.key);
-    setIsListOpen(false);
-    clearTimeout(applyTimerRef.current);
-    applyTimerRef.current = setTimeout(() => {
+  // The desktop home's guide ticks its "Choose a vault" step on a pick of
+  // its own token's vaults, the one already chosen too; nothing elsewhere
+  const noteGuidePick = useCallback(
+    (offer: IEarnDesktopHoldOffer) => {
+      if (
+        isGuideVaultPick({
+          symbol: tokenSymbol,
+          networkId: getOfferNetworkId(offer) || networkId,
+        })
+      ) {
+        earnGuideStore.markVaultChosen(offer.key);
+      }
+    },
+    [networkId, tokenSymbol],
+  );
+  const handleSelect = useCallback(
+    (offer: IEarnDesktopHoldOffer) => {
+      noteGuidePick(offer);
+      setShownKey(offer.key);
+      setIsListOpen(false);
+      clearTimeout(applyTimerRef.current);
+      applyTimerRef.current = setTimeout(() => {
+        easeModalHeightChanges();
+        setStartAmount(typedAmountRef.current || undefined);
+        setPickedKey(offer.key);
+      }, LIST_PICK_APPLY_MS);
+    },
+    [noteGuidePick],
+  );
+
+  // Every offer in view: a pick goes to the form at once, with what was typed
+  const handleRoutePick = useCallback(
+    (offer: IEarnDesktopHoldOffer) => {
+      noteGuidePick(offer);
+      if (offer.key === selectedRef.current?.key) {
+        return;
+      }
+      setShownKey(offer.key);
       easeModalHeightChanges();
       setStartAmount(typedAmountRef.current || undefined);
       setPickedKey(offer.key);
-    }, LIST_PICK_APPLY_MS);
-  }, []);
-
-  // Every offer in view: a pick goes to the form at once, with what was typed
-  const handleRoutePick = useCallback((offer: IEarnDesktopHoldOffer) => {
-    if (offer.key === selectedRef.current?.key) {
-      return;
-    }
-    setShownKey(offer.key);
-    easeModalHeightChanges();
-    setStartAmount(typedAmountRef.current || undefined);
-    setPickedKey(offer.key);
-  }, []);
+    },
+    [noteGuidePick],
+  );
   const warmOffer = useCallback(
     (offer: IEarnDesktopHoldOffer) => warmFormData(buildOfferParams(offer)),
     [buildOfferParams],

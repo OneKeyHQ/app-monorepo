@@ -36,6 +36,8 @@ type IEarnGuideSnapshot = {
   previewStep?: IEarnGuideStep;
   /** The checklist folded or opened during the preview */
   previewCollapsed?: boolean;
+  /** Accounts whose guide was skipped; forgotten when the app closes */
+  skipped?: Record<string, boolean>;
 };
 
 const EMPTY_SAVED: IEarnGuideSaved = {};
@@ -106,7 +108,7 @@ export const earnGuideStore = {
     update({ polledGas: undefined });
   },
   /**
-   * A deposit went out of the Earn window: the guide's second task, when
+   * A deposit went out of the Earn window: the guide's third step, when
    * the account on the home had no position before it
    */
   markDeposited() {
@@ -119,7 +121,24 @@ export const earnGuideStore = {
       earnGuideStore.save(live.scope, { depositedAt: Date.now() });
     }
   },
-  /** My portfolio opened after that deposit: the guide's last task */
+  /**
+   * A vault picked in the Earn window: the guide's second step, and where
+   * its Deposit step opens
+   */
+  markVaultChosen(vaultKey: string) {
+    const { live } = snapshot;
+    if (!live) {
+      return;
+    }
+    const saved = snapshot.saved[live.scope] ?? EMPTY_SAVED;
+    if (
+      countsAsGuideDeposit({ ...live, saved }) &&
+      saved.vaultKey !== vaultKey
+    ) {
+      earnGuideStore.save(live.scope, { vaultKey });
+    }
+  },
+  /** My portfolio opened after that deposit: the guide's last step */
   markPositionViewed() {
     const { live } = snapshot;
     const saved = live ? snapshot.saved[live.scope] : undefined;
@@ -133,6 +152,18 @@ export const earnGuideStore = {
       return;
     }
     earnGuideStore.save(scope, { collapsed });
+  },
+  /**
+   * Skipped for now: gone until the app is opened again, when it is back
+   * folded to its pill. In the preview it ends the preview
+   */
+  skip(scope: string) {
+    if (snapshot.previewStep) {
+      earnGuideStore.setPreview(undefined);
+      return;
+    }
+    update({ skipped: { ...snapshot.skipped, [scope]: true } });
+    earnGuideStore.save(scope, { collapsed: true });
   },
   setPreview(previewStep: IEarnGuideStep | undefined) {
     update({ previewStep, previewCollapsed: undefined });
@@ -174,7 +205,12 @@ export function useEarnGuide(): IEarnGuide {
       ? getPreviewGuideState(previewStep)
       : deriveGuideState({ hasGas, saved }),
     isShown: live
-      ? shouldShowGuide({ ...live, saved, previewStep })
+      ? shouldShowGuide({
+          ...live,
+          saved,
+          previewStep,
+          isSkipped: Boolean(snap.skipped?.[scope]),
+        })
       : Boolean(previewStep),
     isPreview: Boolean(previewStep),
     isCollapsed: previewStep ? snap.previewCollapsed : saved.collapsed,

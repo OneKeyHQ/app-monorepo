@@ -9,10 +9,10 @@ import type {
 } from './earnDesktopHome.utils';
 
 // The guide for a wallet without positions (demo 10-22, a checklist since
-// 11-13): add ETH on Base, deposit USDC, view the position. Each task opens
-// the app's own window for it. Base because its network fees are a few
-// cents; the PO picked this Morpho USDC vault as the example, which the Earn
-// window starts on
+// 11-13): add ETH for the fees, choose a vault, deposit USDC, view the
+// portfolio. Each step opens the app's own window for it. Base because its
+// network fees are a few cents; the PO picked this Morpho USDC vault as the
+// example, which the Earn window starts on
 export const EARN_GUIDE_SYMBOL = 'USDC';
 export const EARN_GUIDE_PROVIDER = 'morpho';
 export const EARN_GUIDE_VAULT = '0x1401d1271c47648ac70cbcdfa3776d4a87ce006b';
@@ -23,11 +23,14 @@ export const getEarnGuideNetworkId = () => getNetworkIdsMap().base;
 export const EARN_GUIDE_MIN_GAS = 0.0001;
 export const EARN_GUIDE_SUGGESTED_GAS = '0.0005';
 
-export type IEarnGuideStep = 1 | 2 | 3;
-export const EARN_GUIDE_STEPS: IEarnGuideStep[] = [1, 2, 3];
+export type IEarnGuideStep = 1 | 2 | 3 | 4;
+export const EARN_GUIDE_STEPS: IEarnGuideStep[] = [1, 2, 3, 4];
+const LAST_STEP: IEarnGuideStep = 4;
 
 /** What the guide keeps for an account between visits */
 export type IEarnGuideSaved = {
+  /** The vault the user picked in the Earn window, by its offer's key */
+  vaultKey?: string;
   /** When the account's first deposit went out of the Earn window */
   depositedAt?: number;
   completed?: boolean;
@@ -36,8 +39,8 @@ export type IEarnGuideSaved = {
 };
 
 export type IEarnGuideState = {
-  /** Tasks 1 to 3 in order */
-  done: [boolean, boolean, boolean];
+  /** Steps 1 to 4 in order */
+  done: [boolean, boolean, boolean, boolean];
   current: IEarnGuideStep;
 };
 
@@ -45,12 +48,13 @@ const toState = (done: IEarnGuideState['done']): IEarnGuideState => {
   const index = done.findIndex((item) => !item);
   return {
     done,
-    current: (index < 0 ? 3 : index + 1) as IEarnGuideStep,
+    current: (index < 0 ? LAST_STEP : index + 1) as IEarnGuideStep,
   };
 };
 
-// A deposit had its fee paid, so task 1 stays done after it even when the
-// ETH left is under the mark. The first task not done is the current one
+// A deposit had its fee paid and its vault chosen, so steps 1 and 2 stay done
+// after it, even when the ETH left is under the mark. A vault can be chosen
+// before the ETH is in. The first step not done is the current one
 export function deriveGuideState({
   hasGas,
   saved,
@@ -59,7 +63,12 @@ export function deriveGuideState({
   saved: IEarnGuideSaved;
 }): IEarnGuideState {
   const deposited = Boolean(saved.depositedAt);
-  return toState([hasGas || deposited, deposited, Boolean(saved.completed)]);
+  return toState([
+    hasGas || deposited,
+    Boolean(saved.vaultKey) || deposited,
+    deposited,
+    Boolean(saved.completed),
+  ]);
 }
 
 /** The preview key's state: every step before the shown one done */
@@ -79,13 +88,14 @@ export function nextPreviewStep(
   if (!step) {
     return 1;
   }
-  return step < 3 ? ((step + 1) as IEarnGuideStep) : undefined;
+  return step < LAST_STEP ? ((step + 1) as IEarnGuideStep) : undefined;
 }
 
 // The checklist shows for an account with nothing deposited, and for no
 // wallet at all. A watched account can't sign, so it gets none. Once a
 // deposit from the Earn window is in the account has a position, and the
-// checklist stays for its last task; a position made any other way ends it
+// checklist stays for its last step; a position made any other way ends it.
+// Skipped, it is gone until the app is opened again
 export function shouldShowGuide({
   isLoading,
   hasWallet,
@@ -93,6 +103,7 @@ export function shouldShowGuide({
   hasPositions,
   saved,
   previewStep,
+  isSkipped,
 }: {
   isLoading: boolean;
   hasWallet: boolean;
@@ -100,11 +111,12 @@ export function shouldShowGuide({
   hasPositions: boolean;
   saved: IEarnGuideSaved;
   previewStep?: IEarnGuideStep;
+  isSkipped?: boolean;
 }) {
   if (previewStep) {
     return true;
   }
-  if (isLoading) {
+  if (isLoading || isSkipped) {
     return false;
   }
   if (!hasWallet) {
@@ -113,9 +125,8 @@ export function shouldShowGuide({
   if (isWatching) {
     return false;
   }
-  // Without positions it shows and can't be put away. A finished one is
-  // gone; it starts over when the account is still without positions later
-  // (see isGuideOverWithoutPositions)
+  // A finished one is gone; it starts over when the account is still
+  // without positions later (see isGuideOverWithoutPositions)
   if (!hasPositions) {
     return !saved.completed;
   }
@@ -141,7 +152,25 @@ export function isGuideOverWithoutPositions({
   );
 }
 
-/** A deposit from the Earn window is the guide's while the account has none */
+// A vault picked in the Earn window is the guide's choice when it is one of
+// the guide's token on the guide's network, where its Deposit step opens
+export function isGuideVaultPick({
+  symbol,
+  networkId,
+}: {
+  symbol: string;
+  networkId: string;
+}) {
+  return (
+    symbol.toUpperCase() === EARN_GUIDE_SYMBOL &&
+    networkId === getEarnGuideNetworkId()
+  );
+}
+
+/**
+ * A pick or a deposit in the Earn window is the guide's while the account
+ * has no position and no deposit yet
+ */
 export function countsAsGuideDeposit({
   hasWallet,
   isWatching,

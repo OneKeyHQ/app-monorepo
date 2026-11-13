@@ -13,6 +13,7 @@ import {
   hasGuideGas,
   isGuideOverWithoutPositions,
   isGuideVaultOffer,
+  isGuideVaultPick,
   nextPreviewStep,
   pickGuideSwapFrom,
   shouldShowGuide,
@@ -73,53 +74,78 @@ const protocolOffer = (
   } as unknown as IStakeProtocolListItem,
 });
 
-describe('guide tasks', () => {
-  it('starts at task 1 without ETH on Base', () => {
+describe('guide steps', () => {
+  it('starts at step 1 without ETH on Base', () => {
     expect(deriveGuideState({ hasGas: false, saved: {} })).toEqual({
-      done: [false, false, false],
+      done: [false, false, false, false],
       current: 1,
     });
   });
 
-  it('starts at the deposit with ETH on Base', () => {
+  it('starts at the vault with ETH on Base', () => {
     expect(deriveGuideState({ hasGas: true, saved: {} })).toEqual({
-      done: [true, false, false],
+      done: [true, false, false, false],
       current: 2,
     });
   });
 
-  it('keeps tasks 1 and 2 done after a deposit, whatever ETH is left', () => {
+  it('moves to the deposit once a vault is picked', () => {
     expect(
-      deriveGuideState({ hasGas: false, saved: { depositedAt: 1 } }),
-    ).toEqual({ done: [true, true, false], current: 3 });
+      deriveGuideState({ hasGas: true, saved: { vaultKey: 'vault' } }),
+    ).toEqual({ done: [true, true, false, false], current: 3 });
   });
 
-  it('marks every task done when finished', () => {
+  it('keeps a vault picked before the ETH is in, and stays on step 1', () => {
+    expect(
+      deriveGuideState({ hasGas: false, saved: { vaultKey: 'vault' } }),
+    ).toEqual({ done: [false, true, false, false], current: 1 });
+  });
+
+  it('keeps steps 1 to 3 done after a deposit, whatever ETH is left and with no pick', () => {
+    expect(
+      deriveGuideState({ hasGas: false, saved: { depositedAt: 1 } }),
+    ).toEqual({ done: [true, true, true, false], current: 4 });
+  });
+
+  it('marks every step done when finished', () => {
     expect(
       deriveGuideState({
         hasGas: true,
         saved: { depositedAt: 1, completed: true },
       }).done,
-    ).toEqual([true, true, true]);
+    ).toEqual([true, true, true, true]);
   });
 });
 
 describe('guide preview', () => {
-  it('shows every task before the previewed one done', () => {
+  it('shows every step before the previewed one done', () => {
     expect(getPreviewGuideState(3)).toEqual({
-      done: [true, true, false],
+      done: [true, true, false, false],
       current: 3,
     });
   });
 
-  it('cycles 1 to 3 and back to the real state', () => {
+  it('cycles 1 to 4 and back to the real state', () => {
     const seen = [];
     let step = nextPreviewStep(undefined);
     while (step) {
       seen.push(step);
       step = nextPreviewStep(step);
     }
-    expect(seen).toEqual([1, 2, 3]);
+    expect(seen).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("which vault pick is the guide's", () => {
+  it('takes a vault of the guide token on the guide network', () => {
+    expect(isGuideVaultPick({ symbol: 'usdc', networkId: BASE })).toBe(true);
+  });
+
+  it('leaves out another token, and the token on another network', () => {
+    expect(isGuideVaultPick({ symbol: 'USDT', networkId: BASE })).toBe(false);
+    expect(isGuideVaultPick({ symbol: 'USDC', networkId: 'evm--1' })).toBe(
+      false,
+    );
   });
 });
 
@@ -152,7 +178,7 @@ describe('when the guide shows', () => {
     expect(shouldShowGuide({ ...base, hasPositions: true })).toBe(false);
   });
 
-  it('stays for the last task after a deposit', () => {
+  it('stays for the last step after a deposit', () => {
     expect(
       shouldShowGuide({
         ...base,
@@ -166,6 +192,13 @@ describe('when the guide shows', () => {
     const saved = { depositedAt: 1, completed: true };
     expect(shouldShowGuide({ ...base, saved })).toBe(false);
     expect(shouldShowGuide({ ...base, hasPositions: true, saved })).toBe(false);
+  });
+
+  it('is gone while skipped, whatever the account holds', () => {
+    expect(shouldShowGuide({ ...base, isSkipped: true })).toBe(false);
+    expect(
+      shouldShowGuide({ ...base, hasWallet: false, isSkipped: true }),
+    ).toBe(false);
   });
 
   it('shows in preview whatever the account holds', () => {

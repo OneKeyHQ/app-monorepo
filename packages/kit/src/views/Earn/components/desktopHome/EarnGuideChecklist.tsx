@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -9,17 +9,17 @@ import Svg, { Circle } from 'react-native-svg';
 import {
   AnimatePresence,
   Button,
+  Divider,
   Icon,
   IconButton,
+  Progress,
+  ScrollView,
   SizableText,
-  Stack,
-  Tooltip,
   XStack,
   YStack,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import type { ITooltipRef } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
@@ -28,10 +28,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   ESwapSource,
@@ -41,7 +42,6 @@ import {
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { useFiatCrypto } from '../../../FiatCrypto/hooks';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { DottedUnderlineText } from '../../../Staking/components/ProtocolDetails/DottedUnderline';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { EarnNavigation } from '../../earnUtils';
 import { buildEarnSwapToken } from '../../pages/EarnRouter/earnRouter.utils';
@@ -64,10 +64,10 @@ import type { IEarnGuideState, IEarnGuideStep } from './earnGuide.utils';
 import type { IEarnGuide } from './earnGuideStore';
 
 const copy = EARN_DESKTOP_DEMO_COPY;
-const PANEL_WIDTH = 320;
-// A task's actions and its explanation start under its name, past the mark
-const MARK_SIZE = 20;
-const MARK_GAP = 10;
+const PANEL_WIDTH = 360;
+// A step's explanation and buttons start under its name, past the mark
+const MARK_SIZE = 24;
+const MARK_GAP = 12;
 const GAS_POLL_MS = 8000;
 // The app's floating surface, as its popovers have it
 const FLOATING_SURFACE = {
@@ -80,33 +80,28 @@ const FLOATING_SURFACE = {
 } as const;
 const HIDDEN_STYLE = { opacity: 0 } as const;
 const RISE_STYLE = { opacity: 0, y: 6 } as const;
-const INFO_CONTENT_PROPS = {
-  p: '$4',
-  borderRadius: '$3',
-  maxWidth: 280,
-} as const;
 
-type IGuideTaskStatus = 'done' | 'current' | 'upcoming';
+type IGuideStepStatus = 'done' | 'current' | 'upcoming';
 
-const getTaskStatus = (
+const getStepStatus = (
   state: IEarnGuideState,
   step: IEarnGuideStep,
-): IGuideTaskStatus => {
+): IGuideStepStatus => {
   if (state.done[step - 1]) {
     return 'done';
   }
   return step === state.current ? 'current' : 'upcoming';
 };
 
-function TaskMarkFace({
+function StepMarkFace({
   step,
   status,
 }: {
   step: IEarnGuideStep;
-  status: IGuideTaskStatus;
+  status: IGuideStepStatus;
 }) {
   if (status === 'done') {
-    return <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+    return <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />;
   }
   const isCurrent = status === 'current';
   return (
@@ -116,12 +111,12 @@ function TaskMarkFace({
       borderRadius="$full"
       bg={isCurrent ? '$bgPrimary' : undefined}
       borderWidth={isCurrent ? 0 : 1.5}
-      borderColor="$neutral6"
+      borderColor="$neutral7"
       ai="center"
       jc="center"
     >
       <SizableText
-        size="$bodySmMedium"
+        size="$bodyMdMedium"
         // The primary button's pair: the number reads on the mark in both themes
         color={isCurrent ? '$textInverse' : '$textSubdued'}
       >
@@ -132,19 +127,19 @@ function TaskMarkFace({
 }
 
 /**
- * A task's number in a circle; a done task's check takes its place. As the
+ * A step's number in a circle; a done step's check takes its place. As the
  * guide moves on, the new mark fades in over the old one as it fades out
  */
-function TaskMark({
+function StepMark({
   step,
   status,
 }: {
   step: IEarnGuideStep;
-  status: IGuideTaskStatus;
+  status: IGuideStepStatus;
 }) {
   const reduceMotion = useReducedMotion();
   if (reduceMotion) {
-    return <TaskMarkFace step={step} status={status} />;
+    return <StepMarkFace step={step} status={status} />;
   }
   return (
     <YStack w={MARK_SIZE} h={MARK_SIZE}>
@@ -159,134 +154,146 @@ function TaskMark({
           enterStyle={HIDDEN_STYLE}
           exitStyle={HIDDEN_STYLE}
         >
-          <TaskMarkFace step={step} status={status} />
+          <StepMarkFace step={step} status={status} />
         </YStack>
       </AnimatePresence>
     </YStack>
   );
 }
 
-/**
- * A task's name. The current one explains itself the app's way: a dotted
- * rule under it, and the why in a small window while the pointer (or the
- * keyboard's focus) is on it, so the list keeps to its few words
- */
-function TaskLabel({
-  testID,
-  label,
-  info,
-  status,
-}: {
-  testID: string;
-  label: string;
-  info?: string;
-  status: IGuideTaskStatus;
-}) {
-  const tooltipRef = useRef<ITooltipRef>({
-    closeTooltip: () => Promise.resolve(),
-    openTooltip: () => Promise.resolve(),
-  });
-  const handleFocus = useCallback(() => {
-    void tooltipRef.current.openTooltip();
-  }, []);
-  const handleBlur = useCallback(() => {
-    void tooltipRef.current.closeTooltip();
-  }, []);
-  const isCurrent = status === 'current';
-  const textProps = {
-    size: isCurrent ? '$bodyLgMedium' : '$bodyLg',
-    color: isCurrent ? '$text' : '$textSubdued',
-    numberOfLines: 1,
-  } as const;
-  if (!isCurrent || !info) {
-    return (
-      <SizableText testID={testID} flexShrink={1} {...textProps}>
-        {label}
-      </SizableText>
-    );
-  }
-  return (
-    <Tooltip
-      ref={tooltipRef}
-      hovering
-      placement="top-start"
-      contentProps={INFO_CONTENT_PROPS}
-      renderContent={<SizableText size="$bodyMd">{info}</SizableText>}
-      renderTrigger={
-        <Stack
-          testID={testID}
-          flexShrink={1}
-          borderRadius="$1"
-          {...(platformEnv.isRuntimeBrowser
-            ? {
-                tabIndex: 0,
-                onFocus: handleFocus,
-                onBlur: handleBlur,
-                focusVisibleStyle: {
-                  outlineColor: '$focusRing',
-                  outlineWidth: 2,
-                  outlineStyle: 'solid',
-                  outlineOffset: 2,
-                },
-              }
-            : undefined)}
-        >
-          <DottedUnderlineText {...textProps}>{label}</DottedUnderlineText>
-        </Stack>
-      }
-    />
-  );
-}
-
-type IGuideTaskAction = {
+type IGuideStepAction = {
   testID: string;
   label: string;
   onPress: () => void;
 };
 
-function TaskRow({
+const STEP_LABEL_SIZE = {
+  done: '$bodyLg',
+  current: '$headingMd',
+  upcoming: '$bodyLgMedium',
+} as const;
+
+/**
+ * One step of the list. A done one is its check and its name. The others
+ * open and close on a press of their name: open, a step says what it is for
+ * and has the buttons that do it. The guide opens the current step itself
+ */
+function StepRow({
   step,
   status,
+  isOpen,
   label,
   info,
   actions,
+  onToggle,
 }: {
   step: IEarnGuideStep;
-  status: IGuideTaskStatus;
+  status: IGuideStepStatus;
+  isOpen: boolean;
   label: string;
-  info?: string;
-  /** The ways to do the task, the first the one this wallet can use now */
-  actions: IGuideTaskAction[];
+  info: string;
+  /** The ways to do the step, the first the one this wallet can use now */
+  actions: IGuideStepAction[];
+  onToggle: (step: IEarnGuideStep) => void;
 }) {
+  const reduceMotion = useReducedMotion();
+  const handleToggle = useCallback(() => onToggle(step), [onToggle, step]);
+  const isDone = status === 'done';
+  const head = (
+    <>
+      <StepMark step={step} status={status} />
+      <SizableText
+        testID={`earn-guide-step-${step}-label`}
+        flex={1}
+        size={STEP_LABEL_SIZE[status]}
+        numberOfLines={1}
+      >
+        {label}
+      </SizableText>
+    </>
+  );
+  if (isDone) {
+    return (
+      <XStack
+        testID={`earn-guide-step-${step}`}
+        px="$3"
+        py="$2.5"
+        gap={MARK_GAP}
+        ai="center"
+      >
+        {head}
+      </XStack>
+    );
+  }
   return (
     <YStack
-      testID={`earn-guide-task-${step}`}
+      testID={`earn-guide-step-${step}`}
       aria-current={status === 'current' ? 'step' : undefined}
-      gap="$2.5"
+      borderRadius="$3"
+      borderCurve="continuous"
+      bg={isOpen ? '$bgStrong' : undefined}
     >
-      <XStack ai="center" gap={MARK_GAP}>
-        <TaskMark step={step} status={status} />
-        <TaskLabel
-          testID={`earn-guide-task-${step}-label`}
-          label={label}
-          info={info}
-          status={status}
+      <XStack
+        testID={`earn-guide-step-${step}-toggle`}
+        role="button"
+        aria-expanded={isOpen}
+        px="$3"
+        py="$2.5"
+        gap={MARK_GAP}
+        ai="center"
+        borderRadius="$3"
+        borderCurve="continuous"
+        cursor="pointer"
+        userSelect="none"
+        hoverStyle={isOpen ? undefined : { bg: '$bgHover' }}
+        pressStyle={isOpen ? undefined : { bg: '$bgActive' }}
+        onPress={handleToggle}
+        {...buildKeyboardPressProps(handleToggle, -2)}
+      >
+        {head}
+        <Icon
+          name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
+          size="$5"
+          color="$iconSubdued"
         />
       </XStack>
-      {status === 'current' && actions.length > 0 ? (
-        <XStack pl={MARK_SIZE + MARK_GAP} gap="$2" flexWrap="wrap">
-          {actions.map((action, index) => (
-            <Button
-              key={action.testID}
-              testID={action.testID}
-              size="small"
-              variant={index === 0 ? 'primary' : 'secondary'}
-              onPress={action.onPress}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </XStack>
+      {isOpen ? (
+        <YStack
+          pl={MARK_SIZE + MARK_GAP}
+          ml="$3"
+          pr="$3"
+          pb="$3"
+          gap="$3"
+          {...(reduceMotion
+            ? undefined
+            : {
+                transition: 'quick',
+                animateOnly: ANIMATE_ONLY_OPACITY,
+                enterStyle: HIDDEN_STYLE,
+              })}
+        >
+          <SizableText
+            testID={`earn-guide-step-${step}-info`}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {info}
+          </SizableText>
+          <XStack gap="$2" flexWrap="wrap">
+            {actions.map((action, index) => (
+              <Button
+                key={action.testID}
+                testID={action.testID}
+                size="small"
+                variant={index === 0 ? 'primary' : 'secondary'}
+                iconAfter={index === 0 ? 'ArrowRightOutline' : undefined}
+                onPress={action.onPress}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </XStack>
+        </YStack>
       ) : null}
     </YStack>
   );
@@ -327,7 +334,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
   );
 }
 
-// While task 1 waits the checklist checks the account itself, so the ETH
+// While step 1 waits the checklist checks the account itself, so the ETH
 // shows up here without the home's slower full refresh
 function useGuideGasPoll({
   scope,
@@ -392,7 +399,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     enabled: isWaitingForGas,
   });
 
-  // Task 1's ways to the ETH: Swap for a wallet that holds something on
+  // Step 1's ways to the ETH: Swap for a wallet that holds something on
   // another network (it opens on a bridge from there to ETH on Base), Buy
   // with money, Receive from an exchange or another wallet
   const { showAccountSelector } = useAccountSelectorTrigger({
@@ -475,15 +482,32 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     });
   }, [accountId, navigation, networkId, walletId]);
 
-  // Task 2 opens the Earn window on USDC on Base, starting on the PO's
-  // example vault once the offers are in (the best rate there otherwise)
+  // Which step is open: the current one, until the user opens another or
+  // closes it; the next current one opens itself again
+  const [openPick, setOpenPick] = useState<{
+    at: IEarnGuideStep;
+    step?: IEarnGuideStep;
+  }>();
+  const openStep = openPick?.at === current ? openPick.step : current;
+  const handleToggle = useCallback(
+    (step: IEarnGuideStep) =>
+      setOpenPick({ at: current, step: openStep === step ? undefined : step }),
+    [current, openStep],
+  );
+
+  // Steps 2 and 3 open the Earn window on USDC on Base, its vaults beside
+  // the form: on the vault the user picked there, else the PO's example
+  // once the offers are in (the best rate there otherwise)
   const { offers } = useEarnRouterOffers({
     symbol: EARN_GUIDE_SYMBOL,
     networkId,
-    enabled: current === 2,
+    enabled: [current, openStep].some((step) => step === 2 || step === 3),
   });
-  const offerKey = useMemo(() => offers.find(isGuideVaultOffer)?.key, [offers]);
-  const handleDeposit = useCallback(() => {
+  const offerKey = useMemo(
+    () => guide.saved.vaultKey ?? offers.find(isGuideVaultOffer)?.key,
+    [guide.saved.vaultKey, offers],
+  );
+  const handleOpenVaults = useCallback(() => {
     EarnNavigation.pushToEarnOffersDeposit(navigation, {
       symbol: EARN_GUIDE_SYMBOL,
       networkId,
@@ -492,21 +516,20 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     });
   }, [navigation, networkId, offerKey]);
 
-  // Task 3 is done by going there; the guide ends with it
+  // The last step is done by going there after the deposit; My portfolio
+  // tells the guide itself, and the guide ends with it
   const handleOpenPortfolio = useCallback(() => {
-    if (isPreview) {
+    if (isPreview && current === 4) {
       earnGuideStore.setPreview(undefined);
-    } else {
-      earnGuideStore.save(scope, { completed: true });
     }
     EarnNavigation.pushToEarnPositions(navigation);
-  }, [isPreview, navigation, scope]);
+  }, [current, isPreview, navigation]);
 
-  const taskActions = useMemo<
-    Record<IEarnGuideStep, IGuideTaskAction[]>
+  const stepActions = useMemo<
+    Record<IEarnGuideStep, IGuideStepAction[]>
   >(() => {
     const text = (id: ETranslations) => intl.formatMessage({ id });
-    let gasActions: IGuideTaskAction[];
+    let gasActions: IGuideStepAction[];
     if (!hasWallet && !isPreview) {
       // Without a wallet the first thing to do is connect one
       gasActions = [
@@ -547,12 +570,19 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
       1: gasActions,
       2: [
         {
-          testID: 'earn-guide-deposit',
-          label: text(ETranslations.earn_deposit),
-          onPress: handleDeposit,
+          testID: 'earn-guide-vault',
+          label: copy.guideChooseVault,
+          onPress: handleOpenVaults,
         },
       ],
       3: [
+        {
+          testID: 'earn-guide-deposit',
+          label: text(ETranslations.earn_deposit),
+          onPress: handleOpenVaults,
+        },
+      ],
+      4: [
         {
           testID: 'earn-guide-portfolio',
           label: copy.guideGoToPortfolio,
@@ -563,8 +593,8 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
   }, [
     canBuy,
     handleBuy,
-    handleDeposit,
     handleOpenPortfolio,
+    handleOpenVaults,
     handleReceive,
     handleSwap,
     hasWallet,
@@ -573,14 +603,15 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     showAccountSelector,
     swapFrom,
   ]);
-  const taskInfo: Record<IEarnGuideStep, string | undefined> = {
+  const stepInfo: Record<IEarnGuideStep, string> = {
     1: copy.guideGasInfo(EARN_GUIDE_SUGGESTED_GAS),
-    2: copy.guideDepositInfo,
-    3: undefined,
+    2: copy.guideVaultInfo,
+    3: copy.guideDepositInfo,
+    4: copy.guidePortfolioInfo,
   };
 
   // Open until the user folds it; a phone-wide screen starts on the pill,
-  // where the open list would cover the page's width
+  // where the open list would cover the page
   const isCollapsed = guide.isCollapsed ?? !media.gtMd;
   const handleCollapse = useCallback(
     () => earnGuideStore.setCollapsed(scope, true),
@@ -590,8 +621,13 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     () => earnGuideStore.setCollapsed(scope, false),
     [scope],
   );
+  const handleSkip = useCallback(() => earnGuideStore.skip(scope), [scope]);
+  const handleTutorial = useCallback(
+    () => openUrlExternal(HELP_CENTER_URL),
+    [],
+  );
+  const total = EARN_GUIDE_STEPS.length;
   const doneCount = state.done.filter(Boolean).length;
-  const count = `${doneCount}/${EARN_GUIDE_STEPS.length}`;
   const enterProps = reduceMotion
     ? undefined
     : ({
@@ -615,7 +651,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
         <XStack
           testID="earn-guide-pill"
           role="button"
-          aria-label={`${copy.guideTitle} ${count}`}
+          aria-label={`${copy.guideTitle} ${doneCount}/${total}`}
           aria-expanded={false}
           h="$10"
           pl="$3"
@@ -629,12 +665,12 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
           onPress={handleExpand}
           {...buildKeyboardPressProps(handleExpand, -2)}
         >
-          <ProgressRing done={doneCount} total={EARN_GUIDE_STEPS.length} />
+          <ProgressRing done={doneCount} total={total} />
           <SizableText size="$bodyMdMedium" numberOfLines={1}>
             {copy.guideTitle}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {count}
+            {`${doneCount}/${total}`}
           </SizableText>
         </XStack>
       </XStack>
@@ -648,67 +684,119 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
         aria-label={copy.guideTitle}
         w={PANEL_WIDTH}
         maxWidth="100%"
-        p="$4"
-        pt="$3"
-        gap="$3"
-        borderRadius="$4"
+        maxHeight="100%"
+        borderRadius="$5"
         borderCurve="continuous"
+        overflow="hidden"
         {...FLOATING_SURFACE}
         {...enterProps}
       >
-        <XStack ai="center" jc="space-between" gap="$3">
-          <XStack ai="baseline" gap="$2" flexShrink={1} minWidth={0}>
-            <SizableText size="$headingMd" numberOfLines={1}>
-              {copy.guideTitle}
+        <YStack px="$5" pt="$4" pb="$4" gap="$3">
+          <YStack gap="$1">
+            <XStack ai="center" gap="$2.5">
+              <Icon name="BookOpenOutline" size="$6" color="$icon" />
+              <SizableText size="$headingXl" flex={1} numberOfLines={1}>
+                {copy.guideTitle}
+              </SizableText>
+              {/* The buttons' own inset, so the last icon ends on the edge */}
+              <XStack gap="$1" mr="$-1.5">
+                <IconButton
+                  testID="earn-guide-collapse"
+                  aria-label={intl.formatMessage({
+                    id: ETranslations.global_collapse,
+                  })}
+                  icon="MinusSmallOutline"
+                  variant="tertiary"
+                  size="small"
+                  onPress={handleCollapse}
+                />
+                <IconButton
+                  testID="earn-guide-close"
+                  aria-label={copy.guideSkip}
+                  icon="CrossedSmallOutline"
+                  variant="tertiary"
+                  size="small"
+                  onPress={handleSkip}
+                />
+              </XStack>
+            </XStack>
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {copy.guideSubtitle}
             </SizableText>
+          </YStack>
+          <YStack gap="$2">
             <SizableText
               testID="earn-guide-count"
               size="$bodyMd"
               color="$textSubdued"
             >
-              {count}
+              {copy.guideProgress(doneCount, total)}
             </SizableText>
-          </XStack>
-          <IconButton
-            testID="earn-guide-collapse"
-            aria-label={intl.formatMessage({
-              id: ETranslations.global_collapse,
-            })}
-            icon="ChevronDownSmallOutline"
-            variant="tertiary"
-            size="small"
-            // The button's own inset, so its icon ends on the panel's edge
-            mr="$-1"
-            onPress={handleCollapse}
-          />
-        </XStack>
-        <YStack gap="$3">
-          {EARN_GUIDE_STEPS.map((step) => (
-            <TaskRow
-              key={step}
-              step={step}
-              status={getTaskStatus(state, step)}
-              label={copy.guideSteps[step - 1]}
-              info={taskInfo[step]}
-              actions={taskActions[step]}
+            <Progress
+              h={6}
+              value={(doneCount / total) * 100}
+              indicatorColor="$iconSuccess"
+              animated={!reduceMotion}
             />
-          ))}
+          </YStack>
         </YStack>
+        <Divider mx="$5" />
+        {/* The steps scroll between the heading and the links in a window
+            too short for all of it */}
+        <ScrollView flexShrink={1}>
+          <YStack px="$2" py="$2" gap="$0.5">
+            {EARN_GUIDE_STEPS.map((step) => (
+              <StepRow
+                key={step}
+                step={step}
+                status={getStepStatus(state, step)}
+                isOpen={openStep === step && !state.done[step - 1]}
+                label={copy.guideSteps[step - 1]}
+                info={stepInfo[step]}
+                actions={stepActions[step]}
+                onToggle={handleToggle}
+              />
+            ))}
+          </YStack>
+        </ScrollView>
+        <Divider mx="$5" />
+        <XStack px="$5" py="$3" ai="center" jc="space-between" gap="$3">
+          <Button
+            testID="earn-guide-tutorial"
+            size="small"
+            variant="tertiary"
+            iconAfter="ArrowTopRightOutline"
+            onPress={handleTutorial}
+          >
+            {copy.guideTutorial}
+          </Button>
+          <Button
+            testID="earn-guide-skip"
+            size="small"
+            variant="tertiary"
+            color="$textSubdued"
+            onPress={handleSkip}
+          >
+            {copy.guideSkip}
+          </Button>
+        </XStack>
       </YStack>
     );
   }
 
   return (
-    // Over the page's bottom right corner, outside what scrolls. Only the
-    // list itself takes the pointer
+    // Over the page's bottom right corner, outside what scrolls, as tall as
+    // the page at most. Only the list itself takes the pointer
     <YStack
       position="absolute"
+      top="$6"
       right="$6"
       bottom="$6"
       zIndex={1}
       ai="flex-end"
+      jc="flex-end"
       pointerEvents="box-none"
-      $md={{ right: '$4', bottom: '$4', left: '$4' }}
+      $md={{ top: '$4', right: '$4', bottom: '$4', left: '$4' }}
     >
       {content}
     </YStack>
@@ -716,12 +804,13 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
 }
 
 /**
- * The guide for an account without positions: a list of three tasks floating
- * over the DeFi home's bottom right corner, each opening the app's own
- * window for it (Swap, Buy or Receive for the ETH on Base, the Earn window
- * for the deposit, My portfolio for the position). A task ticks itself when
- * the account shows it done. It folds to a pill with its progress, and goes
- * once the last task is done
+ * The guide for an account without positions: a window of four steps
+ * floating over the DeFi home's bottom right corner, each opening the app's
+ * own window for it (Swap, Buy or Receive for the ETH on Base, the Earn
+ * window for the vault and the deposit, My portfolio for the position). A
+ * step ticks itself when the account shows it done. The window folds to a
+ * pill with its progress, can be skipped until the app is opened again, and
+ * goes once the last step is done
  */
 export function EarnGuideChecklist() {
   const guide = useEarnGuide();
