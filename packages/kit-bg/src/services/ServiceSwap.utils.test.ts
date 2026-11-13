@@ -147,7 +147,7 @@ describe('buildSwapRequestErrorToastPayload', () => {
 });
 
 describe('mergeSwapTokenLists', () => {
-  it('keeps search results first and deduplicates support-list tokens case-insensitively', () => {
+  it('keeps search results first and deduplicates EVM tokens case-insensitively', () => {
     const searchToken = {
       networkId: 'evm--1',
       contractAddress: '0xAbC',
@@ -169,4 +169,27 @@ describe('mergeSwapTokenLists', () => {
       mergeSwapTokenLists([[searchToken], [supportToken, anotherNetworkToken]]),
     ).toEqual([searchToken, anotherNetworkToken]);
   });
+
+  it.each(['sol--101', 'tron--728126428'])(
+    'preserves case-sensitive contract addresses on %s',
+    (networkId) => {
+      const first = {
+        networkId,
+        contractAddress: 'AbcToken',
+        symbol: 'FIRST',
+        decimals: 6,
+      };
+      const different = {
+        ...first,
+        contractAddress: 'abcToken',
+        symbol: 'DIFFERENT',
+      };
+      const duplicate = { ...first, symbol: 'DUPLICATE' };
+
+      expect(mergeSwapTokenLists([[first], [different, duplicate]])).toEqual([
+        first,
+        different,
+      ]);
+    },
+  );
 });

@@ -143,34 +143,14 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
         needsRevalidation: false,
         needsContextRefresh: false,
       });
-      let freshSettled = false;
-      void loadDustSweepNetworks(
-        params,
-        controller.signal,
-        (cached) => {
-          if (
-            !isCurrent() ||
-            freshSettled ||
-            scope.state.data ||
-            !cached.length
-          )
-            return;
-          publish({
-            ...scope.state,
-            data: { networks: cached, partialError: false },
-          });
+      void loadDustSweepNetworks(params, controller.signal, {
+        isManualRefresh,
+        ...(forceFresh ? { forceFresh: true } : {}),
+        onContexts: (verifiedContexts) => {
+          if (isCurrent()) publish({ ...scope.state, verifiedContexts });
         },
-        {
-          isManualRefresh,
-          skipCache: !!scope.state.data,
-          ...(forceFresh ? { forceFresh: true } : {}),
-          onContexts: (verifiedContexts) => {
-            if (isCurrent()) publish({ ...scope.state, verifiedContexts });
-          },
-        },
-      )
+      })
         .then((result) => {
-          freshSettled = true;
           if (!isCurrent()) return;
           const data = {
             ...result,
@@ -196,7 +176,6 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
           });
         })
         .catch(() => {
-          freshSettled = true;
           if (isCurrent()) {
             scope.request = undefined;
             publish({ ...scope.state, status: 'error', loadFailed: true });

@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -6,6 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type {
@@ -14,7 +16,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchAccountTokensResp,
   IToken,
@@ -78,7 +83,6 @@ export type IDustSweepNetworksResult = {
 
 type IDustSweepNetworkLoad = {
   fresh: Promise<IDustSweepNetworksResult>;
-  cached: Promise<IDustSweepNetwork[]>;
   contexts: Promise<IDustSweepNetworkContexts>;
 };
 
@@ -144,7 +148,7 @@ async function loadDustSweepNetworkAssets({
   indexedAccountId?: string;
   isManualRefresh: boolean;
 }): Promise<IDustSweepNetwork> {
-  const [response, native] = await Promise.all([
+  const [walletResponse, native, swapTokens] = await Promise.all([
     loadAssetQuietly(() =>
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         accountId: entry.accountId,
@@ -165,8 +169,66 @@ async function loadDustSweepNetworkAssets({
         networkId: entry.network.networkId,
       }),
     ),
+    loadAssetQuietly(() =>
+      backgroundApiProxy.serviceSwap.fetchSwapTokens({
+        accountId: entry.accountId,
+        accountAddress: entry.address,
+        accountNetworkId: entry.network.networkId,
+        networkId: entry.network.networkId,
+        currency: 'usd',
+        throwOnError: true,
+        isTokenListPrefetch: true,
+      }),
+    ),
   ]);
-  return buildDustSweepNetwork(entry, response, native);
+  const knownAddresses = new Set(
+    [
+      ...walletResponse.tokens.data,
+      ...walletResponse.smallBalanceTokens.data,
+      ...walletResponse.riskTokens.data,
+    ].map((token) =>
+      normalizeTokenContractAddress({
+        networkId: entry.network.networkId,
+        contractAddress: token.address,
+      }),
+    ),
+  );
+  const missingContracts = swapTokens.flatMap((token) => {
+    const address = normalizeTokenContractAddress({
+      networkId: entry.network.networkId,
+      contractAddress: token.contractAddress,
+    });
+    const balance = new BigNumber(token.balanceParsed ?? '');
+    if (
+      token.networkId !== entry.network.networkId ||
+      token.isNative ||
+      !address ||
+      knownAddresses.has(address) ||
+      !balance.isFinite() ||
+      !balance.gt(0)
+    )
+      return [];
+    knownAddresses.add(address);
+    return [token.contractAddress];
+  });
+  const response = missingContracts.length
+    ? await loadAssetQuietly(() =>
+        backgroundApiProxy.serviceToken.fetchAccountTokens({
+          accountId: entry.accountId,
+          networkId: entry.network.networkId,
+          indexedAccountId,
+          flag: 'dust-sweep',
+          hideSmallBalanceTokens: false,
+          hideRiskTokens: false,
+          excludeDeFiMarkedTokens: true,
+          withoutDappToken: true,
+          saveToLocal: false,
+          isManualRefresh,
+          contractList: missingContracts,
+        }),
+      )
+    : walletResponse;
+  return buildDustSweepNetwork(entry, response, native, swapTokens);
 }
 
 function buildDustSweepNetwork(
@@ -176,6 +238,7 @@ function buildDustSweepNetwork(
     'tokens' | 'smallBalanceTokens' | 'riskTokens'
   >,
   native: IToken | null | undefined,
+  swapTokens: ISwapToken[],
 ): IDustSweepNetwork {
   if (!native) throw new OneKeyLocalError('Native token is unavailable');
   if (
@@ -184,7 +247,11 @@ function buildDustSweepNetwork(
     )
   )
     throw new OneKeyLocalError('USD pricing is unavailable');
-  const tokens = buildDustSweepCandidates(response, entry.network.networkId);
+  const tokens = buildDustSweepCandidates(
+    response,
+    entry.network.networkId,
+    swapTokens,
+  );
   const nativeEntry = [
     ...response.tokens.data,
     ...response.smallBalanceTokens.data,
@@ -366,60 +433,15 @@ async function loadDustSweepNetworksInternal(
   };
 }
 
-async function loadCachedDustSweepNetworks(
-  contexts: Promise<IDustSweepNetworkContexts>,
-) {
-  const { entries } = await contexts;
-  const cached = await loadQuietly(() =>
-    backgroundApiProxy.serviceToken.getCachedAccountTokens({
-      accounts: entries.map((entry) => ({
-        accountId: entry.accountId,
-        networkId: entry.network.networkId,
-        accountAddress: entry.address,
-      })),
-    }),
-  );
-  const limit = pLimit(4);
-  const results = await Promise.allSettled(
-    entries.map((entry, index) =>
-      limit(async () => {
-        const response = cached[index];
-        if (
-          !response ||
-          response.accountId !== entry.accountId ||
-          response.networkId !== entry.network.networkId
-        )
-          return undefined;
-        const native = await loadQuietly(() =>
-          backgroundApiProxy.serviceToken.getNativeToken({
-            accountId: entry.accountId,
-            networkId: entry.network.networkId,
-          }),
-        );
-        return buildDustSweepNetwork(entry, response, native);
-      }),
-    ),
-  );
-  // Empty/partial cache is never evidence that an account has no dust.
-  return results.flatMap((result) =>
-    result.status === 'fulfilled' && result.value?.tokens.length
-      ? [result.value]
-      : [],
-  );
-}
-
 export function loadDustSweepNetworks(
   params: IDustSweepRouteParams,
   signal: AbortSignal,
-  onCache?: (networks: IDustSweepNetwork[]) => void,
   {
     isManualRefresh = false,
-    skipCache = false,
     forceFresh = false,
     onContexts,
   }: {
     isManualRefresh?: boolean;
-    skipCache?: boolean;
     forceFresh?: boolean;
     onContexts?: (entries: IDustSweepNetworkContext[]) => void;
   } = {},
@@ -428,15 +450,11 @@ export function loadDustSweepNetworks(
   // A return from Swap must not reuse a request started before the trade.
   let load = isManualRefresh || forceFresh ? undefined : inFlightLoads.get(key);
   if (!load) {
-    // Discovery and the network round are shared across quick re-entry. Each
-    // consumer independently decides whether its cached preview is still useful.
+    // Discovery and the network round are shared across quick re-entry.
     const contexts = loadDustSweepNetworkContexts(params);
     load = {
       contexts,
       fresh: loadDustSweepNetworksInternal(params, contexts, isManualRefresh),
-      cached: skipCache
-        ? Promise.resolve([])
-        : loadCachedDustSweepNetworks(contexts).catch(() => []),
     };
     inFlightLoads.set(key, load);
     const cleanup = () => {
@@ -451,9 +469,6 @@ export function loadDustSweepNetworks(
     },
     () => undefined,
   );
-  void load.cached.then((networks) => {
-    if (!settled && !signal.aborted && networks.length) onCache?.(networks);
-  });
   return waitForLoad(load.fresh, signal).finally(() => {
     settled = true;
   });

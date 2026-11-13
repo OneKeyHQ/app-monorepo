@@ -1,3 +1,4 @@
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EProtocolOfExchange,
   type IFetchBuildTxParams,
@@ -102,7 +103,11 @@ export function mergeSwapTokenLists(tokenLists: ISwapToken[][]) {
   const seen = new Set<string>();
   return tokenLists.flatMap((tokens) =>
     tokens.filter((token) => {
-      const key = `${token.networkId}:${token.contractAddress.toLowerCase()}`;
+      const address = normalizeTokenContractAddress({
+        networkId: token.networkId,
+        contractAddress: token.contractAddress,
+      });
+      const key = `${token.networkId}:${address}`;
       if (seen.has(key)) {
         return false;
       }

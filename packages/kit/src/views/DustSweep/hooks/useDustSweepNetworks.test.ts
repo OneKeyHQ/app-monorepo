@@ -113,18 +113,17 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-it('loads without data, then displays Home cache while fresh data is pending', async () => {
+it('waits for Swap-backed data when no Dust cache exists', async () => {
   const request = deferred();
   mockLoad.mockReturnValue(request.promise);
   const { result } = renderHook(() => useModel());
-  expect(mockLoad.mock.calls[0][3]).toMatchObject({
+  expect(mockLoad.mock.calls[0][2]).toMatchObject({
     isManualRefresh: false,
     forceFresh: true,
   });
   expect(result.current.loadStatus).toBe('loading');
   expect(result.current.timerActive).toBe(false);
-  act(() => mockLoad.mock.calls[0][2]?.([network]));
-  expect(result.current.loadStatus).toBe('ready');
+  expect(result.current.loadStatus).toBe('loading');
   expect(result.current.refreshStatus).toBe('refreshing');
   expect(getDustSweepNetworksCache(params)).toBeUndefined();
   await settle(request);
@@ -132,20 +131,18 @@ it('loads without data, then displays Home cache while fresh data is pending', a
   expect(getDustSweepNetworksCache(params)).toEqual(data);
 });
 
-it('prefers Dust cache on re-entry and ignores Home cache even if it arrives later', async () => {
+it('retains the Dust cache on re-entry while fresh data loads', async () => {
   setDustSweepNetworksCache(params, data);
   const request = deferred();
   mockLoad.mockReturnValue(request.promise);
   const { result } = renderHook(() => useModel());
   expect(result.current.loadStatus).toBe('ready');
   expect(result.current.networks).toEqual([network]);
-  expect(mockLoad.mock.calls[0][3]).toEqual({
+  expect(mockLoad.mock.calls[0][2]).toEqual({
     isManualRefresh: true,
-    skipCache: true,
     forceFresh: true,
     onContexts: expect.any(Function),
   });
-  act(() => mockLoad.mock.calls[0][2]?.([{ ...network, address: 'obsolete' }]));
   expect(result.current.networks).toEqual([network]);
   await settle(request);
 });
@@ -158,7 +155,6 @@ it('retains a known empty result during refresh instead of returning to a skelet
   expect(result.current.hasData).toBe(true);
   expect(result.current.loadStatus).toBe('ready');
   expect(result.current.networks).toEqual([]);
-  act(() => mockLoad.mock.calls[0][2]?.([network]));
   expect(result.current.networks).toEqual([]);
   await settle(request, { networks: [], partialError: false });
 });
@@ -450,7 +446,7 @@ it('clears changed account identities before refresh and refuses their old cache
   expect(result.current.networks).toEqual([]);
   expect(getDustSweepNetworksCache(params)).toBeUndefined();
   expect(mockLoad.mock.calls[0][1].aborted).toBe(true);
-  expect(mockLoad.mock.calls[1][3]?.skipCache).toBe(false);
+  expect(mockLoad.mock.calls[1][2]?.isManualRefresh).toBe(true);
   await settle(first);
   expect(result.current.networks).toEqual([]);
   const updated = {
