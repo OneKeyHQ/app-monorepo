@@ -10769,6 +10769,88 @@ describe('useSwapActions', () => {
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
   });
+
+  it('shares concurrent in-flight token fetches across overlapping position scopes and preserves token array reference on empty networks', async () => {
+    const ethRequest = createDeferred<ISwapToken[]>();
+    const bnbRequest = createDeferred<ISwapToken[]>();
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation((params) => {
+      const { networkId } = params as { networkId: string };
+      if (networkId === 'evm--1') {
+        return ethRequest.promise;
+      }
+      return bnbRequest.promise;
+    });
+
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const allSwapNetworks = [
+      { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+      { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+    ];
+    const proNetworks = [
+      { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+    ];
+
+    let firstRun: Promise<void> | undefined;
+    let secondRun: Promise<void> | undefined;
+    act(() => {
+      firstRun = result.current.swapProLoadSupportNetworksTokenList(
+        allSwapNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+      secondRun = result.current.swapProLoadSupportNetworksTokenList(
+        proNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+    });
+
+    const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
+    const initialTokens = store.get(swapProPositionsRuntimeDataAtom())[
+      swapOwnerKey
+    ].tokens;
+
+    await act(async () => {
+      bnbRequest.resolve([]);
+      await Promise.resolve();
+    });
+    // Settling an empty network while other networks are still loading preserves the existing array reference.
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[swapOwnerKey].tokens,
+    ).toBe(initialTokens);
+
+    await act(async () => {
+      ethRequest.resolve([ethToken]);
+      await Promise.all([firstRun, secondRun]);
+    });
+    expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('Recent trades attribution', () => {

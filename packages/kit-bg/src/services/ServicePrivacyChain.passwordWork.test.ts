@@ -286,10 +286,9 @@ describe('Privacy password verification on entering a send', () => {
     expect(localWalletDoPasswordWork).toHaveBeenCalledWith({
       password: cached,
     });
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [params],
+    });
   });
 
   // The send page explains and asks once the user sends.

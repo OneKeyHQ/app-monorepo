@@ -472,6 +472,40 @@ describe('SWR cache persistence', () => {
     }
   });
 
+  it('skips rewriting large unchanged entries on unrelated flushes until the rewrite interval elapses', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      const largePayload = { text: 'x'.repeat(20_000) };
+      cache.set('marketHomeTokenList:all', largePayload);
+      cache.flushNow();
+      const firstWrite = disk().get('marketHomeTokenList:all')?.t as number;
+
+      jest.advanceTimersByTime(10_000);
+      cache.set('marketHomeTokenList:all', { text: 'x'.repeat(20_000) });
+      cache.set('marketTokenDetail:small', { value: 1 });
+      cache.flushNow();
+
+      // In-memory freshness advances immediately, but the 20 KB unchanged entry
+      // is not rewritten to disk after only 10 seconds.
+      expect(
+        cache.getWithTimestamp('marketHomeTokenList:all')?.updatedAt,
+      ).toBeGreaterThan(firstWrite);
+      expect(disk().get('marketHomeTokenList:all')?.t).toBe(firstWrite);
+
+      jest.advanceTimersByTime(5 * 60 * 1000);
+      cache.set('marketHomeTokenList:all', { text: 'x'.repeat(20_000) });
+      cache.set('marketTokenDetail:small', { value: 2 });
+      cache.flushNow();
+
+      expect(disk().get('marketHomeTokenList:all')?.t).toBeGreaterThan(
+        firstWrite,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('reports a slow flush with the size of what it wrote', () => {
     const cache = loadFreshRuntime();
     let elapsed = 0;

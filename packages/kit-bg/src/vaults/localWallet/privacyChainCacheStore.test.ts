@@ -123,10 +123,9 @@ describe('saved privacy chain balance', () => {
     finish('live');
     await slow;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     await expect(
       readLocalWalletBalanceStaleFirst({
         backgroundApi,
@@ -265,10 +264,9 @@ describe('late display balance handoff', () => {
       EAppEventBusNames.LocalWalletBalanceLanded,
       owner,
     );
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     await expect(display(backgroundApi, async () => 'new')).resolves.toEqual({
       value: 'new',
       stale: false,
@@ -657,10 +655,9 @@ describe('saved balance epochs', () => {
       epoch,
       value: 'verified',
     });
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [owner],
+    });
     expect(emit).toHaveBeenCalledWith(
       EAppEventBusNames.LocalWalletBalanceLanded,
       owner,

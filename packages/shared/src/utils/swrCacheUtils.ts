@@ -307,6 +307,7 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
 
 let _cache: ISWRStore | undefined;
 let _cacheEntrySerializedChars = new Map<string, number>();
+let _persistedTimestamps = new Map<string, number>();
 let _cacheSerializedChars = 2;
 let _dirty = false;
 let _flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -336,6 +337,8 @@ function isDeletedLocally(key: string, diskTimestamp: number): boolean {
 }
 
 const FLUSH_DEBOUNCE_MS = 2000;
+const SWR_UNCHANGED_LARGE_ENTRY_CHARS = 16 * 1024;
+const SWR_UNCHANGED_LARGE_ENTRY_REWRITE_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * The store this runtime has looked at, not the store on disk.
@@ -498,6 +501,7 @@ function markReloadForTarget(targetKey: string, intervalMs: number): void {
 
 function resetCacheSerializedChars(store: ISWRStore) {
   _cacheEntrySerializedChars = new Map();
+  _persistedTimestamps = new Map();
   _cacheSerializedChars = 2;
   Object.entries(store).forEach(([key, entry]) => {
     const serializedEntry = serializeSWRCacheEntry(key, entry);
@@ -508,6 +512,7 @@ function resetCacheSerializedChars(store: ISWRStore) {
       _cacheSerializedChars += 1;
     }
     _cacheEntrySerializedChars.set(key, serializedEntry.serializedChars);
+    _persistedTimestamps.set(key, serializedEntry.entry.t);
     _cacheSerializedChars += serializedEntry.serializedChars;
   });
 }
@@ -519,6 +524,7 @@ function removeCachedEntry(store: ISWRStore, key: string) {
     _cacheEntrySerializedChars.delete(key);
     _cacheSerializedChars -= serializedChars + (entryCount > 1 ? 1 : 0);
   }
+  _persistedTimestamps.delete(key);
   delete store[key];
 }
 
@@ -542,6 +548,7 @@ function setCachedEntry(
     serializedEntry.key,
     serializedEntry.serializedChars,
   );
+  _persistedTimestamps.set(serializedEntry.key, serializedEntry.entry.t);
   Object.defineProperty(store, serializedEntry.key, {
     configurable: true,
     enumerable: true,
@@ -735,13 +742,22 @@ function set<T>(key: string, data: T): void {
   const store = loadStore();
   const now = Date.now();
   const existing = lookupEntry(key);
-  // An unchanged result only refreshes the timestamp: the key stays pending
-  // so the fresher timestamp rides along with the next flush, but it never
-  // starts one.
+  // An unchanged result only refreshes the timestamp: small keys or keys whose
+  // persisted timestamp is older than the rewrite interval ride along with the
+  // next flush, while large unchanged entries avoid re-serializing multi-hundred-KB
+  // payloads to MMKV on every unrelated flush.
   if (existing && isEqual(existing.d, data)) {
+    const lastPersistedAt = _persistedTimestamps.get(key) ?? existing.t;
     existing.t = now;
-    _updatedKeys.add(key);
-    _dirty = true;
+    const entryChars = _cacheEntrySerializedChars.get(key) ?? 0;
+    if (
+      entryChars < SWR_UNCHANGED_LARGE_ENTRY_CHARS ||
+      now - lastPersistedAt >= SWR_UNCHANGED_LARGE_ENTRY_REWRITE_INTERVAL_MS
+    ) {
+      _persistedTimestamps.set(key, now);
+      _updatedKeys.add(key);
+      _dirty = true;
+    }
     return;
   }
   const entry = { d: data, t: now };
