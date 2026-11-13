@@ -15,6 +15,10 @@ import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import { getDesktopPlatformInfo } from '@onekeyhq/desktop/app/libs/desktopPlatformInfo';
+import {
+  beginManualUpdateCacheClearInMain,
+  releaseManualUpdateCacheClearInMain,
+} from '@onekeyhq/desktop/app/libs/manualUpdateCacheClear';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type {
   IInstallUpdateParams,
@@ -43,12 +47,19 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
 import { requestUpdateUrl } from './electronUpdateRequest';
 import {
+  cancelMacUpdate,
+  captureMacUpdate,
+  finishMacUpdateCancellation,
+  getMacCancellationMarker,
+} from './macUpdateCancellation';
+import {
   classifyNodeError,
   downloadNodeFile,
   stripSensitiveHeaders,
 } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
+import type { IMacUpdateSnapshot } from './macUpdateCancellation';
 
 function wrapAppUpdateOperationError(error: unknown, step: TUpdateErrorStep) {
   const directError = getUpdateError(error, step);
@@ -162,7 +173,9 @@ function buildFeedUrl(useTestFeedUrl: boolean, version: string): string {
     serviceName: EServiceEndpointEnum.Utility,
     env: useTestFeedUrl ? 'test' : 'prod',
   });
-  return `${endpoint}/utility/v1/app-update/electron-feed-url?version=${encodeURIComponent(version)}`;
+  return `${endpoint}/utility/v1/app-update/electron-feed-url?version=${encodeURIComponent(
+    version,
+  )}`;
 }
 
 function getChannelName(): string {
@@ -410,9 +423,27 @@ class DesktopApiAppUpdate {
 
   private cacheClearPromise?: Promise<void>;
 
+  private cacheClearIsManual = false;
+
   private macFeedServer?: http.Server;
 
   private macStagedIdentity?: string;
+
+  private macCancellationSnapshot?: IMacUpdateSnapshot;
+
+  private macPreparation?: Promise<void>;
+
+  private macStageUncertain = false;
+
+  private macStageStartedAt = 0;
+
+  private manualClearInProgress = false;
+
+  private manualClearOwnerCleanup?: () => void;
+
+  private manualClearOwnerLost = false;
+
+  private preparedBuildNumber?: { current: string; previous: string };
 
   private macInstallInProgress = false;
 
@@ -465,6 +496,56 @@ class DesktopApiAppUpdate {
 
   private getMainWindow(): BrowserWindow | undefined {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+  }
+
+  private releaseManualClearWait() {
+    this.manualClearInProgress = false;
+    this.manualClearOwnerCleanup?.();
+    this.manualClearOwnerCleanup = undefined;
+    releaseManualUpdateCacheClearInMain();
+  }
+
+  private watchManualClearOwner(operation: Promise<void>) {
+    this.manualClearOwnerCleanup?.();
+    this.manualClearOwnerLost = false;
+    const owner = this.getMainWindow()?.webContents;
+    let lost = false;
+    let cleanup = () => {};
+    this.manualClearOwnerCleanup = cleanup;
+    const onLost = () => {
+      if (lost) return;
+      lost = true;
+      this.manualClearOwnerLost = true;
+      // Renderer recovery must not strand the normal-quit barrier. Never release
+      // while the native cancellation process may still be stopping ShipIt.
+      void operation
+        .catch(() => undefined)
+        .then(() => {
+          if (this.manualClearOwnerCleanup === cleanup)
+            this.releaseManualClearWait();
+        });
+    };
+    if (!owner || owner.isDestroyed() || owner.isCrashed()) {
+      onLost();
+      return;
+    }
+    const onNavigation = (
+      _event: unknown,
+      _url: string,
+      inPlace: boolean,
+      mainFrame: boolean,
+    ) => {
+      if (mainFrame && !inPlace) onLost();
+    };
+    cleanup = () => {
+      owner.removeListener('render-process-gone', onLost);
+      owner.removeListener('destroyed', onLost);
+      owner.removeListener('did-start-navigation', onNavigation);
+    };
+    this.manualClearOwnerCleanup = cleanup;
+    owner.once('render-process-gone', onLost);
+    owner.once('destroyed', onLost);
+    owner.on('did-start-navigation', onNavigation);
   }
 
   private getCacheDir(): string {
@@ -710,24 +791,84 @@ class DesktopApiAppUpdate {
       : { status: EAppUpdatePackageAvailabilityStatus.notPrepared };
   }
 
-  async clearUpdateCache(): Promise<void> {
-    if (this.installInProgress || this.macStagedIdentity) {
+  async clearUpdateCache(options?: {
+    manual?: boolean;
+    complete?: boolean;
+    release?: boolean;
+  }): Promise<void> {
+    const manual = options?.manual === true;
+    if (options?.release === true && manual) {
+      this.releaseManualClearWait();
+      return;
+    }
+    if (options?.complete === true) {
+      if (!manual)
+        throw createUpdateError({
+          code: EUpdateErrorCode.invalidArgument,
+          step: 'cleanup',
+        });
+      if (this.cacheClearPromise) await this.cacheClearPromise;
+      if (isMac && !isStoreVersion && app.isPackaged)
+        await finishMacUpdateCancellation(this.getCacheDir());
+      this.releaseManualClearWait();
+      return;
+    }
+    if (this.cacheClearPromise) {
+      const wasManual = this.cacheClearIsManual;
+      try {
+        await this.cacheClearPromise;
+      } catch (error) {
+        if (!manual || wasManual) throw error;
+      }
+      if (manual && (!wasManual || this.manualClearOwnerLost))
+        return this.clearUpdateCache(options);
+      return;
+    }
+    if (
+      this.macStageUncertain ||
+      (this.installInProgress && !(manual && this.macPreparation)) ||
+      (!manual &&
+        (this.macStagedIdentity ||
+          this.quitInstallParams ||
+          this.preparingQuitInstall ||
+          (isMac &&
+            fs.existsSync(getMacCancellationMarker(this.getCacheDir())))))
+    ) {
       throw createUpdateError({
         code: EUpdateErrorCode.installFailed,
         step: 'cleanup',
       });
     }
-    this.quitInstallParams = undefined;
-    this.preparingQuitInstall = undefined;
-    this.quitInstallGeneration += 1;
-    if (this.cacheClearPromise) {
-      try {
-        return await this.cacheClearPromise;
-      } catch (error) {
-        throw wrapAppUpdateOperationError(error, 'cleanup');
-      }
+    this.manualClearInProgress = manual;
+    this.cacheClearIsManual = manual;
+    if (manual) {
+      beginManualUpdateCacheClearInMain();
     }
-    this.cacheClearPromise = (async () => {
+    // Publish before yielding: stage/install cannot enter during revocation.
+    this.cacheClearPromise = Promise.resolve().then(async () => {
+      if (manual && this.macPreparation) await this.macPreparation;
+      if (manual && isMac && !isStoreVersion && app.isPackaged) {
+        if (this.macStagedIdentity && !this.macCancellationSnapshot) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.installFailed,
+            step: 'cleanup',
+          });
+        }
+        await cancelMacUpdate(this.getCacheDir(), this.macCancellationSnapshot);
+        // Native revocation is irreversible. Do not revive this preparation
+        // when later disk/DB cleanup fails.
+        this.macStagedIdentity = undefined;
+        this.macCancellationSnapshot = undefined;
+        const build = this.preparedBuildNumber;
+        if (build && store.getUpdateBuildNumber() === build.current) {
+          if (build.previous) store.setUpdateBuildNumber(build.previous);
+          else store.clearUpdateBuildNumber();
+        }
+        this.preparedBuildNumber = undefined;
+      }
+      this.quitInstallParams = undefined;
+      this.preparingQuitInstall = undefined;
+      this.quitInstallGeneration += 1;
       this.activeController?.abort();
       this.metadataGeneration += 1;
       this.metadataControllers.forEach((controller) => controller.abort());
@@ -763,13 +904,16 @@ class DesktopApiAppUpdate {
       } catch {
         // Ignore if legacy cache path is unavailable.
       }
-    })();
+    });
+    if (manual) this.watchManualClearOwner(this.cacheClearPromise);
     try {
       await this.cacheClearPromise;
     } catch (error) {
+      if (manual) this.releaseManualClearWait();
       throw wrapAppUpdateOperationError(error, 'cleanup');
     } finally {
       this.cacheClearPromise = undefined;
+      this.cacheClearIsManual = false;
     }
   }
 
@@ -991,7 +1135,9 @@ class DesktopApiAppUpdate {
     this.macFeedServer?.close();
     const user = 'autoupdater';
     const pass = crypto.randomBytes(48).toString('base64url');
-    const credential = `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`;
+    const credential = `Basic ${Buffer.from(`${user}:${pass}`).toString(
+      'base64',
+    )}`;
     const fileToken = `${crypto.randomBytes(32).toString('hex')}.zip`;
     const server = http.createServer((request, response) => {
       const address = server.address();
@@ -1064,6 +1210,7 @@ class DesktopApiAppUpdate {
           reject(error);
         };
         timer.id = setTimeout(() => {
+          this.macStageUncertain = true;
           cleanup();
           reject(
             createUpdateError({
@@ -1079,6 +1226,7 @@ class DesktopApiAppUpdate {
           headers: { Authorization: credential, 'Cache-Control': 'no-cache' },
         });
         try {
+          this.macStageStartedAt = Date.now();
           autoUpdater.checkForUpdates();
         } catch (error) {
           cleanup();
@@ -1224,6 +1372,15 @@ class DesktopApiAppUpdate {
   private async getInstallRecord(
     params: IInstallUpdateParams,
   ): Promise<ICacheRecord> {
+    if (
+      (this.manualClearInProgress && !this.macPreparation) ||
+      (isMac && fs.existsSync(getMacCancellationMarker(this.getCacheDir())))
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'install',
+      });
+    }
     const record = await this.assertVerifiedRecord(params);
     if (
       !params.latestVersion ||
@@ -1419,7 +1576,7 @@ class DesktopApiAppUpdate {
   }
 
   async installPackage(params: IInstallUpdateParams): Promise<boolean> {
-    if (this.installInProgress) return false;
+    if (this.installInProgress || this.manualClearInProgress) return false;
     this.installInProgress = true;
     try {
       // Drain cache clearing/downloads before reading the package to install.
@@ -1450,6 +1607,19 @@ class DesktopApiAppUpdate {
 
   async prepareMacInstall(params: IInstallUpdateParams): Promise<void> {
     if (!isMac || isStoreVersion) return;
+    if (this.cacheClearPromise) await this.cacheClearPromise;
+    const preparation = this.prepareMacInstallInternal(params);
+    this.macPreparation = preparation;
+    try {
+      await preparation;
+    } finally {
+      if (this.macPreparation === preparation) this.macPreparation = undefined;
+    }
+  }
+
+  private async prepareMacInstallInternal(
+    params: IInstallUpdateParams,
+  ): Promise<void> {
     if (this.installInProgress) {
       throw createUpdateError({
         code: EUpdateErrorCode.installFailed,
@@ -1474,6 +1644,23 @@ class DesktopApiAppUpdate {
       }
       const record = await this.getInstallRecord(params);
       await this.stageMacUpdate(record);
+      try {
+        this.macCancellationSnapshot = await captureMacUpdate(
+          record.version,
+          this.macStageStartedAt,
+        );
+      } catch (error) {
+        logger.warn(
+          'auto-updater',
+          'Cannot capture native update for manual cancellation',
+          error,
+        );
+      }
+      this.preparedBuildNumber = {
+        current: params.buildNumber,
+        previous:
+          this.preparedBuildNumber?.previous ?? store.getUpdateBuildNumber(),
+      };
       store.setUpdateBuildNumber(params.buildNumber);
     } catch (error) {
       throw wrapAppUpdateOperationError(error, 'install');

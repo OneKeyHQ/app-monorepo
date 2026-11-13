@@ -26,6 +26,15 @@ const mockNativeUpdater = Object.assign(new EventEmitter(), {
 });
 const mockSpawn = jest.fn();
 const mockExecFileSync = jest.fn();
+const mockCancelMacUpdate = jest.fn(async () => {});
+const mockCaptureMacUpdate = jest.fn(async () => ({ captured: true }));
+const mockFinishMacUpdateCancellation = jest.fn(async () => {});
+jest.mock('./macUpdateCancellation', () => ({
+  cancelMacUpdate: mockCancelMacUpdate,
+  captureMacUpdate: mockCaptureMacUpdate,
+  finishMacUpdateCancellation: mockFinishMacUpdateCancellation,
+  getMacCancellationMarker: (dir: string) => `${dir}.manual-clear`,
+}));
 const mockAppQuit = jest.fn();
 const mockAppExit = jest.fn();
 const mockAppRelaunch = jest.fn();
@@ -52,6 +61,7 @@ const mockStore = {
   getUpdateSettings: jest.fn(() => ({ useTestFeedUrl: false })),
   setASCFile: jest.fn(),
   setUpdateBuildNumber: jest.fn(),
+  clearUpdateBuildNumber: jest.fn(),
   setUpdateSettings: jest.fn(),
 };
 const mockDownloadNodeFile = jest.fn(
@@ -141,7 +151,11 @@ const instances: Array<
   InstanceType<typeof import('./DesktopApiAppUpdate').default>
 > = [];
 const mockMainWindow = Object.assign(new EventEmitter(), {
-  webContents: { send: jest.fn() },
+  webContents: Object.assign(new EventEmitter(), {
+    send: jest.fn(),
+    isDestroyed: jest.fn(() => false),
+    isCrashed: jest.fn(() => false),
+  }),
   isDestroyed: jest.fn(() => false),
   show: jest.fn(),
   focus: jest.fn(),
@@ -250,6 +264,8 @@ async function preparePackage(platform: NodeJS.Platform, channel?: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockApp.isPackaged = false;
+  mockCancelMacUpdate.mockReset().mockResolvedValue(undefined);
   mockSpawn.mockReset();
   mockExecFileSync.mockReset();
   mockApp.removeAllListeners();
@@ -268,7 +284,9 @@ beforeEach(() => {
   });
   mockExecFileSync.mockImplementation((file: string, args: string[]) => {
     if (file === 'reg.exe' && args[1]?.startsWith('HKCU\\')) {
-      return `    InstallLocation    REG_SZ    ${path.win32.dirname(process.execPath)}\r\n`;
+      return `    InstallLocation    REG_SZ    ${path.win32.dirname(
+        process.execPath,
+      )}\r\n`;
     }
     throw new OneKeyLocalError('Registry key unavailable');
   });
@@ -294,11 +312,16 @@ afterEach(async () => {
       appImageInstallInProgress: boolean;
       installInProgress: boolean;
       macStagedIdentity?: string;
+      quitInstallParams?: unknown;
+      preparingQuitInstall?: unknown;
     };
+    await api.clearUpdateCache({ manual: true, release: true });
     state.macInstallInProgress = false;
     state.appImageInstallInProgress = false;
     state.installInProgress = false;
     state.macStagedIdentity = undefined;
+    state.quitInstallParams = undefined;
+    state.preparingQuitInstall = undefined;
     await api.clearUpdateCache();
   }
   jest.restoreAllMocks();
@@ -864,6 +887,161 @@ test('macOS staged package cannot be cleared and remains installable', async () 
   expect(api.downloadedEvent).toBeDefined();
   expect(await api.installPackage(params)).toBe(true);
   expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+});
+
+test('manual cache clearing revokes a captured macOS preparation and removes the package', async () => {
+  const { api, file } = await preparePackage('darwin');
+  mockApp.isPackaged = true;
+  const internal = api as unknown as {
+    macStagedIdentity?: string;
+    macCancellationSnapshot?: object;
+  };
+  internal.macStagedIdentity = 'verified-native-stage';
+  internal.macCancellationSnapshot = { captured: true };
+  await api.clearUpdateCache({ manual: true });
+  expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
+  await api.clearUpdateCache({ manual: true, complete: true });
+  expect(mockCancelMacUpdate).toHaveBeenCalledWith(expect.any(String), {
+    captured: true,
+  });
+  expect(mockFinishMacUpdateCancellation).toHaveBeenCalledTimes(1);
+  expect(fs.existsSync(file)).toBe(false);
+  expect(internal.macStagedIdentity).toBeUndefined();
+});
+
+test('automatic cache clearing preserves a captured macOS preparation', async () => {
+  const { api, file } = await preparePackage('darwin');
+  (api as unknown as { macStagedIdentity?: string }).macStagedIdentity =
+    'staged';
+  await expect(api.clearUpdateCache()).rejects.toThrow('INSTALL_FAILED');
+  expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+  expect(fs.existsSync(file)).toBe(true);
+});
+
+test('failed native revocation preserves the prepared file and does not acknowledge cleanup', async () => {
+  const { api, file } = await preparePackage('darwin');
+  mockApp.isPackaged = true;
+  const internal = api as unknown as {
+    macStagedIdentity?: string;
+    macCancellationSnapshot?: object;
+  };
+  internal.macStagedIdentity = 'staged';
+  internal.macCancellationSnapshot = {};
+  mockCancelMacUpdate.mockRejectedValueOnce(new Error('authorization refused'));
+  await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow();
+  expect(fs.existsSync(file)).toBe(true);
+  expect(internal.macStagedIdentity).toBe('staged');
+  expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
+});
+
+test('manual clearing holds normal quit and rejects an install until revocation settles', async () => {
+  const { api, params } = await preparePackage('darwin');
+  mockApp.isPackaged = true;
+  let finish!: () => void;
+  mockCancelMacUpdate.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const clear = api.clearUpdateCache({ manual: true });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const barrierModule =
+    require('@onekeyhq/desktop/app/libs/manualUpdateCacheClear') as typeof import('@onekeyhq/desktop/app/libs/manualUpdateCacheClear');
+  const barrier = barrierModule.getManualUpdateCacheClearBarrier();
+  expect(barrier).toBeDefined();
+  expect(await api.installPackage(params)).toBe(false);
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  finish();
+  await clear;
+  expect(barrierModule.getManualUpdateCacheClearBarrier()).toBe(barrier);
+  await api.clearUpdateCache({ manual: true, complete: true });
+  await barrier;
+  expect(barrierModule.getManualUpdateCacheClearBarrier()).toBeUndefined();
+});
+
+test('unpackaged manual clearing does not require a signed native helper', async () => {
+  const { api, file } = await preparePackage('darwin');
+  await api.clearUpdateCache({ manual: true });
+  expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+  expect(fs.existsSync(file)).toBe(false);
+});
+
+test('renderer loss releases quit only after native cancellation settles and preserves the receipt', async () => {
+  const { api } = await preparePackage('darwin');
+  mockApp.isPackaged = true;
+  let finish!: () => void;
+  mockCancelMacUpdate.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const clear = api.clearUpdateCache({ manual: true });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const barrierModule =
+    require('@onekeyhq/desktop/app/libs/manualUpdateCacheClear') as typeof import('@onekeyhq/desktop/app/libs/manualUpdateCacheClear');
+  const barrier = barrierModule.getManualUpdateCacheClearBarrier();
+  mockMainWindow.webContents.emit('render-process-gone');
+  await Promise.resolve();
+  expect(barrierModule.getManualUpdateCacheClearBarrier()).toBe(barrier);
+  finish();
+  await clear;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  expect(barrierModule.getManualUpdateCacheClearBarrier()).toBeUndefined();
+  expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
+  expect(mockMainWindow.webContents.listenerCount('render-process-gone')).toBe(
+    0,
+  );
+});
+
+test.each(['missing', 'destroyed', 'crashed'] as const)(
+  'an already %s renderer releases quit after native cancellation settles',
+  async (state) => {
+    const { api } = await preparePackage('darwin');
+    mockApp.isPackaged = true;
+    if (state === 'missing') {
+      (
+        globalThis as unknown as {
+          $desktopMainAppFunctions: { getSafelyMainWindow: () => unknown };
+        }
+      ).$desktopMainAppFunctions.getSafelyMainWindow = () => undefined;
+    } else if (state === 'destroyed') {
+      mockMainWindow.webContents.isDestroyed.mockReturnValueOnce(true);
+    } else {
+      mockMainWindow.webContents.isCrashed.mockReturnValueOnce(true);
+    }
+    let finish!: () => void;
+    mockCancelMacUpdate.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const clear = api.clearUpdateCache({ manual: true });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const barriers =
+      require('@onekeyhq/desktop/app/libs/manualUpdateCacheClear') as typeof import('@onekeyhq/desktop/app/libs/manualUpdateCacheClear');
+    expect(barriers.getManualUpdateCacheClearBarrier()).toBeDefined();
+    finish();
+    await clear;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(barriers.getManualUpdateCacheClearBarrier()).toBeUndefined();
+    expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
+  },
+);
+
+test('automatic clearing preserves a prepared Windows quit update; manual clearing revokes it', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+  expect(api.hasPreparedQuitInstall()).toBe(true);
+  await expect(api.clearUpdateCache()).rejects.toThrow('INSTALL_FAILED');
+  expect(api.hasPreparedQuitInstall()).toBe(true);
+  expect(fs.existsSync(file)).toBe(true);
+  await api.clearUpdateCache({ manual: true });
+  await api.clearUpdateCache({ manual: true, complete: true });
+  expect(api.hasPreparedQuitInstall()).toBe(false);
+  expect(fs.existsSync(file)).toBe(false);
 });
 
 test('macOS restages when the checksum changes at the same cache path', async () => {

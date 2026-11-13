@@ -100,8 +100,8 @@ type IReactNativeBundleUpdateWithPrune = typeof ReactNativeBundleUpdate & {
 const ReactNativeBundleUpdateWithPrune =
   ReactNativeBundleUpdate as IReactNativeBundleUpdateWithPrune;
 
-const clearPackage: IClearPackage = async () => {
-  if (!isAppUpdateAvailable) {
+const clearPackage: IClearPackage = async (options) => {
+  if (!isAppUpdateAvailable || options?.complete || options?.release) {
     return;
   }
   await runUpdateOperation('cleanup', () =>

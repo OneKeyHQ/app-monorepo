@@ -11,6 +11,8 @@ const { getPath } = require('./scripts/utils');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'beforePack': async () =>
+    require('./scripts/build-squirrel-cancel').buildSquirrelCancel(),
   'dmg': {
     'sign': false,
     'contents': [
@@ -42,6 +44,10 @@ module.exports = {
     'x64ArchFiles': '*',
     'extraResources': [
       {
+        'from': 'app/build/native/squirrel-cancel',
+        'to': 'bin/squirrel-cancel',
+      },
+      {
         'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
@@ -53,6 +59,7 @@ module.exports = {
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
+    'binaries': ['Contents/Resources/bin/squirrel-cancel'],
     'gatekeeperAssess': true, // Changed from false - required for CloudKit with Developer ID
     'darkModeSupport': false,
     'category': 'productivity',

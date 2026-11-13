@@ -97,7 +97,11 @@ export interface IUpdateProgressUpdate extends IDownloadProgressScope {
 
 export type IUseDownloadProgress = (scope?: IDownloadProgressScope) => number;
 
-export type IClearPackage = () => Promise<void>;
+export type IClearPackage = (options?: {
+  manual?: boolean;
+  complete?: boolean;
+  release?: boolean;
+}) => Promise<void>;
 
 export type IManualInstallPackage = (
   params: IUpdateDownloadedEvent & { buildNumber: string },

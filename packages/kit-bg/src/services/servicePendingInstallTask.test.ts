@@ -2137,4 +2137,69 @@ describe('servicePendingInstallTask', () => {
     expect(appUpdateState.jsBundleVersion).toBe('3');
     expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
   });
+
+  test('manual cache clear revokes a task already waiting for package availability', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const tasks = require('./servicePendingInstallTask');
+    let release!: (value: { status: string }) => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    autoUpdate.AppUpdate.checkPackageAvailability.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({ revision: 987_654_321 });
+    const processing = service.processPendingInstallTask();
+    await entered;
+    const finish = tasks.beginManualUpdateCacheClear();
+    await tasks.clearPendingInstallTask();
+    finish();
+    release({ status: 'available' });
+    await processing;
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('manual cache clear invalidates a bundle task already waiting for verification', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const tasks = require('./servicePendingInstallTask');
+    let release!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    pendingTaskValue = makeSwitchTask({ revision: 987_654_322 });
+    const processing = service.processPendingInstallTask();
+    await entered;
+    const finish = tasks.beginManualUpdateCacheClear();
+    await tasks.clearPendingInstallTask();
+    finish();
+    release();
+    await processing;
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+  });
 });
