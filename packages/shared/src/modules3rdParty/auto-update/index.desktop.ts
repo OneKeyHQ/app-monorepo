@@ -315,7 +315,7 @@ export const useDownloadProgress: IUseDownloadProgress = (scope) =>
   useDownloadProgressDetails(scope).percent;
 
 const clearPackage: IClearPackage = async (options) => {
-  await runUpdateOperation('cleanup', () =>
+  return runUpdateOperation('cleanup', () =>
     globalThis.desktopApiProxy.appUpdate.clearUpdateCache(options),
   );
 };

@@ -101,7 +101,12 @@ const ReactNativeBundleUpdateWithPrune =
   ReactNativeBundleUpdate as IReactNativeBundleUpdateWithPrune;
 
 const clearPackage: IClearPackage = async (options) => {
-  if (!isAppUpdateAvailable || options?.complete || options?.release) {
+  if (
+    !isAppUpdateAvailable ||
+    options?.begin ||
+    options?.complete ||
+    options?.release
+  ) {
     return;
   }
   await runUpdateOperation('cleanup', () =>

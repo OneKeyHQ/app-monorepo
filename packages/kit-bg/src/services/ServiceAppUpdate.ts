@@ -2897,27 +2897,35 @@ class ServiceAppUpdate extends ServiceBase {
     this.clearingUpdateCache = true;
     this.updateCacheGeneration += 1;
     const finish = beginManualUpdateCacheClear();
-    const operation = this.appShellTargetMutex.runExclusive(async () => {
-      clearTimeout(downloadTimeoutId);
-      await this.resetDownloadAttemptBudget();
-      await AppUpdate.clearPackage({ manual: true });
-      await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
-      // Invalidate the cached release and skip reset's immediate fetch so this
-      // manual cancellation cannot immediately recreate the same preparation.
-      this.cachedUpdateInfo = undefined;
-      this.updateAt = 0;
-      void this.fetchAppChangeLog.clear();
-      await this.reset(true);
-      await BundleUpdate.clearDownload();
-      await AppUpdate.clearPackage({ manual: true, complete: true });
-    });
+    let nativeMayHaveChanged = true;
+    const operation = (async () => {
+      // Register normal-quit protection before waiting for an existing staging
+      // operation to release the service lock. No native revocation happens yet.
+      await AppUpdate.clearPackage({ manual: true, begin: true });
+      return this.appShellTargetMutex.runExclusive(async () => {
+        clearTimeout(downloadTimeoutId);
+        await this.resetDownloadAttemptBudget();
+        await AppUpdate.clearPackage({ manual: true });
+        await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
+        // Invalidate the cached release and skip reset's immediate fetch so this
+        // manual cancellation cannot immediately recreate the same preparation.
+        this.cachedUpdateInfo = undefined;
+        this.updateAt = 0;
+        void this.fetchAppChangeLog.clear();
+        await this.reset(true);
+        await BundleUpdate.clearDownload();
+        await AppUpdate.clearPackage({ manual: true, complete: true });
+      });
+    })();
     this.updateCacheClearPromise = operation;
     try {
       await operation;
     } catch (error) {
-      await AppUpdate.clearPackage({ manual: true, release: true }).catch(
-        () => undefined,
-      );
+      const state = await AppUpdate.clearPackage({
+        manual: true,
+        release: true,
+      }).catch(() => undefined);
+      nativeMayHaveChanged = state?.unchanged !== true;
       const updateError = getUpdateError(error, 'cleanup');
       defaultLogger.app.appUpdate.log(
         `Manual update-cache clear failed: ${JSON.stringify(updateError)}`,
@@ -2927,7 +2935,7 @@ class ServiceAppUpdate extends ServiceBase {
         data: { updateError },
       });
     } finally {
-      finish();
+      finish(nativeMayHaveChanged);
       this.clearingUpdateCache = false;
       this.updateCacheClearPromise = undefined;
     }

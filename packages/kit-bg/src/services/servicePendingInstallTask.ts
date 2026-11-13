@@ -109,12 +109,18 @@ export async function getPendingInstallTask() {
 const revokedTasks = new Set<string>();
 let manualCacheClearInProgress = false;
 let manualCacheClearGeneration = 0;
+let manualCacheClearOutcome: Promise<boolean> | undefined;
 
 export function beginManualUpdateCacheClear() {
   manualCacheClearInProgress = true;
   manualCacheClearGeneration += 1;
-  return () => {
+  let complete!: (nativeMayHaveChanged: boolean) => void;
+  manualCacheClearOutcome = new Promise<boolean>((resolve) => {
+    complete = resolve;
+  });
+  return (nativeMayHaveChanged = true) => {
     manualCacheClearInProgress = false;
+    complete(nativeMayHaveChanged);
   };
 }
 
@@ -146,7 +152,11 @@ export async function setPendingInstallTask(task: IPendingInstallTask) {
 }
 
 export async function clearPendingInstallTask() {
-  const task = await getPendingInstallTask();
+  // The sync-storage read, revocation and delete must precede the first yield;
+  // an older clear must not delete a replacement written in that gap.
+  const task = appStorage.syncStorage.getObject<IPendingInstallTask>(
+    EAppSyncStorageKeys.onekey_pending_install_task,
+  );
   if (task && manualCacheClearInProgress)
     revokedTasks.add(`${task.taskId}:${task.revision}`);
   await Promise.resolve(
@@ -2358,6 +2368,27 @@ class ServicePendingInstallTask {
         const updateError = getUpdateError(error, 'install');
         if (updateError.code === EUpdateErrorCode.cancelled) {
           shouldRunPostRefresh = false;
+          // A refused native clear preserves the prepared update. Wait for the
+          // outcome, then release only this interrupted worker's matching task.
+          const nativeMayHaveChanged = await manualCacheClearOutcome;
+          const current = appStorage.syncStorage.getObject<IPendingInstallTask>(
+            EAppSyncStorageKeys.onekey_pending_install_task,
+          );
+          if (
+            nativeMayHaveChanged === false &&
+            current?.taskId === runningTask.taskId &&
+            current.revision === runningTask.revision &&
+            !taskWasRevoked(current) &&
+            (current.status === EPendingInstallTaskStatus.running ||
+              current.status === EPendingInstallTaskStatus.appliedWaitingVerify)
+          ) {
+            await setPendingInstallTask({
+              ...task,
+              status: EPendingInstallTaskStatus.pending,
+              runningStartedAt: undefined,
+              lastError: undefined,
+            });
+          }
           return;
         }
         // Builtin fallback already cleared the task and triggered relaunch,

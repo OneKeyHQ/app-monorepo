@@ -17,7 +17,10 @@ running instance of that application. The job executable must be that app's own
 ShipIt, its request must target that app, and the staged app must match the
 expected version and designated code-signing requirement. Ambiguous, foreign,
 missing, timed-out or legacy preparations cannot be cancelled as known Ready.
-A staging timeout remains uncertain until a subsequent preparation completes and
+A staging timeout retains the old request's terminal listeners: no new native
+check can begin until its matching downloaded event, error or no-update terminal.
+Downloaded events must match that request's random loopback ZIP URL. The timeout
+remains uncertain until a subsequent preparation completes and
 the native helper captures its verified job/request/bundle snapshot. Only that
 successful reconciliation releases the timeout guard; a native downloaded event
 alone or a failed capture cannot make manual cache clearing safe.
@@ -43,14 +46,24 @@ uncertain journal from a different parent process fails closed. Snapshot mismatc
 or another running copy also fails closed. Capture is best effort: inability to
 capture must not change normal update behavior, but cancellation is then refused.
 
+On failure, `clearPackage({manual: true, release: true})` reports `unchanged: true`
+only when native preparation is confirmed untouched and no durable receipt exists.
+The worker may restore a matching interrupted task only for that explicit result;
+revoked, partially cleaned, unknown or replaced targets must not be restored.
+
 The main process serializes clear/stage/install and normal quit, invalidates old
 callbacks and pending tasks, and clears the cancelled build marker. A clear that
+uses the service lock first registers `clearPackage({manual: true, begin: true})`
+in Electron main before waiting for that lock. This phase protects normal Quit
+without revoking native state; failure releases it, and renderer loss waits for
+any active preparation/cancellation before releasing the in-memory wait.
+A clear that
 fails after revocation must not restore an install-ready state. New staging
 creates a fresh native updater through setFeedURL and awaits a new native
 update-downloaded event. An immediate background refresh must not recreate the
 just-cleared preparation; later ordinary update checks retain their policy.
 Renderer loss or a main-frame reload releases the quit wait only after an active
-native operation settles. It keeps the disk receipt and barrier for a later
+native operation settles. It keeps any existing disk receipt and barrier for a later
 manual retry, so a lost caller cannot strand normal Quit indefinitely.
 
 Verification includes focused service/API tests, real native compilation, and an

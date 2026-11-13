@@ -96,6 +96,24 @@ app
       report('staged');
     };
     await stage();
+    if (scenario === 'queuedquit') {
+      let unblock!: () => void;
+      const preparation = new Promise<void>((resolve) => {
+        unblock = resolve;
+      });
+      const internal = api as unknown as { macPreparation?: Promise<void> };
+      internal.macPreparation = preparation;
+      await api.clearUpdateCache({ manual: true, begin: true });
+      app.quit();
+      report('quit-held-before-revocation');
+      const clearing = api.clearUpdateCache({ manual: true });
+      unblock();
+      await clearing;
+      internal.macPreparation = undefined;
+      await api.clearUpdateCache({ manual: true, complete: true });
+      report('cancelled');
+      return;
+    }
     if (scenario === 'ownerbeforelost') {
       const gone = new Promise<void>((resolve) =>
         mainWindow.webContents.once('render-process-gone', () => resolve()),

@@ -28,6 +28,7 @@ jest.mock('@onekeyfe/react-native-app-update', () => ({
     verifyASC: jest.fn(),
     verifyAPK: jest.fn(),
     installAPK: jest.fn(),
+    clearCache: jest.fn(),
   },
 }));
 jest.mock('../../platformEnv', () => ({
@@ -51,6 +52,7 @@ const nativeUpdate = (
       verifyASC: jest.Mock;
       verifyAPK: jest.Mock;
       installAPK: jest.Mock;
+      clearCache: jest.Mock;
     };
   }
 ).ReactNativeAppUpdate;
@@ -79,6 +81,15 @@ describe('native app update proof recovery', () => {
     nativeUpdate.installAPK.mockImplementation(async () => {
       if (!packageProof) throw new OneKeyLocalError('missing package proof');
     });
+  });
+
+  test('desktop cleanup coordination phases do not clear the mobile cache again', async () => {
+    await AppUpdate.clearPackage({ manual: true, begin: true });
+    await AppUpdate.clearPackage({ manual: true, complete: true });
+    await AppUpdate.clearPackage({ manual: true, release: true });
+    expect(nativeUpdate.clearCache).not.toHaveBeenCalled();
+    await AppUpdate.clearPackage({ manual: true });
+    expect(nativeUpdate.clearCache).toHaveBeenCalledTimes(1);
   });
 
   test('verifyPackage rebuilds cold native ASC proof before package check', async () => {

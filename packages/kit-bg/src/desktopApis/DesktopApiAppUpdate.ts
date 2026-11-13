@@ -436,9 +436,13 @@ class DesktopApiAppUpdate {
 
   private macStageUncertain = false;
 
+  private macStagePending = false;
+
   private macStageStartedAt = 0;
 
   private manualClearInProgress = false;
+
+  private manualClearUnchanged = true;
 
   private manualClearOwnerCleanup?: () => void;
 
@@ -794,12 +798,35 @@ class DesktopApiAppUpdate {
 
   async clearUpdateCache(options?: {
     manual?: boolean;
+    begin?: boolean;
     complete?: boolean;
     release?: boolean;
-  }): Promise<void> {
+  }): Promise<void | { unchanged: boolean }> {
     const manual = options?.manual === true;
     if (options?.release === true && manual) {
+      let noMarker = !isMac;
+      if (isMac) {
+        try {
+          fs.lstatSync(getMacCancellationMarker(this.getCacheDir()));
+        } catch (error) {
+          noMarker = (error as NodeJS.ErrnoException).code === 'ENOENT';
+        }
+      }
+      const unchanged = this.manualClearUnchanged && noMarker;
       this.releaseManualClearWait();
+      return { unchanged };
+    }
+    if (options?.begin === true) {
+      if (!manual)
+        throw createUpdateError({
+          code: EUpdateErrorCode.invalidArgument,
+          step: 'cleanup',
+        });
+      this.manualClearInProgress = true;
+      beginManualUpdateCacheClearInMain();
+      this.watchManualClearOwner(
+        this.cacheClearPromise ?? this.macPreparation ?? Promise.resolve(),
+      );
       return;
     }
     if (options?.complete === true) {
@@ -811,6 +838,7 @@ class DesktopApiAppUpdate {
       if (this.cacheClearPromise) await this.cacheClearPromise;
       if (isMac && !isStoreVersion && app.isPackaged)
         await finishMacUpdateCancellation(this.getCacheDir());
+      this.manualClearUnchanged = true;
       this.releaseManualClearWait();
       return;
     }
@@ -855,7 +883,24 @@ class DesktopApiAppUpdate {
             step: 'cleanup',
           });
         }
-        await cancelMacUpdate(this.getCacheDir(), this.macCancellationSnapshot);
+        const hadMarker = fs.existsSync(
+          getMacCancellationMarker(this.getCacheDir()),
+        );
+        this.manualClearUnchanged = false;
+        try {
+          await cancelMacUpdate(
+            this.getCacheDir(),
+            this.macCancellationSnapshot,
+          );
+        } catch (error) {
+          if (
+            !hadMarker &&
+            (error as { nativeCancellationUnchanged?: boolean })
+              .nativeCancellationUnchanged === true
+          )
+            this.manualClearUnchanged = true;
+          throw error;
+        }
         // Native revocation is irreversible. Do not revive this preparation
         // when later disk/DB cleanup fails.
         this.macStagedIdentity = undefined;
@@ -867,6 +912,7 @@ class DesktopApiAppUpdate {
         }
         this.preparedBuildNumber = undefined;
       }
+      if (manual) this.manualClearUnchanged = false;
       this.quitInstallParams = undefined;
       this.preparingQuitInstall = undefined;
       this.quitInstallGeneration += 1;
@@ -1131,6 +1177,12 @@ class DesktopApiAppUpdate {
   }
 
   private async stageMacUpdate(record: ICacheRecord): Promise<void> {
+    if (this.macStagePending) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.timeout,
+        step: 'install',
+      });
+    }
     const identity = `${record.version}:${record.sha512}:${record.url}`;
     if (this.macStagedIdentity === identity) return;
     this.macFeedServer?.close();
@@ -1189,30 +1241,54 @@ class DesktopApiAppUpdate {
       });
     }
     try {
+      this.macStagePending = true;
       await new Promise<void>((resolve, reject) => {
         const timer: { id?: ReturnType<typeof setTimeout> } = {};
-        let onDownloaded = () => {};
+        let onDownloaded = (
+          _event: unknown,
+          _notes: string,
+          _name: string,
+          _date: Date,
+          _url: string,
+        ) => {};
         let onError = (_error: Error) => {};
+        let onUnavailable = () => {};
+        const closeServer = () => {
+          server.close();
+          if (this.macFeedServer === server) this.macFeedServer = undefined;
+        };
         const cleanup = () => {
+          this.macStagePending = false;
           clearTimeout(timer.id);
           autoUpdater.removeListener('update-downloaded', onDownloaded);
           autoUpdater.removeListener('error', onError);
-          server.close();
-          if (this.macFeedServer === server) {
-            this.macFeedServer = undefined;
-          }
+          autoUpdater.removeListener('update-not-available', onUnavailable);
+          closeServer();
         };
-        onDownloaded = () => {
+        onDownloaded = (_event, _notes, _name, _date, updateURL) => {
+          if (updateURL !== `http://127.0.0.1:${address.port}/${fileToken}`)
+            return;
           cleanup();
+          // Also reconcile a late terminal event after the JS waiter timed out.
+          this.macStagedIdentity = identity;
           resolve();
         };
         onError = (error: Error) => {
           cleanup();
           reject(error);
         };
+        onUnavailable = () =>
+          onError(
+            createUpdateError({
+              code: EUpdateErrorCode.installFailed,
+              step: 'install',
+            }),
+          );
         timer.id = setTimeout(() => {
           this.macStageUncertain = true;
-          cleanup();
+          // Closing the loopback server does not cancel Squirrel's command.
+          // Retain terminal listeners and refuse overlapping native checks.
+          closeServer();
           reject(
             createUpdateError({
               code: EUpdateErrorCode.timeout,
@@ -1220,13 +1296,14 @@ class DesktopApiAppUpdate {
             }),
           );
         }, 120_000);
-        autoUpdater.once('update-downloaded', onDownloaded);
+        autoUpdater.on('update-downloaded', onDownloaded);
         autoUpdater.once('error', onError);
-        autoUpdater.setFeedURL({
-          url: `http://127.0.0.1:${address.port}`,
-          headers: { Authorization: credential, 'Cache-Control': 'no-cache' },
-        });
+        autoUpdater.once('update-not-available', onUnavailable);
         try {
+          autoUpdater.setFeedURL({
+            url: `http://127.0.0.1:${address.port}`,
+            headers: { Authorization: credential, 'Cache-Control': 'no-cache' },
+          });
           this.macStageStartedAt = Date.now();
           autoUpdater.checkForUpdates();
         } catch (error) {

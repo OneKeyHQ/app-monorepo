@@ -99,9 +99,10 @@ export type IUseDownloadProgress = (scope?: IDownloadProgressScope) => number;
 
 export type IClearPackage = (options?: {
   manual?: boolean;
+  begin?: boolean;
   complete?: boolean;
   release?: boolean;
-}) => Promise<void>;
+}) => Promise<void | { unchanged: boolean }>;
 
 export type IManualInstallPackage = (
   params: IUpdateDownloadedEvent & { buildNumber: string },

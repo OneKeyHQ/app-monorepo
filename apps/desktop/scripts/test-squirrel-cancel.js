@@ -182,6 +182,7 @@ async function main() {
         'quitduring',
         'ownerlost',
         'ownerbeforelost',
+        'queuedquit',
       ]) {
     const directory = path.join(destination, scenario);
     fs.mkdirSync(directory);
@@ -213,6 +214,7 @@ async function main() {
       'quitduring',
       'ownerlost',
       'ownerbeforelost',
+      'queuedquit',
     ].includes(scenario)
       ? '1.0.0'
       : '1.0.1';

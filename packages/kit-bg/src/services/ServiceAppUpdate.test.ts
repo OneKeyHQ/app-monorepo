@@ -2266,6 +2266,42 @@ describe('ServiceAppUpdate state transitions', () => {
   // clearCache
   // =========================================================================
   describe('clearCache', () => {
+    test('registers main-process quit protection before waiting for the preparation lock', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const internal = service as unknown as {
+        appShellTargetMutex: {
+          runExclusive: (callback: () => Promise<void>) => Promise<void>;
+        };
+      };
+      let unlock!: () => void;
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const preparation = internal.appShellTargetMutex.runExclusive(
+        () =>
+          new Promise<void>((resolve) => {
+            unlock = resolve;
+            started();
+          }),
+      );
+      await entered;
+      const clear = service.clearCache();
+      await Promise.resolve();
+      expect(AppUpdate.clearPackage.mock.calls).toEqual([
+        [{ manual: true, begin: true }],
+      ]);
+      unlock();
+      await Promise.all([preparation, clear]);
+      expect(AppUpdate.clearPackage.mock.calls).toEqual([
+        [{ manual: true, begin: true }],
+        [{ manual: true }],
+        [{ manual: true, complete: true }],
+      ]);
+    });
+
     test('clears native caches and resets atom', async () => {
       const {
         AppUpdate,

@@ -199,6 +199,23 @@ function localGet(url: string, authorization?: string) {
   });
 }
 
+async function nativeUpdateURL() {
+  const config = mockNativeUpdater.setFeedURL.mock.calls.at(-1)?.[0] as {
+    url: string;
+    headers: { Authorization: string };
+  };
+  const response = await localGet(config.url, config.headers.Authorization);
+  return (JSON.parse(response.body.toString()) as { url: string }).url;
+}
+
+function emitNativeDownloaded(url: string) {
+  mockNativeUpdater.emit('update-downloaded', {}, '', '', new Date(), url);
+}
+
+async function completeNativeDownload() {
+  emitNativeDownloaded(await nativeUpdateURL());
+}
+
 function createApi(
   platform: NodeJS.Platform,
   channel?: string,
@@ -276,7 +293,7 @@ beforeEach(() => {
   mockNativeUpdater.removeAllListeners();
   mockMainWindow.removeAllListeners();
   mockNativeUpdater.checkForUpdates.mockImplementation(() => {
-    setImmediate(() => mockNativeUpdater.emit('update-downloaded'));
+    void completeNativeDownload();
   });
   mockSpawn.mockImplementation(() => {
     const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
@@ -639,7 +656,9 @@ test('macOS local ZIP requires its random capability path', async () => {
   };
   let triggerDownloaded!: () => void;
   mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => {
-    triggerDownloaded = () => mockNativeUpdater.emit('update-downloaded');
+    triggerDownloaded = () => {
+      void completeNativeDownload();
+    };
   });
   const staging = internal.stageMacUpdate(internal.readRecord());
   await new Promise<void>((resolve) => setImmediate(resolve));
@@ -870,7 +889,7 @@ test('macOS native staging rejects cache clearing until handoff completes', asyn
     '"code":"INSTALL_FAILED"',
   );
   expect(fs.existsSync(file)).toBe(true);
-  mockNativeUpdater.emit('update-downloaded');
+  await completeNativeDownload();
   expect(await install).toBe(true);
 });
 
@@ -935,6 +954,35 @@ test('failed native revocation preserves the prepared file and does not acknowle
   expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
 });
 
+test.each(['unchanged', 'uncertain', 'disk'] as const)(
+  'failed manual clear reports confirmed preservation only (%s)',
+  async (failure) => {
+    const { api } = await preparePackage('darwin');
+    mockApp.isPackaged = true;
+    if (failure === 'disk') {
+      mockStore.clearASCFile.mockImplementationOnce(() => {
+        throw new OneKeyLocalError(
+          'Disk cleanup failed after native revocation',
+        );
+      });
+    } else {
+      const error = Object.assign(
+        new Error('Native cancellation refused or interrupted'),
+        {
+          nativeCancellationUnchanged: failure === 'unchanged',
+        },
+      );
+      mockCancelMacUpdate.mockRejectedValueOnce(error);
+    }
+    await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
+      '"step":"cleanup"',
+    );
+    await expect(
+      api.clearUpdateCache({ manual: true, release: true }),
+    ).resolves.toEqual({ unchanged: failure === 'unchanged' });
+  },
+);
+
 test('manual clearing holds normal quit and rejects an install until revocation settles', async () => {
   const { api, params } = await preparePackage('darwin');
   mockApp.isPackaged = true;
@@ -967,6 +1015,41 @@ test('unpackaged manual clearing does not require a signed native helper', async
   expect(mockCancelMacUpdate).not.toHaveBeenCalled();
   expect(fs.existsSync(file)).toBe(false);
 });
+
+test.each([false, true])(
+  'manual begin protects Quit before cancellation while preparation is pending (renderer lost: %s)',
+  async (loseRenderer) => {
+    const { api, file, params } = await preparePackage('darwin');
+    mockApp.isPackaged = true;
+    let finish!: () => void;
+    const preparation = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const internal = api as unknown as { macPreparation?: Promise<void> };
+    internal.macPreparation = preparation;
+    await api.clearUpdateCache({ manual: true, begin: true });
+    const barriers =
+      require('@onekeyhq/desktop/app/libs/manualUpdateCacheClear') as typeof import('@onekeyhq/desktop/app/libs/manualUpdateCacheClear');
+    const barrier = barriers.getManualUpdateCacheClearBarrier();
+    expect(barrier).toBeDefined();
+    expect(fs.existsSync(file)).toBe(true);
+    expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+    expect(await api.installPackage(params)).toBe(false);
+    if (loseRenderer) mockMainWindow.webContents.emit('render-process-gone');
+    await Promise.resolve();
+    expect(barriers.getManualUpdateCacheClearBarrier()).toBe(barrier);
+    finish();
+    await preparation;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(Boolean(barriers.getManualUpdateCacheClearBarrier())).toBe(
+      !loseRenderer,
+    );
+    internal.macPreparation = undefined;
+    await api.clearUpdateCache({ manual: true });
+    await api.clearUpdateCache({ manual: true, complete: true });
+    expect(barriers.getManualUpdateCacheClearBarrier()).toBeUndefined();
+  },
+);
 
 test('renderer loss releases quit only after native cancellation settles and preserves the receipt', async () => {
   const { api } = await preparePackage('darwin');
@@ -1205,9 +1288,9 @@ test('macOS prepares a native quit update without quitting or relaunching early'
   expect(mockAppRelaunch).not.toHaveBeenCalled();
 });
 
-test.each([false, true])(
-  'macOS timeout recovery requires a successful native snapshot (failed capture first: %s)',
-  async (failCaptureFirst) => {
+test.each(['downloaded', 'error', 'unavailable'] as const)(
+  'macOS waits for the timed-out native request to end before recovering (%s)',
+  async (terminal) => {
     const { api, params, file } = await preparePackage('darwin');
     mockApp.isPackaged = true;
     jest.spyOn(fs, 'realpathSync').mockReturnValue('/Applications/OneKey.app');
@@ -1217,37 +1300,63 @@ test.each([false, true])(
       started = resolve;
     });
     mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => started());
-    const preparation = api.prepareMacInstall(params);
-    const failure = preparation.catch((error: unknown) => error);
+    const failure = api
+      .prepareMacInstall(params)
+      .catch((error: unknown) => error);
     await nativeStarted;
+    const originalURL = await nativeUpdateURL();
     const calls = timers.mock.calls as Array<[() => void, number | undefined]>;
     const timeout = calls.find(([, delay]) => delay === 120_000)?.[0];
-    if (typeof timeout !== 'function')
-      throw new OneKeyLocalError('Missing staging timeout');
+    if (!timeout) throw new OneKeyLocalError('Missing staging timeout');
     timeout();
     await expect(failure).resolves.toMatchObject({
       message: expect.stringContaining('"code":"TIMEOUT"'),
     });
+    await expect(api.prepareMacInstall(params)).rejects.toThrow('TIMEOUT');
     await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
       'INSTALL_FAILED',
     );
+    expect(mockNativeUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
     expect(fs.existsSync(file)).toBe(true);
     expect(mockCancelMacUpdate).not.toHaveBeenCalled();
+    emitNativeDownloaded('http://127.0.0.1/foreign.zip');
+    await expect(api.prepareMacInstall(params)).rejects.toThrow('TIMEOUT');
 
-    if (failCaptureFirst) {
+    if (terminal === 'downloaded') {
+      emitNativeDownloaded(originalURL);
+    } else {
+      if (terminal === 'error')
+        mockNativeUpdater.emit('error', new Error('Late native failure'));
+      else mockNativeUpdater.emit('update-not-available');
+      let retryStarted!: () => void;
+      const retryEntered = new Promise<void>((resolve) => {
+        retryStarted = resolve;
+      });
+      mockNativeUpdater.checkForUpdates.mockImplementationOnce(() =>
+        retryStarted(),
+      );
       mockCaptureMacUpdate.mockRejectedValueOnce(
         new OneKeyLocalError('Native state remains uncertain'),
       );
-      await api.prepareMacInstall(params);
+      const retry = api.prepareMacInstall(params);
+      await retryEntered;
+      const retryURL = await nativeUpdateURL();
+      // A stale event cannot complete the new request, even at the same version.
+      emitNativeDownloaded(originalURL);
+      await Promise.resolve();
+      expect(mockCaptureMacUpdate).not.toHaveBeenCalled();
       await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
         'INSTALL_FAILED',
       );
-      expect(fs.existsSync(file)).toBe(true);
+      emitNativeDownloaded(retryURL);
+      await retry;
+      await expect(api.clearUpdateCache({ manual: true })).rejects.toThrow(
+        'INSTALL_FAILED',
+      );
       expect(mockCancelMacUpdate).not.toHaveBeenCalled();
     }
 
     await api.prepareMacInstall(params);
-    // Automatic clearing must still preserve the successfully prepared update.
     await expect(api.clearUpdateCache()).rejects.toThrow('INSTALL_FAILED');
     await api.clearUpdateCache({ manual: true });
     await api.clearUpdateCache({ manual: true, complete: true });
@@ -1255,6 +1364,8 @@ test.each([false, true])(
       captured: true,
     });
     expect(fs.existsSync(file)).toBe(false);
+    emitNativeDownloaded(originalURL);
+    expect(mockNativeUpdater.listenerCount('update-downloaded')).toBe(0);
   },
 );
 
