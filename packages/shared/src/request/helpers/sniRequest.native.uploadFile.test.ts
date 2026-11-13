@@ -66,6 +66,7 @@ describe('sniUploadFile (native)', () => {
     mockedTurboModuleGet.mockReturnValue({
       cancelRequest: jest.fn(),
       uploadFile,
+      getUploadProgress: jest.fn().mockResolvedValue(null),
     });
 
     expect(isSniUploadFileSupported()).toBe(true);
@@ -121,7 +122,11 @@ describe('sniUploadFile (native)', () => {
   test('cancels the native upload when the signal aborts', async () => {
     const cancelRequest = jest.fn().mockResolvedValue({ success: true });
     const uploadFile = jest.fn(() => new Promise<never>(() => undefined));
-    mockedTurboModuleGet.mockReturnValue({ cancelRequest, uploadFile });
+    mockedTurboModuleGet.mockReturnValue({
+      cancelRequest,
+      uploadFile,
+      getUploadProgress: jest.fn().mockResolvedValue(null),
+    });
     const controller = new AbortController();
 
     const pending = sniUploadFile(buildUploadConfig(), {
