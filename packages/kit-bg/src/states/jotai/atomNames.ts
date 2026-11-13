@@ -166,8 +166,6 @@ export enum EAtomNames {
   marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
   marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
-  marketPriceSourceAtom = 'marketPriceSourceAtom',
-  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

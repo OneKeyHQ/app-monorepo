@@ -1,16 +1,8 @@
 /** @jest-environment jsdom */
 
-import type { SetStateAction } from 'react';
-
 import { act, renderHook } from '@testing-library/react';
 
-import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
 import { useStockPriceSourceState } from './stockPriceSourceState';
-
-let mockInitialPriceSource: IMarketPriceSource = 'share';
-let mockDeferPriceSource = false;
-let mockPendingPriceSourceUpdates: (() => void)[] = [];
 
 let mockStock: {
   stockId?: string;
@@ -20,29 +12,7 @@ let mockStock: {
 
 const useStockPriceSource = () => useStockPriceSourceState(mockStock);
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketPriceSourceAtom: () => {
-    const { useCallback, useState } =
-      jest.requireActual<typeof import('react')>('react');
-    const [state, setState] = useState<{ source: IMarketPriceSource }>({
-      source: mockInitialPriceSource,
-    });
-    const setSource = useCallback(
-      (update: SetStateAction<{ source: IMarketPriceSource }>) => {
-        const apply = () => setState(update);
-        if (mockDeferPriceSource) mockPendingPriceSourceUpdates.push(apply);
-        else apply();
-      },
-      [],
-    );
-    return [state, setSource];
-  },
-}));
-
 beforeEach(() => {
-  mockInitialPriceSource = 'share';
-  mockDeferPriceSource = false;
-  mockPendingPriceSourceUpdates = [];
   mockStock = { stockId: 'AAPL' };
 });
 
@@ -71,16 +41,9 @@ describe('useStockPriceSourceState', () => {
     },
   );
 
-  it('reveals the resolved mode locally before the native atom round-trip', () => {
-    mockInitialPriceSource = 'token';
-    mockDeferPriceSource = true;
+  it('reveals the resolved mode locally on mount', () => {
     mockStock.stockDetail = { marketStatus: { isOpen: true } };
     const { result } = renderHook(() => useStockPriceSource());
-    expect(result.current.isPriceSourceReady).toBe(true);
-    expect(result.current.priceMode).toBe('share');
-    act(() => {
-      for (const apply of mockPendingPriceSourceUpdates.splice(0)) apply();
-    });
     expect(result.current.isPriceSourceReady).toBe(true);
     expect(result.current.priceMode).toBe('share');
   });
@@ -173,8 +136,7 @@ describe('useStockPriceSourceState', () => {
   });
 });
 
-it('keeps a manual local choice when delayed global updates arrive', () => {
-  mockDeferPriceSource = true;
+it('keeps a manual local choice after initial load', () => {
   mockStock = {
     stockId: 'MANUAL',
     stockDetail: { marketStatus: { isOpen: true } },
@@ -183,12 +145,6 @@ it('keeps a manual local choice when delayed global updates arrive', () => {
   expect(result.current.priceMode).toBe('share');
   act(() => result.current.handlePriceModeChange('token'));
   expect(result.current.priceMode).toBe('token');
-  act(() => {
-    for (const apply of mockPendingPriceSourceUpdates.splice(0).toReversed())
-      apply();
-  });
-  expect(result.current.priceMode).toBe('token');
-  mockDeferPriceSource = false;
 });
 
 it('does not restore a previous stock manual choice after visiting a pending stock', () => {

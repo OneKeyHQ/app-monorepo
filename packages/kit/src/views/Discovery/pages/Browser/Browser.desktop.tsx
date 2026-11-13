@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
+import { HeaderUpdateButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderUpdateButton';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
   EAppEventBusNames,
@@ -43,10 +44,12 @@ function DesktopBrowser() {
   );
 
   const renderHeaderRight = useCallback(() => {
-    if (isHomeType) {
-      return <HistoryIconButton />;
-    }
-    return <HeaderRightToolBar />;
+    return (
+      <XStack alignItems="center" flexShrink={0}>
+        <HeaderUpdateButton />
+        {isHomeType ? <HistoryIconButton /> : <HeaderRightToolBar />}
+      </XStack>
+    );
   }, [isHomeType]);
 
   return (
@@ -60,10 +63,12 @@ function DesktopBrowser() {
         headerRightContainerStyle={{
           flexBasis: 'auto',
           flexGrow: 0,
+          flexShrink: 0,
         }}
         headerTitleContainerStyle={{
           maxWidth: '100%',
           flex: 1,
+          minWidth: 0,
         }}
       />
       <Page.Body>

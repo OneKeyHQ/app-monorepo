@@ -106,38 +106,24 @@ describe('desktop tab header background', () => {
   );
 });
 
-describe('desktop update entry placement', () => {
-  it.each(Object.values(ETabRoutes))(
-    'only renders the update entry on Home: %s',
-    (tabRoute) => {
-      const { queryByTestId } = render(
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={tabRoute}
-        />,
-      );
-
-      expect(Boolean(queryByTestId('header-update-button'))).toBe(
-        tabRoute === ETabRoutes.Home,
-      );
-    },
+it.each([
+  ETabRoutes.Home,
+  ETabRoutes.Market,
+  ETabRoutes.Discovery,
+  ETabRoutes.Earn,
+  ETabRoutes.Swap,
+  ETabRoutes.Perp,
+])('keeps the update entry available on %s', (tabRoute) => {
+  const { getByTestId } = render(
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={tabRoute}
+      customHeaderRightItems={
+        <button data-testid="custom-action">Custom</button>
+      }
+    />,
   );
-
-  it.each([ETabRoutes.Swap, ETabRoutes.Perp])(
-    'preserves custom actions without an update entry on %s',
-    (tabRoute) => {
-      const { queryByTestId, getByTestId } = render(
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={tabRoute}
-          customHeaderRightItems={
-            <button data-testid="custom-action">Custom action</button>
-          }
-        />,
-      );
-
-      expect(queryByTestId('header-update-button')).toBeNull();
-      expect(getByTestId('custom-action')).toBeTruthy();
-    },
-  );
+  expect(getByTestId('header-update-button')).toBeTruthy();
+  if (tabRoute === ETabRoutes.Swap || tabRoute === ETabRoutes.Perp)
+    expect(getByTestId('custom-action')).toBeTruthy();
 });
