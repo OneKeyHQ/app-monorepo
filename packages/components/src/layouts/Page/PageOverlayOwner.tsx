@@ -8,11 +8,13 @@ import {
   useOverlayPageScope,
 } from '@onekeyfe/react-native-native-overlay';
 import {
+  NavigationContainerRefContext,
   NavigationContext,
   NavigationRouteContext,
 } from '@react-navigation/native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { PageTypeContext } from '../../hocs/PageType/context';
 import { ModalNavigatorContext } from '../../hooks/useModalNavigatorContext';
@@ -20,7 +22,12 @@ import { registerImperativeOverlayPage } from '../../shared/imperativeOverlayMou
 
 import { PageContext } from './PageContext';
 
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import type {
+  NavigationProp,
+  NavigationState,
+  ParamListBase,
+  PartialState,
+} from '@react-navigation/native';
 
 type INavigation = NavigationProp<ParamListBase>;
 
@@ -62,6 +69,7 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
 export function PageOverlayOwner({ children }: PropsWithChildren) {
   const route = useContext(NavigationRouteContext);
   const navigation = useContext(NavigationContext) as INavigation | undefined;
+  const rootNavigation = useContext(NavigationContainerRefContext);
   const { hostKey, ownerKey: inheritedOwnerKey } = useOverlayPageScope();
   const pageContext = useContext(PageContext);
   const pageTypeContext = useContext(PageTypeContext);
@@ -128,11 +136,45 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
     if (!ownerKey || !navigation || isNestedOwner) {
       return;
     }
-    const update = () =>
+    const update = () => {
+      const rootState = !platformEnv.isNative
+        ? rootNavigation?.getRootState()
+        : undefined;
+      if (rootState && hostKey) {
+        // getState() omits nested states in React Navigation 7; the root
+        // ref supplies the hydrated tree. Keep covered modal backgrounds
+        // mounted and let the root modal overlay own interaction.
+        const hostIndex = rootState.routes.findIndex((host) => {
+          let state:
+            | NavigationState
+            | PartialState<NavigationState>
+            | undefined = host.state;
+          if (host.key === ownerKey) return true;
+          while (state) {
+            const activeRoute = state.routes[state.index ?? 0];
+            if (activeRoute?.key === ownerKey) return true;
+            state = activeRoute?.state;
+          }
+          return false;
+        });
+        const coveredByModals = rootState.routes
+          .slice(hostIndex + 1, rootState.index + 1)
+          .every(
+            (item) =>
+              item.name === ERootRoutes.Modal ||
+              item.name === ERootRoutes.iOSFullScreen,
+          );
+        overlayStore.setPageVisible(
+          ownerKey,
+          hostIndex >= 0 && hostIndex <= rootState.index && coveredByModals,
+        );
+        return;
+      }
       overlayStore.setPageVisible(
         ownerKey,
         isOwnerActiveWithinHost(navigation, ownerKey),
       );
+    };
     const unsubscribeListeners: Array<() => void> = [];
     let current: INavigation | undefined = navigation;
     while (current) {
@@ -148,7 +190,7 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
       unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
       overlayStore.removePage(ownerKey);
     };
-  }, [isNestedOwner, navigation, ownerKey]);
+  }, [hostKey, isNestedOwner, navigation, ownerKey, rootNavigation]);
 
   if (!ownerKey) {
     return <>{children}</>;

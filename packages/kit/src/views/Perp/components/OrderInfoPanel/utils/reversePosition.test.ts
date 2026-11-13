@@ -105,13 +105,6 @@ describe('reverse position', () => {
       szDecimals: 4,
       error: 'insufficientMargin',
     },
-    {
-      positionSize: '0.01',
-      price: '100',
-      maxSize: '5',
-      szDecimals: 4,
-      error: 'minimumOrder',
-    },
   ])(
     'rejects invalid orders: $error',
     ({ positionSize, price, maxSize, szDecimals, error }) => {
@@ -125,6 +118,17 @@ describe('reverse position', () => {
       ).toEqual({ error });
     },
   );
+
+  it('passes the exact order size to the exchange below the local minimum notional', () => {
+    const result = buildReversePositionOrder({
+      snapshot: { ...snapshot, positionSize: '0.01' },
+      price: '100',
+      maxSize: '5',
+      szDecimals: 4,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.params?.size).toBe('0.02');
+  });
 
   it('accepts normalized account and numerically equal position size', () => {
     expect(

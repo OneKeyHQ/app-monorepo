@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { OverlayPageHostScope } from '@onekeyfe/react-native-native-overlay';
 import {
+  NavigationContainerRefContext,
   NavigationContext,
   NavigationRouteContext,
 } from '@react-navigation/native';
@@ -20,7 +21,11 @@ import {
 
 import { PageOverlayOwner } from './PageOverlayOwner';
 
-import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import type {
+  NavigationContainerRef,
+  NavigationProp,
+  ParamListBase,
+} from '@react-navigation/native';
 
 const mockSetPageVisible = jest.fn();
 const mockRemovePage = jest.fn();
@@ -72,6 +77,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@react-navigation/native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    NavigationContainerRefContext: React.createContext(undefined),
     NavigationContext: React.createContext(undefined),
     NavigationRouteContext: React.createContext(undefined),
   };
@@ -140,6 +146,73 @@ it('preserves native page-host visibility when covered by a root modal', () => {
   platformEnv.isNative = true;
   setup(true);
   expect(mockSetPageVisible).toHaveBeenCalledWith('wallet', true);
+});
+
+it('uses hydrated state and preserves only active modal backgrounds on web', () => {
+  const listeners = new Set<() => void>();
+  const tabs = {
+    key: 'tabs',
+    index: 0,
+    routes: [
+      { key: 'perp', name: 'Perp' },
+      { key: 'home', name: 'Home' },
+    ],
+  };
+  const rootState = {
+    index: 0,
+    routes: [{ key: 'main', name: 'main', state: tabs }],
+  };
+  const navigation = {
+    // Child states are absent from individual navigation.getState() results.
+    getState: () => ({ index: 0, routes: [{ key: 'perp', name: 'Perp' }] }),
+    getParent: () => undefined,
+    addListener: (_event: string, fn: () => void) => {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  } as unknown as INavigation;
+  const root = {
+    getRootState: () => rootState,
+  } as unknown as NavigationContainerRef<ParamListBase>;
+  const view = render(
+    <NavigationContainerRefContext.Provider value={root}>
+      <OverlayPageHostScope hostKey="main">
+        <NavigationContext.Provider value={navigation}>
+          <NavigationRouteContext.Provider
+            value={{ key: 'perp', name: 'Perp' }}
+          >
+            <PageOverlayOwner>Deposit</PageOverlayOwner>
+          </NavigationRouteContext.Provider>
+        </NavigationContext.Provider>
+      </OverlayPageHostScope>
+    </NavigationContainerRefContext.Provider>,
+  );
+  const update = () => act(() => listeners.forEach((fn) => fn()));
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  rootState.routes.push({
+    key: 'receive',
+    name: 'modal',
+    state: {
+      key: 'receive-modal',
+      index: 0,
+      routes: [{ key: 'receive-selector', name: 'ReceiveSelector' }],
+    },
+  });
+  rootState.index = 1;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  tabs.index = 1;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  tabs.index = 0;
+  rootState.routes[1].name = 'fullScreenPush';
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', false);
+  rootState.routes.pop();
+  rootState.index = 0;
+  update();
+  expect(mockSetPageVisible).toHaveBeenLastCalledWith('perp', true);
+  view.unmount();
 });
 
 it('keeps the outer page owner live when a nested Page unmounts', () => {

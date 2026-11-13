@@ -1639,3 +1639,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The management row always rendered an empty subtitle with a 40px minimum height to prevent loading-height jumps. That invisible subtitle displaced the visible title, and the earlier fix only covered the Token Details component.
 **Fix**: Render the subtitle only when progress or error text exists and reserve the existing 80px minimum on the whole row. Regression coverage exercises preparing, syncing, paused and preparing transitions without an empty subtitle. The actual desktop paused row retained its 80px height with matching title/icon vertical centers; preparing was covered by tests rather than a separate live screenshot.
 **Catchable by**: Sections 4, 6 and 8: Trace every page named by the issue, distinguish empty from visible detail text, and verify both alignment and stable row height during state changes instead of accepting a similar component's screenshot.
+
+## Case: Reverse-position confirmation rejected live position-size updates (OK-65651)
+**Date**: 2026-11-13 | **Platforms**: Perps UI on web/desktop (single runtime), iOS/Android/extension main UI. Background order validation and native-resource ownership are unchanged.
+**Symptom**: Changing the position size while the reverse-position dialog was open left the preview stale and disabled submission until the dialog was reopened.
+**Root Cause**: The dialog treated the opening position-size snapshot as immutable even when the same account and position direction remained valid.
+**Fix**: Refresh the preview from the account-scoped live position and revalidate the latest position around asynchronous submission preparation. Keep account changes, position closure and direction flips guarded; delegate the minimum order notional to the exchange.
+**Catchable by**: Section 4: Change position size while the dialog is open and during preparation; also test account switches, closure, direction flips and duplicate submission. A live order is separate acceptance evidence.
+
+## Case: Swap deposit modal competed with the underlying deposit overlay (OK-67016)
+**Date**: 2026-11-13 | **Platforms**: Web and desktop single runtime; extension main UI. Native root hosts retain their original implementation in a platform-specific file.
+**Symptom**: Opening swap deposit caused overlapping modal layers, blocked interaction and lost draft state. Review also identified swallowed Escape events and page Dialogs becoming covered after a full-screen round trip.
+**Root Cause**: Page overlays and root modals did not share navigation order. Hiding covered modal content remounted the draft; a non-dismissible root entry swallowed Escape, and recreating that entry after full-screen coverage assigned it a newer order than its child Dialog.
+**Fix**: Order web root hosts by mount order, retain covered modal content and let the highest root modal own interaction. Route Escape through the focused navigation tree, and suspend/resume the existing root entry so child Dialog order and state survive full-screen coverage.
+**Catchable by**: Sections 3, 4 and 8: Repeat Deposit/Receive/Swap/back with an edited draft; test complete Escape keydown/keyup pairs with nested pages and a higher Dialog; verify Dialog identity, order, focus and editable draft after a full-screen round trip.
+
+## Case: Native overlay host split omitted its stable module ID (OK-67016)
+**Date**: 2026-11-13 | **Platforms**: iOS/Android main UI module, validated by the union main/background build. Runtime initialization, JS heap copies and native-resource ownership are unchanged.
+**Symptom**: The Native startup-graph CI job stopped before checking budgets with `Module is not registered` for `withOverlayPageHost.native.tsx`.
+**Root Cause**: Separating the native host changed the resolved module path, but the stable module-ID registry still contained only the original shared path. Unit tests and type checking did not exercise strict bundle lookup.
+**Fix**: Register the new native path through the existing allocator, preserving all existing IDs and tombstones.
+**Catchable by**: Section 6: When adding or splitting native module files, verify their strict registry lookup and run the union build before treating mobile build validation as complete.
