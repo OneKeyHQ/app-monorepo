@@ -1116,8 +1116,8 @@ function TokenListViewCmp(props: IProps) {
   ]);
 
   useEffect(() => {
-    // Without a limit (desktop table) nothing overflows; reset so a list
-    // that was capped before a layout change does not keep "show more".
+    // Without a limit nothing overflows; reset so a list that was capped
+    // before a layout change does not keep "show more".
     setOverFlowState((prev) => ({
       ...prev,
       isOverflow: limit ? displayCountForOverflow > limit : false,

@@ -130,7 +130,9 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   const otherBlocks = (
     <>
       <DeFiListBlock refreshCacheOnly />
-      <PopularTrading tableLayout={tableLayout || undefined} />
+      {/* Market has its own page; only the native tablet layout keeps it
+          here. */}
+      {tableLayout ? <PopularTrading tableLayout /> : null}
       <EarnListView isActive={isEarnListActive} />
     </>
   );
