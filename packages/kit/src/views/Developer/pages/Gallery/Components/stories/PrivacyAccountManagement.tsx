@@ -53,7 +53,7 @@ export function PrivacyAccountManagementPreview() {
   const [accounts, setAccounts] = useState(INITIAL_ACCOUNTS);
   const [scenario, setScenario] =
     useState<(typeof SCENARIOS)[number]['value']>('default');
-  const [previewWidth, setPreviewWidth] = useState<320 | 600>(600);
+  const [previewWidth, setPreviewWidth] = useState<320 | 360 | 600>(600);
   const [pendingActions, setPendingActions] = useState<
     Record<string, 'toggle' | 'delete'>
   >({});
@@ -122,7 +122,7 @@ export function PrivacyAccountManagementPreview() {
         >
           {intl.formatMessage({ id: ETranslations.global_reset })}
         </Button>
-        {([320, 600] as const).map((width) => (
+        {([320, 360, 600] as const).map((width) => (
           <Button
             key={width}
             testID={`privacy-management-preview-width-${width}`}

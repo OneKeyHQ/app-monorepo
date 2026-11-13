@@ -184,6 +184,7 @@ export const desktopApiPublicMethods: Readonly<
     'isProxyActiveForUrl',
     'isSupported',
     'request',
+    'uploadFile',
   ]),
   'oauthLocalServer': Object.freeze([
     'openBrowser',

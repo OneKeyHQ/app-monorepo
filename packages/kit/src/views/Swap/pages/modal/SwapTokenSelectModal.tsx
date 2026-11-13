@@ -1220,6 +1220,7 @@ const SwapTokenSelectPage = ({
           searchKeyword: requestedSearchKeyword,
           isMediumScreen: md,
           isDesktopSelector: Boolean(useDesktopTokenSelector),
+          isNativeIOS: platformEnv.isNativeIOS,
           currencySymbol: settingsPersistAtom.currencyInfo.symbol,
           oppositeToken:
             type === ESwapDirectionType.FROM

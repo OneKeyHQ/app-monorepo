@@ -266,6 +266,7 @@ const openIntercom = async (
   const {
     show,
     showConversation,
+    showMessages,
     trackEvent,
     update: updateIntercom,
   } = await loadIntercomSdk();
@@ -294,12 +295,15 @@ const openIntercom = async (
   if (messengerLocked || !canPresent()) {
     return false;
   }
+  const defaultBranch = intercomUnreadCount > 0 ? 'web-messages' : 'web-home';
   defaultLogger.notification.support.supportReplyBranch({
     conversationId: params?.conversationId,
-    selectedBranch: params?.conversationId ? 'web-conversation' : 'web-home',
+    selectedBranch: params?.conversationId ? 'web-conversation' : defaultBranch,
   });
   if (params?.conversationId) {
     showConversation(params.conversationId);
+  } else if (intercomUnreadCount > 0) {
+    showMessages();
   } else {
     show();
   }

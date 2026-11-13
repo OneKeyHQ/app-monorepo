@@ -530,7 +530,7 @@ export function PerpMobileLayout() {
           </YStack>
         </ScrollView>
       </PerpMobileTopChartProvider>
-      {platformEnv.isNativeIOS26Plus &&
+      {(platformEnv.isNativeIOS26Plus || platformEnv.isNativeAndroid) &&
       chartPosition === 'bottom' &&
       (tabBarHeight ?? 0) > 0 ? (
         <YStack

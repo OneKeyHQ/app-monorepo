@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
-index 0d0a5a4..3f52f4a 100644
+index da40073..a93cab1 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListGeneratedIcons.js
-@@ -25,6 +25,8 @@ export const nativeListGeneratedIcons = {
+@@ -27,6 +27,8 @@ export const nativeListGeneratedIcons = {
    PlusLargeOutline: 'PlusLargeOutline',
    PlusSmallOutline: 'PlusSmallOutline',
    RefreshCcwOutline: 'RefreshCcwOutline',
@@ -40,7 +40,7 @@ index 4c30885..2cbd93c 100644
      };
      if (image) image.addEventListener('error', showFallback, {
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index 4050327..b6787b0 100644
+index 6689c28..9dfdc00 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 @@ -257,6 +257,10 @@ type VisualWithImage = Readonly<{
@@ -55,7 +55,7 @@ index 4050327..b6787b0 100644
      shape?: 'circle' | 'rounded' | 'square';
      cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index 9ac00b5..18e222c 100644
+index e790955..8349e5f 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 @@ -375,6 +375,10 @@ type VisualWithImage = Readonly<{
@@ -70,10 +70,10 @@ index 9ac00b5..18e222c 100644
    shape?: 'circle' | 'rounded' | 'square';
    cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
-index d612a4d..6727f61 100644
+index 778ae04..ace4396 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListGeneratedIcons.ts
-@@ -23,6 +23,8 @@ export const nativeListGeneratedIcons: Readonly<Record<string, string>> = {
+@@ -25,6 +25,8 @@ export const nativeListGeneratedIcons: Readonly<Record<string, string>> = {
    PlusLargeOutline: 'PlusLargeOutline',
    PlusSmallOutline: 'PlusSmallOutline',
    RefreshCcwOutline: 'RefreshCcwOutline',

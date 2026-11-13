@@ -18,6 +18,7 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
@@ -59,10 +60,16 @@ const styles = StyleSheet.create({
 
 // iPhone Duo places the status bar, camera and vertical tab bar in a side strip
 // and reports it as a horizontal safe area inset. Tab pages only handle
-// top/bottom insets, so keep their content out of that strip here. Regular
-// iPhones are portrait-locked, where these insets are always 0. Pad inside each
-// screen: UIKit lays out the vertical bar against the navigation controller's
-// edge, so padding around the navigator drags the bar out of the strip.
+// top/bottom insets, so keep their content out of that strip here. Pad inside
+// each screen: UIKit lays out the vertical bar against the navigation
+// controller's edge, so padding around the navigator drags the bar out of the
+// strip.
+//
+// Only foldable iPhones get the padding. A regular iPhone reports horizontal
+// insets solely while the fullscreen chart holds the window in landscape, and
+// the chart covers the tab pages there. JS still held those landscape insets
+// for a layout pass after the window was back in portrait, so every mounted
+// tab page was laid out 124pt narrower once on each exit (OK-67080).
 function HorizontalSafeAreaTabScreen({ children }: { children: ReactNode }) {
   const { left, right } = useSafeAreaInsets();
   const style = useMemo(
@@ -97,7 +104,9 @@ function BasicTabSubStackNavigator({
   return (
     <Stack.Navigator
       screenLayout={
-        applyHorizontalSafeArea && shouldApplyHorizontalSafeArea
+        applyHorizontalSafeArea &&
+        shouldApplyHorizontalSafeArea &&
+        isFoldableIPhone()
           ? renderHorizontalSafeAreaTabScreen
           : undefined
       }

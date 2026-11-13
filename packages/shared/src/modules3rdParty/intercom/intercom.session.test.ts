@@ -15,6 +15,7 @@ const mockSdk = {
   show: jest.fn(),
   hide: jest.fn(),
   showConversation: jest.fn(),
+  showMessages: jest.fn(),
 };
 
 jest.mock('@intercom/messenger-js-sdk', () => ({
@@ -262,6 +263,30 @@ describe('desktop Intercom identity ownership', () => {
     expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
       createToken('intercom-B'),
     );
+  });
+
+  it.each([1, 2])(
+    'opens the message list when there are %i unread conversations',
+    async (count) => {
+      await subject.initIntercom();
+      mockUnreadCallbacks[0](count);
+      await flushEvents();
+      await subject.showIntercom();
+      expect(mockSdk.showMessages).toHaveBeenCalledTimes(1);
+      expect(mockSdk.show).not.toHaveBeenCalled();
+      expect(mockSdk.showConversation).not.toHaveBeenCalled();
+      expect(subject.getIntercomUnreadCount()).toBe(count);
+    },
+  );
+
+  it('keeps an explicit conversation ahead of the unread message list', async () => {
+    await subject.initIntercom();
+    mockUnreadCallbacks[0](2);
+    await flushEvents();
+    await subject.showIntercom({ conversationId: 'conversation-123' });
+    expect(mockSdk.showConversation).toHaveBeenCalledWith('conversation-123');
+    expect(mockSdk.showMessages).not.toHaveBeenCalled();
+    expect(mockSdk.show).not.toHaveBeenCalled();
   });
 
   it('refreshes authentication before opening a conversation or the default messenger', async () => {

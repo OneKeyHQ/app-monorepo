@@ -227,6 +227,14 @@ function startEarlyReplyServer(): Promise<ILocalServer> {
   return listenLocally(server);
 }
 
+// Reads the whole body and never answers, like a stalled route.
+function startStalledServer(): Promise<ILocalServer> {
+  const server = https.createServer(tlsCredentials, (req) => {
+    req.resume();
+  });
+  return listenLocally(server);
+}
+
 // Accepts the TCP connection and drops it before any TLS handshake, so fetch
 // rejects without ever asking for the body.
 function startBrokenServer(): Promise<ILocalServer> {
@@ -275,6 +283,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   let uploadServer: IUploadServer;
   let earlyReplyServer: ILocalServer;
   let brokenServer: ILocalServer;
+  let stalledServer: ILocalServer;
   let previousTlsSetting: string | undefined;
   let sandboxFetch: typeof fetch;
   let localUploadUrl: string;
@@ -302,11 +311,13 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       SMALL_ARCHIVE_FILE,
       payload.subarray(0, SMALL_ARCHIVE_SIZE),
     );
-    [uploadServer, earlyReplyServer, brokenServer] = await Promise.all([
-      startUploadServer(),
-      startEarlyReplyServer(),
-      startBrokenServer(),
-    ]);
+    [uploadServer, earlyReplyServer, brokenServer, stalledServer] =
+      await Promise.all([
+        startUploadServer(),
+        startEarlyReplyServer(),
+        startBrokenServer(),
+        startStalledServer(),
+      ]);
   });
 
   afterAll(async () => {
@@ -314,6 +325,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       uploadServer.close(),
       earlyReplyServer.close(),
       brokenServer.close(),
+      stalledServer.close(),
     ]);
     fs.rmSync(TMP_DIR, { recursive: true, force: true });
     globalThis.fetch = sandboxFetch;
@@ -481,5 +493,35 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(uploadServer.requests.every((request) => !request.completed)).toBe(
       true,
     );
+  });
+
+  it('aborts at the timeout when the server never answers', async () => {
+    const { api, events } = makeApi();
+
+    await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-small' });
+    localUploadUrl = stalledServer.url;
+    const startedAt = Date.now();
+    let rejection: { message?: string } | undefined;
+    try {
+      await api.uploadLoggerBundle({
+        uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
+        filePath: SMALL_ARCHIVE_FILE,
+        sizeBytes: SMALL_ARCHIVE_SIZE,
+        headers: uploadHeaders(SMALL_ARCHIVE_SIZE),
+        timeoutMs: 500,
+      });
+    } catch (error) {
+      rejection = error as { message?: string };
+    }
+
+    expect(rejection?.message).toBe(
+      'LOG_UPLOAD_TIMEOUT: Log upload timed out after 500ms',
+    );
+    expect(Date.now() - startedAt).toBeLessThan(5000);
+    expect(events[events.length - 1]?.stage).toBe(ELogUploadStage.Error);
+    for (const stream of mockOpenedStreams) {
+      await waitForClose(stream);
+      expect(stream.closed).toBe(true);
+    }
   });
 });

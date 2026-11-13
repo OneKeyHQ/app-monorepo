@@ -51,15 +51,21 @@ function rows(
 }
 
 describe('Swap NativeList row adapter', () => {
-  it.each([true, false])(
-    'keeps menu bounds inside the row and token columns aligned for desktop=%s',
-    (isDesktopSelector) => {
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])(
+    'keeps token columns aligned for iOS=%s desktop=%s',
+    (isNativeIOS, isDesktopSelector) => {
       const built = buildSwapTokenNativeListSnapshot({
         tokens: [token('USDC', 'evm--1', '0x1234')],
         theme,
         disabledNetworkIds: [],
         isMediumScreen: false,
         isDesktopSelector,
+        isNativeIOS,
         currencySymbol: '$',
         otherNetworkStartIndex: -1,
         warningIndex: -1,
@@ -71,15 +77,21 @@ describe('Swap NativeList row adapter', () => {
         },
       });
       const [row] = rows(built.snapshot);
-      const padding = row?.style?.horizontalPadding ?? 0;
+      const padding = row?.style?.horizontalPadding;
       const contentInset = built.snapshot.layout?.contentPaddingHorizontal ?? 0;
-      // Reserve the tertiary button's 7px overhang and its 2px focus ring.
-      expect(padding).toBeGreaterThanOrEqual(9);
-      expect(contentInset + padding).toBe(20);
+      if (isNativeIOS && !isDesktopSelector) {
+        // The native default retains a 12pt leading inset while allowing the
+        // trailing action to use its own inset.
+        expect(padding).toBeUndefined();
+      } else {
+        // Reserve the tertiary button's 7px overhang and its 2px focus ring.
+        expect(padding).toBe(12);
+      }
+      expect(contentInset).toBe(8);
       const section = built.snapshot.rows.find(
         (item) => item.type === 'sectionHeader',
       );
-      expect(section?.style?.horizontalPadding).toBe(padding);
+      expect(section?.style?.horizontalPadding).toBe(12);
       expect(row?.style?.container?.cornerRadius).toBe(12);
     },
   );

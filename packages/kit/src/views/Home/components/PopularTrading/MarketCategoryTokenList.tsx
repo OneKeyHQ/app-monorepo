@@ -15,6 +15,7 @@ import type { ITableProps } from '@onekeyhq/components';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { RichTable } from '../RichTable';
 
@@ -147,6 +148,18 @@ function MarketCategoryTokenList({
             }}
             onRow={(record) => ({
               onPress: () => onTokenPress(record),
+              onPressIn: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressIn',
+                  symbol: record.symbol,
+                });
+              },
+              onPressOut: () => {
+                defaultLogger.market.navigation.homeTokenNavigation({
+                  stage: 'pressOut',
+                  symbol: record.symbol,
+                });
+              },
             })}
           />
         )}
