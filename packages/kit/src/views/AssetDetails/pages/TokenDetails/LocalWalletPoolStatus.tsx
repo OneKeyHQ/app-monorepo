@@ -330,6 +330,16 @@ export function LocalWalletPoolStatus({
   if (!needsPassword) {
     return null;
   }
+  if (presentation === 'tokenDetails') {
+    return (
+      <LocalWalletPasswordAlert
+        networkId={networkId}
+        accountId={accountId}
+        presentation="tokenDetails"
+        onVerified={lw.refresh}
+      />
+    );
+  }
   return (
     <YStack pt="$3" gap="$2">
       <LocalWalletPasswordAlert networkId={networkId} accountId={accountId} />

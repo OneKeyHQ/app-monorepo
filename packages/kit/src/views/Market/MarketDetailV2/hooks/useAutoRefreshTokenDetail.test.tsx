@@ -105,11 +105,10 @@ jest.mock(
   }),
 );
 
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useMarketCurrentTokenLiveDataAtom: () => [
-    undefined,
-    mockSetCurrentTokenLiveData,
-  ],
+jest.mock('../components/TokenSelector/useLiveTokenOverride', () => ({
+  setCurrentTokenLiveData: (...args: unknown[]) => {
+    mockSetCurrentTokenLiveData(...args);
+  },
 }));
 
 describe('useAutoRefreshTokenDetail', () => {

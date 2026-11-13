@@ -477,17 +477,19 @@ function PrivacyChainSettingsProgress({
       </SectionTitle>
       <ListItem
         testID="privacy-sync-progress"
+        minHeight="$20"
         icon="RefreshCcwOutline"
         title={intl.formatMessage({ id: labelId })}
         subtitle={
-          <SizableText
-            testID="privacy-sync-progress-detail"
-            size="$bodyMd"
-            color={error ? '$textCaution' : '$textSubdued'}
-            minHeight="$10"
-          >
-            {detail}
-          </SizableText>
+          detail ? (
+            <SizableText
+              testID="privacy-sync-progress-detail"
+              size="$bodyMd"
+              color={error ? '$textCaution' : '$textSubdued'}
+            >
+              {detail}
+            </SizableText>
+          ) : undefined
         }
       >
         {canResume || canPause ? (

@@ -142,14 +142,10 @@ export function TokenPrivacyPanel({
       p="$4"
       gap="$3"
     >
-      <XStack
-        alignItems={isDisabled ? 'flex-start' : 'center'}
-        gap="$3"
-        minHeight="$8"
-      >
+      <XStack alignItems="flex-start" gap="$3" minHeight="$8">
         <Stack
           width={isDisabled ? '$10' : '$5'}
-          height={isDisabled ? '$10' : '$5'}
+          height={isDisabled ? '$10' : '$8'}
           bg={isDisabled ? '$bgStrong' : undefined}
           borderRadius="$full"
           alignItems="center"
@@ -167,11 +163,16 @@ export function TokenPrivacyPanel({
           )}
         </Stack>
         <YStack flex={1} minWidth={0} gap="$1">
-          <XStack gap="$2" alignItems="center" flexWrap="wrap">
+          <XStack
+            gap="$3"
+            alignItems="center"
+            minHeight={isDisabled ? undefined : '$8'}
+          >
             <SizableText
               testID="token-privacy-status"
               size="$bodyMdMedium"
               color="$text"
+              flex={1}
               flexShrink={1}
             >
               {title ??
@@ -179,6 +180,7 @@ export function TokenPrivacyPanel({
                   id: STATUS_LABELS[state],
                 })}
             </SizableText>
+            {!isDisabled ? action : null}
           </XStack>
           {supportingText ? (
             <SizableText size="$bodySm" color="$textSubdued">
@@ -205,7 +207,6 @@ export function TokenPrivacyPanel({
           ) : null}
           {isDisabled ? action : null}
         </YStack>
-        {!isDisabled ? action : null}
       </XStack>
       {showProgress ? (
         <Progress

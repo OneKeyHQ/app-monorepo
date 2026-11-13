@@ -46,6 +46,9 @@ export type IPromiseResultOptions<T> = {
   onIsLoadingChange?: (isLoading: boolean) => void;
   // automatically revalidate when Page gets focused
   revalidateOnFocus?: boolean;
+  // Minimum elapsed time (ms) since the last run before a focus transition
+  // triggers revalidation. Defaults to 0 (always revalidate on focus).
+  focusRevalidateMinIntervalMs?: number;
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
   // Resume this hook when React reconnects effects while preserving state.
@@ -191,6 +194,7 @@ export function usePromiseResult<T>(
   };
   const isDepsChangedOnBlur = useRef(false);
   const nonceRef = useRef(0);
+  const lastFocusRunAtRef = useRef(0);
 
   // The polling continuation in the finally-block reads this synchronously,
   // so a ref is enough — no consumer reacts to the flag via React state, and
@@ -290,6 +294,7 @@ export function usePromiseResult<T>(
         try {
           if (shouldSetState(config)) {
             didStartRequest = true;
+            lastFocusRunAtRef.current = Date.now();
             // Capture swrKey at dispatch time. If it changes mid-flight
             // (e.g. user switches wallet/account), we must NOT land
             // this result on the new scope — neither into its render
@@ -314,6 +319,7 @@ export function usePromiseResult<T>(
               nonceRef.current === nonce &&
               capturedSwrKey === swrKeyRef.current
             ) {
+              lastFocusRunAtRef.current = Date.now();
               setResult(r);
               // Only persist if the result is defined — writing
               // `undefined` would later override the caller's explicit
@@ -365,19 +371,24 @@ export function usePromiseResult<T>(
             // Swallow: scope/nonce identity check (same as success path)
             // and suppressed re-throw mirror how AbortError is already
             // treated as non-critical.
-          } else if (
-            didStartRequest &&
-            shouldApplyResult(config) &&
-            (undefinedResultIfError || isAbortError)
-          ) {
-            // Mirror the success-path gate: callers that opted into
-            // `undefinedResultIfError` expect the reset to land
-            // regardless of focus. Without this, a blur-time rejection
-            // silently keeps stale data and re-throws as an unhandled
-            // rejection.
-            setResult(undefined);
-          } else if (!isAbortError && !optionsRef.current.keepResultIfError) {
-            throw err;
+          } else {
+            if (didStartRequest) {
+              lastFocusRunAtRef.current = 0;
+            }
+            if (
+              didStartRequest &&
+              shouldApplyResult(config) &&
+              (undefinedResultIfError || isAbortError)
+            ) {
+              // Mirror the success-path gate: callers that opted into
+              // `undefinedResultIfError` expect the reset to land
+              // regardless of focus. Without this, a blur-time rejection
+              // silently keeps stale data and re-throws as an unhandled
+              // rejection.
+              setResult(undefined);
+            } else if (!isAbortError && !optionsRef.current.keepResultIfError) {
+              throw err;
+            }
           }
         } finally {
           if (loadingDelay && watchLoading) {
@@ -593,6 +604,12 @@ export function usePromiseResult<T>(
       // idle so the first render frame after tab switch can paint without
       // being blocked by data fetching across 40+ hooks.
       let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
+      const minFocusInterval =
+        optionsRef.current.focusRevalidateMinIntervalMs ?? 0;
+      const isWithinFocusMinInterval =
+        minFocusInterval > 0 &&
+        lastFocusRunAtRef.current > 0 &&
+        Date.now() - lastFocusRunAtRef.current < minFocusInterval;
       const shouldRecoverEmptyResult =
         platformEnv.isNative &&
         !isLoadingRef.current &&
@@ -600,7 +617,8 @@ export function usePromiseResult<T>(
         optionsRef.current.revalidateOnReconnect;
       const shouldRevalidateOnFocus =
         prevFocusedRef.current === false &&
-        optionsRef.current.revalidateOnFocus;
+        optionsRef.current.revalidateOnFocus &&
+        !isWithinFocusMinInterval;
       if (
         isFocusedRefValue &&
         (shouldRecoverEmptyResult ||

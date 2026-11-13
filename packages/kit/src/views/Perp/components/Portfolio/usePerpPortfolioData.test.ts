@@ -101,11 +101,26 @@ describe('buildPerpPortfolioFillsStats', () => {
     expect(stats.winRate).toBe(50);
     expect(stats.avgWin).toBe(20);
     expect(stats.avgLoss).toBe(-5);
-    expect(stats.profitFactor).toBe(4);
+    expect(stats.payoffRatio).toBe(4);
     expect(stats.realizedPnl).toBe(15);
     expect(stats.spotRealizedPnl).toBe(-5);
     expect(stats.feesPaid).toBe(1.5);
     expect(stats.volumeUsd).toBe(5130);
+  });
+
+  it.each([
+    { pnl: ['10', '10', '-5', '0'], expected: 2 },
+    { pnl: ['3', '-4', '-8'], expected: 0.5 },
+    { pnl: ['10'], expected: null },
+    { pnl: ['-5'], expected: null },
+    { pnl: ['0'], expected: null },
+    { pnl: [], expected: null },
+  ])('calculates the payoff ratio for $pnl', ({ pnl, expected }) => {
+    const stats = buildPerpPortfolioFillsStats({
+      timePeriod: 'allTime',
+      fills: pnl.map((closedPnl) => createFill({ closedPnl })),
+    });
+    expect(stats.payoffRatio).toBe(expected);
   });
 
   it('converts base-token spot fees at the fill price and drops ones without a usable price', () => {
