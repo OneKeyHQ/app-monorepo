@@ -13,7 +13,8 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -21,6 +22,12 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { getUniversalSearchSource } from '../../views/UniversalSearch/universalSearchSource';
 
 import { HEADER_SEARCH_MIN_WIDTH, HEADER_WIDE_MEDIA_KEY } from './headerLayout';
+
+// Paired with HeaderUpdateButton's collapse — see headerLayout.ts for why both
+// must flip at the same breakpoint (OK-58363).
+const searchBarMinWidth = {
+  [`$${HEADER_WIDE_MEDIA_KEY}`]: { minWidth: HEADER_SEARCH_MIN_WIDTH },
+};
 
 export function UniversalSearchInput({
   containerProps,
@@ -60,13 +67,7 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      {...(tabRoute === ETabRoutes.Home
-        ? {
-            [`$${HEADER_WIDE_MEDIA_KEY}`]: {
-              minWidth: HEADER_SEARCH_MIN_WIDTH,
-            },
-          }
-        : { $gtLg: { minWidth: HEADER_SEARCH_MIN_WIDTH } })}
+      {...searchBarMinWidth}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
