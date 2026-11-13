@@ -1,3 +1,4 @@
+import { HardwareErrorCode, createHwkError } from '@onekeyfe/hwk-adapter-core';
 import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble';
 
 import { createTrezorBlePairingIpcMain } from './trezorBlePairing';
@@ -95,7 +96,9 @@ it.each([
     });
     expect(mockDecide).toHaveBeenCalledTimes(1);
     finish();
-    await expect(pending).rejects.toThrow('connect cancelled');
+    await expect(pending).rejects.toMatchObject({
+      code: HardwareErrorCode.BlePairingCancelled,
+    });
     expect(connect).not.toHaveBeenCalled();
   },
 );
@@ -124,7 +127,9 @@ it('does not open a queued pairing after that connection was cancelled', async (
   expect(mockDecide).not.toHaveBeenCalled();
   finish();
   await expect(first).resolves.toEqual({ id: 'connected' });
-  await expect(second).rejects.toThrow('connect cancelled');
+  await expect(second).rejects.toMatchObject({
+    code: HardwareErrorCode.BlePairingCancelled,
+  });
   expect(mockPair).toHaveBeenCalledTimes(1);
   expect(connect).toHaveBeenCalledTimes(1);
 });
@@ -178,4 +183,73 @@ it('retries the first Ledger connect once after a fresh bond', async () => {
   } finally {
     jest.useRealTimers();
   }
+});
+
+// What the SDK's BLE host throws when Windows reports the GATT unreachable.
+const unreachableAfter = (msSinceLink: number) =>
+  createHwkError({
+    code: HardwareErrorCode.BleConnectFailed,
+    message: 'BLE connect failed',
+    params: { phase: 'connect', gattUnreachable: true, msSinceLink },
+  });
+
+it('reports a lost bond when a bonded Ledger drops the link as it forms', async () => {
+  mockPair.mockResolvedValue('already-paired');
+  const { invoke, connect } = setup();
+  connect.mockRejectedValueOnce(unreachableAfter(80));
+  await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'ledger' });
+  await expect(
+    invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', { vendor: 'ledger' }),
+  ).rejects.toMatchObject({
+    code: HardwareErrorCode.BleBondInvalid,
+    params: { phase: 'connect', msSinceLink: 80 },
+  });
+  expect(connect).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+  [
+    'a Ledger losing the link seconds in',
+    'ledger',
+    'nano',
+    'already-paired',
+    5000,
+  ],
+  [
+    'a bonded Trezor dropping the link at once',
+    'trezor',
+    'first',
+    'already-paired',
+    80,
+  ],
+  ['a Ledger the OS was not bonded to before', 'ledger', 'nano', 'skipped', 80],
+] as const)(
+  'leaves %s as the host reported it',
+  async (_name, vendor, id, pairOutcome, msSinceLink) => {
+    mockPairAvailable.mockReturnValue(pairOutcome !== 'skipped');
+    mockPair.mockResolvedValue(pairOutcome);
+    const { invoke, connect } = setup();
+    const hostError = unreachableAfter(msSinceLink);
+    connect.mockRejectedValueOnce(hostError);
+    await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor });
+    await expect(
+      invoke(THIRD_PARTY_BLE_CHANNELS.connect, id, { vendor }),
+    ).rejects.toBe(hostError);
+  },
+);
+
+it('does not retry a fresh bond once the host timed the connect out', async () => {
+  mockPair.mockResolvedValue('paired');
+  const { invoke, connect } = setup();
+  const timedOut = createHwkError({
+    code: HardwareErrorCode.DeviceNotFound,
+    message: 'connect timed out after 31000ms',
+    params: { phase: 'connect', timedOut: true },
+  });
+  connect.mockRejectedValueOnce(timedOut);
+  await invoke(THIRD_PARTY_BLE_CHANNELS.scan, { vendor: 'ledger' });
+  await expect(
+    invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'nano', { vendor: 'ledger' }),
+  ).rejects.toBe(timedOut);
+  expect(connect).toHaveBeenCalledTimes(1);
 });

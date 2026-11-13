@@ -1,3 +1,4 @@
+import { HardwareErrorCode, createHwkError } from '@onekeyfe/hwk-adapter-core';
 import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble';
 import {
   isTrezorBleServiceUuid,
@@ -6,7 +7,6 @@ import {
 import { dialog } from 'electron';
 import logger from 'electron-log/main';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ElectronTranslations, i18nText } from '../i18n';
@@ -93,6 +93,39 @@ type IPendingBleConnection = {
   vendor?: string;
   cancelled: boolean;
 };
+
+// Errors on this IPC reach the renderer by code alone (the SDK's IPC envelope).
+const connectCancelledError = () =>
+  createHwkError({
+    code: HardwareErrorCode.BlePairingCancelled,
+    message: 'BLE connect cancelled',
+    params: { phase: 'connect' },
+  });
+
+// Facts the SDK's BLE host attaches to a failed connect.
+type IHostConnectFacts = {
+  timedOut?: unknown;
+  gattUnreachable?: unknown;
+  msSinceLink?: unknown;
+};
+
+function hostConnectFacts(error: unknown): IHostConnectFacts {
+  return (error as { params?: IHostConnectFacts } | null)?.params ?? {};
+}
+
+function isHostConnectTimeout(error: unknown): boolean {
+  return hostConnectFacts(error).timedOut === true;
+}
+
+// A Ledger that deleted its half of the bond drops the link 40-130ms after it
+// forms; a fresh bond's failing first connect takes seconds and is retried.
+const LOST_BOND_LINK_WINDOW_MS = 2000;
+
+function isLinkDroppedOnArrival(error: unknown): boolean {
+  const { gattUnreachable, msSinceLink } = hostConnectFacts(error);
+  if (gattUnreachable !== true || typeof msSinceLink !== 'number') return false;
+  return msSinceLink < LOST_BOND_LINK_WINDOW_MS;
+}
 
 export function createTrezorBlePairingIpcMain(
   base: IpcMainLike,
@@ -197,8 +230,7 @@ export function createTrezorBlePairingIpcMain(
     // Loop, not a single check: several waiters resume together when the
     // holder settles, and each must re-check before claiming the slot.
     for (;;) {
-      if (connection.cancelled)
-        throw new OneKeyLocalError('BLE connect cancelled');
+      if (connection.cancelled) throw connectCancelledError();
       const holder = pairingInFlight;
       if (!holder) break;
       logger.warn(
@@ -266,19 +298,6 @@ export function createTrezorBlePairingIpcMain(
           Date.now() - startedAt
         }ms: ${message}`,
       );
-      // Status 19 + instant link drop = the device still holds its half of a
-      // deleted bond. Appended (not replaced) to keep substring matching alive.
-      if (
-        error instanceof Error &&
-        message.includes('DevicePairingResultStatus(19)') &&
-        !message.includes('refused the pairing immediately')
-      ) {
-        error.message =
-          `${message} — the device refused the pairing immediately. It likely ` +
-          `still holds an old pairing for this computer: delete this ` +
-          `computer in the device's Bluetooth settings (or it was declined ` +
-          `on the device), then retry.`;
-      }
       throw error;
     } finally {
       // Ownership-checked: another call may have claimed the slot already.
@@ -411,8 +430,7 @@ export function createTrezorBlePairingIpcMain(
                 : 'skipped';
 
             const attemptConnect = async (attempt: number) => {
-              if (claim.cancelled)
-                throw new OneKeyLocalError('BLE connect cancelled');
+              if (claim.cancelled) throw connectCancelledError();
               const startedAt = Date.now();
               const sinceScan = lastScanAt ? startedAt - lastScanAt : -1;
               const targetSeen = seenTrezorAddresses.get(connectId);
@@ -442,11 +460,12 @@ export function createTrezorBlePairingIpcMain(
                 // Name the disease: gone from noble's cache and not
                 // re-advertising, vs a link that refused or timed out.
                 const message = error instanceof Error ? error.message : '';
+                const { code } = (error ?? {}) as { code?: unknown };
                 let kind = 'OTHER';
-                if (/not found/i.test(message)) {
-                  kind = 'PERIPHERAL-GONE';
-                } else if (/timed out/i.test(message)) {
+                if (isHostConnectTimeout(error)) {
                   kind = 'CONNECT-TIMEOUT';
+                } else if (code === HardwareErrorCode.DeviceNotFound) {
+                  kind = 'PERIPHERAL-GONE';
                 }
                 // A stale address is the prime suspect when the target never
                 // advertised this session, or last did so long ago — the device
@@ -476,8 +495,6 @@ export function createTrezorBlePairingIpcMain(
             try {
               return await attemptConnect(1);
             } catch (firstError) {
-              const firstMessage =
-                firstError instanceof Error ? firstError.message : '';
               // First connect after a fresh bond routinely fails (device still
               // holds the pairing link); one delayed retry, fresh-pair case only.
               // NOT after a race timeout: the SDK's _connectInner may still be
@@ -486,7 +503,7 @@ export function createTrezorBlePairingIpcMain(
               if (
                 !claim.cancelled &&
                 pairOutcome === 'paired' &&
-                !/timed out/i.test(firstMessage)
+                !isHostConnectTimeout(firstError)
               ) {
                 logger.info(
                   `[TrezorBLE] first connect after a FRESH pairing failed; retrying once in 3000ms (device usually still holds the pairing link)`,
@@ -496,20 +513,23 @@ export function createTrezorBlePairingIpcMain(
                 });
                 return attemptConnect(2);
               }
-              // Bonded but unreachable: waking the device is the cure, not
-              // re-pairing. Appended so trezorTransportUtils substring match survives.
+              // Windows holds a bond, yet the link died as soon as it formed: the
+              // Ledger deleted its half. Not for Trezor, whose firmware refuses an
+              // unknown host the same way it refuses one while locked.
               if (
+                options?.vendor === EHardwareVendor.ledger &&
                 pairOutcome === 'already-paired' &&
-                firstError instanceof Error &&
-                firstMessage.includes(
-                  'unreachable while discovering services',
-                ) &&
-                !firstMessage.includes('wake the device')
+                isLinkDroppedOnArrival(firstError)
               ) {
-                firstError.message =
-                  `${firstMessage} — the device is already paired with ` +
-                  `this computer but is not responding; wake the device and ` +
-                  `retry instead of re-pairing.`;
+                logger.warn(
+                  `[TrezorBLE] ${connectId} dropped the link Windows holds a bond for; reporting a lost bond`,
+                );
+                throw createHwkError({
+                  code: HardwareErrorCode.BleBondInvalid,
+                  message:
+                    'The Ledger dropped the link Windows holds a pairing for',
+                  params: { phase: 'connect', ...hostConnectFacts(firstError) },
+                });
               }
               throw firstError;
             }

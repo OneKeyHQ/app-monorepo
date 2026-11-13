@@ -2,13 +2,14 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { HardwareErrorCode, createHwkError } from '@onekeyfe/hwk-adapter-core';
 import { app } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
 import { getAppStaticResourcesPath } from '../resoucePath';
+
+import type { IHwkErrorPayload } from '@onekeyfe/hwk-adapter-core';
 
 const isDev = !app?.isPackaged && electronIsDev;
 
@@ -23,8 +24,6 @@ const isDev = !app?.isPackaged && electronIsDev;
 
 const RESOURCE = 'ble-pair';
 const PROCESS_NAME = 'onekey-ble-pair';
-// Matches the SDK's /connect cancelled/i -> BlePairingCancelled (10310).
-const PAIR_CANCELLED_REASON = 'connect cancelled: BLE pairing declined by user';
 // The user has up to the OS pairing window to confirm; keep some headroom.
 const PAIR_TIMEOUT_MS = 60_000;
 // After the deadline the helper still needs a moment to decline before it is killed.
@@ -47,6 +46,22 @@ export type IBlePairEvent =
   | { type: 'is-paired'; paired: boolean }
   | { type: 'unpaired' }
   | { type: 'error'; message: string };
+
+/**
+ * The helper reports a WinRT pairing result only in its text, as
+ * `DevicePairingResultStatus(N)`. Any other failure means it never got that far.
+ */
+function helperFailure(message: string): IHwkErrorPayload {
+  const status = /DevicePairingResultStatus\((\d+)\)/.exec(message)?.[1];
+  if (status === undefined) {
+    return { code: HardwareErrorCode.BleConnectFailed, message };
+  }
+  return {
+    code: HardwareErrorCode.BlePairingTimeout,
+    message,
+    params: { phase: 'pairing', pairingStatus: Number(status) },
+  };
+}
 
 function getPlatform(): string {
   switch (process.platform) {
@@ -103,21 +118,25 @@ function runHelper(
     const events: IBlePairEvent[] = [];
     let stdoutBuf = '';
     let settled = false;
-    let lastError: string | undefined;
+    let failure: IHwkErrorPayload | undefined;
 
-    // Once we know why the attempt ends, the helper's own failure text must not
-    // replace it: the SDK maps our reason, not `pairing failed with status N`.
-    let reasonLocked = false;
-    const lockReason = (reason: string) => {
-      if (reasonLocked) return;
-      lastError = reason;
-      reasonLocked = true;
+    // Once we know why the attempt ends, the helper's own failure must not
+    // replace it: a declined pairing also ends in `pairing failed with status N`.
+    let failureLocked = false;
+    const lockFailure = (reason: IHwkErrorPayload) => {
+      if (failureLocked) return;
+      failure = reason;
+      failureLocked = true;
     };
 
     let killTimer: ReturnType<typeof setTimeout> | undefined;
     let completionTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      lockReason(`BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`);
+      lockFailure({
+        code: HardwareErrorCode.BlePairingTimeout,
+        message: `BLE pairing timed out after ${PAIR_TIMEOUT_MS}ms`,
+        params: { phase: 'pairing', timedOut: true },
+      });
       // Decline first, kill second: only a live helper can complete the WinRT
       // deferral, and that is what makes Windows tell the device the pairing
       // failed instead of leaving it to notice a dead peer.
@@ -132,16 +151,22 @@ function runHelper(
     registerDecide?.((decision) => {
       if (settled) return;
       if (decision === 'cancel') {
-        lockReason(PAIR_CANCELLED_REASON);
+        lockFailure({
+          code: HardwareErrorCode.BlePairingCancelled,
+          message: 'BLE pairing declined by user',
+          params: { phase: 'pairing' },
+        });
       } else {
         // The deadline covers the user, not WinRT: PairAsync can take a while after
         // Accept, and killing it then would report a confirmed pairing as failed.
         // It still needs an end though — the helper only bounds waiting for us.
         clearTimeout(timer);
         completionTimer = setTimeout(() => {
-          lockReason(
-            `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`,
-          );
+          lockFailure({
+            code: HardwareErrorCode.BlePairingTimeout,
+            message: `BLE pairing did not complete ${PAIR_COMPLETION_TIMEOUT_MS}ms after confirmation`,
+            params: { phase: 'pairing', timedOut: true },
+          });
           child.kill();
         }, PAIR_COMPLETION_TIMEOUT_MS);
       }
@@ -191,8 +216,8 @@ function runHelper(
                 `[BlePair] +${sinceSpawn()}ms event ${JSON.stringify(logged)}`,
               );
             }
-            if (event.type === 'error' && !reasonLocked) {
-              lastError = event.message;
+            if (event.type === 'error' && !failureLocked) {
+              failure = helperFailure(event.message);
             }
             onEvent?.(event);
           } catch {
@@ -207,7 +232,14 @@ function runHelper(
     });
 
     child.on('error', (err) => {
-      settle(() => reject(err));
+      settle(() =>
+        reject(
+          createHwkError({
+            code: HardwareErrorCode.BleConnectFailed,
+            message: `BLE pairing helper failed to run: ${err.message}`,
+          }),
+        ),
+      );
     });
 
     child.on('exit', (code) => {
@@ -219,8 +251,11 @@ function runHelper(
           resolve(events);
         } else {
           reject(
-            new OneKeyLocalError(
-              lastError ?? `helper exited with code ${code ?? 'unknown'}`,
+            createHwkError(
+              failure ?? {
+                code: HardwareErrorCode.BleConnectFailed,
+                message: `helper exited with code ${code ?? 'unknown'}`,
+              },
             ),
           );
         }
@@ -304,7 +339,11 @@ export async function ensureDevicePaired(
   if (events.some((e) => e.type === 'already-paired')) {
     return 'already-paired';
   }
-  throw new OneKeyLocalError('BLE pairing did not complete');
+  throw createHwkError({
+    code: HardwareErrorCode.BlePairingTimeout,
+    message: 'BLE pairing did not complete',
+    params: { phase: 'pairing' },
+  });
 }
 
 /** Query whether the OS already holds a bond for `address`. */
