@@ -46,8 +46,6 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   EarnAssetSearch = 'EarnAssetSearch',
-  // Desktop Earn home guide for a wallet without positions (demo 10-22)
-  EarnGuide = 'EarnGuide',
   // Pay with's token picker: Swap's, kept to the deposit's network (demo 10-25)
   EarnPayWithTokenSelect = 'EarnPayWithTokenSelect',
   // Swap's risk reminder, pushed in the picker's own modal as Swap does
@@ -175,7 +173,6 @@ export type IModalStakingParamList = {
     onStakeWithdrawSuccess?: () => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
-  [EModalStakingRoutes.EarnGuide]: undefined;
   [EModalStakingRoutes.EarnPayWithTokenSelect]: {
     accountId: string;
     networkId: string;

@@ -4,6 +4,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import {
+  countsAsGuideDeposit,
   deriveGuideState,
   getPreviewGuideState,
   hasGuideGas,
@@ -16,7 +17,7 @@ import type {
   IEarnGuideStep,
 } from './earnGuide.utils';
 
-/** What the home knows about the account, for the card and the modal */
+/** What the home knows about the account, for the checklist */
 export type IEarnGuideLive = {
   scope: string;
   hasWallet: boolean;
@@ -26,43 +27,15 @@ export type IEarnGuideLive = {
   hasGas: boolean;
 };
 
-export type IEarnGuideRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-/** Where the card is, and whether the pointer is over it (its ink lit) */
-export type IEarnGuideCardPlace = IEarnGuideRect & { isHovered?: boolean };
-
-/** Takes the guide out: covers the modal, has `leave` remove it, and goes
- * back into the card or fades. False when it draws no way out (narrow
- * windows, where the modal slides away by itself). `leaveRendersPage`: the
- * leave brings a page to render (the hero once the guide ends, the
- * positions page), which would stall a way out already moving */
-export type IEarnGuideCloseDrawer = (
-  leave: () => void,
-  shownStep: IEarnGuideStep,
-  leaveRendersPage?: boolean,
-) => boolean;
-
 type IEarnGuideSnapshot = {
   saved: Record<string, IEarnGuideSaved>;
   live?: IEarnGuideLive;
-  /** The modal's own check of ETH on Base while step 1 waits */
+  /** The checklist's own check of ETH on Base while task 1 waits */
   polledGas?: { scope: string; amount: number };
-  /** The preview key's step; nothing in it is saved or sent */
+  /** The preview key's task; nothing in it is saved or sent */
   previewStep?: IEarnGuideStep;
-  /** What was typed in the preview's deposit, for its step 4 */
-  previewAmount?: string;
-  /** The guide modal is up: the preview key works over it too */
-  isModalOpen?: boolean;
-  /** The modal's ink header, where the growing card's ink ends */
-  headerHeight?: number;
-  /** The modal closed on a finish (Done, My portfolio), not
-      back to the card */
-  closesOnFinish?: boolean;
+  /** The checklist folded or opened during the preview */
+  previewCollapsed?: boolean;
 };
 
 const EMPTY_SAVED: IEarnGuideSaved = {};
@@ -81,12 +54,6 @@ function readSaved(): Record<string, IEarnGuideSaved> {
 
 let snapshot: IEarnGuideSnapshot = { saved: readSaved() };
 const listeners = new Set<() => void>();
-// Where the card is now, set by the card while it shows: the guide goes back
-// into it there, wherever a resize has moved it since the press
-let cardMeasurer: (() => IEarnGuideCardPlace | undefined) | undefined;
-// Set by the home while it shows the guide: the modal's way out is drawn
-// there, around the card
-let closeDrawer: IEarnGuideCloseDrawer | undefined;
 
 function update(next: Partial<IEarnGuideSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -101,8 +68,8 @@ function writeSaved(saved: Record<string, IEarnGuideSaved>) {
   );
 }
 
-// One store for the home's card and the guide modal: desktop and web run both
-// in one JS runtime, the only places this layout renders
+// One store for the home, the checklist and the Earn window: desktop and web
+// run them in one JS runtime, the only places this layout renders
 export const earnGuideStore = {
   subscribe: (listener: () => void) => {
     listeners.add(listener);
@@ -126,37 +93,6 @@ export const earnGuideStore = {
   setPolledGas(polledGas: IEarnGuideSnapshot['polledGas']) {
     update({ polledGas });
   },
-  setCardMeasurer(
-    measure: (() => IEarnGuideCardPlace | undefined) | undefined,
-  ) {
-    cardMeasurer = measure;
-  },
-  measureCard: () => cardMeasurer?.(),
-  setCloseDrawer(drawer: IEarnGuideCloseDrawer | undefined) {
-    closeDrawer = drawer;
-  },
-  /** Has the home draw the guide's way out, then `leave` remove the modal.
-   * False: nothing drawn, the modal goes as it does */
-  drawClose: (
-    leave: () => void,
-    shownStep: IEarnGuideStep,
-    leaveRendersPage?: boolean,
-  ) => closeDrawer?.(leave, shownStep, leaveRendersPage) ?? false,
-  setModalOpen(isModalOpen: boolean) {
-    if (Boolean(snapshot.isModalOpen) !== isModalOpen) {
-      update({ isModalOpen });
-    }
-  },
-  setHeaderHeight(headerHeight: number) {
-    if (headerHeight !== snapshot.headerHeight) {
-      update({ headerHeight });
-    }
-  },
-  setClosesOnFinish(closesOnFinish: boolean) {
-    if (Boolean(snapshot.closesOnFinish) !== closesOnFinish) {
-      update({ closesOnFinish });
-    }
-  },
   save(scope: string, patch: IEarnGuideSaved) {
     writeSaved({
       ...snapshot.saved,
@@ -169,13 +105,37 @@ export const earnGuideStore = {
     writeSaved(rest);
     update({ polledGas: undefined });
   },
-  setPreview(previewStep: IEarnGuideStep | undefined, previewAmount?: string) {
-    update({
-      previewStep,
-      previewAmount: previewStep
-        ? (previewAmount ?? snapshot.previewAmount)
-        : '',
-    });
+  /**
+   * A deposit went out of the Earn window: the guide's second task, when
+   * the account on the home had no position before it
+   */
+  markDeposited() {
+    const { live } = snapshot;
+    if (!live) {
+      return;
+    }
+    const saved = snapshot.saved[live.scope] ?? EMPTY_SAVED;
+    if (countsAsGuideDeposit({ ...live, saved })) {
+      earnGuideStore.save(live.scope, { depositedAt: Date.now() });
+    }
+  },
+  /** My portfolio opened after that deposit: the guide's last task */
+  markPositionViewed() {
+    const { live } = snapshot;
+    const saved = live ? snapshot.saved[live.scope] : undefined;
+    if (live && saved?.depositedAt && !saved.completed) {
+      earnGuideStore.save(live.scope, { completed: true });
+    }
+  },
+  setCollapsed(scope: string, collapsed: boolean) {
+    if (snapshot.previewStep) {
+      update({ previewCollapsed: collapsed });
+      return;
+    }
+    earnGuideStore.save(scope, { collapsed });
+  },
+  setPreview(previewStep: IEarnGuideStep | undefined) {
+    update({ previewStep, previewCollapsed: undefined });
   },
 };
 
@@ -193,12 +153,12 @@ export type IEarnGuide = {
   state: IEarnGuideState;
   isShown: boolean;
   isPreview: boolean;
-  /** What the preview's deposit took, for its step 4 */
-  previewAmount?: string;
+  /** Folded to its pill by the user; undefined until they fold or open it */
+  isCollapsed?: boolean;
   live?: IEarnGuideLive;
 };
 
-/** The guide as the card and the modal show it */
+/** The guide as the checklist shows it */
 export function useEarnGuide(): IEarnGuide {
   const snap = useEarnGuideSnapshot();
   const { live, previewStep } = snap;
@@ -217,7 +177,7 @@ export function useEarnGuide(): IEarnGuide {
       ? shouldShowGuide({ ...live, saved, previewStep })
       : Boolean(previewStep),
     isPreview: Boolean(previewStep),
-    previewAmount: snap.previewAmount,
+    isCollapsed: previewStep ? snap.previewCollapsed : saved.collapsed,
     live,
   };
 }

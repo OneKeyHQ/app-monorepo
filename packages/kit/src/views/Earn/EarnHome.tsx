@@ -45,6 +45,7 @@ import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
 import { EarnDesktopHome } from './components/desktopHome/EarnDesktopHome';
+import { EarnGuideChecklist } from './components/desktopHome/EarnGuideChecklist';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
@@ -831,6 +832,9 @@ function BasicEarnHome({
               onRefresh={refreshEarnData}
             />
           }
+          // The guide's checklist floats over the page's corner, outside
+          // what scrolls
+          footer={<EarnGuideChecklist />}
         >
           <EarnDesktopHome
             portfolioData={portfolioData}

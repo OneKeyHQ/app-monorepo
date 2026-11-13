@@ -2,13 +2,16 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
+  EARN_GUIDE_SETTLE_MS,
   EARN_GUIDE_VAULT,
+  countsAsGuideDeposit,
   deriveGuideState,
   findGuideGas,
   getEarnGuideNetworkId,
   getGuideScope,
   getPreviewGuideState,
   hasGuideGas,
+  isGuideOverWithoutPositions,
   isGuideVaultOffer,
   nextPreviewStep,
   pickGuideSwapFrom,
@@ -70,66 +73,57 @@ const protocolOffer = (
   } as unknown as IStakeProtocolListItem,
 });
 
-describe('guide steps', () => {
-  it('starts at step 1 without ETH on Base', () => {
+describe('guide tasks', () => {
+  it('starts at task 1 without ETH on Base', () => {
     expect(deriveGuideState({ hasGas: false, saved: {} })).toEqual({
-      done: [false, false, false, false],
+      done: [false, false, false],
       current: 1,
     });
   });
 
-  it('starts at step 2 with ETH on Base', () => {
-    expect(deriveGuideState({ hasGas: true, saved: {} }).current).toBe(2);
+  it('starts at the deposit with ETH on Base', () => {
+    expect(deriveGuideState({ hasGas: true, saved: {} })).toEqual({
+      done: [true, false, false],
+      current: 2,
+    });
   });
 
-  it('moves to the deposit once a vault is picked', () => {
-    expect(
-      deriveGuideState({ hasGas: true, saved: { vaultKey: 'v' } }).current,
-    ).toBe(3);
-  });
-
-  it('goes back to step 1 when the ETH is gone before the deposit', () => {
-    expect(
-      deriveGuideState({ hasGas: false, saved: { vaultKey: 'v' } }),
-    ).toEqual({ done: [false, true, false, false], current: 1 });
-  });
-
-  it('keeps steps 1 to 3 done after its deposit, whatever ETH is left', () => {
+  it('keeps tasks 1 and 2 done after a deposit, whatever ETH is left', () => {
     expect(
       deriveGuideState({ hasGas: false, saved: { depositedAt: 1 } }),
-    ).toEqual({ done: [true, true, true, false], current: 4 });
+    ).toEqual({ done: [true, true, false], current: 3 });
   });
 
-  it('marks every step done when finished', () => {
+  it('marks every task done when finished', () => {
     expect(
       deriveGuideState({
         hasGas: true,
-        saved: { vaultKey: 'v', depositedAt: 1, completed: true },
+        saved: { depositedAt: 1, completed: true },
       }).done,
-    ).toEqual([true, true, true, true]);
+    ).toEqual([true, true, true]);
   });
 });
 
 describe('guide preview', () => {
-  it('shows every step before the previewed one done', () => {
+  it('shows every task before the previewed one done', () => {
     expect(getPreviewGuideState(3)).toEqual({
-      done: [true, true, false, false],
+      done: [true, true, false],
       current: 3,
     });
   });
 
-  it('cycles 1 to 4 and back to the real state', () => {
+  it('cycles 1 to 3 and back to the real state', () => {
     const seen = [];
     let step = nextPreviewStep(undefined);
     while (step) {
       seen.push(step);
       step = nextPreviewStep(step);
     }
-    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(seen).toEqual([1, 2, 3]);
   });
 });
 
-describe('when the guide card shows', () => {
+describe('when the guide shows', () => {
   const base = {
     isLoading: false,
     hasWallet: true,
@@ -158,7 +152,7 @@ describe('when the guide card shows', () => {
     expect(shouldShowGuide({ ...base, hasPositions: true })).toBe(false);
   });
 
-  it('stays for step 4 after its own deposit', () => {
+  it('stays for the last task after a deposit', () => {
     expect(
       shouldShowGuide({
         ...base,
@@ -168,18 +162,10 @@ describe('when the guide card shows', () => {
     ).toBe(true);
   });
 
-  it('always shows without positions, finished before or not', () => {
-    expect(shouldShowGuide({ ...base, saved: { completed: true } })).toBe(true);
-  });
-
-  it('is gone once finished with a position', () => {
-    expect(
-      shouldShowGuide({
-        ...base,
-        hasPositions: true,
-        saved: { depositedAt: 1, completed: true },
-      }),
-    ).toBe(false);
+  it('is gone once finished, before the position is listed too', () => {
+    const saved = { depositedAt: 1, completed: true };
+    expect(shouldShowGuide({ ...base, saved })).toBe(false);
+    expect(shouldShowGuide({ ...base, hasPositions: true, saved })).toBe(false);
   });
 
   it('shows in preview whatever the account holds', () => {
@@ -192,6 +178,70 @@ describe('when the guide card shows', () => {
         previewStep: 2,
       }),
     ).toBe(true);
+  });
+});
+
+describe('a finished guide and an account without positions', () => {
+  const finishedAt = 1_000_000;
+  const saved = { depositedAt: finishedAt, completed: true };
+
+  it('waits while the deposit is still being listed', () => {
+    expect(
+      isGuideOverWithoutPositions({
+        saved,
+        hasPositions: false,
+        now: finishedAt + EARN_GUIDE_SETTLE_MS,
+      }),
+    ).toBe(false);
+  });
+
+  it('starts over when the account still has none after that', () => {
+    expect(
+      isGuideOverWithoutPositions({
+        saved,
+        hasPositions: false,
+        now: finishedAt + EARN_GUIDE_SETTLE_MS + 1,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves an account with positions, and an unfinished guide, alone', () => {
+    const now = finishedAt + EARN_GUIDE_SETTLE_MS + 1;
+    expect(
+      isGuideOverWithoutPositions({ saved, hasPositions: true, now }),
+    ).toBe(false);
+    expect(
+      isGuideOverWithoutPositions({
+        saved: { depositedAt: finishedAt },
+        hasPositions: false,
+        now,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("which deposit is the guide's", () => {
+  const base = {
+    hasWallet: true,
+    isWatching: false,
+    hasPositions: false,
+    saved: {},
+  };
+
+  it('takes the first deposit of an account without positions', () => {
+    expect(countsAsGuideDeposit(base)).toBe(true);
+  });
+
+  it('leaves out an account that has positions, or deposited before', () => {
+    expect(countsAsGuideDeposit({ ...base, hasPositions: true })).toBe(false);
+    expect(countsAsGuideDeposit({ ...base, saved: { depositedAt: 1 } })).toBe(
+      false,
+    );
+  });
+
+  it('leaves out no wallet and a watched account', () => {
+    expect(countsAsGuideDeposit({ ...base, hasWallet: false })).toBe(false);
+    expect(countsAsGuideDeposit({ ...base, isWatching: true })).toBe(false);
   });
 });
 

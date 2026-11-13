@@ -8,7 +8,6 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
-import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
 import { EARN_ASSET_SELECT_SIZE } from '../../Earn/pages/EarnAssetSelect/earnAssetSelectSize';
 import { EARN_LOAN_MODAL_SIZE } from '../../Earn/pages/EarnLoanRouter/loanRouterModal';
 import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
@@ -39,15 +38,6 @@ const ProtocolDetailsV2 = LazyLoad(
 const BorrowManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
 );
-
-const EarnGuide = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
-);
-
-// Loaded while the desktop Earn home shows the guide's card, through the lazy
-// route itself: its first open then renders at once instead of suspending,
-// which holds the modal back a few hundred ms more
-export const preloadEarnGuide = () => EarnGuide.preload();
 
 const EarnPayWithTokenSelect = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnPayWithTokenSelect'),
@@ -210,23 +200,6 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
           ? undefined
           : EARN_LOAN_MODAL_SIZE.width,
     }),
-  },
-  {
-    name: EModalStakingRoutes.EarnGuide,
-    component: EarnGuide,
-    // The guide draws its own green header
-    options: {
-      headerShown: false,
-    },
-    // Tall enough for step 1's receive card without scrolling. The size goes
-    // here: the navigator sets it over the options
-    modalContentMaxWidth: EARN_GUIDE_MODAL_SIZE.width,
-    modalContentMaxHeight: EARN_GUIDE_MODAL_SIZE.height,
-    // The guide grows out of its card on the home and goes back into it:
-    // the card's ghost draws the way in and out, the modal and its backdrop
-    // show and hide at once under it
-    disableEnterScaleAnimation: true,
-    disableEnterExitAnimation: true,
   },
   {
     name: EModalStakingRoutes.EarnPayWithTokenSelect,

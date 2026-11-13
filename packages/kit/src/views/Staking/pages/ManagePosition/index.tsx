@@ -33,6 +33,7 @@ import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProv
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
+import { earnGuideStore } from '../../../Earn/components/desktopHome/earnGuideStore';
 import {
   EARN_HEADER_PICK_STYLE,
   EarnHeaderOffersSide,
@@ -531,15 +532,18 @@ const ManagePositionPage = () => {
   // width with its done view, which is one centered column
   const routeEarnOffers = route.params.earnOffers;
   const showDepositDone = useCallback(
-    (info: IEarnDepositDoneInfo) =>
-      leaveFormThen(() => {
+    (info: IEarnDepositDoneInfo) => {
+      // The desktop home's guide ticks its deposit task; nothing elsewhere
+      earnGuideStore.markDeposited();
+      return leaveFormThen(() => {
         setDepositDone(info);
         if (routeEarnOffers?.wide) {
           navigation.setParams({
             earnOffers: { ...routeEarnOffers, wide: false },
           });
         }
-      }),
+      });
+    },
     [leaveFormThen, navigation, routeEarnOffers],
   );
   const handleOffersDeposited = useCallback(

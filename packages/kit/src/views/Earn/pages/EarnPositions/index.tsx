@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
@@ -23,6 +23,7 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { earnGuideStore } from '../../components/desktopHome/earnGuideStore';
 import { EarnPortfolioSettingsTrigger } from '../../components/EarnPortfolioSettings';
 import { PortfolioTabContent } from '../../components/PortfolioTabContent';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -57,6 +58,13 @@ function EarnPositionsContent() {
       cacheKey: headerHeightCacheKey,
       estimatedHeaderHeight,
     });
+  // The desktop home's guide ends with a look at the position its deposit
+  // made, whichever way the page was opened
+  useEffect(() => {
+    if (isFocused) {
+      earnGuideStore.markPositionViewed();
+    }
+  }, [isFocused]);
   const portfolioData = useEarnPortfolio({ isActive: isFocused });
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
   const { refresh } = portfolioData;

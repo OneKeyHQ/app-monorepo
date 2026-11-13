@@ -29,7 +29,6 @@ import {
   useEarnDesktopOpenLoanPair,
 } from './EarnDesktopBorrowTab';
 import { EarnDesktopEarnTab } from './EarnDesktopEarnTab';
-import { EarnDesktopGuideCard } from './EarnDesktopGuideCard';
 import { EarnDesktopHero } from './EarnDesktopHero';
 import {
   buildHoldingShares,
@@ -412,8 +411,9 @@ export function EarnDesktopHome({
     (!isPortfolioSettled ||
       !accountMarkets.isLoaded ||
       (!hasPositions && !hold.isLoaded));
-  // The guide card stands in the hero while the account has no positions
-  const { guide, handleOpenGuide } = useEarnDesktopGuide({
+  // The guide's checklist floats over the page while the account has no
+  // positions; it reads what the home knows from here
+  useEarnDesktopGuide({
     accountId: activeAccount.account?.id,
     indexedAccountId: activeAccount.indexedAccount?.id,
     walletId: activeAccount.wallet?.id,
@@ -425,7 +425,6 @@ export function EarnDesktopHome({
       (!hasNoWallet && !wallet.isLoaded),
     walletNetworkGroups: wallet.networkGroups,
     isActive,
-    isWide: media.gtMd,
   });
 
   // What the tiles slot shows: the holdings section (loading or loaded) or,
@@ -657,30 +656,22 @@ export function EarnDesktopHome({
     return (
       <PortfolioPendingTxsProvider value={pendingTxsValue}>
         <EarnPhoneHome
-          headerKind={guide.isShown ? 'guide' : 'totals'}
           header={
-            guide.isShown ? (
-              <EarnDesktopGuideCard
-                state={guide.state}
-                onOpen={handleOpenGuide}
-              />
-            ) : (
-              <EarnDesktopHero
-                totalFiatValue={totalFiatValue}
-                earnings24h={earnings24h}
-                borrowInterest24h={borrowInterest24h}
-                shares={shares}
-                readyToEarn={readyToEarn}
-                isLoading={isHeroLoading}
-                isRefreshing={isRefreshing}
-                hasPositions={hasPositions}
-                isActive={isActive}
-                onOpenPortfolio={onOpenPortfolio}
-                onRefresh={onRefresh}
-                rewards={rewardPills}
-                hidesSplit
-              />
-            )
+            <EarnDesktopHero
+              totalFiatValue={totalFiatValue}
+              earnings24h={earnings24h}
+              borrowInterest24h={borrowInterest24h}
+              shares={shares}
+              readyToEarn={readyToEarn}
+              isLoading={isHeroLoading}
+              isRefreshing={isRefreshing}
+              hasPositions={hasPositions}
+              isActive={isActive}
+              onOpenPortfolio={onOpenPortfolio}
+              onRefresh={onRefresh}
+              rewards={rewardPills}
+              hidesSplit
+            />
           }
           banner={
             hasBannerContent ? (
@@ -735,32 +726,23 @@ export function EarnDesktopHome({
               there are several banners, sit below. The row must not stretch
               the hero, or its height would follow the banner's */}
           <XStack gap="$5" ai="flex-start">
-            {guide.isShown ? (
-              <EarnDesktopGuideCard
-                state={guide.state}
-                minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
-                onOpen={handleOpenGuide}
-                onHeightChange={setHeroHeight}
-              />
-            ) : (
-              <EarnDesktopHero
-                totalFiatValue={totalFiatValue}
-                earnings24h={earnings24h}
-                borrowInterest24h={borrowInterest24h}
-                shares={shares}
-                readyToEarn={readyToEarn}
-                isLoading={isHeroLoading}
-                isRefreshing={isRefreshing}
-                hasPositions={hasPositions}
-                isActive={isActive}
-                minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
-                onOpenPortfolio={onOpenPortfolio}
-                onRefresh={onRefresh}
-                rewards={rewardPills}
-                onOpenProtocols={handleOpenProtocols}
-                onHeightChange={setHeroHeight}
-              />
-            )}
+            <EarnDesktopHero
+              totalFiatValue={totalFiatValue}
+              earnings24h={earnings24h}
+              borrowInterest24h={borrowInterest24h}
+              shares={shares}
+              readyToEarn={readyToEarn}
+              isLoading={isHeroLoading}
+              isRefreshing={isRefreshing}
+              hasPositions={hasPositions}
+              isActive={isActive}
+              minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
+              onOpenPortfolio={onOpenPortfolio}
+              onRefresh={onRefresh}
+              rewards={rewardPills}
+              onOpenProtocols={handleOpenProtocols}
+              onHeightChange={setHeroHeight}
+            />
             {hasBanner ? (
               // As tall as the card only: the dots under it (several banners)
               // hang into the gap above the tiles instead of pushing them down.

@@ -26,13 +26,12 @@ import type {
 /**
  * The DeFi home on a phone-wide screen: the same totals, rows and windows as
  * the wide layout, with its lists one tap away instead of in tabs. From the
- * top: the totals (or the guide), the Earn, Loans and Protocols entries,
+ * top: the totals, the Earn, Loans and Protocols entries,
  * the banner, the wallet's tokens, Trending tokens and Fixed Income as the
  * phone app shows them, the first Loans pairs, then the questions
  */
 export function EarnPhoneHome({
   header,
-  headerKind,
   banner,
   showsHoldings,
   isHoldLoading,
@@ -50,10 +49,8 @@ export function EarnPhoneHome({
   onOpenHoldings,
   onOpenLoanPair,
 }: {
-  /** The totals, or the guide while the account has no positions */
+  /** The totals */
   header: ReactNode;
-  /** Which of the two the header is; a change eases the page's top */
-  headerKind: 'totals' | 'guide';
   /** The banner block, sized to show its art whole */
   banner: ReactNode;
   /**
@@ -95,9 +92,7 @@ export function EarnPhoneHome({
     <YStack pb="$10">
       {/* The phone home's room above and below its totals */}
       <YStack px="$pagePadding" pt="$6" pb="$6">
-        {/* The totals' placeholder is shorter than the guide that takes its
-            place for an account without positions */}
-        <EasedSection easeKey={headerKind}>{header}</EasedSection>
+        {header}
       </YStack>
       <EarnHomeShortcuts
         onOpenEarn={onOpenEarnRouter}

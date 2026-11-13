@@ -68,33 +68,15 @@ const EN = {
   networkPairs: 'Pairs',
   loanNetApyInfo: (ltv: string) =>
     `What the collateral earns less what the loan costs in a year, over your net worth in the market. Worked out for a loan of half the collateral's value (${ltv} LTV), so every row compares the same loan. Pairs that can't lend that much aren't listed.`,
-  // The guide for a wallet without positions: the card's rows, and the
-  // short names the card's button and the modal's steps use
-  guideTitle: 'Start earning in 4 steps',
-  guideSteps: [
-    'Add ETH for network fees',
-    'Choose a vault',
-    'Deposit USDC',
-    'See it in My portfolio',
-  ],
-  // The step names the card's button and the modal's steps show: the card's
-  // rows, shortened only where a row is a sentence
-  guideActions: ['Add ETH', 'Choose a vault', 'Deposit', 'My portfolio'],
-  guideGasTitle: 'Add ETH on Base',
-  guideGasBody: (amount: string) =>
+  // The guide for a wallet without positions: the checklist's title and
+  // its three tasks
+  guideTitle: 'Start earning',
+  guideSteps: ['Add ETH on Base', 'Deposit USDC', 'View your position'],
+  // Why and how much, in the window a task's name opens on hover
+  guideGasInfo: (amount: string) =>
     `Network fees are paid in ETH, not USDC. Add about ${amount} ETH, enough for this deposit and a later withdrawal.`,
-  guideGasWaiting: 'Waiting for ETH',
-  guideGasReceived: 'ETH received',
-  guideConnect: 'Connect a wallet to get your Base address.',
-  guideVaultTitle: 'Choose a vault',
-  guideVaultBody:
-    'A vault lends your USDC to borrowers and pays you the interest. These vaults are on Base, where network fees are a few cents.',
-  guideUseVault: 'Use this vault',
-  guideDepositTitle: 'Deposit USDC',
-  guideWithdrawNote:
-    "Withdraw anytime from My portfolio: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
-  guideDoneTitle: "You're earning",
-  guideDoneBody: 'Your deposit is in My portfolio, with Withdraw on its row.',
+  guideDepositInfo:
+    "A vault lends your USDC to borrowers and pays you the interest. Withdraw anytime from My portfolio, unless the vault's funds are all lent out at that moment.",
   guideGoToPortfolio: 'My portfolio',
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
@@ -209,29 +191,12 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   networkPairs: '组合',
   loanNetApyInfo: (ltv: string) =>
     `抵押品一年的收益减去借款一年的成本，再除以你在该市场的净值。按借出抵押品价值的一半（${ltv} LTV）计算，所以每一行比较的是同一笔借款。借不出这么多的组合不会列出。`,
-  guideTitle: '4 步开始赚币',
-  guideSteps: [
-    '添加 ETH 支付网络费用',
-    '选择金库',
-    '认购 USDC',
-    '在“我的投资组合”查看',
-  ],
-  guideActions: ['添加 ETH', '选择金库', '认购', '我的投资组合'],
-  guideGasTitle: '在 Base 上添加 ETH',
-  guideGasBody: (amount: string) =>
+  guideTitle: '开始赚币',
+  guideSteps: ['在 Base 上添加 ETH', '认购 USDC', '查看持仓'],
+  guideGasInfo: (amount: string) =>
     `网络费用用 ETH 支付，不能用 USDC。添加约 ${amount} ETH，够这次认购和之后的一次赎回。`,
-  guideGasWaiting: '等待 ETH 到账',
-  guideGasReceived: 'ETH 已到账',
-  guideConnect: '连接钱包以获取你的 Base 地址。',
-  guideVaultTitle: '选择金库',
-  guideVaultBody:
-    '金库把你的 USDC 借给借款人，并把利息付给你。这些金库在 Base 上，网络费用只要几美分。',
-  guideUseVault: '使用这个金库',
-  guideDepositTitle: '认购 USDC',
-  guideWithdrawNote:
-    '可随时在“我的投资组合”赎回：你的 USDC 和赚到的收益会回到这个钱包，除非那一刻金库的资金已全部借出。',
-  guideDoneTitle: '已开始赚币',
-  guideDoneBody: '你的认购已在“我的投资组合”中，所在的行有“赎回”。',
+  guideDepositInfo:
+    '金库把你的 USDC 借给借款人，并把利息付给你。可随时在“我的投资组合”赎回，除非那一刻金库的资金已全部借出。',
   guideGoToPortfolio: '我的投资组合',
   supplyAndBorrow: '存入并借币',
   swapSupplyAndBorrow: '兑换、存入并借币',
