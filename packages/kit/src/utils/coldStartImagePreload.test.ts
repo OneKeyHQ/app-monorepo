@@ -1,6 +1,5 @@
 /* eslint-disable import/first */
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 const mockPreloadImages: jest.Mock<Promise<boolean>, unknown[]> = jest.fn();
@@ -33,7 +32,6 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => {
 import {
   HEADER_NETWORK_LOGO_SIZE,
   WALLET_BANNER_IMAGE_SIZE,
-  WALLET_BANNER_STRIP_IMAGE_SIZE,
   getColdStartCriticalImageItemsFromSnapshot,
   getColdStartImageUrisFromSnapshot,
   prewarmColdStartImagesFromSnapshot,
@@ -49,8 +47,7 @@ const solNetworkLogoUri = 'https://uni.onekey-asset.com/static/chain/sol.png';
 const HD_WALLET_ID = 'hd-1';
 const INDEXED_ACCOUNT_ID = 'hd-1--0';
 
-// The banner prewarm size follows the starting window width on web (the wide
-// home shows the 48 strip); the cases below run at phone width unless noted.
+// The cases below run at phone width unless noted.
 const setWindowWidth = (width: number) => {
   Object.defineProperty(globalThis, 'innerWidth', {
     configurable: true,
@@ -108,15 +105,12 @@ describe('coldStartImagePreload wallet banner images (OK-61505)', () => {
   });
 });
 
-describe('coldStartImagePreload wide web banner strip', () => {
-  it('prewarms banner images at the strip size when web starts at desktop width', () => {
+describe('coldStartImagePreload banner size at any width', () => {
+  it('prewarms banner images at the one banner size when web starts at desktop width', () => {
     setWindowWidth(1280);
-    const expected = platformEnv.isNative
-      ? WALLET_BANNER_IMAGE_SIZE
-      : WALLET_BANNER_STRIP_IMAGE_SIZE;
     expect(getColdStartImageUrisFromSnapshot(snapshot)[0]).toEqual({
       uri: bannerUri,
-      resizeWidth: expected,
+      resizeWidth: WALLET_BANNER_IMAGE_SIZE,
     });
   });
 });
