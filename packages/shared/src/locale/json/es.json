@@ -3968,7 +3968,7 @@
   "perp_portfolio_net_deposits_tooltip": "Total de depósitos menos total de retiros durante este período.",
   "perp_portfolio_open_positions": "Posiciones abiertas",
   "perp_portfolio_payoff_ratio": "Ratio ganancia/pérdida",
-  "perp_portfolio_payoff_ratio_tooltip": "Ganancia media por ejecución ganadora dividida por el valor absoluto de la pérdida media por ejecución perdedora. Un ratio de 2,00 indica que la ganancia media duplica la pérdida media. Se muestra -- si no hay ejecuciones ganadoras o no hay perdedoras.",
+  "perp_portfolio_payoff_ratio_tooltip": "Se divide la ganancia media por ejecución ganadora entre el importe medio perdido por ejecución perdedora. Cuanto mayor es el ratio, mayor es la ganancia media en relación con la pérdida media.",
   "perp_portfolio_performance": "Rendimiento",
   "perp_portfolio_period_1d": "1D",
   "perp_portfolio_period_1m": "1M",

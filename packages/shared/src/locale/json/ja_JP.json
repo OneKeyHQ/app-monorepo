@@ -3968,7 +3968,7 @@
   "perp_portfolio_net_deposits_tooltip": "この期間の総入金から総出金を差し引いた金額。",
   "perp_portfolio_open_positions": "オープンポジション",
   "perp_portfolio_payoff_ratio": "損益比率",
-  "perp_portfolio_payoff_ratio_tooltip": "利益が出た約定の平均利益額を、損失が出た約定の平均損失額の絶対値で割った値です。2.00 なら、平均利益額は平均損失額の 2 倍です。利益または損失のある約定がない場合は「--」と表示します。",
+  "perp_portfolio_payoff_ratio_tooltip": "利益が出た約定の平均利益額を、損失が出た約定の平均損失額で割ります。比率が高いほど、平均損失額に対する平均利益額が大きいことを示します。",
   "perp_portfolio_performance": "パフォーマンス",
   "perp_portfolio_period_1d": "1日",
   "perp_portfolio_period_1m": "1ヶ月",

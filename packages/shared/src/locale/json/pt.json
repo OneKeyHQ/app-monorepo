@@ -3968,7 +3968,7 @@
   "perp_portfolio_net_deposits_tooltip": "Total de depósitos menos total de levantamentos neste período.",
   "perp_portfolio_open_positions": "Posições abertas",
   "perp_portfolio_payoff_ratio": "Rácio ganho/perda",
-  "perp_portfolio_payoff_ratio_tooltip": "Ganho médio por execução lucrativa dividido pelo valor absoluto da perda média por execução com prejuízo. Um rácio de 2,00 indica que o ganho médio é o dobro da perda média. Aparece -- se não houver execuções com ganho ou se não houver execuções com perda.",
+  "perp_portfolio_payoff_ratio_tooltip": "Divide-se o ganho médio por execução lucrativa pelo montante médio perdido por execução com prejuízo. Quanto maior o rácio, maior o ganho médio em relação à perda média.",
   "perp_portfolio_performance": "Desempenho",
   "perp_portfolio_period_1d": "1D",
   "perp_portfolio_period_1m": "1M",
