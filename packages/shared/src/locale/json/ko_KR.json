@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "순 입금",
   "perp_portfolio_net_deposits_tooltip": "이 기간 동안 총 입금에서 총 출금을 뺀 금액.",
   "perp_portfolio_open_positions": "미결제 포지션",
+  "perp_portfolio_payoff_ratio": "손익비",
+  "perp_portfolio_payoff_ratio_tooltip": "수익이 난 체결의 평균 수익금을 손실이 난 체결의 평균 손실액으로 나눕니다. 비율이 높을수록 평균 손실액에 비해 평균 수익금이 큽니다.",
   "perp_portfolio_performance": "성과",
   "perp_portfolio_period_1d": "1일",
   "perp_portfolio_period_1m": "1달",

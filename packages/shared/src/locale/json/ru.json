@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Чистые депозиты",
   "perp_portfolio_net_deposits_tooltip": "Общая сумма пополнений за вычетом общей суммы выводов за этот период.",
   "perp_portfolio_open_positions": "Открытые позиции",
+  "perp_portfolio_payoff_ratio": "Соотношение прибыли и убытка",
+  "perp_portfolio_payoff_ratio_tooltip": "Среднюю прибыль по прибыльным исполнениям делят на среднюю величину убытка по убыточным исполнениям. Чем выше коэффициент, тем больше средняя прибыль относительно среднего убытка.",
   "perp_portfolio_performance": "Показатели",
   "perp_portfolio_period_1d": "1Д",
   "perp_portfolio_period_1m": "1М",

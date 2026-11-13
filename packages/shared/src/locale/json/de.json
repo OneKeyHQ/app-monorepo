@@ -3967,6 +3967,8 @@
   "perp_portfolio_net_deposits": "Netto-Einzahlungen",
   "perp_portfolio_net_deposits_tooltip": "Gesamteinzahlungen abzüglich Gesamtauszahlungen in diesem Zeitraum.",
   "perp_portfolio_open_positions": "Offene Positionen",
+  "perp_portfolio_payoff_ratio": "Gewinn-Verlust-Verhältnis",
+  "perp_portfolio_payoff_ratio_tooltip": "Der durchschnittliche Gewinn je gewinnbringender Ausführung wird durch den durchschnittlichen Verlustbetrag je verlustbringender Ausführung geteilt. Je höher das Verhältnis, desto größer ist der durchschnittliche Gewinn im Verhältnis zum durchschnittlichen Verlust.",
   "perp_portfolio_performance": "Performance",
   "perp_portfolio_period_1d": "1T",
   "perp_portfolio_period_1m": "1M",

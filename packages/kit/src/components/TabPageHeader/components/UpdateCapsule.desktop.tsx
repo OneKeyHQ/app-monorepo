@@ -799,73 +799,79 @@ export function UpdateCapsule({
             : 'clip-path 280ms cubic-bezier(.32,.72,0,1), opacity 150ms ease',
         }}
       >
-        <Tooltip
-          triggerAsChild
-          placement="bottom"
-          disabled={open}
-          renderContent={restartLabel}
-          renderTrigger={
-            <Button
-              testID="header-update-restart"
-              variant="accent"
-              childrenAsText={false}
-              height={30}
-              width={wide ? undefined : 30}
-              px={wide ? '$2.5' : 0}
-              borderRadius={0}
-              borderTopLeftRadius={15}
-              borderBottomLeftRadius={15}
-              disabled={!isReady}
-              aria-hidden={!isReady}
-              aria-disabled={restarting || !isReady}
-              inert={!isReady || restarting}
-              tabIndex={isReady && !restarting ? 0 : -1}
-              aria-label={restartLabel}
-              onPress={() => void restart()}
-              focusVisibleStyle={FOCUS_STYLE}
-              style={{
-                opacity: isReady ? 1 : 0,
-                transition: reducedMotion
-                  ? 'opacity 150ms ease'
-                  : 'opacity 170ms ease-out 70ms',
-              }}
-            >
-              {restarting && !reducedMotion ? (
-                <XStack
-                  width={18}
-                  height={18}
-                  alignItems="center"
-                  justifyContent="center"
-                  mr={wide ? '$2' : 0}
+        {isReady ? (
+          <>
+            <Tooltip
+              triggerAsChild
+              placement="bottom"
+              disabled={open}
+              renderContent={restartLabel}
+              renderTrigger={
+                <Button
+                  testID="header-update-restart"
+                  variant="accent"
+                  childrenAsText={false}
+                  height={30}
+                  width={wide ? undefined : 30}
+                  px={wide ? '$2.5' : 0}
+                  borderRadius={0}
+                  borderTopLeftRadius={15}
+                  borderBottomLeftRadius={15}
+                  disabled={!isReady}
+                  aria-hidden={!isReady}
+                  aria-disabled={restarting || !isReady}
+                  inert={!isReady || restarting}
+                  tabIndex={isReady && !restarting ? 0 : -1}
+                  aria-label={restartLabel}
+                  onPress={() => void restart()}
+                  focusVisibleStyle={FOCUS_STYLE}
+                  style={{
+                    opacity: isReady ? 1 : 0,
+                    transition: reducedMotion
+                      ? 'opacity 150ms ease'
+                      : 'opacity 170ms ease-out 70ms',
+                  }}
                 >
-                  <Spinner size="small" color="$iconInverse" />
-                </XStack>
-              ) : (
-                <Icon
-                  name={wide ? 'ShieldCheckDoneSolid' : 'RestartToUpdateCustom'}
-                  size="$4.5"
-                  color="$iconInverse"
-                  mr={wide ? '$2' : 0}
-                />
-              )}
-              {wide ? (
-                <SizableText size="$bodyMdMedium" color="$textInverse">
-                  {restartLabel}
-                </SizableText>
-              ) : null}
-            </Button>
-          }
-        />
-        <XStack
-          width={1}
-          height={30}
-          bg="$bgAccent"
-          alignItems="center"
-          justifyContent="center"
-          opacity={isReady ? 1 : 0}
-        >
-          <XStack width={1} height={16} bg="$textInverse" opacity={0.28} />
-        </XStack>
+                  {restarting && !reducedMotion ? (
+                    <XStack
+                      width={18}
+                      height={18}
+                      alignItems="center"
+                      justifyContent="center"
+                      mr={wide ? '$2' : 0}
+                    >
+                      <Spinner size="small" color="$iconInverse" />
+                    </XStack>
+                  ) : (
+                    <Icon
+                      name={
+                        wide ? 'ShieldCheckDoneSolid' : 'RestartToUpdateCustom'
+                      }
+                      size="$4.5"
+                      color="$iconInverse"
+                      mr={wide ? '$2' : 0}
+                    />
+                  )}
+                  {wide ? (
+                    <SizableText size="$bodyMdMedium" color="$textInverse">
+                      {restartLabel}
+                    </SizableText>
+                  ) : null}
+                </Button>
+              }
+            />
+            <XStack
+              width={1}
+              height={30}
+              bg="$bgAccent"
+              alignItems="center"
+              justifyContent="center"
+              opacity={isReady ? 1 : 0}
+            >
+              <XStack width={1} height={16} bg="$textInverse" opacity={0.28} />
+            </XStack>
+          </>
+        ) : null}
         <Popover
           title={detailsLabel}
           showHeader={false}
