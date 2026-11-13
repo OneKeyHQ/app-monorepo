@@ -36,7 +36,7 @@ const LEGACY_SCROLL_STEP = MARKET_BANNER_ITEM_WIDTH + MARKET_BANNER_ITEM_GAP;
 // and 36px below the cards. Legacy cards (older API responses without token
 // previews) are filled and variable-width, so they keep the tighter gap and
 // 20px padding without dividers. With a highlight strip above, the strip
-// already provides the top gap.
+// slot replaces the outer 12px gap.
 export function MarketBannerDesktopScroller({
   children,
   itemCount,
@@ -109,7 +109,7 @@ export function MarketBannerDesktopScroller({
           contentContainerStyle={
             divided
               ? {
-                  pt: compactTopSpacing ? '$0' : '$6',
+                  pt: '$6',
                   pb: '$9',
                   px: '$5',
                   gap: MARKET_BANNER_DESKTOP_WEB_ITEM_GAP,
