@@ -8,7 +8,7 @@ import {
   getGuideScope,
   hasGuideGas,
   isGuideOverWithoutPositions,
-  nextPreviewStep,
+  nextGuidePreview,
 } from './earnGuide.utils';
 import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
@@ -99,7 +99,14 @@ export function useEarnDesktopGuide({
       event.preventDefault();
       event.stopPropagation();
       const snapshot = earnGuideStore.getSnapshot();
-      const next = nextPreviewStep(snapshot.previewStep);
+      const next = nextGuidePreview(
+        snapshot.previewStep
+          ? {
+              step: snapshot.previewStep,
+              needsFunds: snapshot.previewNeedsFunds,
+            }
+          : undefined,
+      );
       if (!next) {
         earnGuideStore.reset(snapshot.live?.scope ?? guideScope);
       }

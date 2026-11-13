@@ -50,6 +50,9 @@ interface IEarnPageContainerProps {
   footer?: React.ReactNode;
   customHeaderRightItems?: React.ReactNode;
   contentContainerStyle?: IScrollViewProps['contentContainerStyle'];
+  // The page's own scrolling, for what floats over it. Not in list mode,
+  // where the children scroll
+  onScroll?: IScrollViewProps['onScroll'];
   disableMaxWidth?: boolean;
   showTabPageHeader?: boolean;
   showBodyTitle?: boolean;
@@ -78,6 +81,7 @@ export function EarnPageContainer({
   header,
   customHeaderRightItems,
   contentContainerStyle,
+  onScroll,
   disableMaxWidth,
   showTabPageHeader = true,
   showBodyTitle = false,
@@ -260,6 +264,8 @@ export function EarnPageContainer({
           ...(useNativeHeader ? { pt: nativeHeaderHeight } : {}),
         }}
         refreshControl={refreshControl}
+        onScroll={onScroll}
+        scrollEventThrottle={onScroll ? 16 : undefined}
       >
         <Page.Container
           padded={false}

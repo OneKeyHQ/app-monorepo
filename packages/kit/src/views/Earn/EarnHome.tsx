@@ -46,6 +46,7 @@ import { isBorrowTag } from '../Staking/utils/utils';
 
 import { EarnDesktopHome } from './components/desktopHome/EarnDesktopHome';
 import { EarnGuideChecklist } from './components/desktopHome/EarnGuideChecklist';
+import { earnGuideStore } from './components/desktopHome/earnGuideStore';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
@@ -71,10 +72,17 @@ import {
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
+
+// The desktop home tells the guide how far it is scrolled: its open window
+// folds out of the way of the list
+const handleDesktopHomeScroll = (
+  event: NativeSyntheticEvent<NativeScrollEvent>,
+) => earnGuideStore.noteScroll(event.nativeEvent.contentOffset.y);
 
 type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
 
@@ -833,8 +841,9 @@ function BasicEarnHome({
             />
           }
           // The guide's checklist floats over the page's corner, outside
-          // what scrolls
+          // what scrolls, and folds once the page is scrolled
           footer={<EarnGuideChecklist />}
+          onScroll={handleDesktopHomeScroll}
         >
           <EarnDesktopHome
             portfolioData={portfolioData}

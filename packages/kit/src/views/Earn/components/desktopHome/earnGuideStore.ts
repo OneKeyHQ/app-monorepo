@@ -4,6 +4,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import {
+  EARN_GUIDE_YIELD_SCROLL,
   countsAsGuideDeposit,
   deriveGuideState,
   getPreviewGuideState,
@@ -12,6 +13,7 @@ import {
 } from './earnGuide.utils';
 
 import type {
+  IEarnGuidePreview,
   IEarnGuideSaved,
   IEarnGuideState,
   IEarnGuideStep,
@@ -32,12 +34,23 @@ type IEarnGuideSnapshot = {
   live?: IEarnGuideLive;
   /** The checklist's own check of ETH on Base while task 1 waits */
   polledGas?: { scope: string; amount: number };
+  /** The checklist's own check of USDC on Base while step 3 waits for it */
+  polledDeposit?: { scope: string; amount: number };
   /** The preview key's task; nothing in it is saved or sent */
   previewStep?: IEarnGuideStep;
+  /** The preview shows step 3 as a wallet with nothing to deposit has it */
+  previewNeedsFunds?: boolean;
   /** The checklist folded or opened during the preview */
   previewCollapsed?: boolean;
   /** Accounts whose guide was skipped; forgotten when the app closes */
   skipped?: Record<string, boolean>;
+  /**
+   * Accounts whose open window folded as the page was scrolled, and the ones
+   * whose window the user then opened: that one stays. Both forgotten when
+   * the app closes
+   */
+  yielded?: Record<string, boolean>;
+  pinned?: Record<string, boolean>;
 };
 
 const EMPTY_SAVED: IEarnGuideSaved = {};
@@ -95,6 +108,17 @@ export const earnGuideStore = {
   setPolledGas(polledGas: IEarnGuideSnapshot['polledGas']) {
     update({ polledGas });
   },
+  setPolledDeposit(
+    polledDeposit: NonNullable<IEarnGuideSnapshot['polledDeposit']>,
+  ) {
+    const current = snapshot.polledDeposit;
+    if (
+      current?.scope !== polledDeposit.scope ||
+      current.amount !== polledDeposit.amount
+    ) {
+      update({ polledDeposit });
+    }
+  },
   save(scope: string, patch: IEarnGuideSaved) {
     writeSaved({
       ...snapshot.saved,
@@ -105,7 +129,7 @@ export const earnGuideStore = {
   reset(scope: string) {
     const { [scope]: _, ...rest } = snapshot.saved;
     writeSaved(rest);
-    update({ polledGas: undefined });
+    update({ polledGas: undefined, polledDeposit: undefined });
   },
   /**
    * A deposit went out of the Earn window: the guide's third step, when
@@ -147,26 +171,58 @@ export const earnGuideStore = {
     }
   },
   setCollapsed(scope: string, collapsed: boolean) {
+    // Opened by the user, the window stays open as the page scrolls
+    const pinned = collapsed
+      ? snapshot.pinned
+      : { ...snapshot.pinned, [scope]: true };
     if (snapshot.previewStep) {
-      update({ previewCollapsed: collapsed });
+      update({ previewCollapsed: collapsed, pinned });
       return;
     }
+    update({ pinned });
     earnGuideStore.save(scope, { collapsed });
   },
   /**
-   * Skipped for now: gone until the app is opened again, when it is back
-   * folded to its pill. In the preview it ends the preview
+   * The home scrolled: far enough, the open window folds out of the way of
+   * the list it covers, until the user opens it again
    */
-  skip(scope: string) {
+  noteScroll(offsetY: number) {
+    const scope = snapshot.live?.scope ?? 'none';
+    if (
+      offsetY >= EARN_GUIDE_YIELD_SCROLL &&
+      !snapshot.yielded?.[scope] &&
+      !snapshot.pinned?.[scope]
+    ) {
+      update({ yielded: { ...snapshot.yielded, [scope]: true } });
+    }
+  },
+  /**
+   * Skipped for now: gone until the app is opened again, when it is back
+   * folded to its pill. Returns the way to take the skip back. In the
+   * preview it ends the preview, with nothing to take back
+   */
+  skip(scope: string): (() => void) | undefined {
     if (snapshot.previewStep) {
       earnGuideStore.setPreview(undefined);
-      return;
+      return undefined;
     }
+    const collapsed = snapshot.saved[scope]?.collapsed;
     update({ skipped: { ...snapshot.skipped, [scope]: true } });
     earnGuideStore.save(scope, { collapsed: true });
+    return () => {
+      update({ skipped: { ...snapshot.skipped, [scope]: false } });
+      earnGuideStore.save(scope, { collapsed });
+    };
   },
-  setPreview(previewStep: IEarnGuideStep | undefined) {
-    update({ previewStep, previewCollapsed: undefined });
+  setPreview(preview: IEarnGuidePreview | undefined) {
+    // Each state of the preview shows in the open window again
+    const scope = snapshot.live?.scope ?? 'none';
+    update({
+      previewStep: preview?.step,
+      previewNeedsFunds: preview?.needsFunds,
+      previewCollapsed: undefined,
+      yielded: { ...snapshot.yielded, [scope]: false },
+    });
   },
 };
 
@@ -186,6 +242,12 @@ export type IEarnGuide = {
   isPreview: boolean;
   /** Folded to its pill by the user; undefined until they fold or open it */
   isCollapsed?: boolean;
+  /** Folded by itself as the page was scrolled */
+  isYielding: boolean;
+  /** USDC on Base as the checklist's own check found it */
+  polledDeposit?: number;
+  /** The preview shows step 3 as a wallet with nothing to deposit has it */
+  previewNeedsFunds: boolean;
   live?: IEarnGuideLive;
 };
 
@@ -214,6 +276,12 @@ export function useEarnGuide(): IEarnGuide {
       : Boolean(previewStep),
     isPreview: Boolean(previewStep),
     isCollapsed: previewStep ? snap.previewCollapsed : saved.collapsed,
+    isYielding: Boolean(snap.yielded?.[scope]) && !snap.pinned?.[scope],
+    polledDeposit:
+      snap.polledDeposit?.scope === scope
+        ? snap.polledDeposit.amount
+        : undefined,
+    previewNeedsFunds: Boolean(previewStep && snap.previewNeedsFunds),
     live,
   };
 }

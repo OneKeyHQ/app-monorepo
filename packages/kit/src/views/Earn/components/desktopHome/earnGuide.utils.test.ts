@@ -9,12 +9,14 @@ import {
   findGuideGas,
   getEarnGuideNetworkId,
   getGuideScope,
+  getGuideSwapAmount,
   getPreviewGuideState,
+  hasGuideDepositFunds,
   hasGuideGas,
   isGuideOverWithoutPositions,
   isGuideVaultOffer,
   isGuideVaultPick,
-  nextPreviewStep,
+  nextGuidePreview,
   pickGuideSwapFrom,
   shouldShowGuide,
 } from './earnGuide.utils';
@@ -125,14 +127,99 @@ describe('guide preview', () => {
     });
   });
 
-  it('cycles 1 to 4 and back to the real state', () => {
+  it('cycles every step, the third both ways, and back to the real state', () => {
     const seen = [];
-    let step = nextPreviewStep(undefined);
-    while (step) {
-      seen.push(step);
-      step = nextPreviewStep(step);
+    let preview = nextGuidePreview(undefined);
+    while (preview) {
+      seen.push(`${preview.step}${preview.needsFunds ? ' without funds' : ''}`);
+      preview = nextGuidePreview(preview);
     }
-    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(seen).toEqual(['1', '2', '3 without funds', '3', '4']);
+  });
+});
+
+describe('something to deposit', () => {
+  const held = (
+    networkId: string,
+    amount: string,
+    priceUsd: string,
+    isNative = false,
+  ) => ({
+    networkId,
+    amount,
+    priceUsd,
+    fiatValueUsd: String(Number(amount) * Number(priceUsd)),
+    token: { isNative },
+  });
+
+  it('is there with USDC on Base', () => {
+    expect(hasGuideDepositFunds([held(BASE, '25', '1')], BASE)).toBe(true);
+  });
+
+  it('is there with a token elsewhere, which the Earn window bridges', () => {
+    expect(hasGuideDepositFunds([held('evm--42161', '40', '1')], BASE)).toBe(
+      true,
+    );
+  });
+
+  it('leaves the ETH set aside for the fees out', () => {
+    expect(
+      hasGuideDepositFunds([held(BASE, '0.0005', '3000', true)], BASE),
+    ).toBe(false);
+    // What is over the fees counts
+    expect(hasGuideDepositFunds([held(BASE, '0.01', '3000', true)], BASE)).toBe(
+      true,
+    );
+  });
+
+  it('is missing for an empty wallet and for dust', () => {
+    expect(hasGuideDepositFunds([], BASE)).toBe(false);
+    expect(hasGuideDepositFunds([held(BASE, '0.4', '1')], BASE)).toBe(false);
+  });
+});
+
+describe('the amount Swap starts on', () => {
+  it('is the suggested ETH itself when ETH pays', () => {
+    expect(
+      getGuideSwapAmount({
+        fromAmount: '0.2',
+        fromPriceUsd: '3000',
+        gasPriceUsd: '3000',
+      }),
+    ).toBe('0.0005');
+  });
+
+  it('is what that ETH costs in another token, rounded up to two digits', () => {
+    expect(
+      getGuideSwapAmount({
+        fromAmount: '50',
+        fromPriceUsd: '1',
+        gasPriceUsd: '3430',
+      }),
+    ).toBe('1.8');
+  });
+
+  it('is left empty without a price', () => {
+    expect(
+      getGuideSwapAmount({
+        fromAmount: '50',
+        fromPriceUsd: '0',
+        gasPriceUsd: '3000',
+      }),
+    ).toBeUndefined();
+    expect(
+      getGuideSwapAmount({ fromAmount: '50', fromPriceUsd: '1' }),
+    ).toBeUndefined();
+  });
+
+  it('is left empty when the wallet holds under twice that', () => {
+    expect(
+      getGuideSwapAmount({
+        fromAmount: '2.5',
+        fromPriceUsd: '1',
+        gasPriceUsd: '3000',
+      }),
+    ).toBeUndefined();
   });
 });
 

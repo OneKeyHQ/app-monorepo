@@ -71,7 +71,7 @@ const EN = {
   // The guide for a wallet without positions: the checklist's heading, its
   // four steps, and what an open step says under its name
   guideTitle: 'Start earning',
-  guideSubtitle: 'Make your first deposit in 4 steps.',
+  guideSubtitle: 'Make your first deposit.',
   guideProgress: (done: number, total: number) =>
     `${done} of ${total} complete`,
   guideSteps: [
@@ -82,14 +82,17 @@ const EN = {
   ],
   guideGasInfo: (amount: string) =>
     `Fees on Base are paid in ETH, not USDC. About ${amount} ETH covers this deposit and a later withdrawal.`,
-  guideVaultInfo: 'Compare assets, networks and yields to find a vault.',
+  guideVaultInfo: 'Compare the USDC vaults on Base by yield and pick one.',
   guideDepositInfo:
     'The vault lends your USDC to borrowers and pays you the interest. Withdraw anytime, unless all its funds are lent out at that moment.',
+  guideFundsInfo:
+    'Deposits are made in USDC on Base, and this wallet has none yet.',
   guidePortfolioInfo: 'Your deposit and what it earns show in My portfolio.',
   guideChooseVault: 'Choose a vault',
   guideGoToPortfolio: 'My portfolio',
   guideTutorial: 'View tutorial',
   guideSkip: 'Skip for now',
+  guideSkipped: 'Guide hidden until you next open OneKey.',
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
   // Paid with another token: the swap that brings the collateral first
@@ -204,7 +207,7 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   loanNetApyInfo: (ltv: string) =>
     `抵押品一年的收益减去借款一年的成本，再除以你在该市场的净值。按借出抵押品价值的一半（${ltv} LTV）计算，所以每一行比较的是同一笔借款。借不出这么多的组合不会列出。`,
   guideTitle: '开始赚币',
-  guideSubtitle: '4 步完成首次认购。',
+  guideSubtitle: '完成你的首次认购。',
   guideProgress: (done: number, total: number) => `已完成 ${done}/${total}`,
   guideSteps: [
     '添加 ETH 支付网络费用',
@@ -214,14 +217,16 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   ],
   guideGasInfo: (amount: string) =>
     `Base 上的网络费用用 ETH 支付，不能用 USDC。约 ${amount} ETH 够这次认购和之后的一次赎回。`,
-  guideVaultInfo: '比较资产、网络和收益率，选出一个金库。',
+  guideVaultInfo: '比较 Base 上各个 USDC 金库的收益率，选出一个。',
   guideDepositInfo:
     '金库把你的 USDC 借给借款人，并把利息付给你。可随时赎回，除非那一刻金库的资金已全部借出。',
+  guideFundsInfo: '认购用的是 Base 上的 USDC，这个钱包里还没有。',
   guidePortfolioInfo: '你的认购和它的收益会显示在“我的投资组合”。',
   guideChooseVault: '选择金库',
   guideGoToPortfolio: '我的投资组合',
   guideTutorial: '查看教程',
   guideSkip: '暂时跳过',
+  guideSkipped: '引导已隐藏，下次打开 OneKey 时再出现。',
   supplyAndBorrow: '存入并借币',
   swapSupplyAndBorrow: '兑换、存入并借币',
   loanLtv: 'LTV',

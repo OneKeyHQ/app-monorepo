@@ -16,12 +16,24 @@ import type {
 export const EARN_GUIDE_SYMBOL = 'USDC';
 export const EARN_GUIDE_PROVIDER = 'morpho';
 export const EARN_GUIDE_VAULT = '0x1401d1271c47648ac70cbcdfa3776d4a87ce006b';
+// USDC on Base, for the step that buys or receives it
+export const EARN_GUIDE_TOKEN_ADDRESS =
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
 export const getEarnGuideNetworkId = () => getNetworkIdsMap().base;
+// The Help Center's page on the app's Earn section
+export const EARN_GUIDE_TUTORIAL_URL =
+  'https://help.onekey.so/articles/11461138';
 
 // ETH on Base that counts as enough for the deposit and a later withdrawal;
 // the guide asks for more than this, for room
 export const EARN_GUIDE_MIN_GAS = 0.0001;
 export const EARN_GUIDE_SUGGESTED_GAS = '0.0005';
+// What counts as something to deposit, in USD: under it the Earn window's
+// form has nothing to work with
+export const EARN_GUIDE_MIN_DEPOSIT_USD = 1;
+// The page scrolled this far is being read: the open window folds out of
+// the way of its list
+export const EARN_GUIDE_YIELD_SCROLL = 80;
 
 export type IEarnGuideStep = 1 | 2 | 3 | 4;
 export const EARN_GUIDE_STEPS: IEarnGuideStep[] = [1, 2, 3, 4];
@@ -81,14 +93,34 @@ export function getPreviewGuideState(step: IEarnGuideStep): IEarnGuideState {
   };
 }
 
+export type IEarnGuidePreview = {
+  step: IEarnGuideStep;
+  /** The third step as a wallet with nothing to deposit sees it */
+  needsFunds?: boolean;
+};
+
+// The preview key's states in order: every step, the third both ways
+const PREVIEW_ORDER: IEarnGuidePreview[] = [
+  { step: 1 },
+  { step: 2 },
+  { step: 3, needsFunds: true },
+  { step: 3 },
+  { step: 4 },
+];
+
 /** The preview key's next state, and back to the real one after the last */
-export function nextPreviewStep(
-  step: IEarnGuideStep | undefined,
-): IEarnGuideStep | undefined {
-  if (!step) {
-    return 1;
+export function nextGuidePreview(
+  current: IEarnGuidePreview | undefined,
+): IEarnGuidePreview | undefined {
+  if (!current) {
+    return PREVIEW_ORDER[0];
   }
-  return step < LAST_STEP ? ((step + 1) as IEarnGuideStep) : undefined;
+  const index = PREVIEW_ORDER.findIndex(
+    (item) =>
+      item.step === current.step &&
+      Boolean(item.needsFunds) === Boolean(current.needsFunds),
+  );
+  return PREVIEW_ORDER[index + 1];
 }
 
 // The checklist shows for an account with nothing deposited, and for no
@@ -240,6 +272,69 @@ export function pickGuideSwapFrom<
     )
     .toSorted(byValue);
   return elsewhere.find((item) => item.token.isNative) ?? elsewhere[0];
+}
+
+type IGuideHeldToken = {
+  networkId: string;
+  amount: string;
+  fiatValueUsd: string;
+  priceUsd: string;
+  token: { isNative?: boolean };
+};
+
+// Whether the wallet holds something the Earn window can deposit: USDC on
+// Base, or any token Pay with swaps or bridges into it. The ETH on Base set
+// aside for the fees isn't for depositing
+export function hasGuideDepositFunds(
+  heldTokens: IGuideHeldToken[],
+  guideNetworkId: string,
+) {
+  const total = heldTokens.reduce((sum, item) => {
+    if (item.networkId === guideNetworkId && item.token.isNative) {
+      const spare = new BigNumber(item.amount).minus(EARN_GUIDE_SUGGESTED_GAS);
+      const value = spare.times(item.priceUsd || 0);
+      return value.isFinite() && value.gt(0) ? sum.plus(value) : sum;
+    }
+    const value = new BigNumber(item.fiatValueUsd || 0);
+    return value.isFinite() && value.gt(0) ? sum.plus(value) : sum;
+  }, new BigNumber(0));
+  return total.gte(EARN_GUIDE_MIN_DEPOSIT_USD);
+}
+
+// The amount Swap starts on: what the suggested ETH costs in the token paid
+// with, rounded up to two digits. None when a price is missing, or when the
+// wallet holds under twice that (its own fee comes out of the same balance)
+export function getGuideSwapAmount({
+  fromAmount,
+  fromPriceUsd,
+  gasPriceUsd,
+}: {
+  /** The balance of the token paid with */
+  fromAmount: string;
+  fromPriceUsd?: string;
+  /** One ETH in USD */
+  gasPriceUsd?: string;
+}): string | undefined {
+  const fromPrice = new BigNumber(fromPriceUsd || 0);
+  const gasPrice = new BigNumber(gasPriceUsd || 0);
+  if (
+    !fromPrice.isFinite() ||
+    !gasPrice.isFinite() ||
+    fromPrice.lte(0) ||
+    gasPrice.lte(0)
+  ) {
+    return undefined;
+  }
+  const amount = new BigNumber(
+    new BigNumber(EARN_GUIDE_SUGGESTED_GAS)
+      .times(gasPrice)
+      .div(fromPrice)
+      .toPrecision(2, BigNumber.ROUND_UP),
+  );
+  if (!amount.gt(0) || amount.times(2).gt(fromAmount || 0)) {
+    return undefined;
+  }
+  return amount.toFixed();
 }
 
 /** The PO's example vault among the Earn window's offers */
