@@ -586,11 +586,20 @@ describe('convertThirdPartyDeviceError', () => {
       ).toBe(keystoneKey);
       expect(
         convertThirdPartyDeviceError(payload, {
-          vendor: EHardwareVendor.ledger,
+          vendor: EHardwareVendor.trezor,
           silentMode: true,
         }).key,
       ).toBe(otherKey);
     }
+  });
+
+  it('asks to unlock a Ledger that was not detected', () => {
+    expect(
+      convertThirdPartyDeviceError(
+        { code: ThirdPartyHwErrorCode.DeviceNotFound, error: 'failed' },
+        { vendor: EHardwareVendor.ledger, silentMode: true },
+      ).key,
+    ).toBe(ETranslations.hardware_third_party_connect_ledger_message);
   });
 });
 
