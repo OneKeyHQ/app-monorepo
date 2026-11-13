@@ -1,6 +1,6 @@
 # Bug Fix Case Studies
 
-Cases are appended by AI after each bug fix. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
+Record only bug fixes with non-obvious, reusable lessons that help diagnose or prevent similar failures. Ordinary fixes do not require an entry; follow the selection criteria in `.cursor/rules/self-testing.mdc`. Do NOT reorder or delete entries — the `1k-retrospective` skill reads this file to analyze patterns and propose rule updates.
 
 ---
 
