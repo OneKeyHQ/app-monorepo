@@ -4,6 +4,7 @@ import type { KeyboardEvent, ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListFooterRows } from './TokenListFooterRows';
@@ -222,6 +223,25 @@ describe('TokenListFooterRows', () => {
     expect(risky.querySelector('[data-icon]')?.getAttribute('data-icon')).toBe(
       'ShieldExclamationSolid',
     );
+  });
+
+  it('holds the Swap column beside the table only', () => {
+    const { unmount } = render(
+      <TokenListFooterRows risky={{ count: 1, onPress: jest.fn() }} />,
+    );
+    expect(
+      screen.getByTestId('token-list-footer-risky-btn').textContent,
+    ).toContain(ETranslations.global_swap);
+    unmount();
+    render(
+      <TokenListFooterRows
+        layout="list"
+        risky={{ count: 1, onPress: jest.fn() }}
+      />,
+    );
+    expect(
+      screen.getByTestId('token-list-footer-risky-btn').textContent,
+    ).not.toContain(ETranslations.global_swap);
   });
 
   it('opens each row by click, Enter or Space', () => {

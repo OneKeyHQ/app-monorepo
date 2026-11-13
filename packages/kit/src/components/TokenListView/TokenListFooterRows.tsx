@@ -14,40 +14,89 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { IIconProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { Currency } from '../Currency';
 
-// Desktop / web token table footer: the low-value, risky and add-token rows
-// follow the token rows directly and are laid out like them (12px padding, the
-// 32px icon where token icons sit, the label on the symbol column).
+import type { AccessibilityActionEvent } from 'react-native';
+
+// Home token list footer: the low-value, risky and add-token rows follow the
+// token rows directly and are laid out like them (12px padding, the icon where
+// token icons sit, the label on the symbol column).
 
 const ROW_PADDING = 12;
-// Trailing Swap button: 10px padding plus a 1px border. Rows keep its
+// Trailing Swap button: 10px padding plus a 1px border. Table rows keep its
 // footprint so the low-value total ends on the token values' edge.
 const SWAP_BUTTON_HORIZONTAL_INSET = 11;
-const ICON_SIZE = 32;
-// Low-value logos: four 14px coins at the corners of a 28px group, centered in
-// the 32px slot so the group weighs like the round icons around it. Each is an
-// 11px face in a 1.5px ring of the page color, which keeps touching coins
-// apart; the first is on top.
-const COIN_GROUP_SIZE = 28;
-const COIN_SIZE = 14;
-const COIN_RING = 1.5;
-const COIN_FACE_SIZE = COIN_SIZE - 2 * COIN_RING;
-const COIN_NEAR = (ICON_SIZE - COIN_GROUP_SIZE) / 2;
-const COIN_FAR = COIN_NEAR + COIN_GROUP_SIZE - COIN_SIZE;
-const COIN_SLOTS = [
-  [COIN_NEAR, COIN_NEAR],
-  [COIN_FAR, COIN_NEAR],
-  [COIN_NEAR, COIN_FAR],
-  [COIN_FAR, COIN_FAR],
-] as const;
-const RISK_DISC_SIZE = 14;
+// The small "?" button is a 30 circle over a 20 footprint.
+const HELP_BUTTON_FOOTPRINT = 20;
+const COIN_COUNT = 4;
+const ACTIVATE_ACTIONS = [{ name: 'activate' as const }];
+
+export type ITokenListFooterRowsLayout = 'table' | 'list';
+
+type IFooterMetrics = {
+  rowHeight: number;
+  iconSize: number;
+  // Low-value logos: four coins at the corners of a group centered in the
+  // icon slot, so the group weighs like the round icons around it. Each face
+  // sits in a ring of clear space, which keeps touching coins apart.
+  coinGroupSize: number;
+  coinSize: number;
+  coinRing: number;
+  // Risk disc: caution stripes (band, then gap) behind a shield whose cut-out
+  // mark is lit by a small page-colored disc.
+  stripeBand: number;
+  stripeGap: number;
+  riskDiscSize: number;
+  riskIconSize: IIconProps['size'];
+  addIconSize: IIconProps['size'];
+  // Hit target of the "?" beside the low-value label.
+  helpTarget: number;
+  // Table rows hold the place of the token rows' trailing Swap button.
+  swapColumn: boolean;
+};
+
+const FOOTER_METRICS: Record<ITokenListFooterRowsLayout, IFooterMetrics> = {
+  // Desktop / web table: 32px icons in 48px rows.
+  table: {
+    rowHeight: 48,
+    iconSize: 32,
+    coinGroupSize: 28,
+    coinSize: 14,
+    coinRing: 1.5,
+    stripeBand: 3,
+    stripeGap: 4,
+    riskDiscSize: 14,
+    riskIconSize: '$4.5',
+    addIconSize: '$4',
+    helpTarget: 40,
+    swapColumn: true,
+  },
+  // Small screens: the 40px token icon in 56px rows, a touch-sized "?", and no
+  // Swap column.
+  list: {
+    rowHeight: 56,
+    iconSize: 40,
+    coinGroupSize: 36,
+    coinSize: 18,
+    coinRing: 2,
+    stripeBand: 4,
+    stripeGap: 5,
+    riskDiscSize: 18,
+    riskIconSize: '$6',
+    addIconSize: '$5',
+    helpTarget: 44,
+    swapColumn: false,
+  },
+};
 
 function FooterRow({
   testID,
+  metrics,
   icon,
   label,
   labelAccessory,
@@ -55,6 +104,7 @@ function FooterRow({
   onPress,
 }: {
   testID: string;
+  metrics: IFooterMetrics;
   icon: ReactNode;
   label: string;
   // Right after the label, e.g. the low-value help button.
@@ -72,13 +122,29 @@ function FooterRow({
     },
     [onPress],
   );
+  // VoiceOver and TalkBack focus the label on its own (the row is no
+  // accessibility element there), so activating it opens the row.
+  const nativeActivate = useMemo(
+    () =>
+      platformEnv.isNative
+        ? {
+            accessibilityActions: ACTIVATE_ACTIONS,
+            onAccessibilityAction: (event: AccessibilityActionEvent) => {
+              if (event.nativeEvent.actionName === 'activate') {
+                onPress();
+              }
+            },
+          }
+        : undefined,
+    [onPress],
+  );
   return (
     // A press anywhere on the row opens it. For keyboards and screen readers
     // the button is the label, so a control after it (the low-value "?")
     // stays a control of its own rather than a part of it.
     <XStack
       testID={testID}
-      h={48}
+      h={metrics.rowHeight}
       px={ROW_PADDING}
       gap="$3"
       alignItems="center"
@@ -112,6 +178,7 @@ function FooterRow({
             outlineOffset: -2,
           }}
           onKeyDown={handleKeyDown}
+          {...nativeActivate}
         >
           <SizableText size="$bodyLg" numberOfLines={1}>
             {label}
@@ -120,15 +187,17 @@ function FooterRow({
         {labelAccessory}
       </XStack>
       {trailing}
-      <SizableText
-        size="$bodyMdMedium"
-        px={SWAP_BUTTON_HORIZONTAL_INSET}
-        opacity={0}
-        pointerEvents="none"
-        aria-hidden
-      >
-        {intl.formatMessage({ id: ETranslations.global_swap })}
-      </SizableText>
+      {metrics.swapColumn ? (
+        <SizableText
+          size="$bodyMdMedium"
+          px={SWAP_BUTTON_HORIZONTAL_INSET}
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+        >
+          {intl.formatMessage({ id: ETranslations.global_swap })}
+        </SizableText>
+      ) : null}
     </XStack>
   );
 }
@@ -136,10 +205,26 @@ function FooterRow({
 // The first four low-value tokens as a pile of their logos. The pile always
 // has four coins: a coin without a token, or whose logo is missing, stays
 // plain gray.
-function LowValueCoins({ tokens }: { tokens: IAccountToken[] }) {
+function LowValueCoins({
+  tokens,
+  metrics,
+}: {
+  tokens: IAccountToken[];
+  metrics: IFooterMetrics;
+}) {
+  const { iconSize, coinGroupSize, coinSize, coinRing } = metrics;
+  const near = (iconSize - coinGroupSize) / 2;
+  const far = near + coinGroupSize - coinSize;
+  const slots = [
+    [near, near],
+    [far, near],
+    [near, far],
+    [far, far],
+  ] as const;
+  const faceSize = coinSize - 2 * coinRing;
   return (
-    <Stack w={ICON_SIZE} h={ICON_SIZE}>
-      {COIN_SLOTS.map(([left, top], index) => {
+    <Stack w={iconSize} h={iconSize}>
+      {slots.map(([left, top], index) => {
         const logoURI = tokens[index]?.logoURI;
         return (
           <Stack
@@ -148,21 +233,21 @@ function LowValueCoins({ tokens }: { tokens: IAccountToken[] }) {
             position="absolute"
             left={left}
             top={top}
-            zIndex={COIN_SLOTS.length - index}
-            w={COIN_SIZE}
-            h={COIN_SIZE}
+            zIndex={COIN_COUNT - index}
+            w={coinSize}
+            h={coinSize}
             // A clear gap, not a page-colored ring: the faces sit on the
             // row's own plate, so its hover tint does not swallow them.
-            p={COIN_RING}
+            p={coinRing}
             borderRadius="$full"
           >
             <Stack flex={1} borderRadius="$full" bg="$bgStrong">
               {logoURI ? (
                 <Image
-                  size={COIN_FACE_SIZE}
+                  size={faceSize}
                   borderRadius="$full"
                   source={{ uri: logoURI }}
-                  fallback={<Stack w={COIN_FACE_SIZE} h={COIN_FACE_SIZE} />}
+                  fallback={<Stack w={faceSize} h={faceSize} />}
                 />
               ) : null}
             </Stack>
@@ -173,69 +258,137 @@ function LowValueCoins({ tokens }: { tokens: IAccountToken[] }) {
   );
 }
 
+// Native has no CSS gradients: the same stripes as bands across a square
+// turned 45 degrees, clipped by the disc.
+function NativeCautionStripes({
+  size,
+  band,
+  gap,
+}: {
+  size: number;
+  band: number;
+  gap: number;
+}) {
+  const span = Math.ceil(size * Math.SQRT2);
+  const offset = (size - span) / 2;
+  const count = Math.ceil(span / (band + gap));
+  return (
+    <XStack
+      position="absolute"
+      left={offset}
+      top={offset}
+      w={span}
+      h={span}
+      gap={gap}
+      rotate="45deg"
+    >
+      {Array.from({ length: count }, (_, index) => (
+        <Stack key={index} w={band} h={span} bg="$borderCautionSubdued" />
+      ))}
+    </XStack>
+  );
+}
+
 // Risky tokens are set aside: a disc in caution stripes, like a closed-off
-// area. Web only (CSS gradient), as is this footer.
-function RiskIcon() {
+// area.
+function RiskIcon({ metrics }: { metrics: IFooterMetrics }) {
   const theme = useTheme();
+  const { iconSize, stripeBand, stripeGap, riskDiscSize, riskIconSize } =
+    metrics;
   const stripes = useMemo<CSSProperties>(
     () => ({
-      backgroundImage: `repeating-linear-gradient(-45deg, ${theme.borderCautionSubdued.val} 0 3px, ${theme.bgCautionSubdued.val} 3px 7px)`,
+      backgroundImage: `repeating-linear-gradient(-45deg, ${
+        theme.borderCautionSubdued.val
+      } 0 ${stripeBand}px, ${theme.bgCautionSubdued.val} ${stripeBand}px ${
+        stripeBand + stripeGap
+      }px)`,
     }),
-    [theme.bgCautionSubdued.val, theme.borderCautionSubdued.val],
+    [
+      theme.bgCautionSubdued.val,
+      theme.borderCautionSubdued.val,
+      stripeBand,
+      stripeGap,
+    ],
   );
   return (
     <Stack
-      w={ICON_SIZE}
-      h={ICON_SIZE}
+      w={iconSize}
+      h={iconSize}
       borderRadius="$full"
       overflow="hidden"
       alignItems="center"
       justifyContent="center"
-      style={stripes}
+      bg={platformEnv.isNative ? '$bgCautionSubdued' : undefined}
+      style={platformEnv.isNative ? undefined : stripes}
     >
+      {platformEnv.isNative ? (
+        <NativeCautionStripes
+          size={iconSize}
+          band={stripeBand}
+          gap={stripeGap}
+        />
+      ) : null}
       {/* Lights the shield's cut-out mark; the shield overhangs it. */}
       <Stack
         position="absolute"
-        left={(ICON_SIZE - RISK_DISC_SIZE) / 2}
-        top={(ICON_SIZE - RISK_DISC_SIZE) / 2}
-        w={RISK_DISC_SIZE}
-        h={RISK_DISC_SIZE}
+        left={(iconSize - riskDiscSize) / 2}
+        top={(iconSize - riskDiscSize) / 2}
+        w={riskDiscSize}
+        h={riskDiscSize}
         borderRadius="$full"
         bg="$bgApp"
       />
-      <Icon name="ShieldExclamationSolid" size="$4.5" color="$iconCaution" />
+      <Icon
+        name="ShieldExclamationSolid"
+        size={riskIconSize}
+        color="$iconCaution"
+      />
     </Stack>
   );
 }
 
-// What makes a token low-value, behind a "?" beside the label (as on the
-// narrow layout's row). Its press is its own, not the row's.
-function LowValueHelp({ lines }: { lines: readonly string[] }) {
+// What makes a token low-value, behind a "?" beside the label. Its press is
+// its own, not the row's.
+function LowValueHelp({
+  lines,
+  metrics,
+}: {
+  lines: readonly string[];
+  metrics: IFooterMetrics;
+}) {
   const intl = useIntl();
   const stopRowPress = useCallback((event: { stopPropagation: () => void }) => {
     event.stopPropagation();
   }, []);
+  const helpButton = (
+    <IconButton
+      testID="token-list-footer-help-btn"
+      aria-label={intl.formatMessage({
+        id: ETranslations.low_value_assets,
+      })}
+      size="small"
+      variant="tertiary"
+      icon="QuestionmarkOutline"
+    />
+  );
+  // Invisible padding around the button's footprint makes the target with
+  // the same look and footprint, so a near miss on a touch screen opens the
+  // help, not the list. Native buttons take the touch themselves, so there
+  // the button is the trigger and its own hit slop widens it.
+  const helpPadding = (metrics.helpTarget - HELP_BUTTON_FOOTPRINT) / 2;
   return (
     <Stack onPress={stopRowPress}>
       <Popover
         placement="top-start"
         title={intl.formatMessage({ id: ETranslations.low_value_assets })}
         renderTrigger={
-          // The small button is a 30 circle over a 20 footprint; 10 of
-          // invisible padding makes a 40 target with the same look and
-          // footprint, so a near miss on a touch screen opens the help, not
-          // the list.
-          <Stack p={10} m={-10} borderRadius="$full">
-            <IconButton
-              testID="token-list-footer-help-btn"
-              aria-label={intl.formatMessage({
-                id: ETranslations.low_value_assets,
-              })}
-              size="small"
-              variant="tertiary"
-              icon="QuestionmarkOutline"
-            />
-          </Stack>
+          platformEnv.isNative ? (
+            helpButton
+          ) : (
+            <Stack p={helpPadding} m={-helpPadding} borderRadius="$full">
+              {helpButton}
+            </Stack>
+          )
         }
         renderContent={
           <YStack p="$5" gap="$2">
@@ -259,11 +412,11 @@ function LowValueHelp({ lines }: { lines: readonly string[] }) {
 }
 
 // An empty coin to put a token in.
-function AddTokenIcon() {
+function AddTokenIcon({ metrics }: { metrics: IFooterMetrics }) {
   return (
     <Stack
-      w={ICON_SIZE}
-      h={ICON_SIZE}
+      w={metrics.iconSize}
+      h={metrics.iconSize}
       borderRadius="$full"
       borderWidth={1.5}
       borderStyle="dashed"
@@ -271,12 +424,18 @@ function AddTokenIcon() {
       alignItems="center"
       justifyContent="center"
     >
-      <Icon name="PlusLargeOutline" size="$4" color="$iconSubdued" />
+      <Icon
+        name="PlusLargeOutline"
+        size={metrics.addIconSize}
+        color="$iconSubdued"
+      />
     </Stack>
   );
 }
 
 export type ITokenListFooterRowsProps = {
+  // `table` beside the desktop / web token table, `list` on small screens.
+  layout?: ITokenListFooterRowsLayout;
   lowValue?: {
     tokens: IAccountToken[];
     count: number;
@@ -292,20 +451,23 @@ export type ITokenListFooterRowsProps = {
 };
 
 export function TokenListFooterRows({
+  layout = 'table',
   lowValue,
   risky,
   addToken,
 }: ITokenListFooterRowsProps) {
   const intl = useIntl();
+  const metrics = FOOTER_METRICS[layout];
   return (
     <YStack>
       {lowValue ? (
         <FooterRow
           testID="token-list-footer-low-value-btn"
-          icon={<LowValueCoins tokens={lowValue.tokens} />}
+          metrics={metrics}
+          icon={<LowValueCoins tokens={lowValue.tokens} metrics={metrics} />}
           labelAccessory={
             lowValue.help?.length ? (
-              <LowValueHelp lines={lowValue.help} />
+              <LowValueHelp lines={lowValue.help} metrics={metrics} />
             ) : null
           }
           label={`${lowValue.count} ${intl.formatMessage({
@@ -331,7 +493,8 @@ export function TokenListFooterRows({
       {risky ? (
         <FooterRow
           testID="token-list-footer-risky-btn"
-          icon={<RiskIcon />}
+          metrics={metrics}
+          icon={<RiskIcon metrics={metrics} />}
           label={intl.formatMessage(
             { id: ETranslations.wallet_collapsed_risk_assets_number },
             { number: risky.count },
@@ -342,7 +505,8 @@ export function TokenListFooterRows({
       {addToken ? (
         <FooterRow
           testID="token-list-footer-add-token-btn"
-          icon={<AddTokenIcon />}
+          metrics={metrics}
+          icon={<AddTokenIcon metrics={metrics} />}
           label={intl.formatMessage({ id: ETranslations.add_token_label })}
           onPress={addToken.onPress}
         />

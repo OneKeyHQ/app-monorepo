@@ -457,9 +457,11 @@ function TokenListFooter(props: IProps) {
     };
   }, [run]);
 
-  // Desktop / web home: low-value, risky and add-token rows follow the token
-  // rows directly.
-  if (tableLayout && plainMode && !platformEnv.isNative) {
+  const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
+
+  // Home list: low-value, risky and add-token rows follow the token rows
+  // directly (native tablets keep the list items below).
+  if (plainMode && !(tableLayout && platformEnv.isNative)) {
     const showLowValue = !isSearchMode && filteredSmallBalanceTokens.length > 0;
     const showRisky = !isSearchMode && filteredRiskyTokens.length > 0;
     const showAddToken = !!hasTokens && !!manageTokenEnabled;
@@ -467,32 +469,36 @@ function TokenListFooter(props: IProps) {
       return null;
     }
     return (
-      <TokenListFooterRows
-        lowValue={
-          showLowValue
-            ? {
-                tokens: filteredSmallBalanceTokens,
-                count: filteredSmallBalanceTokens.length,
-                total: displayedSmallBalanceFiatValue,
-                showTotal: showSmallBalanceTotal,
-                help: helpText,
-                onPress: handleOnPressLowValueTokens,
-              }
-            : undefined
-        }
-        risky={
-          showRisky
-            ? { count: blockedTokensLength, onPress: handleOnPressRiskyTokens }
-            : undefined
-        }
-        addToken={
-          showAddToken ? { onPress: handleOnPressManageTokens } : undefined
-        }
-      />
+      <Stack mx={footerLayout.mx}>
+        <TokenListFooterRows
+          layout={tableLayout ? 'table' : 'list'}
+          lowValue={
+            showLowValue
+              ? {
+                  tokens: filteredSmallBalanceTokens,
+                  count: filteredSmallBalanceTokens.length,
+                  total: displayedSmallBalanceFiatValue,
+                  showTotal: showSmallBalanceTotal,
+                  help: helpText,
+                  onPress: handleOnPressLowValueTokens,
+                }
+              : undefined
+          }
+          risky={
+            showRisky
+              ? {
+                  count: blockedTokensLength,
+                  onPress: handleOnPressRiskyTokens,
+                }
+              : undefined
+          }
+          addToken={
+            showAddToken ? { onPress: handleOnPressManageTokens } : undefined
+          }
+        />
+      </Stack>
     );
   }
-
-  const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
 
   return (
     <Stack mx={footerLayout.mx}>
