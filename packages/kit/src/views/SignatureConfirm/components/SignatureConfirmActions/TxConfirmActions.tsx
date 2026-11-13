@@ -1,6 +1,18 @@
 /* cspell:ignore Infini */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import {
+  NavigationContext,
+  NavigationRouteContext,
+} from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil, isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -48,6 +60,8 @@ import {
 import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EGasAccountRequestStage,
@@ -111,6 +125,8 @@ type IProps = {
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
+  onBeforePreActions?: () => void | Promise<void>;
+  reviewQuoteValidUntil?: number;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
@@ -147,6 +163,8 @@ function TxConfirmActions(props: IProps) {
     onFail,
     onCancel,
     onBeforeSend,
+    onBeforePreActions,
+    reviewQuoteValidUntil,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -166,11 +184,30 @@ function TxConfirmActions(props: IProps) {
     securityCheckAcknowledgementKey,
   } = props;
   const intl = useIntl();
+  const route = useContext(NavigationRouteContext);
+  const routeNavigation = useContext(NavigationContext);
   const isSubmitted = useRef(false);
   const isExitHandledRef = useRef(false);
+  const returnAfterFocusRef = useRef(false);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  useEffect(() => {
+    if (!route?.key) return;
+    return routeNavigation?.addListener('focus', () => {
+      if (
+        returnAfterFocusRef.current &&
+        rootNavigationRef.current?.getCurrentRoute()?.key === route.key
+      ) {
+        returnAfterFocusRef.current = false;
+        if (popStack) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+      }
+    });
+  }, [navigation, popStack, route?.key, routeNavigation]);
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
@@ -503,8 +540,33 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    const handleBeforeSendAbort = (error: unknown) => {
+      if (!(error instanceof BeforeSendAbortError) || !error.onAbort()) {
+        return false;
+      }
+      updateSendTxStatus({ isSubmitting: false });
+      isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
+      isExitHandledRef.current = true;
+      if (
+        route?.key &&
+        rootNavigationRef.current?.getCurrentRoute()?.key === route.key
+      ) {
+        if (popStack) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+      } else {
+        returnAfterFocusRef.current = true;
+      }
+      return true;
+    };
+
     if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
+      await onBeforePreActions?.();
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       const resp =
         await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
           {
@@ -512,10 +574,17 @@ function TxConfirmActions(props: IProps) {
             networkId,
             unsignedTxs,
             tronResourceRentalInfo,
+            reviewQuoteValidUntil,
           },
         );
 
       if (gasAccountSubmitIdRef.current !== submitId) return;
+      if (resp?.reviewQuoteExpiredBeforeSubmit) {
+        await onBeforePreActions?.();
+        throw new OneKeyLocalError(
+          'Swap review quote expired before preparation',
+        );
+      }
       // DeviceStage owns its overlay lifecycle. Only the legacy QR scanner
       // needs this navigation handoff; popping the confirm page cancels sending.
       if (
@@ -528,6 +597,7 @@ function TxConfirmActions(props: IProps) {
       }
     } catch (e: any) {
       if (handleInfiniFailureExit(e)) return;
+      if (handleBeforeSendAbort(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -613,20 +683,7 @@ function TxConfirmActions(props: IProps) {
 
     if (gasAccountSubmitIdRef.current !== submitId) return;
     let transactionSubmitted = false;
-    try {
-      await onBeforeSend?.();
-    } catch (error) {
-      if (handleInfiniFailureExit(error)) return;
-      const sendError = error as Error;
-      updateSendTxStatus({ isSubmitting: false });
-      onFail?.(sendError);
-      isSubmitted.current = false;
-      gasAccountSubmitIdRef.current = null;
-      void dappApprove.reject({ error: sendError });
-      throw error;
-    }
-
-    if (gasAccountSubmitIdRef.current !== submitId) return;
+    let beforeSendFailed = false;
     try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
@@ -657,6 +714,23 @@ function TxConfirmActions(props: IProps) {
         }
       }
 
+      if (gasAccountSubmitIdRef.current !== submitId) return;
+      try {
+        await onBeforeSend?.();
+      } catch (error) {
+        if (handleInfiniFailureExit(error)) return;
+        const sendError = error as Error;
+        updateSendTxStatus({ isSubmitting: false });
+        if (handleBeforeSendAbort(sendError)) return;
+        onFail?.(sendError);
+        isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
+        void dappApprove.reject({ error: sendError });
+        beforeSendFailed = true;
+        throw error;
+      }
+
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
@@ -844,6 +918,7 @@ function TxConfirmActions(props: IProps) {
         navigation.pop();
       }
     } catch (e: any) {
+      if (beforeSendFailed) throw e;
       // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
       // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
       // skip dappApprove propagation — just unwind submit state.
@@ -907,6 +982,8 @@ function TxConfirmActions(props: IProps) {
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onBeforeSend,
+    onBeforePreActions,
+    reviewQuoteValidUntil,
     broadcastDeadline,
     beforeBroadcastAction,
     freeTrialUsage,
@@ -915,6 +992,7 @@ function TxConfirmActions(props: IProps) {
     dappApprove,
     tronResourceRentalInfo,
     navigation,
+    route?.key,
     txAdvancedSettings.nonce,
     feeInfoEditable,
     checkFeeInfoIsOverflow,

@@ -593,6 +593,8 @@ export enum ESwapBatchTransferType {
 export interface ISwapStep {
   type: ESwapStepType;
   status: ESwapStepStatus;
+  approvalTrackingRequestId?: string;
+  approvalConfirmedFailed?: boolean;
   stepTitle?: string;
   stepSubTitle?: string;
   stepActionsLabel?: string;
@@ -647,7 +649,12 @@ export interface ISwapGasInfo {
   // the review UI still advertises "zero network fee with OneKey wallet".
   externalSponsorPromoEligible?: boolean;
 }
+export type ISwapReviewQuoteValidity = (() => boolean) & { deadline?: number };
+
 export interface ISwapPreSwapData {
+  /** Identifies the quote request that owns the current review expiry. */
+  reviewQuoteExpiryKey?: string;
+  reviewRequiresConfirmation?: boolean;
   strictCurrencyConversion?: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -720,6 +727,8 @@ export interface IFetchSwapQuoteParams {
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
+  /** Review quote validity duration in seconds. */
+  expiredTime?: number;
   protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
   isFloating?: boolean;
@@ -1029,8 +1038,9 @@ export interface ILMTronObject {
 
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
+  reviewQuoteExpiredBeforeSubmit?: true;
   supportRebuildTx?: boolean;
-  tx?: ITransaction;
+  tx?: ITransaction | IAptosSwapTransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
@@ -1100,6 +1110,13 @@ export interface IEVMTransaction {
   to: string;
   value: string;
   data: string;
+}
+
+export interface IAptosSwapTransaction {
+  type: 'entry_function_payload';
+  function?: string;
+  arguments?: unknown[];
+  type_arguments?: unknown[];
 }
 
 export type ITransaction = IEVMTransaction | string;

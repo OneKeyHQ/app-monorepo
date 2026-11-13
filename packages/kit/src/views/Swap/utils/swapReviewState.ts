@@ -30,6 +30,52 @@ import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
 
+export function hasSubmittedSwapReviewOrder(preSwapData: ISwapPreSwapData) {
+  const build = preSwapData.swapBuildResultData?.swapInfo?.swapBuildResData;
+  const context: unknown = build?.ctx;
+  if (!context || typeof context !== 'object') {
+    return false;
+  }
+  return Boolean(
+    Reflect.get(context, 'oneInchFusionOrderHash') ||
+    (Reflect.get(context, 'cowSwapOrderId') && !build?.tx),
+  );
+}
+
+export function canRefreshSwapReviewSteps(steps: ISwapStep[]) {
+  let hasReadyStep = false;
+  for (const step of steps) {
+    if (step.submitResultUnknown) {
+      return false;
+    }
+    if (
+      step.status === ESwapStepStatus.READY ||
+      (step.status === ESwapStepStatus.FAILED && step.canRetry)
+    ) {
+      if (
+        step.orderId ||
+        (step.txHash &&
+          !(
+            step.type === ESwapStepType.APPROVE_TX &&
+            step.status === ESwapStepStatus.FAILED &&
+            step.approvalConfirmedFailed
+          ))
+      ) {
+        return false;
+      }
+      hasReadyStep = true;
+    } else if (
+      hasReadyStep ||
+      step.type !== ESwapStepType.APPROVE_TX ||
+      step.status !== ESwapStepStatus.SUCCESS ||
+      !step.txHash
+    ) {
+      return false;
+    }
+  }
+  return hasReadyStep;
+}
+
 export type ISwapStepSignAndSendProgress = {
   hasUncertainSend: boolean;
   succeededCount: number;
