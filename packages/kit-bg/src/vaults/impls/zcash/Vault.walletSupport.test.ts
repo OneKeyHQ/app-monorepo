@@ -7,7 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ZcashPrivacyMode } from './privacyMode';
 import Vault from './Vault';
 
-// Imported and watch-only accounts have no viewing key: the private tab says 'not supported', receive still gets the transparent address.
+// Watch-only accounts have no viewing key: the private tab says 'not supported', receive still gets the transparent address.
 describe('zcash privacy support by wallet type', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -21,7 +21,7 @@ describe('zcash privacy support by wallet type', () => {
       networkId: 'zec--0',
       backgroundApi: {
         serviceAccount: {
-          getDBAccountSafe: async () => ({ address: 't1imported' }),
+          getDBAccountSafe: async () => ({ address: 't1watched' }),
         },
       },
     });
@@ -29,14 +29,13 @@ describe('zcash privacy support by wallet type', () => {
 
   it.each([
     ["hd-1--m/44'/133'/0'", true],
-    ['imported--133--t1imported', false],
     ['watching--133--t1watched', false],
   ])('%s supports privacy: %s', (accountId, supported) => {
     const vault = createVault(jest.fn());
     expect(vault.supportsAccountWalletType({ accountId })).toBe(supported);
   });
 
-  it('gives an imported account its transparent address without asking for privacy data', async () => {
+  it('gives a watch-only account its transparent address without asking for privacy data', async () => {
     const getMeta = jest.fn(async () => {
       throw new OneKeyLocalError(
         'zcash: privacy mode requires an HD or hardware account',
@@ -47,10 +46,10 @@ describe('zcash privacy support by wallet type', () => {
 
     await expect(
       capability?.getAccountAddresses({
-        accountId: 'imported--133--t1imported',
+        accountId: 'watching--133--t1watched',
       }),
     ).resolves.toEqual({
-      publicAddress: 't1imported',
+      publicAddress: 't1watched',
       privateAddress: undefined,
     });
     expect(getMeta).not.toHaveBeenCalled();

@@ -130,6 +130,8 @@ export function useLocalWalletPool({
     useState<ILocalWalletRefreshRequest>();
   const refreshRequestRef = useRef<ILocalWalletRefreshRequest>(undefined);
   const [revision, setRevision] = useState(0);
+  const [addressRevision, setAddressRevision] = useState(0);
+  const revalidateRef = useRef<() => void>(() => {});
   const [attemptedBalanceScope, setAttemptedBalanceScope] =
     useState<ILocalWalletReadScope>();
   const accountScope = useMemo(
@@ -154,16 +156,17 @@ export function useLocalWalletPool({
   // Read from the chain rather than inferred from the account id: Monero has no hardware
   // keyring, so a hardware account there can never scan despite looking scannable. Read again on
   // every change notice (a temp wallet kept), keeping this account's last answer meanwhile.
-  const { result: accountSupportResult } = usePromiseResult(async () => {
-    if (!hasPooledBalance || !accountId) return undefined;
-    return {
-      scope: accountScope,
-      support:
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
-          { networkId, accountId },
-        ),
-    };
-  }, [hasPooledBalance, accountScope, accountId, networkId]);
+  const { result: accountSupportResult, run: refreshSupport } =
+    usePromiseResult(async () => {
+      if (!hasPooledBalance || !accountId) return undefined;
+      return {
+        scope: accountScope,
+        support:
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
+            { networkId, accountId },
+          ),
+      };
+    }, [hasPooledBalance, accountScope, accountId, networkId]);
   const freshSupport =
     accountSupportResult?.scope.networkId === networkId &&
     accountSupportResult.scope.accountId === accountId
@@ -180,11 +183,27 @@ export function useLocalWalletPool({
     const invalidate = (payload: {
       networkId: string;
       accountIds: string[];
+      change?: 'syncState';
     }) => {
       if (
         payload.networkId !== networkId ||
         !payload.accountIds.includes(accountId)
       ) {
+        return;
+      }
+      // Pause/resume keeps the same data owner. Destructive or unclassified notices
+      // still invalidate immediately, including while the page is retained offscreen.
+      if (payload.change === 'syncState') {
+        // Retain balances/readiness, but receive authorization must be read again.
+        const previous = lastSeenByAccount.get(`${networkId}:${accountId}`);
+        if (previous?.addresses) {
+          lastSeenByAccount.set(`${networkId}:${accountId}`, {
+            ...previous,
+            addresses: { ...previous.addresses, privateAddress: undefined },
+          });
+        }
+        setAddressRevision((value) => value + 1);
+        revalidateRef.current();
         return;
       }
       const ownerKey = privacyChainPoolOwnerKey({
@@ -252,6 +271,12 @@ export function useLocalWalletPool({
   const readScopeRef = useRef(readScope);
   readScopeRef.current = readScope;
   const hasAttemptedBalance = attemptedBalanceScope === readScope;
+  const addressScope = useMemo(
+    () => ({ readScope, revision: addressRevision }),
+    [addressRevision, readScope],
+  );
+  const addressScopeRef = useRef(addressScope);
+  addressScopeRef.current = addressScope;
 
   const { result: balanceResult, run: refreshBalance } = usePromiseResult(
     async () => {
@@ -316,25 +341,40 @@ export function useLocalWalletPool({
   const { result: addressesResult, run: refreshAddresses } = usePromiseResult(
     async () => {
       if (!canReadAddresses) return null;
-      const result =
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
-          { networkId, accountId },
-        );
-      return { scope: readScope, addresses: result ?? null };
+      try {
+        const result =
+          await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+            { networkId, accountId },
+          );
+        return { scope: addressScope, addresses: result ?? null };
+      } catch (error) {
+        // A failed read cannot restore receive authorization from the reopen cache.
+        // A late failure from another read scope must not alter its successor.
+        if (addressScopeRef.current === addressScope) {
+          const previous = lastSeenByAccount.get(lastSeenKey);
+          if (previous?.addresses) {
+            lastSeenByAccount.set(lastSeenKey, {
+              ...previous,
+              addresses: { ...previous.addresses, privateAddress: undefined },
+            });
+          }
+        }
+        throw error;
+      }
     },
-    [readScope, canReadAddresses, accountId, networkId],
+    [addressScope, canReadAddresses, accountId, networkId, lastSeenKey],
     {
       revalidateOnFocus: true,
+      undefinedResultIfError: true,
       overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
   const freshAddresses =
-    addressesResult?.scope === readScope
+    addressesResult?.scope === addressScope
       ? addressesResult.addresses
       : undefined;
-  const addresses = canReadBalance
-    ? (freshAddresses ?? lastSeen?.addresses)
-    : undefined;
+  const cachedAddresses =
+    freshAddresses !== undefined ? freshAddresses : lastSeen?.addresses;
   useEffect(() => {
     if (
       freshSupport === undefined &&
@@ -347,7 +387,8 @@ export function useLocalWalletPool({
     lastSeenByAccount.set(lastSeenKey, {
       support: freshSupport ?? previous?.support,
       state: freshState ?? previous?.state,
-      addresses: freshAddresses ?? previous?.addresses,
+      addresses:
+        freshAddresses !== undefined ? freshAddresses : previous?.addresses,
     });
   }, [freshAddresses, freshState, freshSupport, lastSeenKey]);
 
@@ -388,6 +429,25 @@ export function useLocalWalletPool({
     [networkId, accountId],
   );
   const scan = useAtomValue(scanAtom);
+  const addresses = useMemo(() => {
+    if (!canReadBalance) return undefined;
+    if (
+      cachedAddresses?.privateAddress &&
+      (!state?.enabled ||
+        accountPaused ||
+        scan.pausedNetworkIds.includes(networkId))
+    ) {
+      return { ...cachedAddresses, privateAddress: undefined };
+    }
+    return cachedAddresses;
+  }, [
+    accountPaused,
+    cachedAddresses,
+    canReadBalance,
+    networkId,
+    scan.pausedNetworkIds,
+    state?.enabled,
+  ]);
   const publishedProgress = scan.progress[`${networkId}:${accountId}`];
   const scanCompletion =
     scan.completedScanByAccount?.[`${networkId}:${accountId}`];
@@ -458,6 +518,10 @@ export function useLocalWalletPool({
   }, [refreshAddresses, refreshBalance, refreshState, refreshSyncProgress]);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+  revalidateRef.current = () => {
+    void refreshSupport().catch(() => undefined);
+    refresh();
+  };
   useEffect(() => {
     const refreshNetworkState = () => void refreshState();
     appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkState);
@@ -718,6 +782,17 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
+  const pauseSync = useCallback(
+    () =>
+      runBusy(async () => {
+        await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount({
+          networkId,
+          accountId,
+        });
+        refreshRef.current();
+      }),
+    [accountId, networkId, runBusy],
+  );
   const isReady = (() => {
     // A privacy chain whose settings are still loading is not "no pools" yet.
     if (!hasPooledBalance)
@@ -752,12 +827,14 @@ export function useLocalWalletPool({
     isNetworkPaused: syncStatus === 'chainPaused',
     hasSyncError,
     hasAttemptedBalance,
+    actionBusy: busy,
     busy: busy || pendingRefresh?.scope === readScope,
     accountName: account?.name,
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
     refreshBalanceNow,
     startSync,
+    pauseSync,
     enableAccount,
   };
 }

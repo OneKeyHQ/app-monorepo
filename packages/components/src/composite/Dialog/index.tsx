@@ -602,16 +602,19 @@ function DialogFrame({
     </Animated.View>
   );
 
+  // The overlay paints the sheet surface (and the safe-area tail below the
+  // sheet content) with the content container's background, so keep the raw
+  // value — a theme token or a literal color such as a branded panel.
+  const contentContainerBg =
+    typeof contentContainerProps?.bg === 'string'
+      ? contentContainerProps.bg
+      : undefined;
   // Keep the content in the same child slot when the grabber disappears.
   // Moving it from [grabber, content] to [content] remounts forms and loses
   // drafts before submission (OK-50653).
   const dialogContentStack = (
     <Stack
-      bg={
-        isHeaderDragOnly
-          ? ((contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg')
-          : undefined
-      }
+      bg={isHeaderDragOnly ? (contentContainerBg ?? '$bg') : undefined}
       borderTopLeftRadius={isHeaderDragOnly ? '$6' : undefined}
       borderTopRightRadius={isHeaderDragOnly ? '$6' : undefined}
       borderCurve={isHeaderDragOnly ? 'continuous' : undefined}
@@ -646,7 +649,7 @@ function DialogFrame({
       open={Boolean(open)}
       level={overlayLevel}
       isSheet={useSheetPresentation}
-      bg={(contentContainerProps as { bg?: IColorTokens })?.bg}
+      bg={contentContainerBg}
       dismissOnOverlayPress={dismissOnOverlayPress}
       dismissOnBackPress={!disableSystemClose}
       disableDrag={isSheetDragDisabled || isHeaderDragOnly}

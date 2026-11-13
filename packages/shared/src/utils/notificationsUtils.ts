@@ -601,6 +601,44 @@ export function normalizeNotificationMode(
   return undefined;
 }
 
+type INotificationCommandPayload = {
+  action?: string;
+  data?: Record<string, unknown>;
+  conversationId?: unknown;
+};
+
+// Throws on malformed JSON; callers decide how to fall back.
+function parseNotificationCommandPayload(
+  payload: string | undefined,
+): INotificationCommandPayload {
+  const parsed = JSON.parse(payload || '{}') as INotificationCommandPayload;
+  return {
+    ...parsed,
+    action:
+      typeof parsed.action === 'string' ? parsed.action.trim() : parsed.action,
+  };
+}
+
+export function isSupportReplyPushMessage(
+  messageInfo: INotificationPushMessageInfo,
+): boolean {
+  const { extras } = messageInfo;
+  if (
+    normalizeNotificationMode(extras?.mode) !==
+    ENotificationPushMessageMode.command
+  ) {
+    return false;
+  }
+  try {
+    return (
+      parseNotificationCommandPayload(extras?.payload).action ===
+      ENotificationCommand.openSupportConversation
+    );
+  } catch {
+    return false;
+  }
+}
+
 function toSupportConversationId(value: unknown): string | undefined {
   if (typeof value === 'string') {
     return value.trim() || undefined;
@@ -777,16 +815,8 @@ export function parseNotificationPayload(
       return true;
     case ENotificationPushMessageMode.command:
       try {
-        const parsedPayload = JSON.parse(payload || '{}') as {
-          action?: string;
-          data?: Record<string, unknown>;
-          conversationId?: unknown;
-        };
-        const action =
-          typeof parsedPayload.action === 'string'
-            ? parsedPayload.action.trim()
-            : parsedPayload.action;
-        const { data } = parsedPayload;
+        const parsedPayload = parseNotificationCommandPayload(payload);
+        const { action, data } = parsedPayload;
         if (!action) {
           fallbackHandler();
           return false;
@@ -800,9 +830,7 @@ export function parseNotificationPayload(
           // not be dropped: without it the click silently opens the Messenger
           // home (a brand-new conversation window) instead of the target
           // conversation (OK-66809).
-          const payloadTopLevelConversationId = (
-            parsedPayload as { conversationId?: unknown }
-          ).conversationId;
+          const payloadTopLevelConversationId = parsedPayload.conversationId;
           // Prefer extras.params, then data, then the top-level payload field.
           // null/blank candidates count as absent: an explicit
           // `conversationId: null` (or "") in params must not hide a usable

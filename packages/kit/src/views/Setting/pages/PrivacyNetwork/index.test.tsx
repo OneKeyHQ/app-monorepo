@@ -71,6 +71,21 @@ var mockBirthdaySettings: {
 // eslint-disable-next-line no-var, vars-on-top
 var mockRouteParams: IModalSettingParamList[EModalSettingRoutes.SettingPrivacyNetwork];
 const mockPopStack = jest.fn();
+const mockListAccounts = jest.fn<
+  Promise<ILocalWalletAccountListItem[]>,
+  [{ walletId?: string }]
+>();
+const mockGetNetworkInfo = jest.fn<
+  Promise<
+    | {
+        endpointUrl: string;
+        endpointDefaultUrl: string;
+        endpointIsCustom: boolean;
+      }
+    | undefined
+  >,
+  [{ networkId: string }]
+>();
 const mockGetVaultSettings = jest.fn(
   async (_params: { networkId: string }) => ({
     localWallet: { accountSetup: mockBirthdaySettings },
@@ -80,6 +95,8 @@ const mockGetVaultSettings = jest.fn(
 var mockAllowCellular: boolean | undefined;
 // eslint-disable-next-line no-var, vars-on-top
 var mockIsNative = false;
+// eslint-disable-next-line no-var, vars-on-top
+var mockIsFocused = true;
 const mockDelete = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
@@ -140,7 +157,7 @@ jest.mock('@react-navigation/core', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockIsFocused,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -152,15 +169,22 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const { useCallback, useEffect, useState } =
     jest.requireActual<typeof import('react')>('react');
   return {
-    usePromiseResult: (fn: () => Promise<unknown>, deps: unknown[]) => {
+    usePromiseResult: (
+      fn: () => Promise<unknown>,
+      deps: unknown[],
+      options?: { revalidateOnFocus?: boolean },
+    ) => {
       const [result, setResult] = useState<unknown>();
       const run = useCallback(async () => {
         setResult(await fn());
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, deps);
+      const focusDependency = options?.revalidateOnFocus
+        ? mockIsFocused
+        : undefined;
       useEffect(() => {
-        void run();
-      }, [run]);
+        if (mockIsFocused) void run();
+      }, [run, focusDependency]);
       return { result, run };
     },
   };
@@ -225,7 +249,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetVaultSettings(params),
     },
     servicePrivacyChain: {
-      listLocalWalletAccounts: async () => mockAccounts,
+      listLocalWalletAccounts: (params: { walletId?: string }) =>
+        mockListAccounts(params),
       getLocalWalletAccountState: async ({
         accountId,
       }: {
@@ -252,7 +277,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       pauseLocalWalletScan: (params: { networkId: string }) =>
         mockPauseChain(params),
       getLocalWalletSyncProgress: async () => undefined,
-      getLocalWalletNetworkInfo: async () => undefined,
+      getLocalWalletNetworkInfo: (params: { networkId: string }) =>
+        mockGetNetworkInfo(params),
       isPrivacySyncOnCellularAllowed: async () => false,
     },
   },
@@ -414,6 +440,7 @@ function scanProgress(synced = false): ILocalWalletSyncProgress {
 describe('Privacy network settings for a temp wallet', () => {
   beforeEach(() => {
     mockRouteParams = undefined;
+    mockIsFocused = true;
     mockPopStack.mockClear();
     const { Dialog, Toast } = jest.requireMock<{
       Dialog: { show: jest.Mock; confirm: jest.Mock };
@@ -423,6 +450,8 @@ describe('Privacy network settings for a temp wallet', () => {
     Dialog.confirm.mockClear();
     Toast.error.mockClear();
     mockAccountStates = {};
+    mockListAccounts.mockReset().mockImplementation(async () => mockAccounts);
+    mockGetNetworkInfo.mockReset().mockResolvedValue(undefined);
     mockUnsupportedNetworks = [];
     mockProgress = {};
     mockPausedNetworks = [];
@@ -451,6 +480,101 @@ describe('Privacy network settings for a temp wallet', () => {
         walletIsTemp: true,
       }),
     ];
+  });
+
+  it('waits for the initial network sections before showing the account list', async () => {
+    let finishNetworkInfo: () => void = () => {};
+    mockGetNetworkInfo.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishNetworkInfo = () =>
+            resolve({
+              endpointUrl: 'https://example.com',
+              endpointDefaultUrl: 'https://example.com',
+              endpointIsCustom: false,
+            });
+        }),
+    );
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    await waitFor(() => expect(mockGetNetworkInfo).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('privacy-network-enable-hd-1--0')).toBeNull();
+    expect(screen.queryByTestId('settings-privacy-network-empty')).toBeNull();
+    await act(async () => finishNetworkInfo());
+    expect(await screen.findByTestId('privacy-sync-node')).toBeTruthy();
+    expect(screen.getByTestId('privacy-network-enable-hd-1--0')).toBeTruthy();
+  });
+
+  it('settles the initial list when optional network information fails', async () => {
+    mockGetNetworkInfo.mockRejectedValueOnce(new Error('unavailable'));
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    expect(
+      await screen.findByTestId('privacy-network-enable-hd-1--0'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('privacy-sync-node')).toBeNull();
+  });
+
+  it('keeps the last successful network section when focus revalidation fails', async () => {
+    mockGetNetworkInfo.mockResolvedValueOnce({
+      endpointUrl: 'https://example.com',
+      endpointDefaultUrl: 'https://example.com',
+      endpointIsCustom: false,
+    });
+    const { rerender } = render(<PrivacyNetworkSettings networkId="zec--0" />);
+    const node = await screen.findByTestId('privacy-sync-node');
+    const account = screen.getByTestId('privacy-network-enable-hd-1--0');
+    const networkTitle = screen.getByText(ETranslations.global_network);
+    mockGetNetworkInfo.mockRejectedValueOnce(new Error('unavailable'));
+    mockIsFocused = false;
+    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+    mockIsFocused = true;
+    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+    await waitFor(() => expect(mockGetNetworkInfo).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('privacy-sync-node')).toBe(node);
+    expect(screen.getByText(ETranslations.global_network)).toBe(networkTitle);
+    expect(screen.getByTestId('privacy-network-enable-hd-1--0')).toBe(account);
+  });
+
+  it('does not reuse another network section when the new network read fails', async () => {
+    mockGetNetworkInfo.mockResolvedValueOnce({
+      endpointUrl: 'https://example.com',
+      endpointDefaultUrl: 'https://example.com',
+      endpointIsCustom: false,
+    });
+    const { rerender } = render(<PrivacyNetworkSettings networkId="zec--0" />);
+    await screen.findByTestId('privacy-sync-node');
+    mockGetNetworkInfo.mockRejectedValueOnce(new Error('unavailable'));
+    rerender(<PrivacyNetworkSettings networkId="xmr--0" />);
+    expect(screen.queryByTestId('privacy-sync-node')).toBeNull();
+    await screen.findByTestId('privacy-network-temp-wallet-hw-1-passphrase--0');
+    expect(screen.queryByTestId('privacy-sync-node')).toBeNull();
+    expect(screen.queryByText(ETranslations.global_network)).toBeNull();
+  });
+
+  it('does not reuse another wallet account list while the new scope is loading', async () => {
+    const { rerender } = render(
+      <PrivacyNetworkSettings walletId="hd-1" networkId="zec--0" />,
+    );
+    await screen.findByTestId('privacy-network-enable-hd-1--0');
+    let finishAccounts: () => void = () => {};
+    mockListAccounts.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishAccounts = () => resolve([]);
+        }),
+    );
+    rerender(<PrivacyNetworkSettings walletId="hd-2" networkId="zec--0" />);
+    expect(screen.queryByTestId('privacy-network-enable-hd-1--0')).toBeNull();
+    expect(screen.queryByTestId('settings-privacy-network-empty')).toBeNull();
+    await act(async () => finishAccounts());
+    expect(
+      await screen.findByTestId('settings-privacy-network-empty'),
+    ).toBeTruthy();
   });
 
   it('offers no switch and says why', async () => {
@@ -1326,11 +1450,10 @@ describe('Privacy network settings for a temp wallet', () => {
       networkId: 'zec--0',
       accountId: 'hd-1--0',
     });
-    // Already on the page that lists the accounts and their data.
-    expect(
-      (mockShowSlotsFull.mock.calls[0][0] as { onOpenSettings?: unknown })
-        .onOpenSettings,
-    ).toBeUndefined();
+    // The places may be held in any wallet: the dialog lists the network's.
+    expect(mockShowSlotsFull).toHaveBeenCalledWith(
+      expect.objectContaining({ networkId: 'zec--0' }),
+    );
     expect(Dialog.show).not.toHaveBeenCalled();
     expect(mockEnable).not.toHaveBeenCalled();
   });

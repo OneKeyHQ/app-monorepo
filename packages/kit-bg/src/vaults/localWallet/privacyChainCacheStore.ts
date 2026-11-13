@@ -178,14 +178,14 @@ async function save({
   epoch: string | undefined;
   serialized: string;
   shouldSave?: () => boolean;
-}): Promise<void> {
+}): Promise<boolean> {
   if (
     (await readSaved({ backgroundApi, networkId, accountId, epoch })) ===
     serialized
   ) {
-    return;
+    return false;
   }
-  await backgroundApi.simpleDb.privacyChainCache.setLastBalance({
+  return backgroundApi.simpleDb.privacyChainCache.setLastBalance({
     accountId,
     record: { networkId, epoch, value: serialized, savedAt: Date.now() },
     isCurrent: async () =>
@@ -199,6 +199,8 @@ async function save({
 
 // For a scanner that holds the runtime for long turns: it saves what it just
 // read, so pages answering from disk during the turn are not left behind.
+// Pages already showing the old figure are told, but only on a change, so a
+// page re-reading during the next turn does not start a loop.
 // `epoch` is the account's epoch from before the value was read.
 export async function saveLastLocalWalletBalance<T>({
   backgroundApi,
@@ -213,12 +215,18 @@ export async function saveLastLocalWalletBalance<T>({
   epoch: string | undefined;
   value: T;
 }): Promise<void> {
-  await save({
+  const changed = await save({
     backgroundApi,
     networkId,
     accountId,
     epoch,
     serialized: JSON.stringify(value),
+  });
+  if (!changed) return;
+  appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+  appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+    networkId,
+    accountId,
   });
 }
 
