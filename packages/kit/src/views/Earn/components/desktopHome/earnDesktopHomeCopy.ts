@@ -220,7 +220,7 @@ const ZH_CN: IEarnDesktopDemoCopy = {
   guideVaultInfo: '比较 Base 上各个 USDC 金库的收益率，选出一个。',
   guideDepositInfo:
     '金库把你的 USDC 借给借款人，并把利息付给你。可随时赎回，除非那一刻金库的资金已全部借出。',
-  guideFundsInfo: '认购用的是 Base 上的 USDC，这个钱包里还没有。',
+  guideFundsInfo: '认购用 Base 上的 USDC，钱包里还没有。',
   guidePortfolioInfo: '你的认购和它的收益会显示在“我的投资组合”。',
   guideChooseVault: '选择金库',
   guideGoToPortfolio: '我的投资组合',

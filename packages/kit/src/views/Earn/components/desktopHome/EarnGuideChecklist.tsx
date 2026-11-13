@@ -802,6 +802,7 @@ function EarnGuideChecklistView({ guide }: { guide: IEarnGuide }) {
     Toast.message({
       toastId: SKIP_TOAST_ID,
       title: copy.guideSkipped,
+      actionsAlign: 'left',
       actions: (
         <Button
           testID="earn-guide-undo"
