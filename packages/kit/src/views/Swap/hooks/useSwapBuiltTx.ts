@@ -6,6 +6,7 @@ import {
   normalizeBuyTokenBalance,
   timestamp,
 } from '@cowprotocol/contracts';
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -38,6 +39,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -1329,14 +1331,26 @@ export function useSwapBuildTx({
       const res = await sendDirectSwapWithGasAccountAnalytics({
         context: gasAccountAnalyticsContext,
         gasAccountUiState,
-        send: (uiState) => {
+        send: async (uiState) => {
           assertSwapReviewExecutionAllowed(reviewGuard);
           assertSwapReviewQuoteValid(reviewGuard);
           onSignAndSendProgress?.({ stage: 'entered', isApprove });
-          return backgroundApiProxy.serviceSend.signAndSendTransaction({
-            ...sendTxParams,
-            gasAccountUiState: uiState,
-          });
+          try {
+            return await backgroundApiProxy.serviceSend.signAndSendTransaction({
+              ...sendTxParams,
+              gasAccountUiState: uiState,
+              reviewQuoteValidUntil:
+                reviewGuard?.execution?.isQuoteValid?.deadline,
+            });
+          } catch (error) {
+            if (isSwapReviewQuoteExpiredWithoutSubmission(error)) {
+              onSignAndSendProgress?.({ stage: 'notSubmitted', isApprove });
+              throw new SwapReviewQuoteExpiredError(
+                'Swap review quote expired',
+              );
+            }
+            throw error;
+          }
         },
         onGasAccountError: (error, entry) => {
           (error as IOneKeyError).autoToast = false;
@@ -1583,6 +1597,7 @@ export function useSwapBuildTx({
       stepIndex: number,
       reviewGuard?: ISwapReviewRequestGuard,
       approvalRequestId?: string,
+      resourceRental?: { txid: string; orderId?: string },
     ): boolean => {
       if (!reviewGuard?.isCurrent()) {
         return false;
@@ -1590,6 +1605,26 @@ export function useSwapBuildTx({
       const step = swapStepsRef.current.steps[stepIndex];
       if (!step || step.txHash || step.orderId || step.submitResultUnknown) {
         return false;
+      }
+      if (resourceRental) {
+        updateSwapReviewState(
+          (prev) =>
+            updateSwapReviewStep({
+              reviewState: prev,
+              stepIndex,
+              partialStep: {
+                status: ESwapStepStatus.FAILED,
+                canRetry: false,
+                submitResultUnknown: true,
+                resourceRental,
+                errorMessage: intl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              },
+            }),
+          reviewGuard,
+        );
+        return true;
       }
       if (approvalRequestId) {
         setInAppNotificationAtom((prev) =>
@@ -1614,7 +1649,7 @@ export function useSwapBuildTx({
       );
       return true;
     },
-    [setInAppNotificationAtom, updateSwapReviewState],
+    [intl, setInAppNotificationAtom, updateSwapReviewState],
   );
 
   const handleBuildTxFallbackOnSuccess = useCallback(
@@ -2473,7 +2508,9 @@ export function useSwapBuildTx({
         };
         if (fromAccountId) {
           if (shouldFallback) {
-            const checkReviewQuoteBeforeSend = () => {
+            const checkReviewQuoteBeforeSend = (params?: {
+              preSendTx?: { txid: string; orderId?: string };
+            }) => {
               assertSwapReviewExecutionAllowed(reviewGuard);
               if (reviewGuard?.execution?.isQuoteValid?.() === false) {
                 throw new BeforeSendAbortError(
@@ -2483,6 +2520,7 @@ export function useSwapBuildTx({
                       stepIndex,
                       reviewGuard,
                       approvalRequestId,
+                      params?.preSendTx,
                     ),
                 );
               }
@@ -3289,12 +3327,20 @@ export function useSwapBuildTx({
           } else if (shouldFallback) {
             assertSwapReviewExecutionAllowed(reviewGuard);
             let sendSuccessLogged = false;
-            const checkReviewQuoteBeforeSend = () => {
+            const checkReviewQuoteBeforeSend = (params?: {
+              preSendTx?: { txid: string; orderId?: string };
+            }) => {
               assertSwapReviewExecutionAllowed(reviewGuard);
               if (reviewGuard?.execution?.isQuoteValid?.() === false) {
                 throw new BeforeSendAbortError(
                   'Swap review quote expired',
-                  () => restoreExpiredFallbackReview(stepIndex, reviewGuard),
+                  () =>
+                    restoreExpiredFallbackReview(
+                      stepIndex,
+                      reviewGuard,
+                      undefined,
+                      params?.preSendTx,
+                    ),
                 );
               }
             };
@@ -5293,7 +5339,11 @@ export function useSwapBuildTx({
                   EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
                 sendError?.className ===
                   EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
-                sendError?.code === 803;
+                sendError?.code === HardwareErrorCode.ActionCancelled ||
+                (sendError?.code === HardwareErrorCode.PinCancelled &&
+                  (sendError.$isHardwareError === true ||
+                    (!!fromAccountId &&
+                      accountUtils.isHwAccount({ accountId: fromAccountId }))));
               const mustWaitForSubmittedApproval =
                 step.type === ESwapStepType.BATCH_APPROVE_SWAP &&
                 signAndSendProgress.succeededApproveCount > 0 &&

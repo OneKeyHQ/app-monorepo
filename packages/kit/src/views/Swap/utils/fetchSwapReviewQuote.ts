@@ -98,11 +98,15 @@ export function fetchSwapReviewQuote({
   params,
   expectedQuote,
   signal,
+  getErrorMessage,
 }: {
   params: IFetchSwapQuoteParams;
   expectedQuote: IFetchQuoteResult;
   signal: AbortSignal;
+  getErrorMessage: () => string;
 }): Promise<IFetchQuoteResult> {
+  const createRefreshError = (reason: string) =>
+    new OneKeyLocalError({ message: getErrorMessage(), data: { reason } });
   const quoteRequestId = `review-refresh-${generateUUID()}`;
   return new Promise((resolve, reject) => {
     let finished = false;
@@ -147,17 +151,20 @@ export function fetchSwapReviewQuote({
             : matchingQuote,
         );
       } else {
-        reject(
-          new OneKeyLocalError('The selected provider has no fresh quote'),
-        );
+        reject(createRefreshError('The selected provider has no fresh quote'));
       }
     };
     handles.abort = () =>
-      finish(new OneKeyLocalError('Swap review was closed'));
+      finish(
+        new OneKeyLocalError({
+          message: 'Swap review was closed',
+          autoToast: false,
+        }),
+      );
     handles.listener = (event: ISwapQuoteEventPayload) => {
       if (event.quoteRequestId !== quoteRequestId) return;
       if (event.type === 'error') {
-        finish(new OneKeyLocalError('Failed to refresh the swap quote'));
+        finish(createRefreshError('Failed to refresh the swap quote'));
         return;
       }
       if (event.type === 'done' || event.type === 'close') {
@@ -229,14 +236,14 @@ export function fetchSwapReviewQuote({
           finish();
         }
       } catch {
-        finish(new OneKeyLocalError('Invalid swap quote response'));
+        finish(createRefreshError('Invalid swap quote response'));
       }
     };
     handles.timeout = setTimeout(() => {
       finish(
         matchingQuote
           ? undefined
-          : new OneKeyLocalError('Swap quote refresh timed out'),
+          : createRefreshError('Swap quote refresh timed out'),
       );
     }, REVIEW_QUOTE_TIMEOUT_MS);
     if (signal.aborted) {

@@ -27310,6 +27310,7 @@
     "packages/shared/src/errors/globalErrorHandler.ts": 10984,
     "packages/shared/src/errors/index.ts": 21897,
     "packages/shared/src/errors/nativePromiseRejectionTracker.native.ts": 12754,
+    "packages/shared/src/errors/swapReviewQuoteExpired.ts": 5831,
     "packages/shared/src/errors/types/errorTypes.ts": 7640,
     "packages/shared/src/errors/utils/broadcastTxErrorData.ts": 3373,
     "packages/shared/src/errors/utils/broadcastTxErrorUtils.ts": 15307,

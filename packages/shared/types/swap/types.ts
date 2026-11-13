@@ -605,6 +605,7 @@ export interface ISwapStep {
   // Set when a sponsored direct send ended result-unknown (OK-64746): the tx
   // may already be on chain, so this review must not retry or confirm again.
   submitResultUnknown?: boolean;
+  resourceRental?: { txid: string; orderId?: string };
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;

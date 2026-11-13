@@ -111,7 +111,9 @@ export type IModalSignatureConfirmParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (params?: {
+      preSendTx?: { txid: string; orderId?: string };
+    }) => void | Promise<void>;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
@@ -167,7 +169,9 @@ export type IModalSignatureConfirmParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
-    onBeforeSend?: () => void | Promise<void>;
+    onBeforeSend?: (params?: {
+      preSendTx?: { txid: string; orderId?: string };
+    }) => void | Promise<void>;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;

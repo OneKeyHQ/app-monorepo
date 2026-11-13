@@ -1536,7 +1536,8 @@ export default class Vault extends VaultBase {
 
     return {
       preSendTx: {
-        txid: uploadResult?.tx_ids?.[0] ?? '',
+        txid: uploadResult?.tx_ids?.[0] || signedRentalTx.txid,
+        orderId: rentalOrder.orderId,
       },
     };
   }

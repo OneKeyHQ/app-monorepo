@@ -53,7 +53,9 @@ type IBuildUnsignedTxParams = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    preSendTx?: { txid: string; orderId?: string };
+  }) => void | Promise<void>;
   onBeforePreActions?: () => void | Promise<void>;
   reviewQuoteValidUntil?: number;
   isNavigationCurrent?: () => boolean;

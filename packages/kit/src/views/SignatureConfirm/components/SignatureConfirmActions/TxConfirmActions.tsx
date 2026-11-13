@@ -62,6 +62,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EGasAccountRequestStage,
@@ -124,7 +125,9 @@ type IProps = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
-  onBeforeSend?: () => void | Promise<void>;
+  onBeforeSend?: (params?: {
+    preSendTx?: { txid: string; orderId?: string };
+  }) => void | Promise<void>;
   onBeforePreActions?: () => void | Promise<void>;
   reviewQuoteValidUntil?: number;
   broadcastDeadline?: number;
@@ -563,6 +566,7 @@ function TxConfirmActions(props: IProps) {
       return true;
     };
 
+    let preSendTx: { txid: string; orderId?: string } | undefined;
     if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
       await onBeforePreActions?.();
@@ -577,6 +581,8 @@ function TxConfirmActions(props: IProps) {
             reviewQuoteValidUntil,
           },
         );
+
+      preSendTx = resp?.preSendTx;
 
       if (gasAccountSubmitIdRef.current !== submitId) return;
       if (resp?.reviewQuoteExpiredBeforeSubmit) {
@@ -716,7 +722,7 @@ function TxConfirmActions(props: IProps) {
 
       if (gasAccountSubmitIdRef.current !== submitId) return;
       try {
-        await onBeforeSend?.();
+        await onBeforeSend?.({ preSendTx });
       } catch (error) {
         if (handleInfiniFailureExit(error)) return;
         const sendError = error as Error;
@@ -746,6 +752,7 @@ function TxConfirmActions(props: IProps) {
           gasAccountUiState,
           gasAccountSubmitId: submitId,
           broadcastDeadline,
+          reviewQuoteValidUntil,
           beforeBroadcastAction,
           freeTrialUsage,
           wcPayPreBroadcastRecord,
@@ -919,6 +926,17 @@ function TxConfirmActions(props: IProps) {
       }
     } catch (e: any) {
       if (beforeSendFailed) throw e;
+      if (
+        !transactionSubmitted &&
+        (Boolean(preSendTx) || unsignedTxs.length === 1) &&
+        isSwapReviewQuoteExpiredWithoutSubmission(e)
+      ) {
+        try {
+          await onBeforeSend?.({ preSendTx });
+        } catch (error) {
+          if (handleBeforeSendAbort(error)) return;
+        }
+      }
       // User aborted a 90212 retry via Cancel: modal is closing, dappApprove
       // was already rejected in handleOnCancel. Skip toast, skip re-estimate,
       // skip dappApprove propagation — just unwind submit state.

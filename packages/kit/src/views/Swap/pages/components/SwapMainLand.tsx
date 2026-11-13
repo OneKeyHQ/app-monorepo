@@ -1382,6 +1382,10 @@ const SwapMainLoad = ({
           const freshQuote = await fetchSwapReviewQuote({
             expectedQuote: oldQuote,
             signal: controller.signal,
+            getErrorMessage: () =>
+              intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
             params: {
               source: quoteActionLock.source,
               fromToken,
@@ -1421,7 +1425,8 @@ const SwapMainLoad = ({
               accountId: initialReviewIdentity.accountId,
               networkId: fromToken.networkId,
               batchApproveAndSwapEnabled:
-                settingsPersistAtom.swapBatchApproveAndSwap && !shouldFallback,
+                settingsPersistAtom.swapBatchApproveAndSwap &&
+                (!shouldFallback || quote.expiredTime === undefined),
               fromToken,
               toToken: reviewToToken,
               fromTokenAmount: quote.fromAmount,
