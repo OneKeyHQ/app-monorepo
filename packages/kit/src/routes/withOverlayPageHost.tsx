@@ -1,17 +1,18 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import {
   OverlayPageHost,
   OverlayPageHostScope,
   OverlayView,
+  overlayStore,
 } from '@onekeyfe/react-native-native-overlay';
 import {
+  NavigationContainerRefContext,
   NavigationRouteContext,
   useNavigationState,
 } from '@react-navigation/native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
@@ -32,14 +33,17 @@ export function withOverlayPageHost<P extends object>(
 ): ComponentType<P> {
   function WithOverlayPageHost(props: P) {
     const route = useContext(NavigationRouteContext);
+    const rootNavigation = useContext(NavigationContainerRefContext);
     // The overlay store sorts page hosts lexically. Root routes use random
     // keys, so prefix web hosts in mount order to match the navigation stack.
     const [webHostId] = useState(() => {
       nextWebHostId += 1;
       return String(nextWebHostId).padStart(10, '0');
     });
-    const hostKey =
-      route && !platformEnv.isNative ? `${webHostId}:${route.key}` : route?.key;
+    const hostKey = route ? `${webHostId}:${route.key}` : undefined;
+    const isModal =
+      route?.name === ERootRoutes.Modal ||
+      route?.name === ERootRoutes.iOSFullScreen;
     const coveredByFullScreen = useNavigationState((state) => {
       const index = state.routes.findIndex((item) => item.key === route?.key);
       return (
@@ -53,16 +57,27 @@ export function withOverlayPageHost<P extends object>(
           )
       );
     });
+    useEffect(() => {
+      if (hostKey && isModal) {
+        // Suspend the existing entry so returning preserves its order below
+        // page Dialogs, along with their mounted state.
+        overlayStore.setPageVisible(hostKey, !coveredByFullScreen);
+      }
+    }, [coveredByFullScreen, hostKey, isModal]);
+    useEffect(
+      () => () => {
+        if (hostKey && isModal) overlayStore.removePage(hostKey);
+      },
+      [hostKey, isModal],
+    );
     if (!hostKey || !route) {
       return <Component {...props} />;
     }
     return (
       <OverlayPageHostScope hostKey={hostKey}>
-        {!platformEnv.isNative &&
-        (route.name === ERootRoutes.Modal ||
-          route.name === ERootRoutes.iOSFullScreen) ? (
+        {isModal ? (
           <OverlayView
-            visible={!coveredByFullScreen}
+            visible
             keepContentMounted
             scope="page"
             hostKey={hostKey}
@@ -70,7 +85,9 @@ export function withOverlayPageHost<P extends object>(
             presentation="fullscreen"
             animation={ROUTE_ANIMATION}
             backdrop={false}
-            dismissOnBackPress={false}
+            dismissOnBackPress
+            // Dispatch through the focused navigator so nested pages pop first.
+            onRequestDismiss={() => rootNavigation?.goBack()}
           >
             <Component {...props} />
           </OverlayView>

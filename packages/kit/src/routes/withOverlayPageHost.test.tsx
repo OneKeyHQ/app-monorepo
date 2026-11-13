@@ -17,6 +17,9 @@ const mockState = {
 };
 
 jest.mock('@react-navigation/native', () => ({
+  NavigationContainerRefContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
   NavigationRouteContext: jest
     .requireActual<typeof import('react')>('react')
     .createContext(undefined),
