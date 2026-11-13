@@ -300,6 +300,331 @@ describe('loadDustSweepNetworks request ownership', () => {
     expect(result.networks[0].balanceUsd).toBe('0.5');
   });
 
+  it('keeps existing assets and native value when the supplemental response is contract-scoped', async () => {
+    const initial = cachedResponse();
+    initial.tokens = {
+      data: [
+        {
+          $key: 'native',
+          networkId: ethereum.networkId,
+          address: '',
+          symbol: 'ETH',
+          name: 'Ethereum',
+          isNative: true,
+          decimals: 18,
+        },
+      ],
+      keys: 'native',
+      currency: 'usd',
+      map: {
+        native: {
+          balance: '2000000000000000000',
+          balanceParsed: '2',
+          fiatValue: '3',
+          price: 1.5,
+        },
+      },
+    };
+    const added = {
+      $key: 'added',
+      networkId: ethereum.networkId,
+      address: '0xadded',
+      symbol: 'ADDED',
+      name: 'Added token',
+      isNative: false,
+      decimals: 18,
+    };
+    const extra = {
+      ...initial,
+      tokens: { data: [], keys: '', map: {}, currency: 'usd' },
+      smallBalanceTokens: {
+        data: [added],
+        keys: 'added',
+        currency: 'usd',
+        map: {
+          added: {
+            balance: '1000000000000000000',
+            balanceParsed: '1',
+            fiatValue: '0.2',
+            price: 0.2,
+          },
+        },
+      },
+    };
+    serviceToken.fetchAccountTokens
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(extra);
+    serviceSwap.fetchSwapTokens.mockResolvedValueOnce([
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xdust',
+        symbol: 'DUST',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xadded',
+        symbol: 'ADDED',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+    ]);
+
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+
+    expect(
+      result.networks[0].tokens
+        .map((token) => token.contractAddress)
+        .toSorted(),
+    ).toEqual(['0xadded', '0xdust']);
+    expect(result.networks[0].balanceUsd).toBe('3.7');
+    expect(result.networks[0].nativeToken).toEqual(
+      expect.objectContaining({ balanceParsed: '2', price: '1.5' }),
+    );
+  });
+
+  it.each([
+    { nativePrice: 1, nativeInSmall: false },
+    { nativePrice: 1, nativeInSmall: true },
+    { nativePrice: 0, nativeInSmall: false },
+    { nativePrice: 0, nativeInSmall: true },
+  ])(
+    'recomputes shared Arc balances after merging: $nativePrice, $nativeInSmall',
+    async ({ nativePrice, nativeInSmall }) => {
+      const arc = { ...ethereum, networkId: 'evm--5042', name: 'Arc' };
+      serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([arc]);
+      serviceAllNetwork.getAllNetworkAccounts.mockResolvedValueOnce(
+        accountsInfo([arc]),
+      );
+      const nativeGroup = {
+        data: [
+          {
+            $key: 'native',
+            networkId: arc.networkId,
+            address: '',
+            symbol: 'USDC',
+            name: 'USDC',
+            isNative: true,
+            decimals: 6,
+          },
+        ],
+        keys: 'native',
+        currency: 'usd',
+        map: {
+          native: {
+            balance: '2000000',
+            balanceParsed: '2',
+            fiatValue: nativePrice ? '2' : '0',
+            price: nativePrice,
+          },
+        },
+      };
+      const empty = { data: [], map: {}, keys: '', currency: 'usd' };
+      const initial = {
+        ...cachedResponse(),
+        tokens: nativeInSmall ? empty : nativeGroup,
+        smallBalanceTokens: nativeInSmall ? nativeGroup : empty,
+      };
+      const shared = {
+        $key: 'shared',
+        networkId: arc.networkId,
+        address: '0x3600',
+        symbol: 'USDC',
+        name: 'USDC',
+        isNative: false,
+        decimals: 6,
+        sharedBalanceExcluded: true,
+        sharedBalanceWith: '',
+      };
+      const sharedGroup = {
+        data: [shared],
+        keys: 'shared',
+        currency: 'usd',
+        map: {
+          shared: {
+            balance: '2000000',
+            balanceParsed: '2',
+            fiatValue: '2',
+            price: 1,
+          },
+        },
+      };
+      const supplemental = {
+        ...initial,
+        tokens: nativeInSmall ? sharedGroup : empty,
+        smallBalanceTokens: nativeInSmall ? empty : sharedGroup,
+      };
+      const originalInitial = JSON.stringify(initial);
+      const originalSupplemental = JSON.stringify(supplemental);
+      serviceToken.fetchAccountTokens
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(supplemental);
+      serviceSwap.fetchSwapTokens.mockResolvedValueOnce([
+        {
+          networkId: arc.networkId,
+          contractAddress: shared.address,
+          symbol: 'USDC',
+          decimals: 6,
+          balanceParsed: '2',
+        },
+      ]);
+
+      const result = await loadDustSweepNetworks(
+        params,
+        new AbortController().signal,
+      );
+
+      expect(result.networks[0].balanceUsd).toBe('2');
+      expect(result.networks[0].tokens).toEqual([]);
+      expect(JSON.stringify(initial)).toBe(originalInitial);
+      expect(JSON.stringify(supplemental)).toBe(originalSupplemental);
+    },
+  );
+
+  it('does not duplicate wallet assets when the supplemental response includes a full list', async () => {
+    const initial = cachedResponse();
+    const original = initial.smallBalanceTokens.data[0];
+    const added = {
+      ...original,
+      $key: 'added',
+      address: '0xadded',
+      symbol: 'ADDED',
+    };
+    const repeated = { ...original, $key: 'repeated', address: '0xDUST' };
+    const unrelated = { ...original, $key: 'unrelated', address: '0xother' };
+    const extra = {
+      ...initial,
+      tokens: {
+        data: [repeated, unrelated],
+        keys: 'repeated,unrelated',
+        currency: 'usd',
+        map: {
+          repeated: {
+            balance: '1',
+            balanceParsed: '1',
+            fiatValue: '100',
+            price: 100,
+          },
+          unrelated: {
+            balance: '1',
+            balanceParsed: '1',
+            fiatValue: '200',
+            price: 200,
+          },
+          dangling: {
+            balance: '1',
+            balanceParsed: '1',
+            fiatValue: '300',
+            price: 300,
+          },
+        },
+      },
+      smallBalanceTokens: {
+        data: [original, added],
+        keys: 'dust,added',
+        currency: 'usd',
+        map: {
+          ...initial.smallBalanceTokens.map,
+          added: {
+            balance: '1000000000000000000',
+            balanceParsed: '1',
+            fiatValue: '0.2',
+            price: 0.2,
+          },
+        },
+      },
+    };
+    serviceToken.fetchAccountTokens
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(extra);
+    serviceSwap.fetchSwapTokens.mockResolvedValueOnce([
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xdust',
+        symbol: 'DUST',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xadded',
+        symbol: 'ADDED',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+    ]);
+
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+
+    expect(
+      result.networks[0].tokens
+        .map((token) => token.contractAddress)
+        .toSorted(),
+    ).toEqual(['0xadded', '0xdust']);
+    expect(result.networks[0].balanceUsd).toBe('0.7');
+  });
+
+  it('rejects a supplemental response with non-USD prices', async () => {
+    const initial = cachedResponse();
+    const extra = {
+      ...initial,
+      tokens: { ...initial.tokens, currency: 'eur' },
+    };
+    serviceToken.fetchAccountTokens
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(extra);
+    serviceSwap.fetchSwapTokens.mockResolvedValueOnce([
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xadded',
+        symbol: 'ADDED',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+    ]);
+
+    await expect(
+      loadDustSweepNetworks(params, new AbortController().signal),
+    ).rejects.toThrow('Unable to load balances');
+  });
+
+  it('rejects a missing asset whose key conflicts with the initial response', async () => {
+    const initial = cachedResponse();
+    const existing = initial.smallBalanceTokens.data[0];
+    const extra = {
+      ...initial,
+      smallBalanceTokens: {
+        data: [{ ...existing, address: '0xadded' }],
+        keys: 'dust',
+        map: initial.smallBalanceTokens.map,
+        currency: 'usd',
+      },
+    };
+    serviceToken.fetchAccountTokens
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(extra);
+    serviceSwap.fetchSwapTokens.mockResolvedValueOnce([
+      {
+        networkId: ethereum.networkId,
+        contractAddress: '0xadded',
+        symbol: 'ADDED',
+        decimals: 18,
+        balanceParsed: '1',
+      },
+    ]);
+
+    await expect(
+      loadDustSweepNetworks(params, new AbortController().signal),
+    ).rejects.toThrow('Unable to load balances');
+  });
+
   it('marks a network failed when supplemental Wallet metadata cannot be loaded', async () => {
     serviceSwap.fetchSwapNetworks.mockResolvedValueOnce([
       ethereum,

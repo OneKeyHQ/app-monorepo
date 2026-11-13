@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { applySharedBalanceExclusionToTokenGroups } from '@onekeyhq/shared/src/utils/sharedBalanceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -23,6 +24,7 @@ import type {
 import type {
   IFetchAccountTokensResp,
   IToken,
+  ITokenData,
 } from '@onekeyhq/shared/types/token';
 
 import { buildDustSweepCandidates } from './candidates';
@@ -139,6 +141,91 @@ export type IDustSweepNetworkContext = Omit<
   'tokens' | 'nativeToken' | 'balanceUsd'
 >;
 
+type IDustSweepWalletResponse = Pick<
+  IFetchAccountTokensResp,
+  'tokens' | 'smallBalanceTokens' | 'riskTokens'
+>;
+
+function assertUsdPricing(response: IDustSweepWalletResponse) {
+  if (
+    [response.tokens, response.smallBalanceTokens, response.riskTokens].some(
+      (group) => group.currency && group.currency !== 'usd',
+    )
+  ) {
+    throw new OneKeyLocalError('USD pricing is unavailable');
+  }
+}
+
+function mergeSupplementalWalletTokens({
+  initial,
+  supplemental,
+  networkId,
+  missingContracts,
+}: {
+  initial: IDustSweepWalletResponse;
+  supplemental: IDustSweepWalletResponse;
+  networkId: string;
+  missingContracts: string[];
+}): IDustSweepWalletResponse {
+  assertUsdPricing(initial);
+  assertUsdPricing(supplemental);
+  const groupNames = ['riskTokens', 'smallBalanceTokens', 'tokens'] as const;
+  const copyGroup = (group: ITokenData): ITokenData => ({
+    ...group,
+    data: [...group.data],
+    map: Object.fromEntries(
+      Object.entries(group.map).map(([key, value]) => [key, { ...value }]),
+    ),
+  });
+  const merged = {
+    tokens: copyGroup(initial.tokens),
+    smallBalanceTokens: copyGroup(initial.smallBalanceTokens),
+    riskTokens: copyGroup(initial.riskTokens),
+  };
+  const normalize = (contractAddress: string) =>
+    normalizeTokenContractAddress({ networkId, contractAddress });
+  const requested = new Set(missingContracts.map(normalize));
+  const seenAddresses = new Set(
+    groupNames.flatMap((name) =>
+      initial[name].data.map((token) => normalize(token.address)),
+    ),
+  );
+  const seenKeys = new Set(
+    groupNames.flatMap((name) => [
+      ...initial[name].data.map((token) => token.$key),
+      ...Object.keys(initial[name].map),
+    ]),
+  );
+
+  // The supplemental query may return the entire wallet list. Only append the
+  // requested missing assets, preserving the original groups and totals.
+  for (const name of groupNames) {
+    supplemental[name].data.forEach((token) => {
+      const address = normalize(token.address);
+      const value = supplemental[name].map[token.$key];
+      if (
+        !address ||
+        token.isNative ||
+        (token.networkId && token.networkId !== networkId) ||
+        !requested.has(address) ||
+        seenAddresses.has(address) ||
+        !value
+      )
+        return;
+      if (seenKeys.has(token.$key)) {
+        throw new OneKeyLocalError('Conflicting token metadata');
+      }
+      seenAddresses.add(address);
+      seenKeys.add(token.$key);
+      merged[name].data.push(token);
+      merged[name].map[token.$key] = { ...value };
+    });
+    merged[name].keys = merged[name].data.map((token) => token.$key).join(',');
+  }
+  applySharedBalanceExclusionToTokenGroups(merged);
+  return merged;
+}
+
 async function loadDustSweepNetworkAssets({
   entry,
   indexedAccountId,
@@ -212,41 +299,38 @@ async function loadDustSweepNetworkAssets({
     return [token.contractAddress];
   });
   const response = missingContracts.length
-    ? await loadAssetQuietly(() =>
-        backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId: entry.accountId,
-          networkId: entry.network.networkId,
-          indexedAccountId,
-          flag: 'dust-sweep',
-          hideSmallBalanceTokens: false,
-          hideRiskTokens: false,
-          excludeDeFiMarkedTokens: true,
-          withoutDappToken: true,
-          saveToLocal: false,
-          isManualRefresh,
-          contractList: missingContracts,
-        }),
-      )
+    ? mergeSupplementalWalletTokens({
+        initial: walletResponse,
+        supplemental: await loadAssetQuietly(() =>
+          backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: entry.accountId,
+            networkId: entry.network.networkId,
+            indexedAccountId,
+            flag: 'dust-sweep',
+            hideSmallBalanceTokens: false,
+            hideRiskTokens: false,
+            excludeDeFiMarkedTokens: true,
+            withoutDappToken: true,
+            saveToLocal: false,
+            isManualRefresh,
+            contractList: missingContracts,
+          }),
+        ),
+        networkId: entry.network.networkId,
+        missingContracts,
+      })
     : walletResponse;
   return buildDustSweepNetwork(entry, response, native, swapTokens);
 }
 
 function buildDustSweepNetwork(
   entry: IDustSweepNetworkContext,
-  response: Pick<
-    IFetchAccountTokensResp,
-    'tokens' | 'smallBalanceTokens' | 'riskTokens'
-  >,
+  response: IDustSweepWalletResponse,
   native: IToken | null | undefined,
   swapTokens: ISwapToken[],
 ): IDustSweepNetwork {
   if (!native) throw new OneKeyLocalError('Native token is unavailable');
-  if (
-    [response.tokens, response.smallBalanceTokens, response.riskTokens].some(
-      (group) => group.currency && group.currency !== 'usd',
-    )
-  )
-    throw new OneKeyLocalError('USD pricing is unavailable');
+  assertUsdPricing(response);
   const tokens = buildDustSweepCandidates(
     response,
     entry.network.networkId,
