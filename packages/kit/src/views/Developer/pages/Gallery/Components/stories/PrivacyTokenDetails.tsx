@@ -21,6 +21,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { NativeTokenSelectorList } from '@onekeyhq/kit/src/components/TokenListView/NativeTokenSelectorList';
+import { ProviderJotaiContextTokenList } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { LocalWalletPasswordAlertContent } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import {
   getBirthdayInputError,
@@ -46,6 +48,7 @@ import { ReceiveTitle } from '@onekeyhq/kit/src/views/Receive/components/Receive
 import xmrSettings from '@onekeyhq/kit-bg/src/vaults/impls/xmr/settings';
 import zcashSettings from '@onekeyhq/kit-bg/src/vaults/impls/zcash/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { PrivacyAccountManagementPreview } from './PrivacyAccountManagement';
 
@@ -77,6 +80,85 @@ const PREVIEW_STATES: {
 ];
 
 const PREVIEW_TABS = ['Public', 'Private'];
+
+const SYNC_PREVIEW_TOKEN: IAccountToken = {
+  ...PREVIEW_NETWORKS.xmr,
+  $key: 'xmr--0_native',
+  networkId: 'xmr--0',
+  decimals: 12,
+  address: '',
+  isNative: true,
+};
+const SYNC_PREVIEW_ROWS = [SYNC_PREVIEW_TOKEN];
+const SYNC_PREVIEW_BALANCES: Record<string, ITokenFiat> = {
+  [SYNC_PREVIEW_TOKEN.$key]: {
+    balance: '8631000000',
+    balanceParsed: '0.008631',
+    fiatValue: '0.35',
+    price: 40.55,
+    currency: 'usd',
+  },
+};
+const SYNC_PREVIEW_OPTIONS = [
+  { value: 'syncing', label: ETranslations.global_syncing },
+  { value: 'paused', label: ETranslations.syncing_paused__title },
+  { value: 'synced', label: ETranslations.global_synced },
+] as const;
+
+function PrivacyHomeTokenPreview() {
+  const intl = useIntl();
+  const [state, setState] = useState<'syncing' | 'paused' | 'synced'>(
+    'syncing',
+  );
+  const statusLabel = intl.formatMessage({
+    id:
+      state === 'paused'
+        ? ETranslations.syncing_paused__title
+        : ETranslations.global_syncing,
+  });
+  return (
+    <YStack gap="$5">
+      <XStack gap="$2" flexWrap="wrap">
+        {SYNC_PREVIEW_OPTIONS.map((option) => (
+          <Button
+            key={option.value}
+            testID={`privacy-home-sync-${option.value}`}
+            size="small"
+            variant={state === option.value ? 'primary' : 'secondary'}
+            onPress={() => setState(option.value)}
+          >
+            {intl.formatMessage({ id: option.label })}
+          </Button>
+        ))}
+      </XStack>
+      <YStack height={140}>
+        <ProviderJotaiContextTokenList>
+          <NativeTokenSelectorList
+            testID="privacy-home-sync-list"
+            rows={SYNC_PREVIEW_ROWS}
+            networkId="xmr--0"
+            tokenListMap={SYNC_PREVIEW_BALANCES}
+            currentNetworkName="Monero"
+            crossNetworkGroupingActive={false}
+            zeroFillMissingFiat={false}
+            showProcessingState={false}
+            isSearching={false}
+            empty={<YStack />}
+            nativeTokenStatus={
+              state === 'synced'
+                ? undefined
+                : {
+                    networkId: 'xmr--0',
+                    label: statusLabel,
+                    loading: state === 'syncing',
+                  }
+            }
+          />
+        </ProviderJotaiContextTokenList>
+      </YStack>
+    </YStack>
+  );
+}
 
 function PrivacyTokenDetailsPreview() {
   const intl = useIntl();
@@ -636,7 +718,9 @@ function PrivacyTokenDetailsPreview() {
 
 export default function PrivacyTokenDetailsGallery() {
   const intl = useIntl();
-  const [preview, setPreview] = useState<'token' | 'management'>('token');
+  const [preview, setPreview] = useState<'token' | 'management' | 'home'>(
+    'token',
+  );
   return (
     <Page>
       <Page.Header
@@ -645,6 +729,14 @@ export default function PrivacyTokenDetailsGallery() {
       <Page.Body>
         <ScrollView contentContainerStyle={{ p: '$5' }}>
           <XStack gap="$2" pb="$5" flexWrap="wrap">
+            <Button
+              testID="privacy-preview-home-token"
+              size="small"
+              variant={preview === 'home' ? 'primary' : 'secondary'}
+              onPress={() => setPreview('home')}
+            >
+              {intl.formatMessage({ id: ETranslations.global_home })}
+            </Button>
             <Button
               testID="privacy-preview-token-details"
               size="small"
@@ -664,11 +756,11 @@ export default function PrivacyTokenDetailsGallery() {
               {intl.formatMessage({ id: ETranslations.global_manage_accounts })}
             </Button>
           </XStack>
-          {preview === 'token' ? (
-            <PrivacyTokenDetailsPreview />
-          ) : (
+          {preview === 'home' ? <PrivacyHomeTokenPreview /> : null}
+          {preview === 'token' ? <PrivacyTokenDetailsPreview /> : null}
+          {preview === 'management' ? (
             <PrivacyAccountManagementPreview />
-          )}
+          ) : null}
         </ScrollView>
       </Page.Body>
     </Page>
