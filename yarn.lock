@@ -7673,6 +7673,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@lavamoat/react-native-lockdown@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@lavamoat/react-native-lockdown@npm:1.0.0"
+  dependencies:
+    ses: "npm:1.15.0"
+  peerDependencies:
+    "@react-native/js-polyfills": "*"
+  checksum: 10/b15b58d978d972fe824c68164d91b0c22e72e85190d943e2693ed4e61d6dfa3965d9b16f06485423970b62bcde68cef3816a5d0e7447dccb6c9837074de33320
+  languageName: node
+  linkType: hard
+
 "@ledgerhq/context-module@npm:2.2.0":
   version: 2.2.0
   resolution: "@ledgerhq/context-module@npm:2.2.0"
@@ -11022,6 +11033,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@gorhom/bottom-sheet": "npm:5.2.14"
     "@intercom/intercom-react-native": "npm:10.8.1"
+    "@lavamoat/react-native-lockdown": "npm:1.0.0"
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-app-update": "npm:6.7.0-58"
     "@onekeyfe/react-native-auto-size-input": "npm:6.7.0-58"
@@ -46008,6 +46020,17 @@ __metadata:
   version: 0.0.1
   resolution: "server-only@npm:0.0.1"
   checksum: 10/c432348956641ea3f460af8dc3765f3a1bdbcf7a1e0205b0756d868e6e6fe8934cdee6bff68401a1dd49ba4a831c75916517a877446d54b334f7de36fa273e53
+  languageName: node
+  linkType: hard
+
+"ses@npm:1.15.0":
+  version: 1.15.0
+  resolution: "ses@npm:1.15.0"
+  dependencies:
+    "@endo/cache-map": "npm:^1.1.0"
+    "@endo/env-options": "npm:^1.1.11"
+    "@endo/immutable-arraybuffer": "npm:^1.1.2"
+  checksum: 10/494894d35de847103ca0e4357632d80436c0e3dbc0e0bf98448a962d2257cb9045db9c6e7737b4003846a690318fcf5c06ef5a9a51c8b47cd4ffeaf2fa330155
   languageName: node
   linkType: hard
 

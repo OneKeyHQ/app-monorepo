@@ -244,7 +244,10 @@ function createBundleOptions({
     includeAsyncPaths: false,
     inlineSourceMap: false,
     modulesOnly: false,
-    processModuleFilter: (moduleData) => moduleFilter(moduleData.path),
+    processModuleFilter: (moduleData) =>
+      (!config.serializer.processModuleFilter ||
+        config.serializer.processModuleFilter(moduleData)) &&
+      moduleFilter(moduleData.path),
     projectRoot: config.projectRoot,
     runBeforeMainModule,
     runModule: false,
@@ -648,6 +651,7 @@ if (require.main === module) {
 
 module.exports = {
   addObservedModulePaths,
+  createBundleOptions,
   createCommonModuleFilter,
   hasAsyncDependency,
   isJsModule,

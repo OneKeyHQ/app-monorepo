@@ -59,6 +59,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@gorhom/bottom-sheet": "5.2.14",
+    "@lavamoat/react-native-lockdown": "1.0.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native/metro-config": "0.88.0",
     "@rozenite/metro": "1.0.0-alpha.16",
