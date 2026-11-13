@@ -15,6 +15,8 @@ export const SwapHistoryTradeAgainContext = createContext<
 export const useSwapHistoryTradeAgainHandler = () =>
   useContext(SwapHistoryTradeAgainContext);
 
+export const SwapInitialSelectionTimeoutContext = createContext(true);
+
 export const SwapHistoryChannelIntentContext = createContext<
   | {
       key: string;

@@ -1573,6 +1573,222 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
     jest.useRealTimers();
   });
 
+  it('retries one cancelled Home sync for an untouched empty entry', async () => {
+    const firstUpdate = deferred<{ outcome: string }>();
+    mockUpdateSelectedAccount.mockImplementationOnce(() => firstUpdate.promise);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    renderMarket({});
+    await waitFor(() => expect(mockUpdateSelectedAccount).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    await act(async () => firstUpdate.resolve({ outcome: 'stale' }));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(configuredTo),
+    );
+    expect(mockUpdateSelectedAccount).toHaveBeenCalledTimes(2);
+    expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+  });
+
+  it('does not retry a cancelled Home sync after the user selects a token', async () => {
+    const firstUpdate = deferred<{ outcome: string }>();
+    mockUpdateSelectedAccount.mockImplementationOnce(() => firstUpdate.promise);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    renderMarket({});
+    await waitFor(() => expect(mockUpdateSelectedAccount).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    act(() => {
+      mockStore.set(swapSelectFromTokenAtom(), marketToken);
+      mockStore.set(swapFromTokenAmountAtom(), { value: '7', isInput: true });
+    });
+    await act(async () => firstUpdate.resolve({ outcome: 'stale' }));
+    expect(mockUpdateSelectedAccount).toHaveBeenCalledTimes(1);
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '7',
+      isInput: true,
+    });
+  });
+
+  it('preserves user selection made while the Home retry is pending', async () => {
+    const firstUpdate = deferred<{ outcome: string }>();
+    const retryGate = deferred<void>();
+    mockUpdateSelectedAccount
+      .mockImplementationOnce(() => firstUpdate.promise)
+      .mockImplementationOnce(async (update) => {
+        await retryGate.promise;
+        selectedAccount = update.builder(selectedAccount);
+        return { outcome: 'commit' };
+      });
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    renderMarket({});
+    await waitFor(() => expect(mockUpdateSelectedAccount).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    await act(async () => firstUpdate.resolve({ outcome: 'stale' }));
+    await waitFor(() =>
+      expect(mockUpdateSelectedAccount).toHaveBeenCalledTimes(2),
+    );
+    act(() => {
+      mockStore.set(swapSelectFromTokenAtom(), marketToken);
+      mockStore.set(swapFromTokenAmountAtom(), { value: '7', isInput: true });
+    });
+    await act(async () => retryGate.resolve());
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '7',
+      isInput: true,
+    });
+  });
+
+  it('keeps a manually selected token when an unready account becomes ready', async () => {
+    let accountReady = false;
+    const accountMock = jest.requireMock<{
+      useActiveAccount: () => { activeAccount: object };
+    }>('../../../states/jotai/contexts/accountSelector');
+    jest.spyOn(accountMock, 'useActiveAccount').mockImplementation(() => ({
+      activeAccount: {
+        ready: accountReady,
+        wallet: { id: selectedAccount.walletId },
+        indexedAccount: { id: selectedAccount.indexedAccountId },
+        deriveType: selectedAccount.deriveType,
+        network: { id: selectedAccount.networkId },
+      },
+    }));
+    const addressMock = jest.requireMock<{
+      useSwapAddressInfo: () => {
+        networkId: string;
+        accountInfo: { ready: boolean };
+      };
+    }>('./useSwapAccount');
+    jest.spyOn(addressMock, 'useSwapAddressInfo').mockImplementation(() => ({
+      networkId: selectedAccount.networkId ?? '',
+      accountInfo: { ready: accountReady },
+    }));
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockResolvedValue(emptyHomeAccountInfo);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    const view = renderMarket({});
+    await waitFor(() =>
+      expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+    );
+    expectEmptyPair();
+    act(() => mockStore.set(swapSelectFromTokenAtom(), marketToken));
+    accountReady = true;
+    view.rerender({});
+    await act(async () => {});
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+  });
+
+  it('rechecks Home once when an empty account becomes available without an event', async () => {
+    jest.useFakeTimers();
+    selectedAccount = { ...selectedAccount, networkId: undefined };
+    const addressMock = jest.requireMock<{
+      useSwapAddressInfo: () => {
+        networkId: string;
+        accountInfo: { ready: boolean };
+      };
+    }>('./useSwapAccount');
+    jest.spyOn(addressMock, 'useSwapAddressInfo').mockImplementation(() => ({
+      networkId: '',
+      accountInfo: { ready: false },
+    }));
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockResolvedValue(emptyHomeAccountInfo);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    renderMarket({});
+    await act(async () => {});
+    expectEmptyPair();
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValue(homeInfo);
+    await act(async () => jest.advanceTimersByTime(2000));
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(configuredTo);
+    expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+  });
+
+  it.each(['selection', 'blur', 'account'] as const)(
+    'does not retry an empty account after %s',
+    async (change) => {
+      jest.useFakeTimers();
+      selectedAccount = { ...selectedAccount, networkId: undefined };
+      const addressMock = jest.requireMock<{
+        useSwapAddressInfo: () => {
+          networkId: string;
+          accountInfo: { ready: boolean };
+        };
+      }>('./useSwapAccount');
+      jest.spyOn(addressMock, 'useSwapAddressInfo').mockImplementation(() => ({
+        networkId: '',
+        accountInfo: { ready: false },
+      }));
+      jest
+        .mocked(getLatestHomeSelectedAccountInfo)
+        .mockResolvedValue(emptyHomeAccountInfo);
+      mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+      const view = renderMarket({});
+      await act(async () => {});
+      if (change === 'selection') {
+        act(() => mockStore.set(swapSelectFromTokenAtom(), marketToken));
+      } else if (change === 'blur') {
+        mockIsFocused = false;
+        view.rerender({});
+      } else {
+        selectedAccount = {
+          ...selectedAccount,
+          indexedAccountId: 'new-account',
+        };
+      }
+      const readsBeforeTimer = jest.mocked(getLatestHomeSelectedAccountInfo)
+        .mock.calls.length;
+      await act(async () => jest.advanceTimersByTime(2000));
+      expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalledTimes(
+        readsBeforeTimer,
+      );
+      if (change === 'selection') {
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+      }
+      if (change === 'account') {
+        expect(selectedAccount.indexedAccountId).toBe('new-account');
+      }
+    },
+  );
+
+  it('allows a later account its own bounded empty-account retry', async () => {
+    jest.useFakeTimers();
+    selectedAccount = { ...selectedAccount, networkId: undefined };
+    const addressMock = jest.requireMock<{
+      useSwapAddressInfo: () => {
+        networkId: string;
+        accountInfo: { ready: boolean };
+      };
+    }>('./useSwapAccount');
+    jest.spyOn(addressMock, 'useSwapAddressInfo').mockImplementation(() => ({
+      networkId: '',
+      accountInfo: { ready: false },
+    }));
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockResolvedValue(emptyHomeAccountInfo);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    const view = renderMarket({});
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(2000));
+    selectedAccount = { ...selectedAccount, indexedAccountId: 'new-account' };
+    view.rerender({});
+    await act(async () => {});
+    const readsBeforeTimer = jest.mocked(getLatestHomeSelectedAccountInfo).mock
+      .calls.length;
+    await act(async () => jest.advanceTimersByTime(2000));
+    expect(
+      jest.mocked(getLatestHomeSelectedAccountInfo).mock.calls.length,
+    ).toBeGreaterThan(readsBeforeTimer);
+    expectEmptyPair();
+  });
+
   it.each([
     { label: 'Tab', params: {} },
     { label: 'Home More', params: { swapSource: ESwapSource.WALLET_HOME } },

@@ -195,6 +195,7 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import {
   SwapHistoryChannelIntentContext,
   SwapHistoryTradeAgainContext,
+  SwapInitialSelectionTimeoutContext,
   getSwapHistorySourceIntentKey,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
@@ -2327,14 +2328,23 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           <SwapHistoryTradeAgainContext.Provider
             value={onTradeAgainFromHistory}
           >
-            <SwapHistoryChannelIntentContext.Provider value={channelIntent}>
-              <SwapMainLoad
-                {...props}
-                storeName={storeName}
-                pageType={pageType}
-                swapInitParams={effectiveSwapInitParams}
-              />
-            </SwapHistoryChannelIntentContext.Provider>
+            <SwapInitialSelectionTimeoutContext.Provider
+              value={
+                !effectiveSwapInitParams?.tradeAgainFromHistory &&
+                !effectiveSwapInitParams?.importFromToken &&
+                !effectiveSwapInitParams?.importToToken &&
+                !effectiveSwapInitParams?.importNetworkId
+              }
+            >
+              <SwapHistoryChannelIntentContext.Provider value={channelIntent}>
+                <SwapMainLoad
+                  {...props}
+                  storeName={storeName}
+                  pageType={pageType}
+                  swapInitParams={effectiveSwapInitParams}
+                />
+              </SwapHistoryChannelIntentContext.Provider>
+            </SwapInitialSelectionTimeoutContext.Provider>
           </SwapHistoryTradeAgainContext.Provider>
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
