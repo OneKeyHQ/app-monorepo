@@ -123,6 +123,9 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
 interface IProgressEvent {
   stage: ELogUploadStage;
   progressPercent?: number;
+  requestId?: string;
+  bytesSent?: number;
+  totalBytes?: number;
   message?: string;
 }
 
@@ -352,6 +355,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
       filePath: ARCHIVE_FILE,
       sizeBytes: ARCHIVE_SIZE,
+      requestId: 'domain-progress-test',
       headers: uploadHeaders(ARCHIVE_SIZE),
     })) as { code: number; data: { objectKey: string } };
 
@@ -365,24 +369,26 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(request.receivedBytes).toBe(ARCHIVE_SIZE);
     expect(request.completed).toBe(true);
 
-    // Progress: starts at 0, only ever moves forward, finishes with Success.
-    expect(events[0]).toEqual({
+    // Progress reports archive bytes consumed by the upload body.
+    expect(events[0]).toMatchObject({
       stage: ELogUploadStage.Uploading,
-      progressPercent: 0,
-      message: undefined,
+      requestId: 'domain-progress-test',
+      bytesSent: expect.any(Number),
+      totalBytes: ARCHIVE_SIZE,
     });
     const uploading = uploadingEvents(events);
-    expect(uploading.length).toBeGreaterThan(2);
+    expect(uploading.length).toBeGreaterThan(0);
     for (let i = 1; i < uploading.length; i += 1) {
-      expect(uploading[i].progressPercent).toBeGreaterThanOrEqual(
-        uploading[i - 1].progressPercent ?? 0,
+      expect(uploading[i].bytesSent).toBeGreaterThanOrEqual(
+        uploading[i - 1].bytesSent ?? 0,
       );
     }
-    expect(uploading[uploading.length - 1].progressPercent).toBe(100);
-    expect(events[events.length - 1]).toEqual({
+    expect(uploading[uploading.length - 1].bytesSent).toBe(ARCHIVE_SIZE);
+    expect(uploading[uploading.length - 1].progressPercent).toBe(99);
+    expect(events[events.length - 1]).toMatchObject({
       stage: ELogUploadStage.Success,
       progressPercent: 100,
-      message: undefined,
+      requestId: 'domain-progress-test',
     });
     expect(events.some((event) => event.stage === ELogUploadStage.Error)).toBe(
       false,
@@ -441,7 +447,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       code: 403,
       message: 'Upload failed (HTTP 403, cf-ray=n/a)',
     });
-    expect(events[events.length - 1]).toEqual({
+    expect(events[events.length - 1]).toMatchObject({
       stage: ELogUploadStage.Error,
       progressPercent: undefined,
       message: 'Upload failed (HTTP 403, cf-ray=n/a)',
@@ -449,7 +455,9 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
 
     // The upload was cut off midway, and the archive must not stay open.
     const uploading = uploadingEvents(events);
-    expect(uploading[uploading.length - 1].progressPercent).toBeLessThan(100);
+    expect(uploading.every((event) => (event.progressPercent ?? 0) < 100)).toBe(
+      true,
+    );
     expect(mockOpenedStreams).toHaveLength(1);
     await waitForClose(mockOpenedStreams[0]);
     expect(mockOpenedStreams[0].closed).toBe(true);

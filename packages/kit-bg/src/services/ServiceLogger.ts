@@ -3,10 +3,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import {
   BROWSER_LOG_MAX_BYTES,
+  ELogUploadStage,
   type ILogExportScope,
   type ILogUploadViaIpTableResult,
   RECENT_LOG_EXPORT_BYTES,
@@ -147,13 +150,15 @@ class ServiceLogger extends ServiceBase {
    */
   @backgroundMethod()
   async uploadLogFileViaIpTable(params: {
+    requestId?: string;
     uploadToken: string;
     filePath: string;
     mimeType: string;
     sizeBytes: number;
     timeoutMs: number;
   }): Promise<ILogUploadViaIpTableResult> {
-    const { uploadToken, filePath, mimeType, sizeBytes, timeoutMs } = params;
+    const { uploadToken, filePath, mimeType, sizeBytes, timeoutMs, requestId } =
+      params;
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return { route: 'skipped', reason: 'unsupported_platform' };
     }
@@ -179,10 +184,27 @@ class ServiceLogger extends ServiceBase {
 
     try {
       const result = await uploadFileViaIpTable({
+        ...(requestId ? { requestId } : {}),
         url: uploadUrl,
         filePath,
         headers,
         timeout: timeoutMs,
+        ...(requestId
+          ? {
+              onUploadProgress: (bytesSent: number, totalBytes: number) => {
+                appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+                  stage: ELogUploadStage.Uploading,
+                  requestId,
+                  bytesSent,
+                  totalBytes,
+                  progressPercent: Math.min(
+                    99,
+                    Math.floor((bytesSent / totalBytes) * 100),
+                  ),
+                });
+              },
+            }
+          : {}),
       });
       if (result.route === 'skipped') {
         return result;

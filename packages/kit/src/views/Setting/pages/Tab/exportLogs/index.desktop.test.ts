@@ -1,4 +1,6 @@
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 
 import { uploadLogBundle } from './index.desktop';
@@ -54,6 +56,11 @@ const mockedLogUpload = defaultLogger.setting.logUpload as unknown as {
   uploadFailed: jest.Mock;
 };
 const mockedUploadLoggerBundle = jest.fn();
+const mockedEventBus = jest.requireMock(
+  '@onekeyhq/shared/src/eventBus/appEventBus',
+) as {
+  appEventBus: { emit: jest.Mock };
+};
 
 const SUCCESS_PAYLOAD = {
   code: 0,
@@ -123,6 +130,43 @@ describe('desktop log upload transport', () => {
         httpStatus: 200,
         sizeBytes: 1024,
       }),
+    );
+  });
+
+  test('forwards only the active SNI upload progress event', async () => {
+    mockedUploadViaIpTable.mockImplementation(async () => {
+      const listener = (globalThis.desktopApi.on as jest.Mock).mock
+        .calls[0][1] as (event: unknown) => void;
+      listener({
+        stage: ELogUploadStage.Uploading,
+        requestId: 'other',
+        bytesSent: 900,
+        totalBytes: 1024,
+      });
+      listener({
+        stage: ELogUploadStage.Uploading,
+        requestId: 'attempt-1',
+        bytesSent: 512,
+        totalBytes: 1024,
+      });
+      return {
+        route: 'sni',
+        httpStatus: 200,
+        body: JSON.stringify(SUCCESS_PAYLOAD),
+      };
+    });
+    await uploadLogBundle({
+      uploadToken: 'token',
+      digest: desktopDigest(),
+      requestId: 'attempt-1',
+    });
+    expect(mockedEventBus.appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ClientLogUploadProgress,
+      expect.objectContaining({ requestId: 'attempt-1', bytesSent: 512 }),
+    );
+    expect(mockedEventBus.appEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ClientLogUploadProgress,
+      expect.objectContaining({ requestId: 'other' }),
     );
   });
 
