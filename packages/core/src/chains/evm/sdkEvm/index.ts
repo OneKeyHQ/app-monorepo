@@ -12,13 +12,17 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
-import { normalizeEvmAccessList } from './accessList';
+import { getEvmAccessListForChain } from './accessList';
 
 import type { IUnsignedTxPro } from '../../../types';
 import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
-export { normalizeEvmAccessList } from './accessList';
+export {
+  getEvmAccessListForChain,
+  isEvmAccessListSupported,
+  normalizeEvmAccessList,
+} from './accessList';
 export { buildHardwareEvmTransaction } from './hardwareTx';
 export type {
   IHardwareEvmTransaction,
@@ -67,7 +71,10 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
     baseTx.value = '0x0';
   }
 
-  const accessList = normalizeEvmAccessList(encodedTx.accessList);
+  const accessList = getEvmAccessListForChain({
+    accessList: encodedTx.accessList,
+    chainId: encodedTx.chainId,
+  });
   if (accessList) {
     baseTx.accessList = accessList;
   }

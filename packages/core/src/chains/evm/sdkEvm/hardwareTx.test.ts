@@ -104,4 +104,29 @@ describe('buildHardwareEvmTransaction', () => {
     expect(unsignedTx.type).toBe(2);
     expect(unsignedTx.accessList).toEqual(accessList);
   });
+
+  it('leaves the access list out of an EIP-1559 transaction on a chain that rejects access lists', () => {
+    const { hwTransaction, unsignedTx } = buildHardwareEvmTransaction({
+      from: '0x1111111111111111111111111111111111111111',
+      to: '0x2222222222222222222222222222222222222222',
+      value: '0x0',
+      data: '0x',
+      nonce: 1,
+      gasLimit: '21000',
+      maxFeePerGas: '2000000000',
+      maxPriorityFeePerGas: '1000000000',
+      // zkSync Era
+      chainId: 324,
+      accessList: [
+        {
+          address: '0x3333333333333333333333333333333333333333',
+          storageKeys: [`0x${'00'.repeat(31)}01`],
+        },
+      ],
+    });
+
+    expect(hwTransaction).not.toHaveProperty('accessList');
+    expect(unsignedTx.type).toBe(2);
+    expect(unsignedTx.accessList).toBeUndefined();
+  });
 });

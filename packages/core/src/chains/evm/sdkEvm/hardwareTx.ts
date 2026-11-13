@@ -11,6 +11,8 @@ import { omit } from 'lodash';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { isEvmAccessListSupported } from './accessList';
+
 import type { IEvmEthereumDefinitions, IEvmPaymentRequest } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
@@ -111,7 +113,10 @@ export function buildHardwareEvmTransaction(
 
   if (isEip1559) {
     hwTransaction = {
-      ...extras,
+      // A chain that rejects access lists gets none, as in software signing.
+      ...(isEvmAccessListSupported(chainId)
+        ? extras
+        : omit(extras, 'accessList')),
       to,
       value,
       data,

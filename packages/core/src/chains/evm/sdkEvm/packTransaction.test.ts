@@ -79,6 +79,26 @@ describe('packTransaction access list', () => {
     );
   });
 
+  it('leaves the access list out on a chain that rejects access lists', () => {
+    // zkSync Era refuses an EIP-2930 envelope and an EIP-1559 transaction
+    // whose list is not empty, so both fee modes sign as if no list was sent.
+    const zkSyncGasPriceTx = { ...gasPriceTx, chainId: '324' };
+    const zkSyncEip1559Tx = { ...eip1559Tx, chainId: '0x144' };
+
+    const packedGasPriceTx = packTransaction({
+      ...zkSyncGasPriceTx,
+      accessList,
+    });
+    expect(packedGasPriceTx).toEqual(packTransaction(zkSyncGasPriceTx));
+    expect(packedGasPriceTx.type).toBeUndefined();
+    expect(packedGasPriceTx.accessList).toBeUndefined();
+
+    const packedEip1559Tx = packTransaction({ ...zkSyncEip1559Tx, accessList });
+    expect(packedEip1559Tx).toEqual(packTransaction(zkSyncEip1559Tx));
+    expect(packedEip1559Tx.type).toBe(2);
+    expect(packedEip1559Tx.accessList).toBeUndefined();
+  });
+
   it('treats a malformed access list as absent', () => {
     const shortStorageKey = [
       { address: `0x${'33'.repeat(20)}`, storageKeys: ['0x1234'] },

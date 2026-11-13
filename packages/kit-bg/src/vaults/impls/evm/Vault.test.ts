@@ -400,6 +400,26 @@ describe('EvmVault access list', () => {
       });
       expect(encodedTx).not.toHaveProperty('accessList');
     });
+
+    // The estimate has to price the transaction the signer will send, and
+    // these two never carry the list.
+    it('leaves out the access list for a QR wallet, which signs without it', async () => {
+      const vault = buildVault();
+      vault.walletId = 'qr-00000000-0000-0000-0000-000000000000';
+      const { encodedTx } = await vault.buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList },
+      });
+      expect(encodedTx).not.toHaveProperty('accessList');
+    });
+
+    it('leaves out the access list on a chain that rejects access lists', async () => {
+      const vault = buildVault();
+      vault.networkId = 'evm--324';
+      const { encodedTx } = await vault.buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList },
+      });
+      expect(encodedTx).not.toHaveProperty('accessList');
+    });
   });
 
   describe('buildReplaceEncodedTx', () => {

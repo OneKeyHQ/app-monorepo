@@ -6,7 +6,7 @@ import { ethers } from 'ethersV6';
 import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 
 import {
-  normalizeEvmAccessList,
+  getEvmAccessListForChain,
   validateEvmAddress,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -16,6 +16,7 @@ import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
 } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IFetchServerAccountDetailsParams,
@@ -564,7 +565,12 @@ class EvmApiProvider extends BaseApiProvider {
       data: encodedTx.data,
       // The L1 data fee is charged on the serialized bytes, which include
       // the access list.
-      accessList: normalizeEvmAccessList(encodedTx.accessList),
+      accessList: getEvmAccessListForChain({
+        accessList: encodedTx.accessList,
+        chainId: networkUtils.getNetworkChainId({
+          networkId: params.networkId,
+        }),
+      }),
       value: encodedTx.value,
       gasLimit: encodedTx.gasLimit,
       nonce: Number(encodedTx.nonce ?? 1), // all >0 have the same effect
@@ -591,7 +597,10 @@ class EvmApiProvider extends BaseApiProvider {
     params: IServerGasLimitParams,
   ): Promise<IServerGasLimitResponse> {
     const encodedTx = params.encodedTx as IEncodedTxEvm;
-    const accessList = normalizeEvmAccessList(encodedTx?.accessList);
+    const accessList = getEvmAccessListForChain({
+      accessList: encodedTx?.accessList,
+      chainId: networkUtils.getNetworkChainId({ networkId: params.networkId }),
+    });
     const estimateGasLimitRes = await this.client.call<string>(
       'eth_estimateGas',
       [

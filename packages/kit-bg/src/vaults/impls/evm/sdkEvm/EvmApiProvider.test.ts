@@ -66,6 +66,20 @@ describe('EvmApiProvider access list', () => {
     expect(txForEstimate).not.toHaveProperty('accessList');
   });
 
+  it('estimates gas without the access list on a chain that rejects access lists', async () => {
+    const { provider, call } = createProvider();
+    call.mockResolvedValue('0x5208');
+
+    await provider.getGasLimit({
+      // zkSync Era
+      networkId: 'evm--324',
+      encodedTx: { ...encodedTx, chainId: '324', accessList },
+    });
+
+    const [, [txForEstimate]] = call.mock.calls[0] as [string, [object]];
+    expect(txForEstimate).not.toHaveProperty('accessList');
+  });
+
   it('prices the access list bytes into the L1 data fee', async () => {
     const { provider, call } = createProvider();
     call.mockResolvedValue('0x1');

@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isNumber } from 'lodash';
 
 import {
+  getEvmAccessListForChain,
   normalizeEvmAccessList,
   validateEvmAddress,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
@@ -28,6 +29,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { isGasAccountSubmitRejectedCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -1509,8 +1511,18 @@ export default class Vault extends VaultBase {
     }
 
     // The access list adds intrinsic gas and changes execution gas, so the
-    // estimate has to cover it.
-    const accessList = normalizeEvmAccessList(encodedTx.accessList);
+    // estimate has to price the list the signer will put on chain. A QR
+    // wallet signs without it and some chains reject it. Hardware also drops
+    // it from a gas-price transaction, but the fee mode is only known from
+    // the estimate itself.
+    const accessList = accountUtils.isQrWallet({ walletId: this.walletId })
+      ? undefined
+      : getEvmAccessListForChain({
+          accessList: encodedTx.accessList,
+          chainId: networkUtils.getNetworkChainId({
+            networkId: this.networkId,
+          }),
+        });
 
     return Promise.resolve({
       encodedTx: {
