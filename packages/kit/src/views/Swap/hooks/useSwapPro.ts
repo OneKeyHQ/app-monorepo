@@ -39,6 +39,7 @@ import {
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
   ISwapTokenBase,
@@ -66,6 +67,8 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapLimitPriceUseRateAtom,
+  useSwapNetworkConfigStatusAtom,
   useSwapProDirectionAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
@@ -865,14 +868,58 @@ export function isSwapProTradeStateOwner({
   );
 }
 
-export function useSwapProTokenInit() {
+export function resolveLimitHistoryProPair<T extends ISwapTokenBase>({
+  fromToken,
+  toToken,
+  defaultLimitTokens,
+}: {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  defaultLimitTokens: T[];
+}) {
+  if (!fromToken || !toToken || fromToken.networkId !== toToken.networkId) {
+    return undefined;
+  }
+  const findCandidate = (token: ISwapToken, isStockPair: boolean) =>
+    filterSwapProCounterpartyTokens({
+      tokens: defaultLimitTokens,
+      isStockPair,
+    }).find((candidate) =>
+      equalTokenNoCaseSensitive({ token1: token, token2: candidate }),
+    );
+  const fromPayToken = findCandidate(fromToken, !!toToken.isStock);
+  const toPayToken = findCandidate(toToken, !!fromToken.isStock);
+  if (fromPayToken) {
+    return {
+      direction: ESwapDirection.BUY,
+      target: toToken,
+      pay: fromPayToken,
+    };
+  }
+  if (toPayToken) {
+    return {
+      direction: ESwapDirection.SELL,
+      target: fromToken,
+      pay: toPayToken,
+    };
+  }
+  return undefined;
+}
+
+export function useSwapProTokenInit(historyIntent?: {
+  key: string;
+  params: ISwapInitParams;
+  claim: (key: string) => boolean;
+}) {
   const { initializeSwapProSelectToken, resetQuoteAction } =
     useSwapActions().current;
-  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProSelectToken, setSwapProSelectToken] =
+    useSwapProSelectTokenAtom();
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
+  const [networkConfigStatus] = useSwapNetworkConfigStatusAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
-  const [swapProDirection] = useSwapProDirectionAtom();
+  const [swapProDirection, setSwapProDirection] = useSwapProDirectionAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
@@ -881,8 +928,56 @@ export function useSwapProTokenInit() {
     useSwapProInputAmountAtom();
   const [swapFromInputAmount, setSwapFromInputAmount] =
     useSwapFromTokenAmountAtom();
+  const [, setSwapToInputAmount] = useSwapToTokenAmountAtom();
+  const [, setLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const isFocused = useIsFocused();
   const hasInitializedSwapProSelectTokenRef = useRef(false);
+  const completedHistoryKeyRef = useRef<string | undefined>(undefined);
+  const claimedHistoryKeyRef = useRef<string | undefined>(undefined);
+  const waitingHistoryRef = useRef<
+    | {
+        key: string;
+        direction: ESwapDirection;
+        tradeType: ESwapProTradeType;
+      }
+    | undefined
+  >(undefined);
+  const pendingHistoryTargetRef = useRef<
+    | {
+        key: string;
+        target: ISwapToken;
+        pay: ISwapTokenBase;
+        direction: ESwapDirection;
+        tradeType: ESwapProTradeType;
+        amount: string;
+      }
+    | undefined
+  >(undefined);
+  const historyPreferenceTargetRef = useRef<ISwapToken | undefined>(undefined);
+  useEffect(() => {
+    if (!isFocused) historyPreferenceTargetRef.current = undefined;
+  }, [isFocused]);
+  const activeHistoryIntent =
+    platformEnv.isNative &&
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+    historyIntent?.params.tradeAgainFromHistory &&
+    historyIntent.params.swapTabSwitchType === ESwapTabSwitchType.LIMIT &&
+    completedHistoryKeyRef.current !== historyIntent.key
+      ? historyIntent
+      : undefined;
+  useEffect(() => {
+    if (
+      !activeHistoryIntent &&
+      historyIntent &&
+      historyIntent.key === claimedHistoryKeyRef.current &&
+      historyIntent.key !== completedHistoryKeyRef.current
+    ) {
+      completedHistoryKeyRef.current = historyIntent.key;
+      pendingHistoryTargetRef.current = undefined;
+      waitingHistoryRef.current = undefined;
+    }
+  }, [activeHistoryIntent, historyIntent]);
   const ownsActiveSwapProTradeState = isSwapProTradeStateOwner({
     isNative: Boolean(platformEnv.isNative),
     swapTypeSwitch,
@@ -900,7 +995,152 @@ export function useSwapProTokenInit() {
     speedDefaultSelectToken,
     supportSpeedSwap,
     onlySupportCrossChain,
-  } = useSpeedSwapInit(swapProSelectToken?.networkId || '', false);
+  } = useSpeedSwapInit(
+    activeHistoryIntent?.params.importFromToken?.networkId ||
+      swapProSelectToken?.networkId ||
+      '',
+    false,
+  );
+
+  useEffect(() => {
+    if (!activeHistoryIntent) return;
+    const { key, params, claim } = activeHistoryIntent;
+    let justClaimed = false;
+    if (claimedHistoryKeyRef.current !== key) {
+      if (!claim(key)) {
+        completedHistoryKeyRef.current = key;
+        return;
+      }
+      claimedHistoryKeyRef.current = key;
+      justClaimed = true;
+      pendingHistoryTargetRef.current = undefined;
+      waitingHistoryRef.current = {
+        key,
+        direction: swapProDirection,
+        tradeType: swapProTradeType,
+      };
+      hasInitializedSwapProSelectTokenRef.current = true;
+      historyPreferenceTargetRef.current = undefined;
+      void resetQuoteAction();
+      setSwapFromInputAmount({ value: '', isInput: false });
+      setSwapToInputAmount({ value: '', isInput: false });
+      setSwapProInputAmount('');
+      setLimitPriceUseRate({ fromToken: undefined, toToken: undefined });
+      setSwapProSelectToken(undefined);
+      setSwapProUseSelectBuyTokenAtom(undefined);
+      setSwapProSellToToken(undefined);
+    }
+    const pending = pendingHistoryTargetRef.current;
+    if (pending?.key === key) {
+      if (
+        swapProDirection !== pending.direction ||
+        swapProTradeType !== pending.tradeType ||
+        !equalTokenNoCaseSensitive({
+          token1: pending.pay,
+          token2:
+            pending.direction === ESwapDirection.BUY
+              ? swapProUseSelectBuyTokenAtom
+              : swapProSellToToken,
+        }) ||
+        Boolean(swapFromInputAmount.value || swapProInputAmount)
+      ) {
+        completedHistoryKeyRef.current = key;
+        pendingHistoryTargetRef.current = undefined;
+        return;
+      }
+      if (
+        !equalTokenNoCaseSensitive({
+          token1: swapProSelectToken,
+          token2: pending.target,
+        }) ||
+        networkConfigStatus === 'pending'
+      ) {
+        if (
+          swapProSelectToken &&
+          !equalTokenNoCaseSensitive({
+            token1: swapProSelectToken,
+            token2: pending.target,
+          })
+        ) {
+          completedHistoryKeyRef.current = key;
+          pendingHistoryTargetRef.current = undefined;
+        }
+        return;
+      }
+      if (swapProTokenSupportLimit) {
+        setSwapProTradeType(ESwapProTradeType.LIMIT);
+        setSwapFromInputAmount({ value: pending.amount, isInput: true });
+      }
+      completedHistoryKeyRef.current = key;
+      pendingHistoryTargetRef.current = undefined;
+      waitingHistoryRef.current = undefined;
+      return;
+    }
+    const waiting = waitingHistoryRef.current;
+    if (
+      !justClaimed &&
+      waiting?.key === key &&
+      (swapProSelectToken ||
+        swapProUseSelectBuyTokenAtom ||
+        swapProSellToToken ||
+        swapFromInputAmount.value ||
+        swapProInputAmount ||
+        swapProDirection !== waiting.direction ||
+        swapProTradeType !== waiting.tradeType)
+    ) {
+      completedHistoryKeyRef.current = key;
+      waitingHistoryRef.current = undefined;
+      return;
+    }
+    if (!speedConfigReady) return;
+    const pair = resolveLimitHistoryProPair({
+      fromToken: params.importFromToken,
+      toToken: params.importToToken,
+      defaultLimitTokens,
+    });
+    if (!pair) {
+      completedHistoryKeyRef.current = key;
+      waitingHistoryRef.current = undefined;
+      return;
+    }
+    pendingHistoryTargetRef.current = {
+      key,
+      target: pair.target,
+      pay: pair.pay,
+      direction: pair.direction,
+      tradeType: swapProTradeType,
+      amount: params.fromAmount ?? '',
+    };
+    historyPreferenceTargetRef.current = pair.target;
+    setSwapProDirection(pair.direction);
+    setSwapProUseSelectBuyTokenAtom(pair.pay);
+    setSwapProSellToToken(pair.pay);
+    void initializeSwapProSelectToken(pair.target);
+  }, [
+    activeHistoryIntent,
+    defaultLimitTokens,
+    initializeSwapProSelectToken,
+    networkConfigStatus,
+    resetQuoteAction,
+    setLimitPriceUseRate,
+    setSwapFromInputAmount,
+    setSwapProDirection,
+    setSwapProInputAmount,
+    setSwapProSelectToken,
+    setSwapProSellToToken,
+    setSwapProTradeType,
+    setSwapProUseSelectBuyTokenAtom,
+    setSwapToInputAmount,
+    speedConfigReady,
+    swapProSelectToken,
+    swapProDirection,
+    swapProTradeType,
+    swapProUseSelectBuyTokenAtom,
+    swapProSellToToken,
+    swapProInputAmount,
+    swapFromInputAmount.value,
+    swapProTokenSupportLimit,
+  ]);
 
   const defaultTokensFromType = useMemo(
     () =>
@@ -971,6 +1211,7 @@ export function useSwapProTokenInit() {
   );
 
   useEffect(() => {
+    if (activeHistoryIntent) return;
     // Stock tokens must be paid with stable coins: drop the native coin from
     // the candidate pool so a previously selected native coin is forced back
     // to a stable coin.
@@ -1040,6 +1281,7 @@ export function useSwapProTokenInit() {
       }
     }
   }, [
+    activeHistoryIntent,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
     swapProSelectToken?.isStock,
@@ -1055,6 +1297,7 @@ export function useSwapProTokenInit() {
 
   useEffect(() => {
     if (
+      !activeHistoryIntent &&
       !swapProTokenSupportLimit &&
       swapProSelectToken &&
       swapProTradeType === ESwapProTradeType.LIMIT
@@ -1062,6 +1305,7 @@ export function useSwapProTokenInit() {
       setSwapProTradeType(ESwapProTradeType.MARKET);
     }
   }, [
+    activeHistoryIntent,
     swapProTokenSupportLimit,
     swapProSelectToken,
     swapProTradeType,
@@ -1069,6 +1313,7 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
+    if (activeHistoryIntent) return;
     if (swapProJumpToken?.token) {
       hasInitializedSwapProSelectTokenRef.current = true;
       return;
@@ -1082,6 +1327,7 @@ export function useSwapProTokenInit() {
     hasInitializedSwapProSelectTokenRef.current = true;
     void initializeSwapProSelectToken(undefined, speedDefaultSelectToken);
   }, [
+    activeHistoryIntent,
     initializeSwapProSelectToken,
     speedDefaultSelectToken,
     swapProJumpToken?.token,
@@ -1089,6 +1335,7 @@ export function useSwapProTokenInit() {
   ]);
 
   useEffect(() => {
+    if (activeHistoryIntent) return;
     // Stock tokens must trade against stable coins in BOTH directions, so the
     // SELL counterparty pool drops the native coin too.
     const sellCandidateTokens = filterSwapProCounterpartyTokens({
@@ -1204,6 +1451,7 @@ export function useSwapProTokenInit() {
       }
     }
   }, [
+    activeHistoryIntent,
     defaultTokensFromType,
     setSwapProSellToToken,
     setSwapFromInputAmount,
@@ -1219,6 +1467,17 @@ export function useSwapProTokenInit() {
 
   // Apply preference when it loads after init effects already set defaults
   useEffect(() => {
+    if (activeHistoryIntent) return;
+    if (
+      historyPreferenceTargetRef.current &&
+      equalTokenNoCaseSensitive({
+        token1: historyPreferenceTargetRef.current,
+        token2: swapProSelectToken,
+      })
+    ) {
+      historyPreferenceTargetRef.current = undefined;
+      return;
+    }
     if (!savedPreference || defaultTokensFromType.length === 0) return;
     const preferred = findPreferredToken();
     if (!preferred) return;

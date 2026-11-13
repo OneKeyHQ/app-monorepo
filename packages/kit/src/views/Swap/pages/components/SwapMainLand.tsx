@@ -192,6 +192,13 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
+import {
+  SwapHistoryChannelIntentContext,
+  SwapHistoryTradeAgainContext,
+  getSwapHistorySourceIntentKey,
+  useSwapHistoryChannelIntent,
+  useSwapHistoryTradeAgainHandler,
+} from './SwapHistoryTradeAgainContext';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
@@ -281,6 +288,8 @@ const SwapMainLoad = ({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const onTradeAgainFromSource = useSwapHistoryTradeAgainHandler();
+  const historyChannelIntent = useSwapHistoryChannelIntent();
   const analyticsSwapSource = swapInitParams?.swapSource;
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
@@ -505,7 +514,7 @@ const SwapMainLoad = ({
     isMEV,
     hasEnoughBalance,
     supportSpeedSwap,
-  } = useSwapProTokenInit();
+  } = useSwapProTokenInit(historyChannelIntent);
 
   const isSwapProAccountContextReady = useMemo(() => {
     if (!speedConfigReady || !swapProSelectToken || !swapProFromToken) {
@@ -1614,10 +1623,11 @@ const SwapMainLoad = ({
           orderId: item.orderId,
           orderItem: item,
           storeName,
+          onTradeAgain: onTradeAgainFromSource,
         },
       });
     },
-    [navigation, storeName],
+    [navigation, onTradeAgainFromSource, storeName],
   );
   const scrollViewRef = useRef<ScrollViewInstance>(null);
   const onTokenPress = useCallback(
@@ -1847,7 +1857,11 @@ const SwapMainLoad = ({
               <SwapHeaderContainer
                 storeName={storeName}
                 pageType={pageType}
-                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                defaultSwapType={
+                  swapInitParams?.tradeAgainFromHistory
+                    ? undefined
+                    : swapInitParams?.swapTabSwitchType
+                }
                 showSwapPro={platformEnv.isNative}
                 hideRightActions
                 enterFrom={swapInitParams?.swapSource}
@@ -1913,7 +1927,11 @@ const SwapMainLoad = ({
               <SwapHeaderContainer
                 storeName={storeName}
                 pageType={pageType}
-                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                defaultSwapType={
+                  swapInitParams?.tradeAgainFromHistory
+                    ? undefined
+                    : swapInitParams?.swapTabSwitchType
+                }
                 showSwapPro={platformEnv.isNative}
                 hideRightActions
                 enterFrom={swapInitParams?.swapSource}
@@ -1981,6 +1999,7 @@ const SwapMainLoad = ({
     isWrapped,
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,
+    swapInitParams?.tradeAgainFromHistory,
     gtLg,
     isMarketEmbeddedSwap,
     shouldRenderDesktopSwapHeader,
@@ -2057,7 +2076,11 @@ const SwapMainLoad = ({
       <SwapHeaderContainer
         storeName={storeName}
         pageType={pageType}
-        defaultSwapType={swapInitParams?.swapTabSwitchType}
+        defaultSwapType={
+          swapInitParams?.tradeAgainFromHistory
+            ? undefined
+            : swapInitParams?.swapTabSwitchType
+        }
         onSwapTypeSwitch={
           shouldRenderDesktopSwapHeader ? handleSwapTypeSwitch : undefined
         }
@@ -2182,6 +2205,45 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const [historyEntry, setHistoryEntry] = useState<{
+    params: ISwapInitParams;
+    sourceIntentKey: string;
+  }>();
+  const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
+  const sourceIntentKeyRef = useRef(sourceIntentKey);
+  sourceIntentKeyRef.current = sourceIntentKey;
+  const historyMatchesSource =
+    historyEntry?.sourceIntentKey === sourceIntentKey;
+  useEffect(() => {
+    if (historyEntry && !historyMatchesSource) {
+      setHistoryEntry((current) =>
+        current === historyEntry ? undefined : current,
+      );
+    }
+  }, [historyEntry, historyMatchesSource]);
+  const historyRequestIdRef = useRef(0);
+  const claimedHistoryIntentRef = useRef<string | undefined>(undefined);
+  const claimHistoryIntent = useCallback((key: string) => {
+    if (claimedHistoryIntentRef.current === key) return false;
+    claimedHistoryIntentRef.current = key;
+    return true;
+  }, []);
+  const historySourceMountedRef = useRef(true);
+  useEffect(() => {
+    historySourceMountedRef.current = true;
+    return () => {
+      historySourceMountedRef.current = false;
+    };
+  }, []);
+  const onTradeAgainFromHistory = useCallback((params: ISwapInitParams) => {
+    if (!historySourceMountedRef.current) return false;
+    historyRequestIdRef.current += 1;
+    setHistoryEntry({
+      params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
+      sourceIntentKey: sourceIntentKeyRef.current,
+    });
+    return true;
+  }, []);
   let entryStoreName = EJotaiContextStoreNames.swap;
   if (pageType === EPageType.modal) {
     entryStoreName = EJotaiContextStoreNames.swapModal;
@@ -2227,6 +2289,30 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }
       : undefined;
+  const effectiveSwapInitParams = useMemo(
+    () =>
+      historyEntry && historyMatchesSource
+        ? {
+            swapSource: swapInitParams?.swapSource,
+            closeModalAfterSwapBroadcast:
+              swapInitParams?.closeModalAfterSwapBroadcast,
+            onSwapBroadcast: swapInitParams?.onSwapBroadcast,
+            ...historyEntry.params,
+          }
+        : swapInitParams,
+    [historyEntry, historyMatchesSource, swapInitParams],
+  );
+  const channelIntent = useMemo(
+    () =>
+      effectiveSwapInitParams?.tradeAgainFromHistory
+        ? {
+            key: `${sourceIntentKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
+            params: effectiveSwapInitParams,
+            claim: claimHistoryIntent,
+          }
+        : undefined,
+    [claimHistoryIntent, effectiveSwapInitParams, sourceIntentKey],
+  );
 
   return (
     <SwapProviderMirror
@@ -2238,7 +2324,18 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapMainLoad {...props} storeName={storeName} pageType={pageType} />
+          <SwapHistoryTradeAgainContext.Provider
+            value={onTradeAgainFromHistory}
+          >
+            <SwapHistoryChannelIntentContext.Provider value={channelIntent}>
+              <SwapMainLoad
+                {...props}
+                storeName={storeName}
+                pageType={pageType}
+                swapInitParams={effectiveSwapInitParams}
+              />
+            </SwapHistoryChannelIntentContext.Provider>
+          </SwapHistoryTradeAgainContext.Provider>
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>

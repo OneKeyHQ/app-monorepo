@@ -40,6 +40,8 @@ import {
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 
+import { useSwapHistoryTradeAgainHandler } from './SwapHistoryTradeAgainContext';
+
 interface ISectionData {
   title: string;
   status?: ESwapTxHistoryStatus;
@@ -47,6 +49,7 @@ interface ISectionData {
 }
 
 interface ISwapMarketHistoryListProps {
+  onTradeAgain?: IModalSwapParamList[EModalSwapRoutes.SwapHistoryDetail]['onTradeAgain'];
   showType?: 'swap' | 'bridge';
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
@@ -67,6 +70,7 @@ interface ISwapMarketHistoryListProps {
 const LIST_PADDING_Y = 8;
 
 const SwapMarketHistoryList = ({
+  onTradeAgain: onTradeAgainProp,
   showType,
   filterToken,
   isPushModal,
@@ -79,6 +83,8 @@ const SwapMarketHistoryList = ({
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const onTradeAgainFromContext = useSwapHistoryTradeAgainHandler();
+  const onTradeAgain = onTradeAgainProp ?? onTradeAgainFromContext;
   // The Stock tab pulls from the whole market (SWAP) bucket and then keeps only
   // stock items, because stock-pending updates may not carry protocol === STOCK.
   // Every other protocol filters as-is. Compute it once so the refresh key and
@@ -198,18 +204,20 @@ const SwapMarketHistoryList = ({
               params: {
                 txHistoryOrderId: item.swapInfo.orderId,
                 txHistoryList: [...(swapTxHistoryList ?? [])],
+                onTradeAgain,
               },
             });
           } else {
             navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
               txHistoryOrderId: item.swapInfo.orderId,
               txHistoryList: [...(swapTxHistoryList ?? [])],
+              onTradeAgain,
             });
           }
         }}
       />
     ),
-    [navigation, isPushModal, swapTxHistoryList],
+    [navigation, isPushModal, onTradeAgain, swapTxHistoryList],
   );
   if (isLoading && !swapTxHistoryList?.length) {
     return (
