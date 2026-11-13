@@ -98,7 +98,7 @@ export async function sniUploadFile(
 ): Promise<ISniResponse | null> {
   const nativeModule = getSniConnectNativeModule();
   const uploadFile = nativeModule?.uploadFile;
-  if (typeof uploadFile !== 'function') {
+  if (!nativeModule || typeof uploadFile !== 'function') {
     logAdapterCapability('warn', {
       adapter: 'native',
       capability: 'upload_file',
@@ -108,13 +108,52 @@ export async function sniUploadFile(
     });
     return null;
   }
-  const response = await executeSniRequestWithAbort(
+  let closed = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let lastBytesSent = -1;
+  const progressDeadline = Date.now() + config.timeout;
+  const poll = async () => {
+    if (
+      closed ||
+      Date.now() >= progressDeadline ||
+      !config.requestId ||
+      !options?.onUploadProgress
+    )
+      return;
+    try {
+      const progress = await nativeModule.getUploadProgress(config.requestId);
+      if (
+        !closed &&
+        progress &&
+        Number.isFinite(progress.bytesSent) &&
+        Number.isFinite(progress.totalBytes) &&
+        progress.totalBytes > 0 &&
+        progress.bytesSent > lastBytesSent
+      ) {
+        lastBytesSent = progress.bytesSent;
+        options?.onUploadProgress?.(progress.bytesSent, progress.totalBytes);
+      }
+    } catch {
+      // Progress reporting must never change the upload result.
+    }
+    if (!closed && Date.now() < progressDeadline)
+      timer = setTimeout(() => {
+        void poll();
+      }, 250);
+  };
+  const upload = executeSniRequestWithAbort(
     config,
     options,
     (requestConfig) => uploadFile.call(nativeModule, requestConfig),
     (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
-  return toSniResponse(response);
+  void poll();
+  try {
+    return toSniResponse(await upload);
+  } finally {
+    closed = true;
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function isSniUploadFileSupported(): boolean {
@@ -144,6 +183,10 @@ type SniConnectNativeModule = {
   // Added in @onekeyfe/react-native-sni-connect with file upload support;
   // older native binaries do not expose it.
   uploadFile?: (config: ISniUploadFileConfig) => Promise<SniConnectResponse>;
+  getUploadProgress: (requestId: string) => Promise<{
+    bytesSent: number;
+    totalBytes: number;
+  } | null>;
 };
 
 function getSniConnectNativeModule(): SniConnectNativeModule | null {

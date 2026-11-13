@@ -139,11 +139,13 @@ const uploadViaDomain = async ({
   headers,
   digest,
   filePath,
+  requestId,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
   digest: ILogDigest;
   filePath: string;
+  requestId?: string;
 }): Promise<IDesktopUploadPayload> => {
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
@@ -151,12 +153,18 @@ const uploadViaDomain = async ({
           ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
           (payload: {
             stage: ELogUploadStage;
+            requestId?: string;
+            bytesSent?: number;
+            totalBytes?: number;
             progressPercent?: number;
             retry?: number;
             message?: string;
           }) => {
             // Final states are emitted once by uploadLogBundle.
-            if (payload.stage === ELogUploadStage.Uploading) {
+            if (
+              payload.stage === ELogUploadStage.Uploading &&
+              payload.requestId === requestId
+            ) {
               appEventBus.emit(
                 EAppEventBusNames.ClientLogUploadProgress,
                 payload,
@@ -175,6 +183,7 @@ const uploadViaDomain = async ({
         headers,
         sizeBytes: digest.sizeBytes,
         timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+        ...(requestId ? { requestId } : {}),
       }),
       LOG_UPLOAD_TIMEOUT_MS + 5000,
     )) as unknown;
@@ -199,9 +208,11 @@ const uploadViaDomain = async ({
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  requestId,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  requestId?: string;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -237,7 +248,7 @@ export const uploadLogBundle = async ({
 
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
-    progressPercent: 0,
+    requestId,
   });
 
   const startedAt = Date.now();
@@ -260,6 +271,7 @@ export const uploadLogBundle = async ({
     });
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
+      requestId,
       message: getErrorMessage(error),
     });
     if (!requestSent) {
@@ -280,9 +292,32 @@ export const uploadLogBundle = async ({
     // The main-process transport enforces this timeout; the margin only
     // guards a lost IPC reply.
     let sniResult: ILogUploadViaIpTableResult;
+    const removeSniProgressListener =
+      requestId && typeof globalThis.desktopApi?.on === 'function'
+        ? globalThis.desktopApi.on(
+            ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+            (progress: {
+              stage: ELogUploadStage;
+              requestId?: string;
+              bytesSent?: number;
+              totalBytes?: number;
+            }) => {
+              if (
+                progress.stage === ELogUploadStage.Uploading &&
+                progress.requestId === requestId
+              ) {
+                appEventBus.emit(
+                  EAppEventBusNames.ClientLogUploadProgress,
+                  progress,
+                );
+              }
+            },
+          )
+        : undefined;
     try {
       sniResult = await withLogUploadTimeout(
         backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
+          ...(requestId ? { requestId } : {}),
           uploadToken,
           filePath,
           mimeType,
@@ -294,6 +329,8 @@ export const uploadLogBundle = async ({
     } catch (error) {
       requestSent = true;
       throw error;
+    } finally {
+      removeSniProgressListener?.();
     }
     if (sniResult.route === 'sni') {
       requestSent = true;
@@ -353,6 +390,7 @@ export const uploadLogBundle = async ({
       headers['content-length'] = String(digest.sizeBytes);
       requestSent = true;
       payload = await uploadViaDomain({
+        ...(requestId ? { requestId } : {}),
         uploadUrl,
         headers,
         digest,
@@ -418,6 +456,7 @@ export const uploadLogBundle = async ({
   });
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Success,
+    requestId,
     progressPercent: 100,
   });
 

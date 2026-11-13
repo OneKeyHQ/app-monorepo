@@ -161,11 +161,18 @@ const getHostnameForLog = (url: string) => {
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-const emitUploadProgress = (sentBytes: number, totalBytes: number) => {
+const emitUploadProgress = (
+  sentBytes: number,
+  totalBytes: number,
+  requestId?: string,
+) => {
   if (totalBytes <= 0) return;
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
-    progressPercent: Math.min(100, Math.round((sentBytes / totalBytes) * 100)),
+    requestId,
+    bytesSent: sentBytes,
+    totalBytes,
+    progressPercent: Math.min(99, Math.floor((sentBytes / totalBytes) * 100)),
   });
 };
 
@@ -182,6 +189,7 @@ const uploadViaUploadTask = async ({
   timeoutMs,
   onSentBytes,
   onPathChange,
+  requestId,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
@@ -191,6 +199,7 @@ const uploadViaUploadTask = async ({
   timeoutMs: number;
   onSentBytes: (sentBytes: number) => void;
   onPathChange?: (path: ILogUploadPath) => void;
+  requestId?: string;
 }): Promise<ILogUploadHttpResult> => {
   let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
@@ -201,6 +210,7 @@ const uploadViaUploadTask = async ({
 
   let uploadTaskError: unknown;
   let taskSentBytes = 0;
+  let taskClosed = false;
   if (fileSystemModule?.createUploadTask) {
     try {
       const uploadTask = fileSystemModule.createUploadTask(
@@ -212,6 +222,7 @@ const uploadViaUploadTask = async ({
           uploadType: fileSystemModule.FileSystemUploadType.BINARY_CONTENT,
         },
         (progress) => {
+          if (taskClosed) return;
           const total =
             typeof progress.totalBytesExpectedToSend === 'number' &&
             progress.totalBytesExpectedToSend > 0
@@ -219,7 +230,7 @@ const uploadViaUploadTask = async ({
               : digest.sizeBytes;
           taskSentBytes = progress.totalBytesSent;
           onSentBytes(progress.totalBytesSent);
-          emitUploadProgress(progress.totalBytesSent, total);
+          emitUploadProgress(progress.totalBytesSent, total, requestId);
         },
       );
       const result = await withLogUploadTimeout(
@@ -228,7 +239,9 @@ const uploadViaUploadTask = async ({
         () => {
           void uploadTask.cancelAsync().catch(() => undefined);
         },
-      );
+      ).finally(() => {
+        taskClosed = true;
+      });
       if (!result) {
         throw new OneKeyLocalError('Upload cancelled');
       }
@@ -311,9 +324,11 @@ const uploadViaUploadTask = async ({
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  requestId,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  requestId?: string;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -351,7 +366,7 @@ export const uploadLogBundle = async ({
 
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
-    progressPercent: 0,
+    requestId,
   });
 
   const startedAt = Date.now();
@@ -386,6 +401,7 @@ export const uploadLogBundle = async ({
     logFailure(error, httpStatus, serverCode);
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
+      requestId,
       message: getErrorMessage(error),
     });
     if (!requestSent) {
@@ -408,6 +424,7 @@ export const uploadLogBundle = async ({
     try {
       sniResult = await withLogUploadTimeout(
         backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
+          ...(requestId ? { requestId } : {}),
           uploadToken,
           filePath,
           mimeType,
@@ -422,7 +439,6 @@ export const uploadLogBundle = async ({
     }
     if (sniResult.route === 'sni') {
       requestSent = true;
-      emitUploadProgress(digest.sizeBytes, digest.sizeBytes);
       sentBytes = digest.sizeBytes;
       httpResult = {
         path: 'sni',
@@ -490,6 +506,7 @@ export const uploadLogBundle = async ({
         onPathChange: (nextPath) => {
           path = nextPath;
         },
+        requestId,
       });
       path = httpResult.path;
     }
@@ -564,6 +581,7 @@ export const uploadLogBundle = async ({
   });
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Success,
+    requestId,
     progressPercent: 100,
   });
 

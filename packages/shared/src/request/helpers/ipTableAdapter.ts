@@ -1830,14 +1830,24 @@ export type IIpTableUploadFileResult =
  * split-runtime targets); elsewhere no IP is selected and it skips.
  */
 export async function uploadFileViaIpTable(params: {
+  requestId?: string;
   url: string;
   filePath: string;
   headers: Record<string, string>;
   method?: 'POST' | 'PUT';
   timeout: number;
   signal?: ISniRequestOptions['signal'];
+  onUploadProgress?: ISniRequestOptions['onUploadProgress'];
 }): Promise<IIpTableUploadFileResult> {
-  const { url, filePath, headers, timeout, signal } = params;
+  const {
+    url,
+    filePath,
+    headers,
+    timeout,
+    signal,
+    requestId,
+    onUploadProgress,
+  } = params;
   const method = params.method ?? 'POST';
   const skip = (
     reason: IIpTableUploadFileSkipReason,
@@ -1924,6 +1934,7 @@ export async function uploadFileViaIpTable(params: {
   try {
     const response = await sniUploadFile(
       {
+        ...(requestId ? { requestId } : {}),
         ip: selectedIp,
         hostname,
         path: `${targetUrl.pathname}${targetUrl.search}`,
@@ -1932,7 +1943,7 @@ export async function uploadFileViaIpTable(params: {
         filePath,
         timeout,
       },
-      { signal },
+      { signal, ...(onUploadProgress ? { onUploadProgress } : {}) },
     );
     if (!response) {
       return skip('upload_unsupported', { hostname, rootDomain });

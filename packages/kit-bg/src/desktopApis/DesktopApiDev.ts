@@ -165,6 +165,7 @@ class DesktopApiDev {
   }
 
   async uploadLoggerBundle(params: {
+    requestId?: string;
     uploadUrl: string;
     filePath: string;
     headers: Record<string, string>;
@@ -252,10 +253,12 @@ class DesktopApiDev {
       stage,
       progressPercent,
       message,
+      bytesSent,
     }: {
       stage: ELogUploadStage;
       progressPercent?: number;
       message?: string;
+      bytesSent?: number;
     }) => {
       try {
         const mainWindow =
@@ -265,7 +268,9 @@ class DesktopApiDev {
             ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
             {
               stage,
+              ...(params.requestId ? { requestId: params.requestId } : {}),
               progressPercent,
+              ...(bytesSent === undefined ? {} : { bytesSent, totalBytes }),
               message,
             },
           );
@@ -274,8 +279,6 @@ class DesktopApiDev {
         logger.warn('[client-log-upload] failed to send progress', error);
       }
     };
-
-    sendProgress({ stage: ELogUploadStage.Uploading, progressPercent: 0 });
 
     // Node's built-in fetch (undici) pulls a streaming body lazily, only once
     // the connection is up. Listening for 'data' on the file stream before
@@ -286,17 +289,23 @@ class DesktopApiDev {
     // consumes it, so progress never runs ahead of the connection and a
     // failed connect never touches the file.
     let uploadedBytes = 0;
+    let lastProgressAt = 0;
     const archive: { stream?: fs.ReadStream } = {};
     const readArchive = async function* (): AsyncGenerator<Buffer> {
       archive.stream = fs.createReadStream(filePath);
       for await (const chunk of archive.stream as AsyncIterable<Buffer>) {
         uploadedBytes += chunk.length;
-        if (totalBytes > 0) {
+        if (
+          totalBytes > 0 &&
+          (Date.now() - lastProgressAt >= 100 || uploadedBytes >= totalBytes)
+        ) {
+          lastProgressAt = Date.now();
           sendProgress({
             stage: ELogUploadStage.Uploading,
+            bytesSent: uploadedBytes,
             progressPercent: Math.min(
-              100,
-              Math.round((uploadedBytes / totalBytes) * 100),
+              99,
+              Math.floor((uploadedBytes / totalBytes) * 100),
             ),
           });
         }

@@ -8,6 +8,7 @@ import { session } from 'electron';
 import logger from 'electron-log/main';
 import ipaddr from 'ipaddr.js';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { isSniFailClosedError } from '@onekeyhq/shared/src/request/helpers/sniFailClosedError';
 import { safeSniLogValue } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
 import type {
@@ -1307,7 +1308,51 @@ class DesktopApiSniRequest {
               ),
             );
           });
-          activeFileStream.pipe(request);
+          let bytesSent = 0;
+          let lastProgressAt = 0;
+          const sendProgress = () => {
+            if (!normalizedConfig.requestId || settled) return;
+            const now = Date.now();
+            if (bytesSent < bodyFile.sizeBytes && now - lastProgressAt < 100)
+              return;
+            lastProgressAt = now;
+            const mainWindow =
+              globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send(
+                ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+                {
+                  stage: 'uploading',
+                  requestId: normalizedConfig.requestId,
+                  bytesSent,
+                  totalBytes: bodyFile.sizeBytes,
+                  progressPercent: Math.min(
+                    99,
+                    Math.floor((bytesSent / bodyFile.sizeBytes) * 100),
+                  ),
+                },
+              );
+            }
+          };
+          activeFileStream.on('data', (chunk: Buffer | string) => {
+            const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+            activeFileStream?.pause();
+            request.write(bytes, (error?: Error | null) => {
+              if (settled) return;
+              if (error) {
+                request.destroy(error);
+                return;
+              }
+              bytesSent += bytes.length;
+              try {
+                sendProgress();
+              } catch {
+                /* Progress must not fail upload. */
+              }
+              activeFileStream?.resume();
+            });
+          });
+          activeFileStream.on('end', () => request.end());
           return;
         }
 

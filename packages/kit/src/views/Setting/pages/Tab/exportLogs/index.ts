@@ -96,9 +96,11 @@ export const exportLogs = async (
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  requestId: _requestId,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  requestId?: string;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
