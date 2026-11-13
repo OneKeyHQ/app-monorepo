@@ -38,6 +38,11 @@ prompt or attempted system-domain removal occurs.
 A native cancellation journal is written before unregistering and advanced after
 the job stops. It remains as a stopped receipt until the caller commits OneKey's
 pending-task/cache cleanup with `clearPackage({manual: true, complete: true})`.
+The main-process marker stores a versioned envelope containing the native snapshot
+and the preparation's current/previous build-marker ownership. A cold retry returns
+that ownership after native cleanup, restores the previous marker only if the store
+still matches the cancelled preparation, and preserves it until final acknowledgement.
+Native helper snapshots remain unchanged and do not receive this store metadata.
 Completion keeps an idempotent finished receipt; the next successfully captured
 stage consumes it. A definite pre-removal failure removes the barrier and leaves
 the existing preparation usable. Partial cleanup remains retryable and blocks restaging. A stopped

@@ -11,6 +11,12 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 export type IMacUpdateSnapshot = Record<string, unknown>;
+export type IMacPreparedBuild = { current: string; previous: string };
+type IMacCancellationRecord = {
+  version: 1;
+  snapshot?: IMacUpdateSnapshot;
+  build?: IMacPreparedBuild;
+};
 
 function invoke(request: Record<string, unknown>): Promise<{
   snapshot?: IMacUpdateSnapshot;
@@ -90,17 +96,31 @@ export function getMacCancellationMarker(cacheDir: string) {
 export async function cancelMacUpdate(
   cacheDir: string,
   snapshot?: IMacUpdateSnapshot,
+  build?: IMacPreparedBuild,
 ) {
   const marker = getMacCancellationMarker(cacheDir);
-  let saved = snapshot;
+  let saved: IMacCancellationRecord = { version: 1, snapshot, build };
   const existingMarker = fs.existsSync(marker);
   if (existingMarker) {
-    saved = JSON.parse(fs.readFileSync(marker, 'utf8')) as IMacUpdateSnapshot;
+    saved = JSON.parse(
+      fs.readFileSync(marker, 'utf8'),
+    ) as IMacCancellationRecord;
+    if (
+      saved?.version !== 1 ||
+      (saved.build &&
+        (typeof saved.build.current !== 'string' ||
+          typeof saved.build.previous !== 'string'))
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'cleanup',
+      });
+    }
   } else {
     fs.mkdirSync(path.dirname(marker), { recursive: true });
     const temporary = `${marker}.${process.pid}.tmp`;
     try {
-      fs.writeFileSync(temporary, JSON.stringify(saved || null), {
+      fs.writeFileSync(temporary, JSON.stringify(saved), {
         mode: 0o600,
       });
       fs.renameSync(temporary, marker);
@@ -110,7 +130,7 @@ export async function cancelMacUpdate(
   }
   let result;
   try {
-    result = await invoke({ action: 'cancel', snapshot: saved || undefined });
+    result = await invoke({ action: 'cancel', snapshot: saved.snapshot });
   } catch (error) {
     if (
       !existingMarker &&
@@ -127,6 +147,7 @@ export async function cancelMacUpdate(
       step: 'cleanup',
     });
   }
+  return saved.build;
 }
 
 export async function finishMacUpdateCancellation(cacheDir: string) {

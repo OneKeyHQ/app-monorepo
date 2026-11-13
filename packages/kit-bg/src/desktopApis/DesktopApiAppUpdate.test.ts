@@ -26,7 +26,9 @@ const mockNativeUpdater = Object.assign(new EventEmitter(), {
 });
 const mockSpawn = jest.fn();
 const mockExecFileSync = jest.fn();
-const mockCancelMacUpdate = jest.fn(async () => {});
+const mockCancelMacUpdate = jest.fn(
+  async (): Promise<void | { current: string; previous: string }> => {},
+);
 const mockCaptureMacUpdate = jest.fn(async () => ({ captured: true }));
 const mockFinishMacUpdateCancellation = jest.fn(async () => {});
 jest.mock('./macUpdateCancellation', () => ({
@@ -290,6 +292,7 @@ beforeEach(() => {
   mockGetAllWindows.mockReturnValue([]);
   mockAppGetVersion.mockReturnValue('5.9.0');
   mockStore.getASCFile.mockReturnValue('');
+  mockStore.getUpdateBuildNumber.mockReturnValue('');
   mockNativeUpdater.removeAllListeners();
   mockMainWindow.removeAllListeners();
   mockNativeUpdater.checkForUpdates.mockImplementation(() => {
@@ -921,13 +924,42 @@ test('manual cache clearing revokes a captured macOS preparation and removes the
   await api.clearUpdateCache({ manual: true });
   expect(mockFinishMacUpdateCancellation).not.toHaveBeenCalled();
   await api.clearUpdateCache({ manual: true, complete: true });
-  expect(mockCancelMacUpdate).toHaveBeenCalledWith(expect.any(String), {
-    captured: true,
-  });
+  expect(mockCancelMacUpdate).toHaveBeenCalledWith(
+    expect.any(String),
+    {
+      captured: true,
+    },
+    undefined,
+  );
   expect(mockFinishMacUpdateCancellation).toHaveBeenCalledTimes(1);
   expect(fs.existsSync(file)).toBe(false);
   expect(internal.macStagedIdentity).toBeUndefined();
 });
+
+test.each([
+  { previous: 'previous-build', stored: 'cancelled-build' },
+  { previous: '', stored: 'cancelled-build' },
+  { previous: 'previous-build', stored: 'unrelated-build' },
+])(
+  'a fresh main-process API rolls back only its recovered build marker (%j)',
+  async ({ previous, stored }) => {
+    const api = createApi('darwin');
+    mockApp.isPackaged = true;
+    mockStore.getUpdateBuildNumber.mockReturnValue(stored);
+    mockCancelMacUpdate.mockResolvedValueOnce({
+      current: 'cancelled-build',
+      previous,
+    });
+    await api.clearUpdateCache({ manual: true });
+    await api.clearUpdateCache({ manual: true, complete: true });
+    expect(mockStore.setUpdateBuildNumber.mock.calls).toEqual(
+      previous && stored === 'cancelled-build' ? [[previous]] : [],
+    );
+    expect(mockStore.clearUpdateBuildNumber).toHaveBeenCalledTimes(
+      !previous && stored === 'cancelled-build' ? 1 : 0,
+    );
+  },
+);
 
 test('automatic cache clearing preserves a captured macOS preparation', async () => {
   const { api, file } = await preparePackage('darwin');
@@ -1360,9 +1392,13 @@ test.each(['downloaded', 'error', 'unavailable'] as const)(
     await expect(api.clearUpdateCache()).rejects.toThrow('INSTALL_FAILED');
     await api.clearUpdateCache({ manual: true });
     await api.clearUpdateCache({ manual: true, complete: true });
-    expect(mockCancelMacUpdate).toHaveBeenCalledWith(expect.any(String), {
-      captured: true,
-    });
+    expect(mockCancelMacUpdate).toHaveBeenCalledWith(
+      expect.any(String),
+      {
+        captured: true,
+      },
+      { current: '123', previous: '' },
+    );
     expect(fs.existsSync(file)).toBe(false);
     emitNativeDownloaded(originalURL);
     expect(mockNativeUpdater.listenerCount('update-downloaded')).toBe(0);

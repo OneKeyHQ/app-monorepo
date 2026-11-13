@@ -887,10 +887,12 @@ class DesktopApiAppUpdate {
           getMacCancellationMarker(this.getCacheDir()),
         );
         this.manualClearUnchanged = false;
+        let build: { current: string; previous: string } | undefined;
         try {
-          await cancelMacUpdate(
+          build = await cancelMacUpdate(
             this.getCacheDir(),
             this.macCancellationSnapshot,
+            this.preparedBuildNumber,
           );
         } catch (error) {
           if (
@@ -905,7 +907,6 @@ class DesktopApiAppUpdate {
         // when later disk/DB cleanup fails.
         this.macStagedIdentity = undefined;
         this.macCancellationSnapshot = undefined;
-        const build = this.preparedBuildNumber;
         if (build && store.getUpdateBuildNumber() === build.current) {
           if (build.previous) store.setUpdateBuildNumber(build.previous);
           else store.clearUpdateBuildNumber();

@@ -95,3 +95,28 @@ test('a no-stage retry does not send JSON null as a native snapshot', async () =
   expect(requests[1]).toEqual({ action: 'cancel' });
   await finishMacUpdateCancellation(cache);
 });
+
+test('cold retry preserves preparation build ownership and never sends it to the native helper', async () => {
+  const cache = path.join(directory, 'app-shell-updater');
+  const build = { current: 'cancelled-build', previous: 'previous-build' };
+  responses.push(
+    { error: 'CLEANUP_FAILED', unchanged: false },
+    { status: 'cancelled' },
+    { status: 'finished' },
+  );
+  await expect(
+    cancelMacUpdate(cache, { captured: true }, build),
+  ).rejects.toThrow();
+  expect(
+    JSON.parse(fs.readFileSync(getMacCancellationMarker(cache), 'utf8')).build,
+  ).toEqual(build);
+  jest.resetModules();
+  const recovered =
+    require('./macUpdateCancellation') as typeof import('./macUpdateCancellation');
+  await expect(recovered.cancelMacUpdate(cache)).resolves.toEqual(build);
+  expect(requests[1]).toEqual({
+    action: 'cancel',
+    snapshot: { captured: true },
+  });
+  await recovered.finishMacUpdateCancellation(cache);
+});
