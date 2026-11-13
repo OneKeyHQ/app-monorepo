@@ -1019,6 +1019,36 @@ test('fallback details gain a working restart action when the update becomes rea
   expect(view.queryByTestId('header-update-details')).toBeNull();
 });
 
+test.each([false, true])(
+  'desktop capsule keeps details mounted while the restart action appears at ready (wide=%s)',
+  (wide) => {
+    mockWideHeader = wide;
+    const data = {
+      latestVersion: '2.0.0',
+      updateAt: 0,
+      updateStrategy: EUpdateStrategy.manual,
+      status: EAppUpdateStatus.downloadPackage,
+    };
+    const view = render(
+      <UpdateCapsule data={data} showUpdate onWhatsNew={() => {}} />,
+    );
+    const details = view.getByTestId('header-update-details');
+    const popover = view.getByTestId('update-test-popover');
+    expect(view.queryByTestId('header-update-restart')).toBeNull();
+
+    view.rerender(
+      <UpdateCapsule
+        data={{ ...data, status: EAppUpdateStatus.ready }}
+        showUpdate
+        onWhatsNew={() => {}}
+      />,
+    );
+    expect(view.getByTestId('header-update-restart')).toBeTruthy();
+    expect(view.getByTestId('header-update-details')).toBe(details);
+    expect(view.getByTestId('update-test-popover')).toBe(popover);
+  },
+);
+
 test('fallback restart respects the busy gate and keeps the details visible', async () => {
   mockCanRestart.mockResolvedValue(false);
   const view = render(
