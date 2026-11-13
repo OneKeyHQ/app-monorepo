@@ -39,7 +39,7 @@ jest.mock('../states/jotai/atoms', () => ({
 
 const appStorageMock = {
   syncStorage: {
-    getObject: jest.fn(async () => pendingTaskValue),
+    getObject: jest.fn(() => pendingTaskValue),
     setObject: jest.fn(async (_key: string, task: any) => {
       pendingTaskValue = task;
       return pendingTaskValue;
@@ -2136,5 +2136,165 @@ describe('servicePendingInstallTask', () => {
     expect(autoUpdate.BundleUpdate.clearDownload).not.toHaveBeenCalled();
     expect(appUpdateState.jsBundleVersion).toBe('3');
     expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+  });
+
+  test('an old task clear cannot delete a replacement written after the sync deletion', async () => {
+    const tasks = require('./servicePendingInstallTask');
+    pendingTaskValue = makeSwitchTask({ revision: 999_111_001 });
+    const clearing = tasks.clearPendingInstallTask();
+    const replacement = makeSwitchTask({ revision: 999_111_002 });
+    pendingTaskValue = replacement;
+    await clearing;
+    expect(pendingTaskValue).toBe(replacement);
+  });
+
+  test.each([false, true])(
+    'refused manual clear recovers an interrupted worker without replacing a newer task (replacement: %s)',
+    async (replaceTask) => {
+      const service = createService();
+      const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const tasks = require('./servicePendingInstallTask');
+      let release!: (value: { status: string }) => void;
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      autoUpdate.AppUpdate.checkPackageAvailability.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+            started();
+          }),
+      );
+      setState({
+        latestVersion: '2.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      pendingTaskValue = makeAppShellInstallTask({ revision: 999_111_003 });
+      const processing = service.processPendingInstallTask();
+      await entered;
+      const finish = tasks.beginManualUpdateCacheClear();
+      release({ status: 'available' });
+      // Let the worker encounter the suspension while the clear is still pending.
+      await Promise.resolve();
+      await Promise.resolve();
+      const replacement = makeSwitchTask({ revision: 999_111_004 });
+      if (replaceTask) pendingTaskValue = replacement;
+      finish(false);
+      await processing;
+      expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(pendingTaskValue.status).toBe('pending');
+      expect(pendingTaskValue.revision).toBe(
+        replaceTask ? 999_111_004 : 999_111_003,
+      );
+      if (!replaceTask) {
+        await service.processPendingInstallTask();
+        expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  test('partial native revocation must not restore an interrupted task when disk cleanup fails', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const tasks = require('./servicePendingInstallTask');
+    let release!: (value: { status: string }) => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    autoUpdate.AppUpdate.checkPackageAvailability.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({ revision: 999_111_005 });
+    const processing = service.processPendingInstallTask();
+    await entered;
+    const finish = tasks.beginManualUpdateCacheClear();
+    release({ status: 'available' });
+    finish(true);
+    await processing;
+    expect(pendingTaskValue.status).toBe('running');
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test('manual cache clear revokes a task already waiting for package availability', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const tasks = require('./servicePendingInstallTask');
+    let release!: (value: { status: string }) => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    autoUpdate.AppUpdate.checkPackageAvailability.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({ revision: 987_654_321 });
+    const processing = service.processPendingInstallTask();
+    await entered;
+    const finish = tasks.beginManualUpdateCacheClear();
+    await tasks.clearPendingInstallTask();
+    finish();
+    release({ status: 'available' });
+    await processing;
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('manual cache clear invalidates a bundle task already waiting for verification', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const tasks = require('./servicePendingInstallTask');
+    let release!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    pendingTaskValue = makeSwitchTask({ revision: 987_654_322 });
+    const processing = service.processPendingInstallTask();
+    await entered;
+    const finish = tasks.beginManualUpdateCacheClear();
+    await tasks.clearPendingInstallTask();
+    finish();
+    release();
+    await processing;
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+    expect(pendingTaskValue).toBeUndefined();
   });
 });

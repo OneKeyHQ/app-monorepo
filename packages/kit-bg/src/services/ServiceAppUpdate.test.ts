@@ -2266,6 +2266,42 @@ describe('ServiceAppUpdate state transitions', () => {
   // clearCache
   // =========================================================================
   describe('clearCache', () => {
+    test('registers main-process quit protection before waiting for the preparation lock', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      const internal = service as unknown as {
+        appShellTargetMutex: {
+          runExclusive: (callback: () => Promise<void>) => Promise<void>;
+        };
+      };
+      let unlock!: () => void;
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const preparation = internal.appShellTargetMutex.runExclusive(
+        () =>
+          new Promise<void>((resolve) => {
+            unlock = resolve;
+            started();
+          }),
+      );
+      await entered;
+      const clear = service.clearCache();
+      await Promise.resolve();
+      expect(AppUpdate.clearPackage.mock.calls).toEqual([
+        [{ manual: true, begin: true }],
+      ]);
+      unlock();
+      await Promise.all([preparation, clear]);
+      expect(AppUpdate.clearPackage.mock.calls).toEqual([
+        [{ manual: true, begin: true }],
+        [{ manual: true }],
+        [{ manual: true, complete: true }],
+      ]);
+    });
+
     test('clears native caches and resets atom', async () => {
       const {
         AppUpdate,
@@ -2284,11 +2320,98 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.clearCache();
 
       expect(AppUpdate.clearPackage).toHaveBeenCalled();
+      expect(AppUpdate.clearPackage).toHaveBeenCalledWith({ manual: true });
       expect(BundleUpdate.clearDownload).toHaveBeenCalled();
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
       await expect(
         service.getDownloadAttemptBudget({ targetKey: '1.0.0:10' }),
       ).resolves.toMatchObject({ attemptCount: 0, givenUp: false });
+    });
+
+    test('manual clear does not immediately fetch and recreate the cleared preparation', async () => {
+      const fetch = jest.spyOn(service, 'fetchAppUpdateInfo');
+      await service.clearCache();
+      jest.advanceTimersByTime(1);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    test('manual clear retains the next periodic update check', async () => {
+      const fetch = jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockResolvedValue(atomValue);
+      await service.clearCache();
+      expect(fetch).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(90 * 60 * 1000);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    test('a pre-clear query cannot schedule a late rollback after manual clearing', async () => {
+      let release!: (value: any) => void;
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      jest.spyOn(service, 'getAppLatestInfo').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+            started();
+          }),
+      );
+      const querying = service.fetchAppUpdateInfo(true);
+      await entered;
+      await service.clearCache();
+      release({
+        version: '1.0.0',
+        jsBundleCount: 0,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      await querying;
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+      expect(pendingInstallTaskValue).toBeUndefined();
+    });
+
+    test('refused revocation preserves ready and reports a translated error instead of wire JSON', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      resetAtom({
+        status: EAppUpdateStatus.ready,
+        downloadedEvent: { latestVersion: '2.0.0' },
+      });
+      AppUpdate.clearPackage.mockRejectedValueOnce(new Error('native refusal'));
+      await expect(service.clearCache()).rejects.toMatchObject({
+        key: ETranslations.global_unknown_error_retry_message,
+      });
+      expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+      expect(AppUpdate.clearPackage).toHaveBeenLastCalledWith({
+        manual: true,
+        release: true,
+      });
+    });
+
+    test('a ready callback queued during manual clear cannot prepare the old package again', async () => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      let finish!: () => void;
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      AppUpdate.clearPackage.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+            started();
+          }),
+      );
+      const clear = service.clearCache();
+      await entered;
+      const ready = service.readyToInstall();
+      finish();
+      await Promise.all([clear, ready]);
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
 
     test('also rewrites lastUpdateDialogShownAt to 0 (re-arms the 24h dialog)', async () => {

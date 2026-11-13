@@ -106,7 +106,43 @@ export async function getPendingInstallTask() {
   );
 }
 
+const revokedTasks = new Set<string>();
+let manualCacheClearInProgress = false;
+let manualCacheClearGeneration = 0;
+let manualCacheClearOutcome: Promise<boolean> | undefined;
+
+export function beginManualUpdateCacheClear() {
+  manualCacheClearInProgress = true;
+  manualCacheClearGeneration += 1;
+  let complete!: (nativeMayHaveChanged: boolean) => void;
+  manualCacheClearOutcome = new Promise<boolean>((resolve) => {
+    complete = resolve;
+  });
+  return (nativeMayHaveChanged = true) => {
+    manualCacheClearInProgress = false;
+    complete(nativeMayHaveChanged);
+  };
+}
+
+function taskWasRevoked(task: IPendingInstallTask) {
+  return revokedTasks.has(`${task.taskId}:${task.revision}`);
+}
+
+function assertTaskMayExecute(task: IPendingInstallTask, generation: number) {
+  if (
+    manualCacheClearInProgress ||
+    generation !== manualCacheClearGeneration ||
+    taskWasRevoked(task)
+  ) {
+    throw createUpdateError({
+      code: EUpdateErrorCode.cancelled,
+      step: 'install',
+    });
+  }
+}
+
 export async function setPendingInstallTask(task: IPendingInstallTask) {
+  if (taskWasRevoked(task)) return;
   await Promise.resolve(
     appStorage.syncStorage.setObject(
       EAppSyncStorageKeys.onekey_pending_install_task,
@@ -116,6 +152,13 @@ export async function setPendingInstallTask(task: IPendingInstallTask) {
 }
 
 export async function clearPendingInstallTask() {
+  // The sync-storage read, revocation and delete must precede the first yield;
+  // an older clear must not delete a replacement written in that gap.
+  const task = appStorage.syncStorage.getObject<IPendingInstallTask>(
+    EAppSyncStorageKeys.onekey_pending_install_task,
+  );
+  if (task && manualCacheClearInProgress)
+    revokedTasks.add(`${task.taskId}:${task.revision}`);
   await Promise.resolve(
     appStorage.syncStorage.delete(
       EAppSyncStorageKeys.onekey_pending_install_task,
@@ -796,6 +839,7 @@ class ServicePendingInstallTask {
     stage: 'fetch' | 'ready_to_install';
     appInfo?: Awaited<ReturnType<typeof appUpdatePersistAtom.get>>;
   }) {
+    const generation = manualCacheClearGeneration;
     if (!releaseInfo) {
       return;
     }
@@ -976,6 +1020,11 @@ class ServicePendingInstallTask {
     const existingRaw = await getPendingInstallTask();
     const isCurrentTarget = async () => {
       const current = await appUpdatePersistAtom.get();
+      if (
+        manualCacheClearInProgress ||
+        generation !== manualCacheClearGeneration
+      )
+        return false;
       const sameTarget =
         (current.status === EAppUpdateStatus.verifyPackage ||
           current.status === EAppUpdateStatus.ready) &&
@@ -1555,12 +1604,15 @@ class ServicePendingInstallTask {
     >,
     onRestartRequested: (isBuiltinFallback: boolean) => void,
   ) {
+    const generation = manualCacheClearGeneration;
+    assertTaskMayExecute(task, generation);
     const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
     const bundleExists = await BundleUpdate.isBundleExists(
       appVersion,
       bundleVersion,
     );
+    assertTaskMayExecute(task, generation);
     if (!bundleExists) {
       // The target bundle is not extracted locally.  If this is a rollback
       // (target < current), fall back to the builtin bundle instead of
@@ -1577,11 +1629,13 @@ class ServicePendingInstallTask {
         // bundle.  Just clear native metadata and the pending task — no
         // restart needed.
         const alreadyBuiltin = await this.isRunningBuiltinBundle();
+        assertTaskMayExecute(task, generation);
         if (alreadyBuiltin) {
           defaultLogger.app.appUpdate.log(
             `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, already on builtin — clearing without restart`,
           );
           await clearPendingInstallTask();
+          assertTaskMayExecute(task, generation);
           await BundleUpdate.resetToBuiltInBundle();
           // Throw to skip the caller's success path which would re-persist
           // the cleared task as appliedWaitingVerify.
@@ -1597,7 +1651,9 @@ class ServicePendingInstallTask {
         // We clear AND throw so the caller's success path (which would
         // re-persist the task as appliedWaitingVerify) is skipped.
         await clearPendingInstallTask();
+        assertTaskMayExecute(task, generation);
         await BundleUpdate.resetToBuiltInBundle();
+        assertTaskMayExecute(task, generation);
         onRestartRequested(true);
         try {
           await BundleUpdate.restart();
@@ -1620,6 +1676,7 @@ class ServicePendingInstallTask {
 
     if (!signature || signature === PLACEHOLDER_SIGNATURE) {
       const skipAllowed = await this.isUnsignedBundleAllowed();
+      assertTaskMayExecute(task, generation);
       if (!skipAllowed) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,
@@ -1631,8 +1688,10 @@ class ServicePendingInstallTask {
     try {
       await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
     } catch (error) {
+      assertTaskMayExecute(task, generation);
       throw createUpdateError(getUpdateError(error, 'verifyPackage'));
     }
+    assertTaskMayExecute(task, generation);
 
     // NOTE: switchBundle no longer has its own version-downgrade guard.
     // Version-downgrade (rollback) is intentionally allowed ONLY through
@@ -1651,6 +1710,7 @@ class ServicePendingInstallTask {
       status: EPendingInstallTaskStatus.appliedWaitingVerify,
       lastError: undefined,
     });
+    assertTaskMayExecute(task, generation);
     onRestartRequested(false);
     try {
       await BundleUpdate.switchBundle({
@@ -1669,6 +1729,8 @@ class ServicePendingInstallTask {
       { type: EPendingInstallTaskType.appInstall }
     >,
   ) {
+    const generation = manualCacheClearGeneration;
+    assertTaskMayExecute(task, generation);
     if (
       platformEnv.isDesktop &&
       task.payload.updateStrategy !== EUpdateStrategy.force &&
@@ -1722,6 +1784,7 @@ class ServicePendingInstallTask {
         step: 'install',
       });
     }
+    assertTaskMayExecute(task, generation);
     const recordStartupSource =
       platformEnv.isDesktop &&
       payload.updateStrategy !== EUpdateStrategy.force &&
@@ -1750,6 +1813,7 @@ class ServicePendingInstallTask {
       );
     };
     try {
+      assertTaskMayExecute(task, generation);
       const started = await AppUpdate.installPackage({
         ...appInfo,
         installSource:
@@ -2304,6 +2368,27 @@ class ServicePendingInstallTask {
         const updateError = getUpdateError(error, 'install');
         if (updateError.code === EUpdateErrorCode.cancelled) {
           shouldRunPostRefresh = false;
+          // A refused native clear preserves the prepared update. Wait for the
+          // outcome, then release only this interrupted worker's matching task.
+          const nativeMayHaveChanged = await manualCacheClearOutcome;
+          const current = appStorage.syncStorage.getObject<IPendingInstallTask>(
+            EAppSyncStorageKeys.onekey_pending_install_task,
+          );
+          if (
+            nativeMayHaveChanged === false &&
+            current?.taskId === runningTask.taskId &&
+            current.revision === runningTask.revision &&
+            !taskWasRevoked(current) &&
+            (current.status === EPendingInstallTaskStatus.running ||
+              current.status === EPendingInstallTaskStatus.appliedWaitingVerify)
+          ) {
+            await setPendingInstallTask({
+              ...task,
+              status: EPendingInstallTaskStatus.pending,
+              runningStartedAt: undefined,
+              lastError: undefined,
+            });
+          }
           return;
         }
         // Builtin fallback already cleared the task and triggered relaunch,

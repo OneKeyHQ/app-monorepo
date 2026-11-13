@@ -14,6 +14,7 @@ const {
 } = require('./generate-desktop-api-methods');
 
 async function buildDesktopMain(options) {
+  require('./build-squirrel-cancel').buildSquirrelCancel();
   await updateDesktopApiMethods();
   return build(options);
 }

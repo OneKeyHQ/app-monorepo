@@ -1,3 +1,5 @@
+import { getManualUpdateCacheClearBarrier } from './manualUpdateCacheClear';
+
 type ILoggerLike = {
   info: (...args: unknown[]) => void;
   warn: (...args: unknown[]) => void;
@@ -57,8 +59,21 @@ export function createBeforeQuitHandler(
   const { logger } = deps;
   let quitInstallStarted = false;
   let quitInstallDone = false;
+  let waitingForCacheClear = false;
 
   return (event) => {
+    const cacheClear = getManualUpdateCacheClearBarrier();
+    if (cacheClear) {
+      event.preventDefault();
+      if (!waitingForCacheClear) {
+        waitingForCacheClear = true;
+        void cacheClear.then(() => {
+          waitingForCacheClear = false;
+          setImmediate(() => deps.app.quit());
+        });
+      }
+      return;
+    }
     deps.markAppQuitStarted();
     deps.unregisterShortcuts();
     if (deps.isMac && !deps.getBleQuitReady()) {

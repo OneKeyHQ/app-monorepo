@@ -35,6 +35,23 @@ jest.mock('./electronUpdateListeners', () => {
   };
 });
 
+test.each([true, false])(
+  'desktop cache-clear release forwards the main-process preservation result (%s)',
+  async (unchanged) => {
+    const clearUpdateCache = jest.fn(async () => ({ unchanged }));
+    globalThis.desktopApiProxy = {
+      appUpdate: { clearUpdateCache },
+    } as unknown as typeof globalThis.desktopApiProxy;
+    await expect(
+      AppUpdate.clearPackage({ manual: true, release: true }),
+    ).resolves.toEqual({ unchanged });
+    expect(clearUpdateCache).toHaveBeenCalledWith({
+      manual: true,
+      release: true,
+    });
+  },
+);
+
 describe('desktop bundle install concurrency', () => {
   const installBundle = jest.fn<Promise<void>, []>();
   const restart = jest.fn<Promise<void>, []>();

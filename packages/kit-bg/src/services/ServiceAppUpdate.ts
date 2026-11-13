@@ -76,6 +76,7 @@ import {
   APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX,
   MAX_FULL_FLOW_RETRY,
   PLACEHOLDER_SIGNATURE,
+  beginManualUpdateCacheClear,
   clearPendingInstallTask,
   getPendingInstallTask,
   isMatchingDownloadedRelease,
@@ -316,6 +317,12 @@ function normalizeOptionalNumber(value: unknown): number | undefined {
 class ServiceAppUpdate extends ServiceBase {
   private appShellTargetMutex = new Mutex();
 
+  private updateCacheGeneration = 0;
+
+  private clearingUpdateCache = false;
+
+  private updateCacheClearPromise?: Promise<void>;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -509,6 +516,7 @@ class ServiceAppUpdate extends ServiceBase {
     appVersion: string;
   }): Promise<boolean> {
     // Don't overwrite in-progress tasks (running / appliedWaitingVerify)
+    const cacheGeneration = this.updateCacheGeneration;
     const existingTask = await getPendingInstallTask();
     if (
       existingTask &&
@@ -529,6 +537,11 @@ class ServiceAppUpdate extends ServiceBase {
       BundleUpdate.getNativeBuildNumber(),
     ]);
     const now = Date.now();
+    if (
+      cacheGeneration !== this.updateCacheGeneration ||
+      this.clearingUpdateCache
+    )
+      return false;
     await setPendingInstallTask({
       taskId: `jsbundle:${appVersion}:builtin`,
       revision: requestSeq,
@@ -1279,11 +1292,17 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async fetchConfig() {
+    const cacheGeneration = this.updateCacheGeneration;
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       code: number;
       data: IResponseAppUpdateInfo;
     }>('/utility/v1/app-update');
+    if (
+      cacheGeneration !== this.updateCacheGeneration ||
+      this.clearingUpdateCache
+    )
+      return undefined;
     const { code, data } = response.data;
     if (code === 0 && data) {
       const normalizedUpdateStrategy =
@@ -1736,6 +1755,16 @@ class ServiceAppUpdate extends ServiceBase {
       return true;
     }
 
+    this.scheduleNextUpdateCheck();
+    const now = Date.now();
+    if (platformEnv.isExtension) {
+      return now - updateAt > timerUtils.getTimeDurationMs({ day: 1 });
+    }
+    return now - updateAt > timerUtils.getTimeDurationMs({ hour: 1 });
+  }
+
+  private scheduleNextUpdateCheck() {
+    clearTimeout(syncTimerId);
     const timeout =
       timerUtils.getTimeDurationMs({
         hour: 1,
@@ -1747,21 +1776,6 @@ class ServiceAppUpdate extends ServiceBase {
     syncTimerId = setTimeout(() => {
       void this.fetchAppUpdateInfo();
     }, timeout);
-    const now = Date.now();
-    if (platformEnv.isExtension) {
-      return (
-        now - updateAt >
-        timerUtils.getTimeDurationMs({
-          day: 1,
-        })
-      );
-    }
-    return (
-      now - updateAt >
-      timerUtils.getTimeDurationMs({
-        hour: 1,
-      })
-    );
   }
 
   // States from which downloadPackage is allowed to be called
@@ -1775,6 +1789,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async downloadPackage(): Promise<boolean> {
     return this.appShellTargetMutex.runExclusive(async () => {
+      if (this.clearingUpdateCache) return false;
       const { status } = await appUpdatePersistAtom.get();
       if (!ServiceAppUpdate.DOWNLOAD_ENTRY_STATUSES.includes(status)) {
         defaultLogger.app.appUpdate.log(
@@ -2579,6 +2594,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async readyToInstall() {
     return this.appShellTargetMutex.runExclusive(async () => {
+      if (this.clearingUpdateCache) return;
       const appInfo = await appUpdatePersistAtom.get();
       const { status } = appInfo;
       if (
@@ -2773,7 +2789,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async reset() {
+  public async reset(skipImmediateUpdateCheck = false) {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
@@ -2799,15 +2815,21 @@ class ServiceAppUpdate extends ServiceBase {
       lastUpdateDialogShownAt: 0,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
+    if (skipImmediateUpdateCheck) this.scheduleNextUpdateCheck();
     // Schedule an immediate check so that if a newer version was released
     // while the user was installing the current one, it's discovered right away
     // instead of waiting for the next 1–1.5 hour sync cycle.
     // Guard against re-entrancy: if fetchAppUpdateInfo gets empty data from the
     // server it calls reset() again, which would schedule another fetch, creating
     // an infinite loop.  The isResetting flag breaks the cycle.
-    if (!this.isResetting) {
+    if (!this.isResetting && !skipImmediateUpdateCheck) {
       this.isResetting = true;
+      const cacheGeneration = this.updateCacheGeneration;
       setTimeout(() => {
+        if (cacheGeneration !== this.updateCacheGeneration) {
+          this.isResetting = false;
+          return;
+        }
         void this.fetchAppUpdateInfo().finally(() => {
           this.isResetting = false;
         });
@@ -2871,18 +2893,52 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async clearCache() {
-    clearTimeout(downloadTimeoutId);
-    await this.resetDownloadAttemptBudget();
-    await AppUpdate.clearPackage();
-    await BundleUpdate.clearDownload();
-    await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
-    // reset() below schedules an immediate fetchAppUpdateInfo(forceUpdate=false)
-    // which would hit getAppLatestInfo's 5-min in-memory cache and replay the
-    // release the user just asked us to clear straight back onto the atom.
-    this.cachedUpdateInfo = undefined;
-    this.updateAt = 0;
-    void this.fetchAppChangeLog.clear();
-    await this.reset();
+    if (this.updateCacheClearPromise) return this.updateCacheClearPromise;
+    this.clearingUpdateCache = true;
+    this.updateCacheGeneration += 1;
+    const finish = beginManualUpdateCacheClear();
+    let nativeMayHaveChanged = true;
+    const operation = (async () => {
+      // Register normal-quit protection before waiting for an existing staging
+      // operation to release the service lock. No native revocation happens yet.
+      await AppUpdate.clearPackage({ manual: true, begin: true });
+      return this.appShellTargetMutex.runExclusive(async () => {
+        clearTimeout(downloadTimeoutId);
+        await this.resetDownloadAttemptBudget();
+        await AppUpdate.clearPackage({ manual: true });
+        await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
+        // Invalidate the cached release and skip reset's immediate fetch so this
+        // manual cancellation cannot immediately recreate the same preparation.
+        this.cachedUpdateInfo = undefined;
+        this.updateAt = 0;
+        void this.fetchAppChangeLog.clear();
+        await this.reset(true);
+        await BundleUpdate.clearDownload();
+        await AppUpdate.clearPackage({ manual: true, complete: true });
+      });
+    })();
+    this.updateCacheClearPromise = operation;
+    try {
+      await operation;
+    } catch (error) {
+      const state = await AppUpdate.clearPackage({
+        manual: true,
+        release: true,
+      }).catch(() => undefined);
+      nativeMayHaveChanged = state?.unchanged !== true;
+      const updateError = getUpdateError(error, 'cleanup');
+      defaultLogger.app.appUpdate.log(
+        `Manual update-cache clear failed: ${JSON.stringify(updateError)}`,
+      );
+      throw new OneKeyLocalError({
+        key: ETranslations.global_unknown_error_retry_message,
+        data: { updateError },
+      });
+    } finally {
+      finish(nativeMayHaveChanged);
+      this.clearingUpdateCache = false;
+      this.updateCacheClearPromise = undefined;
+    }
   }
 
   fetchAppChangeLog = memoizee(
@@ -2911,6 +2967,8 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo(forceUpdate = false) {
+    if (this.clearingUpdateCache) return appUpdatePersistAtom.get();
+    const cacheGeneration = this.updateCacheGeneration;
     await this.cleanupUpdateControlState();
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
@@ -2994,6 +3052,11 @@ class ServiceAppUpdate extends ServiceBase {
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
+    if (
+      cacheGeneration !== this.updateCacheGeneration ||
+      this.clearingUpdateCache
+    )
+      return appUpdatePersistAtom.get();
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     defaultLogger.app.appUpdate.appUpdateFetchResult(
       {
@@ -3035,6 +3098,11 @@ class ServiceAppUpdate extends ServiceBase {
           targetBundleVersion: null,
           ...this.buildTaskLogFields(null),
         });
+        if (
+          cacheGeneration !== this.updateCacheGeneration ||
+          this.clearingUpdateCache
+        )
+          return appUpdatePersistAtom.get();
         const scheduled = await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleCount_is_zero',
           requestSeq,
@@ -3118,6 +3186,11 @@ class ServiceAppUpdate extends ServiceBase {
         decision.decision === 'jsBundleRollbackToBuiltin' &&
         releaseInfo.jsBundleCount === 0
       ) {
+        if (
+          cacheGeneration !== this.updateCacheGeneration ||
+          this.clearingUpdateCache
+        )
+          return appUpdatePersistAtom.get();
         const scheduled = await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',
           requestSeq,
@@ -3234,6 +3307,11 @@ class ServiceAppUpdate extends ServiceBase {
 
       let shouldClearSupersededPendingTask = false;
       await this.appShellTargetMutex.runExclusive(async () => {
+        if (
+          cacheGeneration !== this.updateCacheGeneration ||
+          this.clearingUpdateCache
+        )
+          return;
         let supersededQuitTarget:
           | { latestVersion?: string; downloadUrl?: string }
           | undefined;
@@ -3497,6 +3575,11 @@ class ServiceAppUpdate extends ServiceBase {
           revokedQuitTarget = supersededQuitTarget;
         }
       });
+      if (
+        cacheGeneration !== this.updateCacheGeneration ||
+        this.clearingUpdateCache
+      )
+        return appUpdatePersistAtom.get();
       if (shouldClearSupersededPendingTask) {
         await clearPendingInstallTask();
         defaultLogger.app.appUpdate.pendingTaskCleared?.({

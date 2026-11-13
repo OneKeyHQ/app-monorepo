@@ -113,9 +113,18 @@ installer. Cache clearing and new update operations are blocked while installati
 is pending. Cancellation, verification/launch failure, and manual-folder fallback
 release the lock; successful native/installer/relaunch handoff keeps it until exit.
 
+Settings' explicit update-cache clear may revoke a successfully captured macOS
+preparation before installation handoff. It serializes against preparation and
+quit, unregisters the matching ShipIt job and waits for its process to stop before
+removing native artifacts. Automatic quarantine never invokes this revocation.
+Unknown/legacy preparations, active handoff and ambiguous jobs fail closed.
+The native cancellation receipt and OneKey barrier remain until pending-task and
+cache cleanup commit; a retry can finish interrupted cleanup. See
+[`squirrel-cancel/SPEC.md`](../native-modules/squirrel-cancel/SPEC.md).
+
 | Target | Required behavior |
 | --- | --- |
-| macOS (non-MAS) | Keep Squirrel.Mac via Electron's built-in `autoUpdater`. Node download alone emits the package-ready event. Fetch and verify ASC/GPG/SHA-256, then ask for native installation confirmation. Only after confirmation, serve the verified ZIP through an authenticated loopback JSON feed, call native `checkForUpdates`, wait for native `update-downloaded`, and immediately call native `quitAndInstall`. Keep the loopback server alive until Squirrel has staged the ZIP. Squirrel may apply a staged update on the next launch even without `quitAndInstall`, so no further cancellation or deferred verification may occur after staging. Verify native exit, relaunch, and installed version; retain a delayed quit fallback if normal quit is blocked. |
+| macOS (non-MAS) | Keep Squirrel.Mac via Electron's built-in `autoUpdater`. Fetch and verify ASC/GPG/SHA-256 before serving the verified ZIP through an authenticated loopback feed. Non-force updates stage before Ready and normally apply after quit; explicit manual cache clearing may revoke this preparation through the native cancellation transaction above. Force/explicit install waits for native `update-downloaded` and calls `quitAndInstall` without another cancellable step. Keep the loopback server alive until staging finishes. Verify native exit, relaunch and installed version; retain a delayed quit fallback if normal quit is blocked. |
 | Windows NSIS (non-Store) | Launch only the verified EXE with the equivalent non-silent NSIS update arguments and current install-directory behavior. Handle spawn/elevation failure without claiming success. Preserve the native confirmation and manual folder-opening fallback. Electron's built-in Windows `autoUpdater` is not an NSIS installer. |
 | Linux AppImage | For a usable writable `APPIMAGE` path, copy and replace the verified executable while retaining the old package, then queue `app.relaunch({ execPath })` and quit so the old process releases its single-instance lock first. The handoff response means restart was queued; it does not prove installation. On the next startup, confirm the selected version and `APPIMAGE` path before recording the build number and cleaning up the old package. A restart on the old version restores/removes the candidate through a pending handoff marker. If the runtime path is absent, read-only, or unsuitable, open the verified download directory for manual installation. Snap/Flatpak remain store-managed. |
 
