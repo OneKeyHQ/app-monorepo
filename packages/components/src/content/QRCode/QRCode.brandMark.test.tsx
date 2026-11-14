@@ -69,6 +69,33 @@ const pathData = (container: HTMLElement) =>
   );
 
 describe('QRCode brand mark', () => {
+  it('keeps fractional-size finder rings inside an integer SVG viewport', () => {
+    const { container } = render(
+      <QRCode value={VALUE} size={190} padding={10} quietZoneModules={2} />,
+    );
+    const svg = container.querySelector('svg');
+    const viewportSize = Number(svg?.getAttribute('width'));
+    const [left, top, width, height] = (svg?.getAttribute('viewBox') ?? '')
+      .split(' ')
+      .map(Number);
+
+    expect(Number.isInteger(viewportSize)).toBe(true);
+    expect(width).toBe(viewportSize);
+    expect(height).toBe(viewportSize);
+    // The plate comes first, followed by the nine nested finder rectangles.
+    const rings = Array.from(svg?.querySelectorAll('rect') ?? []).slice(1);
+    expect(rings).toHaveLength(9);
+    for (const ring of rings) {
+      const x = Number(ring.getAttribute('x'));
+      const y = Number(ring.getAttribute('y'));
+      const ringSize = Number(ring.getAttribute('width'));
+      expect(x - left).toBeGreaterThanOrEqual(1);
+      expect(y - top).toBeGreaterThanOrEqual(1);
+      expect(left + width - x - ringSize).toBeGreaterThanOrEqual(1);
+      expect(top + height - y - ringSize).toBeGreaterThanOrEqual(1);
+    }
+  });
+
   it('draws the mark on a round plate in the same svg as the code', () => {
     const { container } = render(
       <QRCode
