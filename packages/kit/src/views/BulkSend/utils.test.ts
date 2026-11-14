@@ -8,6 +8,9 @@ import {
   calculateIsAmountValid,
   generateRandomAmountsFromRange,
   getBulkSendEffectiveRangeMin,
+  getBulkSendSolanaAccountReserve,
+  getBulkSendSolanaAtaRent,
+  getBulkSendSolanaBalance,
   validateRangeInput,
 } from './utils';
 
@@ -450,5 +453,129 @@ describe('generateRandomAmountsFromRange', () => {
         decimals: 18,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('getBulkSendSolanaAtaRent', () => {
+  it('sums the on-chain rent carried by each transaction', () => {
+    expect(
+      getBulkSendSolanaAtaRent({
+        unsignedTxs: [
+          { solanaCreateTokenAccountRent: '0.0029768' },
+          { solanaCreateTokenAccountRent: '0.00148844' },
+        ],
+        ataCount: 3,
+      }),
+    ).toBe('0.00446524');
+  });
+
+  it('falls back to the legacy rent per new token account when a transaction has none', () => {
+    expect(
+      getBulkSendSolanaAtaRent({
+        unsignedTxs: [{ solanaCreateTokenAccountRent: '0.00148844' }, {}],
+        ataCount: 3,
+      }),
+    ).toBe('0.00674424');
+  });
+
+  it.each(['NaN', '', '-1'])(
+    'falls back when a transaction carries a malformed rent: %p',
+    (rent) => {
+      expect(
+        getBulkSendSolanaAtaRent({
+          unsignedTxs: [{ solanaCreateTokenAccountRent: rent }],
+          ataCount: 1,
+        }),
+      ).toBe('0.00224808');
+    },
+  );
+
+  it('falls back when there is no transaction to read the rent from', () => {
+    expect(getBulkSendSolanaAtaRent({ unsignedTxs: [], ataCount: 2 })).toBe(
+      '0.00449616',
+    );
+  });
+
+  // The size of a Token-2022 account is unknown once the lookup fails, so the
+  // fallback has to cover the largest one (195 bytes) at the legacy rate.
+  it('prices the fallback above the rent of the largest Token-2022 account at the legacy rate', () => {
+    const largestAccountRent = new BigNumber(128 + 195)
+      .times(6960)
+      .shiftedBy(-9);
+    expect(
+      new BigNumber(
+        getBulkSendSolanaAtaRent({ unsignedTxs: [{}], ataCount: 1 }) ?? 0,
+      ).gte(largestAccountRent),
+    ).toBe(true);
+  });
+
+  it.each([undefined, 0])(
+    'reports no rent when no token account is created: %p',
+    (ataCount) => {
+      expect(
+        getBulkSendSolanaAtaRent({
+          unsignedTxs: [{ solanaCreateTokenAccountRent: '0' }],
+          ataCount,
+        }),
+      ).toBeUndefined();
+    },
+  );
+});
+
+describe('getBulkSendSolanaAccountReserve', () => {
+  it('uses the reserve read from the chain', () => {
+    expect(getBulkSendSolanaAccountReserve('0.00065024')).toBe('0.00065024');
+  });
+
+  it.each([undefined, '', 'NaN', '0', '-1'])(
+    'falls back to the legacy reserve for %p',
+    (reserve) => {
+      expect(getBulkSendSolanaAccountReserve(reserve)).toBe('0.00089088');
+    },
+  );
+});
+
+describe('getBulkSendSolanaBalance', () => {
+  it('reads the total balance and the reserve the API reports as frozen', () => {
+    expect(
+      getBulkSendSolanaBalance({
+        balanceParsed: '0.010009961',
+        frozenBalanceParsed: '0.00065024',
+        totalBalanceParsed: '0.010660201',
+      }),
+    ).toEqual({ solBalance: '0.010660201', solAccountReserve: '0.00065024' });
+  });
+
+  it('adds the frozen reserve back when the total is not reported', () => {
+    expect(
+      getBulkSendSolanaBalance({
+        balanceParsed: '0.010009961',
+        frozenBalanceParsed: '0.00065024',
+      }),
+    ).toEqual({ solBalance: '0.010660201', solAccountReserve: '0.00065024' });
+  });
+
+  it('falls back to the legacy reserve when no frozen balance is reported', () => {
+    expect(getBulkSendSolanaBalance({ balanceParsed: '0.5' })).toEqual({
+      solBalance: '0.5',
+      solAccountReserve: '0.00089088',
+    });
+  });
+
+  it('keeps the legacy reserve for an account the API reports nothing frozen for', () => {
+    expect(
+      getBulkSendSolanaBalance({
+        balanceParsed: '0',
+        frozenBalanceParsed: '0',
+        totalBalanceParsed: '0',
+      }),
+    ).toEqual({ solBalance: '0', solAccountReserve: '0.00089088' });
+  });
+
+  it('treats missing account details as an empty balance', () => {
+    expect(getBulkSendSolanaBalance(undefined)).toEqual({
+      solBalance: '0',
+      solAccountReserve: '0.00089088',
+    });
   });
 });

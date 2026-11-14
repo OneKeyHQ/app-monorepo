@@ -6,8 +6,11 @@ Covers the Solana blockhash lifecycle around signing and pending history
 detection for pending txs that never reached the ledger, and the custom RPC
 "Blockhash not found" retry parity. Also covers the dApp transaction fee
 contract (OK-64196): dApp-built txs stay byte-identical and only expose the
-priority fee they already carry.
+priority fee they already carry. Also covers the token account rent a transfer
+funds (OK-66906): read from the chain when the tx is built, legacy constant only
+as a fallback.
 */
+import { createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import {
   ComputeBudgetProgram,
   Keypair,
@@ -30,6 +33,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
@@ -1052,5 +1057,158 @@ describe('SolVault.isSignedTxRejectedByBroadcast', () => {
         new OneKeyLocalError('timeout of 10000ms exceeded'),
       ),
     ).resolves.toBe(false);
+  });
+});
+
+describe('SolVault token account rent (OK-66906)', () => {
+  const mint = Keypair.generate().publicKey;
+  const tokenAccount = Keypair.generate().publicKey;
+  const createTokenAccountIx = createAssociatedTokenAccountInstruction(
+    payer.publicKey,
+    tokenAccount,
+    recipient.publicKey,
+    mint,
+  );
+  const encodedTx = buildLegacyEncodedTx([createTokenAccountIx]);
+  const swapInfo = (protocol: EProtocolOfExchange) =>
+    ({ protocol, swapBuildResData: {} }) as unknown as ISwapTxInfo;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function buildRentVault() {
+    const { vault } = buildVault();
+    const client = {
+      getMultipleAccountsInfo: jest.fn().mockResolvedValue([null]),
+      getAccountInfo: jest.fn(),
+      getMinimumBalanceForRentExemption: jest.fn(
+        async (size: number) => (128 + size) * 5080,
+      ),
+    };
+    vault.getClient = async () => client as unknown as ClientSol;
+    vault.getAccountAddress = async () => payer.publicKey.toBase58();
+    vault.accountId = 'hd-1--0';
+    jest
+      .spyOn(vault, '_extractATADetailsFromInstructions')
+      .mockResolvedValue([]);
+    jest.spyOn(vault, 'getNetwork').mockResolvedValue({
+      symbol: 'SOL',
+      decimals: 9,
+    } as unknown as Awaited<ReturnType<SolVault['getNetwork']>>);
+    jest.spyOn(vault, '_decodeNativeTxActions').mockResolvedValue([
+      {
+        assetTransfer: {
+          from: payer.publicKey.toBase58(),
+          to: recipient.publicKey.toBase58(),
+          sends: [],
+          receives: [],
+        },
+      },
+    ] as unknown as Awaited<ReturnType<SolVault['_decodeNativeTxActions']>>);
+    return { vault, client };
+  }
+
+  describe('_buildUnsignedTxFromEncodedTx', () => {
+    it('attaches the on-chain rent of the token account a transfer creates', async () => {
+      const { vault, client } = buildRentVault();
+
+      const unsignedTx = await vault._buildUnsignedTxFromEncodedTx({
+        encodedTx,
+      });
+
+      expect(unsignedTx.solanaCreateTokenAccountRent).toBe('0.00148844');
+      expect(unsignedTx.solanaRent).toBeUndefined();
+      expect(client.getMinimumBalanceForRentExemption).toHaveBeenCalledWith(
+        165,
+      );
+    });
+
+    it('leaves the rent unset when the chain cannot be read', async () => {
+      const { vault, client } = buildRentVault();
+      client.getMinimumBalanceForRentExemption.mockRejectedValue(
+        new Error('rpc down'),
+      );
+
+      const unsignedTx = await vault._buildUnsignedTxFromEncodedTx({
+        encodedTx,
+      });
+
+      expect(unsignedTx.solanaCreateTokenAccountRent).toBeUndefined();
+    });
+
+    it('treats a Private Send like a transfer', async () => {
+      const { vault } = buildRentVault();
+
+      const unsignedTx = await vault._buildUnsignedTxFromEncodedTx({
+        encodedTx,
+        swapInfo: swapInfo(EProtocolOfExchange.PRIVATE_SEND),
+      });
+
+      expect(unsignedTx.solanaCreateTokenAccountRent).toBe('0.00148844');
+      expect(unsignedTx.solanaRent).toBeUndefined();
+    });
+
+    it('keeps swap rent on solanaRent only', async () => {
+      const { vault } = buildRentVault();
+
+      const unsignedTx = await vault._buildUnsignedTxFromEncodedTx({
+        encodedTx,
+        swapInfo: swapInfo(EProtocolOfExchange.SWAP),
+      });
+
+      expect(unsignedTx.solanaRent).toBe('0.00148844');
+      expect(unsignedTx.solanaCreateTokenAccountRent).toBeUndefined();
+    });
+  });
+
+  describe('buildDecodedTx', () => {
+    it('shows the rent carried by the unsigned tx as the account rent', async () => {
+      const { vault } = buildRentVault();
+
+      const decodedTx = await vault.buildDecodedTx({
+        unsignedTx: {
+          ...buildUnsignedTx(encodedTx),
+          solanaCreateTokenAccountRent: '0.0016002',
+        },
+      });
+
+      expect(decodedTx.extraInfo).toEqual({
+        createTokenAccountFee: {
+          amount: '0.0016002',
+          amountValue: '1600200',
+          symbol: 'SOL',
+        },
+      });
+    });
+
+    it('falls back to the legacy rent when the on-chain rent is unknown', async () => {
+      const { vault } = buildRentVault();
+
+      const decodedTx = await vault.buildDecodedTx({
+        unsignedTx: buildUnsignedTx(encodedTx),
+      });
+
+      expect(decodedTx.extraInfo).toEqual({
+        createTokenAccountFee: {
+          amount: '0.00224808',
+          amountValue: '2248080',
+          symbol: 'SOL',
+        },
+      });
+    });
+
+    it('shows no account rent when the transfer funds none', async () => {
+      const { vault } = buildRentVault();
+
+      const decodedTx = await vault.buildDecodedTx({
+        unsignedTx: {
+          ...buildUnsignedTx(encodedTx),
+          solanaCreateTokenAccountRent: '0',
+        },
+      });
+
+      expect(decodedTx.extraInfo).toBeNull();
+    });
   });
 });

@@ -42,6 +42,7 @@ export type IBulkSendFeeState = {
   insufficientSol?: boolean;
   solBalanceNeeded?: string;
   solBalance?: string; // cached SOL balance for recalculation in handleFeeChange
+  solAccountReserve?: string; // SOL the sender must keep, cached alongside solBalance
   // ManyToMany/ManyToOne: single tx fee for "fee × N" display
   singleTxFeeNative?: string;
   singleTxFeeFiat?: string;

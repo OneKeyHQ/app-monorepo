@@ -25,6 +25,74 @@ const KNOWN_MINT_EXTENSIONS = new Set([
 ]);
 const PAUSABLE_MINT_EXTENSION = 26;
 
+type ISolanaRentClient = Pick<
+  ClientSol,
+  | 'getMultipleAccountsInfo'
+  | 'getAccountInfo'
+  | 'getMinimumBalanceForRentExemption'
+>;
+
+// A Token-2022 token account carries the account-side extensions its mint
+// requires, so its size (and rent) depends on the mint.
+async function getToken2022AccountSize({
+  mintAddress,
+  client,
+}: {
+  mintAddress: PublicKey;
+  client: ISolanaRentClient;
+}): Promise<number> {
+  const mintInfo = await client.getAccountInfo({
+    address: mintAddress.toBase58(),
+    encoding: EParamsEncodings.BASE64,
+  });
+  if (!mintInfo) throw new OneKeyLocalError('Solana mint account is missing');
+  const mint = unpackMint(
+    mintAddress,
+    {
+      ...mintInfo,
+      owner: new PublicKey(mintInfo.owner),
+      data: Buffer.from(mintInfo.data[0], 'base64'),
+    },
+    TOKEN_2022_PROGRAM_ID,
+  );
+  const extensions = new Set<number>();
+  // Token-2022 permits an Uninitialized terminator and trailing padding,
+  // including the two bytes used to avoid a multisig-sized mint.
+  for (let offset = 0; offset + TYPE_SIZE <= mint.tlvData.length;) {
+    const type = mint.tlvData.readUInt16LE(offset);
+    if (type === ExtensionType.Uninitialized) break;
+    const lengthOffset = offset + TYPE_SIZE;
+    if (lengthOffset + LENGTH_SIZE > mint.tlvData.length) {
+      throw new OneKeyLocalError('Invalid Solana mint extension');
+    }
+    offset =
+      lengthOffset + LENGTH_SIZE + mint.tlvData.readUInt16LE(lengthOffset);
+    if (offset > mint.tlvData.length) {
+      throw new OneKeyLocalError('Invalid Solana mint extension');
+    }
+    extensions.add(type);
+  }
+  if ([...extensions].some((type) => !KNOWN_MINT_EXTENSIONS.has(type))) {
+    throw new OneKeyLocalError('Unsupported Solana mint extension');
+  }
+  // Match required_init_account_extensions: SDK 0.4.8 overstates
+  // confidential accounts and predates the zero-sized PausableAccount.
+  const required = [ExtensionType.ImmutableOwner];
+  if (extensions.has(ExtensionType.TransferFeeConfig)) {
+    required.push(ExtensionType.TransferFeeAmount);
+  }
+  if (extensions.has(ExtensionType.NonTransferable)) {
+    required.push(ExtensionType.NonTransferableAccount);
+  }
+  if (extensions.has(ExtensionType.TransferHook)) {
+    required.push(ExtensionType.TransferHookAccount);
+  }
+  return (
+    getAccountLen(required) +
+    (extensions.has(PAUSABLE_MINT_EXTENSION) ? TYPE_SIZE + LENGTH_SIZE : 0)
+  );
+}
+
 export async function getSolanaSwapRent({
   instructions,
   accountAddress,
@@ -32,12 +100,7 @@ export async function getSolanaSwapRent({
 }: {
   instructions: TransactionInstruction[];
   accountAddress: string;
-  client: Pick<
-    ClientSol,
-    | 'getMultipleAccountsInfo'
-    | 'getAccountInfo'
-    | 'getMinimumBalanceForRentExemption'
-  >;
+  client: ISolanaRentClient;
 }): Promise<string | undefined> {
   const creations = new Map<string, TransactionInstruction>();
   for (const instruction of instructions) {
@@ -58,6 +121,8 @@ export async function getSolanaSwapRent({
     encoding: EParamsEncodings.BASE64,
   });
   const rents = new Map<number, Promise<number>>();
+  // Every account of one mint has the same size: read each mint once.
+  const token2022Sizes = new Map<string, Promise<number>>();
   const getRent = (size: number) => {
     let rent = rents.get(size);
     if (!rent) {
@@ -79,60 +144,13 @@ export async function getSolanaSwapRent({
       let size = ACCOUNT_SIZE;
       if (programId.equals(TOKEN_2022_PROGRAM_ID)) {
         const mintAddress = instruction.keys[3].pubkey;
-        const mintInfo = await client.getAccountInfo({
-          address: mintAddress.toBase58(),
-          encoding: EParamsEncodings.BASE64,
-        });
-        if (!mintInfo)
-          throw new OneKeyLocalError('Solana mint account is missing');
-        const mint = unpackMint(
-          mintAddress,
-          {
-            ...mintInfo,
-            owner: new PublicKey(mintInfo.owner),
-            data: Buffer.from(mintInfo.data[0], 'base64'),
-          },
-          programId,
-        );
-        const extensions = new Set<number>();
-        // Token-2022 permits an Uninitialized terminator and trailing padding,
-        // including the two bytes used to avoid a multisig-sized mint.
-        for (let offset = 0; offset + TYPE_SIZE <= mint.tlvData.length;) {
-          const type = mint.tlvData.readUInt16LE(offset);
-          if (type === ExtensionType.Uninitialized) break;
-          const lengthOffset = offset + TYPE_SIZE;
-          if (lengthOffset + LENGTH_SIZE > mint.tlvData.length) {
-            throw new OneKeyLocalError('Invalid Solana mint extension');
-          }
-          offset =
-            lengthOffset +
-            LENGTH_SIZE +
-            mint.tlvData.readUInt16LE(lengthOffset);
-          if (offset > mint.tlvData.length) {
-            throw new OneKeyLocalError('Invalid Solana mint extension');
-          }
-          extensions.add(type);
+        const mintKey = mintAddress.toBase58();
+        let token2022Size = token2022Sizes.get(mintKey);
+        if (!token2022Size) {
+          token2022Size = getToken2022AccountSize({ mintAddress, client });
+          token2022Sizes.set(mintKey, token2022Size);
         }
-        if ([...extensions].some((type) => !KNOWN_MINT_EXTENSIONS.has(type))) {
-          throw new OneKeyLocalError('Unsupported Solana mint extension');
-        }
-        // Match required_init_account_extensions: SDK 0.4.8 overstates
-        // confidential accounts and predates the zero-sized PausableAccount.
-        const required = [ExtensionType.ImmutableOwner];
-        if (extensions.has(ExtensionType.TransferFeeConfig)) {
-          required.push(ExtensionType.TransferFeeAmount);
-        }
-        if (extensions.has(ExtensionType.NonTransferable)) {
-          required.push(ExtensionType.NonTransferableAccount);
-        }
-        if (extensions.has(ExtensionType.TransferHook)) {
-          required.push(ExtensionType.TransferHookAccount);
-        }
-        size =
-          getAccountLen(required) +
-          (extensions.has(PAUSABLE_MINT_EXTENSION)
-            ? TYPE_SIZE + LENGTH_SIZE
-            : 0);
+        size = await token2022Size;
       } else if (!programId.equals(TOKEN_PROGRAM_ID)) {
         throw new OneKeyLocalError('Unsupported Solana token program');
       }
@@ -143,4 +161,17 @@ export async function getSolanaSwapRent({
     }
   }
   return ataRent.isZero() ? undefined : ataRent.shiftedBy(-9).toFixed();
+}
+
+// Rent the sender funds for the token accounts a transfer creates. Resolves to
+// '0' when nothing needs funding and to undefined when the chain cannot be
+// read, so callers fall back to a conservative value instead of hiding the rent.
+export async function getSolanaTransferRent(
+  params: Parameters<typeof getSolanaSwapRent>[0],
+): Promise<string | undefined> {
+  try {
+    return (await getSolanaSwapRent(params)) ?? '0';
+  } catch {
+    return undefined;
+  }
 }
