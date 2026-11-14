@@ -108,6 +108,7 @@ import {
   isLatestCheckAmountRequest,
 } from './checkAmountRequestUtils';
 import {
+  getWithdrawFormTips,
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
   shouldShowPendleSummaryTip,
@@ -631,18 +632,9 @@ export function UniversalWithdraw({
     requiresCurrentRequest: requiresEarnWithdrawPath,
   });
 
-  const rootTransactionTip = useMemo(
-    () =>
-      transactionConfirmation?.withdrawPath?.data?.tip ??
-      transactionConfirmation?.tip,
-    [
-      transactionConfirmation?.tip,
-      transactionConfirmation?.withdrawPath?.data?.tip,
-    ],
-  );
-  const formTransactionTip = useMemo(
-    () => (selectedWithdrawPath?.tip ? undefined : rootTransactionTip),
-    [rootTransactionTip, selectedWithdrawPath?.tip],
+  const { formTip: formTransactionTip, inlinePathTip } = getWithdrawFormTips(
+    transactionConfirmation,
+    effectiveSelectedWithdrawPathIndex,
   );
 
   const isQueuedWithdraw = selectedWithdrawType === 'queued';
@@ -1965,25 +1957,31 @@ export function UniversalWithdraw({
         </XStack>
       ) : null}
 
-      {formTransactionTip?.text ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type={resolveEarnAlertType(formTransactionTip.type)}
-          renderTitle={() => (
-            <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
-          )}
-          descriptionComponent={
-            formTransactionTip.description ? (
-              <EarnText
-                text={formTransactionTip.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : undefined
-          }
-          action={buildTipAlertAction(formTransactionTip)}
-        />
-      ) : null}
+      {[
+        { key: 'path-tip', tip: inlinePathTip },
+        { key: 'form-tip', tip: formTransactionTip },
+      ].map(({ key, tip }) =>
+        tip?.text ? (
+          <Alert
+            key={key}
+            icon="InfoCircleOutline"
+            type={resolveEarnAlertType(tip.type)}
+            renderTitle={() => (
+              <EarnText text={tip.text} size="$bodyMdMedium" />
+            )}
+            descriptionComponent={
+              tip.description ? (
+                <EarnText
+                  text={tip.description}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
+              ) : undefined
+            }
+            action={buildTipAlertAction(tip)}
+          />
+        ) : null,
+      )}
 
       {remainingLessThanMinAmountWarning ? (
         <Alert
