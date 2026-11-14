@@ -291,7 +291,8 @@ class ProviderApiSui extends ProviderApiBase {
     const dAppAccount = params.account;
     if (
       dAppAccount?.address &&
-      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+      normalizeSuiAddress(address ?? '') !==
+        normalizeSuiAddress(dAppAccount.address)
     ) {
       throw new OneKeyLocalError('Sender address mismatch');
     }
@@ -337,7 +338,8 @@ class ProviderApiSui extends ProviderApiBase {
     const dAppAccount = params.account;
     if (
       dAppAccount?.address &&
-      address?.toLowerCase() !== dAppAccount.address?.toLowerCase()
+      normalizeSuiAddress(address ?? '') !==
+        normalizeSuiAddress(dAppAccount.address)
     ) {
       throw new OneKeyLocalError('Sender address mismatch');
     }

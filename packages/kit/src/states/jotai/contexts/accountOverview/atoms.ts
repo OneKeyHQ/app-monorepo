@@ -71,6 +71,7 @@ export type IHomePrivacyTokenStatus = {
   accountId: string;
   networkId: string;
   status: ILocalWalletSyncStatus;
+  needsVerification?: boolean;
 };
 
 export const {

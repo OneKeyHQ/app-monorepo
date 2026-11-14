@@ -126,7 +126,6 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketDetailChartDisplayModePersistAtom: () => [{ mode: mockChartMode }],
-  useMarketPriceSourceAtom: () => [{ source: 'token' }, jest.fn()],
   useMarketTradingViewIndicatorSettingsPersistAtom: () => [{}],
   useMarketTradingViewSubIndicatorCountPersistAtom: () => [{}, jest.fn()],
 }));

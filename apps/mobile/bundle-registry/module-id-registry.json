@@ -22727,6 +22727,7 @@
     "packages/kit/src/components/AppUpdate/updateRetry.ts": 12892,
     "packages/kit/src/components/AppUpdate/updateStrategy.ts": 17699,
     "packages/kit/src/components/AppUpdate/useAppUpdate.tsx": 22548,
+    "packages/kit/src/components/AppUpdate/useDesktopUpdateMenu.tsx": 6819,
     "packages/kit/src/components/AppUpdate/useDownloadPackage.tsx": 7429,
     "packages/kit/src/components/ApprovalListView/ApprovalCheckMark.tsx": 14270,
     "packages/kit/src/components/ApprovalListView/ApprovalListHeader.tsx": 8418,
