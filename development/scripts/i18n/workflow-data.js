@@ -277,7 +277,7 @@ function mapLanguages(locales, languages, overrides = {}) {
     );
     if (matches.length !== 1)
       throw new Error(
-        `No unique Lokalise language for ${locale}; specify localeMap.${locale} using the configured lang_iso.`,
+        `No unique project language for ${locale}; specify localeMap.${locale} using the configured lang_iso.`,
       );
     mapped[locale] = matches[0].lang_iso;
   }

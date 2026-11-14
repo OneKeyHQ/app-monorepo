@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { translationRecords } = require('./workflow-client');
+const { translationRecords } = require('./workflow-client-central');
 const {
   ROOT,
   ENUM_PATH,
@@ -26,9 +26,7 @@ function desired(entry, records, locales) {
 }
 
 async function verifyProject(plan, client, root) {
-  if (client.projectId !== plan.project.id)
-    throw new Error('Credential project differs from approved project.');
-  const project = await client.project(plan.project.name);
+  const project = await client.project();
   const locales = loadCatalog(root).locales;
   if (
     digest(locales) !== digest(plan.locales) ||
@@ -147,7 +145,6 @@ async function applyPlan({
     schemaVersion: 1,
     kind: 'i18n-receipt',
     approval,
-    project: plan.project,
     status: 'preflight',
     operations: [],
   };
@@ -168,72 +165,31 @@ async function applyPlan({
           error: previous.error,
         },
       ];
+      // A finished apply opened an onekey-i18n PR whose content main may not
+      // have yet; the pulled local files are what can still be checked.
       if (previous.status === 'complete') {
-        await verifyRemote(plan, client);
         verifyLocal(plan, root);
         return previous;
       }
+      if (previous.proposal) receipt.proposal = previous.proposal;
     }
     if (workspace(root).branch !== plan.workspace.branch)
       throw new Error('Current branch differs from the preview.');
     assertHashes(root, plan.sourceFiles, 'Source');
     assertGeneratedBaseline(root, plan.sync);
     assertHashes(root, plan.generatedFiles, 'Generated files');
-    // Validate every key before any write. Recheck each key immediately before mutation.
-    for (const entry of plan.entries) await inspectEntry(entry, plan, client);
     const before = loadCatalog(root);
-    receipt.status = 'uploading';
-    writeJson(receiptFile, receipt);
-    for (const entry of plan.entries) {
-      const { key, records } = await inspectEntry(entry, plan, client);
-      if (!key) {
-        await client.create(entry, plan.localeMap);
-        receipt.operations.push({ key: entry.key, operation: 'create' });
-        writeJson(receiptFile, receipt);
-      } else {
-        for (const locale of plan.locales.filter(
-          (item) => records[item].value !== entry.translations[item],
-        )) {
-          if (plan.mode === 'complete' && records[locale].value.trim())
-            throw new Error(
-              `${entry.key}/${locale}: complete mode cannot overwrite a non-empty translation.`,
-            );
-          const { data } = await client.request(
-            'GET',
-            `/translations/${encodeURIComponent(records[locale].id)}`,
-          );
-          const current = data.translation;
-          if (
-            !current ||
-            current.translation_id !== records[locale].id ||
-            ![entry.before[locale].value, entry.translations[locale]].includes(
-              current.translation,
-            )
-          )
-            throw new Error(
-              `${entry.key}/${locale}: concurrent translation update; stopped without overwriting it.`,
-            );
-          if (current.translation !== entry.translations[locale])
-            await client.updateTranslation(
-              records[locale].id,
-              entry.translations[locale],
-            );
-          receipt.operations.push({
-            key: entry.key,
-            locale,
-            operation: 'update',
-          });
-          writeJson(receiptFile, receipt);
-        }
-      }
-    }
-    await verifyRemote(plan, client);
-    // A concurrent local edit during upload must not be overwritten by pull.
+    // A rerun after the onekey-i18n PR was opened only pulls and verifies.
+    if (!receipt.proposal)
+      await writeEntries(plan, client, receipt, receiptFile);
+    // A concurrent local edit during the write must not be overwritten by pull.
     assertGeneratedBaseline(root, plan.sync);
     assertHashes(root, plan.generatedFiles, 'Generated files');
     receipt.status = 'pulling';
     writeJson(receiptFile, receipt);
-    await Promise.resolve(pullImpl(plan, root));
+    await Promise.resolve(
+      pullImpl(plan, root, undefined, { pr: receipt.proposal?.number }),
+    );
     receipt.verification = verifyLocal(plan, root, before);
     receipt.status = 'complete';
     receipt.finishedAt = new Date().toISOString();
@@ -249,6 +205,76 @@ async function applyPlan({
     fs.closeSync(lock);
     fs.unlinkSync(lockFile);
   }
+}
+
+async function writeEntries(plan, client, receipt, receiptFile) {
+  // Validate every key before any write. Recheck each key immediately before mutation.
+  for (const entry of plan.entries) await inspectEntry(entry, plan, client);
+  receipt.status = 'uploading';
+  writeJson(receiptFile, receipt);
+  for (const entry of plan.entries) {
+    const { key, records } = await inspectEntry(entry, plan, client);
+    if (!key) {
+      await client.create(entry, plan.localeMap);
+      receipt.operations.push({ key: entry.key, operation: 'create' });
+      writeJson(receiptFile, receipt);
+    } else {
+      for (const locale of plan.locales.filter(
+        (item) => records[item].value !== entry.translations[item],
+      )) {
+        if (plan.mode === 'complete' && records[locale].value.trim())
+          throw new Error(
+            `${entry.key}/${locale}: complete mode cannot overwrite a non-empty translation.`,
+          );
+        const { data } = await client.request(
+          'GET',
+          `/translations/${encodeURIComponent(records[locale].id)}`,
+        );
+        const current = data.translation;
+        if (
+          !current ||
+          current.translation_id !== records[locale].id ||
+          ![entry.before[locale].value, entry.translations[locale]].includes(
+            current.translation,
+          )
+        )
+          throw new Error(
+            `${entry.key}/${locale}: concurrent translation update; stopped without overwriting it.`,
+          );
+        if (current.translation !== entry.translations[locale])
+          await client.updateTranslation(
+            records[locale].id,
+            entry.translations[locale],
+          );
+        receipt.operations.push({
+          key: entry.key,
+          locale,
+          operation: 'update',
+        });
+        writeJson(receiptFile, receipt);
+      }
+    }
+  }
+  await verifyRemote(plan, client);
+  // onekey-i18n edits land as one commit on a new branch with an open PR.
+  if (client.finalize) {
+    receipt.proposal = await client.finalize(proposalFor(plan));
+    writeJson(receiptFile, receipt);
+  }
+}
+
+function proposalFor(plan) {
+  const branch = plan.workspace.branch;
+  return {
+    title: `feat: app copy from ${branch}`,
+    body: [
+      `Copy for app-monorepo branch \`${branch}\` (${plan.mode} mode, approval \`${plan.approval.slice(0, 12)}\`).`,
+      '',
+      ...plan.entries.map((entry) => `- \`${entry.key}\``),
+      '',
+    ].join('\n'),
+    branchHint: `app-${branch.replace(/[^A-Za-z0-9._-]+/g, '-')}`,
+  };
 }
 
 module.exports = {

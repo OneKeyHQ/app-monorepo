@@ -19,7 +19,6 @@ async function prepared(t, entries) {
   const plan = await preparePlan({
     draft: ctx.draft(entries?.(ctx)),
     client: api.client,
-    projectName: 'Monorepo test',
     root: ctx.root,
   });
   const file = path.join(ctx.root, 'plan.json');
@@ -92,7 +91,6 @@ test('service error support still rejects unrelated and malformed new key names'
               },
             ]),
             client: api.client,
-            projectName: 'Monorepo test',
             root: ctx.root,
           }),
         /a new key must use/,
@@ -134,15 +132,12 @@ test('preview reads only, contains bilingual before/after, and keeps all locale 
   assert.throws(() => readPlan(ctx.file), /changed or are invalid/);
 });
 
-test('missing approval, wrong project and changed source block every write', async (t) => {
+test('missing approval and changed source block every write', async (t) => {
   const ctx = await prepared(t);
   await assert.rejects(
     () => ctx.apply({ approval: undefined }),
     /confirmation/,
   );
-  ctx.client.projectId = 'another-project';
-  await assert.rejects(() => ctx.apply(), /Credential project/);
-  ctx.client.projectId = ctx.plan.project.id;
   fs.appendFileSync(path.join(ctx.root, 'module/copy.ts'), '// changed\n');
   await assert.rejects(() => ctx.apply(), /Source changed/);
   assert.equal(ctx.writes.length, 0);
@@ -163,7 +158,6 @@ test('reused generic keys preserve live remote translations instead of reverting
   const plan = await preparePlan({
     draft: ctx.draft([entry]),
     client: api.client,
-    projectName: 'Monorepo test',
     root: ctx.root,
   });
   assert.equal(plan.entries[0].translations.bn, 'Latest remote copy');

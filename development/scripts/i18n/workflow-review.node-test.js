@@ -25,7 +25,6 @@ async function prepared(t, options = {}) {
     draft,
     client: api.client,
     root: ctx.root,
-    projectName: 'Monorepo test',
   });
   return { ...ctx, ...api, plan };
 }
@@ -221,7 +220,7 @@ test('prefilled revisions preserve original keys, isolate older browser drafts a
     applied: true,
     baseline: {
       kind: 'i18n-draft',
-      sync: { project: ctx.plan.project },
+      sync: {},
       references: [{ key: ctx.plan.entries[0].key, sources: refreshedSources }],
       sourceFiles: ctx.plan.sourceFiles,
     },
@@ -277,7 +276,6 @@ test('comment-only feedback requires model resolution and creates a fresh HTML f
     draft: JSON.parse(fs.readFileSync(file)),
     client: ctx.client,
     root: ctx.root,
-    projectName: 'Monorepo test',
   });
   assert.notEqual(next.approval, ctx.plan.approval);
   assert.equal(next.review.baseApproval, ctx.plan.approval);

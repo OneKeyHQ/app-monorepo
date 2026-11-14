@@ -12,7 +12,7 @@ const {
   verifyRemote,
   verifyProject,
 } = require('./workflow-apply');
-const { LokaliseClient } = require('./workflow-client');
+const { CentralClient } = require('./workflow-client-central');
 const {
   ROOT,
   readJson,
@@ -32,14 +32,14 @@ const { scanModule } = require('./workflow-scan');
 const { readSync, syncWorkspace } = require('./workflow-sync');
 
 const HELP = `i18n workflow (paths are relative to the repository root)
-  sync --project-name <expected name> --out <sync.json> [--sync <previous.json> | --verify-current] [--locale-map <map.json>]
+  sync --out <sync.json> [--sync <previous.json> | --verify-current] [--locale-map <map.json>]
   scan [--mode <complete|update>] --sync <sync.json> --module <directory/file> [--module <more>] --out <draft.json>
   inspect --file <draft.json>
   fill --file <draft.json> --translations <patch.json>
   review --file <plan.json> --out <preview.html> [--feedback <revision.json>]
   review-import --file <plan.json> --feedback <copied-prompt.txt> --out <revised-draft.json> [--baseline <fresh-scanned-draft.json>]
   project
-  preview --file <draft.json> [--mode <complete|update>] --project-name <expected name> --out <plan.json>
+  preview --file <draft.json> [--mode <complete|update>] --out <plan.json>
   apply --file <plan.json> --approve <confirmed preview hash>
   verify --file <plan.json>
 
@@ -48,10 +48,11 @@ Default mode complete creates missing keys and fills empty translations only.
 Mode update supports upsert, including edits to existing non-empty translations.
 The preview binds the mode; apply cannot override it.
 Scan/inspect/fill/review/review-import are offline.
-Preview reads Lokalise and generates Markdown plus editable HTML automatically.
+Remote commands talk to OneKeyHQ/onekey-i18n through the GitHub API (gh auth login or ONEKEY_I18N_TOKEN).
+Preview reads it and generates Markdown plus editable HTML automatically.
 HTML shows EN/ZH initially; every other language can be expanded and edited/commented.
-Apply uploads every repository locale, pulls generated files, and verifies them.
-Use yarn op/keychain/oenv to supply credentials for remote commands.
+Apply writes every repository locale to onekey-i18n, pulls generated files from it, and verifies them.
+Apply commits to a new onekey-i18n branch, opens its PR, waits for its CI preview and pulls it.
 Review the bilingual preview and get user confirmation before apply.`;
 
 function options(args) {
@@ -62,7 +63,6 @@ function options(args) {
       module: { type: 'string', multiple: true },
       file: { type: 'string' },
       out: { type: 'string' },
-      'project-name': { type: 'string' },
       approve: { type: 'string' },
       translations: { type: 'string' },
       feedback: { type: 'string' },
@@ -84,10 +84,7 @@ function requiredPath(value, option) {
 }
 
 function clientFromEnv() {
-  return new LokaliseClient({
-    token: process.env.LOKALISE_TOKEN,
-    projectId: process.env.LOKALISE_PROJECT_ID,
-  });
+  return new CentralClient();
 }
 
 function attachSync(draft, sync) {
@@ -185,7 +182,6 @@ async function run(args = process.argv.slice(2)) {
     const sync = await syncWorkspace({
       client,
       file,
-      projectName: values['project-name'],
       verifyCurrent: values['verify-current'],
       previousSync: values.sync
         ? readSync(requiredPath(values.sync, 'sync'))
@@ -196,7 +192,6 @@ async function run(args = process.argv.slice(2)) {
     });
     return {
       sync: file,
-      project: sync.project,
       changedTranslations: sync.changes.length,
       changedKeys: new Set(sync.changes.map((change) => change.key)).size,
     };
@@ -208,7 +203,6 @@ async function run(args = process.argv.slice(2)) {
   if (command === 'project') {
     const project = await client.project();
     return {
-      id: project.id,
       name: project.name,
       languages: project.languages.map(({ lang_iso, lang_name }) => ({
         lang_iso,
@@ -224,7 +218,6 @@ async function run(args = process.argv.slice(2)) {
       await preparePlan({
         draft: readJson(file),
         client,
-        projectName: values['project-name'],
         mode: values.mode,
       }),
       out,
@@ -234,6 +227,8 @@ async function run(args = process.argv.slice(2)) {
     const receipt = await applyPlan({ file, approval: values.approve, client });
     return {
       status: receipt.status,
+      onekeyI18nPr: receipt.proposal?.url,
+      prAuthor: receipt.proposal?.author,
       receipt: `${file}.receipt.json`,
       verifiedKeys: receipt.verification.verifiedKeys,
       locales: receipt.verification.verifiedLocales,
@@ -251,13 +246,13 @@ async function runAdd(args = process.argv.slice(2)) {
   if (values.help || (!positionals.length && !values.file && !values.apply))
     return `i18n:add now supports full-locale create and update through a confirmed plan.
   yarn i18n:add <key> "English" "中文" [--mode <complete|update>] [--sync <sync.json>] --out <draft.json>
-    Creates an offline draft with slots for every locale; no upload.
-  yarn i18n:add <key> [--mode <complete|update>] [--sync <sync.json>] --translations <locale-to-text.json> --project-name <name> --out <plan.json>
+    Creates an offline draft with slots for every locale; nothing is written.
+  yarn i18n:add <key> [--mode <complete|update>] [--sync <sync.json>] --translations <locale-to-text.json> --out <plan.json>
     Previews a single key in all locales; defaults to filling missing translations.
-  yarn i18n:add --file <draft.json> [--mode <complete|update>] --project-name <name> --out <plan.json>
+  yarn i18n:add --file <draft.json> [--mode <complete|update>] --out <plan.json>
     Previews a batch; inherits the draft mode unless explicitly overridden here.
   yarn i18n:add --apply <plan.json> --approve <confirmed hash>
-    Uploads all locales, pulls, and verifies.
+    Writes all locales to onekey-i18n, pulls, and verifies.
 ${HELP}`;
   if (values.apply) {
     if (values.mode)
@@ -281,7 +276,6 @@ ${HELP}`;
       await preparePlan({
         draft: readJson(requiredPath(values.file, 'file')),
         client: clientFromEnv(),
-        projectName: values['project-name'],
         mode: values.mode,
       }),
       out,
@@ -309,7 +303,6 @@ ${HELP}`;
       await preparePlan({
         draft,
         client: clientFromEnv(),
-        projectName: values['project-name'],
       }),
       out,
     );
