@@ -104,6 +104,7 @@ function positionClaimMetadata(position: IEarnPortfolioPosition) {
   const { earn } = position;
   return {
     protocol: {
+      symbol: earn.manage.symbol,
       ...(earn.vault ? { vault: earn.vault } : {}),
       ...(earn.vaultName ? { vaultName: earn.vaultName } : {}),
       providerDetail: {

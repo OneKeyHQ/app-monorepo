@@ -34,22 +34,82 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   override enableCache = false;
 
   @backgroundMethod()
-  async addOrder(order: IAddEarnOrderParams) {
-    await this.setRawData((rawData) => {
+  async addOrder(
+    order: IAddEarnOrderParams,
+    options?: { preserveExistingTx?: boolean },
+  ) {
+    let preservedExisting = false;
+    const saved = await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
         data: { ...rawData?.data },
         txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
       };
+      const existing = data.data[order.orderId];
+      const mappedOrderId = data.txIdToOrderIdMap[order.txId];
+      if (
+        options?.preserveExistingTx &&
+        (existing || (mappedOrderId && mappedOrderId !== order.orderId))
+      ) {
+        preservedExisting = true;
+        return data;
+      }
+      if (
+        existing?.networkId === order.networkId &&
+        existing.previousTxIds?.includes(order.txId)
+      ) {
+        return data;
+      }
+      if (
+        existing?.networkId === order.networkId &&
+        existing.txId === order.txId &&
+        (!mappedOrderId || mappedOrderId === order.orderId)
+      ) {
+        data.txIdToOrderIdMap[order.txId] = order.orderId;
+        data.data[order.orderId] = {
+          ...existing,
+          stakingLabel: existing.stakingLabel ?? order.stakingLabel,
+          stakingProtocol: existing.stakingProtocol ?? order.stakingProtocol,
+          stakingTags: order.stakingTags?.length
+            ? [
+                ...new Set([
+                  ...(existing.stakingTags ?? []),
+                  ...order.stakingTags,
+                ]),
+              ]
+            : existing.stakingTags,
+        };
+        return data;
+      }
       const now = Date.now();
+      if (
+        existing &&
+        existing.txId !== order.txId &&
+        data.txIdToOrderIdMap[existing.txId] === order.orderId
+      ) {
+        delete data.txIdToOrderIdMap[existing.txId];
+      }
       data.data[order.orderId] = {
         ...order,
-        previousTxIds: [],
+        previousTxIds:
+          existing?.networkId === order.networkId &&
+          existing.txId !== order.txId
+            ? [...(existing.previousTxIds ?? []), existing.txId]
+            : [],
         updatedAt: now,
         createdAt: now,
       };
       data.txIdToOrderIdMap[order.txId] = order.orderId;
       return data;
     });
+    if (!saved) return undefined;
+    if (preservedExisting) return false;
+    const current = saved.data[order.orderId];
+    return Boolean(
+      current?.networkId === order.networkId &&
+      current.txId === order.txId &&
+      (!options?.preserveExistingTx ||
+        saved.txIdToOrderIdMap[order.txId] === order.orderId),
+    );
   }
 
   @backgroundMethod()
@@ -63,7 +123,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   }> {
     const { currentTxId, newTxId, status } = params;
 
-    await this.setRawData((rawData) => {
+    let updated = false;
+    const saved = await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
         data: { ...rawData?.data },
         txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
@@ -75,9 +136,19 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       }
 
       const order = data.data[orderId];
-      if (!order) {
+      if (!order || order.txId !== currentTxId) {
         return data;
       }
+
+      if (
+        newTxId &&
+        newTxId !== currentTxId &&
+        data.txIdToOrderIdMap[newTxId] &&
+        data.txIdToOrderIdMap[newTxId] !== orderId
+      ) {
+        return data;
+      }
+      updated = true;
 
       // Update txId related info if new txId exists
       if (newTxId && newTxId !== currentTxId) {
@@ -109,6 +180,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       return data;
     });
 
+    if (!saved || !updated) return { success: false };
+
     // Get updated order info
     const updatedOrder = await this.getOrderByTxId(newTxId || currentTxId);
     return {
@@ -121,6 +194,7 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   async getOrderByTxId(txId: string): Promise<IEarnOrderItem | undefined> {
     const rawData = await this.getRawData();
     const orderId = rawData?.txIdToOrderIdMap?.[txId];
-    return orderId ? rawData?.data?.[orderId] : undefined;
+    const order = orderId ? rawData?.data?.[orderId] : undefined;
+    return order?.txId === txId ? order : undefined;
   }
 }

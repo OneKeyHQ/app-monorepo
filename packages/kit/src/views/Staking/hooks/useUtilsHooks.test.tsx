@@ -14,15 +14,27 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import {
+  EtherFiLiquidReferContract,
+  MorphoBundlerContract,
+} from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { useTrackTokenAllowance } from './useUtilsHooks';
 
 const serviceStaking = jest.mocked(backgroundApiProxy.serviceStaking);
+const serviceHistory = jest.mocked(backgroundApiProxy.serviceHistory);
 
 const params = {
   accountId: 'account-1',
   networkId: 'evm--1',
+  providerName: 'Spark',
   spenderAddress: '0xspender',
   tokenAddress: '0xtoken',
 };
@@ -30,6 +42,7 @@ const params = {
 describe('useTrackTokenAllowance', () => {
   beforeEach(() => {
     serviceStaking.fetchTokenAllowance.mockReset();
+    serviceHistory.fetchTxDetails.mockReset();
     serviceStaking.fetchTokenAllowance.mockResolvedValue({
       allowance: '10000000',
       allowanceParsed: '10',
@@ -42,9 +55,11 @@ describe('useTrackTokenAllowance', () => {
     );
 
     expect(result.current.loading).toBe(true);
+    expect(result.current.allowanceAvailable).toBe(false);
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
       expect(result.current.allowance).toBe('10');
+      expect(result.current.allowanceAvailable).toBe(true);
     });
     expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
   });
@@ -56,6 +71,7 @@ describe('useTrackTokenAllowance', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.allowance).toBe('5');
+    expect(result.current.allowanceAvailable).toBe(true);
     expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
   });
 
@@ -116,6 +132,446 @@ describe('useTrackTokenAllowance', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.allowance).toBe('0');
+    expect(result.current.allowanceAvailable).toBe(false);
+  });
+
+  it('lets the current allowance request recover after a failure', async () => {
+    serviceStaking.fetchTokenAllowance
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({ allowance: '10000000', allowanceParsed: '10' });
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({ ...params, refreshOnMount: true }),
+    );
+
+    await waitFor(() => expect(result.current.allowanceError).toBe(true));
+    expect(result.current.allowanceAvailable).toBe(false);
+    act(() => result.current.retryAllowance());
+    await waitFor(() => expect(result.current.allowanceAvailable).toBe(true));
+    expect(result.current.allowanceError).toBe(false);
+    expect(result.current.allowance).toBe('10');
+  });
+
+  it('refreshes displayed allowance after a separate live check finds an existing approval', async () => {
+    serviceStaking.fetchTokenAllowance
+      .mockResolvedValueOnce({ allowance: '0', allowanceParsed: '0' })
+      .mockResolvedValue({ allowance: '2000000', allowanceParsed: '2' });
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({ ...params, refreshOnMount: true }),
+    );
+
+    await waitFor(() => expect(result.current.allowanceAvailable).toBe(true));
+    expect(result.current.allowance).toBe('0');
+    await act(async () => {
+      const live = await result.current.fetchAllowanceResponse();
+      expect(live.allowanceParsed).toBe('2');
+    });
+    expect(result.current.allowance).toBe('0');
+    act(() => result.current.retryAllowance());
+    await waitFor(() => expect(result.current.allowance).toBe('2'));
+  });
+
+  it('ignores a retry result after the account changes', async () => {
+    let resolveRetry:
+      | ((value: { allowance: string; allowanceParsed: string }) => void)
+      | undefined;
+    serviceStaking.fetchTokenAllowance
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ allowance: '20000000', allowanceParsed: '20' });
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useTrackTokenAllowance({ ...params, accountId, refreshOnMount: true }),
+      { initialProps: { accountId: 'account-1' } },
+    );
+
+    await waitFor(() => expect(result.current.allowanceError).toBe(true));
+    act(() => result.current.retryAllowance());
+    await waitFor(() => expect(resolveRetry).toBeDefined());
+    rerender({ accountId: 'account-2' });
+    await waitFor(() => expect(result.current.allowance).toBe('20'));
+    await act(async () => {
+      resolveRetry?.({ allowance: '99000000', allowanceParsed: '99' });
+      await Promise.resolve();
+    });
+    expect(result.current.allowance).toBe('20');
+    expect(result.current.allowanceError).toBe(false);
+  });
+
+  it('distinguishes a confirmed zero allowance from an unavailable allowance', async () => {
+    serviceStaking.fetchTokenAllowance.mockResolvedValue({
+      allowance: '0',
+      allowanceParsed: '0',
+    });
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        refreshOnMount: true,
+        initialValue: '0',
+      }),
+    );
+    expect(result.current.allowanceAvailable).toBe(false);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.allowance).toBe('0');
+    expect(result.current.allowanceAvailable).toBe(true);
+  });
+
+  it.each(['NaN', '-1', 'Infinity', ''])(
+    'treats an invalid allowance %s as a retryable error',
+    async (allowanceParsed) => {
+      serviceStaking.fetchTokenAllowance.mockResolvedValue({
+        allowance: '0',
+        allowanceParsed,
+      });
+      const { result } = renderHook(() =>
+        useTrackTokenAllowance({ ...params, refreshOnMount: true }),
+      );
+      await waitFor(() => expect(result.current.allowanceError).toBe(true));
+      expect(result.current.allowanceAvailable).toBe(false);
+    },
+  );
+
+  it('invalidates a previously confirmed allowance when a later refresh fails', async () => {
+    serviceHistory.fetchTxDetails.mockResolvedValue({
+      data: {
+        key: 'approve-tx',
+        networkId: params.networkId,
+        tx: '0xtx',
+        riskLevel: 0,
+        type: EOnChainHistoryTxType.Approve,
+        sends: [],
+        receives: [],
+        status: EOnChainHistoryTxStatus.Success,
+        from: '0xowner',
+        to: params.tokenAddress,
+        timestamp: 1,
+        nonce: 1,
+        gasFee: '0',
+        gasFeeFiatValue: '0',
+        functionCode: '',
+        params: [],
+        value: '0',
+        label: '',
+      },
+      tokens: {},
+      nfts: {},
+    });
+    const { result } = renderHook(() => useTrackTokenAllowance({ ...params }));
+    await waitFor(() => expect(result.current.allowanceAvailable).toBe(true));
+    serviceStaking.fetchTokenAllowance.mockRejectedValueOnce(
+      new Error('refresh failed'),
+    );
+    act(() => result.current.trackAllowance('0xtx'));
+    await waitFor(() => {
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(2);
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.allowance).toBe('10');
+    expect(result.current.allowanceAvailable).toBe(false);
+  });
+
+  it('retries a transient transaction history error without treating approval as confirmed', async () => {
+    serviceHistory.fetchTxDetails
+      .mockRejectedValueOnce(new Error('temporary history error'))
+      .mockResolvedValueOnce({
+        data: {
+          key: 'approve-tx',
+          networkId: params.networkId,
+          tx: '0xtx',
+          riskLevel: 0,
+          type: EOnChainHistoryTxType.Approve,
+          sends: [],
+          receives: [],
+          status: EOnChainHistoryTxStatus.Success,
+          from: '0xowner',
+          to: params.tokenAddress,
+          timestamp: 1,
+          nonce: 1,
+          gasFee: '0',
+          gasFeeFiatValue: '0',
+          functionCode: '',
+          params: [],
+          value: '0',
+          label: '',
+        },
+        tokens: {},
+        nfts: {},
+      });
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        initialValue: '0',
+        retryTrackingOnError: true,
+      }),
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => result.current.trackAllowance('0xtx'));
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(serviceHistory.fetchTxDetails.mock.calls).toHaveLength(1);
+      expect(result.current.loading).toBe(true);
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
+      await act(async () => jest.advanceTimersByTimeAsync(5000));
+      expect(serviceHistory.fetchTxDetails.mock.calls).toHaveLength(2);
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+      expect(result.current.allowance).toBe('10');
+      expect(result.current.loading).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps an outstanding approval locked when its seed allowance changes', async () => {
+    serviceHistory.fetchTxDetails.mockResolvedValue(null);
+    const { result, rerender } = renderHook(
+      ({ initialValue }: { initialValue: string }) =>
+        useTrackTokenAllowance({
+          ...params,
+          initialValue,
+          retryTrackingOnError: true,
+        }),
+      { initialProps: { initialValue: '0' } },
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => result.current.trackAllowance('pending-tx'));
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(result.current.loading).toBe(true);
+      rerender({ initialValue: '1' });
+      await act(async () => jest.advanceTimersByTimeAsync(5000));
+      expect(result.current.loading).toBe(true);
+      expect(serviceHistory.fetchTxDetails.mock.calls).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each(['pending', 'network error'])(
+    'keeps a timed-out %s approval blocked and retries its transaction',
+    async (outcome) => {
+      if (outcome === 'pending') {
+        serviceHistory.fetchTxDetails.mockResolvedValue(null);
+      } else {
+        serviceHistory.fetchTxDetails.mockRejectedValue(new Error('offline'));
+      }
+      const { result } = renderHook(() =>
+        useTrackTokenAllowance({
+          ...params,
+          initialValue: '0',
+          retryTrackingOnError: true,
+        }),
+      );
+      jest.useFakeTimers();
+      try {
+        act(() => result.current.trackAllowance('pending-tx'));
+        await act(async () => jest.advanceTimersByTimeAsync(60 * 60 * 1000));
+        expect(result.current.loading).toBe(false);
+        expect(result.current.allowanceAvailable).toBe(false);
+        expect(result.current.allowanceError).toBe(true);
+        expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(0);
+
+        serviceHistory.fetchTxDetails.mockResolvedValue({
+          data: {
+            key: 'pending-tx',
+            networkId: params.networkId,
+            tx: 'pending-tx',
+            riskLevel: 0,
+            type: EOnChainHistoryTxType.Approve,
+            sends: [],
+            receives: [],
+            status: EOnChainHistoryTxStatus.Success,
+            from: '0xowner',
+            to: params.tokenAddress,
+            timestamp: 1,
+            nonce: 1,
+            gasFee: '0',
+            gasFeeFiatValue: '0',
+            functionCode: '',
+            params: [],
+            value: '0',
+            label: '',
+          },
+          tokens: {},
+          nfts: {},
+        });
+        act(() => result.current.retryAllowance());
+        expect(result.current.loading).toBe(true);
+        expect(result.current.allowanceAvailable).toBe(false);
+        await act(async () => jest.advanceTimersByTimeAsync(0));
+        expect(serviceHistory.fetchTxDetails.mock.lastCall?.[0]).toEqual({
+          accountId: params.accountId,
+          networkId: params.networkId,
+          txid: 'pending-tx',
+        });
+        expect(result.current.loading).toBe(false);
+        expect(result.current.allowanceAvailable).toBe(true);
+        expect(result.current.allowanceError).toBe(false);
+        expect(result.current.allowance).toBe('10');
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('discards an old tracking retry after switching accounts', async () => {
+    serviceHistory.fetchTxDetails.mockResolvedValue(null);
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useTrackTokenAllowance({
+          ...params,
+          accountId,
+          initialValue: '0',
+          retryTrackingOnError: true,
+        }),
+      { initialProps: { accountId: 'account-1' } },
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => result.current.trackAllowance('pending-tx'));
+      await act(async () => jest.advanceTimersByTimeAsync(60 * 60 * 1000));
+      expect(result.current.allowanceError).toBe(true);
+      let finishOldRequest: (() => void) | undefined;
+      serviceHistory.fetchTxDetails.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOldRequest = () => resolve(null);
+          }),
+      );
+      act(() => result.current.retryAllowance());
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(finishOldRequest).toBeDefined();
+      rerender({ accountId: 'account-2' });
+      await act(async () => {
+        finishOldRequest?.();
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.allowanceError).toBe(false);
+      expect(result.current.allowanceAvailable).toBe(true);
+      expect(serviceHistory.fetchTxDetails.mock.lastCall?.[0]).toEqual({
+        accountId: 'account-1',
+        networkId: params.networkId,
+        txid: 'pending-tx',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not use a previous transaction result for a new approval', async () => {
+    serviceHistory.fetchTxDetails
+      .mockResolvedValueOnce({
+        data: {
+          key: 'first-approval',
+          networkId: params.networkId,
+          tx: '0xfirst',
+          riskLevel: 0,
+          type: EOnChainHistoryTxType.Approve,
+          sends: [],
+          receives: [],
+          status: EOnChainHistoryTxStatus.Success,
+          from: '0xowner',
+          to: params.tokenAddress,
+          timestamp: 1,
+          nonce: 1,
+          gasFee: '0',
+          gasFeeFiatValue: '0',
+          functionCode: '',
+          params: [],
+          value: '0',
+          label: '',
+        },
+        tokens: {},
+        nfts: {},
+      })
+      .mockResolvedValue(null);
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        initialValue: '0',
+        retryTrackingOnError: true,
+      }),
+    );
+    jest.useFakeTimers();
+    try {
+      act(() => result.current.trackAllowance('first'));
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(result.current.loading).toBe(false);
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+
+      act(() => result.current.trackAllowance('second'));
+      await act(async () => jest.advanceTimersByTimeAsync(0));
+      expect(result.current.loading).toBe(true);
+      expect(serviceStaking.fetchTokenAllowance.mock.calls).toHaveLength(1);
+      expect(serviceHistory.fetchTxDetails.mock.calls).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('queries EtherFi Permit allowance on LiquidRefer instead of Morpho', async () => {
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({
+        ...params,
+        providerName: 'EtherFi',
+        spenderAddress: EtherFiLiquidReferContract,
+        approveType: EApproveType.Permit,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(serviceStaking.fetchTokenAllowance.mock.calls[0][0]).toEqual({
+      accountId: params.accountId,
+      networkId: params.networkId,
+      tokenAddress: params.tokenAddress,
+      spenderAddress: EtherFiLiquidReferContract,
+    });
+  });
+
+  it('discards an outdated allowance when only the provider changes', async () => {
+    let resolveFirstRequest:
+      | ((value: { allowance: string; allowanceParsed: string }) => void)
+      | undefined;
+    serviceStaking.fetchTokenAllowance.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirstRequest = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ providerName }: { providerName: string }) =>
+        useTrackTokenAllowance({
+          ...params,
+          providerName,
+          approveType: EApproveType.Permit,
+          spenderAddress: EtherFiLiquidReferContract,
+        }),
+      { initialProps: { providerName: 'Morpho' } },
+    );
+
+    await waitFor(() => {
+      expect(serviceStaking.fetchTokenAllowance.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ spenderAddress: MorphoBundlerContract }),
+      );
+    });
+    rerender({ providerName: 'EtherFi' });
+    await waitFor(() => {
+      expect(serviceStaking.fetchTokenAllowance.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ spenderAddress: EtherFiLiquidReferContract }),
+      );
+      expect(result.current.allowance).toBe('10');
+    });
+
+    await act(async () => {
+      resolveFirstRequest?.({ allowance: '99000000', allowanceParsed: '99' });
+      await Promise.resolve();
+    });
+    expect(result.current.allowance).toBe('10');
+    expect(result.current.loading).toBe(false);
   });
 
   it('ignores an outdated request while loading the current target', async () => {

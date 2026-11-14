@@ -159,6 +159,7 @@ export function ApproveBaseStake({
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName,
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token.address,
@@ -225,9 +226,18 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
+        providerName,
+        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: approveTarget.networkId,
+          approveType,
+          approveSpenderAddress: approveTarget.spenderAddress,
+        }),
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
         tokenAddress: token.address,
@@ -248,6 +258,9 @@ export function ApproveBaseStake({
     allowance,
     usePermit2Approve,
     getPermitCache,
+    providerName,
+    approveType,
+    approveTarget.spenderAddress,
     approveTarget.accountId,
     approveTarget.networkId,
   ]);
@@ -558,12 +571,14 @@ export function ApproveBaseStake({
 
   const onSubmit = useCallback(async () => {
     const handleConfirm = async () => {
+      const needsPermit =
+        usePermit2Approve && new BigNumber(amountValue).gt(allowance);
       try {
         await onConfirm?.({
           amount: amountValue,
           approveType,
-          permitSignature: permitSignatureRef.current,
-          unsignedMessage: permit2DataRef.current,
+          permitSignature: needsPermit ? permitSignatureRef.current : undefined,
+          unsignedMessage: needsPermit ? permit2DataRef.current : undefined,
         });
       } catch (error) {
         console.error('Transaction error:', error);
@@ -581,6 +596,7 @@ export function ApproveBaseStake({
     void handleConfirm();
   }, [
     showFalconEventEndedDialog,
+    allowance,
     usePermit2Approve,
     shouldApprove,
     onConfirm,
@@ -717,6 +733,15 @@ export function ApproveBaseStake({
         try {
           // Check permit cache first
           const permitCache = getPermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -744,6 +769,15 @@ export function ApproveBaseStake({
 
           // Update permit cache
           updatePermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -815,6 +849,7 @@ export function ApproveBaseStake({
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
+    approveType,
     providerName,
     updatePermitCache,
     onSubmit,
