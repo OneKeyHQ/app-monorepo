@@ -78,9 +78,16 @@ Present to user:
 5. **Risk assessment** — areas needing manual verification
 6. **Self-test result** — which checks passed, which were skipped and why
 
-## Bug Fix Case Recording
+## Selective Bug Fix Case Recording
 
-After every **bug fix**, append to `.claude/skills/1k-retrospective/references/case-studies.md`:
+Ordinary bug fixes do **not** require a case study. Record a case only when it adds a non-obvious, reusable lesson that helps diagnose or prevent similar failures beyond this specific fix.
+
+- Record cases with a verified root cause and a concrete, reusable diagnostic method or prevention check, such as a subtle platform constraint, a difficult cross-runtime interaction, or a recurring failure that exposes a gap in existing checks.
+- Skip routine spacing, styling, copy, and straightforward logic fixes unless they meet the same reuse criteria. Severity or the fact that a bug was fixed is not sufficient on its own.
+- Skip cases that merely repeat an existing lesson without adding useful diagnostic or prevention detail.
+- Reviewers must not flag a missing case study for ordinary fixes or request a skip explanation. When requesting a case study, identify the specific reusable lesson worth preserving.
+
+For qualifying cases, append to `.claude/skills/1k-retrospective/references/case-studies.md`:
 
 ```
 ## Case: [Title]
