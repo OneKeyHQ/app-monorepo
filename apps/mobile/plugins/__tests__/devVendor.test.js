@@ -755,6 +755,32 @@ describe('devVendor', () => {
     }
   });
 
+  it('excludes a removed tracked native module before it is staged', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      const relativePath =
+        'apps/mobile/ios/OneKeyWallet/RemovedSupportModule.mm';
+      const filePath = path.join(fixture.repoRoot, relativePath);
+      fs.writeFileSync(filePath, 'RCT_EXPORT_MODULE(RemovedSupportModule)\n');
+      const staged = spawnSync('git', ['add', relativePath], {
+        cwd: fixture.repoRoot,
+      });
+      expect(staged.status).toBe(0);
+      expect(getNativeContractInputPaths('ios', fixture.repoRoot)).toContain(
+        relativePath,
+      );
+      fs.unlinkSync(filePath);
+      expect(
+        getNativeContractInputPaths('ios', fixture.repoRoot),
+      ).not.toContain(relativePath);
+      expect(() =>
+        computeNativeContractKey('ios', fixture.repoRoot),
+      ).not.toThrow();
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it('derives native shell keys from installed ABI contracts only', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {

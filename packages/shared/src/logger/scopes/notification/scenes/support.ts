@@ -32,7 +32,10 @@ export type ISupportOpenBranch =
   | 'web-conversation'
   | 'web-messages'
   | 'web-home'
-  | 'extension-webview';
+  | 'extension-webview'
+  | 'rn-conversation'
+  | 'rn-messages'
+  | 'rn-home';
 
 // OK-66809: temporary support-reply notification diagnostics. Every argument is
 // an auditable routing value (ids, branch names, booleans); payload content is

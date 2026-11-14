@@ -9,6 +9,7 @@ import {
   useDownloadPackage,
 } from '@onekeyhq/kit/src/components/AppUpdate';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -16,7 +17,6 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 

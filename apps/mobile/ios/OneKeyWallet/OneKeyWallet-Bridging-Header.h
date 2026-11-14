@@ -11,7 +11,6 @@
 #endif
 
 BOOL OneKeyIsTravelModeMaskingData(void);
-void OneKeyInitializeIntercom(void);
 BOOL OneKeyForceDisableTravelModeForRecovery(void);
 void OneKeyConfigureNativeSentryCrashDiagnostics(id options);
 void OneKeyFlushNativeCrashDiagnostics(NSTimeInterval timeout);

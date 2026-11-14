@@ -71,7 +71,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
   SUPPORT_URL: 'https://help.onekey.so',
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({

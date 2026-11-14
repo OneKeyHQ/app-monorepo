@@ -55,6 +55,7 @@ import { FeaturedFooter } from '../components/FeaturedFooter';
 import {
   markPendingContactSupportHandoff,
   useForceUpdateContactSupport,
+  waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
@@ -292,13 +293,11 @@ function FeaturedChangelogContent({
   isPreInstall,
   isLocked,
   onLockChange,
-  onSupportOpen,
   closeDialog,
 }: {
   isPreInstall: boolean;
   isLocked: boolean;
   onLockChange?: (locked: boolean) => void;
-  onSupportOpen?: () => void;
   closeDialog: () => Promise<void>;
 }) {
   const intl = useIntl();
@@ -337,40 +336,31 @@ function FeaturedChangelogContent({
   });
 
   const handleContactSupportPress = useCallback(async () => {
-    if (platformEnv.isNative) {
-      // On Native, Dialog.show renders inside FULL_WINDOW_OVERLAY_PORTAL above
-      // React Navigation. Hand the force-update lock and support-polling state
-      // off to UpdatePreview so the WebViewModal opened by showIntercom()
-      // renders on top and UpdatePreview continues polling while Intercom is open.
-      markPendingContactSupportHandoff();
-      const release = acquireDeferredGuideBlocker();
-      try {
-        await closeDialog();
-        navigation.pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.UpdatePreview,
-          params: {
-            latestVersion: updateInfo?.latestVersion,
-            isForceUpdate: isLiveLocked,
-          },
-        });
-      } finally {
-        release();
-      }
-      // Allow the AppUpdateModal -> UpdatePreview stack to commit before
-      // openUrlByWebview navigates to WebViewModal inside ERootRoutes.Modal.
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 50);
+    // Global dialogs cover the RN support route on every platform. Transfer
+    // the update lock and whitelist polling before opening support above it.
+    markPendingContactSupportHandoff();
+    const release = acquireDeferredGuideBlocker();
+    try {
+      await closeDialog();
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.UpdatePreview,
+        params: {
+          latestVersion: updateInfo?.latestVersion,
+          isForceUpdate: isLiveLocked,
+        },
       });
-    } else {
-      onSupportOpen?.();
+    } finally {
+      release();
     }
+    // Open support only after UpdatePreview has mounted and taken over the
+    // lock, instead of guessing how long the modal stack takes to commit.
+    await waitForContactSupportHandoff();
     await handleContactSupport();
   }, [
     closeDialog,
     handleContactSupport,
     isLiveLocked,
     navigation,
-    onSupportOpen,
     updateInfo?.latestVersion,
   ]);
 
@@ -437,7 +427,6 @@ function FeaturedChangelogContent({
 
 interface IFeaturedDialogState {
   isLocked: boolean;
-  isSupportOpen: boolean;
 }
 
 function createFeaturedDialogStore(initial: IFeaturedDialogState) {
@@ -447,10 +436,7 @@ function createFeaturedDialogStore(initial: IFeaturedDialogState) {
     get: () => state,
     set: (patch: Partial<IFeaturedDialogState>) => {
       const next = { ...state, ...patch };
-      if (
-        next.isLocked === state.isLocked &&
-        next.isSupportOpen === state.isSupportOpen
-      ) {
+      if (next.isLocked === state.isLocked) {
         return;
       }
       state = next;
@@ -474,10 +460,7 @@ const FeaturedChangelogDialogContainer = forwardRef<
   IDialogInstance,
   IDialogContainerProps & { store: IFeaturedDialogStore }
 >(function FeaturedChangelogDialogContainer({ store, ...props }, ref) {
-  const { isLocked, isSupportOpen } = useSyncExternalStore(
-    store.subscribe,
-    store.get,
-  );
+  const { isLocked } = useSyncExternalStore(store.subscribe, store.get);
   return (
     <DialogContainer
       ref={ref}
@@ -485,9 +468,7 @@ const FeaturedChangelogDialogContainer = forwardRef<
       dismissOnOverlayPress={!isLocked}
       disableDrag={isLocked}
       disableSystemClose={isLocked}
-      // Keep keyboard focus inside the blocker on desktop/web, but release it
-      // once the in-page Intercom messenger opens so its input can take focus.
-      trapFocus={platformEnv.isNative ? false : !isSupportOpen}
+      trapFocus={!platformEnv.isNative}
     />
   );
 });
@@ -518,7 +499,6 @@ export function showFeaturedChangelogDialog(
   const isLockedRef = { current: isLocked };
   const dialogStore = createFeaturedDialogStore({
     isLocked,
-    isSupportOpen: false,
   });
 
   const mountTime = Date.now();
@@ -552,9 +532,6 @@ export function showFeaturedChangelogDialog(
               onLockChange={(nextLocked) => {
                 isLockedRef.current = nextLocked;
                 dialogStore.set({ isLocked: nextLocked });
-              }}
-              onSupportOpen={() => {
-                dialogStore.set({ isSupportOpen: true });
               }}
               closeDialog={closeDialog}
             />

@@ -85,7 +85,7 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess', () => ({

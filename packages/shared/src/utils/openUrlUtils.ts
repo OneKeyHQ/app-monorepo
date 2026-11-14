@@ -95,7 +95,6 @@ const openUrlByWebview = (
         redirectExternalNavigation: options?.redirectExternalNavigation,
         hideHeaderRight: options?.hideHeaderRight,
         disableBridge: options?.disableBridge,
-        intercomUserId: options?.intercomUserId,
       },
     },
   });
@@ -174,8 +173,6 @@ const openUrlOutsideNative = (url: string): void => {
 export interface IOpenUrlInAppOptions {
   hideHeaderRight?: boolean;
   disableBridge?: boolean;
-  /** Bind an authenticated support page to its opening wallet identity. */
-  intercomUserId?: string | null;
   /**
    * The page is expected to talk to the wallet (connect, sign). Adds the
    * account/network change notifications a dApp session needs; see
@@ -194,10 +191,7 @@ export const openUrlInApp = (
   title?: string,
   options?: IOpenUrlInAppOptions,
 ) => {
-  // Extension support stays in the wallet UI so the wallet lock still covers it.
-  const isExtensionSupport =
-    platformEnv.isExtension && options?.intercomUserId !== undefined;
-  if (platformEnv.isNative || platformEnv.isDesktop || isExtensionSupport) {
+  if (platformEnv.isNative || platformEnv.isDesktop) {
     openUrlByWebview(url.trim(), title, options);
   } else {
     openUrlOutsideNative(url.trim());

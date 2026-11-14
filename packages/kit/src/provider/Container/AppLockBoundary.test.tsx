@@ -7,7 +7,7 @@ import { render } from '@testing-library/react';
 
 import { AppLockBoundary } from './AppLockBoundary';
 
-const mockSetLocked = jest.fn(async (_locked: boolean) => {});
+const mockSetLocked = jest.fn<void, []>();
 
 jest.mock('@onekeyhq/components', () => ({
   AnimatePresence: ({ children }: { children?: ReactNode }) => children,
@@ -41,8 +41,8 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
     getRuntimeEnvironmentSync: () => ({ profile: { kind: 'standard' } }),
   },
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
-  setIntercomMessengerLocked: (locked: boolean) => mockSetLocked(locked),
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  syncIntercomLockState: async () => mockSetLocked(),
 }));
 jest.mock('./AppStateLockContainer/components/AppStateUpdater', () => ({
   AppStateUpdater: () => null,
@@ -59,7 +59,7 @@ it('guards Intercom while a low-memory cold-start lock defers the app tree', () 
     </AppLockBoundary>,
   );
   // The deferred subtree, including the route-gated message container, is
-  // not rendered, yet the lock guard still hides native Intercom content.
+  // not rendered, yet the lock guard still cancels support requests.
   expect(view.queryByText('App tree')).toBeNull();
-  expect(mockSetLocked).toHaveBeenCalledWith(true);
+  expect(mockSetLocked).toHaveBeenCalledTimes(1);
 });

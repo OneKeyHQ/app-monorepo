@@ -21,6 +21,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import extUtils from './extUtils';
 import notificationsUtils, {
   type INotificationPageNavigationEvent,
+  getSupportConversationFromNotification,
   navigateToNotificationDetailByLocalParams,
   parseNotificationPayload,
   registerNotificationPageNavigationProcessor,
@@ -30,6 +31,87 @@ import timerUtils from './timerUtils';
 
 const mockLog = jest.fn<void, unknown[]>();
 const mockSupportReplyClicked = jest.fn<void, [unknown]>();
+
+describe('support push classification without navigation', () => {
+  it.each([
+    ENotificationPushMessageMode.command,
+    'command',
+    String(ENotificationPushMessageMode.command),
+  ])('accepts command mode %s and uses extras params precedence', (mode) => {
+    expect(
+      getSupportConversationFromNotification({
+        extras: {
+          mode,
+          payload: JSON.stringify({
+            action: 'openSupportConversation',
+            data: { conversationId: 'old' },
+          }),
+          params: { conversationId: ' 42 ' },
+        },
+      }),
+    ).toEqual({ conversationId: '42' });
+  });
+  it.each([
+    '{',
+    'null',
+    JSON.stringify({ action: 'unrelated' }),
+    JSON.stringify({
+      action: 'openSupportConversation',
+      data: { conversationId: { id: 42 } },
+    }),
+  ])('ignores malformed or unrelated command %s', (payload) => {
+    expect(
+      getSupportConversationFromNotification({
+        extras: { mode: ENotificationPushMessageMode.command, payload },
+      }),
+    ).toBeUndefined();
+  });
+  it.each([undefined, null, '', '   '])(
+    'keeps the top-level numeric id when higher-priority fields are %p',
+    (conversationId) => {
+      expect(
+        getSupportConversationFromNotification({
+          extras: {
+            mode: 'command',
+            payload: JSON.stringify({
+              action: ' openSupportConversation ',
+              data: { conversationId },
+              conversationId: 42,
+            }),
+            params: { conversationId },
+          },
+        }),
+      ).toEqual({ conversationId: '42' });
+    },
+  );
+  it.each([false, {}, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects an invalid higher-priority id %p without falling back',
+    (conversationId) => {
+      expect(
+        getSupportConversationFromNotification({
+          extras: {
+            mode: 'command',
+            payload: JSON.stringify({
+              action: 'openSupportConversation',
+              data: { conversationId: '42' },
+            }),
+            params: { conversationId },
+          },
+        }),
+      ).toBeUndefined();
+    },
+  );
+  it('recognizes a support inbox notification without a conversation id', () => {
+    expect(
+      getSupportConversationFromNotification({
+        extras: {
+          mode: ENotificationPushMessageMode.command,
+          payload: JSON.stringify({ action: 'openSupportConversation' }),
+        },
+      }),
+    ).toEqual({ conversationId: undefined });
+  });
+});
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {

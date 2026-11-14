@@ -1,9 +1,18 @@
 /** @jest-environment jsdom */
 
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
-import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react';
+
+import { Dialog, Toast } from '@onekeyhq/components';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useAccountSelectorCreateAddress } from './useAccountSelectorCreateAddress';
 
 const mockAddDefaultNetworkAccounts = jest.fn<Promise<unknown>, [unknown]>();
+const mockAddAccounts = jest.fn<Promise<unknown>, [unknown]>();
 const mockIsThirdPartyHwByWalletId = jest.fn<Promise<boolean>, [unknown]>();
 const mockGetNetwork = jest.fn<
   Promise<{ name: string } | undefined>,
@@ -38,6 +48,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockIsThirdPartyHwByWalletId(params),
       getIndexedAccountsOfWallet: (params: unknown) =>
         mockGetIndexedAccounts(params),
+      addHDOrHWAccounts: (params: unknown) => mockAddAccounts(params),
+      isBtcOnlyFirmwareByWalletId: jest.fn(async () => false),
     },
     serviceBatchCreateAccount: {
       addDefaultNetworkAccounts: (params: unknown) =>
@@ -59,12 +71,24 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Button: () => null,
+  Button: ({
+    children,
+    onPress,
+  }: {
+    children: ReactNode;
+    onPress: () => void;
+  }) => <button onClick={onPress}>{children}</button>,
   Dialog: { show: jest.fn() },
-  SizableText: () => null,
-  Stack: () => null,
+  SizableText: ({ children }: { children: ReactNode }) => (
+    <span>{children}</span>
+  ),
+  Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Toast: { error: jest.fn() },
-  XStack: () => null,
+  XStack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  showIntercom: jest.fn(async () => {}),
 }));
 
 jest.mock('react-intl', () => ({
@@ -126,6 +150,45 @@ describe('useAccountSelectorCreateAddress', () => {
       addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
       failedAccounts: [pathForbidden],
     });
+  });
+
+  it('closes the failed QR-address dialog before opening support', async () => {
+    let finishClose: () => void = () => {};
+    const close = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishClose = resolve;
+        }),
+    );
+    jest.mocked(Dialog.show).mockReturnValueOnce({
+      close,
+      isExist: () => true,
+      getForm: () => undefined,
+    });
+    mockAddAccounts.mockRejectedValue({
+      className: EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+    });
+    const { result } = renderHook(() => useAccountSelectorCreateAddress());
+    await act(async () => {
+      await result.current.createAddress({
+        num: 0,
+        account: {
+          walletId: 'qr-wallet-test',
+          networkId: 'evm--1',
+          indexedAccountId: 'qr-wallet-test--1',
+          deriveType: 'default',
+        },
+      });
+    });
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    render(<>{jest.mocked(Dialog.show).mock.calls[0][0].renderContent}</>);
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.global_contact_us }),
+    );
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(showIntercom).not.toHaveBeenCalled();
+    await act(async () => finishClose());
+    expect(showIntercom).toHaveBeenCalledTimes(1);
   });
 
   it.each([false, true])(
