@@ -68,6 +68,7 @@ import {
   ERootRoutes,
   ESettingsTabNames,
   ETabDeveloperRoutes,
+  ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -1607,6 +1608,21 @@ const MoreActionMoreGrid = () => {
             },
           ]
         : []),
+      ...(platformEnv.isDev
+        ? [
+            {
+              title: '补贴中心',
+              icon: 'FlashOutline' as const,
+              testID: 'more-action-subsidy-center',
+              trackID: 'wallet-subsidy-center',
+              onPress: () => {
+                navigation.pushModal(EModalRoutes.TestModal, {
+                  screen: ETestModalPages.NetworkFeeSubsidy,
+                });
+              },
+            },
+          ]
+        : []),
     ];
   }, [
     handleHelpAndSupport,
@@ -1618,6 +1634,7 @@ const MoreActionMoreGrid = () => {
     isReferralEntryPending,
     isReferralEntryLoading,
     handleDevMode,
+    navigation,
     showReviewControlledFeatures,
   ]);
   return (

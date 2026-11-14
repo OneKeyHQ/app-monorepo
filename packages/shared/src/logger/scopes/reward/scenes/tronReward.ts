@@ -32,14 +32,12 @@ export class TronRewardScene extends BaseScene {
   public redeemResource({
     networkId,
     address,
-    code,
     sourceFlag,
     isSuccess,
     resourceType,
   }: {
     networkId: string | undefined;
     address: string | undefined;
-    code: string | undefined;
     sourceFlag: string | undefined;
     isSuccess: boolean | undefined;
     resourceType: string | undefined;
@@ -47,7 +45,6 @@ export class TronRewardScene extends BaseScene {
     void address;
     return {
       networkId,
-      code,
       sourceFlag,
       isSuccess,
       resourceType,
