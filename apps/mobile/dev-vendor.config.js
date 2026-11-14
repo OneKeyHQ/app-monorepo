@@ -1,5 +1,7 @@
 const path = require('path');
 
+const { isMobileLockdownEnabled } = require('./plugins/mobileLockdown');
+
 const SCHEMA_VERSION = 4;
 const STRATEGY_VERSION = 5;
 const NATIVE_CONTRACT_VERSION = 3;
@@ -23,6 +25,7 @@ const transformationEnvironment = {
   NODE_ENV: 'development',
   ONEKEY_STARTUP_PROFILE: undefined,
   ONEKEY_PLATFORM: 'app',
+  ONEKEY_MOBILE_LOCKDOWN: 'true',
   PERF_MONITOR_ENABLED: undefined,
   RN_HARNESS: undefined,
   SPLIT_BUNDLE_SEGMENTS: undefined,
@@ -44,10 +47,12 @@ const fingerprintFiles = [
   'apps/mobile/scripts/native-dev-shell.js',
   'apps/mobile/plugins/index.js',
   'apps/mobile/plugins/map.js',
+  'apps/mobile/plugins/mobileLockdown.js',
   'apps/mobile/plugins/moduleIdRegistry.js',
   'apps/mobile/plugins/startupProfilePrologue.js',
   'apps/mobile/scripts/build-dev-vendor.js',
   'apps/mobile/svgx-transformer.js',
+  'apps/mobile/src/security/finishMobileLockdown.ts',
   'development/babelTools.js',
   'development/developmentConsts.js',
   'development/env.js',
@@ -293,6 +298,7 @@ const shellInputFiles = {
 };
 
 function applyTransformationEnvironment(env) {
+  const mobileLockdownEnabled = isMobileLockdownEnabled(env);
   for (const [key, value] of Object.entries(transformationEnvironment)) {
     if (value === undefined) {
       delete env[key];
@@ -300,6 +306,7 @@ function applyTransformationEnvironment(env) {
       env[key] = value;
     }
   }
+  env.ONEKEY_MOBILE_LOCKDOWN = String(mobileLockdownEnabled);
 }
 
 function getTransformationEnvironment(env) {
