@@ -4560,6 +4560,30 @@ describe('useSwapActions', () => {
     },
   );
 
+  it('uses the Swap detail balance without applying its multiplier again', async () => {
+    const scaledToken: ISwapToken = {
+      ...ethToken,
+      balanceMultiplier: '1.5',
+    };
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([{ balanceParsed: '15' }]);
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapSelectFromTokenAtom(), scaledToken);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('15');
+  });
+
   it('keeps loading and balance owned by the latest account when responses arrive out of order', async () => {
     const oldDetail = createDeferred<{ balanceParsed: string }[]>();
     const newDetail = createDeferred<{ balanceParsed: string }[]>();
@@ -10779,6 +10803,26 @@ describe('Recent trades attribution', () => {
     });
     return { store, actions: result.current };
   }
+
+  it.each(['from', 'to'] as const)(
+    'allows selecting a token with a balance multiplier as %s',
+    async (side) => {
+      const { store, actions } = renderActions();
+      const token = { ...usdcToken, balanceMultiplier: '1.5' };
+
+      await act(async () => {
+        await (side === 'from'
+          ? actions.selectFromToken(token)
+          : actions.selectToToken(token));
+      });
+
+      expect(
+        store.get(
+          side === 'from' ? swapSelectFromTokenAtom() : swapSelectToTokenAtom(),
+        ),
+      ).toEqual(token);
+    },
+  );
 
   it('records the picked pair after applying it', async () => {
     const { store, actions } = renderActions();

@@ -12,6 +12,7 @@ import {
   OneKeyLocalError,
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
+import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -449,6 +450,113 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
     },
   );
+
+  it.each([true, false])(
+    'classifies PIN cancellation from hardware=%s',
+    async (hardware) => {
+      const approvalQuote: IFetchQuoteResult = {
+        ...quote,
+        expiredTime: 60,
+        fromTokenInfo: {
+          ...fromToken,
+          isNative: false,
+          contractAddress: '0x0000000000000000000000000000000000000004',
+        },
+        allowanceResult: {
+          allowanceTarget: '0x0000000000000000000000000000000000000005',
+          amount: '0',
+        },
+      };
+      mockFetchBuildTx.mockResolvedValue({
+        ...buildResponse('98'),
+        result: { ...approvalQuote, toAmount: '98' },
+      });
+      mockSignAndSendTransaction.mockImplementation(async ({ unsignedTx }) => {
+        if (!unsignedTx.approveInfo) {
+          throw Object.assign(new OneKeyLocalError('PIN cancelled'), {
+            code: 802,
+            $isHardwareError: hardware,
+          });
+        }
+        return {
+          txid: 'approval-tx',
+          rawTx: 'signed-approval',
+          encodedTx: unsignedTx.encodedTx,
+        };
+      });
+      const review = renderReview({
+        selectedQuote: approvalQuote,
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+      });
+      await act(async () => {
+        await review.result.current.preSwapStepsStart({
+          ...review.store.get(swapStepsAtom()),
+          isQuoteValid: Object.assign(() => true, {
+            deadline: Date.now() + 60_000,
+          }),
+        });
+      });
+
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+      const firstStep = review.store.get(swapStepsAtom()).steps[0];
+      if (hardware) {
+        expect(firstStep).toEqual(
+          expect.objectContaining({
+            status: ESwapStepStatus.PENDING,
+            txHash: 'approval-tx',
+          }),
+        );
+        expect(mockNotificationState.swapApprovingTransaction?.txId).toBe(
+          'approval-tx',
+        );
+      } else {
+        expect(firstStep).toEqual(
+          expect.objectContaining({
+            status: ESwapStepStatus.FAILED,
+            submitResultUnknown: true,
+            canRetry: false,
+          }),
+        );
+      }
+    },
+  );
+
+  it('retains the submitted rental and blocks refresh if the quote expires after preparation', async () => {
+    let valid = true;
+    const review = renderReview({ preSwapData: { shouldFallback: true } });
+    await act(async () => {
+      await review.result.current.preSwapStepsStart({
+        ...review.store.get(swapStepsAtom()),
+        isQuoteValid: Object.assign(() => valid, {
+          deadline: Date.now() + 60_000,
+        }),
+      });
+    });
+    const navigationParams = mockNavigateTxConfirm.mock.calls[0][0];
+    const beforeSend = navigationParams.onBeforeSend;
+    if (!beforeSend) throw new OneKeyLocalError('Missing before-send callback');
+    valid = false;
+    let abort: unknown;
+    try {
+      await beforeSend({
+        preSendTx: { txid: 'rental-tx', orderId: 'rental-order' },
+      });
+    } catch (error) {
+      abort = error;
+    }
+    expect(abort).toBeInstanceOf(BeforeSendAbortError);
+    await act(async () => {
+      expect((abort as BeforeSendAbortError).onAbort()).toBe(true);
+    });
+    expect(review.store.get(swapStepsAtom()).steps[0]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.FAILED,
+        canRetry: false,
+        submitResultUnknown: true,
+        resourceRental: { txid: 'rental-tx', orderId: 'rental-order' },
+      }),
+    );
+  });
 
   it.each(['unchanged', 'edited', 'reopened'])(
     'consumes only the submitted input after closing with %s input',

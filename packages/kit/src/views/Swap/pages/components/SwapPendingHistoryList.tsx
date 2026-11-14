@@ -40,6 +40,8 @@ import {
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 
+import { useSwapHistoryTradeAgainHandler } from './SwapHistoryTradeAgainContext';
+
 const SwapPendingHistoryListComponent = ({
   storeName,
   pageType,
@@ -52,6 +54,7 @@ const SwapPendingHistoryListComponent = ({
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const onTradeAgain = useSwapHistoryTradeAgainHandler();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
@@ -142,6 +145,7 @@ const SwapPendingHistoryListComponent = ({
               screen: EModalSwapRoutes.SwapHistoryList,
               params: {
                 type: protocol,
+                onTradeAgain,
                 storeName:
                   storeName ??
                   (pageType === EPageType.modal
@@ -181,6 +185,7 @@ const SwapPendingHistoryListComponent = ({
                 params: {
                   txHistoryOrderId: item.swapInfo.orderId,
                   txHistoryList: [...txHistoryListForDetail],
+                  onTradeAgain,
                 },
               });
             }}

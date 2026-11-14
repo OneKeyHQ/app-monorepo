@@ -406,10 +406,7 @@ function TokenDetailsOverview(props: IProps) {
     walletId,
   ]);
 
-  // Rows are sorted by fiat value, so use the first tradable member. The
-  // member's scaled-UI multiplier (detail level first, token level fallback)
-  // rides along so the swap gate below and `pushSwapFromTokenDetails`'s
-  // fail-closed re-check judge the same member.
+  // Rows are sorted by fiat value, so use the first tradable member.
   const swapMember = useMemo(() => {
     const row = rows.find(
       ({ token }) =>
@@ -469,16 +466,7 @@ function TokenDetailsOverview(props: IProps) {
   ]);
 
   const disableSwapAction = useMemo(
-    () =>
-      accountUtils.isUrlAccountFn({ accountId }) ||
-      !swapMember ||
-      // Scaled-UI member: same fail-closed swap gate as the single-network
-      // header — Swap would display/build on the raw basis, out of sync with
-      // the wallet display. A multiplier of exactly 1 is a no-op and must
-      // not block.
-      tokenRebaseUtils.isScalingBalanceMultiplier(
-        swapMember?.balanceMultiplier,
-      ),
+    () => accountUtils.isUrlAccountFn({ accountId }) || !swapMember,
     [accountId, swapMember],
   );
 

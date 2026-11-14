@@ -33,6 +33,7 @@ const SwapMainLandModalPage = () => {
     fromAmount,
     importDeriveType,
     swapSource,
+    tradeAgainFromHistory,
     marketPresetToken,
     marketSwapDirection,
     closeModalAfterSwapBroadcast,
@@ -86,6 +87,7 @@ const SwapMainLandModalPage = () => {
           marketPresetToken,
           marketSwapDirection,
           swapSource,
+          tradeAgainFromHistory,
           closeModalAfterSwapBroadcast,
           onSwapBroadcast,
         }}

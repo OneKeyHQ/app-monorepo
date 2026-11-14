@@ -9,6 +9,7 @@ import {
   useSwapStockExecutionTokensAtom,
   useSwapStockSelectedTokenAtom,
   useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -24,6 +25,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IFetchUSMarketStatusResult,
+  ISwapInitParams,
   ISwapStockSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -45,6 +47,7 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketToken,
   filterStockPayTokenCandidates,
+  findTokenFromCandidates,
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
   resolveFollowedStockToken,
@@ -98,16 +101,22 @@ export function useSwapStockChannel(
   stockSpeedConfig?: ISwapStockSpeedConfig,
   controlledStockToken?: ISwapToken,
   storeName?: string,
+  historyIntent?: {
+    key: string;
+    params: ISwapInitParams;
+    claim: (key: string) => boolean;
+  },
 ) {
   const locale = useLocaleVariant().toLowerCase();
   const localeRef = useRef(locale);
   localeRef.current = locale;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
   const [stockSelectedToken, setStockSelectedToken] =
     useSwapStockSelectedTokenAtom();
-  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const {
     selectStockExecutionTokens,
@@ -130,6 +139,19 @@ export function useSwapStockChannel(
   const manualStockPayTokenKeyRef = useRef('');
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
+  const renderSerialRef = useRef(0);
+  renderSerialRef.current += 1;
+  const pendingHistoryRef = useRef<
+    | {
+        key: string;
+        preparedRender: number;
+        stockToken: ISwapToken;
+        payToken: ISwapToken;
+        tradeSide: ESwapStockTradeSide;
+        fromAmount?: string;
+      }
+    | undefined
+  >(undefined);
   // Token-selector metadata is already localized. Keep its locale separate
   // from the persisted token so a cold-start snapshot cannot flash old copy.
   const stockTokenMetadataLocaleRef = useRef<string | undefined>(undefined);
@@ -856,6 +878,139 @@ export function useSwapStockChannel(
     tradeSide,
     fromToken,
     toToken,
+  ]);
+
+  useEffect(() => {
+    if (
+      !historyIntent ||
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK ||
+      historyIntent.params.swapTabSwitchType !== ESwapTabSwitchType.STOCK ||
+      !historyIntent.claim(historyIntent.key)
+    ) {
+      return;
+    }
+    const { importFromToken, importToToken, fromAmount } = historyIntent.params;
+    const pair = resolveStockChannelSwapPair({
+      fromToken: importFromToken,
+      toToken: importToToken,
+    });
+    pendingHistoryRef.current = undefined;
+    endRecentTokenPairAttribution();
+    resetStockTradeAmounts();
+    if (
+      !importFromToken ||
+      !importToToken ||
+      !pair.stockToken ||
+      !pair.payToken ||
+      !pair.tradeSide ||
+      Boolean(importFromToken.isStock) === Boolean(importToToken.isStock) ||
+      importFromToken.networkId !== importToToken.networkId
+    ) {
+      coldStartStockPairRef.current = {};
+      stockTokenSnapshotRef.current = undefined;
+      payTokenSnapshotRef.current = undefined;
+      manualStockPayTokenKeyRef.current = '';
+      setStockTokenState(undefined);
+      setStockSelectedToken(undefined);
+      setPayTokenState(undefined);
+      void selectStockExecutionTokens({
+        clearFromToken: true,
+        clearToToken: true,
+        syncId: nextStockExecutionTokenSyncId(),
+      });
+      return;
+    }
+
+    pendingHistoryRef.current = {
+      key: historyIntent.key,
+      preparedRender: renderSerialRef.current,
+      stockToken: pair.stockToken,
+      payToken: pair.payToken,
+      tradeSide: pair.tradeSide,
+      fromAmount,
+    };
+    stockNetworkIdRef.current = pair.stockToken.networkId;
+    stockTokenSnapshotRef.current = pair.stockToken;
+    payTokenSnapshotRef.current = pair.payToken;
+    manualStockPayTokenKeyRef.current = getTokenIdentityKey(pair.payToken);
+    stockTokenMetadataLocaleRef.current = undefined;
+    setTradeSideState(pair.tradeSide);
+    setStockTokenState(pair.stockToken);
+    setStockSelectedToken(pair.stockToken);
+    setPayTokenState(pair.payToken);
+    void selectStockExecutionTokens({
+      fromToken: importFromToken,
+      toToken: importToToken,
+      syncId: nextStockExecutionTokenSyncId(),
+    });
+    // selectStockExecutionTokens can restore a previous draft for this pair.
+    resetStockTradeAmounts();
+  }, [
+    endRecentTokenPairAttribution,
+    historyIntent,
+    resetStockTradeAmounts,
+    selectStockExecutionTokens,
+    setStockSelectedToken,
+    swapTypeSwitch,
+  ]);
+
+  useEffect(() => {
+    const pending = pendingHistoryRef.current;
+    if (!pending) return;
+    if (historyIntent?.key !== pending.key) {
+      pendingHistoryRef.current = undefined;
+      return;
+    }
+    if (pending.preparedRender === renderSerialRef.current) return;
+    if (
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK ||
+      getTokenIdentityKey(currentStockToken) !==
+        getTokenIdentityKey(pending.stockToken) ||
+      tradeSide !== pending.tradeSide ||
+      getTokenIdentityKey(payTokenState) !==
+        getTokenIdentityKey(pending.payToken) ||
+      fromTokenAmount.value ||
+      fromTokenAmount.isInput
+    ) {
+      pendingHistoryRef.current = undefined;
+      return;
+    }
+    if (!speedConfigReady || payTokenOptionsLoading) return;
+    pendingHistoryRef.current = undefined;
+    const selectedPayToken = findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: pending.payToken,
+    });
+    if (!selectedPayToken) return;
+    const from =
+      pending.tradeSide === ESwapStockTradeSide.Buy
+        ? selectedPayToken
+        : pending.stockToken;
+    const to =
+      pending.tradeSide === ESwapStockTradeSide.Buy
+        ? pending.stockToken
+        : selectedPayToken;
+    void selectStockExecutionTokens({
+      fromToken: from,
+      toToken: to,
+      syncId: nextStockExecutionTokenSyncId(),
+    });
+    setFromTokenAmount({
+      value: pending.fromAmount ?? '',
+      isInput: Boolean(pending.fromAmount),
+    });
+  }, [
+    currentStockToken,
+    fromTokenAmount,
+    historyIntent?.key,
+    payTokenOptionsLoading,
+    payTokenState,
+    selectablePayTokens,
+    selectStockExecutionTokens,
+    setFromTokenAmount,
+    speedConfigReady,
+    swapTypeSwitch,
+    tradeSide,
   ]);
 
   return useMemo(

@@ -53,6 +53,7 @@ import type {
   IFetchQuoteResult,
   IQuoteTip,
   ISwapPreSwapData,
+  ISwapReviewQuoteValidity,
   ISwapStep,
   ISwapToken,
   ISwapTxHistory,
@@ -78,6 +79,7 @@ import {
   type ISwapReviewSlippageSaveScope,
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
+import { useSwapReviewQuoteExpiry } from '../../hooks/useSwapReviewQuoteExpiry';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
 import { getSwapReviewOrderId } from '../../utils/swapReviewAnalytics';
 import {
@@ -88,6 +90,7 @@ import {
 import {
   type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  canRefreshSwapReviewSteps,
   invalidateSwapReviewForSlippageChange,
   resolveSwapReviewResultStep,
   shouldShowSwapReviewToAmountSkeleton,
@@ -108,7 +111,7 @@ interface IPreSwapDialogContentProps {
   reviewAnalytics?: ISwapReviewAnalytics;
   analyticsCreateFrom?: string;
   analyticsInitialState?: ISwapReviewState;
-  onConfirm: () => void;
+  onConfirm: (isQuoteValid?: ISwapReviewQuoteValidity) => void;
   onDone: () => void;
   disableGlobalApproveSync?: boolean;
   preSwapBeforeStepActions: (
@@ -121,6 +124,7 @@ interface IPreSwapDialogContentProps {
     steps: ISwapStep[];
     preSwapData: ISwapPreSwapData;
     quoteResult?: IFetchQuoteResult;
+    isQuoteValid?: ISwapReviewQuoteValidity;
   }) => void | Promise<void>;
   defaultNetworkFeeLevel?: ESwapNetworkFeeLevel;
   defaultCustomPriorityFee?: ICustomPriorityFeeOverride;
@@ -130,6 +134,7 @@ interface IPreSwapDialogContentProps {
     slippagePercentage: number,
     options?: ISwapReviewRebuildOptions,
   ) => Promise<void>;
+  refreshReviewQuote?: () => Promise<void>;
   reviewRebuildState?: ISwapReviewRebuildState;
   resetUncommittedReviewRebuildError?: () => void;
   saveSlippageForFutureOrders?: (
@@ -152,6 +157,7 @@ const PreSwapDialogContent = ({
   showCustomNetworkFeeOption,
   isSwapPro,
   rebuildReviewWithSlippage,
+  refreshReviewQuote,
   reviewRebuildState,
   resetUncommittedReviewRebuildError,
   saveSlippageForFutureOrders,
@@ -166,6 +172,8 @@ const PreSwapDialogContent = ({
   const [slippageSavingScope, setSlippageSavingScope] = useState<
     ISwapReviewSlippageSaveScope | undefined
   >(undefined);
+  const [isRefreshingQuote, setIsRefreshingQuote] = useState(false);
+  const isRefreshingQuoteRef = useRef(false);
   const isMountedRef = useRef(true);
   const analyticsPreparationCount = useRef(0);
   const [analyticsPreparationRevision, setAnalyticsPreparationRevision] =
@@ -248,8 +256,25 @@ const PreSwapDialogContent = ({
     swapStepNetFeeLevel.networkFeeLevel,
   ]);
   const swapStepsRef = useRef(swapSteps);
-  const latestApproveTxIdRef = useRef('');
+  const latestApproveTxIdRef = useRef<
+    | {
+        txId: string;
+        approvalRequestId?: string;
+        quoteId?: string;
+        expiryKey?: string;
+      }
+    | undefined
+  >(undefined);
   const handledApproveStatusRef = useRef('');
+  const approvalContinuationRef = useRef<
+    | {
+        quoteResult?: IFetchQuoteResult;
+        expiryKey?: string;
+        stepIndex: number;
+        txHash?: string;
+      }
+    | undefined
+  >(undefined);
   if (!isEqual(swapStepsRef.current, swapSteps)) {
     swapStepsRef.current = swapSteps;
   }
@@ -364,6 +389,8 @@ const PreSwapDialogContent = ({
 
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
+  const inAppNotificationRef = useRef(inAppNotificationAtom);
+  inAppNotificationRef.current = inAppNotificationAtom;
 
   const [showPreSwapTipInfo, setShowPreSwapTipInfo] = useState<
     IQuoteTip | undefined
@@ -393,6 +420,7 @@ const PreSwapDialogContent = ({
         preSwapData?.swapBuildLoading ||
         preSwapData?.stepBeforeActionsLoading ||
         preSwapData?.stepBeforeActionsError ||
+        isRefreshingQuote ||
         isSwapReviewConfirmBlocked(reviewRebuildState?.phase),
       ),
     [
@@ -400,14 +428,134 @@ const PreSwapDialogContent = ({
       preSwapData?.stepBeforeActionsError,
       preSwapData?.stepBeforeActionsLoading,
       preSwapData?.swapBuildLoading,
+      isRefreshingQuote,
       reviewRebuildState?.phase,
     ],
   );
+  const {
+    expired: quoteExpired,
+    checkExpired,
+    captureQuoteValidity,
+  } = useSwapReviewQuoteExpiry({
+    enabled: Boolean(refreshReviewQuote),
+    quoteResult,
+    expiryKey: preSwapData.reviewQuoteExpiryKey,
+    expiredTime:
+      preSwapData.swapBuildResultData?.swapInfo?.swapBuildResData.result
+        ?.expiredTime ?? quoteResult?.expiredTime,
+    ready: Boolean(
+      swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
+      !isPrimaryButtonDisabled &&
+      (!preSwapData.supportPreBuild ||
+        !preSwapData.supportNetworkFeeLevel ||
+        preSwapData.swapBuildResultData),
+    ),
+  });
+
+  useEffect(() => {
+    if (quoteExpired) {
+      setShowPreSwapTipInfo(undefined);
+    }
+  }, [quoteExpired]);
+
+  const isQuoteValid = useCallback(() => !checkExpired(), [checkExpired]);
+
+  useEffect(() => {
+    const stepIndex = swapSteps.steps.findIndex(
+      (step) =>
+        step.type === ESwapStepType.APPROVE_TX &&
+        step.status === ESwapStepStatus.PENDING &&
+        step.approvalTrackingRequestId,
+    );
+    const step = swapSteps.steps[stepIndex];
+    if (!step?.approvalTrackingRequestId) return;
+    const isTracked = () => {
+      const approval = inAppNotificationRef.current.swapApprovingTransaction;
+      return (
+        approval !== undefined &&
+        approval.approvalRequestId === step.approvalTrackingRequestId &&
+        approval.txId === step.txHash
+      );
+    };
+    if (isTracked()) return;
+    const expiryKey = swapSteps.preSwapData.reviewQuoteExpiryKey;
+    const timer = setTimeout(() => {
+      if (isTracked()) return;
+      setSwapSteps((prev) => {
+        const current = prev.steps[stepIndex];
+        if (
+          prev.preSwapData.reviewQuoteExpiryKey !== expiryKey ||
+          current?.status !== ESwapStepStatus.PENDING ||
+          current.approvalTrackingRequestId !==
+            step.approvalTrackingRequestId ||
+          current.txHash !== step.txHash
+        )
+          return prev;
+        return {
+          ...prev,
+          steps: prev.steps.map((item, index) =>
+            index === stepIndex
+              ? {
+                  ...item,
+                  status: ESwapStepStatus.FAILED,
+                  canRetry: false,
+                  submitResultUnknown: true,
+                  errorMessage: intl.formatMessage({
+                    id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                  }),
+                }
+              : item,
+          ),
+        };
+      });
+    }, 10_000);
+    return () => clearTimeout(timer);
+  }, [
+    swapSteps.steps,
+    swapSteps.preSwapData.reviewQuoteExpiryKey,
+    inAppNotificationAtom.swapApprovingTransaction,
+    intl,
+    setSwapSteps,
+  ]);
+
+  const handleRefreshQuote = useCallback(async () => {
+    if (
+      !refreshReviewQuote ||
+      isRefreshingQuoteRef.current ||
+      slippageSavingScope ||
+      isPrimaryButtonDisabled ||
+      !canRefreshSwapReviewSteps(swapStepsRef.current.steps) ||
+      !checkExpired()
+    ) {
+      return;
+    }
+    isRefreshingQuoteRef.current = true;
+    setIsRefreshingQuote(true);
+    try {
+      await refreshReviewQuote();
+    } catch (error) {
+      if (isMountedRef.current) {
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
+      }
+    } finally {
+      isRefreshingQuoteRef.current = false;
+      if (isMountedRef.current) {
+        setIsRefreshingQuote(false);
+      }
+    }
+  }, [
+    checkExpired,
+    isPrimaryButtonDisabled,
+    refreshReviewQuote,
+    slippageSavingScope,
+  ]);
 
   const handleSlippageEditorOpenChange = useCallback(
     (open: boolean) => {
       if (
         !slippageSavingScope &&
+        !isRefreshingQuoteRef.current &&
         !isSwapReviewRebuildInProgress(reviewRebuildState?.phase)
       ) {
         if (!open) {
@@ -424,7 +572,11 @@ const PreSwapDialogContent = ({
   );
   const handleSaveSlippage = useCallback(
     async (scope: ISwapReviewSlippageSaveScope, slippagePercentage: number) => {
-      if (!rebuildReviewWithSlippage || slippageSavingScope) {
+      if (
+        !rebuildReviewWithSlippage ||
+        slippageSavingScope ||
+        isRefreshingQuoteRef.current
+      ) {
         return;
       }
 
@@ -479,7 +631,11 @@ const PreSwapDialogContent = ({
   );
 
   const handleConfirmPress = useCallback(() => {
-    if (isPrimaryButtonDisabled) {
+    if (
+      isRefreshingQuoteRef.current ||
+      isPrimaryButtonDisabled ||
+      !isQuoteValid()
+    ) {
       return;
     }
     reviewAnalytics?.confirm(
@@ -489,27 +645,62 @@ const PreSwapDialogContent = ({
     if (validatedQuoteShowTip) {
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
-      onConfirm();
+      if (refreshReviewQuote) {
+        onConfirm(captureQuoteValidity());
+      } else {
+        onConfirm();
+      }
     }
   }, [
     isPrimaryButtonDisabled,
+    isQuoteValid,
     onConfirm,
     validatedQuoteShowTip,
     reviewAnalytics,
     quoteResult?.quoteId,
     preSwapData.swapBuildResultData?.swapInfo,
+    refreshReviewQuote,
+    captureQuoteValidity,
   ]);
 
   const tipOnConfirm = useCallback(() => {
-    if (isPrimaryButtonDisabled) {
+    if (
+      isRefreshingQuoteRef.current ||
+      isPrimaryButtonDisabled ||
+      !isQuoteValid()
+    ) {
+      setShowPreSwapTipInfo(undefined);
       return;
     }
-    onConfirm();
+    if (refreshReviewQuote) {
+      onConfirm(captureQuoteValidity());
+    } else {
+      onConfirm();
+    }
     setShowPreSwapTipInfo(undefined);
-  }, [isPrimaryButtonDisabled, onConfirm]);
+  }, [
+    isPrimaryButtonDisabled,
+    isQuoteValid,
+    onConfirm,
+    refreshReviewQuote,
+    captureQuoteValidity,
+  ]);
   const tipOnCancel = useCallback(() => {
     setShowPreSwapTipInfo(undefined);
   }, []);
+  const handleRetry = useCallback(() => {
+    if (
+      isRefreshingQuoteRef.current ||
+      (refreshReviewQuote && !isQuoteValid())
+    ) {
+      return;
+    }
+    if (refreshReviewQuote) {
+      onConfirm(captureQuoteValidity());
+    } else {
+      onConfirm();
+    }
+  }, [captureQuoteValidity, isQuoteValid, onConfirm, refreshReviewQuote]);
   useEffect(() => {
     if (disableGlobalApproveSync) {
       return;
@@ -517,7 +708,12 @@ const PreSwapDialogContent = ({
 
     const approveTransaction = inAppNotificationAtom.swapApprovingTransaction;
     if (approveTransaction?.txId) {
-      latestApproveTxIdRef.current = approveTransaction.txId;
+      latestApproveTxIdRef.current = {
+        txId: approveTransaction.txId,
+        approvalRequestId: approveTransaction.approvalRequestId,
+        quoteId: approveTransaction.quoteId,
+        expiryKey: swapStepsRef.current.preSwapData.reviewQuoteExpiryKey,
+      };
     }
 
     if (
@@ -525,12 +721,38 @@ const PreSwapDialogContent = ({
       approveTransaction.status !== ESwapApproveTransactionStatus.PENDING
     ) {
       const approveTxIdFromNotification = approveTransaction.txId ?? '';
+      const previousApproval = latestApproveTxIdRef.current;
+      const canReusePreviousTxId = Boolean(
+        previousApproval &&
+        ((approveTransaction.approvalRequestId &&
+          previousApproval.approvalRequestId ===
+            approveTransaction.approvalRequestId) ||
+          (!approveTransaction.approvalRequestId &&
+            !previousApproval.approvalRequestId &&
+            approveTransaction.quoteId &&
+            previousApproval.quoteId === approveTransaction.quoteId &&
+            previousApproval.expiryKey ===
+              swapStepsRef.current.preSwapData.reviewQuoteExpiryKey)),
+      );
       const trackedApproveTxId =
-        approveTxIdFromNotification || latestApproveTxIdRef.current || '';
+        approveTxIdFromNotification ||
+        (canReusePreviousTxId ? previousApproval?.txId : '') ||
+        '';
+      const isSameApproval = (current?: typeof approveTransaction) =>
+        Boolean(
+          current &&
+          current.status === approveTransaction.status &&
+          (current === approveTransaction ||
+            (approveTransaction.approvalRequestId &&
+              current.approvalRequestId ===
+                approveTransaction.approvalRequestId) ||
+            (approveTransaction.txId &&
+              current.txId === approveTransaction.txId)),
+        );
       const isResetApproveTransaction = approveTransaction.amount === '0';
       const isFallbackTrackedApproveTxId =
         !approveTxIdFromNotification && !!trackedApproveTxId;
-      const approveStatusKey = `${trackedApproveTxId || 'no-tx'}:${
+      const approveStatusKey = `${approveTransaction.approvalRequestId ?? ''}:${trackedApproveTxId || 'no-tx'}:${
         isResetApproveTransaction ? 'reset' : 'approve'
       }:${approveTransaction.status}`;
       if (handledApproveStatusRef.current === approveStatusKey) {
@@ -545,6 +767,13 @@ const PreSwapDialogContent = ({
 
       const currentSwapSteps = swapStepsRef.current;
       const stepIndex = currentSwapSteps.steps.findIndex((step) => {
+        if (
+          step.approvalTrackingRequestId &&
+          step.approvalTrackingRequestId !==
+            approveTransaction.approvalRequestId
+        ) {
+          return false;
+        }
         if (
           trackedApproveTxId &&
           step.txHash === trackedApproveTxId &&
@@ -564,46 +793,114 @@ const PreSwapDialogContent = ({
       });
 
       if (stepIndex === -1) {
-        setInAppNotificationAtom((prev) => ({
-          ...prev,
-          swapApprovingTransaction: undefined,
-        }));
+        setInAppNotificationAtom((prev) =>
+          isSameApproval(prev.swapApprovingTransaction)
+            ? { ...prev, swapApprovingTransaction: undefined }
+            : prev,
+        );
         return;
       }
 
       const updatedSteps: ISwapStep[] = [...currentSwapSteps.steps];
+      const confirmedTxHash =
+        approveTxIdFromNotification ||
+        updatedSteps[stepIndex].txHash ||
+        trackedApproveTxId ||
+        undefined;
+      const approvalResultUnknown =
+        approveStepStatus === ESwapStepStatus.SUCCESS && !confirmedTxHash;
       updatedSteps[stepIndex] = {
         ...updatedSteps[stepIndex],
-        status: approveStepStatus,
-        txHash: approveTxIdFromNotification || updatedSteps[stepIndex].txHash,
+        status: approvalResultUnknown
+          ? ESwapStepStatus.FAILED
+          : approveStepStatus,
+        txHash: confirmedTxHash,
+        approvalConfirmedFailed:
+          approveStepStatus === ESwapStepStatus.FAILED &&
+          Boolean(confirmedTxHash),
         stepSubTitle: undefined,
+        ...(approvalResultUnknown
+          ? {
+              canRetry: false,
+              submitResultUnknown: true,
+              errorMessage: intl.formatMessage({
+                id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+              }),
+            }
+          : {}),
       };
 
-      setSwapSteps((prevSteps) => ({
-        ...prevSteps,
-        steps: updatedSteps,
-      }));
-      setInAppNotificationAtom((prev) => ({
-        ...prev,
-        swapApprovingTransaction: undefined,
-      }));
-
-      if (approveStepStatus !== ESwapStepStatus.SUCCESS) {
-        return;
+      if (
+        approveStepStatus === ESwapStepStatus.SUCCESS &&
+        !approvalResultUnknown &&
+        !currentSwapSteps.preSwapData.reviewRequiresConfirmation &&
+        (!refreshReviewQuote || !checkExpired())
+      ) {
+        approvalContinuationRef.current = {
+          quoteResult: currentSwapSteps.quoteResult,
+          expiryKey: currentSwapSteps.preSwapData.reviewQuoteExpiryKey,
+          stepIndex,
+          txHash: updatedSteps[stepIndex].txHash,
+        };
       }
 
-      void preSwapStepsStart({
-        steps: updatedSteps,
-        preSwapData: currentSwapSteps.preSwapData,
-        quoteResult: currentSwapSteps.quoteResult as IFetchQuoteResult,
-      });
+      setSwapSteps((prevSteps) =>
+        prevSteps.preSwapData.reviewQuoteExpiryKey ===
+          currentSwapSteps.preSwapData.reviewQuoteExpiryKey &&
+        isEqual(prevSteps.quoteResult, currentSwapSteps.quoteResult) &&
+        isEqual(prevSteps.steps, currentSwapSteps.steps)
+          ? { ...prevSteps, steps: updatedSteps }
+          : prevSteps,
+      );
+      setInAppNotificationAtom((prev) =>
+        isSameApproval(prev.swapApprovingTransaction)
+          ? { ...prev, swapApprovingTransaction: undefined }
+          : prev,
+      );
     }
   }, [
     disableGlobalApproveSync,
     inAppNotificationAtom.swapApprovingTransaction,
     setSwapSteps,
-    preSwapStepsStart,
+    refreshReviewQuote,
+    checkExpired,
+    intl,
     setInAppNotificationAtom,
+  ]);
+
+  useEffect(() => {
+    const pending = approvalContinuationRef.current;
+    if (!pending) return;
+    if (
+      pending.expiryKey !== swapSteps.preSwapData.reviewQuoteExpiryKey ||
+      !isEqual(pending.quoteResult, swapSteps.quoteResult)
+    ) {
+      approvalContinuationRef.current = undefined;
+      return;
+    }
+    const step = swapSteps.steps[pending.stepIndex];
+    if (step?.status === ESwapStepStatus.PENDING) return;
+    approvalContinuationRef.current = undefined;
+    if (
+      !step ||
+      step.status !== ESwapStepStatus.SUCCESS ||
+      step.txHash !== pending.txHash ||
+      !swapSteps.quoteResult ||
+      (refreshReviewQuote && checkExpired())
+    )
+      return;
+    void preSwapStepsStart({
+      steps: swapSteps.steps,
+      preSwapData: swapSteps.preSwapData,
+      quoteResult: swapSteps.quoteResult,
+      ...(refreshReviewQuote ? { isQuoteValid: captureQuoteValidity() } : {}),
+    });
+  }, [
+    swapSteps,
+    refreshReviewQuote,
+    checkExpired,
+    captureQuoteValidity,
+    preSwapStepsStart,
   ]);
 
   useLayoutEffect(() => {
@@ -779,8 +1076,18 @@ const PreSwapDialogContent = ({
     resultStep.canRetry &&
     !resultStep.submitResultUnknown &&
     resultStep !== swapSteps.steps[swapSteps.steps.length - 1];
+  const canShowExpiredQuoteRefresh = Boolean(
+    quoteExpired &&
+    refreshReviewQuote &&
+    canRefreshSwapReviewSteps(swapSteps.steps),
+  );
+  const canResumeAfterApproval = Boolean(
+    preSwapData.reviewRequiresConfirmation &&
+    canRefreshSwapReviewSteps(swapSteps.steps),
+  );
   const supportSlippageRebuild = Boolean(
     rebuildReviewWithSlippage &&
+    !isRefreshingQuote &&
     preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
       .supportRebuildTx &&
     !preSwapData?.unSupportSlippage &&
@@ -915,9 +1222,9 @@ const PreSwapDialogContent = ({
         title={intl.formatMessage({ id: ETranslations.global_review_order })}
         showExitButton={!slippageSavingScope}
       />
-      {showResultContent && resultStep ? (
+      {showResultContent && resultStep && !canShowExpiredQuoteRefresh ? (
         <PreSwapConfirmResult
-          onConfirm={retryFailedApproval ? onConfirm : onDone}
+          onConfirm={retryFailedApproval ? handleRetry : onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
           lastStep={resultStep}
@@ -1043,7 +1350,9 @@ const PreSwapDialogContent = ({
           {stockReviewDisplay ? null : <Divider />}
 
           {swapSteps.steps.length > 0 &&
-          swapSteps.steps[0].status === ESwapStepStatus.READY ? (
+          (swapSteps.steps[0].status === ESwapStepStatus.READY ||
+            canShowExpiredQuoteRefresh ||
+            canResumeAfterApproval) ? (
             <YStack gap="$4">
               {/* Info items */}
               {showPreSwapTipInfo ? (
@@ -1086,17 +1395,24 @@ const PreSwapDialogContent = ({
                   <Button
                     testID="swap-btn"
                     variant="primary"
-                    onPress={handleConfirmPress}
+                    onPress={
+                      quoteExpired ? handleRefreshQuote : handleConfirmPress
+                    }
                     size={md ? 'large' : 'medium'}
+                    loading={isRefreshingQuote}
                     disabled={isPrimaryButtonDisabled}
                   >
-                    {actionBtnTest}
+                    {quoteExpired
+                      ? intl.formatMessage({
+                          id: ETranslations.swap_page_button_refresh_quotes,
+                        })
+                      : actionBtnTest}
                   </Button>
                 </>
               )}
             </YStack>
           ) : (
-            <PreSwapStep steps={swapSteps.steps} onRetry={onConfirm} />
+            <PreSwapStep steps={swapSteps.steps} onRetry={handleRetry} />
           )}
         </YStack>
       )}

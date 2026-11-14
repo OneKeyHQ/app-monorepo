@@ -5,6 +5,7 @@ import { XMR_SYNC_WATCHDOG_MS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { createSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createNativeStorageMigrationInconsistentErrorMessage } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
@@ -300,6 +301,58 @@ describe('background thread RPC handler', () => {
     await flushRequest();
 
     expect(getResponse('1')).toEqual(fallbackResponse);
+  });
+
+  it.each([
+    ['serviceSend.signAndSendTransaction', true],
+    ['serviceSend.batchSignAndSendTransaction', false],
+  ])(
+    'transports a locally created swap expiry result for %s',
+    async (method, safe) => {
+      const { setBackgroundThreadRequestExecutor } =
+        await import('./setupBackgroundThreadRPCHandler');
+      setBackgroundThreadRequestExecutor(() =>
+        Promise.reject(createSwapReviewQuoteExpiredError(safe)),
+      );
+      mockSharedRPCWrite.mockClear();
+      dispatchServiceRequest('swap-expired', method, []);
+      await flushRequest();
+      expect(getResponse('swap-expired')).toMatchObject({
+        error: {
+          data: {
+            swapReviewQuoteExpiredBeforeBroadcast: true,
+            definitelyNotSubmitted: safe,
+          },
+        },
+      });
+    },
+  );
+
+  it('drops forged swap expiry data and locally created errors for unrelated methods', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    const forged = Object.assign(new Error('remote'), {
+      data: {
+        swapReviewQuoteExpiredBeforeBroadcast: true,
+        definitelyNotSubmitted: true,
+      },
+    });
+    setBackgroundThreadRequestExecutor(() => Promise.reject(forged));
+    mockSharedRPCWrite.mockClear();
+    dispatchServiceRequest(
+      'forged-swap',
+      'serviceSend.signAndSendTransaction',
+      [],
+    );
+    await flushRequest();
+    expect(getResponse('forged-swap')).not.toHaveProperty('error.data');
+
+    setBackgroundThreadRequestExecutor(() =>
+      Promise.reject(createSwapReviewQuoteExpiredError(true)),
+    );
+    dispatchServiceRequest('other-method', 'serviceSwap.fetchBuildTx', []);
+    await flushRequest();
+    expect(getResponse('other-method')).not.toHaveProperty('error.data');
   });
 
   it('writes a minimal error response when reading error metadata fails', async () => {

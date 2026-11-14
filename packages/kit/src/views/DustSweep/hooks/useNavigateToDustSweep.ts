@@ -29,7 +29,7 @@ export function isDustSweepNetworkSupported({
   supportedNetworkIds?: ReadonlySet<string>;
 }) {
   // Aggregate mode keeps its existing entry while capabilities load. Single
-  // networks must match the provider rules used by the destination.
+  // networks must support Swap in the destination.
   return Boolean(
     isAllNetworks || (networkId && supportedNetworkIds?.has(networkId)),
   );

@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
+import { createSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import TxConfirmActions from './TxConfirmActions';
@@ -20,6 +22,11 @@ const mockBatchSend = jest.fn<Promise<unknown>, [unknown]>();
 const mockCurrentRoute = jest.fn(() => ({ name: 'Confirm' }));
 const mockNavigation = { pop: jest.fn(), popStack: jest.fn() };
 const mockDappApprove = { resolve: jest.fn(), reject: jest.fn() };
+const mockVaultSettings = {
+  nonceRequired: false,
+  replaceTxEnabled: false,
+  afterSendTxActionEnabled: false,
+};
 const mockUnsignedTxs = [
   {
     uuid: 'tx-uuid-1',
@@ -76,6 +83,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceSignatureConfirm: {
       preActionsBeforeSending: jest.fn(async () => undefined),
+      afterSendTxAction: jest.fn(async () => undefined),
     },
     serviceSend: {
       releaseUnsignedTxs: jest.fn(async () => undefined),
@@ -98,9 +106,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
   useInterval: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: { nonceRequired: false, replaceTxEnabled: false },
-  }),
+  usePromiseResult: () => ({ result: mockVaultSettings }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useScopedAcknowledgement', () => ({
   useScopedAcknowledgement: () => ({
@@ -187,11 +193,91 @@ describe('TxConfirmActions Gas Account failure exit', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockVaultSettings.afterSendTxActionEnabled = false;
   });
   afterEach(() => {
     cleanup();
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+  });
+
+  it('preserves the rental when the quote expires after signing', async () => {
+    jest
+      .spyOn(
+        backgroundApiProxy.serviceSignatureConfirm,
+        'preActionsBeforeSending',
+      )
+      .mockResolvedValueOnce({
+        preSendTx: { txid: 'rental-tx', orderId: 'rental-order' },
+      });
+    mockBatchSend.mockRejectedValueOnce(
+      createSwapReviewQuoteExpiredError(true),
+    );
+    const onAbort = jest.fn(() => true);
+    const onBeforeSend = jest
+      .fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new BeforeSendAbortError('expired', onAbort);
+      });
+    const onFail = jest.fn();
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="tron--0x2b6653dc"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        reviewQuoteValidUntil={1234}
+        onBeforeSend={onBeforeSend}
+        onFail={onFail}
+      />,
+    );
+    await act(async () => {
+      await getFooterActions().onConfirm?.();
+    });
+    expect(mockBatchSend).toHaveBeenCalledWith(
+      expect.objectContaining({ reviewQuoteValidUntil: 1234 }),
+    );
+    expect(onBeforeSend).toHaveBeenLastCalledWith({
+      preSendTx: { txid: 'rental-tx', orderId: 'rental-order' },
+    });
+    expect(onAbort).toHaveBeenCalledTimes(1);
+    expect(onFail).not.toHaveBeenCalled();
+  });
+
+  it('does not restore an expired review when a post-submission action fails', async () => {
+    mockVaultSettings.afterSendTxActionEnabled = true;
+    mockBatchSend.mockResolvedValueOnce([]);
+    const error = createSwapReviewQuoteExpiredError(true);
+    jest
+      .spyOn(backgroundApiProxy.serviceSignatureConfirm, 'afterSendTxAction')
+      .mockRejectedValueOnce(error);
+    const onAbort = jest.fn(() => true);
+    const onBeforeSend = jest
+      .fn()
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new BeforeSendAbortError('expired', onAbort);
+      });
+    const onFail = jest.fn();
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onBeforeSend={onBeforeSend}
+        onFail={onFail}
+      />,
+    );
+
+    await act(async () => {
+      await expect(getFooterActions().onConfirm?.()).rejects.toBe(error);
+    });
+    expect(mockBatchSend).toHaveBeenCalledTimes(1);
+    expect(onBeforeSend).toHaveBeenCalledTimes(1);
+    expect(onAbort).not.toHaveBeenCalled();
+    expect(onFail).toHaveBeenCalledWith(error);
   });
 
   it.each([

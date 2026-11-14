@@ -29,7 +29,6 @@ import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
-import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -186,14 +185,44 @@ export function useSwapInit(params?: ISwapInitParams) {
   } = useAccountSelectorActions().current;
   const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
     useState<boolean>(false);
+  const [emptyAccountRetry, setEmptyAccountRetry] = useState(0);
+  const emptyAccountRetryOwnerRef = useRef<
+    | {
+        key: string | undefined;
+        account: ReturnType<typeof getSelectedAccount> | undefined;
+      }
+    | undefined
+  >(undefined);
+  const emptyAccountRetryUsedOwnerRef = useRef<
+    | {
+        key: string | undefined;
+        account: ReturnType<typeof getSelectedAccount> | undefined;
+      }
+    | undefined
+  >(undefined);
+  const emptyAccountRetryTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(emptyAccountRetryTimerRef.current);
+      emptyAccountRetryTimerRef.current = undefined;
+      emptyAccountRetryOwnerRef.current = undefined;
+    },
+    [],
+  );
   const normalizedSwapTabSwitchType = getVisibleSwapTabSwitchType(
     params?.swapTabSwitchType,
   );
   const supportCheckSwapTabSwitchType = getSwapSupportCheckType(
     params?.swapTabSwitchType,
   );
-  const swapInitParamsConsumptionKey =
+  const baseSwapInitParamsConsumptionKey =
     buildSwapInitParamsConsumptionKey(params);
+  const swapInitParamsConsumptionKey =
+    params?.tradeAgainFromHistory && baseSwapInitParamsConsumptionKey
+      ? `${baseSwapInitParamsConsumptionKey}|tradeAgainFromHistory|${params.tradeAgainRequestId ?? ''}`
+      : baseSwapInitParamsConsumptionKey;
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const rootSwapInitType =
@@ -210,6 +239,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     key: swapInitParamsConsumptionKey,
     fromToken: params?.importFromToken,
     toToken: params?.importToToken,
+    tradeAgainFromHistory: Boolean(params?.tradeAgainFromHistory),
     isFocused,
   };
   const latestSwapInitParamsRef = useRef(swapInitParamsSnapshot);
@@ -333,6 +363,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
   const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
+  const tradeAgainResetKeyRef = useRef<string | undefined>(undefined);
   // The route selects Stock only until that tab has actually become active.
   // Later user switches must not be undone by the original entry parameters.
   const stockRouteIntentRef = useRef({
@@ -900,6 +931,9 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncSwapSelectedAccountFromLatestHome = useCallback(async () => {
+    if (latestSwapInitParamsRef.current.tradeAgainFromHistory) {
+      return { synced: false as const, cancelled: false as const };
+    }
     const canBootstrapEmptyDefaults = () =>
       latestSwapInitParamsRef.current.key === swapInitParamsConsumptionKey &&
       swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP &&
@@ -914,6 +948,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     const swapSelectionAtRead = swapSelectedAccountRef.current;
     const { selectedAccount, selectedAccountUpdatedAt, sourceRuntimeId } =
       await getLatestHomeSelectedAccountInfo();
+    if (latestSwapInitParamsRef.current.tradeAgainFromHistory) {
+      return { synced: false as const, cancelled: true as const };
+    }
     const bootstrapEmptyDefaults =
       emptyDefaultsAtRead && selectedAccountUpdatedAt !== undefined;
     return syncSwapSelectedAccountFromHome({
@@ -924,25 +961,29 @@ export function useSwapInit(params?: ISwapInitParams) {
       homeSelectedAccountUpdatedAt: bootstrapEmptyDefaults
         ? undefined
         : selectedAccountUpdatedAt,
-      shouldCommit: bootstrapEmptyDefaults
-        ? () => {
-            const currentHome = getHomeSelectedAccountInfoFromContextStore();
-            return (
-              latestSwapInitParamsRef.current.isFocused &&
-              canBootstrapEmptyDefaults() &&
-              isSelectedAccountMatched(
-                swapSelectionAtRead,
-                getSelectedAccount({ num: 0 }),
-              ) &&
-              currentHome?.selectedAccountUpdatedAt ===
-                selectedAccountUpdatedAt &&
-              isSelectedAccountMatched(
-                currentHome?.selectedAccount,
-                selectedAccount,
-              )
-            );
-          }
-        : undefined,
+      shouldCommit: () => {
+        if (latestSwapInitParamsRef.current.tradeAgainFromHistory) {
+          return false;
+        }
+        if (bootstrapEmptyDefaults) {
+          const currentHome = getHomeSelectedAccountInfoFromContextStore();
+          return (
+            latestSwapInitParamsRef.current.isFocused &&
+            canBootstrapEmptyDefaults() &&
+            isSelectedAccountMatched(
+              swapSelectionAtRead,
+              getSelectedAccount({ num: 0 }),
+            ) &&
+            currentHome?.selectedAccountUpdatedAt ===
+              selectedAccountUpdatedAt &&
+            isSelectedAccountMatched(
+              currentHome?.selectedAccount,
+              selectedAccount,
+            )
+          );
+        }
+        return true;
+      },
       importNetworkId:
         params?.swapSource === ESwapSource.TOKEN_DETAIL &&
         (params.importFromToken || params.importToToken)
@@ -963,19 +1004,37 @@ export function useSwapInit(params?: ISwapInitParams) {
   const syncSwapSelectedAccountFromHomeStoragePromiseRef = useRef<
     ReturnType<typeof syncSwapSelectedAccountFromLatestHome> | undefined
   >(undefined);
+  const homeStorageSyncOwnerRef = useRef<
+    | {
+        account: ReturnType<typeof getSelectedAccount> | undefined;
+        key: string | undefined;
+        swapType: ESwapTabSwitchType;
+      }
+    | undefined
+  >(undefined);
 
   const syncSwapSelectedAccountFromLatestHomeStorage = useCallback(async () => {
+    if (latestSwapInitParamsRef.current.tradeAgainFromHistory) {
+      return { synced: false as const, cancelled: false as const };
+    }
     if (syncSwapSelectedAccountFromHomeStoragePromiseRef.current) {
       return syncSwapSelectedAccountFromHomeStoragePromiseRef.current;
     }
 
+    const selectedAccount = getSelectedAccount({ num: 0 });
+    homeStorageSyncOwnerRef.current = {
+      account: selectedAccount ? { ...selectedAccount } : undefined,
+      key: latestSwapInitParamsRef.current.key,
+      swapType: swapTypeSwitchRef.current,
+    };
     const promise = syncSwapSelectedAccountFromLatestHome().finally(() => {
       hasSyncedSwapSelectedAccountFromHomeStorageRef.current = true;
       syncSwapSelectedAccountFromHomeStoragePromiseRef.current = undefined;
+      homeStorageSyncOwnerRef.current = undefined;
     });
     syncSwapSelectedAccountFromHomeStoragePromiseRef.current = promise;
     return promise;
-  }, [syncSwapSelectedAccountFromLatestHome]);
+  }, [getSelectedAccount, syncSwapSelectedAccountFromLatestHome]);
 
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
@@ -1127,7 +1186,87 @@ export function useSwapInit(params?: ISwapInitParams) {
     ],
   );
 
+  const scheduleEmptyAccountRetry = useCallback(() => {
+    const intentKey = latestSwapInitParamsRef.current.key;
+    const selectedAccount = getSelectedAccount({ num: 0 });
+    const accountAtSchedule = selectedAccount
+      ? { ...selectedAccount }
+      : undefined;
+    const matchesOwner = (owner: typeof emptyAccountRetryOwnerRef.current) =>
+      Boolean(owner) &&
+      owner?.key === intentKey &&
+      isSelectedAccountMatched(owner?.account, accountAtSchedule);
+    if (
+      emptyAccountRetryUsedOwnerRef.current &&
+      matchesOwner(emptyAccountRetryUsedOwnerRef.current)
+    ) {
+      return;
+    }
+    if (emptyAccountRetryTimerRef.current) {
+      if (matchesOwner(emptyAccountRetryOwnerRef.current)) return;
+      clearTimeout(emptyAccountRetryTimerRef.current);
+    }
+    emptyAccountRetryOwnerRef.current = {
+      key: intentKey,
+      account: accountAtSchedule,
+    };
+    emptyAccountRetryTimerRef.current = setTimeout(() => {
+      emptyAccountRetryTimerRef.current = undefined;
+      emptyAccountRetryOwnerRef.current = undefined;
+      if (
+        !latestSwapInitParamsRef.current.isFocused ||
+        latestSwapInitParamsRef.current.key !== intentKey ||
+        !isSelectedAccountMatched(
+          accountAtSchedule,
+          getSelectedAccount({ num: 0 }),
+        ) ||
+        swapTypeSwitchRef.current !== ESwapTabSwitchType.SWAP ||
+        initialSelectedTokensSyncedRef.current ||
+        fromTokenRef.current ||
+        toTokenRef.current ||
+        fromTokenAmountRef.current.value ||
+        toTokenAmountRef.current.value
+      ) {
+        return;
+      }
+      emptyAccountRetryUsedOwnerRef.current = {
+        key: intentKey,
+        account: accountAtSchedule,
+      };
+      setEmptyAccountRetry((value) => value + 1);
+    }, 2000);
+  }, [getSelectedAccount]);
+
   const syncDefaultSelectedToken = useCallback(async () => {
+    if (
+      params?.tradeAgainFromHistory &&
+      swapInitParamsConsumptionKey &&
+      consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey &&
+      normalizedSwapTabSwitchType &&
+      swapTypeSwitchRef.current !== normalizedSwapTabSwitchType
+    ) {
+      // The tab switch can restore a previous pair and clear amounts. Complete
+      // it before applying the history's pair and amount.
+      swapTypeSwitchRef.current = normalizedSwapTabSwitchType;
+      await swapTypeSwitchAction(
+        normalizedSwapTabSwitchType,
+        params.importFromToken?.networkId,
+      );
+      if (
+        !latestSwapInitParamsRef.current.isFocused ||
+        latestSwapInitParamsRef.current.key !== swapInitParamsConsumptionKey
+      ) {
+        return;
+      }
+    }
+    if (
+      params?.tradeAgainFromHistory &&
+      normalizedSwapTabSwitchType === ESwapTabSwitchType.STOCK
+    ) {
+      // The Stock channel owns its local side and token state.
+      finishSwapInitParamsSync();
+      return;
+    }
     const shouldDeferForNativePro = () =>
       shouldDeferSwapDefaultSelectedTokenSyncForNativePro({
         isNative: Boolean(platformEnv.isNative),
@@ -1160,6 +1299,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     // Native Pro owns separate token atoms. Keep the parked Swap pair intact
     // until Swap becomes the active owner again.
     if (shouldDeferForNativePro()) {
+      if (params?.tradeAgainFromHistory) {
+        finishSwapInitParamsSync();
+      }
       return;
     }
     // A market detail handoff is applied after this sync. Leave the pair alone
@@ -1171,6 +1313,24 @@ export function useSwapInit(params?: ISwapInitParams) {
       swapInitParamsConsumptionKey &&
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
     );
+    if (
+      params?.tradeAgainFromHistory &&
+      !hasUnconsumedSwapInitParams &&
+      !fromTokenRef.current &&
+      !toTokenRef.current
+    ) {
+      return;
+    }
+    if (
+      params?.tradeAgainFromHistory &&
+      hasUnconsumedSwapInitParams &&
+      tradeAgainResetKeyRef.current !== swapInitParamsConsumptionKey
+    ) {
+      tradeAgainResetKeyRef.current = swapInitParamsConsumptionKey;
+      clearSelectedTokensColdStartCache();
+      setFromTokenAmount({ value: '', isInput: false });
+      setToTokenAmount({ value: '', isInput: false });
+    }
     const isAssetCounterpartEntry = Boolean(
       hasUnconsumedSwapInitParams &&
       params?.importFromToken &&
@@ -1269,6 +1429,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     );
     if (
       hasUnconsumedSwapInitParams &&
+      !params?.tradeAgainFromHistory &&
       params?.fromAmount &&
       (!fromTokenAmount.isInput || fromTokenAmount.value !== params.fromAmount)
     ) {
@@ -1398,8 +1559,49 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
       return;
     }
-    const homeAccountSyncResult =
-      await syncSwapSelectedAccountFromLatestHomeStorage();
+    const homeSyncPromise = syncSwapSelectedAccountFromLatestHomeStorage();
+    const homeSyncOwner = homeStorageSyncOwnerRef.current;
+    let homeAccountSyncResult = await homeSyncPromise;
+    // A rejected Home sync may leave no state change to restart initialization.
+    // Retry only for the same untouched entry and account.
+    if (
+      homeAccountSyncResult.cancelled &&
+      homeSyncOwner &&
+      !hasImportParams &&
+      !hasSelectedTokens &&
+      latestSwapInitParamsRef.current.isFocused &&
+      latestSwapInitParamsRef.current.key === swapInitParamsConsumptionKey &&
+      homeSyncOwner.key === swapInitParamsConsumptionKey &&
+      homeSyncOwner.swapType === swapTypeSwitchRef.current &&
+      isSelectedAccountMatched(
+        homeSyncOwner.account,
+        getSelectedAccount({ num: 0 }),
+      ) &&
+      !fromTokenRef.current &&
+      !toTokenRef.current &&
+      !fromTokenAmountRef.current.value &&
+      !toTokenAmountRef.current.value
+    ) {
+      homeAccountSyncResult =
+        await syncSwapSelectedAccountFromLatestHomeStorage();
+      if (
+        !latestSwapInitParamsRef.current.isFocused ||
+        latestSwapInitParamsRef.current.key !== swapInitParamsConsumptionKey ||
+        homeSyncOwner.swapType !== swapTypeSwitchRef.current ||
+        !isSelectedAccountMatched(
+          homeAccountSyncResult.synced
+            ? homeAccountSyncResult.selectedAccount
+            : homeSyncOwner.account,
+          getSelectedAccount({ num: 0 }),
+        ) ||
+        fromTokenRef.current ||
+        toTokenRef.current ||
+        fromTokenAmountRef.current.value ||
+        toTokenAmountRef.current.value
+      ) {
+        return;
+      }
+    }
     if (
       homeAccountSyncResult.cancelled ||
       latestSwapInitParamsRef.current.key !== swapInitParamsConsumptionKey ||
@@ -1465,10 +1667,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         params?.swapSource === ESwapSource.MARKET &&
         params.marketSwapDirection &&
         marketToken &&
-        !marketToken.isStock &&
-        !tokenRebaseUtils.isScalingBalanceMultiplier(
-          marketToken.balanceMultiplier,
-        )
+        !marketToken.isStock
       ) {
         // Resolve after Swap's existing network load, without entry-time probes.
         const pair = getMarketSwapDefaultPair({
@@ -1487,12 +1686,7 @@ export function useSwapInit(params?: ISwapInitParams) {
               type === ESwapTabSwitchType.BRIDGE
                 ? network?.supportCrossChainSwap
                 : network?.supportSingleSwap;
-            return (
-              Boolean(supported) &&
-              !tokenRebaseUtils.isScalingBalanceMultiplier(
-                token.balanceMultiplier,
-              )
-            );
+            return Boolean(supported);
           },
         });
         if (!pair.fromToken && !pair.toToken) {
@@ -1563,8 +1757,25 @@ export function useSwapInit(params?: ISwapInitParams) {
             (net) => net.networkId === importToToken?.networkId,
           ),
         );
+      const finishOrDeferUnsupportedHistory = () => {
+        if (hasRefreshedSwapNetworksRef.current) {
+          finishSwapInitParamsSync();
+          return;
+        }
+        deferredImportedTokensRef.current = {
+          key: swapInitParamsConsumptionKey,
+          swapType: swapTypeSwitchRef.current,
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+        };
+        markInitialSelectedTokensSynced();
+      };
       if (!hasImportTokenNetwork) {
         clearSelectedTokensColdStartCache();
+        if (params?.tradeAgainFromHistory) {
+          finishOrDeferUnsupportedHistory();
+          return;
+        }
         hasSelectedTokens = false;
       } else {
         const importTokenSupportCheckType =
@@ -1574,12 +1785,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(params.importFromToken).includes(
             importTokenSupportCheckType,
-          ) &&
-          // Scaled-UI (rebase) tokens: fail-closed, same policy as the
-          // selectFromToken gate (setSwapFromToken writes the atom
-          // directly and bypasses it).
-          !tokenRebaseUtils.isScalingBalanceMultiplier(
-            params.importFromToken.balanceMultiplier,
           ),
         );
         const isImportToTokenSupported = Boolean(
@@ -1587,9 +1792,6 @@ export function useSwapInit(params?: ISwapInitParams) {
           importTokenSupportCheckType &&
           checkSupportTokenSwapType(importToToken).includes(
             importTokenSupportCheckType,
-          ) &&
-          !tokenRebaseUtils.isScalingBalanceMultiplier(
-            importToToken.balanceMultiplier,
           ),
         );
         const hasUnsupportedImportToken =
@@ -1597,6 +1799,10 @@ export function useSwapInit(params?: ISwapInitParams) {
           (Boolean(importToToken) && !isImportToTokenSupported);
         if (hasUnsupportedImportToken) {
           clearSelectedTokensColdStartCache();
+          if (params?.tradeAgainFromHistory) {
+            finishOrDeferUnsupportedHistory();
+            return;
+          }
         }
         let didSetImportFromToken = false;
         if (isAssetCounterpartEntry) {
@@ -1645,12 +1851,6 @@ export function useSwapInit(params?: ISwapInitParams) {
               }) &&
               checkSupportTokenSwapType(token).includes(
                 importTokenSupportCheckType,
-              ) &&
-              !(
-                'balanceMultiplier' in token &&
-                tokenRebaseUtils.isScalingBalanceMultiplier(
-                  token.balanceMultiplier,
-                )
               ),
           );
           if (counterpartToken) {
@@ -1686,6 +1886,12 @@ export function useSwapInit(params?: ISwapInitParams) {
             importToToken?.networkId ??
             getNetworkIdsMap().onekeyall,
         );
+        if (params?.tradeAgainFromHistory) {
+          setFromTokenAmount({
+            value: params.fromAmount ?? '',
+            isInput: Boolean(params.fromAmount),
+          });
+        }
         finishSwapInitParamsSync();
         return;
       }
@@ -1750,6 +1956,14 @@ export function useSwapInit(params?: ISwapInitParams) {
         params?.importNetworkId !== defaultTokenNetworkId) ||
       skipSyncDefaultSelectedToken
     ) {
+      if (
+        !defaultTokenNetworkId &&
+        !hasImportParams &&
+        !params?.tradeAgainFromHistory &&
+        swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP
+      ) {
+        scheduleEmptyAccountRetry();
+      }
       return;
     }
     const preferredDefaultSwapType = getCurrentRouteSwapType(
@@ -1780,6 +1994,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       return;
     }
     if (!hasAccountReadyForDefaultToken) {
+      if (
+        !hasImportParams &&
+        !params?.tradeAgainFromHistory &&
+        swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP
+      ) {
+        scheduleEmptyAccountRetry();
+      }
       return;
     }
     const isAllNet = networkUtils.isAllNetwork({
@@ -1933,6 +2154,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
   }, [
     params?.fromAmount,
+    params?.tradeAgainFromHistory,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
@@ -1963,8 +2185,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     markInitialSelectedTokensSynced,
     hasRefreshedSwapNetworksRef,
     getCurrentSelectedTokensColdStartContext,
+    getSelectedAccount,
     switchSwapTypeIfNeeded,
+    swapTypeSwitchAction,
     syncSwapSelectedAccountFromLatestHomeStorage,
+    scheduleEmptyAccountRetry,
     shouldPreserveUserInputSelectedTokens,
     swapNetworksRef,
     getDefaultConfigStatus,
@@ -2177,6 +2402,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     isNativeProTokenOwner,
     isFocused,
     swapFromMarketJumpToken,
+    emptyAccountRetry,
   ]);
   const isApplyingSwapMarketJumpTokenRef = useRef(false);
   applySwapMarketJumpTokenRef.current = async () => {
