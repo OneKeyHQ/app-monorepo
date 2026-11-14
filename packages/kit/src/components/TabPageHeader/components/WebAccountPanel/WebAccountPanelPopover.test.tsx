@@ -2,7 +2,7 @@
 
 import type { ComponentType, ReactNode } from 'react';
 
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
 import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 
@@ -11,6 +11,8 @@ const mockReferralOwnerMounted = jest.fn();
 const mockReferralOwnerUnmounted = jest.fn();
 const mockOpenReferralPage = jest.fn();
 const mockDarkThemeOpenReferralPage = jest.fn();
+const mockReferralLoadingStarted = jest.fn();
+let mockReferralLoading: Promise<void> | undefined;
 let mockTheme: 'light' | 'dark' = 'light';
 const mockConfig = { sceneName: 'home' };
 
@@ -18,6 +20,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useReferFriends', () => {
   mockReferralModuleLoaded();
   return {
     useOpenReferralPage: () => {
+      if (mockReferralLoading) {
+        mockReferralLoadingStarted();
+        // Suspense suspends by throwing the pending resource.
+        // eslint-disable-next-line no-throw-literal
+        throw mockReferralLoading;
+      }
       const { useEffect } = jest.requireActual<typeof import('react')>('react');
       useEffect(() => {
         mockReferralOwnerMounted();
@@ -36,15 +44,21 @@ jest.mock('@onekeyhq/components', () => ({
   Popover: ({
     renderTrigger,
     renderContent: Content,
+    open: controlledOpen,
+    onOpenChange,
   }: {
     renderTrigger: ReactNode;
     renderContent: ComponentType<{ closePopover: () => Promise<void> }>;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
   }) => {
     const { useState } = jest.requireActual<typeof import('react')>('react');
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = controlledOpen ?? internalOpen;
+    const setOpen = onOpenChange ?? setInternalOpen;
     return (
       <div>
-        <button type="button" onClick={() => setOpen(true)}>
+        <button type="button" onClick={() => setOpen(!open)}>
           {renderTrigger}
         </button>
         {open ? (
@@ -57,6 +71,8 @@ jest.mock('@onekeyhq/components', () => ({
       </div>
     );
   },
+  Spinner: () => <span role="progressbar" />,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock(
@@ -133,6 +149,7 @@ function loadPopover() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockTheme = 'light';
+  mockReferralLoading = undefined;
 });
 
 it('keeps referral code out of the synchronous account-panel import', () => {
@@ -142,6 +159,39 @@ it('keeps referral code out of the synchronous account-panel import', () => {
 
   expect(mockReferralModuleLoaded).not.toHaveBeenCalled();
 });
+
+it.each([false, true])(
+  'preserves the first click while the Perps feature loads (dismissed: %s)',
+  async (dismissed) => {
+    let resolveLoading = () => {};
+    mockReferralLoading = new Promise<void>((resolve) => {
+      resolveLoading = resolve;
+    });
+    const WebAccountPanelPopover = loadPopover();
+    const view = render(
+      <WebAccountPanelPopover
+        renderTrigger={<span>Account</span>}
+        showPerpsActivityCenter
+      />,
+    );
+    await waitFor(() => expect(mockReferralLoadingStarted).toHaveBeenCalled());
+
+    fireEvent.click(view.getByText('Account'));
+    expect(view.getByRole('progressbar')).toBeTruthy();
+    if (dismissed) fireEvent.click(view.getByText('Account'));
+
+    await act(async () => {
+      mockReferralLoading = undefined;
+      resolveLoading();
+    });
+
+    if (dismissed) {
+      expect(view.queryByRole('button', { name: 'Settings' })).toBeNull();
+      fireEvent.click(view.getByText('Account'));
+    }
+    expect(await view.findByRole('button', { name: 'Settings' })).toBeTruthy();
+  },
+);
 
 it('keeps the Perps referral owner mounted after the menu closes and the header rerenders', async () => {
   const WebAccountPanelPopover = loadPopover();
