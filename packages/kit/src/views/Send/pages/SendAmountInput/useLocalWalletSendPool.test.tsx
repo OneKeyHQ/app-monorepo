@@ -4,7 +4,6 @@ const mockSnapshot: {
   result?: {
     scope: string;
     pools: ILocalWalletSendPool[] | undefined;
-    isPrivacyPaused?: boolean;
   };
 } = {};
 let mockRequest: (() => Promise<unknown>) | undefined;
@@ -12,8 +11,6 @@ const mockGetPools = jest.fn<
   Promise<ILocalWalletSendPool[] | undefined>,
   [{ accountId: string; networkId: string; toAddress?: string }]
 >();
-
-const mockGetState = jest.fn(async () => ({ paused: false }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -24,7 +21,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         networkId: string;
         toAddress?: string;
       }) => mockGetPools(params),
-      getLocalWalletAccountState: () => mockGetState(),
     },
   },
 }));
@@ -34,9 +30,17 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     return mockSnapshot;
   },
 }));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
+  const value = atom({ pausedNetworkIds: [] as string[] });
+  return { privacyChainAtom: { atom: () => value } };
+});
 
 import { act, renderHook } from '@testing-library/react-native';
+import { getDefaultStore } from 'jotai';
 
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletPoolDescriptor,
   ILocalWalletSendPool,
@@ -82,6 +86,10 @@ beforeEach(() => {
   mockSnapshot.result = undefined;
   mockRequest = undefined;
   mockGetPools.mockReset();
+  getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+    ...value,
+    pausedNetworkIds: [],
+  }));
 });
 
 describe('local wallet source pool selection', () => {
@@ -116,20 +124,50 @@ describe('local wallet source pool selection', () => {
     ]);
   });
 
-  it('reports paused privacy so the page can explain the missing pools', async () => {
-    mockGetState.mockResolvedValueOnce({ paused: true });
-    mockGetPools.mockResolvedValue([pools[2]]);
+  it('keeps a paused source visible without offering it as a spendable pool', async () => {
+    const pausedPools: ILocalWalletSendPool[] = [
+      { key: 'ironwood', label: 'Ironwood', disabledReason: 'paused' },
+      pools[2],
+    ];
+    mockGetPools.mockResolvedValue(pausedPools);
     renderHook(() => useLocalWalletSendPool(props));
-    const fetched = (await mockRequest?.()) as { isPrivacyPaused: boolean };
-    expect(fetched.isPrivacyPaused).toBe(true);
+    expect(await mockRequest?.()).toEqual({
+      scope: scopeFor(props),
+      pools: pausedPools,
+    });
 
     mockSnapshot.result = {
       scope: scopeFor(props),
-      pools: [pools[2]],
-      isPrivacyPaused: true,
+      pools: pausedPools,
     };
     const { result } = renderHook(() => useLocalWalletSendPool(props));
-    expect(result.current.isPrivacyPaused).toBe(true);
+    expect(result.current.poolOptions?.map((pool) => pool.key)).toEqual([
+      'ironwood',
+      'transparent',
+    ]);
+    expect(result.current.pools?.map((pool) => pool.key)).toEqual([
+      'transparent',
+    ]);
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    act(() => result.current.selectPool('ironwood'));
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it('never defaults to or explicitly selects a disabled source even if it has a balance', () => {
+    const disabled: ILocalWalletSendPool = {
+      ...pools[0],
+      disabledReason: 'paused',
+    };
+    expect(
+      getDefaultLocalWalletSendPool({ pools: [disabled, pools[2]] })?.key,
+    ).toBe('transparent');
+    expect(
+      getDefaultLocalWalletSendPool({
+        pools: [disabled, pools[2]],
+        preferredPool: disabled.key,
+      }),
+    ).toBeUndefined();
   });
 
   it('falls back to the first pool when none is marked default', () => {
@@ -207,6 +245,28 @@ describe('useLocalWalletSendPool', () => {
       expect(result.current.selectedPool?.key).toBe('transparent');
     },
   );
+
+  it('keeps a private choice across pause and resume without silently spending Public funds', () => {
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    const { result, rerender } = renderHook(() =>
+      useLocalWalletSendPool(props),
+    );
+    expect(result.current.selectedPool?.key).toBe('ironwood');
+    mockSnapshot.result = {
+      scope: scopeFor(props),
+      pools: [{ ...pools[0], disabledReason: 'paused' }, pools[2]],
+    };
+    rerender({});
+    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.isReady).toBe(false);
+    act(() => result.current.selectPool('ironwood'));
+    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.isReady).toBe(false);
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    rerender({});
+    expect(result.current.selectedPool?.key).toBe('ironwood');
+    expect(result.current.isReady).toBe(true);
+  });
 
   it('does not carry another account or destination balance into the new form', () => {
     mockSnapshot.result = { scope: scopeFor(props), pools };
@@ -332,11 +392,13 @@ describe('getEntryLocalWalletSendPools', () => {
     expect(result.current.isReady).toBe(true);
   });
 
-  it('selects nothing when a private entry pool is missing while privacy is paused', () => {
+  it('keeps recipient-ineligible private options hidden even while paused', () => {
     mockSnapshot.result = {
       scope: scopeFor(props),
-      pools: [{ ...pools[2], isDefault: true }],
-      isPrivacyPaused: true,
+      pools: [
+        { ...pools[0], disabledReason: 'paused', eligible: false },
+        pools[2],
+      ],
     };
     const { result } = renderHook(() =>
       useLocalWalletSendPool({
@@ -345,12 +407,134 @@ describe('getEntryLocalWalletSendPools', () => {
         poolDescriptors: descriptors,
       }),
     );
+    expect(result.current.poolOptions?.map((pool) => pool.key)).toEqual([
+      'transparent',
+    ]);
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it('disables Private immediately on network pause while the selected Public source stays usable', () => {
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    const { result } = renderHook(() =>
+      useLocalWalletSendPool({
+        ...props,
+        poolDescriptors: descriptors,
+      }),
+    );
+    act(() => result.current.selectPool('transparent'));
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    act(() =>
+      getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+        ...value,
+        pausedNetworkIds: [props.networkId],
+      })),
+    );
+    expect(result.current.poolOptions?.map((pool) => pool.key)).toEqual([
+      'ironwood',
+      'transparent',
+    ]);
+    expect(
+      result.current.poolOptions?.find((pool) => pool.key === 'ironwood')
+        ?.disabledReason,
+    ).toBe('paused');
     expect(result.current.pools?.map((pool) => pool.key)).toEqual([
       'transparent',
     ]);
-    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
+    act(() => result.current.selectPool('ironwood'));
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
+  });
 
+  it('does not default a paused private entry to Public while the account remains enabled', () => {
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+      ...value,
+      pausedNetworkIds: [props.networkId],
+    }));
+    const { result } = renderHook(() =>
+      useLocalWalletSendPool({
+        ...props,
+        initialPool: 'ironwood',
+        poolDescriptors: descriptors,
+      }),
+    );
+    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.isReady).toBe(false);
+    act(() => result.current.selectPool('ironwood'));
+    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.isReady).toBe(false);
     act(() => result.current.selectPool('transparent'));
     expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.isReady).toBe(true);
   });
+
+  it('keeps a private selection blocked only while its own network is paused', () => {
+    mockSnapshot.result = { scope: scopeFor(props), pools };
+    const { result } = renderHook(() =>
+      useLocalWalletSendPool({
+        ...props,
+        poolDescriptors: descriptors,
+      }),
+    );
+    act(() =>
+      getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+        ...value,
+        pausedNetworkIds: ['xmr--0'],
+      })),
+    );
+    expect(result.current.selectedPool?.key).toBe('ironwood');
+    act(() =>
+      getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+        ...value,
+        pausedNetworkIds: [props.networkId],
+      })),
+    );
+    expect(result.current.selectedPool).toBeUndefined();
+    expect(result.current.isReady).toBe(false);
+    act(() =>
+      getDefaultStore().set(privacyChainAtom.atom(), (value) => ({
+        ...value,
+        pausedNetworkIds: [],
+      })),
+    );
+    expect(result.current.selectedPool?.key).toBe('ironwood');
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it.each([false, true])(
+    'requires an explicit Public selection after a private entry is paused (listed=%s)',
+    (listed) => {
+      mockSnapshot.result = {
+        scope: scopeFor(props),
+        pools: [
+          ...(listed
+            ? [{ ...pools[0], disabledReason: 'paused' as const }]
+            : []),
+          { ...pools[2], isDefault: true },
+        ],
+      };
+      const { result } = renderHook(() =>
+        useLocalWalletSendPool({
+          ...props,
+          initialPool: 'ironwood',
+          poolDescriptors: descriptors,
+        }),
+      );
+      expect(result.current.pools?.map((pool) => pool.key)).toEqual([
+        'transparent',
+      ]);
+      expect(result.current.selectedPool).toBeUndefined();
+      expect(result.current.isReady).toBe(false);
+      act(() => result.current.selectPool('ironwood'));
+      expect(result.current.selectedPool).toBeUndefined();
+      expect(result.current.isReady).toBe(false);
+
+      act(() => result.current.selectPool('transparent'));
+      expect(result.current.selectedPool?.key).toBe('transparent');
+      expect(result.current.isReady).toBe(true);
+    },
+  );
 });

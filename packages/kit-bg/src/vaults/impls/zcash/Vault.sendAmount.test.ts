@@ -172,6 +172,26 @@ describe('Zcash send amount intent', () => {
     expect(quotePczt).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    'refuses a private-source build when privacy is off (paused=%s)',
+    async (paused) => {
+      const { vault, quotePczt } = createVault(balance('500000000', '0'));
+      jest
+        .spyOn(
+          vault.backgroundApi.simpleDb.privacyChainState,
+          'getZcashPrivacyModeState',
+        )
+        .mockResolvedValue({
+          intent: 'off',
+          ...(paused ? { resumeFromHeight: 100 } : {}),
+        });
+      await expect(vault.buildEncodedTx(request('1'))).rejects.toMatchObject({
+        code: 'PRIVACY_MODE_DISABLED',
+      });
+      expect(quotePczt).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['1', '2'])(
     'does not turn an entered %s ZEC into Max against a 1 ZEC snapshot',
     async (amount) => {

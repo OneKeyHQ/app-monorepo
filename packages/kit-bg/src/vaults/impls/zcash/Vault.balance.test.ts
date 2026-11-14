@@ -98,7 +98,35 @@ describe('Zcash independent transparent balance availability', () => {
       const sendPools = await vault.listLocalWalletSendPools({
         accountId: 'paused-account',
       });
-      expect(sendPools?.map((item) => item.key)).toEqual(['transparent']);
+      expect(sendPools?.map((item) => item.key)).toEqual(
+        paused ? ['ironwood', 'transparent'] : ['transparent'],
+      );
+      if (paused) {
+        expect(
+          sendPools?.find((item) => item.key === 'ironwood'),
+        ).toMatchObject({
+          disabledReason: 'paused',
+          spendable: undefined,
+          spendableParsed: undefined,
+          isDefault: false,
+        });
+        const texPools = await vault.listLocalWalletSendPools({
+          accountId: 'paused-account',
+          toAddress: 'tex1pyysjzgfpyysjzgfpyysjzgfpyysjzgfl7c006',
+        });
+        expect(texPools?.find((item) => item.key === 'ironwood')).toMatchObject(
+          {
+            disabledReason: 'paused',
+            eligible: false,
+          },
+        );
+        expect(
+          texPools?.find((item) => item.key === 'transparent'),
+        ).toMatchObject({
+          eligible: true,
+          spendable: '50',
+        });
+      }
       expect(readPrivate).toHaveBeenCalledTimes(paused ? 1 : 0);
       await expect(vault.zcashGetBalanceSafe()).resolves.toEqual(
         paused ? balance : null,
