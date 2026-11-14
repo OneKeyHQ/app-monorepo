@@ -1,8 +1,8 @@
-import { useHideIntercomMessengerWhenLocked } from './useHideIntercomMessengerWhenLocked';
+import { useSyncIntercomLockState } from './useSyncIntercomLockState';
 
 // Keep support requests locked even while a cold-start lock defers the app
 // tree and its notification container.
 export function IntercomLockGuard() {
-  useHideIntercomMessengerWhenLocked();
+  useSyncIntercomLockState();
   return null;
 }

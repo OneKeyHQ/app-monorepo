@@ -50,21 +50,14 @@ export const visitorStorage = {
       // background removes their Keychain entry during App Reset.
       await appStorage.removeItem(key);
     }
-    await Promise.all([
-      appStorage.secureStorage.removeSecureItem(key),
-      reference && isSecureReference(key, reference)
-        ? appStorage.secureStorage.removeSecureItem(reference)
-        : undefined,
-    ]);
+    if (reference && isSecureReference(key, reference))
+      await appStorage.secureStorage.removeSecureItem(reference);
   },
 };
 
 export async function bindVisitorStorage(key: string) {
   let reference = await appStorage.getItem(key);
   if (!reference || !isSecureReference(key, reference)) {
-    // The legacy fixed key may belong to an earlier installation. Never adopt
-    // it without an installation-scoped reference in app storage.
-    await appStorage.secureStorage.removeSecureItem(key);
     reference = `${key}-${generateUUID()}`;
     await appStorage.setItem(key, reference);
   }

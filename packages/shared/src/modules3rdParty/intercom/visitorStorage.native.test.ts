@@ -66,11 +66,8 @@ it('persists only a random reference outside Keychain and restores it on normal 
   );
 });
 
-it('does not adopt fixed legacy Keychain entries or entries left by an earlier installation', async () => {
-  mockSecrets.set(intercomVisitorStorageKey, 'legacy-visitor');
-  expect(await visitorStorage.get(intercomVisitorStorageKey)).toBeNull();
+it('does not adopt entries left by an earlier installation', async () => {
   const old = await bindVisitorStorage(intercomVisitorStorageKey);
-  expect(mockSecrets.has(intercomVisitorStorageKey)).toBe(false);
   await old.set('old-installation-token');
   const reference = mockReferences.get(intercomVisitorStorageKey);
   mockReferences.clear();
@@ -136,10 +133,9 @@ it('erases a late secure write after reset without touching a new visitor or rec
   expect(mockReferences.size).toBe(1);
 });
 
-it('deletes the active and legacy secure entries during explicit reset', async () => {
+it('deletes the active secure entry during explicit reset', async () => {
   const store = await bindVisitorStorage(intercomVisitorStorageKey);
   await store.set('synthetic-visitor');
-  mockSecrets.set(intercomVisitorStorageKey, 'legacy-visitor');
   await resetIntercomVisitorStorage();
   expect(mockReferences.size).toBe(0);
   expect(mockSecrets.size).toBe(0);

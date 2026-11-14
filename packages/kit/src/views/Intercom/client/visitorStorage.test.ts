@@ -48,7 +48,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/openFailure', () => ({
   notifyIntercomOpenFailed: jest.fn(),
 }));
 
-const legacyVisitor = JSON.stringify({
+const storedVisitor = JSON.stringify({
   anonymousId: 'test-old-visitor',
   anonymousSession: 'test-old-session',
   expiresAt: 9_999_999_999_000,
@@ -229,74 +229,57 @@ it('revokes a boot in flight without blocking reset and lets the queued window s
 it('restores a scoped visitor after a normal browser reload', async () => {
   const key = subject.intercomVisitorStorageKey;
   const binding = await subject.bindVisitorStorage(key);
-  await binding.set(legacyVisitor);
+  await binding.set(storedVisitor);
   expect(mockItems.get(key)).toMatch(/-ref-test-browser-/);
   jest.resetModules();
   const reloaded =
     await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
-  await expect(reloaded.visitorStorage.get(key)).resolves.toBe(legacyVisitor);
+  await expect(reloaded.visitorStorage.get(key)).resolves.toBe(storedVisitor);
   await expect((await reloaded.bindVisitorStorage(key)).get()).resolves.toBe(
-    legacyVisitor,
+    storedVisitor,
   );
 });
 
-it('keeps legacy visitors compatible without rewriting their immutable root reference', async () => {
+it('replaces an unscoped root with a fresh reference instead of adopting it', async () => {
   const key = subject.intercomVisitorStorageKey;
-  mockItems.set(key, legacyVisitor);
+  mockItems.set(key, storedVisitor);
+  await expect(subject.visitorStorage.get(key)).resolves.toBeNull();
   const binding = await subject.bindVisitorStorage(key);
-  await expect(binding.get()).resolves.toBe(legacyVisitor);
-  await binding.set('updated-visitor');
-  expect(mockItems.get(key)).toBe(legacyVisitor);
-  expect(mockSet.mock.calls.some(([writtenKey]) => writtenKey === key)).toBe(
-    false,
-  );
+  expect(mockItems.get(key)).toMatch(/-ref-test-browser-/);
+  await expect(binding.get()).resolves.toBeNull();
+});
+
+it('does not resurrect a revoked visitor after a delayed write', async () => {
+  const key = subject.intercomVisitorStorageKey;
+  const old = await subject.bindVisitorStorage(key);
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mockSet.mockImplementationOnce(async (writtenKey, value) => {
+    await waiting;
+    mockItems.set(writtenKey, value);
+  });
+  const lateWrite = old.set(storedVisitor);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  // Simulate bg.clear while a separate extension UI JS heap holds a client.
+  mockItems.clear();
   jest.resetModules();
   const otherWindow =
     await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
-  await expect(otherWindow.visitorStorage.get(key)).resolves.toBe(
-    'updated-visitor',
+  const fresh = await otherWindow.bindVisitorStorage(key);
+  await fresh.set('new-visitor');
+  release();
+  await expect(lateWrite).rejects.toThrow(
+    'Support visitor installation changed',
   );
-  await expect((await otherWindow.bindVisitorStorage(key)).get()).resolves.toBe(
-    'updated-visitor',
-  );
+  await expect(fresh.get()).resolves.toBe('new-visitor');
+  expect([...mockItems.values()]).not.toContain(storedVisitor);
+  expect(mockItems.size).toBe(2);
 });
 
-it.each([false, true])(
-  'does not resurrect a revoked visitor after a delayed write (legacy=%s)',
-  async (legacy) => {
-    const key = subject.intercomVisitorStorageKey;
-    if (legacy) mockItems.set(key, legacyVisitor);
-    const old = await subject.bindVisitorStorage(key);
-    let release!: () => void;
-    const waiting = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    mockSet.mockImplementationOnce(async (writtenKey, value) => {
-      await waiting;
-      mockItems.set(writtenKey, value);
-    });
-    const lateWrite = old.set(legacyVisitor);
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    // Simulate bg.clear while a separate extension UI JS heap holds a client.
-    mockItems.clear();
-    jest.resetModules();
-    const otherWindow =
-      await import('@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage');
-    const fresh = await otherWindow.bindVisitorStorage(key);
-    await fresh.set('new-visitor');
-    release();
-    await expect(lateWrite).rejects.toThrow(
-      'Support visitor installation changed',
-    );
-    await expect(fresh.get()).resolves.toBe('new-visitor');
-    expect([...mockItems.values()]).not.toContain(legacyVisitor);
-    expect(mockItems.size).toBe(2);
-  },
-);
-
-it('rejects a legacy read completed after another extension runtime clears storage', async () => {
+it('rejects a read completed after another extension runtime clears storage', async () => {
   const key = subject.intercomVisitorStorageKey;
-  mockItems.set(key, legacyVisitor);
   const binding = await subject.bindVisitorStorage(key);
   mockGet
     .mockImplementationOnce(async (readKey) => mockItems.get(readKey) ?? null)
@@ -312,7 +295,7 @@ it('rejects a legacy read completed after another extension runtime clears stora
 
 it('rejects a boot response after a shared clear and starts the next session without the old visitor', async () => {
   const key = subject.intercomVisitorStorageKey;
-  mockItems.set(key, legacyVisitor);
+  mockItems.set(key, storedVisitor);
   let respond!: (response: Response) => void;
   const fetch = jest.fn(
     () =>
@@ -410,24 +393,24 @@ it('deduplicates unread previews across extension windows and a cold restart whi
   await firstWindow.createIntercomMessengerSession(null);
   firstWindow.subscribeToIntercomNotifications(() => {});
   await firstWindow.startIntercomBackgroundPolling();
-  await firstWindow.setIntercomInAppMessageVisibility(true);
+  firstWindow.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(firstWindow.getIntercomNotification()?.id).toBe('42:admin-1');
   jest.resetModules();
   const secondWindow = await import('./messenger');
   secondWindow.subscribeToIntercomNotifications(() => {});
   await secondWindow.startIntercomBackgroundPolling();
-  await secondWindow.setIntercomInAppMessageVisibility(true);
+  secondWindow.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(secondWindow.getIntercomNotification()).toBeUndefined();
   expect(secondWindow.getIntercomUnreadCount()).toBe(1);
-  await firstWindow.setIntercomInAppMessageVisibility(false);
-  await secondWindow.setIntercomInAppMessageVisibility(false);
+  firstWindow.setIntercomInAppMessageVisibility(false);
+  secondWindow.setIntercomInAppMessageVisibility(false);
   jest.resetModules();
   const restarted = await import('./messenger');
   restarted.subscribeToIntercomNotifications(() => {});
   await restarted.startIntercomBackgroundPolling();
-  await restarted.setIntercomInAppMessageVisibility(true);
+  restarted.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(restarted.getIntercomNotification()).toBeUndefined();
   expect(restarted.getIntercomUnreadCount()).toBe(1);
@@ -436,7 +419,7 @@ it('deduplicates unread previews across extension windows and a cold restart whi
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(restarted.getIntercomNotification()?.id).toBe('42:admin-2');
   expect(Array.from(mockItems.values()).join()).not.toContain('Private reply');
-  await restarted.setIntercomInAppMessageVisibility(false);
+  restarted.setIntercomInAppMessageVisibility(false);
 });
 
 it.each(['lock', 'read'] as const)(
@@ -461,19 +444,19 @@ it.each(['lock', 'read'] as const)(
         if (readKey === key) await waiting;
         return mockItems.get(readKey) ?? null;
       });
-    await messenger.setIntercomInAppMessageVisibility(true);
+    messenger.setIntercomInAppMessageVisibility(true);
     await new Promise<void>((resolve) => setImmediate(resolve));
-    await messenger.setIntercomInAppMessageVisibility(false);
+    messenger.setIntercomInAppMessageVisibility(false);
     release();
     await heldLock;
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(mockItems.has(key)).toBe(false);
     expect(messenger.getIntercomNotification()).toBeUndefined();
     expect(messenger.getIntercomUnreadCount()).toBe(1);
-    await messenger.setIntercomInAppMessageVisibility(true);
+    messenger.setIntercomInAppMessageVisibility(true);
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(messenger.getIntercomNotification()?.id).toBe('42:admin-1');
-    await messenger.setIntercomInAppMessageVisibility(false);
+    messenger.setIntercomInAppMessageVisibility(false);
   },
 );
 
@@ -497,17 +480,17 @@ it('lets a visible window deliver a reply after the competing window hides durin
     if (readKey === key) await waiting;
     return mockItems.get(readKey) ?? null;
   });
-  await firstWindow.setIntercomInAppMessageVisibility(true);
+  firstWindow.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(mockGet).toHaveBeenCalledWith(key);
-  await firstWindow.setIntercomInAppMessageVisibility(false);
-  await secondWindow.setIntercomInAppMessageVisibility(true);
+  firstWindow.setIntercomInAppMessageVisibility(false);
+  secondWindow.setIntercomInAppMessageVisibility(true);
   release();
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(firstWindow.getIntercomNotification()).toBeUndefined();
   expect(secondWindow.getIntercomNotification()?.id).toBe('42:admin-1');
   expect(firstWindow.getIntercomUnreadCount()).toBe(1);
-  await secondWindow.setIntercomInAppMessageVisibility(false);
+  secondWindow.setIntercomInAppMessageVisibility(false);
 });
 
 it('discards the old visibility generation when the same window returns before its metadata read completes', async () => {
@@ -531,16 +514,16 @@ it('discards the old visibility generation when the same window returns before i
     if (readKey === key) await waiting;
     return mockItems.get(readKey) ?? null;
   });
-  await messenger.setIntercomInAppMessageVisibility(true);
+  messenger.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(mockGet).toHaveBeenCalledWith(key);
-  await messenger.setIntercomInAppMessageVisibility(false);
+  messenger.setIntercomInAppMessageVisibility(false);
   replyId = 'admin-2';
-  await messenger.setIntercomInAppMessageVisibility(true);
+  messenger.setIntercomInAppMessageVisibility(true);
   release();
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(delivered).toEqual(['42:admin-2']);
-  await messenger.setIntercomInAppMessageVisibility(false);
+  messenger.setIntercomInAppMessageVisibility(false);
 });
 
 it('hands a reply to the visible host before a delayed deduplication write and does not replay it after hiding', async () => {
@@ -563,17 +546,17 @@ it('hands a reply to the visible host before a delayed deduplication write and d
     if (writtenKey === key) await waiting;
     mockItems.set(writtenKey, value);
   });
-  await messenger.setIntercomInAppMessageVisibility(true);
+  messenger.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(delivered).toEqual(['42:admin-1']);
   expect(mockItems.has(key)).toBe(false);
-  await messenger.setIntercomInAppMessageVisibility(false);
+  messenger.setIntercomInAppMessageVisibility(false);
   release();
   await new Promise<void>((resolve) => setImmediate(resolve));
-  await messenger.setIntercomInAppMessageVisibility(true);
+  messenger.setIntercomInAppMessageVisibility(true);
   await new Promise<void>((resolve) => setImmediate(resolve));
   expect(messenger.getIntercomNotification()).toBeUndefined();
   expect(delivered).toEqual(['42:admin-1']);
   expect(messenger.getIntercomUnreadCount()).toBe(1);
-  await messenger.setIntercomInAppMessageVisibility(false);
+  messenger.setIntercomInAppMessageVisibility(false);
 });

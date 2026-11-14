@@ -8,7 +8,7 @@ import {
 import { useSettingsLastActivityAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 // Cancel support requests on lock and reject operations past the auto-lock
 // deadline, including when the main runtime resumes before the lock UI updates.
-export function useHideIntercomMessengerWhenLocked() {
+export function useSyncIntercomLockState() {
   const [isLocked] = useAppIsLockedAtom();
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
   const [{ time }] = useSettingsLastActivityAtom();

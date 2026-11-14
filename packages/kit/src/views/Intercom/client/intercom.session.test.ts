@@ -154,7 +154,7 @@ beforeEach(async () => {
   subject = await import('./messenger');
 });
 afterEach(async () => {
-  await subject.setIntercomInAppMessageVisibility(false);
+  subject.setIntercomInAppMessageVisibility(false);
   await setLock(true);
   globalThis.fetch = originalFetch;
   jest.useRealTimers();
@@ -199,7 +199,7 @@ describe('support message notifications', () => {
   });
   async function show() {
     await subject.startIntercomBackgroundPolling();
-    await subject.setIntercomInAppMessageVisibility(true);
+    subject.setIntercomInAppMessageVisibility(true);
     await jest.advanceTimersByTimeAsync(0);
   }
   it('asks support to open the message list while replies are unread', async () => {
@@ -246,7 +246,7 @@ describe('support message notifications', () => {
     await jest.advanceTimersByTimeAsync(30_000);
     expect(subject.getIntercomNotification()).toBeUndefined();
     expect(subject.getIntercomUnreadCount()).toBe(2);
-    await subject.setIntercomInAppMessageVisibility(false);
+    subject.setIntercomInAppMessageVisibility(false);
     jest.resetModules();
     subject = await import('./messenger');
     subject.subscribeToIntercomNotifications(changed);
@@ -308,7 +308,7 @@ describe('support message notifications', () => {
     );
     subject.refreshIntercomNotifications('42');
     await jest.advanceTimersByTimeAsync(0);
-    await subject.setIntercomInAppMessageVisibility(false);
+    subject.setIntercomInAppMessageVisibility(false);
     resolve(new Response(JSON.stringify({ ...boot, conversations: [] })));
     await jest.advanceTimersByTimeAsync(0);
     expect(subject.getIntercomNotification()).toBeUndefined();
@@ -484,7 +484,7 @@ it('rejects requests beyond the auto-lock deadline before the lock UI catches up
 it('does not create an anonymous visitor until support is explicitly opened', async () => {
   jest.useFakeTimers();
   await subject.startIntercomBackgroundPolling();
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(90_000);
   expect(mockFetch).not.toHaveBeenCalled();
   expect(mockVisitor).toBeNull();
@@ -502,7 +502,7 @@ it('does not remint an expired anonymous visitor during badge polling', async ()
     expiresAt: Date.now() - 1,
   } satisfies IIntercomVisitor);
   await subject.startIntercomBackgroundPolling();
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(60_000);
   expect(mockFetch).not.toHaveBeenCalled();
 });
@@ -515,7 +515,7 @@ it('resumes one unread poll loop when the visible account changes', async () => 
     attributes: { userId: user },
   }));
   await subject.startIntercomBackgroundPolling();
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(0);
   mockFetch.mockClear();
   mockUserId = 'B';
@@ -546,7 +546,7 @@ it('resumes polling after an expired lock policy becomes valid without a boolean
     lockAtMs: Date.now() + 10_000,
   });
   await subject.startIntercomBackgroundPolling();
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await jest.advanceTimersByTimeAsync(0);
   await jest.advanceTimersByTimeAsync(30_000);
   mockFetch.mockClear();
@@ -645,7 +645,7 @@ it('shares a failed identity cleanup with concurrent opens and retries cleanup b
 it('keeps first-screen visibility, unlock, push and identity sync behind the startup polling gate', async () => {
   jest.useFakeTimers();
   mockUserId = 'A';
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await setLock(false);
   subject.refreshIntercomNotifications('42');
   await subject.initIntercom();
@@ -662,7 +662,7 @@ it('keeps first-screen visibility, unlock, push and identity sync behind the sta
 
 it('allows an explicit support open before passive polling starts', async () => {
   mockUserId = 'A';
-  await subject.setIntercomInAppMessageVisibility(true);
+  subject.setIntercomInAppMessageVisibility(true);
   await subject.showIntercom();
   expect(mockPresent).toHaveBeenCalledWith(
     expect.objectContaining({ userId: 'A' }),

@@ -18,22 +18,9 @@ export async function withVisitorSessionLock(
 }
 
 function visitorValueKey(key: string, reference: string) {
-  if (reference.startsWith(`${key}-ref-`) && /^[\w.-]+$/.test(reference))
-    return `${reference}-session`;
-  try {
-    const legacy: unknown = JSON.parse(reference);
-    if (
-      legacy &&
-      typeof legacy === 'object' &&
-      'anonymousId' in legacy &&
-      typeof legacy.anonymousId === 'string' &&
-      legacy.anonymousId.length <= 512
-    )
-      return `${key}-legacy-${encodeURIComponent(legacy.anonymousId)}`;
-  } catch {
-    // A corrupt visitor is discarded when support is explicitly opened.
-  }
-  return undefined;
+  return reference.startsWith(`${key}-ref-`) && /^[\w.-]+$/.test(reference)
+    ? `${reference}-session`
+    : undefined;
 }
 
 export const visitorStorage = {
@@ -62,7 +49,7 @@ export const visitorStorage = {
     if (!valueKey) return null;
     const value = await appStorage.getItem(valueKey);
     if ((await appStorage.getItem(key)) !== reference) return null;
-    return value ?? (reference?.startsWith('{') ? reference : null);
+    return value;
   },
   async remove(key: string) {
     const reference = await appStorage.getItem(key);
@@ -94,10 +81,7 @@ export async function bindVisitorStorage(key: string) {
       await assertCurrent();
       const value = await appStorage.getItem(boundValueKey);
       await assertCurrent();
-      // Keep a pre-upgrade visitor as a read-only reference. Migrating it by
-      // rewriting the root after an asynchronous read could resurrect it
-      // across a concurrent reset in another extension runtime.
-      return value ?? (boundReference.startsWith('{') ? boundReference : null);
+      return value;
     },
     async set(value: string) {
       await assertCurrent();

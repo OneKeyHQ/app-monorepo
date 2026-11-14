@@ -42,16 +42,10 @@ export async function getIntercomCredentials(expectedUserId: string) {
   }
   const token = response?.token;
   const claims = token ? stringUtils.decodeJWT(token) : null;
-  const userId =
-    typeof claims?.user_id === 'string' ? claims.user_id : undefined;
-  const email = typeof claims?.email === 'string' ? claims.email : undefined;
-  if (!token || !userId) {
+  if (!token || typeof claims?.user_id !== 'string') {
     throw new OneKeyLocalError('Intercom identity token is unavailable');
   }
-  return {
-    token,
-    attributes: { userId, ...(email ? { email } : {}) },
-  };
+  return { token };
 }
 
 export const getCurrentLocale = async (): Promise<string | undefined> => {

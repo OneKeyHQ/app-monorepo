@@ -431,7 +431,7 @@ function stopUnreadPolling() {
   unreadPolling?.stop();
   unreadPolling = undefined;
 }
-export async function setIntercomInAppMessageVisibility(value: boolean) {
+export function setIntercomInAppMessageVisibility(value: boolean) {
   if (visible === value) return;
   visible = value;
   visibilityRevision += 1;

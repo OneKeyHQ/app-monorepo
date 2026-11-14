@@ -15,10 +15,7 @@ import type { IIntercomNotification } from '@onekeyhq/shared/src/modules3rdParty
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
-import { IntercomNotificationContainer as ExtensionContainer } from './index.ext';
-import { IntercomNotificationContainer as NativeContainer } from './index.native';
 import { IntercomLockGuard } from './IntercomLockGuard';
-import { IntercomLockGuard as ExtensionLockGuard } from './IntercomLockGuard.ext';
 
 import type { IIntercomNavigationState } from './visibility';
 
@@ -41,7 +38,7 @@ let mockModalScreen: EModalRoutes | undefined;
 let mockLockDuration = 5;
 let mockLastActivity = 1234;
 const mockSetLocked = jest.fn<void, []>();
-const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
+const mockSetVisibility = jest.fn((_visible: boolean) => {});
 let mockNotification: IIntercomNotification | undefined;
 const mockNotificationListeners = new Set<() => void>();
 const mockOpenNotification = jest.fn(async (_id: string) => {});
@@ -154,31 +151,24 @@ describe('Intercom notification visibility integration', () => {
     mockVisibilityChange = undefined;
   });
 
-  it.each([
-    ['web', IntercomNotificationContainer],
-    ['native', NativeContainer],
-    ['extension', ExtensionContainer],
-  ])(
-    'opens support without a presenter registration on %s',
-    (_platform, Container) => {
-      const screen = render(<Container />);
-      expect(presentIntercomSupportUi({ userId: null })).toBe(true);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'PUSH',
-          payload: expect.objectContaining({
-            name: ERootRoutes.Modal,
-            params: expect.objectContaining({
-              params: expect.objectContaining({ params: { userId: null } }),
-            }),
+  it('opens support without a presenter registration', () => {
+    const screen = render(<IntercomNotificationContainer />);
+    expect(presentIntercomSupportUi({ userId: null })).toBe(true);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PUSH',
+        payload: expect.objectContaining({
+          name: ERootRoutes.Modal,
+          params: expect.objectContaining({
+            params: expect.objectContaining({ params: { userId: null } }),
           }),
         }),
-      );
-      screen.unmount();
-      mockState = undefined;
-      expect(presentIntercomSupportUi({ userId: null })).toBe(false);
-    },
-  );
+      }),
+    );
+    screen.unmount();
+    mockState = undefined;
+    expect(presentIntercomSupportUi({ userId: null })).toBe(false);
+  });
 
   it('pushes support above the existing force-update modal', () => {
     mockState = {
@@ -313,22 +303,19 @@ describe('Intercom notification visibility integration', () => {
     expect(mockRemoveVisibility).toHaveBeenCalledTimes(1);
   });
 
-  it.each([IntercomLockGuard, ExtensionLockGuard])(
-    'resynchronizes the guard from source atoms without copying their values (%#)',
-    (Guard) => {
-      const screen = render(<Guard />);
-      expect(mockSetLocked).toHaveBeenCalledTimes(1);
-      mockIsLocked = true;
-      screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenCalledTimes(2);
-      mockLastActivity = 5678;
-      mockLockDuration = 30;
-      screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenCalledTimes(3);
-      mockLockDuration = Number(ELockDuration.Never);
-      screen.rerender(<Guard />);
-      expect(mockSetLocked).toHaveBeenCalledTimes(4);
-      expect(mockSetLocked).toHaveBeenLastCalledWith();
-    },
-  );
+  it('resynchronizes the guard from source atoms without copying their values', () => {
+    const screen = render(<IntercomLockGuard />);
+    expect(mockSetLocked).toHaveBeenCalledTimes(1);
+    mockIsLocked = true;
+    screen.rerender(<IntercomLockGuard />);
+    expect(mockSetLocked).toHaveBeenCalledTimes(2);
+    mockLastActivity = 5678;
+    mockLockDuration = 30;
+    screen.rerender(<IntercomLockGuard />);
+    expect(mockSetLocked).toHaveBeenCalledTimes(3);
+    mockLockDuration = Number(ELockDuration.Never);
+    screen.rerender(<IntercomLockGuard />);
+    expect(mockSetLocked).toHaveBeenCalledTimes(4);
+    expect(mockSetLocked).toHaveBeenLastCalledWith();
+  });
 });
