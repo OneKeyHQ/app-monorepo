@@ -5,11 +5,14 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  GlassButtonCapsule,
+  HeaderNotificationButton,
   type IPageNavigationProp,
   NavBackButton,
   Page,
   Stack,
   glassBarItem,
+  toNoGlassHeaderItems,
   useBackHandler,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -42,6 +45,7 @@ export default function MobileUnifoldDepositTransferModal() {
   const intl = useIntl();
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const transferContentRef = useRef<IUnifoldTransferContentRef>(null);
+  const [pendingExecutionCount, setPendingExecutionCount] = useState(0);
   const route =
     useRoute<
       RouteProp<
@@ -158,6 +162,34 @@ export default function MobileUnifoldDepositTransferModal() {
     () => [glassBarItem(headerLeft())],
     [headerLeft],
   );
+  const renderHeaderRight = useCallback(
+    () =>
+      !isInitialSelectorVisible && expectedRecipient ? (
+        <GlassButtonCapsule circular>
+          <HeaderNotificationButton
+            testID="perps-unifold-deposit-history"
+            icon="ClockTimeHistoryOutline"
+            title={intl.formatMessage({ id: ETranslations.global_history })}
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.global_history,
+            })}
+            showBadge={pendingExecutionCount > 0}
+            badgeCount={pendingExecutionCount}
+            badgeBg="$bgSuccessStrong"
+            onPress={openTracker}
+          />
+        </GlassButtonCapsule>
+      ) : null,
+    [
+      expectedRecipient,
+      intl,
+      isInitialSelectorVisible,
+      openTracker,
+      pendingExecutionCount,
+    ],
+  );
+  // The button owns its glass so the badge is not clipped by UIKit's mask.
+  const buildNativeHeaderRightItems = toNoGlassHeaderItems(renderHeaderRight);
 
   return (
     <Page scrollEnabled scrollProps={MOBILE_PAGE_SCROLL_PROPS} safeAreaEnabled>
@@ -167,8 +199,9 @@ export default function MobileUnifoldDepositTransferModal() {
           ? {
               scrollEdgeEffects: { top: 'hidden' },
               unstable_headerLeftItems: buildNativeHeaderLeftItems,
+              unstable_headerRightItems: buildNativeHeaderRightItems,
             }
-          : { headerLeft })}
+          : { headerLeft, headerRight: renderHeaderRight })}
       />
       <Page.Body
         flex={1}
@@ -181,6 +214,8 @@ export default function MobileUnifoldDepositTransferModal() {
             ref={transferContentRef}
             expectedRecipient={expectedRecipient}
             onOpenTracker={openTracker}
+            onPendingExecutionCountChange={setPendingExecutionCount}
+            historyCardPlacement="hidden"
             analyticsEntrySource={route.params?.analyticsEntrySource}
             trackDefaultSourceSelection={
               !route.params?.openSourceSelectorOnReady

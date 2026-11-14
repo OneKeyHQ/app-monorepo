@@ -17,8 +17,10 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import type { IUnifoldSourceSelection } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,8 +36,7 @@ import {
 
 const SELECTOR_POPOVER_WIDTH = 400;
 const SELECTOR_POPOVER_MAX_HEIGHT = 360;
-const TOKEN_CONTRACT_TOOLTIP_WIDTH = 360;
-const DASH_LABEL_HEIGHT_PADDING = platformEnv.isNative ? '$px' : '$0.5';
+const SELECTOR_LABEL_BOTTOM_PADDING = platformEnv.isNative ? '$px' : '$0.5';
 
 function SelectorTrigger({
   testID,
@@ -180,13 +181,14 @@ function TokenContractContent({
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const isDarkTheme = useThemeVariant() === 'dark';
   const { chain } = selection;
   const isNativeToken = isUnifoldNativeTokenAddress(chain.token_address);
 
   return (
     <YStack gap="$4">
       <XStack
-        bg={platformEnv.isNative ? '$bgSubdued' : '$bgStrong'}
+        bg={isDarkTheme ? '$bgStrong' : '$bgSubdued'}
         borderRadius="$3"
         p="$3"
         gap="$2"
@@ -212,7 +214,7 @@ function TokenContractContent({
         <SizableText size="$bodySm" color="$textSubdued">
           {chain.chain_name}
         </SizableText>
-        <XStack gap="$2" alignItems="center">
+        <XStack gap="$4" alignItems="center">
           <SizableText
             size="$bodyMdMedium"
             color="$text"
@@ -232,9 +234,12 @@ function TokenContractContent({
             <IconButton
               testID={`perps-unifold-copy-token-contract-${chain.chain_type}-${chain.chain_id}`}
               icon="Copy3Outline"
-              variant="tertiary"
+              variant="secondary"
               size="small"
+              width="$8"
+              height="$8"
               flexShrink={0}
+              cursor="pointer"
               onPress={() => copyText(chain.token_address)}
             />
           )}
@@ -244,56 +249,63 @@ function TokenContractContent({
   );
 }
 
-function TokenContractDisclosure({
+function SelectedTokenLabel({
   selection,
 }: {
   selection: IUnifoldSourceSelection | null;
 }) {
   const intl = useIntl();
-  const hasContract = Boolean(selection?.chain.token_address?.trim());
-  if (!selection || !hasContract) {
-    return null;
-  }
-
-  const title = intl.formatMessage({
-    id: ETranslations.perp_unifold_token_contract__title,
+  const { gtMd } = useMedia();
+  const label = intl.formatMessage({
+    id: ETranslations.perp_unifold_selected_token__title,
   });
+  if (!selection?.chain.token_address?.trim()) {
+    return (
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {label}
+      </SizableText>
+    );
+  }
   const trigger = (
     <DashText
-      testID={`perps-unifold-token-contract-${selection.chain.chain_type}-${selection.chain.chain_id}`}
+      testID="perps-unifold-selected-token-contract"
       size="$bodySm"
       color="$textSubdued"
       dashColor="$textDisabled"
       dashThickness={0.5}
-      flexShrink={0}
+      dashOverlay
+      numberOfLines={1}
+      cursor="pointer"
     >
-      {title}
+      {label}
     </DashText>
   );
-
-  if (platformEnv.isNative) {
+  if (!platformEnv.isNative && gtMd) {
     return (
-      <Popover
-        title={title}
+      <Tooltip
+        hovering
         placement="bottom-start"
-        renderTrigger={trigger}
-        renderContent={
-          <YStack px="$5" pt="$2" pb="$5">
-            <TokenContractContent selection={selection} />
-          </YStack>
-        }
+        contentProps={{ width: 360, maxWidth: 360, px: 18, py: '$5' }}
+        renderTrigger={<Stack cursor="help">{trigger}</Stack>}
+        renderContent={<TokenContractContent selection={selection} />}
       />
     );
   }
-
   return (
-    <Tooltip
-      hovering
-      placement="bottom-end"
-      contentProps={{ maxWidth: TOKEN_CONTRACT_TOOLTIP_WIDTH, p: '$0' }}
-      renderTrigger={<Stack cursor="help">{trigger}</Stack>}
+    <Popover
+      title={intl.formatMessage({
+        id: ETranslations.perp_unifold_token_contract__title,
+      })}
+      placement="bottom-start"
+      floatingPanelProps={{ width: 360 }}
+      renderTrigger={trigger}
       renderContent={
-        <YStack width={TOKEN_CONTRACT_TOOLTIP_WIDTH} p="$3">
+        <YStack px="$5" pb="$5">
           <TokenContractContent selection={selection} />
         </YStack>
       }
@@ -323,7 +335,6 @@ export function UnifoldSourceSelector({
   const [chainOpen, setChainOpen] = useState(false);
   const usableAssets = (assets ?? []).filter((a) => (a.chains ?? []).length);
   const chainOptions = selection?.asset.chains ?? [];
-  const minUsd = selection?.chain.minimum_deposit_amount_usd ?? 3;
   // Popover has no disabled state of its own, so an empty catalog would open a
   // blank sheet (and, on desktop, an invisible overlay that swallows a click).
   const canSelectToken = usableAssets.length > 0;
@@ -377,22 +388,12 @@ export function UnifoldSourceSelector({
         <XStack
           width="100%"
           mb="$1.5"
+          pb={SELECTOR_LABEL_BOTTOM_PADDING}
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
         >
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            numberOfLines={1}
-            flexShrink={1}
-            pb={DASH_LABEL_HEIGHT_PADDING}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_unifold_selected_token__title,
-            })}
-          </SizableText>
-          <TokenContractDisclosure selection={selection} />
+          <SelectedTokenLabel selection={selection} />
         </XStack>
         {onOpenMobileTokenSelector ? (
           tokenTrigger
@@ -440,44 +441,16 @@ export function UnifoldSourceSelector({
         <XStack
           width="100%"
           mb="$1.5"
+          pb={SELECTOR_LABEL_BOTTOM_PADDING}
           gap="$2"
           alignItems="center"
           justifyContent="space-between"
         >
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            pb={DASH_LABEL_HEIGHT_PADDING}
-          >
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.perp_unifold_selected_chain__title,
             })}
           </SizableText>
-          <DashText
-            size="$bodySmMedium"
-            color="$textCaution"
-            dashColor="$borderCaution"
-            dashThickness={0.5}
-            textAlign="right"
-            flexShrink={0}
-            tooltip={intl.formatMessage(
-              {
-                id: ETranslations.perp_unifold_minimum_deposit_network__desc,
-              },
-              { amount: `$${minUsd}` },
-            )}
-            tooltipTitle={intl.formatMessage({
-              id: ETranslations.perp_unifold_minimum_deposit__title,
-            })}
-            tooltipPlacement="bottom-end"
-          >
-            {intl.formatMessage(
-              {
-                id: ETranslations.perp_unifold_minimum_deposit_short__value,
-              },
-              { amount: `$${minUsd}` },
-            )}
-          </DashText>
         </XStack>
         {onOpenMobileChainSelector ? (
           chainTrigger

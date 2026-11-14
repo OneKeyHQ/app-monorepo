@@ -3,6 +3,8 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+export const UNIFOLD_HISTORY_CARD_HEIGHT = '$10';
+
 export function UnifoldDepositHistoryCard({
   trackedCount,
   onPress,
@@ -17,7 +19,7 @@ export function UnifoldDepositHistoryCard({
     <XStack
       testID="perps-unifold-deposit-history-card"
       role="button"
-      height="$10"
+      height={UNIFOLD_HISTORY_CARD_HEIGHT}
       px="$2.5"
       gap="$2"
       alignItems="center"

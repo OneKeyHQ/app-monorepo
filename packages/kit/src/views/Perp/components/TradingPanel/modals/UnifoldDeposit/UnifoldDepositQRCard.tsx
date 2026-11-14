@@ -46,6 +46,7 @@ export function UnifoldDepositQRCard({
   receiveTokenIconUri,
   receiveNetworkIconUri,
   showConversionRoute = true,
+  addressMinHeight,
 }: {
   address: string | null;
   chainIconUri?: string;
@@ -56,6 +57,7 @@ export function UnifoldDepositQRCard({
   receiveTokenIconUri?: string;
   receiveNetworkIconUri?: string;
   showConversionRoute?: boolean;
+  addressMinHeight?: number;
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -216,6 +218,7 @@ export function UnifoldDepositQRCard({
                 color="$textSubdued"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
+                dashOverlay
                 tooltip={intl.formatMessage({
                   id: ETranslations.perp_unifold_deposit_address_conversion__desc,
                 })}
@@ -266,6 +269,7 @@ export function UnifoldDepositQRCard({
             <XStack
               testID="perps-unifold-copy-deposit-address"
               width="100%"
+              minHeight={addressMinHeight}
               px="$3"
               py="$4"
               gap="$3"
@@ -299,7 +303,11 @@ export function UnifoldDepositQRCard({
             </XStack>
           ) : null}
           {!address && loading ? (
-            <Skeleton width="100%" height={64} borderRadius="$3" />
+            <Skeleton
+              width="100%"
+              height={addressMinHeight ?? 64}
+              borderRadius="$3"
+            />
           ) : null}
         </YStack>
       ) : null}
