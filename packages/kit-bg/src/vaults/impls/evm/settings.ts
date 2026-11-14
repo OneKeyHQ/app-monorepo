@@ -6,6 +6,7 @@ import {
   BinanceSmartChainLISTA,
   BinanceSmartChainU,
   BinanceSmartChainUSDT,
+  BinanceSmartChainXAUt,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
@@ -341,6 +342,30 @@ const stakingConfig: IStakingConfig = {
           BTW: {
             enabled: true,
             tokenAddress: BinanceSmartChainBTW,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+        },
+      },
+      // Unitas (OK-61790): USDT -> USDu vault, XAUt -> gold vault. Mint and
+      // redeem are executed by Unitas (server-side order), the user only signs
+      // approve / cooldown / claim.
+      [EEarnProviderEnum.Unitas]: {
+        supportedSymbols: ['USDT', 'XAUt'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+            claimWithTx: true,
+            allowPartialWithdraw: true,
+          },
+          XAUt: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainXAUt,
             displayProfit: true,
             stakingWithApprove: true,
             claimWithTx: true,

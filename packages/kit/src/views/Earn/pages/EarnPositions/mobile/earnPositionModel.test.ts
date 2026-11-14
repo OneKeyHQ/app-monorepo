@@ -26,6 +26,8 @@ import {
   NATIVE_USDT_VAULT,
   SETTLED_ON_REDEEM_TOOLTIP,
   SUSDE_VAULT,
+  position as fixtureOf,
+  token as tokenOf,
 } from './earnPositionModel.fixtures';
 
 import type { IEarnPositionView, IEarnProtocolView } from './earnPositionModel';
@@ -681,5 +683,186 @@ describe('earn position model: rewards claimable stage', () => {
       ),
     ).toEqual(['0.0026']);
     expect(sumEarnClaimableRewards(protocols)).toBe(0);
+  });
+});
+
+// OK-61790, Unitas: a claim on the USDT vault pays USDu, which the server
+// converts back. The cooldown that ended and USDu awaiting a new conversion
+// are two claimable positions (a Claim each, the second with its note); USDu
+// being converted is a withdrawal in progress the totals leave out.
+describe('earn position model: rows with a note and rows outside the totals', () => {
+  const VAULT = '0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae';
+  const bnb = { networkId: 'evm--56', chain: 'evm' };
+  const unitas = (
+    groupId: string,
+    asset: IEarnPortfolioPosition['assets'][number],
+    earn: Partial<IEarnPortfolioPosition['earn']> = {},
+  ) =>
+    fixtureOf({
+      ...bnb,
+      protocol: 'unitas',
+      protocolName: 'Unitas',
+      category: 'yield',
+      groupId,
+      name: 'Unitas USDu Vault',
+      assets: [asset],
+      earn: {
+        manage: {
+          networkId: bnb.networkId,
+          provider: 'unitas',
+          symbol: 'USDT',
+          vault: VAULT,
+        },
+        symbol: 'USDT',
+        vault: VAULT,
+        ...earn,
+      },
+    });
+  const unfinished = { text: 'Conversion to USDT didn’t finish. Claim again.' };
+  const awaiting = { text: 'Awaiting conversion to USDT' };
+  const claim = {
+    type: 'claimOrder',
+  } as IEarnPortfolioPosition['earn']['claim'];
+  const positions = [
+    unitas(
+      'unitas:evm--56:USDT',
+      tokenOf({ symbol: 'USDT', amount: '3000', price: 1 }),
+    ),
+    unitas(
+      'unitas:evm--56:USDT:claimable',
+      tokenOf({
+        symbol: 'USDu',
+        amount: '1000',
+        price: 1,
+        category: 'claimable',
+      }),
+      { action: 'claim', claim, claimSource: 'investment' },
+    ),
+    unitas(
+      'unitas:evm--56:USDT:claimable:1',
+      {
+        ...tokenOf({
+          symbol: 'USDu',
+          amount: '500',
+          price: 1,
+          category: 'claimable',
+        }),
+        note: unfinished,
+      },
+      { action: 'claim', claim, claimSource: 'investment' },
+    ),
+    unitas(
+      'unitas:evm--56:USDT:unstaking:0',
+      {
+        ...tokenOf({
+          symbol: 'USDu',
+          amount: '1000',
+          price: 1,
+          category: 'unstaking',
+        }),
+        note: awaiting,
+        excludedFromTotals: true,
+      },
+      { unstaking: {} },
+    ),
+  ];
+  const response: IEarnPortfolioPositionsResponse = {
+    positions: { [bnb.networkId]: positions },
+    // as the server sends it: the amount being converted is in no total
+    protocolSummaries: [
+      {
+        protocol: 'unitas',
+        protocolName: 'Unitas',
+        totalValue: 4500,
+        totalDebt: 0,
+        totalReward: 0,
+        netWorth: 4500,
+        networkIds: [bnb.networkId],
+        positionCount: 4,
+        positionIndices: [],
+        protocolLogo: '',
+        protocolUrl: '',
+      },
+    ],
+    errors: [],
+  };
+  const built = buildEarnPortfolioView({ response, translate });
+  const [protocol] = built.protocols;
+  const [holding] = protocol.positions;
+  const section = (kind: string) => {
+    const found = holding.sections.find((item) => item.kind === kind);
+    if (!found) {
+      throw new OneKeyLocalError(`missing section ${kind}`);
+    }
+    return found;
+  };
+
+  it('folds the four server positions into one card', () => {
+    expect(built.protocols).toHaveLength(1);
+    expect(protocol.positions).toHaveLength(1);
+    expect(holding.sections.map((item) => item.kind)).toEqual([
+      'deposited',
+      'pendingWithdrawal',
+      'claimable',
+    ]);
+  });
+
+  it('gives each claimable row its own Claim and hangs the note under the one that has it', () => {
+    const rows = section('claimable').assets;
+    expect(rows.map((row) => [row.amount, row.symbol])).toEqual([
+      ['1000', 'USDu'],
+      ['500', 'USDu'],
+    ]);
+    // a server position each, so both rows lead and both carry the button
+    expect(rows.map((row) => row.isOriginLead)).toEqual([true, true]);
+    expect(rows.map((row) => row.note)).toEqual([undefined, unfinished]);
+    expect(holding.principalClaims).toHaveLength(2);
+  });
+
+  it('shows the amount being converted as a withdrawal in progress with its own value', () => {
+    const [row] = section('pendingWithdrawal').assets;
+    expect(row).toMatchObject({
+      symbol: 'USDu',
+      amount: '1000',
+      value: 1000,
+      note: awaiting,
+      excludedFromTotals: true,
+    });
+    // nothing to wait a date for, and nothing to press
+    expect(row.unlockAt).toBeUndefined();
+  });
+
+  it('leaves that amount out of the card, the protocol row and the header', () => {
+    // 3,000 deposited + 1,000 + 500 to claim; the 1,000 being converted is shown only
+    expect(holding.value.value).toBe(4500);
+    expect(protocol.value.value).toBe(4500);
+    expect(built.totalValue).toBe(4500);
+    expect(sumEarnDefiAssets(built.protocols)).toBe(4500);
+  });
+
+  it('counts every row again once nothing is marked as left out', () => {
+    const counted = buildEarnPortfolioView({
+      response: {
+        ...response,
+        positions: {
+          [bnb.networkId]: positions.map((item) => ({
+            ...item,
+            assets: item.assets.map(
+              ({ excludedFromTotals: _excluded, ...asset }) => asset,
+            ),
+          })),
+        },
+        protocolSummaries: [
+          {
+            ...response.protocolSummaries[0],
+            totalValue: 5500,
+            netWorth: 5500,
+          },
+        ],
+      },
+      translate,
+    });
+    expect(counted.totalValue).toBe(5500);
+    expect(counted.protocols[0].positions[0].value.value).toBe(5500);
   });
 });

@@ -18,6 +18,7 @@ export enum EEarnProviderEnum {
   Native = 'Native',
   Spark = 'Spark',
   Bitway = 'Bitway',
+  Unitas = 'Unitas',
 }
 
 export type ISupportedSymbol =
@@ -57,7 +58,8 @@ export type ISupportedSymbol =
   | 'kHYPE'
   | 'U'
   | 'BTW'
-  | 'vbUSDC';
+  | 'vbUSDC'
+  | 'XAUt';
 
 export interface IStakingFlowConfig {
   enabled: boolean;

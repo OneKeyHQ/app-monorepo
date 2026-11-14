@@ -108,6 +108,7 @@ import {
   isLatestCheckAmountRequest,
 } from './checkAmountRequestUtils';
 import {
+  getWithdrawFormTips,
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
   shouldShowPendleSummaryTip,
@@ -456,7 +457,10 @@ export function UniversalWithdraw({
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const price = Number(inputPrice) > 0 ? inputPrice : '0';
+  const withdrawInputToken = protocolInfo?.withdrawApprove?.inputToken;
+  const inputSymbol = withdrawInputToken?.symbol ?? tokenSymbol;
+  const tokenPrice = withdrawInputToken?.price ?? inputPrice;
+  const price = Number(tokenPrice) > 0 ? tokenPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
@@ -503,6 +507,13 @@ export function UniversalWithdraw({
   );
   const isPendleProvider = useMemo(
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
+    [providerName],
+  );
+  const isProtocolExecutedWithdraw = useMemo(
+    () =>
+      earnUtils.isProtocolExecutedWithdraw({
+        providerName: providerName ?? '',
+      }),
     [providerName],
   );
   const requiresEarnWithdrawPath = useMemo(
@@ -621,18 +632,9 @@ export function UniversalWithdraw({
     requiresCurrentRequest: requiresEarnWithdrawPath,
   });
 
-  const rootTransactionTip = useMemo(
-    () =>
-      transactionConfirmation?.withdrawPath?.data?.tip ??
-      transactionConfirmation?.tip,
-    [
-      transactionConfirmation?.tip,
-      transactionConfirmation?.withdrawPath?.data?.tip,
-    ],
-  );
-  const formTransactionTip = useMemo(
-    () => (selectedWithdrawPath?.tip ? undefined : rootTransactionTip),
-    [rootTransactionTip, selectedWithdrawPath?.tip],
+  const { formTip: formTransactionTip, inlinePathTip } = getWithdrawFormTips(
+    transactionConfirmation,
+    effectiveSelectedWithdrawPathIndex,
   );
 
   const isQueuedWithdraw = selectedWithdrawType === 'queued';
@@ -1736,7 +1738,13 @@ export function UniversalWithdraw({
   ]);
 
   const confirmText = useMemo(() => {
-    if (shouldApprove) return ETranslations.global_approve;
+    if (shouldApprove) {
+      // One tap covers both steps when the protocol submits the redeem request
+      // itself after the approve (OK-66931).
+      return isProtocolExecutedWithdraw
+        ? ETranslations.earn_approve_and_withdraw__action
+        : ETranslations.global_approve;
+    }
     if (effectiveShowExpiredRefresh) return ETranslations.global_refresh;
     if (shouldResumeEthenaCooldownUnstake) return ETranslations.defi_unstake;
     if (isCancelWithdrawal) return ETranslations.global_confirm;
@@ -1744,6 +1752,7 @@ export function UniversalWithdraw({
     return ETranslations.global_withdraw;
   }, [
     shouldApprove,
+    isProtocolExecutedWithdraw,
     effectiveShowExpiredRefresh,
     shouldResumeEthenaCooldownUnstake,
     isCancelWithdrawal,
@@ -1823,8 +1832,10 @@ export function UniversalWithdraw({
               onChange={onChangeAmountValue}
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
+                selectedTokenImageUri: withdrawInputToken
+                  ? withdrawInputToken.logoURI
+                  : tokenImageUri,
+                selectedTokenSymbol: inputSymbol,
                 selectedNetworkImageUri: network?.logoURI,
               }}
               inputProps={{
@@ -1886,6 +1897,14 @@ export function UniversalWithdraw({
         ) : null}
       </Stack>
 
+      {isCheckAmountMessageError ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={checkAmountMessage}
+        />
+      ) : null}
+
       {showWithdrawPathSelector && selectedWithdrawPath ? (
         <XStack
           borderWidth={StyleSheet.hairlineWidth}
@@ -1938,25 +1957,31 @@ export function UniversalWithdraw({
         </XStack>
       ) : null}
 
-      {formTransactionTip?.text ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type={resolveEarnAlertType(formTransactionTip.type)}
-          renderTitle={() => (
-            <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
-          )}
-          descriptionComponent={
-            formTransactionTip.description ? (
-              <EarnText
-                text={formTransactionTip.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : undefined
-          }
-          action={buildTipAlertAction(formTransactionTip)}
-        />
-      ) : null}
+      {[
+        { key: 'path-tip', tip: inlinePathTip },
+        { key: 'form-tip', tip: formTransactionTip },
+      ].map(({ key, tip }) =>
+        tip?.text ? (
+          <Alert
+            key={key}
+            icon="InfoCircleOutline"
+            type={resolveEarnAlertType(tip.type)}
+            renderTitle={() => (
+              <EarnText text={tip.text} size="$bodyMdMedium" />
+            )}
+            descriptionComponent={
+              tip.description ? (
+                <EarnText
+                  text={tip.description}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
+              ) : undefined
+            }
+            action={buildTipAlertAction(tip)}
+          />
+        ) : null,
+      )}
 
       {remainingLessThanMinAmountWarning ? (
         <Alert
@@ -1964,15 +1989,8 @@ export function UniversalWithdraw({
           type="warning"
           title={intl.formatMessage(
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
-            { number: minAmount, symbol: tokenSymbol },
+            { number: minAmount, symbol: inputSymbol },
           )}
-        />
-      ) : null}
-      {isCheckAmountMessageError ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={checkAmountMessage}
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (

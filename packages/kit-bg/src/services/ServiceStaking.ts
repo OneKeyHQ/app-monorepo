@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -75,6 +76,9 @@ import type {
   IEarnRegisterSignMessageResponse,
   IEarnRewardsPortfolioResponse,
   IEarnRewardsPortfolioStage,
+  IEarnServerClaimRequestResult,
+  IEarnServerOrderDetail,
+  IEarnServerOrderWaitResult,
   IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
@@ -167,6 +171,10 @@ interface IEarnBatchInvestmentDetailResponse {
 
 const loadBorrowActionServiceUtils = () =>
   import('./utils/borrowActionServiceUtils');
+
+// Earn server error code for "this account has nothing to claim for the
+// requested identity" (EEarnError.NoClaimableAmount).
+const EARN_ERROR_NO_CLAIMABLE_AMOUNT = 70_813;
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -2140,10 +2148,17 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTx;
+    tx: IStakeTx | null;
     internalDappType: EInternalDappEnum;
     stakingAction?: EInternalStakingAction;
   }) {
+    if (!tx) {
+      // Server-executed order (Unitas): the caller must poll the order with
+      // waitForServerExecutedOrder instead of building a transaction.
+      throw new OneKeyLocalError(
+        'Order is executed by the protocol, no transaction to sign',
+      );
+    }
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildInternalDappEncodedTx({
       internalDappTx: tx as any,
@@ -2151,6 +2166,134 @@ class ServiceStaking extends ServiceBase {
       stakingAction,
     });
     return encodedTx;
+  }
+
+  @backgroundMethod()
+  async getEarnOrderDetail({
+    networkId,
+    accountId,
+    orderId,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+  }): Promise<IEarnServerOrderDetail> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const resp = await client.get<{ data: IEarnServerOrderDetail }>(
+      '/earn/v1/orders/detail',
+      {
+        params: { networkId, accountAddress: account.address, orderId },
+      },
+    );
+    return resp.data.data;
+  }
+
+  /**
+   * Polls a server-executed order (OK-61790, Unitas Booster) until it settles.
+   * Transient request errors are ignored; a timeout is not a failure because
+   * the server keeps tracking the order.
+   */
+  @backgroundMethod()
+  async waitForServerExecutedOrder({
+    networkId,
+    accountId,
+    orderId,
+    intervalMs = 3000,
+    timeoutMs = 5 * 60 * 1000,
+    returnOnBroadcast = false,
+  }: {
+    networkId: string;
+    accountId: string;
+    orderId: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+    returnOnBroadcast?: boolean;
+  }): Promise<IEarnServerOrderWaitResult> {
+    const deadline = Date.now() + timeoutMs;
+    let order: IEarnServerOrderDetail | undefined;
+    for (;;) {
+      try {
+        order = await this.getEarnOrderDetail({
+          networkId,
+          accountId,
+          orderId,
+        });
+      } catch {
+        // transient network error: keep polling until the deadline
+      }
+      if (order?.status === 'success') {
+        return { status: 'success', order };
+      }
+      if (order?.status === 'failed') {
+        return { status: 'failed', order };
+      }
+      if (returnOnBroadcast && order?.txId) {
+        return { status: 'submitted', order };
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout', order };
+      }
+      await timerUtils.wait(intervalMs);
+    }
+  }
+
+  /**
+   * Asks the server to run a claim step itself (OK-61790, Unitas: converting
+   * the claimed USDu back to USDT) and returns the order to poll. It is called
+   * right after the claim transaction is broadcast, and until that transaction
+   * is mined the server has nothing to convert and answers "no claimable
+   * amount": retry on that answer until the deadline. Running out of time is
+   * not a failure, the server converts on its own once the claim confirms.
+   * Any other error (allowance, redeem limit, vault paused, network) comes
+   * back as a rejection with the server's wording when it has one: the caller
+   * shows it in its own dialog, and an error thrown across the background
+   * bridge would also raise the global error toast.
+   */
+  @backgroundMethod()
+  async requestServerExecutedClaim({
+    intervalMs = 3000,
+    timeoutMs = 90 * 1000,
+    ...params
+  }: IStakeClaimBaseParams & {
+    identity: string;
+    intervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<IEarnServerClaimRequestResult> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        const resp = await this.buildClaimTransaction(params);
+        if (!resp.tx && resp.orderId) {
+          return { status: 'accepted', orderId: resp.orderId };
+        }
+        throw new OneKeyLocalError(
+          'Server-executed claim returned a transaction to sign',
+        );
+      } catch (error) {
+        const { code, message, className } =
+          (error as
+            | { code?: unknown; message?: unknown; className?: unknown }
+            | undefined) ?? {};
+        if (Number(code) !== EARN_ERROR_NO_CLAIMABLE_AMOUNT) {
+          // Only the server's own message is fit to show; anything else
+          // (network failure, local error) leaves the wording to the caller.
+          const isServerError =
+            className === EOneKeyErrorClassNames.OneKeyServerApiError;
+          return {
+            status: 'rejected',
+            ...(isServerError && typeof message === 'string' && message
+              ? { message }
+              : {}),
+          };
+        }
+      }
+      if (Date.now() >= deadline) {
+        return { status: 'timeout' };
+      }
+      await timerUtils.wait(intervalMs);
+    }
   }
 
   @backgroundMethod()

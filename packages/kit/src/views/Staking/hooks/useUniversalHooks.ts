@@ -21,9 +21,12 @@ import {
   type EApproveType,
   EInternalDappEnum,
   EInternalStakingAction,
+  type IClaimApproveInfo,
+  type IClaimFollowUpInfo,
   type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
   type IEarnStakeType,
+  type IEarnUtmParams,
   type IEarnWithdrawType,
   type IStakeTxResponse,
   type IStakeTxStakefishExitBroadcast,
@@ -32,11 +35,15 @@ import {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { runClaimConversion } from '../components/ClaimConversionDialog';
 import {
   showEarnRiskWarningDialog,
   useEarnRiskWarningGate,
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
+import { showServerExecutedOrderDialog } from '../components/ServerExecutedOrderDialog';
+
+import type { IntlShape } from 'react-intl';
 
 const createStakeInfoWithOrderId = ({
   stakingInfo,
@@ -66,6 +73,53 @@ type ITxConfirmResult =
   | {
       status: 'cancel';
     };
+
+/**
+ * Server-executed order (OK-61790, Unitas): the stake / unstake response
+ * carries `tx: null` and an orderId. The order stays tracked server side when
+ * the user closes the dialog before it reaches a final state.
+ */
+const handleServerExecutedOrder = async ({
+  orderId,
+  networkId,
+  accountId,
+  intl,
+  onSuccess,
+  onFail,
+}: {
+  orderId: string;
+  networkId: string;
+  accountId: string;
+  intl: IntlShape;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+  onFail?: IModalSendParamList['SendConfirm']['onFail'];
+}) => {
+  const order = await showServerExecutedOrderDialog({
+    orderId,
+    networkId,
+    accountId,
+  });
+  if (order?.status === 'failed') {
+    onFail?.(
+      new OneKeyLocalError(
+        order.errorMessage ??
+          intl.formatMessage({ id: ETranslations.global_failed }),
+      ),
+    );
+    return false;
+  }
+  onSuccess?.([]);
+  return true;
+};
+
+type IStakeConfirmPayload = {
+  encodedTx?: IEncodedTx;
+  stakeInfoWithOrderId?: IStakingInfo;
+  useFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
+  /** Set when the protocol executes the order itself (tx === null). */
+  serverOrderId?: string;
+};
 
 const handleStakeSuccess = async ({
   data,
@@ -175,6 +229,7 @@ export function useUniversalStake({
       onStepChange,
       // Stakefish specific param
       validatorPublicKey,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -204,6 +259,8 @@ export function useUniversalStake({
       ) => void;
       // Stakefish specific param
       validatorPublicKey?: string;
+      // Campaign attribution, forwarded to the server unchanged
+      utm?: IEarnUtmParams;
     }) => {
       // OK-59196: one-time risk disclaimer gates the first earn trade on
       // this device; resolves immediately once accepted
@@ -224,7 +281,7 @@ export function useUniversalStake({
         confirmStakeType?: IEarnStakeType;
         confirmInputTokenAddress?: string;
         confirmStakingInfo?: IStakingInfo;
-      } = {}) => {
+      } = {}): Promise<IStakeConfirmPayload> => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildStakeTransaction({
             amount,
@@ -246,7 +303,17 @@ export function useUniversalStake({
             stakeType: confirmStakeType,
             // Stakefish specific param
             validatorPublicKey,
+            ...utm,
           });
+
+        if (!stakeTx.tx) {
+          if (!stakeTx.orderId) {
+            throw new OneKeyLocalError(
+              'Stake response has neither a transaction nor an orderId',
+            );
+          }
+          return { serverOrderId: stakeTx.orderId };
+        }
 
         const encodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -291,6 +358,11 @@ export function useUniversalStake({
           confirmStakeType: 'wrap',
           confirmStakingInfo: undefined,
         });
+        if (wrapConfirmPayload.serverOrderId) {
+          throw new OneKeyLocalError(
+            'Native wrap staking cannot be executed by the protocol',
+          );
+        }
 
         let wrapConfirmResult: ITxConfirmResult;
         try {
@@ -453,6 +525,16 @@ export function useUniversalStake({
           confirmInputTokenAddress: postWrapStakeToken.address,
           confirmStakingInfo: postWrapStakingInfo,
         });
+        if (normalConfirmPayload.serverOrderId) {
+          return handleServerExecutedOrder({
+            orderId: normalConfirmPayload.serverOrderId,
+            networkId,
+            accountId,
+            intl,
+            onSuccess,
+            onFail,
+          });
+        }
 
         await navigationToTxConfirm({
           encodedTx: normalConfirmPayload.encodedTx,
@@ -473,6 +555,16 @@ export function useUniversalStake({
       }
 
       const stakeConfirmPayload = await buildStakeConfirmPayload();
+      if (stakeConfirmPayload.serverOrderId) {
+        return handleServerExecutedOrder({
+          orderId: stakeConfirmPayload.serverOrderId,
+          networkId,
+          accountId,
+          intl,
+          onSuccess,
+          onFail,
+        });
+      }
 
       await navigationToTxConfirm({
         encodedTx: stakeConfirmPayload.encodedTx,
@@ -580,6 +672,7 @@ export function useUniversalWithdraw({
       onStepChange,
       onEthenaCooldownUnstakeReady,
       signal,
+      utm,
     }: {
       amount: string;
       symbol: string;
@@ -603,6 +696,8 @@ export function useUniversalWithdraw({
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
+      // Campaign attribution, forwarded to the server unchanged
+      utm?: IEarnUtmParams;
     }) => {
       // OK-59196: one-time DeFi risk disclaimer, same gate the earn stake flow
       // uses. Returning false lets the caller tell a rejection apart from a
@@ -659,6 +754,7 @@ export function useUniversalWithdraw({
             inputTokenAddress,
             outputTokenAddress,
             effectiveApy,
+            ...utm,
             withdrawType,
             signature: signHash,
             deadline,
@@ -680,6 +776,7 @@ export function useUniversalWithdraw({
               useEthenaCooldown: true,
               slippage,
               effectiveApy,
+              ...utm,
               withdrawType,
             });
           const unstakeEncodedTx =
@@ -740,6 +837,7 @@ export function useUniversalWithdraw({
             ethenaPath: true,
             slippage,
             effectiveApy,
+            ...utm,
             withdrawType,
           });
         const swapEncodedTx =
@@ -836,8 +934,27 @@ export function useUniversalWithdraw({
             message: withdrawMessage,
             slippage,
             effectiveApy,
+            ...utm,
             withdrawType,
           });
+      }
+
+      if (!stakeTx.tx) {
+        if (!stakeTx.orderId) {
+          throw new OneKeyLocalError(
+            'Unstake response has neither a transaction nor an orderId',
+          );
+        }
+        // Unitas gold-vault redeem: submitted by the protocol after the receipt
+        // approve
+        return handleServerExecutedOrder({
+          orderId: stakeTx.orderId,
+          networkId,
+          accountId,
+          intl,
+          onSuccess,
+          onFail,
+        });
       }
 
       // Handle Stakefish validator exit broadcast (no on-chain tx needed)
@@ -928,6 +1045,7 @@ export function useUniversalClaim({
   networkId: string;
   accountId: string;
 }) {
+  const intl = useIntl();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -946,6 +1064,8 @@ export function useUniversalClaim({
       vault,
       symbol,
       stakingInfo,
+      claimApprove,
+      claimFollowUp,
       onSuccess,
       onFail,
     }: {
@@ -958,6 +1078,10 @@ export function useUniversalClaim({
       protocolVault?: string;
       stakingInfo?: IStakingInfo;
       vault: string;
+      /** Allowance the claim needs first (Unitas USDu), from the claimable list. */
+      claimApprove?: IClaimApproveInfo;
+      /** Server-executed step that follows the claim, from the claimable list. */
+      claimFollowUp?: IClaimFollowUpInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
       portfolioSymbol?: string;
@@ -973,19 +1097,147 @@ export function useUniversalClaim({
         return false;
       }
 
+      // OK-61790 (Unitas USDu): the claimed USDu is converted back to USDT by
+      // the protocol right after the claim, which needs an allowance of the
+      // claimed amount. Ask for it before the claim transaction when missing.
+      if (claimApprove && amountNumber.gt(0)) {
+        const readAllowance = async () => {
+          const info =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              networkId,
+              accountId,
+              tokenAddress: claimApprove.tokenAddress,
+              spenderAddress: claimApprove.approveTarget,
+            });
+          return new BigNumber(info.allowanceParsed || '0');
+        };
+        let allowance = new BigNumber(0);
+        try {
+          allowance = await readAllowance();
+        } catch {
+          // Unreadable allowance: fall through to the approve so the claim is
+          // never left without its conversion.
+        }
+        if (allowance.lt(amountNumber)) {
+          const account = await backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          });
+          const tokenInfo: IToken = {
+            address: claimApprove.tokenAddress,
+            symbol: claimApprove.symbol,
+            name: claimApprove.symbol,
+            decimals: claimApprove.decimals,
+            isNative: false,
+            networkId,
+          };
+          let approveStatus: 'success' | 'cancel';
+          try {
+            approveStatus = await new Promise<'success' | 'cancel'>(
+              (resolve, reject) => {
+                void navigationToTxConfirm({
+                  approvesInfo: [
+                    {
+                      owner: account.address,
+                      spender: claimApprove.approveTarget,
+                      amount: normalizedAmount,
+                      tokenInfo,
+                    },
+                  ],
+                  onSuccess: () => resolve('success'),
+                  onFail: (error) => reject(error),
+                  onCancel: () => resolve('cancel'),
+                }).catch((error) => reject(error));
+              },
+            );
+          } catch (error) {
+            onFail?.(error as Error);
+            return false;
+          }
+          if (approveStatus !== 'success') {
+            return false;
+          }
+          // The approve was just broadcast; wait for the allowance to land
+          // before building the claim so the server-side conversion can run.
+          let allowanceReady = false;
+          for (let attempt = 0; attempt < 15; attempt += 1) {
+            await timerUtils.wait(2000);
+            try {
+              if ((await readAllowance()).gte(amountNumber)) {
+                allowanceReady = true;
+                break;
+              }
+            } catch {
+              // keep polling
+            }
+          }
+          if (!allowanceReady) {
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
+            });
+            return false;
+          }
+          await timerUtils.wait(150);
+        }
+      }
+
       const continueClaim = async () => {
+        const claimRequest = {
+          networkId,
+          accountId,
+          symbol,
+          provider,
+          amount: normalizedAmount,
+          claimTokenAddress,
+          claimType,
+          vault,
+        };
+        // This claim is the conversion itself (OK-61790, Unitas: USDu already
+        // in the wallet, left there by a conversion that did not finish). The
+        // server runs it, so there is nothing to sign: ask for it and wait
+        // under the conversion dialog, which also offers another try.
+        if (claimFollowUp && claimFollowUp.identity === identity) {
+          const outcome = await runClaimConversion({
+            intl,
+            request: { ...claimRequest, identity: claimFollowUp.identity },
+            symbol,
+            amount: normalizedAmount,
+            withClaimStep: false,
+          });
+          // A failure the user gave up on leaves the amount claimable, so the
+          // page stays as it is; anything else moved the position.
+          if (outcome !== 'failed') {
+            onSuccess?.([]);
+          }
+          return;
+        }
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildClaimTransaction({
+            ...claimRequest,
+            identity,
+          });
+        // Any other claim the server runs itself: wait for the order under a
+        // dialog, the same as a server-executed stake.
+        if (!stakeTx.tx) {
+          if (!stakeTx.orderId) {
+            throw new OneKeyLocalError('Claim returned neither tx nor order');
+          }
+          await handleServerExecutedOrder({
+            orderId: stakeTx.orderId,
             networkId,
             accountId,
-            symbol,
-            provider,
-            amount: normalizedAmount,
-            identity,
-            claimTokenAddress,
-            claimType,
-            vault,
+            intl,
+            onSuccess,
+            onFail,
           });
+          return;
+        }
+        // The claim is followed by a server-executed step (Unitas: the USDu it
+        // pays out is converted back to USDT) unless this claim is that step.
+        const followUpIdentity =
+          claimFollowUp && claimFollowUp.identity !== identity
+            ? claimFollowUp.identity
+            : undefined;
         const encodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
             networkId,
@@ -1013,12 +1265,29 @@ export function useUniversalClaim({
           encodedTx,
           stakingInfo: stakeInfoWithOrderId,
           onSuccess: async (data) => {
+            // Report the claim transaction first: the server only runs the
+            // follow-up for a claim it knows about. The caller's onSuccess is
+            // held back until the follow-up settles, so the page refreshes
+            // once, onto the final state.
             await handleStakeSuccess({
               data,
               stakeInfo: stakeInfoWithOrderId,
               networkId,
-              onSuccess,
+              onSuccess: followUpIdentity ? undefined : onSuccess,
             });
+            if (!followUpIdentity) {
+              return;
+            }
+            // Whatever the conversion does, the claim itself went through:
+            // the page refreshes once the dialog is done with.
+            await runClaimConversion({
+              intl,
+              request: { ...claimRequest, identity: followUpIdentity },
+              symbol,
+              amount: normalizedAmount,
+              withClaimStep: true,
+            });
+            onSuccess?.(data);
           },
           onFail,
           useFeeInTx,
@@ -1067,6 +1336,7 @@ export function useUniversalClaim({
       navigationToTxConfirm,
       accountId,
       networkId,
+      intl,
       showClaimEstimateGasAlert,
     ],
   );

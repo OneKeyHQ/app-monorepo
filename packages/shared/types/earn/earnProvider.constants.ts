@@ -111,6 +111,7 @@ export const isSupportStaking = (symbol: string) =>
     'U',
     'BTW',
     'VBUSDC',
+    'XAUT',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds: string[] = [
@@ -181,6 +182,7 @@ export function normalizeToEarnSymbol(symbol: string): string {
     'u': 'U',
     'btw': 'BTW',
     'vbusdc': 'vbUSDC',
+    'xaut': 'XAUt',
   };
   // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
   return symbolMap[symbol.toLowerCase()] ?? symbol;
@@ -203,6 +205,7 @@ export function normalizeToEarnProvider(
     'native': EEarnProviderEnum.Native,
     'spark': EEarnProviderEnum.Spark,
     'bitway': EEarnProviderEnum.Bitway,
+    'unitas': EEarnProviderEnum.Unitas,
     'staked': EEarnProviderEnum.Lista,
   };
   return providerMap[provider.toLowerCase()];
@@ -344,5 +347,6 @@ export function getSymbolSupportedNetworks(): Record<
     'U': [networkIdsMap.bsc],
     'BTW': [networkIdsMap.bsc],
     'vbUSDC': [networkIdsMap.katana],
+    'XAUt': [networkIdsMap.bsc],
   };
 }

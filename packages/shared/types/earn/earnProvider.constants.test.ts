@@ -61,3 +61,16 @@ describe('Bitway Earn provider constants', () => {
     expect(importFromToken).toBeUndefined();
   });
 });
+
+describe('Unitas Earn provider constants (OK-61790)', () => {
+  it('normalizes the provider name used by Earn routes', () => {
+    expect(normalizeToEarnProvider('unitas')).toBe('Unitas');
+    expect(normalizeToEarnProvider('UNITAS')).toBe('Unitas');
+  });
+
+  it('normalizes the XAUt symbol and exposes it as Earn-capable', () => {
+    expect(normalizeToEarnSymbol('xaut')).toBe('XAUt');
+    expect(normalizeToEarnSymbol('XAUT')).toBe('XAUt');
+    expect(isSupportStaking('XAUt')).toBe(true);
+  });
+});
