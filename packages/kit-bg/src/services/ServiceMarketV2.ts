@@ -1085,6 +1085,11 @@ class ServiceMarketV2 extends ServiceBase {
     );
   }
 
+  private _inFlightMarketAccountPortfolioRequests = new Map<
+    string,
+    Promise<IMarketAccountPortfolioResponse>
+  >();
+
   @backgroundMethod()
   async fetchMarketAccountPortfolio({
     accountAddress,
@@ -1100,24 +1105,50 @@ class ServiceMarketV2 extends ServiceBase {
     throwOnError?: boolean;
   }): Promise<IMarketAccountPortfolioResponse> {
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const requestKey = JSON.stringify([
+        networkId,
+        accountAddress,
+        tokenAddress,
+        xpub ?? '',
+      ]);
+      let requestPromise =
+        this._inFlightMarketAccountPortfolioRequests.get(requestKey);
+      if (!requestPromise) {
+        const createdPromise = (async () => {
+          const client = await this.getClient(EServiceEndpointEnum.Utility);
 
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketAccountPortfolioResponse;
-      }>('/utility/v2/market/account/portfolio', {
-        params: {
-          networkId,
-          accountAddress,
-          tokenAddress,
-          xpub,
-          currency: 'usd',
-        },
-      });
+          const response = await client.get<{
+            code: number;
+            message: string;
+            data: IMarketAccountPortfolioResponse;
+          }>('/utility/v2/market/account/portfolio', {
+            params: {
+              networkId,
+              accountAddress,
+              tokenAddress,
+              xpub,
+              currency: 'usd',
+            },
+          });
 
-      const { data } = response.data;
-      return data;
+          const { data } = response.data;
+          return data;
+        })().finally(() => {
+          if (
+            this._inFlightMarketAccountPortfolioRequests.get(requestKey) ===
+            createdPromise
+          ) {
+            this._inFlightMarketAccountPortfolioRequests.delete(requestKey);
+          }
+        });
+        requestPromise = createdPromise;
+        this._inFlightMarketAccountPortfolioRequests.set(
+          requestKey,
+          createdPromise,
+        );
+      }
+
+      return await requestPromise;
     } catch (error) {
       console.error(
         '[ServiceMarketV2] fetchMarketAccountPortfolio error:',

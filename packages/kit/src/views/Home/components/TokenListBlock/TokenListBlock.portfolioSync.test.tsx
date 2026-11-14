@@ -40,6 +40,8 @@ const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
 const mockRunAllNetworks = jest.fn(async () => undefined);
+const mockRunAccountRequests = jest.fn(async () => undefined);
+let mockRouteFocused = true;
 const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
 const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
@@ -245,7 +247,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useManageToken', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocused,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const { useCallback, useRef } =
@@ -264,7 +266,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
     mockAllNetworkParams = params;
     return {
       run: mockRunAllNetworks,
-      runAccountRequests: mockAsyncNoop,
+      runAccountRequests: mockRunAccountRequests,
       result: mockAllNetworkResult,
       isEmptyAccount: false,
     };
@@ -1479,5 +1481,76 @@ describe('Home All Networks owner without accounts', () => {
     mockEpoch += 1;
     await finishRun(0);
     expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
+  });
+});
+
+describe('Home RefreshTokenList route focus and account scoping', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEpoch = 0;
+    mockIndexedAccountReady = true;
+    mockAllNetworkResult = undefined;
+    mockRouteFocused = true;
+    mockFetchTokens.mockResolvedValue(tokenResponse());
+  });
+
+  afterEach(() => {
+    mockRouteFocused = true;
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+  });
+
+  it('defers and coalesces off-route RefreshTokenList events until Home regains route focus', async () => {
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockRouteFocused = false;
+    const { rerender } = render(<TokenListBlock />);
+    mockRunAllNetworks.mockClear();
+    mockRunAccountRequests.mockClear();
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'xmr-account-1', networkId: 'xmr--0' }],
+      });
+    });
+
+    expect(mockRunAllNetworks).not.toHaveBeenCalled();
+    expect(mockRunAccountRequests).not.toHaveBeenCalled();
+
+    mockRouteFocused = true;
+    await act(async () => {
+      rerender(<TokenListBlock />);
+    });
+
+    expect(mockRunAllNetworks).not.toHaveBeenCalled();
+    expect(mockRunAccountRequests).toHaveBeenCalledTimes(1);
+    expect(mockRunAccountRequests).toHaveBeenCalledWith([
+      { accountId: 'zec-account-1', networkId: 'zec--main' },
+      { accountId: 'xmr-account-1', networkId: 'xmr--0' },
+    ]);
+  });
+
+  it('ignores foreign-network account-scoped RefreshTokenList in single-network mode', async () => {
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+    render(<TokenListBlock />);
+    mockFetchTokens.mockClear();
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+    });
+    expect(mockFetchTokens).not.toHaveBeenCalled();
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: mockAccount.id, networkId: 'evm--1' }],
+      });
+    });
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
   });
 });

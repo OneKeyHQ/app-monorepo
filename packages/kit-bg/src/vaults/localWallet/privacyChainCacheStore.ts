@@ -223,7 +223,9 @@ export async function saveLastLocalWalletBalance<T>({
     serialized: JSON.stringify(value),
   });
   if (!changed) return;
-  appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+  appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+    accounts: [{ accountId, networkId }],
+  });
   appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
     networkId,
     accountId,
@@ -320,7 +322,9 @@ export async function readLocalWalletBalanceStaleFirst<T>({
           current.needsNotification = false;
           if (notify) {
             if (serialized !== (previous ? previous.serialized : saved)) {
-              appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+              appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+                accounts: [{ accountId, networkId }],
+              });
             }
             appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
               networkId,

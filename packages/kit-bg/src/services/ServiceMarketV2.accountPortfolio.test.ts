@@ -83,4 +83,22 @@ describe('ServiceMarketV2 account portfolio', () => {
       params: { ...params, currency: 'usd' },
     });
   });
+
+  it('coalesces concurrent in-flight requests for the same portfolio identity', async () => {
+    const service = new ServiceMarketV2({ backgroundApi: {} });
+    const client = axios.create();
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    const get = jest.spyOn(client, 'get').mockResolvedValue({
+      data: { code: 0, data: { list: [] } },
+    });
+
+    const first = service.fetchMarketAccountPortfolio(params);
+    const second = service.fetchMarketAccountPortfolio(params);
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { list: [] },
+      { list: [] },
+    ]);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
 });

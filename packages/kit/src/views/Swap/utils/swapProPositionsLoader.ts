@@ -68,6 +68,9 @@ export type ISwapProPositionsLoader = (
   options?: ISwapProPositionsLoadOptions,
 ) => Promise<void>;
 
+let activeLoaderRunCount = 0;
+const sharedAccountTokenRequests = new Map<string, Promise<ISwapToken[]>>();
+
 export const loadSwapProPositions: ISwapProPositionsLoader = async (
   get,
   set,
@@ -220,45 +223,64 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     );
   const publishNetworkPositions = ({
     networkId,
-    scope,
+    scopes,
     tokens,
   }: {
     networkId: string;
-    scope: (typeof scopesToLoad)[number];
+    scopes: typeof scopesToLoad;
     tokens: ISwapToken[];
   }) => {
-    if (!isLatestScopeRequest(scope.ownerKey)) {
+    const activeScopes = scopes.filter((scope) =>
+      isLatestScopeRequest(scope.ownerKey),
+    );
+    if (activeScopes.length === 0) {
       return;
     }
-    const refreshedNetworkIds =
-      refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
-    refreshedNetworkIds.add(networkId);
-    refreshedNetworkIdsByOwner.set(scope.ownerKey, refreshedNetworkIds);
+    for (const scope of activeScopes) {
+      const refreshedNetworkIds =
+        refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
+      refreshedNetworkIds.add(networkId);
+      refreshedNetworkIdsByOwner.set(scope.ownerKey, refreshedNetworkIds);
+    }
     set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
-      const currentEntry = currentEntries[scope.ownerKey];
-      if (!currentEntry) {
-        return currentEntries;
+      let nextEntries = currentEntries;
+      const now = Date.now();
+      for (const scope of activeScopes) {
+        const currentEntry = nextEntries[scope.ownerKey];
+        if (currentEntry) {
+          const refreshedNetworkIds =
+            refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
+          const hadNetworkTokens = currentEntry.tokens.some(
+            (token) => token.networkId === networkId,
+          );
+          const nextTokens =
+            tokens.length === 0 && !hadNetworkTokens
+              ? currentEntry.tokens
+              : sortPositionTokens([
+                  ...currentEntry.tokens.filter(
+                    (token) => token.networkId !== networkId,
+                  ),
+                  ...tokens,
+                ]);
+          nextEntries = upsertSwapProPositionsRuntimeEntry({
+            entries: nextEntries,
+            entry: {
+              ...currentEntry,
+              status:
+                currentEntry.status === 'refreshing' ? 'refreshing' : 'loading',
+              tokens: nextTokens,
+              resolvedNetworkIds: Array.from(refreshedNetworkIds),
+              accountScope: scope.accountScope,
+              updatedAt: now,
+            },
+            ownerKey: scope.ownerKey,
+          });
+        }
       }
-      return upsertSwapProPositionsRuntimeEntry({
-        entries: currentEntries,
-        entry: {
-          ...currentEntry,
-          status:
-            currentEntry.status === 'refreshing' ? 'refreshing' : 'loading',
-          tokens: sortPositionTokens([
-            ...currentEntry.tokens.filter(
-              (token) => token.networkId !== networkId,
-            ),
-            ...tokens,
-          ]),
-          resolvedNetworkIds: Array.from(refreshedNetworkIds),
-          accountScope: scope.accountScope,
-          updatedAt: Date.now(),
-        },
-        ownerKey: scope.ownerKey,
-      });
+      return nextEntries;
     });
   };
+  activeLoaderRunCount += 1;
   try {
     const unionSupportNetworks = Array.from(
       new Map(
@@ -388,25 +410,48 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     const tasks = accountRequests.map(({ account, scopes }) => {
       const { apiAddress, networkId: accountNetworkId, accountId } = account;
       return async () => {
-        const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-          networkId: accountNetworkId,
+        const sharedRequestKey = JSON.stringify([
           accountNetworkId,
-          accountAddress: apiAddress,
           accountId,
-          onlyAccountTokens: true,
-          isAllNetworkFetchAccountTokens: true,
-          throwOnError: true,
-          currency: positionCurrencyId,
-          protocol: ESwapTabSwitchType.SWAP,
-        });
-        for (const scope of scopes) {
-          if (!scope.stockOnly) {
-            publishNetworkPositions({
+          apiAddress,
+          positionCurrencyId,
+        ]);
+        let tokenPromise = !options?.forceRefresh
+          ? sharedAccountTokenRequests.get(sharedRequestKey)
+          : undefined;
+        if (!tokenPromise) {
+          const createdPromise = backgroundApiProxy.serviceSwap
+            .fetchSwapTokens({
               networkId: accountNetworkId,
-              scope,
-              tokens,
+              accountNetworkId,
+              accountAddress: apiAddress,
+              accountId,
+              onlyAccountTokens: true,
+              isAllNetworkFetchAccountTokens: true,
+              throwOnError: true,
+              currency: positionCurrencyId,
+              protocol: ESwapTabSwitchType.SWAP,
+            })
+            .catch((err) => {
+              if (
+                sharedAccountTokenRequests.get(sharedRequestKey) ===
+                createdPromise
+              ) {
+                sharedAccountTokenRequests.delete(sharedRequestKey);
+              }
+              throw err;
             });
-          }
+          tokenPromise = createdPromise;
+          sharedAccountTokenRequests.set(sharedRequestKey, createdPromise);
+        }
+        const tokens = await tokenPromise;
+        const nonStockScopes = scopes.filter((scope) => !scope.stockOnly);
+        if (nonStockScopes.length) {
+          publishNetworkPositions({
+            networkId: accountNetworkId,
+            scopes: nonStockScopes,
+            tokens,
+          });
         }
 
         let stockMetadataFailed = false;
@@ -436,13 +481,11 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 tokens: stockCandidateTokens,
               });
             }
-            for (const scope of stockScopes) {
-              publishNetworkPositions({
-                networkId: accountNetworkId,
-                scope,
-                tokens: stockTokens,
-              });
-            }
+            publishNetworkPositions({
+              networkId: accountNetworkId,
+              scopes: stockScopes,
+              tokens: stockTokens,
+            });
           } catch (error) {
             stockMetadataFailed = true;
             console.error('swapStock__loadPositionMetadata error', error);
@@ -539,6 +582,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     });
     console.error('swapPro__loadPositions error', error);
   } finally {
+    activeLoaderRunCount = Math.max(0, activeLoaderRunCount - 1);
+    if (activeLoaderRunCount === 0) {
+      sharedAccountTokenRequests.clear();
+    }
     set(swapProPositionsRequestIdsAtom(), (previousRequestIds) =>
       Object.fromEntries(
         Object.entries(previousRequestIds).filter(

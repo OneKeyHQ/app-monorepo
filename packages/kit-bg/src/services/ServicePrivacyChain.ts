@@ -605,7 +605,9 @@ class ServicePrivacyChain extends ServiceBase {
         // eslint-disable-next-line no-await-in-loop
         (await this.doLocalWalletPasswordWork({ networkId, accountIds }))
       ) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: accountIds.map((accountId) => ({ accountId, networkId })),
+        });
       }
     }
   }
@@ -659,7 +661,11 @@ class ServicePrivacyChain extends ServiceBase {
         accountIds: [params.accountId],
       });
       if (changed) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: [
+            { accountId: params.accountId, networkId: params.networkId },
+          ],
+        });
       }
     } catch (e) {
       console.error('[privacy-chain] send verification skipped', {
@@ -689,7 +695,9 @@ class ServicePrivacyChain extends ServiceBase {
         () => vault.localWalletDoDeviceWork({ deviceParams }),
         { deviceParams, debugMethodName: 'privacyChain.syncKeyImages' },
       );
-      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId, networkId }],
+      });
       return;
     }
     if (!(await vault.localWalletHasPasswordWork())) {
@@ -701,7 +709,9 @@ class ServicePrivacyChain extends ServiceBase {
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     await vault.localWalletDoPasswordWork({ password });
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+      accounts: [{ accountId, networkId }],
+    });
   }
 
   // Finishes password-gated work with a cached password only; never prompts. A failure is logged,
@@ -1369,7 +1379,17 @@ class ServicePrivacyChain extends ServiceBase {
     }
     await this.init();
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      accountIds.length
+        ? {
+            accounts: accountIds.map((accountId) => ({
+              accountId,
+              networkId,
+            })),
+          }
+        : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 
@@ -1857,7 +1877,22 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    const refreshAccounts =
+      targets.length > 0 &&
+      targets.every(
+        ({ networkId, accountIds }) =>
+          Boolean(networkId) && accountIds.length > 0,
+      )
+        ? targets.flatMap(({ networkId, accountIds }) =>
+            networkId
+              ? accountIds.map((accountId) => ({ accountId, networkId }))
+              : [],
+          )
+        : undefined;
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      refreshAccounts?.length ? { accounts: refreshAccounts } : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 
@@ -2728,7 +2763,17 @@ class ServicePrivacyChain extends ServiceBase {
         await this.publishBoostingNetworks();
       }
       if (anyStateChanged) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+        appEventBus.emit(
+          EAppEventBusNames.RefreshTokenList,
+          candidate?.accountIds.length
+            ? {
+                accounts: candidate.accountIds.map((accountId) => ({
+                  accountId,
+                  networkId: candidate.networkId,
+                })),
+              }
+            : undefined,
+        );
       }
       if (runnableCandidates.length > 1) {
         continueDelayMs = timerUtils.getTimeDurationMs({ seconds: 1 });
@@ -3307,7 +3352,17 @@ class ServicePrivacyChain extends ServiceBase {
       this.backfillActiveByAccount[accountId] = true;
     }
     this.scheduleBackgroundSync(0);
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.RefreshTokenList,
+      accountIds.length
+        ? {
+            accounts: accountIds.map((accountId) => ({
+              accountId,
+              networkId,
+            })),
+          }
+        : undefined,
+    );
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
   }
 

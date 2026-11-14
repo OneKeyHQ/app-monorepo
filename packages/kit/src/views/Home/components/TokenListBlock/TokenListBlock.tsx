@@ -4256,10 +4256,17 @@ function TokenListBlock({
     ],
   );
 
-  useEffect(() => {
-    const refresh = (
-      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
-    ) => {
+  const isHomeRouteActive = isRouteFocused || shouldAlwaysFetch;
+  const pendingOffRouteRefreshRef = useRef<
+    | { type: 'full' }
+    | {
+        type: 'accounts';
+        accounts: Map<string, { accountId: string; networkId: string }>;
+      }
+    | undefined
+  >(undefined);
+  const executeRefresh = useCallback(
+    (params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList]) => {
       if (network?.isAllNetworks) {
         if (params?.accounts) {
           void handleRefreshAllNetworkDataByAccounts(params.accounts);
@@ -4270,11 +4277,73 @@ function TokenListBlock({
           }
         }
       } else {
+        if (
+          params?.accounts?.length &&
+          network?.id &&
+          !params.accounts.some((item) => item.networkId === network.id)
+        ) {
+          return;
+        }
         void run({ alwaysSetState: true });
         if (showLpTokensOnly) {
           void runLpTokenList({ alwaysSetState: true });
         }
       }
+    },
+    [
+      handleRefreshAllNetworkData,
+      handleRefreshAllNetworkDataByAccounts,
+      network?.id,
+      network?.isAllNetworks,
+      run,
+      runLpTokenList,
+      showLpTokensOnly,
+    ],
+  );
+
+  useEffect(() => {
+    pendingOffRouteRefreshRef.current = undefined;
+  }, [account?.id, activeAccountEpoch, indexedAccount?.id, network?.id]);
+
+  useEffect(() => {
+    if (!isHomeRouteActive || !pendingOffRouteRefreshRef.current) {
+      return;
+    }
+    const pending = pendingOffRouteRefreshRef.current;
+    pendingOffRouteRefreshRef.current = undefined;
+    executeRefresh(
+      pending.type === 'accounts'
+        ? { accounts: [...pending.accounts.values()] }
+        : undefined,
+    );
+  }, [executeRefresh, isHomeRouteActive]);
+
+  useEffect(() => {
+    const refresh = (
+      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
+    ) => {
+      if (!isHomeRouteActive) {
+        if (params?.accounts?.length) {
+          if (pendingOffRouteRefreshRef.current?.type === 'full') {
+            return;
+          }
+          const accounts =
+            pendingOffRouteRefreshRef.current?.type === 'accounts'
+              ? pendingOffRouteRefreshRef.current.accounts
+              : new Map<string, { accountId: string; networkId: string }>();
+          for (const item of params.accounts) {
+            accounts.set(`${item.networkId}:${item.accountId}`, item);
+          }
+          pendingOffRouteRefreshRef.current = {
+            type: 'accounts',
+            accounts,
+          };
+        } else {
+          pendingOffRouteRefreshRef.current = { type: 'full' };
+        }
+        return;
+      }
+      executeRefresh(params);
     };
 
     const fn = () => {
@@ -4290,16 +4359,7 @@ function TokenListBlock({
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     };
-  }, [
-    handleRefreshAllNetworkData,
-    handleRefreshAllNetworkDataByAccounts,
-    isFocused,
-    network?.isAllNetworks,
-    run,
-    runAllNetworksRequests,
-    runLpTokenList,
-    showLpTokensOnly,
-  ]);
+  }, [executeRefresh, isFocused, isHomeRouteActive]);
 
   // Single-network live fetches are focus-gated. Portfolio stays mounted and
   // observes owner changes off-tab so this path can refresh the shared header.
