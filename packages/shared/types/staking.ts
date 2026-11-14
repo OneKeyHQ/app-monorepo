@@ -196,7 +196,18 @@ export type IStakeProviderInfo = {
   eventEndTime?: number;
 };
 
-export type IStakeBaseParams = {
+/**
+ * Campaign attribution carried from an Earn link into the stake / unstake
+ * request. The server forwards it to partners that report by campaign
+ * (Unitas) and fills in a default source / medium when the link had none.
+ */
+export type IEarnUtmParams = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+};
+
+export type IStakeBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -231,7 +242,7 @@ export type IStakeBaseParams = {
   stakeType?: IEarnStakeType;
 };
 
-export type IWithdrawBaseParams = {
+export type IWithdrawBaseParams = IEarnUtmParams & {
   accountId: string;
   networkId: string;
   amount: string;
@@ -358,9 +369,57 @@ export type IStakeTxStakefishExitBroadcast = {
 };
 
 export type IStakeTxResponse = {
-  tx: IStakeTx;
+  /**
+   * null when the protocol executes the order itself (Unitas Booster): the
+   * client polls the order with orderId instead of signing a transaction.
+   */
+  tx: IStakeTx | null;
   orderId?: string;
 };
+
+// Server-executed order (OK-61790): GET /earn/v1/orders/detail
+export type IEarnServerOrderStatus =
+  | 'created'
+  | 'pending'
+  | 'success'
+  | 'failed';
+
+export type IEarnServerOrderDetail = {
+  orderId: string;
+  provider: string;
+  networkId: string;
+  action: string;
+  status: IEarnServerOrderStatus;
+  txId?: string;
+  extStatus?: string;
+  extRequestId?: string;
+  extClaimableAt?: number;
+  /** The order's input asset: what the result prompt names (OK-61790). */
+  amount?: string;
+  symbol?: string;
+  /** Failed orders: the reason to show the user, worded by the server. */
+  errorMessage?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type IEarnServerOrderWaitResult = {
+  status: 'success' | 'failed' | 'timeout';
+  order?: IEarnServerOrderDetail;
+};
+
+/**
+ * Outcome of asking the server to run a claim step itself (OK-61790). A
+ * timeout means the claim transaction was not mined in time; it is not a
+ * failure, because the server runs the step on its own once it is. A
+ * rejection carries the server's own wording when it sent one (redeem limit,
+ * vault paused): the caller shows it in its own dialog, so the request never
+ * throws and the global error toast stays out of the way.
+ */
+export type IEarnServerClaimRequestResult =
+  | { status: 'accepted'; orderId: string }
+  | { status: 'timeout' }
+  | { status: 'rejected'; message?: string };
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -1982,6 +2041,31 @@ export type IClaimableListItem = {
   extra?: IClaimableListItemExtra;
 };
 
+/**
+ * Approval a claim needs before its transaction (OK-61790, Unitas USDu): the
+ * claimed USDu is converted back to USDT by the protocol afterwards, so the
+ * server asks for an allowance of the claimed amount up front.
+ */
+export type IClaimApproveInfo = {
+  approveType: EApproveType;
+  approveTarget: string;
+  tokenAddress: string;
+  symbol: string;
+  decimals: number;
+};
+
+/**
+ * Server-executed step that follows a claim (OK-61790, Unitas USDu). Once the
+ * claim transaction is mined the client asks for the claim again with this
+ * identity; the server converts the claimed USDu back to USDT itself and
+ * answers with an order to poll instead of a transaction to sign. The list
+ * item whose id equals this identity is that step on its own, offered when an
+ * earlier conversion did not go through.
+ */
+export type IClaimFollowUpInfo = {
+  identity: string;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -1993,6 +2077,8 @@ export type IClaimableListResponse = {
   description?: {
     text: string;
   };
+  claimApprove?: IClaimApproveInfo;
+  claimFollowUp?: IClaimFollowUpInfo;
 };
 
 export interface IEarnAccountToken {
