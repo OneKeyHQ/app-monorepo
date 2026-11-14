@@ -22,6 +22,7 @@ import {
   buildEarnTokenInfo,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -401,6 +402,7 @@ export function MyPortfolioPage() {
       networkAssetCounts={networkAssetCounts}
       onSelectionChange={setSelectedNetworkIds}
       variant="compact"
+      keepSheetLayout={platformEnv.isNativeIOS}
     />
   );
 

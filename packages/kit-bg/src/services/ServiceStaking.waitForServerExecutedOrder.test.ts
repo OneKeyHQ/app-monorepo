@@ -81,6 +81,22 @@ describe('ServiceStaking.waitForServerExecutedOrder', () => {
     expect(result.order?.status).toBe('failed');
   });
 
+  it('can return as soon as the server provides a transaction hash', async () => {
+    const submitted = { ...createOrder('pending'), txId: '0xabc' };
+    const { service, getEarnOrderDetail } = createHarness([
+      createOrder('created'),
+      submitted,
+    ]);
+
+    await expect(
+      service.waitForServerExecutedOrder({
+        ...params,
+        returnOnBroadcast: true,
+      }),
+    ).resolves.toEqual({ status: 'submitted', order: submitted });
+    expect(getEarnOrderDetail).toHaveBeenCalledTimes(2);
+  });
+
   it('ignores transient request errors', async () => {
     const { service, getEarnOrderDetail } = createHarness([
       new Error('network down'),

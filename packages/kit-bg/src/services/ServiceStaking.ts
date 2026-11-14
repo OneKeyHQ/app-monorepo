@@ -2202,12 +2202,14 @@ class ServiceStaking extends ServiceBase {
     orderId,
     intervalMs = 3000,
     timeoutMs = 5 * 60 * 1000,
+    returnOnBroadcast = false,
   }: {
     networkId: string;
     accountId: string;
     orderId: string;
     intervalMs?: number;
     timeoutMs?: number;
+    returnOnBroadcast?: boolean;
   }): Promise<IEarnServerOrderWaitResult> {
     const deadline = Date.now() + timeoutMs;
     let order: IEarnServerOrderDetail | undefined;
@@ -2226,6 +2228,9 @@ class ServiceStaking extends ServiceBase {
       }
       if (order?.status === 'failed') {
         return { status: 'failed', order };
+      }
+      if (returnOnBroadcast && order?.txId) {
+        return { status: 'submitted', order };
       }
       if (Date.now() >= deadline) {
         return { status: 'timeout', order };

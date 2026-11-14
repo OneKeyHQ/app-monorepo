@@ -365,15 +365,27 @@ export const WithdrawSection = ({
   const approveAssetToken =
     fetchedApproveAssetToken ?? fallbackApproveAssetToken;
   const withdrawApproveToken = useMemo(() => {
-    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
+    const withdrawApprove = protocolInfo?.withdrawApprove;
+    if (!withdrawApprove?.tokenAddress || !token) {
       return token;
     }
     return {
       ...token,
-      address: protocolInfo.withdrawApprove.tokenAddress,
+      address: withdrawApprove.tokenAddress,
       isNative: false,
+      ...(withdrawApprove.inputToken && {
+        symbol: withdrawApprove.inputToken.symbol,
+        displaySymbol: undefined,
+        name: withdrawApprove.inputToken.symbol,
+        logoURI: withdrawApprove.inputToken.logoURI ?? '',
+        decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+      }),
     };
-  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  }, [
+    protocolInfo?.protocolInputDecimals,
+    protocolInfo?.withdrawApprove,
+    token,
+  ]);
   const approvalToken = useMemo(() => {
     if (borrowTokenApproveNeeded) {
       if (effectiveBorrowApproveInfo?.approveAsset) {

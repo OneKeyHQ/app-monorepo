@@ -456,7 +456,10 @@ export function UniversalWithdraw({
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const price = Number(inputPrice) > 0 ? inputPrice : '0';
+  const withdrawInputToken = protocolInfo?.withdrawApprove?.inputToken;
+  const inputSymbol = withdrawInputToken?.symbol ?? tokenSymbol;
+  const tokenPrice = withdrawInputToken?.price ?? inputPrice;
+  const price = Number(tokenPrice) > 0 ? tokenPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
@@ -1837,8 +1840,10 @@ export function UniversalWithdraw({
               onChange={onChangeAmountValue}
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
+                selectedTokenImageUri: withdrawInputToken
+                  ? withdrawInputToken.logoURI
+                  : tokenImageUri,
+                selectedTokenSymbol: inputSymbol,
                 selectedNetworkImageUri: network?.logoURI,
               }}
               inputProps={{
@@ -1899,6 +1904,14 @@ export function UniversalWithdraw({
           </Stack>
         ) : null}
       </Stack>
+
+      {isCheckAmountMessageError ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={checkAmountMessage}
+        />
+      ) : null}
 
       {showWithdrawPathSelector && selectedWithdrawPath ? (
         <XStack
@@ -1978,15 +1991,8 @@ export function UniversalWithdraw({
           type="warning"
           title={intl.formatMessage(
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
-            { number: minAmount, symbol: tokenSymbol },
+            { number: minAmount, symbol: inputSymbol },
           )}
-        />
-      ) : null}
-      {isCheckAmountMessageError ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={checkAmountMessage}
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (

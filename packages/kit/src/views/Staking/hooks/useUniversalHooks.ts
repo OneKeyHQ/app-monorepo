@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,7 +25,6 @@ import {
   type IClaimFollowUpInfo,
   type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
-  type IEarnServerOrderWaitResult,
   type IEarnStakeType,
   type IEarnUtmParams,
   type IEarnWithdrawType,
@@ -42,6 +41,7 @@ import {
   useEarnRiskWarningGate,
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
+import { showServerExecutedOrderDialog } from '../components/ServerExecutedOrderDialog';
 
 import type { IntlShape } from 'react-intl';
 
@@ -76,10 +76,8 @@ type ITxConfirmResult =
 
 /**
  * Server-executed order (OK-61790, Unitas): the stake / unstake response
- * carries `tx: null` and an orderId, so there is nothing to sign. Block on a
- * loading dialog while the order settles, then finish the flow the same way a
- * broadcast transaction would. A timeout is reported as submitted: the order
- * stays tracked server side and the position refreshes on its own.
+ * carries `tx: null` and an orderId. The order stays tracked server side when
+ * the user closes the dialog before it reaches a final state.
  */
 const handleServerExecutedOrder = async ({
   orderId,
@@ -96,38 +94,20 @@ const handleServerExecutedOrder = async ({
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 }) => {
-  const loadingDialog = Dialog.loading({
-    title: intl.formatMessage({ id: ETranslations.global_processing }),
+  const order = await showServerExecutedOrderDialog({
+    orderId,
+    networkId,
+    accountId,
   });
-  let result: IEarnServerOrderWaitResult;
-  try {
-    result = await backgroundApiProxy.serviceStaking.waitForServerExecutedOrder(
-      {
-        networkId,
-        accountId,
-        orderId,
-      },
-    );
-  } catch (error) {
-    await loadingDialog.close();
-    onFail?.(error as Error);
-    return false;
-  }
-  await loadingDialog.close();
-  if (result.status === 'failed') {
-    Toast.error({
-      title: intl.formatMessage({ id: ETranslations.global_failed }),
-    });
+  if (order?.status === 'failed') {
     onFail?.(
-      new OneKeyLocalError(result.order?.extStatus || 'Earn order failed'),
+      new OneKeyLocalError(
+        order.errorMessage ??
+          intl.formatMessage({ id: ETranslations.global_failed }),
+      ),
     );
     return false;
   }
-  Toast.success({
-    title: intl.formatMessage({
-      id: ETranslations.feedback_transaction_submitted,
-    }),
-  });
   onSuccess?.([]);
   return true;
 };

@@ -55,15 +55,27 @@ const WithdrawPage = () => {
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const withdrawAbortRef = useRef<AbortController | null>(null);
   const withdrawApproveToken = useMemo(() => {
-    if (!protocolInfo?.withdrawApprove?.tokenAddress || !token) {
+    const withdrawApprove = protocolInfo?.withdrawApprove;
+    if (!withdrawApprove?.tokenAddress || !token) {
       return undefined;
     }
     return {
       ...token,
-      address: protocolInfo.withdrawApprove.tokenAddress,
+      address: withdrawApprove.tokenAddress,
       isNative: false,
+      ...(withdrawApprove.inputToken && {
+        symbol: withdrawApprove.inputToken.symbol,
+        displaySymbol: undefined,
+        name: withdrawApprove.inputToken.symbol,
+        logoURI: withdrawApprove.inputToken.logoURI ?? '',
+        decimals: protocolInfo?.protocolInputDecimals ?? token.decimals,
+      }),
     };
-  }, [protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  }, [
+    protocolInfo?.protocolInputDecimals,
+    protocolInfo?.withdrawApprove,
+    token,
+  ]);
   const withdrawApproveSpender = protocolInfo?.withdrawApprove?.approveTarget;
   const { result: withdrawAllowance } = usePromiseResult(
     async () => {

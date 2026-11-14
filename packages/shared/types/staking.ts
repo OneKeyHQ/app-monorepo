@@ -119,6 +119,7 @@ export type IEarnWithdrawApproveInfo = {
   tokenAddress?: string;
   allowance?: string;
   receiptTokenRate?: string;
+  inputToken?: { symbol: string; logoURI?: string; price: string };
 };
 
 export type IStakeProviderInfo = {
@@ -404,7 +405,7 @@ export type IEarnServerOrderDetail = {
 };
 
 export type IEarnServerOrderWaitResult = {
-  status: 'success' | 'failed' | 'timeout';
+  status: 'success' | 'failed' | 'submitted' | 'timeout';
   order?: IEarnServerOrderDetail;
 };
 

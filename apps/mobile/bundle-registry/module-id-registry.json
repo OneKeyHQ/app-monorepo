@@ -26700,6 +26700,7 @@
     "packages/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog.tsx": 51,
     "packages/kit/src/views/Staking/components/ProtocolDisplayShared.tsx": 5633,
     "packages/kit/src/views/Staking/components/RefreshCooldownButton.tsx": 5708,
+    "packages/kit/src/views/Staking/components/ServerExecutedOrderDialog.tsx": 2160,
     "packages/kit/src/views/Staking/components/StakeProgress.tsx": 10423,
     "packages/kit/src/views/Staking/components/StakingActivityIndicator/index.tsx": 7212,
     "packages/kit/src/views/Staking/components/StakingAmountInput.tsx": 20677,

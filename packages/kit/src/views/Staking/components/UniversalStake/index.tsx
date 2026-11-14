@@ -1069,7 +1069,6 @@ export function UniversalStake({
       if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
         return;
       }
-      setCheckAmountLoading(true);
       try {
         const response = await backgroundApiProxy.serviceStaking.checkAmount({
           accountId,
@@ -1132,6 +1131,7 @@ export function UniversalStake({
       return cleanup;
     }
 
+    setCheckAmountLoading(true);
     void checkAmount({ amount, identity: stakefishIdentity, requestId });
     return cleanup;
   }, [checkAmount, stakefishIdentity, amountValue]);
