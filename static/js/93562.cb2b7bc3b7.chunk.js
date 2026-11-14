@@ -1,0 +1,2 @@
+(self.rspackChunkweb=self.rspackChunkweb||[]).push([[93562],{743301(e,r,n){var t=n(806131);e.exports=function(e){return e?1/0===(e=t(e))||-1/0===e?(e<0?-1:1)*17976931348623157e292:e==e?e:0:0===e?e:0}},667642(e,r,n){var t=n(743301);e.exports=function(e){var r=t(e),n=r%1;return r==r?n?r-n:r:0}},331362(e,r,n){"use strict";function normalizeSearchText(e){return e.trim().toLowerCase().replaceAll("_","-").normalize("NFD").replace(/[\u0300-\u036f]/g,"")}n.d(r,{F:()=>normalizeSearchText})}}]);
+//# sourceMappingURL=93562.cb2b7bc3b7.chunk.js.map
