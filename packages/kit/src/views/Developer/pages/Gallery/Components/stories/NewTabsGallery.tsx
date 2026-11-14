@@ -601,6 +601,7 @@ function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
             index === 0 ? 'Swap · pending actions' : `Multi-asset ${index}`,
           description: '14:30 • Public fixture recipient',
           descriptionActionKey: 'address-info',
+          descriptionActionStart: '14:30 • '.length,
           status: index === 0 ? 'Confirming' : 'Confirmed',
           presentation: table ? 'table' : 'stacked',
           badges: [

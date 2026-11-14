@@ -7,6 +7,16 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: { getVault: (...args: unknown[]) => mockGetVault(...args) },
 }));
 
+const mockSettingsCurrencyId = jest.fn(() => 'usd');
+jest.mock('../states/jotai/atoms', () => ({
+  ...jest.requireActual<typeof import('../states/jotai/atoms')>(
+    '../states/jotai/atoms',
+  ),
+  settingsPersistAtom: {
+    get: async () => ({ currencyInfo: { id: mockSettingsCurrencyId() } }),
+  },
+}));
+
 import type {
   IAccountHistoryTx,
   IFetchHistoryTxDetailsParams,
@@ -136,8 +146,9 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
     expect(txs).toHaveLength(3);
     expect(txs[0]).toBe(btc);
     expect(txs[2]).toBe(evm);
-    expect(txs[0]).toEqual(row('btc--0', 'b1'));
-    expect(txs[2]).toEqual(row('evm--1', 'e1'));
+    // Every server row also records the currency it was priced in.
+    expect(txs[0]).toEqual(row('btc--0', 'b1', { fiatCurrency: 'usd' }));
+    expect(txs[2]).toEqual(row('evm--1', 'e1', { fiatCurrency: 'usd' }));
     expect(txs[1]).toEqual({
       ...zec,
       privacyChainHistorySide: 'public',
@@ -218,6 +229,43 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
       accountAddress: 'addr',
     });
     expect(txs[0]).toBe(zec);
+  });
+});
+
+describe('ServiceHistory server row fiat currency', () => {
+  it('requests the page in the display currency and records it on the rows', async () => {
+    mockSettingsCurrencyId.mockReturnValueOnce('cny');
+    mockGetVault.mockResolvedValue({
+      fetchAccountHistoryFromLocal: async () => undefined,
+      buildFetchHistoryListParams: async () => ({}),
+      buildOnChainHistoryTx: async () => row('evm--1', 'e1'),
+    });
+    const { service } = createService();
+    const post = jest.fn(
+      async (_url: string, _body: unknown, _config: unknown) => ({
+        data: {
+          data: {
+            data: [{}],
+            tokens: {},
+            nfts: {},
+            addressMap: {},
+            hasMore: false,
+          },
+        },
+      }),
+    );
+    jest.spyOn(service, 'getClient').mockResolvedValue({ post } as never);
+
+    const { txs } = await service.fetchAccountOnChainHistory({
+      accountId: 'hd-1',
+      networkId: 'evm--1',
+      accountAddress: '0xabc',
+    });
+
+    expect(post.mock.calls[0][2]).toMatchObject({
+      headers: { 'x-onekey-request-currency': 'cny' },
+    });
+    expect(txs.map((tx) => tx?.fiatCurrency)).toEqual(['cny']);
   });
 });
 

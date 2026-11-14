@@ -20,6 +20,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  convertHistoryTxsFiatCurrency,
   filterHistoryTxs,
   getOnChainHistoryTxStatus,
   isAccountCompatibleWithTx,
@@ -86,7 +87,11 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { perpsDepositOrderAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  perpsDepositOrderAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
@@ -1320,7 +1325,11 @@ class ServiceHistory extends ServiceBase {
     });
 
     const filtered = filterHistoryTxs({
-      txs: onChainResult.txs,
+      txs: await this.convertTxsToDisplayCurrency({
+        txs: onChainResult.txs,
+        displayCurrency: sourceCurrency,
+        currencyMap,
+      }),
       sourceCurrency,
       targetCurrency,
       currencyMap,
@@ -1370,6 +1379,29 @@ class ServiceHistory extends ServiceBase {
         networkId: string;
       }[],
     };
+  }
+
+  // Cached rows keep the fiat snapshot of the currency they were fetched in.
+  // Bring them to the caller's display currency, which is the current setting
+  // when the caller names none (OK-67171).
+  private async convertTxsToDisplayCurrency({
+    txs,
+    displayCurrency,
+    currencyMap,
+  }: {
+    txs: IAccountHistoryTx[];
+    displayCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+  }): Promise<IAccountHistoryTx[]> {
+    if (!txs.some((tx) => tx.fiatCurrency)) {
+      return txs;
+    }
+    return convertHistoryTxsFiatCurrency({
+      txs,
+      targetCurrency:
+        displayCurrency ?? (await settingsPersistAtom.get()).currencyInfo.id,
+      currencyMap: currencyMap ?? (await currencyPersistAtom.get()).currencyMap,
+    });
   }
 
   // Local history is cached per network + address/xpub and shared by every
@@ -1842,6 +1874,13 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    // Cached rows the fresh page did not replace may be priced in another
+    // currency.
+    result = await this.convertTxsToDisplayCurrency({
+      txs: result,
+      displayCurrency: sourceCurrency,
+      currencyMap,
+    });
     result = await this.attachPrivateSendDisplayStatus(result);
     result = await this.attachPrivateSendDisplayPrices({
       txs: result,
@@ -2222,7 +2261,13 @@ class ServiceHistory extends ServiceBase {
       }
 
       const resultWithPrivateSendDisplayStatus =
-        await this.attachPrivateSendDisplayStatus(result);
+        await this.attachPrivateSendDisplayStatus(
+          await this.convertTxsToDisplayCurrency({
+            txs: result,
+            displayCurrency: sourceCurrency,
+            currencyMap,
+          }),
+        );
       const resultWithPrivateSendDisplayPrices =
         await this.attachPrivateSendDisplayPrices({
           txs: resultWithPrivateSendDisplayStatus,
@@ -2275,7 +2320,13 @@ class ServiceHistory extends ServiceBase {
     );
 
     const resultWithPrivateSendDisplayStatus =
-      await this.attachPrivateSendDisplayStatus(result);
+      await this.attachPrivateSendDisplayStatus(
+        await this.convertTxsToDisplayCurrency({
+          txs: result,
+          displayCurrency: sourceCurrency,
+          currencyMap,
+        }),
+      );
     const resultWithPrivateSendDisplayPrices =
       await this.attachPrivateSendDisplayPrices({
         txs: resultWithPrivateSendDisplayStatus,
@@ -2742,6 +2793,10 @@ class ServiceHistory extends ServiceBase {
     const isIndexerChain = networkInfo?.backendIndex === true;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // The server prices the page in the request currency. Send it explicitly
+    // and stamp the rows with the same value, so a currency switch during the
+    // request cannot leave a row labelled with a currency it was not priced in.
+    const requestCurrency = (await settingsPersistAtom.get()).currencyInfo.id;
     let resp;
     let extraParams: any;
     const fetchHistoryFromServer = async () => {
@@ -2805,6 +2860,7 @@ class ServiceHistory extends ServiceBase {
         },
         {
           headers: {
+            'x-onekey-request-currency': requestCurrency,
             ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId: params.accountId,
@@ -2874,6 +2930,9 @@ class ServiceHistory extends ServiceBase {
         ),
       )
     ).filter(Boolean);
+    for (const tx of txs) {
+      tx.fiatCurrency = requestCurrency;
+    }
 
     return {
       txs:

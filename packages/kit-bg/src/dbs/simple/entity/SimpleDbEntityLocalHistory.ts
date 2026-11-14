@@ -834,6 +834,26 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     });
   }
 
+  // Rows that name no fiat currency (locally built, or cached by older app
+  // versions) were priced in the display currency of their time. Called with
+  // the currency being left when the user switches, so those rows are
+  // converted afterwards instead of being relabelled with the new symbol.
+  @backgroundMethod()
+  async stampUnknownFiatCurrency({ fiatCurrency }: { fiatCurrency: string }) {
+    const stamp = (txsByKey?: Record<string, IAccountHistoryTx[]>) =>
+      Object.fromEntries(
+        Object.entries(txsByKey ?? {}).map(([key, txs]) => [
+          key,
+          txs.map((tx) => (tx.fiatCurrency ? tx : { ...tx, fiatCurrency })),
+        ]),
+      );
+    return this.setRawData((rawData) => ({
+      ...rawData,
+      pendingTxs: stamp(rawData?.pendingTxs),
+      confirmedTxs: stamp(rawData?.confirmedTxs),
+    }));
+  }
+
   private _getAccountLocalHistoryTxs(params: {
     networkId: string;
     accountAddress: string;
