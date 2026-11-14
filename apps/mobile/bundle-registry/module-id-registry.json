@@ -25730,6 +25730,7 @@
     "packages/kit/src/views/Perp/components/TradingPanel/modals/OrderConfirmModal.tsx": 1464,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/OrderTypeDialog.tsx": 9140,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/TimeInForceDialog.tsx": 15045,
+    "packages/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/DepositMethodIllustration.tsx": 8416,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTrackerModal.tsx": 4730,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldDepositTransferModal.tsx": 9138,
     "packages/kit/src/views/Perp/components/TradingPanel/modals/UnifoldDeposit/MobileUnifoldSourceSelectorContent.tsx": 20926,
