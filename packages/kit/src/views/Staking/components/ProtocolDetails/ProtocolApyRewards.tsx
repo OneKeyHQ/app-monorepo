@@ -13,9 +13,9 @@ import {
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnTokenItem,
   IRewardApys,
@@ -261,7 +261,8 @@ export function ProtocolApyRewards({
     return null;
   }
 
-  if (earnUtils.isVaultBasedProvider({ providerName })) {
+  const breakdown = getEarnProtocol(providerName).getApyBreakdown();
+  if (breakdown === 'vault') {
     return (
       <VaultBasedApyInternal
         apys={apys}
@@ -271,7 +272,7 @@ export function ProtocolApyRewards({
     );
   }
 
-  if (earnUtils.isFalconProvider({ providerName })) {
+  if (breakdown === 'falcon') {
     return (
       <FalconApyInternal
         apys={apys}

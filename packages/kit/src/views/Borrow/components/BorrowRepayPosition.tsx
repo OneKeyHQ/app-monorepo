@@ -27,11 +27,13 @@ import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStag
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { StakeProgress } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { StakingAmountInput } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
+import { useCommittedEarnScopeGuard } from '@onekeyhq/kit/src/views/Staking/hooks/useCommittedEarnScopeGuard';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -93,12 +95,14 @@ export type IRepayWithCollateralConfirmParams = {
   // future caller from silently omitting it and skipping required setup.
   needsSetupLut: boolean;
   onSetupReadyForRepay?: () => void;
+  isActionCurrent?: () => boolean;
 };
 
 type IBorrowRepayPositionProps = Omit<
   IManagePositionProps,
   'action' | 'onConfirm'
 > & {
+  accountAddress?: string;
   onWalletConfirm?: IManagePositionProps['onConfirm'];
   onRepayWithCollateralConfirm: (
     params: IRepayWithCollateralConfirmParams,
@@ -252,6 +256,7 @@ function RemainingCollateralInfo({
 
 function RepayWithCollateralForm({
   accountId,
+  accountAddress,
   networkId,
   providerName,
   borrowMarketAddress,
@@ -429,12 +434,16 @@ function RepayWithCollateralForm({
       JSON.stringify([
         accountId,
         networkId,
+        accountAddress
+          ? normalizeTaskAccountAddress(networkId, accountAddress)
+          : undefined,
         providerName,
         borrowMarketAddress,
         borrowReserveAddress,
       ]),
     [
       accountId,
+      accountAddress,
       borrowMarketAddress,
       borrowReserveAddress,
       networkId,
@@ -460,6 +469,7 @@ function RepayWithCollateralForm({
     selectedCollateral?.reserveAddress,
     slippageBps,
   ]);
+  const repayActionScope = useCommittedEarnScopeGuard(repayProgressKey);
 
   const effectiveNeedsSetupLut = useMemo(
     () =>
@@ -500,6 +510,10 @@ function RepayWithCollateralForm({
     repayScopeKey,
     selectedCollateral?.reserveAddress,
   ]);
+  const repayRequestScope = useCommittedEarnScopeGuard(repayRequestKey);
+  const checkAmountRequestScope = useCommittedEarnScopeGuard(
+    checkAmountRequestKey,
+  );
 
   const setupProgressStep = useMemo(
     () =>
@@ -547,8 +561,9 @@ function RepayWithCollateralForm({
       repayAll: boolean,
       currentSlippageBps: number,
       requestKey: string,
+      isCurrent: () => boolean,
     ) => {
-      if (repayRequestKeyRef.current !== requestKey) {
+      if (repayRequestKeyRef.current !== requestKey || !isCurrent()) {
         return;
       }
 
@@ -563,6 +578,7 @@ function RepayWithCollateralForm({
             {
               accountId,
               networkId,
+              expectedAccountAddress: accountAddress,
               provider: providerName,
               marketAddress: borrowMarketAddress,
               reserveAddress: borrowReserveAddress,
@@ -572,11 +588,11 @@ function RepayWithCollateralForm({
               slippageBps: currentSlippageBps,
             },
           );
-        if (repayRequestKeyRef.current === requestKey) {
+        if (repayRequestKeyRef.current === requestKey && isCurrent()) {
           setQuote(resp);
         }
       } catch {
-        if (repayRequestKeyRef.current === requestKey) {
+        if (repayRequestKeyRef.current === requestKey && isCurrent()) {
           setQuote(undefined);
         }
       }
@@ -593,14 +609,18 @@ function RepayWithCollateralForm({
       return;
     }
 
+    let active = true;
+    const isScopeCurrent = repayRequestScope.capture();
     void debouncedFetchQuote(
       normalizedAmount,
       selectedCollateral.reserveAddress,
       isRepayAll,
       slippageBps,
       repayRequestKey,
+      () => active && isScopeCurrent(),
     );
     return () => {
+      active = false;
       debouncedFetchQuote.cancel();
     };
   }, [
@@ -608,6 +628,7 @@ function RepayWithCollateralForm({
     isRepayAll,
     normalizedAmount,
     repayRequestKey,
+    repayRequestScope,
     selectedCollateral,
     slippageBps,
   ]);
@@ -619,31 +640,35 @@ function RepayWithCollateralForm({
       repayAll: boolean,
       currentSlippageBps: number,
       requestKey: string,
+      isCurrent: () => boolean,
     ) => {
-      if (repayRequestKeyRef.current !== requestKey) {
+      if (repayRequestKeyRef.current !== requestKey || !isCurrent()) {
         return;
       }
 
       try {
         const resp =
           await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
-            buildBorrowRepayWithCollateralConfirmationParams({
-              accountId,
-              networkId,
-              provider: providerName,
-              marketAddress: borrowMarketAddress,
-              reserveAddress: borrowReserveAddress,
-              amount: value,
-              collateralReserveAddress,
-              repayAll,
-              slippageBps: currentSlippageBps,
-            }),
+            {
+              ...buildBorrowRepayWithCollateralConfirmationParams({
+                accountId,
+                networkId,
+                provider: providerName,
+                marketAddress: borrowMarketAddress,
+                reserveAddress: borrowReserveAddress,
+                amount: value,
+                collateralReserveAddress,
+                repayAll,
+                slippageBps: currentSlippageBps,
+              }),
+              expectedAccountAddress: accountAddress,
+            },
           );
-        if (repayRequestKeyRef.current === requestKey) {
+        if (repayRequestKeyRef.current === requestKey && isCurrent()) {
           setTransactionConfirmation(resp);
         }
       } catch {
-        if (repayRequestKeyRef.current === requestKey) {
+        if (repayRequestKeyRef.current === requestKey && isCurrent()) {
           setTransactionConfirmation(undefined);
         }
       }
@@ -660,14 +685,18 @@ function RepayWithCollateralForm({
       return;
     }
 
+    let active = true;
+    const isScopeCurrent = repayRequestScope.capture();
     void debouncedFetchConfirmation(
       normalizedAmount,
       selectedCollateral.reserveAddress,
       isRepayAll,
       slippageBps,
       repayRequestKey,
+      () => active && isScopeCurrent(),
     );
     return () => {
+      active = false;
       debouncedFetchConfirmation.cancel();
     };
   }, [
@@ -675,6 +704,7 @@ function RepayWithCollateralForm({
     isRepayAll,
     normalizedAmount,
     repayRequestKey,
+    repayRequestScope,
     selectedCollateral,
     slippageBps,
   ]);
@@ -685,8 +715,9 @@ function RepayWithCollateralForm({
       collateralReserveAddress: string,
       repayAll: boolean,
       requestKey: string,
+      isCurrent: () => boolean,
     ) => {
-      if (checkAmountRequestKeyRef.current !== requestKey) {
+      if (checkAmountRequestKeyRef.current !== requestKey || !isCurrent()) {
         return;
       }
 
@@ -696,6 +727,7 @@ function RepayWithCollateralForm({
           await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
             accountId,
             networkId,
+            expectedAccountAddress: accountAddress,
             provider: providerName,
             marketAddress: borrowMarketAddress,
             reserveAddress: borrowReserveAddress,
@@ -705,7 +737,7 @@ function RepayWithCollateralForm({
             collateralReserveAddress,
           });
 
-        if (checkAmountRequestKeyRef.current !== requestKey) {
+        if (checkAmountRequestKeyRef.current !== requestKey || !isCurrent()) {
           return;
         }
 
@@ -719,7 +751,7 @@ function RepayWithCollateralForm({
           setCheckAmountResult(false);
         }
       } catch {
-        if (checkAmountRequestKeyRef.current === requestKey) {
+        if (checkAmountRequestKeyRef.current === requestKey && isCurrent()) {
           setCheckAmountMessage(
             intl.formatMessage({ id: ETranslations.global_network_error }),
           );
@@ -727,7 +759,7 @@ function RepayWithCollateralForm({
           setCheckAmountResult(false);
         }
       } finally {
-        if (checkAmountRequestKeyRef.current === requestKey) {
+        if (checkAmountRequestKeyRef.current === requestKey && isCurrent()) {
           setCheckAmountLoading(false);
         }
       }
@@ -747,17 +779,22 @@ function RepayWithCollateralForm({
       return;
     }
 
+    let active = true;
+    const isScopeCurrent = checkAmountRequestScope.capture();
     void debouncedCheckAmount(
       normalizedAmount,
       selectedCollateral.reserveAddress,
       isRepayAll,
       checkAmountRequestKey,
+      () => active && isScopeCurrent(),
     );
     return () => {
+      active = false;
       debouncedCheckAmount.cancel();
     };
   }, [
     checkAmountRequestKey,
+    checkAmountRequestScope,
     debouncedCheckAmount,
     isRepayAll,
     normalizedAmount,
@@ -950,6 +987,8 @@ function RepayWithCollateralForm({
       return;
     }
     try {
+      const isActionCurrent = repayActionScope.capture();
+      if (!isActionCurrent()) return;
       setSubmitting(true);
       const submittedSuccessfully = await onRepayWithCollateralConfirm({
         amount: normalizedAmount,
@@ -960,6 +999,7 @@ function RepayWithCollateralForm({
         collateralAmount: quote?.swapIn,
         collateralAsset: selectedCollateral,
         needsSetupLut: effectiveNeedsSetupLut,
+        isActionCurrent,
         onSetupReadyForRepay: repayProgressKey
           ? () => {
               onSetupReadyProgressKeyChange(repayProgressKey);

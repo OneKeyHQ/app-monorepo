@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnClaimType,
   IEarnTokenInfo,
@@ -13,6 +13,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { EClaimType } from '@onekeyhq/shared/types/staking';
 
+import { useCommittedEarnScopeGuard } from '../../hooks/useCommittedEarnScopeGuard';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 
 export const useHandleClaim = ({
@@ -23,6 +24,9 @@ export const useHandleClaim = ({
   networkId: string;
 }) => {
   const appNavigation = useAppNavigation();
+  const scope = useCommittedEarnScopeGuard(
+    JSON.stringify([accountId, networkId]),
+  );
   const handleUniversalClaim = useUniversalClaim({
     networkId,
     accountId: accountId ?? '',
@@ -50,42 +54,42 @@ export const useHandleClaim = ({
       claimTokenAddress?: string;
       claimRequestType?: IEarnClaimType;
       isReward?: boolean;
-      isMorphoClaim?: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
       portfolioSymbol?: string;
       portfolioRewardSymbol?: string;
     }) => {
       if (!accountId) return;
+      const isCurrent = scope.capture();
+      if (!isCurrent()) return;
       const provider = protocolInfo?.provider || '';
+      const earnProtocol = getEarnProtocol(provider);
       const vault = protocolInfo?.vault || '';
-      const claimTokenAddressForRequest = earnUtils.isMorphoProvider({
-        providerName: provider,
-      })
-        ? claimTokenAddress
-        : undefined;
-      let effectiveClaimRequestType = claimRequestType;
-      if (!effectiveClaimRequestType) {
-        if (claimType === EClaimType.ClaimAirdrop) {
-          effectiveClaimRequestType = 'airdrop';
-        } else if (
-          claimType === EClaimType.Claim &&
-          earnUtils.isNativeProvider({ providerName: provider })
-        ) {
-          effectiveClaimRequestType = 'normal';
-        }
-      }
+      const taskAccountAddress =
+        protocolInfo?.earnAccount?.accountId === accountId &&
+        protocolInfo.earnAccount.networkId === networkId
+          ? protocolInfo.earnAccount.accountAddress
+          : undefined;
+      const claimTokenAddressForRequest =
+        earnProtocol.usesClaimRewardTokenAddress()
+          ? claimTokenAddress
+          : undefined;
+      const effectiveClaimRequestType =
+        claimRequestType ||
+        earnProtocol.resolveDefaultClaimRequestType({ claimType });
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
           symbol,
           provider,
         });
+      if (!isCurrent()) return;
       if (!stakingConfig) {
         throw new OneKeyLocalError('Staking config not found');
       }
       if (isReward) {
         await handleUniversalClaim({
+          taskAccountAddress,
           amount: claimAmount,
           symbol,
           provider,
@@ -99,10 +103,7 @@ export const useHandleClaim = ({
         });
         return;
       }
-      if (
-        earnUtils.isEverstakeProvider({ providerName: provider }) &&
-        symbol.toLowerCase() === 'apt'
-      ) {
+      if (earnProtocol.getClaimNavigation({ symbol }) === 'amount-modal') {
         appNavigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.Claim,
           params: {
@@ -139,6 +140,7 @@ export const useHandleClaim = ({
         Number(claimAmount) > 0
       ) {
         await handleUniversalClaim({
+          taskAccountAddress,
           amount: claimAmount,
           symbol,
           provider,
@@ -173,6 +175,7 @@ export const useHandleClaim = ({
         return;
       }
       await handleUniversalClaim({
+        taskAccountAddress,
         amount: claimAmount,
         symbol,
         provider,
@@ -187,6 +190,6 @@ export const useHandleClaim = ({
         onSuccess,
       });
     },
-    [accountId, networkId, handleUniversalClaim, appNavigation],
+    [accountId, networkId, handleUniversalClaim, appNavigation, scope],
   );
 };

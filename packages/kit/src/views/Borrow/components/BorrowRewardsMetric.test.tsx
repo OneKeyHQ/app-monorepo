@@ -6,13 +6,21 @@ import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 
 import { BorrowRewardsMetric } from './BorrowRewardsMetric';
 
+const mockUseUniversalBorrowClaim = jest.fn();
 const context = {
   market: {
     provider: 'aave',
     networkId: 'evm--1',
     marketAddress: '0xMarket',
   },
-  earnAccount: { data: { account: { id: 'account-1' } } },
+  earnAccount: {
+    data: {
+      account: { id: 'account-1' },
+      accountId: undefined as string | undefined,
+      networkId: undefined as string | undefined,
+      accountAddress: undefined as string | undefined,
+    },
+  },
   pendingTxs: [],
 };
 const rewards = { button: { disabled: true } } as IBorrowRewards;
@@ -47,7 +55,10 @@ jest.mock('../hooks/useBorrowPlaceholderAmountText', () => ({
   useBorrowPlaceholderAmountText: () => ({ text: '$0.00' }),
 }));
 jest.mock('../hooks/useUniversalBorrowHooks', () => ({
-  useUniversalBorrowClaim: () => jest.fn(),
+  useUniversalBorrowClaim: (params: unknown) => {
+    mockUseUniversalBorrowClaim(params);
+    return jest.fn();
+  },
 }));
 jest.mock('./BorrowClaimRewardsDialog', () => ({
   showBorrowClaimRewardsDialog: jest.fn(),
@@ -102,7 +113,9 @@ describe('BorrowRewardsMetric loading', () => {
         />,
       );
       expect(loading()).toBe('false');
-      context.earnAccount = { data: { account: { id: 'account-2' } } };
+      context.earnAccount = {
+        data: { ...originalEarnAccount.data, account: { id: 'account-2' } },
+      };
       rerender(<BorrowRewardsMetric isLoading onClaimed={onClaimed} />);
       expect(loading()).toBe('true');
     } finally {
@@ -149,4 +162,56 @@ describe('BorrowRewardsMetric loading', () => {
     expect(getByTestId('rewards').getAttribute('data-text')).toBe('-');
     expect(queryByTestId('claim-button')).toBeNull();
   });
+});
+
+it('passes only the resolved claim account address for the selected market network', () => {
+  const original = context.earnAccount;
+  const onClaimed = jest.fn();
+  try {
+    context.earnAccount = {
+      data: {
+        account: { id: 'account-1' },
+        accountId: undefined,
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      },
+    };
+    const { rerender } = render(
+      <BorrowRewardsMetric borrowRewards={rewards} onClaimed={onClaimed} />,
+    );
+    expect(mockUseUniversalBorrowClaim).toHaveBeenLastCalledWith({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      accountAddress: '0xabc',
+    });
+    context.earnAccount = {
+      data: { ...context.earnAccount.data, networkId: 'evm--2' },
+    };
+    rerender(
+      <BorrowRewardsMetric borrowRewards={rewards} onClaimed={onClaimed} />,
+    );
+    expect(mockUseUniversalBorrowClaim).toHaveBeenLastCalledWith({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      accountAddress: undefined,
+    });
+    context.earnAccount = {
+      data: {
+        ...context.earnAccount.data,
+        accountId: 'account-2',
+        networkId: 'evm--1',
+        accountAddress: '0xdef',
+      },
+    };
+    rerender(
+      <BorrowRewardsMetric borrowRewards={rewards} onClaimed={onClaimed} />,
+    );
+    expect(mockUseUniversalBorrowClaim).toHaveBeenLastCalledWith({
+      accountId: 'account-2',
+      networkId: 'evm--1',
+      accountAddress: '0xdef',
+    });
+  } finally {
+    context.earnAccount = original;
+  }
 });

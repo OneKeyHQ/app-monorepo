@@ -82,6 +82,7 @@ import { showKYCDialog } from '../../components/ProtocolDetails/showKYCDialog';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../hooks/useCheckEthenaKycStatus';
+import { useEarnRegistrationTask } from '../../hooks/useEarnRegistrationTask';
 import { useHandleSwap } from '../../hooks/useHandleSwap';
 import { useUnsupportedProtocol } from '../../hooks/useUnsupportedProtocol';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -559,6 +560,14 @@ const ProtocolDetailsPage = () => {
       }),
     [accountId, indexedAccountId, networkId],
   );
+  const activateRegistration = useEarnRegistrationTask({
+    accountId: earnAccount?.accountId,
+    networkId,
+    accountAddress: earnAccount?.accountAddress,
+    provider,
+    symbol,
+    ownerKey: JSON.stringify([accountId, indexedAccountId, networkId]),
+  });
 
   const {
     result: detailInfo,
@@ -655,7 +664,15 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
-  const handleWithdraw = useHandleWithdraw();
+  const handleWithdraw = useHandleWithdraw(
+    JSON.stringify([
+      earnAccount?.accountId,
+      earnAccount?.accountAddress,
+      networkId,
+      protocolInfo?.provider,
+      protocolInfo?.vault,
+    ]),
+  );
   const handleStake = useHandleStake();
   const { handleSwap } = useHandleSwap();
 
@@ -894,21 +911,17 @@ const ProtocolDetailsPage = () => {
         variant: 'primary',
         onPress: () => {
           if (item) {
+            const registrationAbort = new AbortController();
             showKYCDialog({
               actionData: item,
+              onCloseStart: () => registrationAbort.abort(),
               onConfirm: async (checkboxStates: boolean[]) => {
                 if (checkboxStates.every(Boolean)) {
-                  const resp =
-                    await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage(
-                      {
-                        networkId,
-                        provider,
-                        symbol,
-                        accountAddress: earnAccount?.accountAddress ?? '',
-                        signature: '',
-                        message: '',
-                      },
-                    );
+                  const resp = await activateRegistration({
+                    mode: 'activation',
+                    signal: registrationAbort.signal,
+                  });
+                  if (!resp) return;
                   if (resp.toast) {
                     Toast.success({
                       title: resp.toast.text.text,
@@ -931,10 +944,8 @@ const ProtocolDetailsPage = () => {
   }, [
     earnAccount?.accountAddress,
     detailInfo?.actions,
-    networkId,
-    provider,
-    symbol,
     run,
+    activateRegistration,
   ]);
 
   const receiveActionProps = useMemo(() => {

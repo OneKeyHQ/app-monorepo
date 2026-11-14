@@ -32,7 +32,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   };
   return {
     __esModule: true,
-    default: { serviceStaking },
+    default: {
+      serviceStaking,
+      serviceAccount: { getAccountAddressForApi: jest.fn(async () => '0xaaa') },
+    },
   };
 });
 

@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnPermitCache,
@@ -100,6 +101,13 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
 
   getPermitCache = contextAtomMethod(
     (get, set, keyPayload: IEarnPermitCacheKey) => {
+      // EtherFi uses token-level EIP-2612 nonces, which can change in another
+      // flow even when this amount and spender are unchanged.
+      if (
+        earnUtils.isEtherFiProvider({ providerName: keyPayload.providerName })
+      ) {
+        return null;
+      }
       const permitCaches = get(earnPermitCacheAtom());
       const key = earnUtils.getEarnPermitCacheKey(keyPayload);
 
@@ -124,6 +132,9 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   );
 
   updatePermitCache = contextAtomMethod((_, set, payload: IEarnPermitCache) => {
+    if (earnUtils.isEtherFiProvider({ providerName: payload.providerName })) {
+      return;
+    }
     const key = earnUtils.getEarnPermitCacheKey(payload);
     set(earnPermitCacheAtom(), (prev: Record<string, IEarnPermitCache>) => ({
       ...prev,
@@ -132,9 +143,32 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   });
 
   removePermitCache = contextAtomMethod(
-    (_, set, keyPayload: IEarnPermitCacheKey) => {
+    (
+      _,
+      set,
+      keyPayload: IEarnPermitCacheKey & {
+        expectedSignature?: string;
+        expectedAccountAddress?: string;
+      },
+    ) => {
       const key = earnUtils.getEarnPermitCacheKey(keyPayload);
       set(earnPermitCacheAtom(), (prev: Record<string, IEarnPermitCache>) => {
+        const current = prev[key];
+        if (
+          keyPayload.expectedSignature !== undefined &&
+          current?.signature !== keyPayload.expectedSignature
+        )
+          return prev;
+        if (keyPayload.expectedAccountAddress !== undefined) {
+          if (!current?.accountAddress) return prev;
+          const same = networkUtils.isEvmNetwork({
+            networkId: keyPayload.networkId,
+          })
+            ? current.accountAddress.toLowerCase() ===
+              keyPayload.expectedAccountAddress.toLowerCase()
+            : current.accountAddress === keyPayload.expectedAccountAddress;
+          if (!same) return prev;
+        }
         const newCache = { ...prev };
         delete newCache[key];
         return newCache;
@@ -182,9 +216,10 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   });
 
   updateRecommendedTokens = contextAtomMethod(
-    (get, set, tokens: IRecommendAsset[]) => {
+    (get, set, tokens: IRecommendAsset[], scope: string) => {
       this.syncToDb.call(set, {
         recommendedTokens: tokens,
+        recommendedTokensScope: scope,
       });
     },
   );

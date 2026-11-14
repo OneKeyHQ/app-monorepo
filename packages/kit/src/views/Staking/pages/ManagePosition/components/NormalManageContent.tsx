@@ -6,6 +6,7 @@ import { Keyboard, TextInput } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
+  Button,
   Keyboard as DeviceKeyboard,
   Dialog,
   SizableText,
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -35,7 +37,6 @@ import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
-import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
 import { EManagePositionType } from '../hooks/useManagePage';
 
@@ -65,6 +66,8 @@ interface INormalManageContentProps {
   };
   depositDisabled: boolean;
   withdrawDisabled: boolean;
+  withdrawApprovalUnavailable?: boolean;
+  actionsBlocked?: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
@@ -101,6 +104,8 @@ export function NormalManageContent({
   earnAccount,
   depositDisabled,
   withdrawDisabled,
+  withdrawApprovalUnavailable,
+  actionsBlocked,
   stakeBeforeFooter,
   withdrawBeforeFooter,
   footerActionOverride,
@@ -412,8 +417,11 @@ export function NormalManageContent({
   ] = useState('');
   const shouldDisablePrimaryTab = depositDisabled;
 
-  // Pendle: slippage state + countdown
-  const isPendleProvider = useIsPendleProvider(provider);
+  const earnProtocol = useMemo(() => getEarnProtocol(provider), [provider]);
+  const stakeQuoteRefresh = earnProtocol.getStakePresentation().quoteRefresh;
+  const withdrawQuoteRefresh =
+    earnProtocol.getWithdrawUiPolicy().enableQuoteRefresh;
+  const slippagePolicy = earnProtocol.getManageSlippagePolicy();
 
   const [pendleSlippage, setPendleSlippage] =
     useState<ISwapSlippageSegmentItem>({
@@ -422,16 +430,17 @@ export function NormalManageContent({
     });
 
   const pendleSlippageValue = useMemo(
-    () => (isPendleProvider ? pendleSlippage.value : undefined),
-    [isPendleProvider, pendleSlippage.value],
+    () =>
+      slippagePolicy === 'configurable' ? pendleSlippage.value : undefined,
+    [slippagePolicy, pendleSlippage.value],
   );
 
   const stakeCountdown = useQuoteCountdown({
-    enabled: isPendleProvider && selectedTabIndex === 0,
+    enabled: stakeQuoteRefresh === 'periodic' && selectedTabIndex === 0,
   });
 
   const withdrawCountdown = useQuoteCountdown({
-    enabled: isPendleProvider && selectedTabIndex === 1,
+    enabled: withdrawQuoteRefresh && selectedTabIndex === 1,
   });
 
   // refreshKey: incremented by header refresh button to signal child components to re-quote
@@ -895,7 +904,12 @@ export function NormalManageContent({
               onRefreshPendingRef.current = refreshFn;
             }
           }}
-          isPendleProvider={isPendleProvider}
+          showSlippageControl={slippagePolicy === 'configurable'}
+          showQuoteRefresh={
+            selectedTabIndex === 0
+              ? stakeQuoteRefresh === 'periodic'
+              : withdrawQuoteRefresh
+          }
           onRefreshQuote={handleHeaderRefreshQuote}
           refreshLoading={activeQuoteRefreshing}
           refreshCooldownTrigger={refreshCooldownTrigger}
@@ -904,6 +918,12 @@ export function NormalManageContent({
       </XStack>
       {selectedTabIndex === 0 ? (
         <StakeSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          onTaskRecoveryComplete={() => {
+            onIndicatorRefresh?.();
+            void onRefreshPendingRef?.current?.();
+          }}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={stakeTokenInfo}
@@ -931,8 +951,24 @@ export function NormalManageContent({
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
+      {selectedTabIndex === 1 && withdrawApprovalUnavailable ? (
+        <XStack px="$5" py="$2" ai="center" jc="space-between">
+          <SizableText size="$bodyMd" flex={1}>
+            {intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+          </SizableText>
+          <Button
+            testID="earn-withdraw-approval-retry"
+            size="small"
+            onPress={onIndicatorRefresh}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>
+      ) : null}
       {selectedTabIndex === 1 ? (
         <WithdrawSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={withdrawTokenInfo}

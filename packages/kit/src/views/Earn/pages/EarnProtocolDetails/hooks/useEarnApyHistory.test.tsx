@@ -33,6 +33,11 @@ type IHistoryResponse = {
   hasNonZeroUnderlyingApy: boolean;
 };
 
+const mockGetApyHistory = jest.fn<
+  Promise<{ timestamp: number; apy: string }[]>,
+  []
+>();
+
 const mockGetUnderlyingApyHistory = jest.fn<
   Promise<IHistoryResponse>,
   [{ vault: string }]
@@ -44,7 +49,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceStaking: {
       getUnderlyingApyHistory: (params: { vault: string }) =>
         mockGetUnderlyingApyHistory(params),
-      getApyHistory: jest.fn(),
+      getApyHistory: () => mockGetApyHistory(),
     },
   },
 }));
@@ -93,6 +98,19 @@ describe('useEarnApyHistory', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('requests standard APY history for ordinary providers', async () => {
+    mockGetApyHistory.mockResolvedValue([{ timestamp: 1, apy: '3' }]);
+    const { result } = renderHook(() =>
+      useEarnApyHistory({ ...marketA, provider: 'lido' }),
+    );
+    await waitFor(() =>
+      expect(result.current.chartData?.impliedApyHistory).toEqual([
+        { timestamp: 1, apy: '3' },
+      ]),
+    );
+    expect(mockGetUnderlyingApyHistory).not.toHaveBeenCalled();
   });
 
   it('requests the history once the details are in, and keeps it while they reload', async () => {

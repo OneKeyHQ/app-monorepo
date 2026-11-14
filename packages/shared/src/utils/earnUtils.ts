@@ -1,12 +1,4 @@
 import { EEarnProviderEnum } from '../../types/earn';
-import { EApproveType } from '../../types/staking';
-import { getNetworkIdsMap } from '../config/networkIds';
-import {
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-  PendleRouterContract,
-} from '../consts/addresses';
 
 import networkUtils from './networkUtils';
 
@@ -48,6 +40,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isEtherFiProvider = createProviderCheck(EEarnProviderEnum.EtherFi);
+
 const isSparkProvider = createProviderCheck(EEarnProviderEnum.Spark);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
@@ -69,6 +63,7 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isEtherFiProvider({ providerName }) ||
     isSparkProvider({ providerName }) ||
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
@@ -102,87 +97,6 @@ const shouldSendEarnProtocolVault = ({
   );
 };
 
-const providerApproveSpenderOverrides: Partial<
-  Record<EEarnProviderEnum, string>
-> = {
-  [EEarnProviderEnum.Pendle]: PendleRouterContract,
-};
-
-const providerApproveTypeOverrides: Partial<
-  Record<EEarnProviderEnum, EApproveType>
-> = {
-  [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
-};
-
-function resolveEarnApproveSpenderAddress({
-  providerName,
-  protocolVault,
-  backendApproveTarget,
-}: {
-  providerName: string;
-  protocolVault?: string;
-  backendApproveTarget?: string;
-}) {
-  const providerKey = getEarnProviderEnumKey(providerName);
-  if (providerKey && providerApproveSpenderOverrides[providerKey]) {
-    return providerApproveSpenderOverrides[providerKey];
-  }
-  return shouldSendEarnProtocolVault({ providerName })
-    ? (protocolVault ?? backendApproveTarget ?? '')
-    : (backendApproveTarget ?? '');
-}
-
-function resolveEarnApproveType({
-  providerName,
-  networkId,
-  tokenIsNative,
-  approveSpenderAddress,
-  backendApproveType,
-}: {
-  providerName: string;
-  networkId: string;
-  tokenIsNative?: boolean;
-  approveSpenderAddress?: string;
-  backendApproveType?: EApproveType;
-}) {
-  if (tokenIsNative || !approveSpenderAddress) {
-    return undefined;
-  }
-  // ERC20 approve only applies to EVM networks
-  if (!networkUtils.isEvmNetwork({ networkId })) {
-    return undefined;
-  }
-  const providerKey = getEarnProviderEnumKey(providerName);
-  if (providerKey && providerApproveTypeOverrides[providerKey]) {
-    return providerApproveTypeOverrides[providerKey];
-  }
-  return backendApproveType ?? EApproveType.Legacy;
-}
-
-function resolveEarnAllowanceSpenderAddress({
-  networkId,
-  approveType,
-  approveSpenderAddress,
-}: {
-  networkId: string;
-  approveType?: EApproveType;
-  approveSpenderAddress?: string;
-}) {
-  if (!approveSpenderAddress) {
-    return '';
-  }
-  if (approveType === EApproveType.Permit) {
-    if (networkId === getNetworkIdsMap().base) {
-      return MorphoBaseBundlerContract;
-    }
-    if (networkId === getNetworkIdsMap().katana) {
-      return MorphoKatanaBundlerContract;
-    }
-    return MorphoBundlerContract;
-  }
-  return approveSpenderAddress;
-}
-
 const isValidatorProvider = ({ providerName }: { providerName: string }) => {
   return (
     isEverstakeProvider({ providerName }) ||
@@ -205,7 +119,8 @@ function getEarnProviderName({
 }
 
 function getEarnPermitCacheKey(payload: IEarnPermitCacheKey) {
-  return `${payload.accountId}_${payload.networkId}_${payload.tokenAddress}_${payload.amount}`;
+  // A token allowance signed for one spender cannot authorize another protocol.
+  return `${payload.accountId}_${payload.networkId}_${payload.providerName.toLowerCase()}_${payload.approveSpenderAddress.toLowerCase()}_${payload.tokenAddress}_${payload.amount}`;
 }
 
 function isUSDTonETHNetwork({
@@ -343,6 +258,7 @@ export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isEtherFiProvider,
   isSparkProvider,
   isPendleProvider,
   isNativeProvider,
@@ -363,9 +279,6 @@ export default {
   isEarnWithdrawPathReady,
   shouldSendEarnProtocolVault,
   isValidatorProvider,
-  resolveEarnApproveSpenderAddress,
-  resolveEarnApproveType,
-  resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   getDisplaySymbol,
   matchesSymbolKeyword,

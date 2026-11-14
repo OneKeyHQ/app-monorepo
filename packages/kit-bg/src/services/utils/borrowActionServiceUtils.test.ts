@@ -48,6 +48,319 @@ describe('borrowActionServiceUtils', () => {
     getClient.mockResolvedValue({ get, post } as unknown as AxiosInstance);
   });
 
+  it.each(['emode', 'collateral', 'check'] as const)(
+    'rejects a transient A to B to A address change before the %s request',
+    async (action) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi
+        .mockResolvedValueOnce('0xOwnerA')
+        .mockResolvedValueOnce('0xOwnerB')
+        .mockResolvedValueOnce('0xOwnerA');
+      expect(await getAccountAddressForApi()).toBe('0xOwnerA');
+      post.mockResolvedValue({ data: { data: transaction } });
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        reserveAddress: '0xReserve',
+        accountId: 'account-1',
+        eModeId: 2,
+        targetEModeId: 2,
+        useAsCollateral: false,
+        expectedAccountAddress: '0xOwnerA',
+      };
+      let request: Promise<unknown>;
+      if (action === 'emode')
+        request = borrowBuildSetEModeTransaction(service, params);
+      else if (action === 'collateral')
+        request = borrowBuildSetCollateralTransaction(service, params);
+      else request = borrowSwitchCheckEMode(service, params);
+      await expect(request).rejects.toThrow('Borrow account changed');
+      expect(await getAccountAddressForApi()).toBe('0xOwnerA');
+      expect(getClient).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['emode', 'collateral', 'check'] as const)(
+    'accepts the same EVM owner for the %s request without transmitting the local guard',
+    async (action) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi.mockResolvedValue('0xAbCd');
+      post.mockResolvedValue({ data: { data: transaction } });
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        reserveAddress: '0xReserve',
+        accountId: 'account-1',
+        eModeId: 2,
+        targetEModeId: 2,
+        useAsCollateral: false,
+        expectedAccountAddress: '0xabcd',
+      };
+      if (action === 'emode')
+        await borrowBuildSetEModeTransaction(service, params);
+      else if (action === 'collateral')
+        await borrowBuildSetCollateralTransaction(service, params);
+      else await borrowSwitchCheckEMode(service, params);
+      expect(post).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ accountAddress: '0xAbCd' }),
+        ...(action === 'check' ? [undefined] : []),
+      );
+      expect(post.mock.calls[0][1]).not.toHaveProperty(
+        'expectedAccountAddress',
+      );
+    },
+  );
+
+  it.each([
+    ['confirmation', getBorrowTransactionConfirmation],
+    ['check amount', getBorrowCheckAmount],
+  ] as const)(
+    'rejects a transient A to B to A address change before collateral repay %s',
+    async (_label, request) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi
+        .mockResolvedValueOnce('AddressA')
+        .mockResolvedValueOnce('AddressB')
+        .mockResolvedValueOnce('AddressA');
+      expect(await getAccountAddressForApi()).toBe('AddressA');
+      get.mockResolvedValue({ code: 0, data: { data: {} } });
+      const params = {
+        accountId: 'account-1',
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        amount: '1',
+        collateralReserveAddress: 'collateral',
+        action: 'repayWithCollateral' as const,
+        expectedAccountAddress: 'AddressA',
+      };
+      await expect(request(service, params)).rejects.toThrow(
+        'Borrow account changed',
+      );
+      expect(await getAccountAddressForApi()).toBe('AddressA');
+      expect(get).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['confirmation', getBorrowTransactionConfirmation],
+    ['check amount', getBorrowCheckAmount],
+  ] as const)(
+    'uses the verified local address without forwarding it as metadata for %s',
+    async (_label, request) => {
+      getAccountAddressForApi.mockResolvedValue('AddressA');
+      get.mockResolvedValue({ data: { data: {} } });
+      const params = {
+        accountId: 'account-1',
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'market',
+        reserveAddress: 'reserve',
+        amount: '1',
+        collateralReserveAddress: 'collateral',
+        action: 'repayWithCollateral' as const,
+        expectedAccountAddress: 'AddressA',
+      };
+      await request(service, params);
+      const options = get.mock.calls[0][1];
+      expect(options.params.accountAddress).toBe('AddressA');
+      expect(options.params).not.toHaveProperty('expectedAccountAddress');
+      await request(service, { ...params, expectedAccountAddress: undefined });
+      expect(get).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each(['supply', 'borrow', 'withdraw', 'repay', 'delegation'] as const)(
+    'rejects a transient A to B to A account change before the %s builder request',
+    async (action) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi
+        .mockResolvedValueOnce('0xAccountA')
+        .mockResolvedValueOnce('0xAccountB')
+        .mockResolvedValueOnce('0xAccountA');
+      expect(await getAccountAddressForApi()).toBe('0xAccountA');
+      post.mockResolvedValue({ data: { data: transaction } });
+      const params = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMarket',
+        reserveAddress: '0xReserve',
+        accountId: 'account-1',
+        amount: '1',
+        expectedAccountAddress: '0xAccountA',
+      };
+      const builders = {
+        supply: borrowBuildSupplyTransaction,
+        borrow: borrowBuildBorrowTransaction,
+        withdraw: borrowBuildWithdrawTransaction,
+        repay: borrowBuildRepayTransaction,
+        delegation: borrowBuildApproveDelegationTransaction,
+      };
+      await expect(builders[action](service, params)).rejects.toThrow(
+        'Borrow account changed',
+      );
+      expect(await getAccountAddressForApi()).toBe('0xAccountA');
+      expect(getClient).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['supply', 'borrow', 'withdraw', 'repay', 'delegation'] as const)(
+    'accepts the same EVM owner for %s without sending the local binding to the API',
+    async (action) => {
+      getAccountAddressForApi.mockResolvedValue('0xAbCd');
+      post.mockResolvedValue({ data: { data: transaction } });
+      const builders = {
+        supply: borrowBuildSupplyTransaction,
+        borrow: borrowBuildBorrowTransaction,
+        withdraw: borrowBuildWithdrawTransaction,
+        repay: borrowBuildRepayTransaction,
+        delegation: borrowBuildApproveDelegationTransaction,
+      };
+      await expect(
+        builders[action](service, {
+          networkId: 'evm--1',
+          provider: 'aave',
+          marketAddress: '0xMarket',
+          reserveAddress: '0xReserve',
+          accountId: 'account-1',
+          amount: '1',
+          expectedAccountAddress: '0xabcd',
+        }),
+      ).resolves.toEqual(transaction);
+      expect(post).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ accountAddress: '0xAbCd' }),
+      );
+      expect(post.mock.calls[0][1]).not.toHaveProperty(
+        'expectedAccountAddress',
+      );
+    },
+  );
+
+  it.each(['supply', 'borrow', 'withdraw', 'repay', 'delegation'] as const)(
+    'rejects an address with different Solana casing for %s',
+    async (action) => {
+      getAccountAddressForApi.mockResolvedValue('addressa');
+      const builders = {
+        supply: borrowBuildSupplyTransaction,
+        borrow: borrowBuildBorrowTransaction,
+        withdraw: borrowBuildWithdrawTransaction,
+        repay: borrowBuildRepayTransaction,
+        delegation: borrowBuildApproveDelegationTransaction,
+      };
+      await expect(
+        builders[action](service, {
+          networkId: 'sol--101',
+          provider: 'kamino',
+          marketAddress: 'Market',
+          reserveAddress: 'Reserve',
+          accountId: 'account-1',
+          amount: '1',
+          expectedAccountAddress: 'AddressA',
+        }),
+      ).rejects.toThrow('Borrow account changed');
+      expect(getClient).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['setup', 'quote', 'repay'] as const)(
+    'rejects a changed Solana account before the %s request is sent',
+    async (action) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi
+        .mockResolvedValueOnce('AddressA')
+        .mockResolvedValueOnce('AddressB')
+        .mockResolvedValueOnce('AddressA');
+      expect(await getAccountAddressForApi()).toBe('AddressA');
+      const base = {
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'Market',
+        reserveAddress: 'Reserve',
+        collateralReserveAddress: 'Collateral',
+        accountId: 'account-1',
+        expectedAccountAddress: 'AddressA',
+      };
+      let request: Promise<unknown>;
+      if (action === 'setup')
+        request = borrowBuildSetupLutTransaction(service, base);
+      else if (action === 'quote')
+        request = getBorrowRepayWithCollateralQuote(service, {
+          ...base,
+          amount: '1',
+        });
+      else
+        request = borrowBuildRepayWithCollateralTransaction(service, {
+          ...base,
+          amount: '1',
+        });
+      await expect(request).rejects.toThrow('Borrow account changed');
+      expect(await getAccountAddressForApi()).toBe('AddressA');
+      expect(getClient).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not treat different Solana address casing as the same owner', async () => {
+    getAccountAddressForApi.mockReset().mockResolvedValue('addressa');
+    await expect(
+      borrowBuildSetupLutTransaction(service, {
+        networkId: 'sol--101',
+        provider: 'kamino',
+        marketAddress: 'Market',
+        reserveAddress: 'Reserve',
+        collateralReserveAddress: 'Collateral',
+        accountId: 'account-1',
+        expectedAccountAddress: 'AddressA',
+      }),
+    ).rejects.toThrow('Borrow account changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each(['setup', 'quote', 'repay'] as const)(
+    'accepts an equivalent EVM address without forwarding the expected owner for %s',
+    async (action) => {
+      getAccountAddressForApi.mockReset();
+      getAccountAddressForApi.mockResolvedValueOnce('0xAbCd');
+      post.mockResolvedValue({ data: { data: transaction } });
+      const base = {
+        networkId: 'evm--1',
+        provider: 'aave',
+        marketAddress: '0xMARKET',
+        reserveAddress: '0xRESERVE',
+        collateralReserveAddress: '0xCOLLATERAL',
+        accountId: 'account-1',
+        expectedAccountAddress: '0xabcd',
+      };
+      if (action === 'setup')
+        await borrowBuildSetupLutTransaction(service, base);
+      else if (action === 'quote')
+        await getBorrowRepayWithCollateralQuote(service, {
+          ...base,
+          amount: '1',
+        });
+      else
+        await borrowBuildRepayWithCollateralTransaction(service, {
+          ...base,
+          amount: '1',
+        });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(post.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ accountAddress: '0xAbCd' }),
+      );
+      expect(post.mock.calls[0][1]).not.toHaveProperty(
+        'expectedAccountAddress',
+      );
+    },
+  );
+
   it('loads E-Mode status with normalized borrow addresses', async () => {
     const status = { enabled: true, eModeId: 1 };
     get.mockResolvedValue({ data: { data: status } });

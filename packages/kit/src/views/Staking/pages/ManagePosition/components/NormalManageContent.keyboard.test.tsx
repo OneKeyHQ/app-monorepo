@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
@@ -12,6 +12,8 @@ import type { IProtocolInfo } from '@onekeyhq/shared/types/staking';
 
 import { NormalManageContent } from './NormalManageContent';
 
+import type { WithdrawSection } from './WithdrawSection';
+
 let mockKeyboardVisible = true;
 let mockControllerVisible = true;
 let mockFocusedInput: object | null = {};
@@ -19,6 +21,10 @@ let mockNavigationFocused = true;
 const mockKeyboardListeners = new Set<() => void>();
 const mockNavigationBlurListeners = new Set<() => void>();
 const mockToastError = jest.fn();
+const mockWithdrawSection = jest.fn<
+  void,
+  [ComponentProps<typeof WithdrawSection>]
+>();
 const mockDismiss = jest.fn(() => {
   mockFocusedInput = null;
 });
@@ -107,9 +113,6 @@ jest.mock('@onekeyhq/kit/src/components/SlippageSettingDialog', () => ({
   __esModule: true,
   default: () => null,
 }));
-jest.mock('../../../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: () => false,
-}));
 jest.mock('../../../hooks/useQuoteCountdown', () => ({
   useQuoteCountdown: () => ({ isExpired: false, reset: () => {} }),
 }));
@@ -127,7 +130,10 @@ jest.mock('./StakeSection', () => ({
   StakeSection: () => <div data-testid="stake-section" />,
 }));
 jest.mock('./WithdrawSection', () => ({
-  WithdrawSection: () => <div data-testid="withdraw-section" />,
+  WithdrawSection: (props: ComponentProps<typeof WithdrawSection>) => {
+    mockWithdrawSection(props);
+    return <div data-testid="withdraw-section" />;
+  },
 }));
 
 const navigation = {} as IAppNavigation;
@@ -162,8 +168,66 @@ describe('NormalManageContent keyboard handoff', () => {
     mockNavigationBlurListeners.clear();
     mockDismiss.mockClear();
     mockToastError.mockClear();
+    mockWithdrawSection.mockClear();
   });
   afterEach(() => jest.useRealTimers());
+
+  it('uses the service share token and balance for the EtherFi withdrawal form', () => {
+    const token = {
+      uniqueKey: 'evm--1_usdt',
+      address: '0xdeposit',
+      decimals: 6,
+      isNative: false,
+      logoURI: '',
+      name: 'USDT',
+      symbol: 'USDT',
+      totalSupply: '0',
+      riskLevel: 0,
+      coingeckoId: '',
+      networkId: 'evm--1',
+    };
+    const share = {
+      ...token,
+      uniqueKey: 'evm--1_share',
+      address: '0xshare',
+      symbol: 'liquidUSD',
+      decimals: 18,
+    };
+    render(
+      <NormalManageContent
+        {...defaultProps}
+        networkId="evm--1"
+        provider="etherfi"
+        defaultTab="withdraw"
+        tokenInfo={{
+          networkId: 'evm--1',
+          provider: 'etherfi',
+          vault: 'vault',
+          accountId: 'account',
+          balanceParsed: '9',
+          token,
+          price: '1',
+        }}
+        managePageData={{
+          withdraw: {
+            type: 'withdraw',
+            disabled: false,
+            text: { text: 'Withdraw' },
+            data: { balance: '2', token: { info: share, price: '1.25' } },
+          },
+        }}
+      />,
+    );
+    expect(mockWithdrawSection).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        tokenInfo: expect.objectContaining({
+          token: share,
+          balanceParsed: '2',
+          price: '1.25',
+        }),
+      }),
+    );
+  });
 
   it('waits for the keyboard to hide before switching tabs', () => {
     const onTabChange = jest.fn();

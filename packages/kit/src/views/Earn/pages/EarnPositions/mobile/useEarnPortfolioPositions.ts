@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnPortfolioPositionsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { useCommittedEarnScopeGuard } from '@onekeyhq/kit/src/views/Staking/hooks/useCommittedEarnScopeGuard';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
 import { useEarnAccountKey } from '../../../hooks/useEarnAccountKey';
+import { earnPortfolioAccountScope } from '../../../utils/portfolioAccountScope';
 
 import {
   EMPTY_POSITIONS_RESPONSE,
@@ -36,13 +45,18 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
   const accountId = account?.id ?? '';
   const indexedAccountId =
     account?.indexedAccountId || indexedAccount?.id || '';
-  const accountKey = `${accountId}|${indexedAccountId}`;
+  const accountKey = earnPortfolioAccountScope({ account, indexedAccountId });
+  const accountScope = useCommittedEarnScopeGuard(accountKey);
   const earnAccountKey = useEarnAccountKey();
   const [cache, setCache] = useEarnPortfolioPositionsAtom();
-  const cached = (earnAccountKey && cache[earnAccountKey]) || EMPTY_CACHE;
+  const bucket = earnAccountKey ? cache[earnAccountKey] : undefined;
+  const cached =
+    bucket?.accountScope === accountKey ? bucket.scopes : EMPTY_CACHE;
   // Read by the account-switch effect only; the cache must not re-run it.
   const cachedRef = useRef(cached);
-  cachedRef.current = cached;
+  useLayoutEffect(() => {
+    cachedRef.current = cached;
+  }, [cached]);
 
   const resultsRef = useRef(
     new Map<string, IEarnPortfolioPositionsResponse>(Object.entries(cached)),
@@ -83,13 +97,20 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
     });
     if (earnAccountKey) {
       const byScope = Object.fromEntries(resultsRef.current);
-      setCache((prev) => ({ ...prev, [earnAccountKey]: byScope }));
+      setCache((prev) =>
+        accountScope.isCurrent()
+          ? {
+              ...prev,
+              [earnAccountKey]: { accountScope: accountKey, scopes: byScope },
+            }
+          : prev,
+      );
     }
-  }, [accountKey, earnAccountKey, setCache]);
+  }, [accountKey, accountScope, earnAccountKey, setCache]);
 
   const refresh = useCallback(
     async (options?: IRefreshOptions) => {
-      if (!isActive) {
+      if (!isActive || !accountScope.isCurrent()) {
         return;
       }
       const isPartial = Boolean(options?.provider || options?.networkId);
@@ -97,7 +118,8 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
         requestIdRef.current += 1;
       }
       const requestId = requestIdRef.current;
-      const isStale = () => requestId !== requestIdRef.current;
+      const isStale = () =>
+        requestId !== requestIdRef.current || !accountScope.isCurrent();
       if (!accountId && !indexedAccountId) {
         resultsRef.current.clear();
         publish();
@@ -212,24 +234,54 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
         }
       }
     },
-    [isActive, accountId, indexedAccountId, publish],
+    [isActive, accountId, indexedAccountId, accountScope, publish],
   );
+
+  const refreshRef = useRef(refresh);
+  useLayoutEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+  useLayoutEffect(() => {
+    if (!isActive || loadedAccountKeyRef.current === accountKey) return;
+    loadedAccountKeyRef.current = accountKey;
+    // A reveal can refresh during layout, so seed before any B-account read.
+    const seed = cachedRef.current;
+    resultsRef.current = new Map(Object.entries(seed));
+    shownSeqRef.current = new Map();
+    setResultsState({ accountKey, results: Object.values(seed) });
+    setIsLoadingState(Object.keys(seed).length === 0);
+  }, [accountKey, isActive]);
+  const passiveConnectedRef = useRef(false);
+  const lastPassiveRefreshRef = useRef<typeof refresh | undefined>(undefined);
+  const wasHiddenRef = useRef(false);
+  useLayoutEffect(() => {
+    if (
+      wasHiddenRef.current &&
+      passiveConnectedRef.current &&
+      lastPassiveRefreshRef.current === refreshRef.current
+    ) {
+      void refreshRef.current();
+    }
+    wasHiddenRef.current = false;
+    return () => {
+      // Suspense disconnects layout effects while retaining passive effects.
+      // A read finishing while hidden cannot publish, so refresh on reveal.
+      wasHiddenRef.current = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    passiveConnectedRef.current = true;
+    return () => {
+      passiveConnectedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isActive) {
       return;
     }
-    if (loadedAccountKeyRef.current !== accountKey) {
-      loadedAccountKeyRef.current = accountKey;
-      // Seed the new account from its cache: the keys are the scopes, so a
-      // refresh replaces each one in place as it lands.
-      const seed = cachedRef.current;
-      resultsRef.current = new Map(Object.entries(seed));
-      // The seed predates every read to come: any of them may replace it.
-      shownSeqRef.current = new Map();
-      setResultsState({ accountKey, results: Object.values(seed) });
-      setIsLoadingState(Object.keys(seed).length === 0);
-    }
+    lastPassiveRefreshRef.current = refresh;
     void refresh();
   }, [accountKey, isActive, refresh]);
 

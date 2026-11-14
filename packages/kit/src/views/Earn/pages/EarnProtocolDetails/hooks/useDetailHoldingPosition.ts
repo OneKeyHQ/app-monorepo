@@ -3,12 +3,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnPortfolioPositionsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type { IProtocolInfo } from '@onekeyhq/shared/types/staking';
 
 import { useEarnAccountKey } from '../../../hooks/useEarnAccountKey';
+import { earnPortfolioAccountScope } from '../../../utils/portfolioAccountScope';
 import {
   holdingPositionsOf,
   positionsScopeKey,
@@ -37,10 +39,31 @@ export function useDetailHoldingPosition({
   enabled: boolean;
 }) {
   const intl = useIntl();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountScope = earnPortfolioAccountScope({
+    account: activeAccount.account,
+    indexedAccountId:
+      activeAccount.account?.indexedAccountId ||
+      activeAccount.indexedAccount?.id,
+  });
+  const accountScopeRef = useRef({ value: accountScope, generation: 0 });
+  if (accountScopeRef.current.value !== accountScope) {
+    accountScopeRef.current = {
+      value: accountScope,
+      generation: accountScopeRef.current.generation + 1,
+    };
+  }
+  const accountGeneration = accountScopeRef.current.generation;
   const earnAccountKey = useEarnAccountKey();
   const [cache, setCache] = useEarnPortfolioPositionsAtom();
   const [fresh, setFresh] = useState<
-    { scopeKey: string; response: IEarnPortfolioPositionsResponse } | undefined
+    | {
+        accountScope: string;
+        accountGeneration: number;
+        scopeKey: string;
+        response: IEarnPortfolioPositionsResponse;
+      }
+    | undefined
   >();
 
   const { networkId, provider } = identity;
@@ -58,7 +81,12 @@ export function useDetailHoldingPosition({
   const readIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (!scopeKey || !accountId || !accountAddress) {
+    if (
+      !scopeKey ||
+      !accountId ||
+      !accountAddress ||
+      accountScopeRef.current.generation !== accountGeneration
+    ) {
       return;
     }
     readIdRef.current += 1;
@@ -72,21 +100,38 @@ export function useDetailHoldingPosition({
           provider,
           ...(publicKey ? { publicKey } : {}),
         });
-      if (scopeKeyRef.current !== scopeKey || readId !== readIdRef.current) {
+      if (
+        accountScopeRef.current.generation !== accountGeneration ||
+        scopeKeyRef.current !== scopeKey ||
+        readId !== readIdRef.current
+      ) {
         return;
       }
-      setFresh({ scopeKey, response });
+      setFresh({ accountScope, accountGeneration, scopeKey, response });
       if (earnAccountKey) {
-        setCache((prev) => ({
-          ...prev,
-          [earnAccountKey]: { ...prev[earnAccountKey], [scopeKey]: response },
-        }));
+        setCache((prev) => {
+          if (accountScopeRef.current.generation !== accountGeneration)
+            return prev;
+          const bucket = prev[earnAccountKey];
+          return {
+            ...prev,
+            [earnAccountKey]: {
+              accountScope,
+              scopes: {
+                ...(bucket?.accountScope === accountScope ? bucket.scopes : {}),
+                [scopeKey]: response,
+              },
+            },
+          };
+        });
       }
     } catch {
       // Keep what the page showed; the next refresh retries.
     }
   }, [
     scopeKey,
+    accountScope,
+    accountGeneration,
     accountId,
     accountAddress,
     networkId,
@@ -104,9 +149,15 @@ export function useDetailHoldingPosition({
     // stands in, so the page opens on the card at once; once it has, only
     // this scope's cache does, so an address the wallet moved away from (a
     // derive path change) never fills in for the one the page is on.
-    const scopes = (earnAccountKey && cache[earnAccountKey]) || {};
+    const bucket = earnAccountKey ? cache[earnAccountKey] : undefined;
+    const scopes = bucket?.accountScope === accountScope ? bucket.scopes : {};
     let responses: IEarnPortfolioPositionsResponse[];
-    if (fresh && fresh.scopeKey === scopeKey) {
+    if (
+      fresh &&
+      fresh.accountScope === accountScope &&
+      fresh.accountGeneration === accountGeneration &&
+      fresh.scopeKey === scopeKey
+    ) {
       responses = [fresh.response];
     } else if (scopeKey) {
       responses = scopes[scopeKey] ? [scopes[scopeKey]] : [];
@@ -121,6 +172,8 @@ export function useDetailHoldingPosition({
   }, [
     enabled,
     fresh,
+    accountScope,
+    accountGeneration,
     scopeKey,
     earnAccountKey,
     cache,

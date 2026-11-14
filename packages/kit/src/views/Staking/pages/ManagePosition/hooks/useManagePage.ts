@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -17,6 +19,7 @@ import {
 
 import { buildLocalTxStatusSyncId } from '../../../utils/utils';
 
+import { resolveProviderWithdrawApproval } from './providerWithdrawApproval';
 import {
   buildManagePageApproveInfo,
   buildManagePageRequestKey,
@@ -24,6 +27,11 @@ import {
 
 export { EManagePositionType };
 
+/**
+ * Load account actions and protocol metadata, resolving missing receipt
+ * approval from the same protocol's details. Missing accounts or failed
+ * requests return no form data; request keys isolate protocol switches.
+ */
 export const useManagePage = ({
   accountId,
   networkId,
@@ -49,6 +57,8 @@ export const useManagePage = ({
   revalidateOnFocus?: boolean;
   undefinedResultIfReRun?: boolean;
 }) => {
+  const { locale } = useIntl();
+  const { id: currencyId } = useCurrency();
   // Fingerprint of the request params. Stamped onto each result so callers can
   // tell — synchronously, during render — whether the data on screen belongs to
   // the currently requested protocol. This closes the effect-ordering race on
@@ -109,6 +119,7 @@ export const useManagePage = ({
             protocolList: undefined,
             earnAccount,
             requestKey,
+            withdrawApprove: managePageData.withdrawApprove,
           };
         }
 
@@ -133,7 +144,26 @@ export const useManagePage = ({
           }),
         ]);
 
-        return { managePageData, protocolList, earnAccount, requestKey };
+        const { withdrawApprove, withdrawApprovalUnavailable } =
+          await resolveProviderWithdrawApproval({
+            provider,
+            networkId,
+            symbol,
+            vault,
+            locale,
+            currencyId,
+            managePageData,
+            protocolList,
+          });
+
+        return {
+          managePageData,
+          protocolList,
+          earnAccount,
+          requestKey,
+          withdrawApprove,
+          withdrawApprovalUnavailable,
+        };
       } catch {
         // Settle the result with the CURRENT requestKey on failure. Otherwise a
         // rejected switch would keep the previous protocol's requestKey around,
@@ -160,11 +190,19 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
       requestKey,
+      locale,
+      currencyId,
     ],
     { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
   );
 
-  const { managePageData, protocolList, earnAccount } = result || {};
+  const {
+    managePageData,
+    protocolList,
+    earnAccount,
+    withdrawApprove,
+    withdrawApprovalUnavailable,
+  } = result || {};
 
   // True while the data on screen was fetched for different params (protocol
   // switch in flight). Computed during render — no effect-timing dependence.
@@ -329,7 +367,7 @@ export const useManagePage = ({
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       receiptTokenRate:
-        managePageData.withdrawApprove?.receiptTokenRate ??
+        withdrawApprove?.receiptTokenRate ??
         matchingProtocol?.provider.receiptTokenRate ??
         matchingProtocol?.provider.morphoTokenRate,
       morphoTokenRate: matchingProtocol?.provider.morphoTokenRate,
@@ -337,7 +375,7 @@ export const useManagePage = ({
       approve,
       approveAsset: approve?.approveAsset ?? managePageData.approveAsset,
       borrowAllowance: managePageData.borrowAllowance,
-      withdrawApprove: managePageData.withdrawApprove,
+      withdrawApprove,
     } as IProtocolInfo;
   }, [
     managePageData,
@@ -347,6 +385,7 @@ export const useManagePage = ({
     resolvedProtocolVault,
     networkId,
     earnAccount,
+    withdrawApprove,
   ]);
 
   const depositDisabled = useMemo(() => {
@@ -387,6 +426,9 @@ export const useManagePage = ({
   }, [managePageData, type]);
 
   const withdrawDisabled = useMemo(() => {
+    if (withdrawApprovalUnavailable) {
+      return true;
+    }
     if (!managePageData) {
       return false;
     }
@@ -417,7 +459,7 @@ export const useManagePage = ({
       managePageData.sell?.payButton?.disabled ??
       false
     );
-  }, [managePageData, type]);
+  }, [managePageData, type, withdrawApprovalUnavailable]);
 
   const alerts = useMemo(
     () => managePageData?.alerts || [],
@@ -451,6 +493,7 @@ export const useManagePage = ({
     protocolInfo,
     depositDisabled,
     withdrawDisabled,
+    withdrawApprovalUnavailable,
     alerts,
     alertsHolding,
     alertsStake,

@@ -10,6 +10,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { IBorrowWorkflowHandoff } from '../../hooks/borrowConfirmationTask';
+
 // ============================================================================
 // Action Types
 // ============================================================================
@@ -26,6 +28,8 @@ export interface IManagePositionConfirmParams {
   amount: string;
   withdrawAll?: boolean;
   repayAll?: boolean;
+  accountAddress?: string;
+  workflowHandoff?: IBorrowWorkflowHandoff;
 }
 
 export interface IBorrowApproveTarget {

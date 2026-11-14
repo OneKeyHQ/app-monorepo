@@ -30,6 +30,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { useEarnAccountKey } from '@onekeyhq/kit/src/views/Earn/hooks/useEarnAccountKey';
 import {
+  earnPortfolioDataScope,
+  getScopedPortfolioEarnAccount,
+} from '@onekeyhq/kit/src/views/Earn/utils/portfolioAccountScope';
+import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -150,10 +154,18 @@ function BasicInvestmentDetails() {
   const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
   const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
   const totalFiatMapKey = useEarnAccountKey();
+  const accountScope = earnPortfolioDataScope({
+    earnAccountKey: totalFiatMapKey,
+    account: accountInfo.activeAccount?.account,
+    indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+  });
 
-  const { result, isLoading } = usePromiseResult(
+  const { result: scopedResult, isLoading } = usePromiseResult(
     async () => {
-      let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
+      const cachedAccount = earnAccount?.[totalFiatMapKey];
+      let list =
+        getScopedPortfolioEarnAccount(cachedAccount, accountScope)?.accounts ??
+        [];
       if (list.length === 0) {
         const earnAccountOnNetwork =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
@@ -179,12 +191,14 @@ function BasicInvestmentDetails() {
           const earnSummary =
             await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
           return {
+            scope: accountScope,
             evmAccount,
             earnSummary,
             earnInvestmentItems: response,
           };
         }
         return {
+          scope: accountScope,
           earnSummary: undefined,
           evmAccount: undefined,
           earnInvestmentItems: response,
@@ -192,6 +206,7 @@ function BasicInvestmentDetails() {
       }
 
       return {
+        scope: accountScope,
         earnSummary: undefined,
         evmAccount: undefined,
         earnInvestmentItems: [],
@@ -204,11 +219,14 @@ function BasicInvestmentDetails() {
       earnAccount,
       evmNetworkId,
       totalFiatMapKey,
+      accountScope,
     ],
     {
       watchLoading: true,
     },
   );
+  const result =
+    scopedResult?.scope === accountScope ? scopedResult : undefined;
 
   const {
     earnSummary,
