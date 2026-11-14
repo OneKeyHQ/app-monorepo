@@ -147,6 +147,16 @@ class ServiceSetting extends ServiceBase {
     const locale = await this.getCurrentLocale();
     const messages = await getLocaleMessages(locale);
     appLocale.setLocale(locale, messages as any);
+    void this.backgroundApi.serviceLiveActivity
+      .refreshLanguage()
+      .catch((error: unknown) => {
+        defaultLogger.setting.page.consoleError(
+          'Live Activity language refresh failed',
+          {
+            errorType: error instanceof Error ? error.name : 'UnknownError',
+          },
+        );
+      });
   }
 
   @backgroundMethod()
@@ -166,7 +176,6 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
-
     // clear i18nText cache
     await this.backgroundApi.serviceReferralCode.resetPostConfig();
   }

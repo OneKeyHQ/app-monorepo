@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -3662,14 +3663,24 @@ class ServiceHistory extends ServiceBase {
           newHistoryTx.replacedType = EReplaceTxType.Cancel;
         }
 
-        void this.backgroundApi.serviceSwap.updateSwapHistoryTx({
-          oldTxId: prevTx.decodedTx.txid,
-          newTxId: newHistoryTx.decodedTx.txid,
-          status:
-            replaceTxInfo.replaceType === EReplaceTxType.Cancel
-              ? ESwapTxHistoryStatus.CANCELING
-              : ESwapTxHistoryStatus.PENDING,
-        });
+        void this.backgroundApi.serviceSwap
+          .updateSwapHistoryTx({
+            networkId,
+            oldTxId: prevTx.decodedTx.txid,
+            newTxId: newHistoryTx.decodedTx.txid,
+            status:
+              replaceTxInfo.replaceType === EReplaceTxType.Cancel
+                ? ESwapTxHistoryStatus.CANCELING
+                : ESwapTxHistoryStatus.PENDING,
+          })
+          .catch((error: unknown) => {
+            defaultLogger.swap.swapSendTx.consoleError(
+              'Swap replacement history update failed',
+              {
+                errorType: error instanceof Error ? error.name : 'UnknownError',
+              },
+            );
+          });
 
         // Listen for staking transaction speed-up changes
         void this.backgroundApi.serviceStaking.updateOrderStatusByTxId({

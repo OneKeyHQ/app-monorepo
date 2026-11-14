@@ -121,6 +121,110 @@ const swapSuccess = createHistoryItem({
   fromToken: usdc,
   toToken: createToken('ETH'),
 });
+
+describe('guarded swap status persistence', () => {
+  it('matches an old deposit only within the source network', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    const otherNetwork = {
+      ...swapPending,
+      baseInfo: {
+        ...swapPending.baseInfo,
+        fromToken: { ...swapPending.baseInfo.fromToken, networkId: 'evm--10' },
+      },
+    };
+    let stored = JSON.stringify({
+      data: { histories: [otherNetwork, swapPending] },
+      updatedAt: 1,
+    });
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+      }),
+    };
+    const updated = {
+      ...swapPending,
+      txInfo: { ...swapPending.txInfo, txId: 'new-deposit' },
+    };
+    await expect(
+      entity.updateSwapHistoryItemIfCurrent(
+        updated,
+        () => true,
+        undefined,
+        swapPending.txInfo.txId,
+      ),
+    ).resolves.toEqual(updated);
+    expect(JSON.parse(stored).data.histories).toEqual([otherNetwork, updated]);
+  });
+
+  it('matches the requested tx when the status response supplies a different txId', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    let stored = JSON.stringify({
+      data: { histories: [swapPending] },
+      updatedAt: 1,
+    });
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+      }),
+    };
+    const updated = {
+      ...swapPending,
+      status: ESwapTxHistoryStatus.SUCCESS,
+      txInfo: { ...swapPending.txInfo, txId: 'server-deposit' },
+    };
+    await expect(
+      entity.updateSwapHistoryItemIfCurrent(
+        updated,
+        () => true,
+        undefined,
+        swapPending.txInfo.txId,
+      ),
+    ).resolves.toEqual(updated);
+    expect(JSON.parse(stored).data.histories).toEqual([updated]);
+  });
+
+  it('rolls back an in-flight write when a replacement invalidates it', async () => {
+    const entity = new SimpleDbEntitySwapHistory();
+    const original = { histories: [swapPending] };
+    let stored = JSON.stringify({ data: original, updatedAt: 1 });
+    let signalWrite: () => void = () => {};
+    let releaseWrite: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      signalWrite = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let writes = 0;
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => stored),
+      setItem: jest.fn(async (_key, value) => {
+        writes += 1;
+        stored = typeof value === 'string' ? value : JSON.stringify(value);
+        if (writes === 1) {
+          signalWrite();
+          await resume;
+        }
+      }),
+    };
+    let current = true;
+    const pending = entity.updateSwapHistoryItemIfCurrent(
+      { ...swapPending, status: ESwapTxHistoryStatus.FAILED },
+      () => current,
+    );
+    await started;
+    current = false;
+    releaseWrite();
+    await expect(pending).resolves.toBeUndefined();
+    expect(JSON.parse(stored).data).toEqual(original);
+    expect(await entity.getRawData()).toEqual(original);
+  });
+});
 // A stock token traded through a non-market channel: isStock is true, but the
 // row lives in the limit / private-send surfaces and is hidden from the stock
 // Order History list, so a stock "Clear" must not delete it.

@@ -137,6 +137,7 @@ describe('ServiceApp.resetApp', () => {
           .mockResolvedValue(undefined);
         const service = new ServiceApp({
           backgroundApi: {
+            serviceLiveActivity: { stopForPrivacyTransition: jest.fn() },
             serviceCloudBackupV2: {
               prepareLocalRecoveryForReset,
               finishLocalRecoveryReset: jest.fn(),
@@ -172,6 +173,7 @@ describe('ServiceApp.resetApp', () => {
     try {
       const service = new ServiceApp({
         backgroundApi: {
+          serviceLiveActivity: { stopForPrivacyTransition: jest.fn() },
           serviceCloudBackupV2: {
             finishLocalRecoveryReset: jest.fn(),
             prepareLocalRecoveryForReset: jest
@@ -199,6 +201,106 @@ describe('ServiceApp.resetApp', () => {
       expect(resetData).toHaveBeenCalled();
       expect(restart).not.toHaveBeenCalled();
     } finally {
+      platformEnv.isNativeIOS = originalIOS;
+    }
+  });
+
+  test('still wipes wallet data when Live Activity cleanup fails', async () => {
+    const originalIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    try {
+      const stop = jest.fn().mockRejectedValue(new Error('unavailable'));
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceLiveActivity: { stopForPrivacyTransition: stop },
+          serviceCloudBackupV2: {
+            finishLocalRecoveryReset: jest.fn(),
+            prepareLocalRecoveryForReset: jest.fn(),
+          },
+          serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
+          serviceNotification: { unregisterClient: jest.fn() },
+        },
+      });
+      const resetData = jest
+        .spyOn(
+          service as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      const restart = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      await expect(service.resetApp()).rejects.toThrow(
+        'Live Activity cleanup failed',
+      );
+      expect(stop.mock.invocationCallOrder[0]).toBeLessThan(
+        resetData.mock.invocationCallOrder[0],
+      );
+      expect(restart).toHaveBeenCalledWith({
+        mode: EAppRestartMode.All,
+        reason: 'auth.resetData',
+      });
+      expect(resetData.mock.invocationCallOrder[0]).toBeLessThan(
+        restart.mock.invocationCallOrder[0],
+      );
+    } finally {
+      platformEnv.isNativeIOS = originalIOS;
+    }
+  });
+
+  test('still wipes wallet data when Live Activity cleanup never completes', async () => {
+    const originalIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    jest.useFakeTimers();
+    try {
+      const stop = jest.fn(() => new Promise<void>(() => {}));
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceLiveActivity: { stopForPrivacyTransition: stop },
+          serviceCloudBackupV2: {
+            finishLocalRecoveryReset: jest.fn(),
+            prepareLocalRecoveryForReset: jest.fn(),
+          },
+          serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
+          serviceNotification: { unregisterClient: jest.fn() },
+        },
+      });
+      const resetData = jest
+        .spyOn(
+          service as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      const restart = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const reset = service.resetApp();
+      const resetResult = reset.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      await jest.advanceTimersByTimeAsync(2999);
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(resetData).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(resetResult).resolves.toEqual(
+        expect.objectContaining({ message: 'Live Activity cleanup failed' }),
+      );
+      expect(resetData).toHaveBeenCalledTimes(1);
+      expect(restart).toHaveBeenCalledWith({
+        mode: EAppRestartMode.All,
+        reason: 'auth.resetData',
+      });
+      expect(resetData.mock.invocationCallOrder[0]).toBeLessThan(
+        restart.mock.invocationCallOrder[0],
+      );
+    } finally {
+      jest.useRealTimers();
       platformEnv.isNativeIOS = originalIOS;
     }
   });
@@ -607,6 +709,7 @@ describe.each([true, false])(
       cache = new LocalBackupPasswordCache();
       service = new ServiceApp({
         backgroundApi: {
+          serviceLiveActivity: { stopForPrivacyTransition: jest.fn() },
           serviceCloudBackupV2: {
             prepareLocalRecoveryForReset: (options: { preserve: boolean }) =>
               cache.prepareForReset(options),
