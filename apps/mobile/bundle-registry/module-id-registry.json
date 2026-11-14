@@ -26653,6 +26653,7 @@
     "packages/kit/src/views/Staking/components/BabylonTrackingAlert/index.tsx": 8917,
     "packages/kit/src/views/Staking/components/BtcFeeRateInput/index.tsx": 6918,
     "packages/kit/src/views/Staking/components/CalculationList/index.tsx": 3132,
+    "packages/kit/src/views/Staking/components/ClaimConversionDialog.tsx": 21028,
     "packages/kit/src/views/Staking/components/EarnRiskWarningDialog.tsx": 5479,
     "packages/kit/src/views/Staking/components/EstimateNetworkFee/index.tsx": 17357,
     "packages/kit/src/views/Staking/components/FAQAccordion.tsx": 9479,
