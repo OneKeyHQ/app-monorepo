@@ -8,6 +8,7 @@ import requestHelper from '../requestHelper';
 
 import {
   createIpTableAdapter,
+  getSelectedIpForHost,
   isIpTableTransportError,
   resetAdapterFailoverStatesForTesting,
   setReportRequestFailureCallback,
@@ -388,6 +389,19 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
   });
 
   describe('availability metrics context', () => {
+    test('ignores a persisted selection and last-best IP removed from the active table', async () => {
+      const active = await mockedRequestHelper.getIpTableConfig();
+      if (!active?.runtime)
+        throw new OneKeyLocalError('expected fixture configuration');
+      active.runtime.selections['example.com'] = '203.0.113.1';
+      active.runtime.lastBestIp = { 'example.com': '203.0.113.1' };
+      mockedRequestHelper.getIpTableConfig.mockResolvedValue(active);
+      getSelectedIpForHost.clear();
+      await expect(
+        getSelectedIpForHost('wallet.example.com'),
+      ).resolves.toBeNull();
+    });
+
     function buildTimedConfig(url: string) {
       const config = buildConfig(url);
       const timing: IApiAvailabilityTiming = {
@@ -413,7 +427,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       });
       const sni = buildTimedConfig('https://metrics-sni.example.com/v1');
       await adapter(sni.config);
-      expect(sni.timing).toMatchObject({ route: 'sni', proxyActive: false });
+      expect(sni.timing).toMatchObject({
+        route: 'sni',
+        proxyActive: false,
+        ip: '93.184.216.34',
+      });
 
       mockedSniRequest.mockRejectedValue(new Error('connection reset'));
       const fallback = buildTimedConfig('https://metrics-fb.example.com/v1');
@@ -427,7 +445,11 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
         route: 'domain',
         proxyActive: true,
       });
-      expect(mockAvailabilityOutcomes).toHaveLength(0);
+      expect(
+        mockAvailabilityOutcomes.filter(({ source }) => source === 'api_ip'),
+      ).toEqual([
+        expect.objectContaining({ target: '93.184.216.34', status: 'failed' }),
+      ]);
     });
 
     test.each([
@@ -452,7 +474,10 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       expect(fallbackAdapter).toHaveBeenCalledTimes(1);
       expect(timing.route).toBe('fallback');
       if (code === 'ERR_CANCELED') {
-        expect(mockAvailabilityOutcomes).toHaveLength(0);
+        // The IP already failed before cancellation of the domain fallback.
+        expect(
+          mockAvailabilityOutcomes.filter(({ source }) => source !== 'api_ip'),
+        ).toHaveLength(0);
       } else {
         expect(mockAvailabilityOutcomes).toContainEqual(
           expect.objectContaining({
@@ -487,9 +512,18 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
       expect(timing.reported).toBe(true);
       expect(mockAvailabilityOutcomes).toEqual([
         expect.objectContaining({
+          source: 'api_ip',
+          target: '93.184.216.34',
+          status: 'failed',
+        }),
+        expect.objectContaining({
           source: 'api',
           status: 'network_error',
-          failure: { detail: 'sni:/v1', errorCode: 'sni_cert_failed' },
+          failure: {
+            detail: 'sni:/v1',
+            errorCode: 'sni_cert_failed',
+            ip: '93.184.216.34',
+          },
         }),
         expect.objectContaining({ source: 'api_net', status: 'failed' }),
         expect.objectContaining({ source: 'api_route', target: 'sni' }),
@@ -678,6 +712,43 @@ describe('ipTableAdapter fail-open on domain network failures', () => {
     };
     expect(sniArgs.ip).toBe(BUILTIN_CN_IPS[0]);
     expect(sniArgs.hostname).toBe('wallet.onekeycn.com');
+  });
+
+  test('fail-open uses the active table instead of a revoked last-best or builtin IP', async () => {
+    const ip = '198.51.100.42';
+    mockedRequestHelper.getIpTableConfig.mockResolvedValue({
+      config: {
+        version: 1,
+        ttl_sec: 60,
+        generated_at: '2026-11-14T00:00:00Z',
+        signature: '',
+        domains: {
+          'onekeycn.com': {
+            endpoints: [{ ip, provider: 'test', region: 'ALL', weight: 1 }],
+          },
+        },
+      },
+      runtime: {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: { 'onekeycn.com': '' },
+        lastBestIp: { 'onekeycn.com': '203.0.113.1' },
+      },
+    });
+    await failNTimes(3);
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      headers: {},
+      body: '{}',
+    });
+    await createIpTableAdapter({})(
+      buildConfig('https://wallet.onekeycn.com/wallet/v1/health'),
+    );
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ ip }),
+      expect.anything(),
+    );
   });
 
   test('maps data.onekey.so fail-open to the first onekeycn.com builtin IP', async () => {

@@ -6,9 +6,11 @@ import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
 import {
+  markApiAvailabilityIp,
   markApiAvailabilityProxy,
   markApiAvailabilityRoute,
   reportApiAvailabilityError,
+  reportApiAvailabilityIpError,
   setAvailabilityIpTableState,
 } from '../availabilityMetrics';
 import {
@@ -47,7 +49,11 @@ import type {
   IAvailabilityIpTableState,
   IAvailabilityRoute,
 } from '../availabilityMetrics';
-import type { ISniRequestOptions, ISniResponse } from '../types/ipTable';
+import type {
+  IIpTableRemoteConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -564,8 +570,11 @@ async function recordDomainRequestOutcome(options: {
   }
 }
 
-function getFailoverFallbackIp(lookupDomain: string): string | null {
-  const endpoints = DEFAULT_IP_TABLE_CONFIG.domains[lookupDomain]?.endpoints;
+function getFailoverFallbackIp(
+  lookupDomain: string,
+  config: IIpTableRemoteConfig = DEFAULT_IP_TABLE_CONFIG,
+): string | null {
+  const endpoints = config.domains[lookupDomain]?.endpoints;
   if (!endpoints || endpoints.length === 0) {
     return null;
   }
@@ -583,6 +592,7 @@ function getFailoverFallbackIp(lookupDomain: string): string | null {
 async function getActiveFailoverIp(
   lookupDomain: string,
   runtimeLastBestIp: string | undefined,
+  config?: IIpTableRemoteConfig,
 ): Promise<string | null> {
   if (!isFailoverActive(lookupDomain)) {
     return null;
@@ -591,7 +601,14 @@ async function getActiveFailoverIp(
     deactivateFailover(lookupDomain, 'kill_switch');
     return null;
   }
-  return runtimeLastBestIp || getFailoverFallbackIp(lookupDomain);
+  const endorsedLastBestIp =
+    !config ||
+    config.domains[lookupDomain]?.endpoints.some(
+      (endpoint) => endpoint.ip === runtimeLastBestIp,
+    )
+      ? runtimeLastBestIp
+      : undefined;
+  return endorsedLastBestIp || getFailoverFallbackIp(lookupDomain, config);
 }
 
 // ========== Step aside on SNI failures ==========
@@ -884,7 +901,12 @@ async function getSelectedIpForHostInternal(
     const selectedIp = runtime?.selections[lookupDomain];
 
     // If selectedIp exists (not undefined), use it
-    if (selectedIp) {
+    if (
+      selectedIp &&
+      config.domains[lookupDomain]?.endpoints.some(
+        (endpoint) => endpoint.ip === selectedIp,
+      )
+    ) {
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
       );
@@ -908,6 +930,7 @@ async function getSelectedIpForHostInternal(
         const failoverIp = await getActiveFailoverIp(
           lookupDomain,
           runtime?.lastBestIp?.[lookupDomain],
+          config,
         );
         if (failoverIp) {
           logIpTableEvent('warn', 'iptable_selection', {
@@ -964,6 +987,7 @@ async function getSelectedIpForHostInternal(
     const noSelectionFailoverIp = await getActiveFailoverIp(
       lookupDomain,
       runtime?.lastBestIp?.[lookupDomain],
+      config,
     );
     if (noSelectionFailoverIp) {
       logIpTableEvent('warn', 'iptable_selection', {
@@ -1601,6 +1625,7 @@ export function createIpTableAdapter(
     );
 
     markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
+    markApiAvailabilityIp(config.$oneKeyAvailabilityTiming, selectedIp);
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
     // null-response branch throws outside the read fallback policy and that
@@ -1643,6 +1668,9 @@ export function createIpTableAdapter(
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {
+        reportApiAvailabilityIpError(config.$oneKeyAvailabilityTiming, {
+          code: 'SNI_RESPONSE_MISSING',
+        });
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         await reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
@@ -1725,6 +1753,11 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
+      reportApiAvailabilityIpError(
+        config.$oneKeyAvailabilityTiming,
+        error,
+        config.signal,
+      );
       const failClosed = isSniFailClosedError(error);
 
       // At most once per SNI attempt — the null-response branch may already
