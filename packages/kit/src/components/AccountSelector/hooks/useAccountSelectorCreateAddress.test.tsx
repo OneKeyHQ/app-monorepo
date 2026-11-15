@@ -40,7 +40,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockGetIndexedAccounts(params),
     },
     serviceBatchCreateAccount: {
-      addDefaultNetworkAccounts: (params: unknown) =>
+      addDefaultNetworkAccountsForUserCreation: (params: unknown) =>
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {

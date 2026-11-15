@@ -5,6 +5,7 @@ import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeC
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
@@ -717,6 +718,10 @@ export abstract class CloudSyncFlowManagerBase<
           shouldSync = true;
         }
         if (item.dataType === this.dataType && shouldSync) {
+          // Decryption mutates item, so retain the stored acknowledgment fields.
+          const { localSceneUpdated, pwdHash, rawData, rawKey } = item;
+          // A caller may already have decrypted fields that are not yet stored.
+          const wasAlreadyDecrypted = !!item.rawDataJson;
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
             item,
@@ -756,7 +761,14 @@ export abstract class CloudSyncFlowManagerBase<
                     target,
                     payload: payload as any,
                   });
-                  if (isSuccess) {
+                  if (
+                    isSuccess &&
+                    (wasAlreadyDecrypted ||
+                      localSceneUpdated !== true ||
+                      pwdHash !== decryptedItem.dbItem.pwdHash ||
+                      rawData !== decryptedItem.dbItem.rawData ||
+                      rawKey !== (rawKey || decryptedItem.dbItem.rawKey))
+                  ) {
                     await this.backgroundApi.localDb.updateSyncItem({
                       ids: [item.id],
                       updater: (record) => {
@@ -810,9 +822,10 @@ export abstract class CloudSyncFlowManagerBase<
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
   }) {
-    return (
-      await Promise.all(
-        dbRecords.map(async (record) => {
+    const results: IDBCloudSyncItem[] = [];
+    for (let offset = 0; offset < dbRecords.length; offset += 50) {
+      const batch = await Promise.all(
+        dbRecords.slice(offset, offset + 50).map(async (record) => {
           const dbRecord = record as TRecord;
           const target = await this.buildSyncTargetByDBQuery({
             dbRecord,
@@ -830,8 +843,9 @@ export abstract class CloudSyncFlowManagerBase<
           if (
             existingSyncItem &&
             syncCredential &&
-            syncCredential.masterPasswordUUID &&
-            existingSyncItem.pwdHash === syncCredential.masterPasswordUUID
+            cloudSyncItemBuilder.getPwdHash(syncCredential) &&
+            existingSyncItem.pwdHash ===
+              cloudSyncItemBuilder.getPwdHash(syncCredential)
           ) {
             // pwdHash matched, do not need rebuild sync item
             return null;
@@ -845,7 +859,10 @@ export abstract class CloudSyncFlowManagerBase<
           });
           return item;
         }),
-      )
-    ).filter(Boolean);
+      );
+      results.push(...batch.filter((item): item is IDBCloudSyncItem => !!item));
+      if (offset + 50 < dbRecords.length) await timerUtils.wait(0);
+    }
+    return results;
   }
 }

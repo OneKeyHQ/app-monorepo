@@ -269,6 +269,7 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
       })),
     },
     servicePrimeCloudSync: {
+      cancelPublicAccountSnapshotImport: jest.fn(async () => undefined),
       setCloudSyncEnabledWithKeyLock: jest.fn(async (enabled: boolean) => {
         mockConfig.isCloudSyncEnabled = enabled;
       }),
@@ -1091,6 +1092,49 @@ describe('hardware Cloud key source lifecycle', () => {
     );
     expect(mockStored).toBe(credential);
     expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+  });
+
+  test('disabling sync cancels imports before waiting for an active import to finish', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = credential;
+    let release: () => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const active = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const importing = service.runWithCloudAccountImportLock(async () => {
+      entered();
+      await paused;
+    });
+    await active;
+    const disabling = service.setCloudSyncEnabledKeyless(false);
+    await Promise.resolve();
+    expect(
+      backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport,
+    ).toHaveBeenCalled();
+    expect(mockStored).toBe(credential);
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    release();
+    await Promise.all([importing, disabling]);
+    expect(mockStored).toBeUndefined();
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+  });
+
+  test('wallet selection invalidates account imports but an unchanged selection does not', async () => {
+    const { service } = setup();
+    const selectedWalletId = 'public-test-keyless-wallet';
+    const before = service.getCloudAccountImportGeneration();
+    await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
+    const selected = service.getCloudAccountImportGeneration();
+    expect(selected).toBeGreaterThan(before);
+    await service.setPersistedCurrentCloudSyncKeylessWalletId(selectedWalletId);
+    expect(service.getCloudAccountImportGeneration()).toBe(selected);
   });
 
   test('turning sync off deletes the stored hardware key and its memory cache', async () => {
@@ -2432,6 +2476,9 @@ describe('a hardware key never outlives turned-off sync', () => {
     expect(
       backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently,
     ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently,
+    ).toHaveBeenCalledWith(expect.objectContaining({ forceSync: true }));
     await service.onHardwareKeyFlushPush({ pwdHash: 'hw-dek-another' });
     expect(getCurrentHardwareCloudSyncDataKeyId).toHaveBeenCalledTimes(1);
   });

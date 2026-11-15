@@ -9,6 +9,11 @@ import type {
   IDBWalletType,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
+import type {
+  ICloudSyncReconciliationContract,
+  ICloudSyncReconciliationRequest,
+} from './cloudSyncReconciliation';
+import type { ICloudPublicAccountSnapshot } from './publicAccountSnapshot';
 import type { IServerNetwork } from '..';
 import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
 import type { IAvatarInfo } from '../../src/utils/emojiUtils';
@@ -50,6 +55,7 @@ export type ICloudSyncServerDiffItem = {
 };
 
 export type IStartServerSyncFlowParams = {
+  localMutation?: boolean;
   isFlush?: boolean;
   encryptedSecurityPasswordR1ForServer?: string;
   setUndefinedTimeToNow?: boolean;
@@ -93,6 +99,7 @@ export type ICloudSyncCheckServerStatusPostData = {
   onlyCheckLocalDataType: EPrimeCloudSyncDataType[];
   nonce: number;
   pwdHash: string | undefined;
+  reconciliation?: ICloudSyncReconciliationRequest;
 };
 
 export type ICloudSyncCheckServerStatusResult = {
@@ -102,6 +109,7 @@ export type ICloudSyncCheckServerStatusResult = {
   obsoleted: string[];
   pwdHash: string;
   serverTime: number;
+  reconciliation?: ICloudSyncReconciliationContract;
 };
 
 export type ICloudSyncDownloadPostData = {
@@ -199,6 +207,8 @@ export type ICloudSyncTargetIndexedAccount = ICloudSyncTargetBase & {
 export type ICloudSyncTargetAccount = ICloudSyncTargetBase & {
   dataType: EPrimeCloudSyncDataType.Account;
   account: IDBAccount & { name: string };
+  wallet?: IDBWallet;
+  dbDevice?: IDBDevice;
 };
 
 export type ICloudSyncTargetLock = ICloudSyncTargetBase & {
@@ -355,6 +365,7 @@ export type ICloudSyncPayloadBotWallet = {
 export type ICloudSyncPayloadAccount = {
   name: string;
   accountId: string;
+  publicAccountSnapshot?: ICloudPublicAccountSnapshot;
 };
 export type ICloudSyncPayloadIndexedAccount = {
   name: string;

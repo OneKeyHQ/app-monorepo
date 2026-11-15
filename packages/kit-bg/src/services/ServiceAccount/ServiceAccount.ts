@@ -221,6 +221,10 @@ import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import {
   buildAnalyticsWalletProfile,
@@ -265,9 +269,11 @@ import type {
 } from '../../vaults/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string | undefined;
   networkId: string | undefined;
   indexes?: Array<number>; // multiple add by indexes
@@ -1377,6 +1383,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    publicAccountCreationContext,
   }: {
     walletId: string;
     networkId: string;
@@ -1386,6 +1393,7 @@ class ServiceAccount extends ServiceBase {
     };
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -1398,19 +1406,23 @@ class ServiceAccount extends ServiceBase {
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
-    await this.addIndexedAccount({
-      walletId,
-      indexes: [dbAccount.pathIndex],
-      skipIfExists: true,
-      names: indexedAccountNames,
-      applyRestoreSyncPolicy,
-    });
+    if (!isPublicAccountCreationContext(publicAccountCreationContext)) {
+      await this.addIndexedAccount({
+        walletId,
+        indexes: [dbAccount.pathIndex],
+        skipIfExists: true,
+        names: indexedAccountNames,
+        applyRestoreSyncPolicy,
+      });
+    }
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
       skipEventEmit,
       applyRestoreSyncPolicy,
+      publicAccountCreationContext,
+      publicAccountIndexedNames: indexedAccountNames,
     });
   }
 
@@ -1462,6 +1474,14 @@ class ServiceAccount extends ServiceBase {
       indexes,
       deriveType,
     };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+    );
   }
 
   @backgroundMethod()
