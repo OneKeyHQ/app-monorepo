@@ -629,3 +629,28 @@ concurrent reads, transaction commit/rollback, and masked persistence.
 
 Unit/integration doubles and repository checks do not replace live server,
 physical hardware, native/extension or cross-device acceptance testing.
+
+### CI follow-up: platform-hosted Cardano validation
+
+The first remote build exposed a duplicated Cardano CSL runtime in extension
+background output and a native Metro transformer out-of-memory failure. Public
+Cardano derivation now uses the existing ADA SDK platform facade: extension
+background delegates a bounded public-only batch to offscreen, native background
+to WebEmbed, and web/desktop to the existing web SDK. CSL remains version 13.2.0;
+its algorithm, public-key checks and object cleanup are unchanged. The explicit
+dependency belongs to core, not kit-bg. No seed, signing or hardware API is used.
+An unavailable host leaves the record pending; a late IPC response is rejected
+after cancellation or a key change.
+
+The official native registry generator added the 15 runtime modules introduced
+by this feature without changing any existing module ID. SimpleDB lazy/entity
+contract tests now include the new issues entity and verify lazy concurrent use.
+
+Local production checks with the original budgets passed:
+
+- Extension: total 189,574,517 / 190,000,000 bytes; background
+  44,224,429 / 46,137,344 bytes; 718 / 1,000 JS files. No CSL runtime remains in
+  background output. Total headroom is small; Linux CI must still verify it.
+- Native: strict union build, architecture and module-ID checks; main startup
+  2,565 / 3,000 modules and 12.77 / 14 MiB; background startup 2,411 / 2,600 modules
+  and 19.25 / 19.5 MiB. No budget or memory limit was relaxed.

@@ -297,60 +297,36 @@ async function validateAdaAccount(params: IValidationParams): Promise<boolean> {
   const { account } = params.snapshot;
   if (!account.xpub) throw new PublicAccountSnapshotUnsupportedError();
   if (!/^[0-9a-fA-F]{128}$/.test(account.xpub)) return false;
-  const { Bip32PublicKey } =
-    await import('@emurgo/cardano-serialization-lib-asmjs/cardano_serialization_lib');
-  const { baseAddressFromXpub, stakingAddressFromXpub } =
-    await import('@onekeyhq/core/src/chains/ada/sdkAda/addresses');
+  const { default: sdk } =
+    await import('@onekeyhq/core/src/chains/ada/sdkAda/sdk');
   const network = await publicNetworkInfo(account.networkId, params.vault);
   if (!params.isCurrent()) return false;
-  const networkId = network.isTestnet ? 0 : 1;
-  const root = Buffer.from(account.xpub, 'hex');
-  if (!validPublicKey(root.subarray(0, 32).toString('hex'), 'ed25519'))
-    return false;
-  const accountKey = Bip32PublicKey.from_bytes(root);
+  const relPath = account.relPath;
+  if (!relPath || !account.addresses || account.pub) return false;
+  let expected: Record<string, string> | undefined;
   try {
-    const child = (role: number, index: number): Buffer => {
-      const branch = accountKey.derive(role);
-      try {
-        const leaf = branch.derive(index);
-        try {
-          return Buffer.from(leaf.as_bytes());
-        } finally {
-          leaf.free();
-        }
-      } finally {
-        branch.free();
-      }
-    };
-    const stake = child(2, 0);
-    const expected = (path: string): string | undefined => {
-      const [role, index] = path.split('/').map(Number);
-      if (
-        !/^[012]\/\d+$/.test(path) ||
-        !Number.isSafeInteger(index) ||
-        index < 0 ||
-        index >= 2 ** 31
-      )
-        return undefined;
-      if (role === 2)
-        return index === 0
-          ? stakingAddressFromXpub(stake, networkId)
-          : undefined;
-      return baseAddressFromXpub(child(role, index), stake, networkId);
-    };
-    const relPath = account.relPath;
-    if (!relPath || !account.addresses || expected(relPath) !== account.address)
-      return false;
-    return (
-      params.isCurrent() &&
-      Object.entries(account.addresses).every(
-        ([path, address]) => expected(path) === address,
-      ) &&
-      !account.pub
-    );
-  } finally {
-    accountKey.free();
+    const api = await sdk.getCardanoApi();
+    if (!params.isCurrent()) return false;
+    expected = await api.derivePublicAccountAddresses({
+      xpub: account.xpub,
+      paths: Array.from(new Set([relPath, ...Object.keys(account.addresses)])),
+      networkId: network.isTestnet ? 0 : 1,
+    });
+  } catch {
+    if (!params.isCurrent()) return false;
+    // Native WebEmbed/extension offscreen may not be ready during startup.
+    // Keep a valid public record pending instead of classifying it as rejected.
+    throw new PublicAccountSnapshotUnsupportedError();
   }
+  if (!expected) return false;
+  // IPC can yield while the wallet/key changes. Never accept a stale response.
+  return (
+    params.isCurrent() &&
+    expected[relPath] === account.address &&
+    Object.entries(account.addresses).every(
+      ([path, address]) => expected[path] === address,
+    )
+  );
 }
 
 async function validateDynexAccount(

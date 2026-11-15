@@ -2,6 +2,7 @@ import { wallet as neo } from '@cityofzion/neon-core';
 import { payments } from 'bitcoinjs-lib';
 import bs58 from 'bs58';
 
+import adaSdk from '@onekeyhq/core/src/chains/ada/sdkAda/sdk';
 import CoreChainHd from '@onekeyhq/core/src/chains/btc/CoreChainHd';
 import {
   convertBtcForkXpub,
@@ -52,12 +53,23 @@ jest.mock('algosdk/dist/esm/index.js', () =>
 // Jest uses CSL's Node build for the same versioned, public-only API, as the
 // repository's existing Cardano browser-library mapping does for other suites.
 jest.mock(
-  '@emurgo/cardano-serialization-lib-asmjs/cardano_serialization_lib',
+  '@emurgo/cardano-serialization-lib-asmjs',
   () =>
     jest.requireActual<
       typeof import('@emurgo/cardano-serialization-lib-nodejs')
     >('@emurgo/cardano-serialization-lib-nodejs'),
+  { virtual: true },
 );
+
+jest.mock('@onekeyhq/core/src/chains/ada/sdkAda/sdk', () => ({
+  __esModule: true,
+  default: {
+    getCardanoApi: async () =>
+      jest.requireActual<
+        typeof import('@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses')
+      >('@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses'),
+  },
+}));
 
 // Public BIP32 and generator/Ed25519 fixtures; no seed or signing API is used.
 const XPUB =
@@ -320,6 +332,34 @@ describe('public account offline validation', () => {
     await expect(validatePublicAccount(params)).rejects.toBeInstanceOf(
       PublicAccountSnapshotUnsupportedError,
     );
+  });
+
+  it('keeps ADA pending when its platform host is not ready', async () => {
+    const params = await fixture('ada');
+    const getApi = jest
+      .spyOn(adaSdk, 'getCardanoApi')
+      .mockRejectedValueOnce(new Error('Host not ready'));
+    await expect(validatePublicAccount(params)).rejects.toBeInstanceOf(
+      PublicAccountSnapshotUnsupportedError,
+    );
+    getApi.mockRestore();
+  });
+
+  it('rejects a late ADA IPC response after source cancellation', async () => {
+    const params = await fixture('ada');
+    let current = true;
+    const api = await adaSdk.getCardanoApi();
+    const getApi = jest.spyOn(adaSdk, 'getCardanoApi').mockResolvedValueOnce({
+      ...api,
+      derivePublicAccountAddresses: async () => {
+        current = false;
+        return { '0/0': ADA_ADDRESS, '2/0': ADA_STAKE };
+      },
+    });
+    await expect(
+      validatePublicAccount({ ...params, isCurrent: () => current }),
+    ).resolves.toBe(false);
+    getApi.mockRestore();
   });
 
   it('checks the complete ADA base/stake public vector and each child address', async () => {

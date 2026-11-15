@@ -10871,6 +10871,7 @@ __metadata:
     "@ckb-lumos/ckb-indexer": "npm:^0.23.0"
     "@ckb-lumos/common-scripts": "npm:^0.23.0"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
+    "@emurgo/cardano-serialization-lib-asmjs": "npm:13.2.0"
     "@glif/filecoin-address": "npm:^2.0.43"
     "@glif/filecoin-message": "npm:2.0.44"
     "@magiceden-oss/open_creator_protocol": "npm:^0.3.2"
@@ -10970,7 +10971,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
-    "@emurgo/cardano-serialization-lib-asmjs": "npm:13.2.0"
     "@types/yauzl": "npm:2.10.3"
     "@zip.js/zip.js": "npm:2.10.0"
     eth-url-parser: "npm:^1.0.4"

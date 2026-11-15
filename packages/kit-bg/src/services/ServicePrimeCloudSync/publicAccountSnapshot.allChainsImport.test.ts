@@ -33,14 +33,25 @@ import type {
 } from '../../dbs/local/types';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 
+jest.mock('@onekeyhq/core/src/chains/ada/sdkAda/sdk', () => ({
+  __esModule: true,
+  default: {
+    getCardanoApi: async () =>
+      jest.requireActual<
+        typeof import('@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses')
+      >('@onekeyhq/core/src/chains/ada/sdkAda/publicAccountAddresses'),
+  },
+}));
+
 // Jest runs the identical installed CSL public API in its Node build. Browser
 // The browser build is verified separately by the production renderer build.
 jest.mock(
-  '@emurgo/cardano-serialization-lib-asmjs/cardano_serialization_lib',
+  '@emurgo/cardano-serialization-lib-asmjs',
   () =>
     jest.requireActual<
       typeof import('@emurgo/cardano-serialization-lib-nodejs')
     >('@emurgo/cardano-serialization-lib-nodejs'),
+  { virtual: true },
 );
 
 // Keep real public SDK validation for the chain matrix; only the two scheduling
