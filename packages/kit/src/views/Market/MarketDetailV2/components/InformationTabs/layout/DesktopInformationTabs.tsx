@@ -6,6 +6,7 @@ import {
   Badge,
   Icon,
   SizableText,
+  Tab,
   Tabs,
   XStack,
   YStack,
@@ -196,7 +197,7 @@ export function DesktopInformationTabs({
 
     const items = [
       shouldShowTransactionsTab && (
-        <Tabs.Tab
+        <Tab
           key="transactions"
           name={intl.formatMessage({
             id: ETranslations.dexmarket_details_transactions,
@@ -206,9 +207,9 @@ export function DesktopInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
           />
-        </Tabs.Tab>
+        </Tab>
       ),
-      <Tabs.Tab
+      <Tab
         key="portfolio"
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_myposition,
@@ -224,9 +225,9 @@ export function DesktopInformationTabs({
           tokenLogoUrl={tokenLogoUrl}
           isMarketDetail
         />
-      </Tabs.Tab>,
+      </Tab>,
       shouldShowLiquidityPoolsTab && (
-        <Tabs.Tab
+        <Tab
           key="liquidityPools"
           name={intl.formatMessage({
             id: ETranslations.global_liquidity,
@@ -241,12 +242,12 @@ export function DesktopInformationTabs({
               pb="$4"
             />
           </Tabs.ScrollView>
-        </Tabs.Tab>
+        </Tab>
       ),
       shouldShowHoldersTab && (
-        <Tabs.Tab key="holders" name={holdersTabName}>
+        <Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>
+        </Tab>
       ),
     ].filter(Boolean);
     return items;

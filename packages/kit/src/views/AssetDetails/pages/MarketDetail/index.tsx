@@ -9,6 +9,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Tab,
   Tabs,
   XStack,
   YStack,
@@ -127,22 +128,20 @@ export function MarketDetailContent({
             )}
             renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
-            <Tabs.Tab
-              name={intl.formatMessage({ id: ETranslations.market_chart })}
-            >
+            <Tab name={intl.formatMessage({ id: ETranslations.market_chart })}>
               <Tabs.ScrollView>
                 <MarketDetailChart coinGeckoId={coinGeckoId} token={token} />
               </Tabs.ScrollView>
-            </Tabs.Tab>
-            <Tabs.Tab
+            </Tab>
+            <Tab
               name={intl.formatMessage({ id: ETranslations.global_overview })}
             >
               <Tabs.ScrollView>
                 <MarketDetailOverview token={token} />
               </Tabs.ScrollView>
-            </Tabs.Tab>
+            </Tab>
             {token.tickers?.length ? (
-              <Tabs.Tab
+              <Tab
                 name={intl.formatMessage({ id: ETranslations.global_pools })}
               >
                 <Tabs.ScrollView>
@@ -151,15 +150,13 @@ export function MarketDetailContent({
                     detailPlatforms={token.detailPlatforms}
                   />
                 </Tabs.ScrollView>
-              </Tabs.Tab>
+              </Tab>
             ) : null}
-            <Tabs.Tab
-              name={intl.formatMessage({ id: ETranslations.global_links })}
-            >
+            <Tab name={intl.formatMessage({ id: ETranslations.global_links })}>
               <Tabs.ScrollView>
                 <MarketDetailLinks token={token} />
               </Tabs.ScrollView>
-            </Tabs.Tab>
+            </Tab>
           </Tabs.Container>
         ) : (
           <Stack flex={1} ai="center" jc="center" gap="$2">

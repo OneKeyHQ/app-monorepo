@@ -2,7 +2,14 @@ import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Page,
+  SearchBar,
+  Stack,
+  Tab,
+  Tabs,
+  XStack,
+} from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -108,27 +115,27 @@ const PageView = () => {
             containerStyle={{ flex: 1 }}
             renderTabBar={(props) => <Tabs.TabBar {...props} />}
           >
-            <Tabs.Tab
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.settings_transactions,
               })}
             >
               <Transactions />
-            </Tabs.Tab>
-            <Tabs.Tab
+            </Tab>
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.settings_sign_text,
               })}
             >
               <SignText />
-            </Tabs.Tab>
-            <Tabs.Tab
+            </Tab>
+            <Tab
               name={intl.formatMessage({
                 id: ETranslations.explore_dapp_connections,
               })}
             >
               <ConnectedSites />
-            </Tabs.Tab>
+            </Tab>
           </Tabs.Container>
         </Page.Body>
       </SignatureContext.Provider>

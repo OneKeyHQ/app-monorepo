@@ -13,6 +13,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Tab,
   Tabs,
   XStack,
   YStack,
@@ -40,7 +41,7 @@ const BasicTabsDemo = () => {
 
   return (
     <Tabs.Container>
-      <Tabs.Tab name="Tokens">
+      <Tab name="Tokens">
         <ListView
           data={data}
           scrollEnabled={platformEnv.isWebTouchable}
@@ -55,8 +56,8 @@ const BasicTabsDemo = () => {
             </Stack>
           )}
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="NFTs">
+      </Tab>
+      <Tab name="NFTs">
         <ListView
           data={data.slice(0, 10)}
           scrollEnabled={platformEnv.isWebTouchable}
@@ -71,8 +72,8 @@ const BasicTabsDemo = () => {
             </Stack>
           )}
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="History">
+      </Tab>
+      <Tab name="History">
         <ListView
           data={data.slice(0, 15)}
           scrollEnabled={platformEnv.isWebTouchable}
@@ -87,7 +88,7 @@ const BasicTabsDemo = () => {
             </Stack>
           )}
         />
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };
@@ -131,7 +132,7 @@ const TabsWithCustomTabBarDemo = () => {
         />
       )}
     >
-      <Tabs.Tab name="Assets">
+      <Tab name="Assets">
         <ListView
           data={data}
           scrollEnabled={platformEnv.isWebTouchable}
@@ -146,8 +147,8 @@ const TabsWithCustomTabBarDemo = () => {
             </Stack>
           )}
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="DeFi">
+      </Tab>
+      <Tab name="DeFi">
         <ListView
           data={data.slice(0, 12)}
           scrollEnabled={platformEnv.isWebTouchable}
@@ -162,7 +163,7 @@ const TabsWithCustomTabBarDemo = () => {
             </Stack>
           )}
         />
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };
@@ -190,7 +191,7 @@ const TabsWithHeaderDemo = () => {
         </YStack>
       )}
     >
-      <Tabs.Tab name="Holdings">
+      <Tab name="Holdings">
         <ListView
           data={data}
           estimatedItemSize="$12"
@@ -209,8 +210,8 @@ const TabsWithHeaderDemo = () => {
             </XStack>
           )}
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="Performance">
+      </Tab>
+      <Tab name="Performance">
         <ListView
           data={data.slice(0, 8)}
           estimatedItemSize="$12"
@@ -229,8 +230,8 @@ const TabsWithHeaderDemo = () => {
             </XStack>
           )}
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="Analytics">
+      </Tab>
+      <Tab name="Analytics">
         <ListView
           data={data.slice(0, 6)}
           estimatedItemSize="$12"
@@ -249,7 +250,7 @@ const TabsWithHeaderDemo = () => {
             </XStack>
           )}
         />
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };
@@ -270,7 +271,7 @@ const TabsWithInitialTabDemo = () => {
 
   return (
     <Tabs.Container initialTabName="Archive">
-      <Tabs.Tab name="Recent">
+      <Tab name="Recent">
         <YStack p="$4" gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
@@ -290,8 +291,8 @@ const TabsWithInitialTabDemo = () => {
             )}
           />
         </YStack>
-      </Tabs.Tab>
-      <Tabs.Tab name="Favorites">
+      </Tab>
+      <Tab name="Favorites">
         <YStack p="$4" gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             收藏项目 (默认显示此标签页)
@@ -311,8 +312,8 @@ const TabsWithInitialTabDemo = () => {
             )}
           />
         </YStack>
-      </Tabs.Tab>
-      <Tabs.Tab name="Archive">
+      </Tab>
+      <Tab name="Archive">
         <YStack p="$4" gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             已归档的项目
@@ -332,7 +333,7 @@ const TabsWithInitialTabDemo = () => {
             )}
           />
         </YStack>
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };
@@ -353,27 +354,27 @@ const TabsWithOnIndexChangeDemo = () => {
           setActiveTabIndex(index);
         }}
       >
-        <Tabs.Tab name="Recent">
+        <Tab name="Recent">
           <YStack p="$4" gap="$2">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               Recent items (默认不会显示，因为设置了 initialTabName="Favorites")
             </SizableText>
           </YStack>
-        </Tabs.Tab>
-        <Tabs.Tab name="Favorites">
+        </Tab>
+        <Tab name="Favorites">
           <YStack p="$4" gap="$2">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               Favorites items
             </SizableText>
           </YStack>
-        </Tabs.Tab>
-        <Tabs.Tab name="Archive">
+        </Tab>
+        <Tab name="Archive">
           <YStack p="$4" gap="$2">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               Archive items
             </SizableText>
           </YStack>
-        </Tabs.Tab>
+        </Tab>
       </Tabs.Container>
     </YStack>
   );
@@ -448,7 +449,7 @@ const TabsWithInfiniteScrollDemo = () => {
 
   return (
     <Tabs.Container>
-      <Tabs.Tab name="Transactions">
+      <Tab name="Transactions">
         <Tabs.FlatList
           data={data1}
           onEndReached={loadMoreData1}
@@ -494,8 +495,8 @@ const TabsWithInfiniteScrollDemo = () => {
             })() ?? undefined
           }
         />
-      </Tabs.Tab>
-      <Tabs.Tab name="Tokens">
+      </Tab>
+      <Tab name="Tokens">
         <Tabs.FlatList
           data={data2}
           onEndReached={loadMoreData2}
@@ -541,7 +542,7 @@ const TabsWithInfiniteScrollDemo = () => {
             })() ?? undefined
           }
         />
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };
@@ -900,7 +901,7 @@ const NewTabsGallery = () => {
       componentName="NewTabs"
       suggestions={[
         '使用 Tabs.Container 作为容器组件',
-        'Tabs.Tab 定义每个标签页的内容',
+        'Tab 定义每个标签页的内容',
         'renderTabBar 可以自定义标签栏样式和工具栏',
         'renderHeader 可以添加粘性头部内容',
         'initialTabName 设置默认显示的标签页',

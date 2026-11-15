@@ -85,6 +85,9 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
     ),
+    Tab: ({ children }: { children?: ReactNode; name: string }) => (
+      <div>{children}</div>
+    ),
     Tabs: {
       Container: ({
         children,
@@ -113,9 +116,7 @@ jest.mock('@onekeyhq/components', () => {
           </div>
         );
       },
-      Tab: ({ children }: { children?: ReactNode; name: string }) => (
-        <div>{children}</div>
-      ),
+
       TabBar: ({
         renderItem,
         tabNames,

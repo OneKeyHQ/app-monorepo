@@ -1,7 +1,6 @@
 import { Container } from './Container';
 import { List } from './List';
 import { ScrollView } from './ScrollView';
-import { Tab } from './Tab';
 import { TabBar, TabBarItem } from './TabBar';
 
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
@@ -9,7 +8,6 @@ import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 /** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
   Container,
-  Tab,
   Lazy: (children: React.ReactNode) => children,
   List,
   FlatList: List,
@@ -19,7 +17,7 @@ export const Tabs = {
   MasonryFlashList: List,
   TabBar,
   TabBarItem,
-} as unknown as Omit<typeof NativeTabs, 'Container'> & {
+} as unknown as Omit<typeof NativeTabs, 'Container' | 'Tab'> & {
   Container: typeof Container;
   TabBar: typeof TabBar;
   TabBarItem: typeof TabBarItem;
@@ -38,3 +36,5 @@ export {
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
 export { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 export { useFocusedTab } from './useFocusedTab';
+
+export { Tab } from './Tab';

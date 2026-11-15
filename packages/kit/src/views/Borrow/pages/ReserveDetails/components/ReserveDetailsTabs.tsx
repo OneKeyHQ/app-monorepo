@@ -6,7 +6,7 @@ import type {
   ITabContainerProps,
   ITabContainerRef,
 } from '@onekeyhq/components';
-import { Tabs, XStack, YStack } from '@onekeyhq/components';
+import { Tab, Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -112,7 +112,7 @@ const ReserveDetailsTabsComponent = ({
       {...(tabsContainerProps as Parameters<typeof Tabs.Container>[0])}
     >
       {/* Supply Info Tab */}
-      <Tabs.Tab name={tabNames.supply}>
+      <Tab name={tabNames.supply}>
         <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {supplyBadge ? <XStack>{supplyBadge}</XStack> : null}
@@ -147,10 +147,10 @@ const ReserveDetailsTabsComponent = ({
             />
           </YStack>
         </Tabs.ScrollView>
-      </Tabs.Tab>
+      </Tab>
 
       {/* Borrow Info Tab */}
-      <Tabs.Tab name={tabNames.borrow}>
+      <Tab name={tabNames.borrow}>
         <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$6">
             {borrowBadge ? <XStack>{borrowBadge}</XStack> : null}
@@ -176,10 +176,10 @@ const ReserveDetailsTabsComponent = ({
             />
           </YStack>
         </Tabs.ScrollView>
-      </Tabs.Tab>
+      </Tab>
 
       {/* More Tab */}
-      <Tabs.Tab name={tabNames.more}>
+      <Tab name={tabNames.more}>
         <Tabs.ScrollView showsVerticalScrollIndicator={false}>
           <YStack px="$5" pt="$6" pb="$6" gap="$8">
             <InterestRateModelSection
@@ -199,7 +199,7 @@ const ReserveDetailsTabsComponent = ({
             />
           </YStack>
         </Tabs.ScrollView>
-      </Tabs.Tab>
+      </Tab>
     </Tabs.Container>
   );
 };

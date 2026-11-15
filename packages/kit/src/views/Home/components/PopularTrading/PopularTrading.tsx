@@ -1642,9 +1642,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       //
       // Bug it triggers (iOS, RN 0.81.5, Fabric/New Arch): rendering the
       // skeleton on that first `undefined` frame and then swapping it for the
-      // real <RichTable> subtree happens WHILE the enclosing
-      // react-native-collapsible-tab-view <Tabs.ScrollView> is running its async
-      // Yoga measurement pass. That extra ListLoading→RichTable subtree swap
+      // real <RichTable> subtree happened while the former collapsible scroll
+      // container was running its async Yoga measurement pass. That extra
+      // ListLoading→RichTable subtree swap
       // mid-measure moves a shadow node to a new parent and trips the assertion
       // `react_native_assert(YGNodeGetOwner(child) == &yogaNode_)` →
       // hard crash on Home startup. (Confirmed via git bisect to #12008.)
