@@ -26,6 +26,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
@@ -35,7 +36,6 @@ import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,

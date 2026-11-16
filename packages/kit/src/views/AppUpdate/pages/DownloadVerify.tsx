@@ -14,12 +14,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { getAppUpdateProgressScope } from '@onekeyhq/shared/src/appUpdate';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type { IAppUpdatePagesParamList } from '@onekeyhq/shared/src/routes';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';

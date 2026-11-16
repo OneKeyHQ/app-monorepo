@@ -7,29 +7,15 @@ import React from 'react';
 import { act, render } from '@testing-library/react';
 
 let mockUserId: string | null = 'A';
-let mockOnUnread: ((count: number) => void) | undefined;
-const mockSdk = {
-  default: jest.fn(),
-  boot: jest.fn(),
-  shutdown: jest.fn(),
-  onShow: jest.fn(),
-  onUnreadCountChange: jest.fn((listener: (count: number) => void) => {
-    mockOnUnread = listener;
-  }),
-  trackEvent: jest.fn(),
-  update: jest.fn(),
-  show: jest.fn(),
-  hide: jest.fn(),
-  showConversation: jest.fn(),
-};
-
-jest.mock('@intercom/messenger-js-sdk', () => ({
-  __esModule: true,
-  ...mockSdk,
+const mockInit = jest.fn(async () => {});
+const mockStartPolling = jest.fn(async () => {});
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  initIntercom: () => mockInit(),
+  startIntercomBackgroundPolling: () => mockStartPolling(),
 }));
 
 // Bootstrap imports unrelated startup features; this suite mounts only its
-// real Intercom hook and keeps the real session adapter and identity checks.
+// real Intercom hook and observes identity synchronization at its boundary.
 const unrelatedModules = [
   '@react-navigation/native',
   '@onekeyhq/components',
@@ -80,7 +66,6 @@ function createToken(userId: string) {
 
 describe('Intercom startup identity synchronization', () => {
   let useIntercomInit: typeof import('./Bootstrap').useIntercomInit;
-  let intercom: typeof import('@onekeyhq/shared/src/modules3rdParty/intercom');
 
   function SessionSync() {
     useIntercomInit();
@@ -92,9 +77,6 @@ describe('Intercom startup identity synchronization', () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     mockUserId = 'A';
-    mockOnUnread = undefined;
-    delete globalThis.window.Intercom;
-    delete globalThis.window.intercomSettings;
     localStorage.clear();
     jest.doMock('react', () => React);
     for (const name of unrelatedModules) {
@@ -166,72 +148,57 @@ describe('Intercom startup identity synchronization', () => {
       '@onekeyhq/shared/src/modules3rdParty/intercom/openFailure',
       () => ({ notifyIntercomOpenFailed: jest.fn() }),
     );
-    jest.doMock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+    jest.doMock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
       ...jest.requireActual<
-        typeof import('@onekeyhq/shared/src/modules3rdParty/intercom/utils')
-      >('@onekeyhq/shared/src/modules3rdParty/intercom/utils'),
+        typeof import('@onekeyhq/shared/src/utils/getInstanceId')
+      >('@onekeyhq/shared/src/utils/getInstanceId'),
       getInstanceId: async () => 'test-instance',
       getIntercomLanguageOverride: async () => 'en',
     }));
     ({ useIntercomInit } = await import('./Bootstrap'));
-    intercom = await import('@onekeyhq/shared/src/modules3rdParty/intercom');
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('defers only the first unchanged identity sync and cancels it on unmount', async () => {
+  it('defers background polling for ten seconds and cancels it on unmount', async () => {
     const first = render(<SessionSync />);
     await act(async () => {
       await jest.advanceTimersByTimeAsync(9000);
     });
-    expect(mockSdk.default).not.toHaveBeenCalled();
+    expect(mockStartPolling).not.toHaveBeenCalled();
     first.unmount();
     await act(async () => {
       await jest.advanceTimersByTimeAsync(1000);
     });
-    expect(mockSdk.default).not.toHaveBeenCalled();
+    expect(mockStartPolling).not.toHaveBeenCalled();
 
     const second = render(<SessionSync />);
     await act(async () => {
       await jest.advanceTimersByTimeAsync(10_000);
     });
-    expect(mockSdk.default).toHaveBeenCalledTimes(1);
+    expect(mockStartPolling).toHaveBeenCalledTimes(1);
+    expect(mockInit).not.toHaveBeenCalled();
     second.unmount();
   });
 
   it.each([null, 'B'])(
-    'retires manually opened A before the initial timer when identity becomes %s',
+    'synchronizes identity immediately when it becomes %s before the startup timer',
     async (nextUser) => {
       const screen = render(<SessionSync />);
-      await act(async () => {
-        await intercom.showIntercom();
-        mockOnUnread?.(4);
-        await jest.advanceTimersByTimeAsync(0);
-      });
-      expect(mockSdk.show).toHaveBeenCalledTimes(1);
-      expect(intercom.getIntercomUnreadCount()).toBe(4);
-      expect(mockSdk.shutdown).not.toHaveBeenCalled();
-
       mockUserId = nextUser;
       screen.rerender(<SessionSync />);
       await act(async () => {
         await jest.advanceTimersByTimeAsync(0);
       });
-      expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
-      expect(intercom.getIntercomUnreadCount()).toBe(0);
-      expect(mockSdk.boot).toHaveBeenCalledTimes(1);
-      const expectedJwt = nextUser ? createToken('intercom-B') : undefined;
-      expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
-        expectedJwt,
-      );
-
+      expect(mockInit).toHaveBeenCalledTimes(1);
+      expect(mockStartPolling).not.toHaveBeenCalled();
       await act(async () => {
         await jest.advanceTimersByTimeAsync(10_000);
       });
-      expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
-      expect(mockSdk.boot).toHaveBeenCalledTimes(1);
+      expect(mockInit).toHaveBeenCalledTimes(1);
+      expect(mockStartPolling).toHaveBeenCalledTimes(1);
       screen.unmount();
     },
   );

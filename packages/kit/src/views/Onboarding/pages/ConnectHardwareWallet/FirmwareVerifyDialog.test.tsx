@@ -3,6 +3,9 @@
 
 import type { ReactNode } from 'react';
 
+const mockCloseSupportDialog = jest.fn<Promise<void>, []>(async () => {});
+const mockSupportDialog = { close: mockCloseSupportDialog };
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -48,12 +51,16 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Div,
     XStack: Div,
     YStack: Div,
-    useDialogInstance: jest.fn(),
+    useDialogInstance: () => mockSupportDialog,
   };
 });
 
 jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: 'HyperlinkText',
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
+  showIntercom: jest.fn(async () => undefined),
 }));
 
 let mockDeveloperMode = false;
@@ -158,6 +165,7 @@ import {
   screen,
 } from '@testing-library/react';
 
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -716,6 +724,43 @@ describe('DeviceStage certificate error classification', () => {
 });
 
 describe('EnumBasicDialogContentContainer', () => {
+  it.each([
+    EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
+    EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected,
+    EFirmwareAuthenticationDialogContentType.network_error,
+    EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+    EFirmwareAuthenticationDialogContentType.error_fallback,
+    EFirmwareAuthenticationDialogContentType.defective_firmware_detected,
+  ])(
+    'waits for the %s dialog to close before opening support',
+    async (contentType) => {
+      jest.clearAllMocks();
+      let finishClose: () => void = () => {};
+      mockCloseSupportDialog.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishClose = resolve;
+          }),
+      );
+      const onActionPress = jest.fn();
+      render(
+        <EnumBasicDialogContentContainer
+          contentType={contentType}
+          errorObj={{ code: 0 }}
+          onActionPress={onActionPress}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_contact_us }),
+      );
+      expect(mockCloseSupportDialog).toHaveBeenCalledTimes(1);
+      expect(showIntercom).not.toHaveBeenCalled();
+      await act(async () => finishClose());
+      expect(showIntercom).toHaveBeenCalledTimes(1);
+      expect(onActionPress).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([
     EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
     EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected,
