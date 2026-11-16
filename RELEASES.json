@@ -1,0 +1,12 @@
+[
+  {
+    "seq": 1,
+    "commit": "4942b89ea65eebd4a89664908185fa4f38029182",
+    "date": "2026-11-16T10:16:35Z",
+    "prs": [
+      "#14538",
+      "#14545"
+    ],
+    "notes": "Add Unitas Earn support (#14538), unify mobile trading button size and colors (#14545)"
+  }
+]
