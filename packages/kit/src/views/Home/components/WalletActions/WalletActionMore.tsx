@@ -5,7 +5,6 @@ import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
-import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import {
   buildOverviewOwnerKey,
@@ -110,15 +109,6 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
     ],
   );
 
-  const rewardCenterConfig = useMemo(
-    () =>
-      getRewardCenterConfig({
-        accountId: account?.id ?? '',
-        networkId: network?.id ?? '',
-      }),
-    [account?.id, network?.id],
-  );
-
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
       walletId: activeAccount?.wallet?.id,
@@ -210,7 +200,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
             case 'sign':
               return resolvedVaultSettings?.enabledInternalSignAndVerify;
             case 'reward':
-              return !!rewardCenterConfig;
+              return networkUtils.isTronNetworkByNetworkId(network?.id);
             case 'approvals':
               return isApprovalEnabled;
             case 'addressList':
@@ -266,13 +256,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                 />
               );
             case 'reward':
-              return rewardCenterConfig ? (
+              return (
                 <WalletActionRewardCenter
                   key="reward"
                   onClose={handleActionListClose}
-                  rewardCenterConfig={rewardCenterConfig}
                 />
-              ) : null;
+              );
             case 'approvals':
               return (
                 <WalletActionApprovals
@@ -384,7 +373,6 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       config.moreActions,
       show,
       vaultSettings,
-      rewardCenterConfig,
       isApprovalEnabled,
       isAddressListEnabled,
       getActionCustomization,

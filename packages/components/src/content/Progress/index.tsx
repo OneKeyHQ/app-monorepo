@@ -19,6 +19,7 @@ export type IProgressProps = {
    * @platform web
    */
   animated?: boolean;
+  indicatorTransition?: TMProgressProps['transition'];
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
@@ -45,6 +46,7 @@ export function Progress({
   size,
   value,
   animated,
+  indicatorTransition = 'quick',
   progressColor = '$neutral5',
   indicatorColor = '$bgPrimary',
   gap = 0,
@@ -85,7 +87,9 @@ export function Progress({
           // https://github.com/tamagui/tamagui/issues/2753
           // https://github.com/tamagui/tamagui/issues/2847
           // Enabling animation on Native platforms causes the progress bar to fail initial rendering
-          transition={!platformEnv.isNative && animated ? 'quick' : null}
+          transition={
+            !platformEnv.isNative && animated ? indicatorTransition : null
+          }
           backgroundColor={indicatorColor}
           borderRadius="$full"
         />
