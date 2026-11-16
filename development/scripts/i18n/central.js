@@ -251,6 +251,16 @@ function verifiedArchive(name, archive, sumsText) {
   return { sha256: actual, files: textFiles(readZip(archive)) };
 }
 
+/**
+ * The pull reports the release's version and commit, so its manifest must
+ * describe this very archive.
+ */
+function assertManifestDescribes(manifest, name, digest, tag) {
+  const described = Array.isArray(manifest?.assets) ? manifest.assets : [];
+  if (described.find((item) => item?.name === name)?.sha256 !== digest)
+    throw new Error(`${name} of ${tag} does not match manifest.json.`);
+}
+
 /** Assets of the project's release in a channel: app-latest by default. */
 async function releaseAssets({
   channel = releaseChannel(),
@@ -275,12 +285,16 @@ async function releaseAssets({
 }
 
 // Releases are replaced in place; a read caught between the files of an update
-// fails its checksum or misses a file, and succeeds when read once more.
+// fails a checksum or misses a file, and succeeds when read once more.
 async function readRelease(read, retryDelayMs = 3000) {
   try {
     return await read();
   } catch (error) {
-    if (!/does not match SHA256SUMS|has no |HTTP 404/.test(error.message))
+    if (
+      !/does not match (SHA256SUMS|manifest\.json)|has no |HTTP 404/.test(
+        error.message,
+      )
+    )
       throw error;
     await delay(retryDelayMs);
     return read();
@@ -295,13 +309,15 @@ async function fromRelease({ channel, api, retryDelayMs } = {}) {
       api,
     });
     const name = `${PROJECT_SLUG}.zip`;
+    const archive = verifiedArchive(name, await download(name), sums);
+    assertManifestDescribes(manifest, name, archive.sha256, tag);
     return {
       source: 'release',
       tag,
       url,
       version: manifest.version,
       commit: manifest.commit,
-      files: verifiedArchive(name, await download(name), sums).files,
+      files: archive.files,
     };
   }, retryDelayMs);
 }
@@ -314,11 +330,13 @@ async function sourceFromRelease({ channel, api, retryDelayMs } = {}) {
       api,
     });
     const name = `${PROJECT_SLUG}.source.zip`;
+    const archive = verifiedArchive(name, await download(name), sums);
+    assertManifestDescribes(manifest, name, archive.sha256, tag);
     return {
       tag,
       version: manifest.version,
       commit: manifest.commit,
-      files: verifiedArchive(name, await download(name), sums).files,
+      files: archive.files,
     };
   }, retryDelayMs);
 }
@@ -392,19 +410,36 @@ async function fromPullRequest({
   }
 }
 
-function assertSafePath(relative) {
+/**
+ * Where an exported file is written under localeRoot. Backslashes are refused
+ * (Windows treats them as separators) and the resolved path must stay inside
+ * localeRoot. `paths` is node:path, or path.win32 / path.posix in tests.
+ */
+function localeDestination(localeRoot, relative, paths = path) {
+  const destination = paths.resolve(localeRoot, relative);
+  const inside = paths.relative(localeRoot, destination);
   if (
     !relative ||
-    path.isAbsolute(relative) ||
-    relative.split('/').some((part) => part === '..' || part === '')
+    relative.includes('\\') ||
+    paths.isAbsolute(relative) ||
+    relative.split('/').some((part) => part === '..' || part === '') ||
+    !inside ||
+    inside === '..' ||
+    inside.startsWith(`..${paths.sep}`) ||
+    paths.isAbsolute(inside)
   )
     throw new Error(`Unsafe path in exported files: ${relative}`);
+  return destination;
 }
 
 /** Write exported files under LOCALE_ROOT; returns how many were written. */
 function writeLocaleFiles(outputRoot, result) {
   const localeRoot = path.join(outputRoot, LOCALE_ROOT);
-  for (const relative of Object.keys(result.files)) assertSafePath(relative);
+  // Every file is checked before anything is deleted or written.
+  const destinations = Object.keys(result.files).map((relative) => [
+    relative,
+    localeDestination(localeRoot, relative),
+  ]);
   // Locale JSON files that left the export must not linger.
   const jsonDir = path.join(localeRoot, 'json');
   if (fs.existsSync(jsonDir)) {
@@ -416,12 +451,11 @@ function writeLocaleFiles(outputRoot, result) {
         fs.unlinkSync(path.join(jsonDir, name));
     }
   }
-  for (const [relative, content] of Object.entries(result.files)) {
-    const target = path.join(localeRoot, relative);
+  for (const [relative, target] of destinations) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, content);
+    fs.writeFileSync(target, result.files[relative]);
   }
-  return Object.keys(result.files).length;
+  return destinations.length;
 }
 
 module.exports = {
@@ -436,5 +470,6 @@ module.exports = {
   fromPullRequest,
   sourceFromRelease,
   parseSums,
+  localeDestination,
   writeLocaleFiles,
 };

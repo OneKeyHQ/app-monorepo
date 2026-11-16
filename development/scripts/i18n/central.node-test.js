@@ -12,6 +12,8 @@ const {
   githubApi,
   resolveToken,
   fromRelease,
+  localeDestination,
+  sourceFromRelease,
   writeLocaleFiles,
 } = require('./central');
 const { run: pull } = require('./i18n-pull');
@@ -335,7 +337,16 @@ test('pulls the release of a channel into the locale directory', async (t) => {
     'localeJsonMap.ts': 'export const LOCALES = {};\n',
   };
   const zip = createZip(exported);
-  const release = (tag, sums = `${sha256(zip)}  app.zip\n`) => ({
+  const manifest = {
+    version: '2026.11.13.2',
+    commit: 'c1',
+    assets: [{ name: 'app.zip', sha256: sha256(zip) }],
+  };
+  const release = (
+    tag,
+    sums = `${sha256(zip)}  app.zip\n`,
+    described = manifest,
+  ) => ({
     [`GET ${REPO}/releases/tags/${tag}`]: {
       html_url: `https://github.com/OneKeyHQ/onekey-i18n/releases/tag/${tag}`,
       assets: ['app.zip', 'SHA256SUMS', 'manifest.json'].map((name) => ({
@@ -345,9 +356,7 @@ test('pulls the release of a channel into the locale directory', async (t) => {
     },
     [`DOWNLOAD ${tag}:app.zip`]: zip,
     [`DOWNLOAD ${tag}:SHA256SUMS`]: Buffer.from(sums),
-    [`DOWNLOAD ${tag}:manifest.json`]: Buffer.from(
-      JSON.stringify({ version: '2026.11.13.2', commit: 'c1' }),
-    ),
+    [`DOWNLOAD ${tag}:manifest.json`]: Buffer.from(JSON.stringify(described)),
   });
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -420,6 +429,75 @@ test('pulls the release of a channel into the locale directory', async (t) => {
     }),
     /does not match SHA256SUMS/,
   );
+
+  // The version and commit it reports must describe the archive it pulled: a
+  // manifest read before its update is read once more, and one that never
+  // matches (or is malformed) is refused.
+  const outdated = {
+    version: '2026.11.13.1',
+    commit: 'c0',
+    assets: [{ name: 'app.zip', sha256: '0'.repeat(64) }],
+  };
+  const updating = release('app-latest');
+  let manifests = 0;
+  Object.defineProperty(updating, 'DOWNLOAD app-latest:manifest.json', {
+    enumerable: true,
+    get: () =>
+      Buffer.from(JSON.stringify((manifests += 1) === 1 ? outdated : manifest)),
+  });
+  const updated = await fromRelease({
+    api: fakeApi(updating),
+    retryDelayMs: 0,
+  });
+  assert.deepEqual(
+    [manifests, updated.version, updated.commit],
+    [2, '2026.11.13.2', 'c1'],
+  );
+  for (const described of [
+    { ...manifest, assets: outdated.assets },
+    { ...manifest, assets: {} },
+    null,
+  ]) {
+    await assert.rejects(
+      fromRelease({
+        api: fakeApi(release('app-latest', undefined, described)),
+        retryDelayMs: 0,
+      }),
+      /app\.zip of app-latest does not match manifest\.json/,
+    );
+  }
+});
+
+test('release source data must match its manifest too', async () => {
+  const zip = createZip(sourceFixture().files);
+  const routes = (assets) => ({
+    [`GET ${REPO}/releases/tags/app-latest`]: {
+      html_url:
+        'https://github.com/OneKeyHQ/onekey-i18n/releases/tag/app-latest',
+      assets: ['app.source.zip', 'SHA256SUMS', 'manifest.json'].map((name) => ({
+        name,
+        url: `app-latest:${name}`,
+      })),
+    },
+    'DOWNLOAD app-latest:app.source.zip': zip,
+    'DOWNLOAD app-latest:SHA256SUMS': Buffer.from(
+      `${sha256(zip)}  app.source.zip\n`,
+    ),
+    'DOWNLOAD app-latest:manifest.json': Buffer.from(
+      JSON.stringify({ version: '2026.11.16.1', commit: 'c1', assets }),
+    ),
+  });
+  const source = await sourceFromRelease({
+    api: fakeApi(routes([{ name: 'app.source.zip', sha256: sha256(zip) }])),
+  });
+  assert.deepEqual([source.version, source.commit], ['2026.11.16.1', 'c1']);
+  await assert.rejects(
+    sourceFromRelease({
+      api: fakeApi(routes([{ name: 'app.zip', sha256: sha256(zip) }])),
+      retryDelayMs: 0,
+    }),
+    /app\.source\.zip of app-latest does not match manifest\.json/,
+  );
 });
 
 test('PR previews wait for CI and come from the i18n-preview artifact', async () => {
@@ -469,15 +547,49 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
   assert.deepEqual(Object.keys(result.files), ['json/en_US.json']);
 });
 
-test('locale files are never written outside the locale directory', () => {
-  assert.throws(
-    () =>
-      writeLocaleFiles(os.tmpdir(), {
-        source: 'release',
-        commit: 'x',
-        files: { '../escape.json': '{}' },
-      }),
-    /Unsafe path/,
+test('locale files are never written outside the locale directory', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const stale = path.join(root, LOCALE_ROOT, 'json/stale.json');
+  fs.mkdirSync(path.dirname(stale), { recursive: true });
+  fs.writeFileSync(stale, '{}');
+  for (const name of [
+    '../escape.json',
+    '..\\escape.json',
+    'json\\..\\..\\escape.json',
+  ]) {
+    assert.throws(
+      () =>
+        writeLocaleFiles(root, {
+          source: 'release',
+          commit: 'x',
+          files: { 'json/en_US.json': '{}', [name]: '{}' },
+        }),
+      /Unsafe path/,
+    );
+  }
+  // Every file is checked before anything is deleted or written.
+  assert.equal(fs.existsSync(stale), true);
+  assert.equal(
+    fs.existsSync(path.join(root, LOCALE_ROOT, 'json/en_US.json')),
+    false,
+  );
+
+  // Windows also treats backslashes and drive-relative names as paths.
+  const windowsRoot = 'C:\\repo\\packages\\shared\\src\\locale';
+  for (const name of ['json\\..\\..\\escape.json', 'D:escape.json']) {
+    assert.throws(
+      () => localeDestination(windowsRoot, name, path.win32),
+      /Unsafe path/,
+    );
+  }
+  assert.equal(
+    localeDestination(windowsRoot, 'json/en_US.json', path.win32),
+    `${windowsRoot}\\json\\en_US.json`,
+  );
+  assert.equal(
+    localeDestination('/repo/locale', 'json/en_US.json', path.posix),
+    '/repo/locale/json/en_US.json',
   );
 });
 
