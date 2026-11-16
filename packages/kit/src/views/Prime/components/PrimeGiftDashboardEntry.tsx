@@ -31,7 +31,7 @@ function dashboardEntryDescription(
     });
   }
   return intl.formatMessage(
-    { id: ETranslations.prime_gift_claim_duration__action },
+    { id: ETranslations.prime_gift_dashboard_claim_duration__desc },
     { duration },
   );
 }

@@ -183,7 +183,7 @@ it('renders nothing until a Pro 2 still has Prime to claim', () => {
 it('opens the existing claim modal for one device and selects a device in a dialog for several', async () => {
   mockDevices = [device('SN1', 6)];
   const view = renderEntry();
-  expect(screen.getByText('Claim 6 months of Prime')).toBeTruthy();
+  expect(screen.getByText('Claim 6 months')).toBeTruthy();
   expect(screen.queryByText('Learn more')).toBeNull();
   fireEvent.click(screen.getByTestId('prime-gift-dashboard-entry'));
   expect(mockOfferClick).toHaveBeenCalledWith({
@@ -205,9 +205,7 @@ it('opens the existing claim modal for one device and selects a device in a dial
       <PrimeGiftDashboardEntry devices={mockDevices} />
     </IntlProvider>,
   );
-  expect(
-    screen.getByText('Claim the Prime included with your device.'),
-  ).toBeTruthy();
+  expect(screen.getByText('Available to claim')).toBeTruthy();
   fireEvent.click(screen.getByTestId('prime-gift-dashboard-entry'));
   fireEvent.click(screen.getByTestId('prime-gift-dashboard-entry'));
   expect(mockOfferClick).toHaveBeenLastCalledWith({
@@ -292,9 +290,9 @@ it('shows the paid-subscription condition for current Prime members without bloc
   mockDevices = [device('SN1', 6)];
   renderEntry(true);
   expect(
-    screen.getByText('You can still claim if you’re not on a paid Prime plan.'),
+    screen.getByText('Available to claim without a paid subscription'),
   ).toBeTruthy();
-  expect(screen.queryByText('Claim 6 months of Prime')).toBeNull();
+  expect(screen.queryByText('Claim 6 months')).toBeNull();
   fireEvent.click(screen.getByTestId('prime-gift-dashboard-entry'));
   expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeGiftModal, {
     screen: EPrimeGiftPages.PrimeGift,
