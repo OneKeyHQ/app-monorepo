@@ -1349,7 +1349,13 @@ class ServiceMarketV2 extends ServiceBase {
         ),
       ),
     );
-    return responses.flatMap((response) => response.data.data?.items ?? []);
+    return responses.flatMap((response) => {
+      const { code, data } = response.data;
+      if (code !== 0 || !Array.isArray(data?.items)) {
+        throw new OneKeyLocalError('Invalid market stock batch response');
+      }
+      return data.items;
+    });
   }
 
   @backgroundMethod()

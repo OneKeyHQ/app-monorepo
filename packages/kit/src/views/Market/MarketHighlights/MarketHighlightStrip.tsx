@@ -5,6 +5,7 @@ import Animated, {
   Easing,
   Extrapolation,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -232,8 +233,7 @@ function HighlightCarousel({
   // snaps back to 0 once the copy is fully in view.
   const position = useSharedValue(0);
   const stepRef = useRef(0);
-  // Index of the item that is (or is becoming) visible. The trailing copy of
-  // the first item is never active; its original row takes over instead.
+  // Keep the trailing copy interactive until it snaps back to the first row.
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -253,7 +253,7 @@ function HighlightCarousel({
     const advance = () => {
       const next = stepRef.current + 1;
       stepRef.current = next >= count ? 0 : next;
-      setActiveIndex(stepRef.current);
+      setActiveIndex(next);
       position.value = withTiming(
         next,
         {
@@ -263,6 +263,7 @@ function HighlightCarousel({
         (finished) => {
           if (finished && next >= count) {
             position.value = 0;
+            runOnJS(setActiveIndex)(0);
           }
         },
       );
