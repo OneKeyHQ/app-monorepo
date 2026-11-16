@@ -398,6 +398,43 @@ describe('Home native history financial display parity', () => {
   });
 });
 
+describe('Home history description boundary', () => {
+  const build = (tableLayout: boolean, to: string, updatedAt?: number) => {
+    const tx = history([{ ...transfer('7'), to }], []);
+    tx.decodedTx.updatedAt = updatedAt;
+    return buildHistoryActivityRow({
+      history: tx,
+      tableLayout,
+      isUTXO: true,
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+  };
+
+  // The address part opens the address sheet and the time in front of it does
+  // not, so the row reports where the address starts.
+  it('reports the text in front of the address part', () => {
+    const table = build(true, 'b', Date.UTC(2026, 0, 1, 8, 48));
+    expect(table.descriptionPrefix).toMatch(/ • $/);
+    expect(table.row.description).toBe(`${table.descriptionPrefix}b`);
+
+    // Phone rows show the address alone.
+    const stacked = build(false, 'b', Date.UTC(2026, 0, 1, 8, 48));
+    expect(stacked.descriptionPrefix).toBe('');
+    expect(stacked.row.description).toBe('b');
+
+    expect(build(true, 'b').descriptionPrefix).toBe('');
+  });
+
+  it('keeps a description that is only the time free of a prefix', () => {
+    const timeOnly = build(false, '', Date.UTC(2026, 0, 1, 8, 48));
+    expect(timeOnly.descriptionPrefix).toBe('');
+    expect(timeOnly.row.description).not.toBe('');
+    expect(timeOnly.row.description).not.toContain(' • ');
+  });
+});
+
 describe('Home history shielded endpoints', () => {
   const gatedRow = ({
     localWalletAddresses,
