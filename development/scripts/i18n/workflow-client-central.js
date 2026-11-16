@@ -1,6 +1,6 @@
 // Workflow client for OneKeyHQ/onekey-i18n over the GitHub API; no checkout.
-// It reads the canonical app data of the latest release (app.source.zip),
-// applies edits in memory, and finalize() commits the changed files to a new
+// It reads the canonical app data of the latest release (app.source.zip), or
+// of a commit such as a copy PR's when verifying, applies edits in memory, and finalize() commits the changed files to a new
 // branch and opens a pull request there. The interface the workflow used with
 // Lokalise (project, findKey, create, updateTranslation, request) is kept, so
 // scan, preview and approval are unchanged.
@@ -11,6 +11,7 @@ const {
   CENTRAL_REPO,
   PROJECT_SLUG,
   githubApi,
+  sourceFromCommit,
   sourceFromRelease,
 } = require('./central');
 const { localKey } = require('./workflow-data');
@@ -56,6 +57,15 @@ function blobSha(text) {
 }
 
 /** keys.json ref of a key: its name, or "<name>@@<key_id>" for mirrored duplicates. */
+const proposalOf = (pull, branch, commit, files) => ({
+  number: pull.number,
+  url: pull.html_url,
+  author: pull.user?.login ?? null,
+  branch,
+  commit,
+  files,
+});
+
 function resolveRef(keyMeta, name) {
   if (keyMeta[name]) return name;
   const matches = Object.keys(keyMeta).filter(
@@ -75,9 +85,12 @@ class CentralClient {
     // Branch that copy PRs target. Another branch only to try unmerged
     // onekey-i18n changes end to end; its CI must build the PR preview.
     base = process.env.ONEKEY_I18N_BASE || 'main',
+    // An onekey-i18n commit to read instead of the release, e.g. a copy PR's.
+    ref,
   } = {}) {
     this.api = api;
     this.base = base;
+    this.ref = ref;
     // { tag, commit, files } of app.source.zip; injected by tests.
     this.source = source;
     this.state = null;
@@ -86,7 +99,11 @@ class CentralClient {
 
   async load() {
     if (!this.state) {
-      this.source = this.source || (await sourceFromRelease({ api: this.api }));
+      this.source =
+        this.source ||
+        (this.ref
+          ? await sourceFromCommit({ commit: this.ref, api: this.api })
+          : await sourceFromRelease({ api: this.api }));
       const parse = (name) => JSON.parse(this.source.files[name]);
       const project = parse('project.json');
       this.state = {
@@ -266,12 +283,25 @@ class CentralClient {
    * Commit the changed files to a new onekey-i18n branch and open a PR
    * against the base branch (main). Refuses when the base changed any of those
    * files after the release that was read, so nobody else's edit is
-   * overwritten. Returns null without changes.
+   * overwritten. With a key (apply passes its approval) the branch is named
+   * after it, so a rerun reuses the PR an earlier run opened even if GitHub's
+   * answer was lost. Returns null without changes.
    */
-  async finalize({ title, body, branchHint = PROJECT_SLUG }) {
+  async finalize({ title, body, branchHint = PROJECT_SLUG, key }) {
     if (this.changed.size === 0) return null;
     const repo = `/repos/${CENTRAL_REPO}`;
     const files = [...this.changed].toSorted();
+    const named = key ? `i18n/${branchHint}-${key}` : null;
+    if (named) {
+      const owner = CENTRAL_REPO.split('/')[0];
+      const [open] = await this.api.get(
+        `${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${named}`)}`,
+      );
+      if (open) {
+        this.changed.clear();
+        return proposalOf(open, named, open.head.sha, files);
+      }
+    }
     const head = (await this.api.get(`${repo}/git/ref/heads/${this.base}`))
       .object.sha;
     if (head !== this.source.commit) {
@@ -319,11 +349,20 @@ class CentralClient {
       tree: newTree.sha,
       parents: [head],
     });
-    const branch = `i18n/${branchHint}-${commit.sha.slice(0, 7)}`;
-    await this.api.request('POST', `${repo}/git/refs`, {
-      ref: `refs/heads/${branch}`,
-      sha: commit.sha,
-    });
+    const branch = named ?? `i18n/${branchHint}-${commit.sha.slice(0, 7)}`;
+    try {
+      await this.api.request('POST', `${repo}/git/refs`, {
+        ref: `refs/heads/${branch}`,
+        sha: commit.sha,
+      });
+    } catch (error) {
+      // An earlier run of the same plan created the branch but no open PR.
+      if (!named || error.status !== 422) throw error;
+      await this.api.request('PATCH', `${repo}/git/refs/heads/${branch}`, {
+        sha: commit.sha,
+        force: true,
+      });
+    }
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
       head: branch,
@@ -331,14 +370,7 @@ class CentralClient {
       body,
     });
     this.changed.clear();
-    return {
-      number: pull.number,
-      url: pull.html_url,
-      author: pull.user?.login ?? null,
-      branch,
-      commit: commit.sha,
-      files,
-    };
+    return proposalOf(pull, branch, commit.sha, files);
   }
 }
 

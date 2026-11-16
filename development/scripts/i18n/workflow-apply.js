@@ -274,12 +274,35 @@ function proposalFor(plan) {
       '',
     ].join('\n'),
     branchHint: `app-${branch.replace(/[^A-Za-z0-9._-]+/g, '-')}`,
+    // One branch per approved plan, so a rerun finds the PR it already opened.
+    key: plan.approval.slice(0, 12),
+  };
+}
+
+/**
+ * The verify command. Until the onekey-i18n PR that apply opened is merged and
+ * released, the approved copy is only in that PR, so the commit recorded in
+ * this plan's receipt is checked; without one, the release (client) is.
+ */
+async function verifyPlan({ file, client, clientAt, root = ROOT }) {
+  const plan = readPlan(file);
+  const receiptFile = `${file}.receipt.json`;
+  const receipt = fs.existsSync(receiptFile) ? readJson(receiptFile) : null;
+  const proposal =
+    receipt?.approval === plan.approval ? receipt.proposal : undefined;
+  const remote = proposal?.commit ? clientAt(proposal.commit) : client;
+  await verifyProject(plan, remote, root);
+  await verifyRemote(plan, remote);
+  return {
+    ...verifyLocal(plan, root),
+    checked: proposal?.commit ? proposal.url : 'release',
   };
 }
 
 module.exports = {
   applyPlan,
   verifyLocal,
+  verifyPlan,
   verifyRemote,
   verifyProject,
   inspectEntry,

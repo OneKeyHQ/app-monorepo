@@ -12,6 +12,7 @@ const {
   githubApi,
   resolveToken,
   fromRelease,
+  loadLocalSettings,
   localeDestination,
   sourceFromRelease,
   writeLocaleFiles,
@@ -328,6 +329,105 @@ test('finalize can open the PR against another onekey-i18n branch', async () => 
   assert.equal(bodies.pull.base, base);
 });
 
+test('finalize with a key reuses the PR an earlier run of the plan opened', async () => {
+  const branch = 'i18n/app-feat-x-0123456789ab';
+  const lookup = `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(
+    `OneKeyHQ:${branch}`,
+  )}`;
+  const proposal = {
+    title: 't',
+    branchHint: 'app-feat-x',
+    key: '0123456789ab',
+  };
+  const edit = (client) =>
+    client.updateTranslation(translationId('global::cancel', 'zh_CN'), '取消');
+
+  // GitHub opened the PR but its answer was lost: the rerun finds that PR.
+  const opened = fakeApi({
+    ...commitRoutes().routes,
+    [lookup]: [
+      {
+        number: 7,
+        html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+        user: { login: 'originalix' },
+        head: { sha: 'c5' },
+      },
+    ],
+  });
+  const rerun = new CentralClient({ api: opened, source: sourceFixture() });
+  await edit(rerun);
+  assert.deepEqual(await rerun.finalize(proposal), {
+    number: 7,
+    url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+    author: 'originalix',
+    branch,
+    commit: 'c5',
+    files: ['locales/zh_CN.json'],
+  });
+  assert.deepEqual(
+    opened.calls.filter(([method]) => method !== 'GET'),
+    [],
+  );
+
+  // The branch exists without a PR: it moves to the new commit, then the PR opens.
+  const { routes, bodies } = commitRoutes();
+  const partial = fakeApi({
+    ...routes,
+    [lookup]: [],
+    [`POST ${REPO}/git/refs`]: () => {
+      throw Object.assign(new Error('Reference already exists'), {
+        status: 422,
+      });
+    },
+    [`PATCH ${REPO}/git/refs/heads/${branch}`]: (body) => {
+      bodies.moved = body;
+      return {};
+    },
+  });
+  const resumed = new CentralClient({ api: partial, source: sourceFixture() });
+  await edit(resumed);
+  const result = await resumed.finalize(proposal);
+  assert.deepEqual(bodies.moved, { sha: 'c2abcdef0123', force: true });
+  assert.deepEqual(
+    [result.number, result.branch, bodies.pull.head],
+    [9, branch, branch],
+  );
+});
+
+test('a client bound to a commit reads that commit instead of the release', async () => {
+  const { files } = sourceFixture();
+  const project = `${REPO}/contents/projects/app`;
+  const entry = (name) => ({
+    type: 'file',
+    name: name.split('/').pop(),
+    path: `projects/app/${name}`,
+  });
+  const api = fakeApi({
+    [`GET ${project}?ref=c2`]: [
+      ...['project.json', 'keys.json', 'review.json'].map(entry),
+      { type: 'dir', name: 'locales', path: 'projects/app/locales' },
+    ],
+    [`GET ${project}/locales?ref=c2`]: [
+      'locales/en_US.json',
+      'locales/zh_CN.json',
+    ].map(entry),
+    ...Object.fromEntries(
+      Object.entries(files).map(([name, text]) => [
+        `DOWNLOAD ${project}/${name}?ref=c2`,
+        Buffer.from(text),
+      ]),
+    ),
+  });
+  const client = new CentralClient({ api, ref: 'c2' });
+  const key = await client.findKey('global.cancel');
+  assert.equal(key.key_id, 'global::cancel');
+  assert.equal(client.source.commit, 'c2');
+  assert.equal(
+    api.calls.some(([, endpoint]) => endpoint.includes('/releases/')),
+    false,
+  );
+});
+
 test('pulls the release of a channel into the locale directory', async (t) => {
   const exported = {
     'json/en_US.json': '{\n  "global.cancel": "Cancel"\n}',
@@ -590,6 +690,47 @@ test('locale files are never written outside the locale directory', (t) => {
   assert.equal(
     localeDestination('/repo/locale', 'json/en_US.json', path.posix),
     '/repo/locale/json/en_US.json',
+  );
+});
+
+test('.env fills only unset ONEKEY_I18N_* settings', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-env-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, '.env');
+  fs.writeFileSync(
+    file,
+    [
+      '# i18n',
+      'ONEKEY_I18N_TOKEN="from-dotenv"',
+      'export ONEKEY_I18N_CHANNEL=test # trying a branch',
+      'ONEKEY_I18N_BASE=feat/x',
+      'ONEKEY_I18N_EMPTY=',
+      'GH_TOKEN=release-token',
+    ].join('\n'),
+  );
+  const env = { ONEKEY_I18N_BASE: 'main' };
+  assert.deepEqual(loadLocalSettings({ env, file }), [
+    'ONEKEY_I18N_TOKEN',
+    'ONEKEY_I18N_CHANNEL',
+  ]);
+  // The shell wins, and other .env entries such as GH_TOKEN stay unread.
+  assert.deepEqual(
+    [
+      env.ONEKEY_I18N_TOKEN,
+      env.ONEKEY_I18N_CHANNEL,
+      env.ONEKEY_I18N_BASE,
+      env.ONEKEY_I18N_EMPTY,
+      env.GH_TOKEN,
+    ],
+    ['from-dotenv', 'test', 'main', undefined, undefined],
+  );
+  assert.deepEqual(resolveToken({ env }), {
+    token: 'from-dotenv',
+    source: 'ONEKEY_I18N_TOKEN from .env',
+  });
+  assert.deepEqual(
+    loadLocalSettings({ env: {}, file: path.join(dir, 'missing') }),
+    [],
   );
 });
 

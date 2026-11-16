@@ -6,12 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { parseArgs } = require('node:util');
 
-const {
-  applyPlan,
-  verifyLocal,
-  verifyRemote,
-  verifyProject,
-} = require('./workflow-apply');
+const { loadLocalSettings } = require('./central');
+const { applyPlan, verifyPlan } = require('./workflow-apply');
 const { CentralClient } = require('./workflow-client-central');
 const {
   ROOT,
@@ -235,10 +231,11 @@ async function run(args = process.argv.slice(2)) {
       unrelatedChanges: receipt.verification.unrelatedChanges,
     };
   }
-  const plan = readPlan(file);
-  await verifyProject(plan, client, ROOT);
-  await verifyRemote(plan, client);
-  return verifyLocal(plan);
+  return verifyPlan({
+    file,
+    client,
+    clientAt: (commit) => new CentralClient({ ref: commit }),
+  });
 }
 
 async function runAdd(args = process.argv.slice(2)) {
@@ -323,12 +320,14 @@ function print(result) {
   );
 }
 
-if (require.main === module)
+if (require.main === module) {
+  loadLocalSettings();
   run()
     .then(print)
     .catch((error) => {
       console.error(error.message);
       process.exitCode = 1;
     });
+}
 
 module.exports = { run, runAdd, print };

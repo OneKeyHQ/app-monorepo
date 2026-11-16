@@ -1242,6 +1242,7 @@ async function main() {
 }
 
 if (require.main === module) {
+  require('./central').loadLocalSettings();
   void main();
 }
 

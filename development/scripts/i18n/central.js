@@ -35,13 +35,12 @@ function resolveToken({ write = false, env = process.env } = {}) {
       : ['ONEKEY_I18N_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN']
   ).find((item) => env[item]);
   if (name) {
-    const fromVault = (env.OP_RUN_LOADED || '').split(' ').includes(name);
-    return {
-      token: env[name],
-      source: fromVault
-        ? `${name} from 1Password (yarn op)`
-        : `${name} environment variable`,
-    };
+    const loadedBy = (list) => (list || '').split(' ').includes(name);
+    let source = `${name} environment variable`;
+    if (loadedBy(env.OP_RUN_LOADED))
+      source = `${name} from 1Password (yarn op)`;
+    else if (loadedBy(env.DOTENV_I18N_LOADED)) source = `${name} from .env`;
+    return { token: env[name], source };
   }
   try {
     const token = execFileSync('gh', ['auth', 'token'], {
@@ -58,6 +57,39 @@ function resolveToken({ write = false, env = process.env } = {}) {
       { cause: error },
     );
   }
+}
+
+/**
+ * ONEKEY_I18N_* settings from the repository's .env (see .env.example), for
+ * names the shell or yarn op left unset. Other entries, such as GH_TOKEN, are
+ * not read: they must not become the identity of a copy PR. Command entry
+ * points call this; tests do not.
+ */
+function loadLocalSettings({
+  env = process.env,
+  file = path.join(ROOT, '.env'),
+} = {}) {
+  let text = '';
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const loaded = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match =
+      /^\s*(?:export\s+)?(ONEKEY_I18N_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (match && env[match[1]] === undefined) {
+      const quoted = /^(["'])(.*)\1$/.exec(match[2]);
+      const value = quoted ? quoted[2] : match[2].replace(/\s+#.*$/, '');
+      if (value) {
+        env[match[1]] = value;
+        loaded.push(match[1]);
+      }
+    }
+  }
+  if (loaded.length) env.DOTENV_I18N_LOADED = loaded.join(' ');
+  return loaded;
 }
 
 const RETRYABLE = (status) => status === 429 || status >= 500;
@@ -341,6 +373,32 @@ async function sourceFromRelease({ channel, api, retryDelayMs } = {}) {
   }, retryDelayMs);
 }
 
+/** Canonical project data at an onekey-i18n commit, such as a copy PR's. */
+async function sourceFromCommit({ commit, api = githubApi() }) {
+  const project = `/repos/${CENTRAL_REPO}/contents/projects/${PROJECT_SLUG}`;
+  const listing = [
+    ...(await api.get(`${project}?ref=${commit}`)),
+    ...(await api.get(`${project}/locales?ref=${commit}`)),
+  ];
+  const files = {};
+  for (const item of listing) {
+    if (item.type === 'file' && item.name.endsWith('.json')) {
+      const name = item.path.slice(`projects/${PROJECT_SLUG}/`.length);
+      const data = await api.download(
+        `${project}/${name}?ref=${commit}`,
+        'application/vnd.github.raw',
+      );
+      files[name] = data.toString('utf8');
+    }
+  }
+  return {
+    tag: `commit ${commit.slice(0, 10)}`,
+    version: commit.slice(0, 10),
+    commit,
+    files,
+  };
+}
+
 /**
  * App files from an onekey-i18n PR's CI preview artifact. With wait, polls
  * until the PR head's CI run has finished (up to timeoutMs).
@@ -466,9 +524,11 @@ module.exports = {
   githubApi,
   readZip,
   resolveToken,
+  loadLocalSettings,
   fromRelease,
   fromPullRequest,
   sourceFromRelease,
+  sourceFromCommit,
   parseSums,
   localeDestination,
   writeLocaleFiles,

@@ -22,6 +22,7 @@ const {
   fromPullRequest,
   fromRelease,
   githubApi,
+  loadLocalSettings,
   writeLocaleFiles,
 } = require('./central');
 
@@ -65,6 +66,7 @@ async function run(
 }
 
 if (require.main === module) {
+  loadLocalSettings();
   run().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

@@ -1,9 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
 const { run, runAdd } = require('./i18n-workflow');
-const { applyPlan } = require('./workflow-apply');
+const { applyPlan, verifyPlan } = require('./workflow-apply');
 const { digest, writeJson } = require('./workflow-data');
 const { singleDraft } = require('./workflow-draft');
 const {
@@ -60,6 +61,55 @@ test('default completion creates new keys and reuses existing translations witho
       .changedLocales,
     [],
   );
+});
+
+test('verify after apply checks the onekey-i18n PR apply opened, not the release', async (t) => {
+  const ctx = fixture(t);
+  const api = fakeClient(ctx);
+  // The release does not have the copy until the PR is merged and published.
+  const release = fakeClient(ctx);
+  const proposals = [];
+  api.client.finalize = async (proposal) => {
+    proposals.push(proposal);
+    return {
+      number: 9,
+      url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
+      branch: 'i18n/app-x',
+      commit: 'c2',
+      files: [],
+    };
+  };
+  const prepared = await prepare(
+    ctx,
+    api,
+    singleDraft('travel_mode__title', ctx.translations(), ctx.root),
+  );
+  await prepared.apply();
+  assert.equal(proposals[0].key, prepared.plan.approval.slice(0, 12));
+
+  const commits = [];
+  const verify = () =>
+    verifyPlan({
+      file: prepared.file,
+      client: release.client,
+      root: ctx.root,
+      clientAt: (commit) => {
+        commits.push(commit);
+        return api.client;
+      },
+    });
+  const result = await verify();
+  assert.deepEqual(
+    [commits, result.verifiedKeys, result.checked],
+    [['c2'], 1, 'https://github.com/OneKeyHQ/onekey-i18n/pull/9'],
+  );
+  // Without this plan's receipt, the release is checked.
+  fs.rmSync(`${prepared.file}.receipt.json`);
+  await assert.rejects(
+    verify(),
+    /remote translations do not match the approved plan/,
+  );
+  assert.deepEqual(commits, ['c2']);
 });
 
 for (const mode of ['complete', 'update']) {
