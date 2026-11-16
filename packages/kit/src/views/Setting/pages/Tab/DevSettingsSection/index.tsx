@@ -1240,6 +1240,13 @@ const BaseDevSettingsSection = () => {
           'WebEmbedDevConfig 禁止WebEmbedApi Electron Webview调试工具 Enable Native Webview Debugging check webview version 使用本地TradingView URL TradingViewNative 事件日志 event log',
       },
       {
+        key: 'hardware',
+        title: 'Hardware & Bluetooth',
+        description: '硬件 蓝牙测试',
+        keywords:
+          '第三方蓝牙测试 Ledger Trezor BLE Bluetooth 蓝牙 配对 pairing 取地址 取消 连续测试 日志',
+      },
+      {
         key: 'galleries',
         title: 'UI Galleries',
         description: 'UI Galleries',
@@ -2704,6 +2711,34 @@ const BaseDevSettingsSection = () => {
                           <Switch size={ESwitchSize.small} />
                         </SectionFieldItem>
                       ) : null}
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>,
+              );
+            case 'hardware':
+              return wrapWithSearch(
+                <Accordion.Item value="hardware" key="hardware">
+                  <DevSettingsAccordionTrigger
+                    title="Hardware & Bluetooth"
+                    icon="BluetoothOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator transition="quick">
+                    <Accordion.Content
+                      transition="quick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="BluetoothOutline"
+                        title="第三方蓝牙测试（Ledger / Trezor）"
+                        subtitle="扫描、配对、取地址、取消、连续测试，带日志"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevThirdPartyBleTestModal,
+                          );
+                        }}
+                      />
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,

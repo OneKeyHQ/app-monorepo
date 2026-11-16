@@ -46,5 +46,9 @@ it.each([
     expect(names).toContain(
       EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     );
+    // Device testers reach it from packaged builds.
+    expect(names).toContain(
+      EModalSettingRoutes.SettingDevThirdPartyBleTestModal,
+    );
   },
 );

@@ -97,6 +97,11 @@ const DesktopApiProxyTestDevSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
 );
 
+const PageDevThirdPartyBleTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevThirdPartyBleTest/PageDevThirdPartyBleTest'),
+);
+
 const SniRequestQa = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/SniRequestQa'),
@@ -314,6 +319,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevThirdPartyBleTestModal,
+    component: PageDevThirdPartyBleTest,
   },
   {
     name: EModalSettingRoutes.SettingDevSniRequestQa,
