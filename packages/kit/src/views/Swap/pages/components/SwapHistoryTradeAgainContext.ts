@@ -1,4 +1,5 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useImperativeHandle } from 'react';
+import type { RefObject } from 'react';
 
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -8,6 +9,8 @@ import type {
 
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { buildSwapInitParamsConsumptionKey } from '../../utils/swapColdStartTokenCacheUtils';
+
+import type { ScrollViewInstance } from 'react-native';
 
 export type ISwapHistoryTradeAgainHandler = (
   params: ISwapInitParams,
@@ -19,6 +22,29 @@ export const SwapHistoryTradeAgainContext = createContext<
 
 export const useSwapHistoryTradeAgainHandler = () =>
   useContext(SwapHistoryTradeAgainContext);
+
+export type ISwapHistoryScrollHandle = {
+  scrollToTop: () => void;
+};
+
+export const SwapHistoryScrollRefContext = createContext<
+  RefObject<ISwapHistoryScrollHandle | null> | undefined
+>(undefined);
+
+export function useSwapHistoryScrollToTop(
+  scrollViewRef: RefObject<ScrollViewInstance | null>,
+) {
+  const historyScrollRef = useContext(SwapHistoryScrollRefContext);
+  useImperativeHandle(
+    historyScrollRef,
+    () => ({
+      scrollToTop: () => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      },
+    }),
+    [scrollViewRef],
+  );
+}
 
 export const SwapInitialSelectionTimeoutContext = createContext(true);
 

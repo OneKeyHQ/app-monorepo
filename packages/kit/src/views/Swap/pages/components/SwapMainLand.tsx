@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -22,6 +23,7 @@ import {
   Page,
   Toast,
   YStack,
+  rootNavigationRef,
   useInModalDialog,
   useInTabDialog,
   useMedia,
@@ -194,6 +196,7 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import {
   SwapHistoryChannelIntentContext,
+  SwapHistoryScrollRefContext,
   SwapHistoryTradeAgainContext,
   SwapInitialSelectionTimeoutContext,
   canHandleTradeAgainInSource,
@@ -212,6 +215,7 @@ import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
+import type { ISwapHistoryScrollHandle } from './SwapHistoryTradeAgainContext';
 import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
@@ -2240,6 +2244,9 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       );
     }
   }, [historyEntry, historyMatchesSource]);
+  const tradeAgainScrollViewRef = useRef<ISwapHistoryScrollHandle>(null);
+  const historyScrollCleanupRef = useRef<(() => void) | undefined>(undefined);
+  const sourceNavigation = useNavigation();
   const historyRequestIdRef = useRef(0);
   const claimedHistoryIntentRef = useRef<string | undefined>(undefined);
   const claimHistoryIntent = useCallback((key: string) => {
@@ -2252,23 +2259,51 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     historySourceMountedRef.current = true;
     return () => {
       historySourceMountedRef.current = false;
+      historyScrollCleanupRef.current?.();
+      historyScrollCleanupRef.current = undefined;
     };
   }, []);
-  const onTradeAgainFromHistory = useCallback((params: ISwapInitParams) => {
-    if (
-      !historySourceMountedRef.current ||
-      stockTradeIdentityLoadingRef.current ||
-      !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
-    ) {
-      return false;
-    }
-    historyRequestIdRef.current += 1;
-    setHistoryEntry({
-      params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
-      sourceIntentKey: sourceIntentKeyRef.current,
-    });
-    return true;
-  }, []);
+  const onTradeAgainFromHistory = useCallback(
+    (params: ISwapInitParams) => {
+      if (
+        !historySourceMountedRef.current ||
+        stockTradeIdentityLoadingRef.current ||
+        !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
+      ) {
+        return false;
+      }
+      historyScrollCleanupRef.current?.();
+      const rootNavigation = rootNavigationRef.current;
+      const detailRouteKey = rootNavigation?.getCurrentRoute()?.key;
+      if (rootNavigation && detailRouteKey) {
+        let frame: number | undefined;
+        const unsubscribe = rootNavigation.addListener('state', () => {
+          if (rootNavigation.getCurrentRoute()?.key === detailRouteKey) return;
+          unsubscribe();
+          frame = requestAnimationFrame(() => {
+            historyScrollCleanupRef.current = undefined;
+            if (
+              historySourceMountedRef.current &&
+              sourceNavigation.isFocused()
+            ) {
+              tradeAgainScrollViewRef.current?.scrollToTop();
+            }
+          });
+        });
+        historyScrollCleanupRef.current = () => {
+          unsubscribe();
+          if (frame !== undefined) cancelAnimationFrame(frame);
+        };
+      }
+      historyRequestIdRef.current += 1;
+      setHistoryEntry({
+        params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
+        sourceIntentKey: sourceIntentKeyRef.current,
+      });
+      return true;
+    },
+    [sourceNavigation],
+  );
   let entryStoreName = EJotaiContextStoreNames.swap;
   if (pageType === EPageType.modal) {
     entryStoreName = EJotaiContextStoreNames.swapModal;
@@ -2361,12 +2396,16 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
               }
             >
               <SwapHistoryChannelIntentContext.Provider value={channelIntent}>
-                <SwapMainLoad
-                  {...props}
-                  storeName={storeName}
-                  pageType={pageType}
-                  swapInitParams={effectiveSwapInitParams}
-                />
+                <SwapHistoryScrollRefContext.Provider
+                  value={tradeAgainScrollViewRef}
+                >
+                  <SwapMainLoad
+                    {...props}
+                    storeName={storeName}
+                    pageType={pageType}
+                    swapInitParams={effectiveSwapInitParams}
+                  />
+                </SwapHistoryScrollRefContext.Provider>
               </SwapHistoryChannelIntentContext.Provider>
             </SwapInitialSelectionTimeoutContext.Provider>
           </SwapHistoryTradeAgainContext.Provider>
