@@ -22,6 +22,7 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceLiveActivity from '../services/ServiceLiveActivity';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -239,6 +240,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return this.buildLazyService(
       'serviceUnifoldDeposit',
       () => import('../services/ServiceUnifoldDeposit'),
+    );
+  }
+
+  get serviceLiveActivity(): ILazyServiceProxy<ServiceLiveActivity> {
+    return this.buildLazyService(
+      'serviceLiveActivity',
+      () => import('../services/ServiceLiveActivity'),
     );
   }
 

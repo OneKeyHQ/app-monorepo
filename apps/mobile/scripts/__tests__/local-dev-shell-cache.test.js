@@ -81,6 +81,28 @@ describe('local shell artifact cache', () => {
   });
 
   it.each([
+    'LiveActivity.swift',
+    'LiveActivityAttributes.swift',
+    'Info.plist',
+    'LiveActivity.entitlements',
+  ])('changes the iOS shell key after editing LiveActivity/%s', (name) => {
+    writeShellInputFixture('ios');
+    const file = path.join(directory, 'apps/mobile/ios/LiveActivity', name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'original widget input');
+    const inputs = {
+      nativeContractKey: 'a'.repeat(64),
+      platform: 'ios',
+      repoRoot: directory,
+    };
+    const before = getShellCompatibility(inputs);
+    fs.appendFileSync(file, '\nchanged widget input');
+    const after = getShellCompatibility(inputs);
+    expect(after.nativeContractKey).toBe(before.nativeContractKey);
+    expect(after.shellInputKey).not.toBe(before.shellInputKey);
+  });
+
+  it.each([
     'apps/mobile/android/app/build.gradle',
     'apps/mobile/android/app/src/main/AndroidManifest.xml',
     'apps/mobile/android/app/src/main/res/values/strings.xml',
