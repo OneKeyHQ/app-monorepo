@@ -2131,11 +2131,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
     const controller = new AbortController();
     this.reconciliationAbortController = controller;
-    const isCurrent = () =>
-      !controller.signal.aborted &&
+    const isSourceCurrent = () =>
       generation === this.publicAccountSnapshotImportGeneration &&
       keyGeneration ===
         this.backgroundApi.serviceKeylessCloudSync.getCloudAccountImportGeneration();
+    const isCurrent = () => !controller.signal.aborted && isSourceCurrent();
     const baseline: ICloudSyncReconciliationPersistState = {
       version: 1,
       spaceId,
@@ -2388,10 +2388,12 @@ class ServicePrimeCloudSync extends ServiceBase {
           isCurrent,
         });
       }
-      if (generation !== this.publicAccountSnapshotImportGeneration)
-        return false;
+      if (!isSourceCurrent()) return false;
       const currentConfig = await primeCloudSyncPersistAtom.get();
-      if (currentConfig.cloudSyncReconciliation?.spaceId !== spaceId)
+      if (
+        !isSourceCurrent() ||
+        currentConfig.cloudSyncReconciliation?.spaceId !== spaceId
+      )
         return false;
       const issues = currentConfig.publicAccountSnapshotStatus;
       const hasIssues =
@@ -2433,12 +2435,30 @@ class ServicePrimeCloudSync extends ServiceBase {
         uploaded: baseline.uploaded + result.uploaded,
         updatedAt: Date.now(),
       };
-      await primeCloudSyncPersistAtom.set((value) => ({
-        ...value,
-        cloudSyncReconciliation: state,
-        cloudSyncAccountApplyVersion:
-          shouldReplay && isCurrent() ? 2 : value.cloudSyncAccountApplyVersion,
-      }));
+      let resultSaved = false;
+      await primeCloudSyncPersistAtom.set((value) => {
+        if (
+          !isSourceCurrent() ||
+          value.cloudSyncReconciliation?.spaceId !== spaceId
+        )
+          return value;
+        resultSaved = true;
+        return {
+          ...value,
+          cloudSyncReconciliation: state,
+          cloudSyncAccountApplyVersion:
+            shouldReplay && isCurrent()
+              ? 2
+              : value.cloudSyncAccountApplyVersion,
+        };
+      });
+      if (!resultSaved || !isSourceCurrent()) return false;
+      const publishedConfig = await primeCloudSyncPersistAtom.get();
+      if (
+        !isSourceCurrent() ||
+        publishedConfig.cloudSyncReconciliation?.spaceId !== spaceId
+      )
+        return false;
       if (
         state.unfinished &&
         state.nextRetryAt &&
@@ -2449,23 +2469,41 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (!state.unfinished) await this.updateLastSyncTime();
       return state.status === 'complete';
     } catch (error) {
-      if (generation === this.publicAccountSnapshotImportGeneration) {
+      if (isCurrent()) {
         const failures = baseline.failures + 1;
         const nextRetryAt =
           Date.now() +
           Math.min(30 * 60_000, 30_000 * 2 ** Math.min(failures - 1, 6));
-        await primeCloudSyncPersistAtom.set((value) => ({
-          ...value,
-          cloudSyncReconciliation: {
-            ...baseline,
-            status: 'blocked',
-            reason: 'local-processing',
-            failures,
-            nextRetryAt,
-            updatedAt: Date.now(),
-          },
-        }));
-        this.scheduleReconciliation(nextRetryAt);
+        let failureSaved = false;
+        await primeCloudSyncPersistAtom.set((value) => {
+          // Source selection can change while awaiting the atom write. Check
+          // both generations and the persisted space inside the updater.
+          if (
+            !isCurrent() ||
+            value.cloudSyncReconciliation?.spaceId !== spaceId
+          )
+            return value;
+          failureSaved = true;
+          return {
+            ...value,
+            cloudSyncReconciliation: {
+              ...baseline,
+              status: 'blocked',
+              reason: 'local-processing',
+              failures,
+              nextRetryAt,
+              updatedAt: Date.now(),
+            },
+          };
+        });
+        if (failureSaved && isCurrent()) {
+          const latest = await primeCloudSyncPersistAtom.get();
+          if (
+            isCurrent() &&
+            latest.cloudSyncReconciliation?.spaceId === spaceId
+          )
+            this.scheduleReconciliation(nextRetryAt);
+        }
       }
       throw error;
     } finally {

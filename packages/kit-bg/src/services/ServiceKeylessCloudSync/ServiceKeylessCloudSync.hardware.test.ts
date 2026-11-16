@@ -3352,7 +3352,7 @@ describe('hardware reset session and local data races', () => {
       skipSaveLocalSyncItem: true,
     };
     await db.setAccountName(params);
-    expect(write).toHaveBeenCalledWith(params);
+    expect(write).toHaveBeenCalledWith(params, undefined);
     expect(lock).not.toHaveBeenCalled();
   });
 

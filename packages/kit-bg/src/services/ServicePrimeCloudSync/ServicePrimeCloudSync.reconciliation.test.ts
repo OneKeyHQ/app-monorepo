@@ -1395,4 +1395,121 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       );
     },
   );
+
+  test.each([
+    'generation',
+    'space',
+    'failure-updater',
+    'failure-updater-space',
+    'after-failure-write',
+    'after-failure-space',
+    'unchanged',
+  ])('failure retry publication is source-scoped through %s', async (phase) => {
+    const h = harness();
+    const schedule = jest
+      .spyOn(
+        h.service as unknown as {
+          scheduleReconciliation: (time: number) => void;
+        },
+        'scheduleReconciliation',
+      )
+      .mockImplementation(() => undefined);
+    let expected: IPrimeCloudSyncPersistAtomData | undefined;
+    const switchSpace = () => {
+      const baseline = h.config().cloudSyncReconciliation;
+      if (!baseline)
+        throw new OneKeyLocalError('Missing reconciliation baseline');
+      h.patchConfig({
+        cloudSyncReconciliation: {
+          ...baseline,
+          spaceId: 'new-selected-space',
+          status: 'complete',
+          unfinished: false,
+        },
+      });
+      expected = cloneDeep(h.config());
+    };
+    jest
+      .spyOn(h.service, 'fillingSyncItemsMissingDataFromRawData')
+      .mockImplementationOnce(async () => {
+        expected = cloneDeep(h.config());
+        if (phase === 'generation') h.changeSource();
+        if (phase === 'space') switchSpace();
+        if (
+          [
+            'failure-updater',
+            'failure-updater-space',
+            'after-failure-write',
+            'after-failure-space',
+          ].includes(phase)
+        ) {
+          const persist = h.setConfig.getMockImplementation();
+          if (!persist) throw new OneKeyLocalError('Missing atom setter');
+          h.setConfig.mockImplementationOnce(async (update) => {
+            if (
+              phase === 'failure-updater' ||
+              phase === 'failure-updater-space'
+            ) {
+              if (phase === 'failure-updater') h.changeSource();
+              switchSpace();
+            }
+            await persist(update);
+            if (
+              phase === 'after-failure-write' ||
+              phase === 'after-failure-space'
+            ) {
+              if (phase === 'after-failure-write') h.changeSource();
+              switchSpace();
+            }
+          });
+        }
+        throw new OneKeyLocalError('Injected local processing failure');
+      });
+    await expect(h.run()).rejects.toThrow('Injected local processing failure');
+    if (phase === 'unchanged') {
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        spaceId: 'public-root-space',
+        status: 'blocked',
+        reason: 'local-processing',
+        failures: 1,
+      });
+      expect(schedule).toHaveBeenCalledTimes(1);
+    } else {
+      expect(h.config()).toEqual(expected);
+      expect(schedule).not.toHaveBeenCalled();
+    }
+  });
+
+  test.each(['generation', 'space'])(
+    'a completed old run cannot publish over a %s change during the result updater',
+    async (phase) => {
+      const h = harness();
+      let expected: IPrimeCloudSyncPersistAtomData | undefined;
+      h.replay.mockImplementationOnce(async () => {
+        const persist = h.setConfig.getMockImplementation();
+        if (!persist) throw new OneKeyLocalError('Missing atom setter');
+        h.setConfig.mockImplementationOnce(async (update) => {
+          if (phase === 'generation') h.changeSource();
+          const baseline = h.config().cloudSyncReconciliation;
+          if (!baseline)
+            throw new OneKeyLocalError('Missing reconciliation baseline');
+          h.patchConfig({
+            cloudSyncReconciliation: {
+              ...baseline,
+              spaceId:
+                phase === 'space' ? 'new-selected-space' : baseline.spaceId,
+              status: 'waiting',
+              nextRetryAt: 123,
+              unfinished: true,
+            },
+          });
+          expected = cloneDeep(h.config());
+          await persist(update);
+        });
+      });
+      await h.run();
+      expect(h.config()).toEqual(expected);
+      expect(h.updateLastSyncTime).not.toHaveBeenCalled();
+    },
+  );
 });
