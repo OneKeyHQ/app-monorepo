@@ -40,6 +40,8 @@ jest.mock('expo-linking', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
+  // presetNetworks (reached through earnUtils) wraps its lists in memoFn
+  memoFn: (fn: unknown) => fn,
   memoizee: (fn: unknown) => fn,
 }));
 
@@ -625,6 +627,50 @@ describe('stocks / perps universal links', () => {
         symbol: 'USDT',
         provider: 'spark',
         vault: '0xe2e7a17dff93280dec073c995595155283e3c372',
+      },
+    );
+  });
+
+  it('carries campaign attribution from the earn universal link', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/bsc/USDT/unitas?vault=0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae&utm_source=twitter&utm_medium=kol&utm_campaign=unitas_launch_1103',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'bsc',
+        symbol: 'USDT',
+        provider: 'unitas',
+        vault: '0xe9e8573bb351da16c6ee7ddac0cbc70b7f9784ae',
+        utmSource: 'twitter',
+        utmMedium: 'kol',
+        utmCampaign: 'unitas_launch_1103',
+      },
+    );
+  });
+
+  it('drops malformed campaign params from the earn universal link', async () => {
+    const { EarnNavigation } = jest.requireMock(
+      '../../../../views/Earn/earnUtils',
+    );
+    handleDeepLinkUrl({
+      url: 'https://app.onekey.so/earn/bsc/USDT/unitas?utm_source=onekey_app&utm_medium=with%20space&utm_campaign=',
+    });
+    await flushAsyncTasks();
+
+    expect(EarnNavigation.pushToEarnProtocolDetailsShare).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        network: 'bsc',
+        symbol: 'USDT',
+        provider: 'unitas',
+        vault: undefined,
+        utmSource: 'onekey_app',
       },
     );
   });

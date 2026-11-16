@@ -8,6 +8,7 @@ import type {
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
+  IEarnUtmParams,
   IEarnWithdrawType,
   IProtocolInfo,
   IStakeProtocolDetails,
@@ -115,6 +116,9 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
+    // Campaign attribution from the Earn link that opened the detail page;
+    // rides along into the stake / withdraw request.
+    utm?: IEarnUtmParams;
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
     // opened as a modal there is no other way back to the caller. Same shape as
