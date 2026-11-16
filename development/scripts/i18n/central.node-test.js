@@ -607,6 +607,13 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
     'app/SHA256SUMS': `${sha256(inner)}  app.zip\n`,
   });
   let polls = 0;
+  // Another workflow for the same head succeeds first, without the preview.
+  const other = {
+    id: 76,
+    status: 'completed',
+    conclusion: 'success',
+    html_url: 'run:76',
+  };
   const routes = {
     [`GET ${REPO}/pulls/12`]: { head: { sha: 'h1' } },
     [`GET ${REPO}/actions/runs?event=pull_request&head_sha=h1`]: () => {
@@ -614,10 +621,19 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
       return {
         workflow_runs:
           polls === 1
-            ? [{ id: 77, status: 'in_progress' }]
-            : [{ id: 77, status: 'completed', conclusion: 'success' }],
+            ? [other, { id: 77, status: 'in_progress' }]
+            : [
+                other,
+                {
+                  id: 77,
+                  status: 'completed',
+                  conclusion: 'success',
+                  html_url: 'run:77',
+                },
+              ],
       };
     },
+    [`GET ${REPO}/actions/runs/76/artifacts`]: { artifacts: [] },
     [`GET ${REPO}/actions/runs/77/artifacts`]: {
       artifacts: [
         {
@@ -644,7 +660,24 @@ test('PR previews wait for CI and come from the i18n-preview artifact', async ()
     { source: result.source, pr: result.pr, commit: result.commit },
     { source: 'pr', pr: 12, commit: 'h1' },
   );
+  assert.equal(result.runUrl, 'run:77');
   assert.deepEqual(Object.keys(result.files), ['json/en_US.json']);
+
+  // Every run finished and none uploaded the preview.
+  await assert.rejects(
+    fromPullRequest({
+      pr: 12,
+      wait: true,
+      intervalMs: 1,
+      api: fakeApi({
+        ...routes,
+        [`GET ${REPO}/actions/runs?event=pull_request&head_sha=h1`]: {
+          workflow_runs: [other],
+        },
+      }),
+    }),
+    /have no i18n-preview artifact/,
+  );
 });
 
 test('locale files are never written outside the locale directory', (t) => {

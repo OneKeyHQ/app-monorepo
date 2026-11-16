@@ -401,7 +401,7 @@ async function sourceFromCommit({ commit, api = githubApi() }) {
 
 /**
  * App files from an onekey-i18n PR's CI preview artifact. With wait, polls
- * until the PR head's CI run has finished (up to timeoutMs).
+ * until a run for the PR head has uploaded it (up to timeoutMs).
  */
 async function fromPullRequest({
   pr,
@@ -417,21 +417,27 @@ async function fromPullRequest({
     const { workflow_runs: runs } = await api.get(
       `/repos/${CENTRAL_REPO}/actions/runs?event=pull_request&head_sha=${headSha}`,
     );
-    const finished = runs.find(
+    const succeeded = runs.filter(
       (run) => run.status === 'completed' && run.conclusion === 'success',
     );
     const pending = runs.some((run) => run.status !== 'completed');
-    if (finished) {
+    // Several workflows may run for the head; the preview is in whichever
+    // successful run uploaded it.
+    let finished;
+    let artifact;
+    for (const run of succeeded) {
       const { artifacts } = await api.get(
-        `/repos/${CENTRAL_REPO}/actions/runs/${finished.id}/artifacts`,
+        `/repos/${CENTRAL_REPO}/actions/runs/${run.id}/artifacts`,
       );
-      const artifact = artifacts.find(
+      artifact = artifacts.find(
         (item) => item.name === PREVIEW_ARTIFACT && !item.expired,
       );
-      if (!artifact)
-        throw new Error(
-          `The CI run of PR #${pr} has no ${PREVIEW_ARTIFACT} artifact.`,
-        );
+      if (artifact) {
+        finished = run;
+        break;
+      }
+    }
+    if (artifact) {
       const outer = readZip(
         await api.download(
           artifact.archive_download_url,
@@ -458,12 +464,17 @@ async function fromPullRequest({
         files,
       };
     }
-    if (!wait || (!pending && runs.length > 0) || Date.now() > deadline)
+    if (!wait || (!pending && runs.length > 0) || Date.now() > deadline) {
+      if (pending || runs.length === 0)
+        throw new Error(
+          `The CI preview of onekey-i18n PR #${pr} is not ready yet; retry with --wait.`,
+        );
       throw new Error(
-        pending || runs.length === 0
-          ? `The CI preview of onekey-i18n PR #${pr} is not ready yet; retry with --wait.`
+        succeeded.length === runs.length
+          ? `The CI runs of onekey-i18n PR #${pr} have no ${PREVIEW_ARTIFACT} artifact.`
           : `The CI run of onekey-i18n PR #${pr} did not succeed; fix it there first.`,
       );
+    }
     await delay(intervalMs);
   }
 }
