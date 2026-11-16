@@ -33,6 +33,9 @@ const {
 } = require('./plugins/devVendor');
 const { applyMobileLockdownConfig } = require('./plugins/mobileLockdown');
 const {
+  createSesRuntimeCheckMiddleware,
+} = require('./plugins/sesRuntimeCheckMiddleware');
+const {
   getThirdPartyMMKVImportError,
 } = require('./scripts/native-storage-metro-policy');
 
@@ -748,8 +751,13 @@ const applyFixImageAssetsMiddleware = (middleware) => {
 
 config.server.enhanceMiddleware = (metroMiddleware, _metroServer) => {
   const assetMiddleware = applyFixImageAssetsMiddleware(metroMiddleware);
+  const sesMiddleware = createSesRuntimeCheckMiddleware(
+    process.env.ONEKEY_DEV_SESSION_ID,
+  );
   return (req, res, next) =>
-    serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next));
+    sesMiddleware(req, res, () =>
+      serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next)),
+    );
 };
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's

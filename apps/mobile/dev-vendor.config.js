@@ -48,6 +48,7 @@ const fingerprintFiles = [
   'apps/mobile/plugins/index.js',
   'apps/mobile/plugins/map.js',
   'apps/mobile/plugins/mobileLockdown.js',
+  'apps/mobile/plugins/sesRuntimeCheckMiddleware.js',
   'apps/mobile/plugins/moduleIdRegistry.js',
   'apps/mobile/plugins/startupProfilePrologue.js',
   'apps/mobile/scripts/build-dev-vendor.js',

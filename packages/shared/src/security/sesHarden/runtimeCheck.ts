@@ -10,6 +10,11 @@ import {
   getSesHardenRuntimeState,
   isSesHardenPatchWarningMonitorEnabled,
 } from './runtime';
+import {
+  runSesCryptoChecks,
+  runSesLanguageChecks,
+} from './runtimeCheckBehavior';
+import { runSesNetworkChecks } from './runtimeCheckNetwork';
 
 import type {
   ISesHardenLevel,
@@ -126,6 +131,31 @@ type IMessageChannelCtor = new () => IMessageChannelLike;
 
 export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[] =
   [
+    ...[
+      ['Promise edge cases', 'thenable、微任务顺序、finally 和聚合拒绝'],
+      [
+        'Collections and binary data',
+        'Map/WeakMap/Set、字节视图、Unicode 和 BigInt',
+      ],
+      ['Hash and HMAC vectors', 'SHA-256、SHA-512 和 HMAC 公开向量'],
+      [
+        'WebCrypto digest vectors',
+        'Gallery 和 PKCE 使用的 crypto.subtle.digest 公开向量',
+      ],
+      ['PBKDF2 vector', '实际平台 KDF 后端与公开向量比对'],
+      ['AES-GCM vector and authentication', '加解密公开向量和篡改认证标签拒绝'],
+      ['fetch requests', '真实 GET/POST、响应克隆、body 和 HTTP 错误'],
+      ['fetch cancellation', '预先取消和请求中取消'],
+      ['XHR requests', '真实 GET/POST、状态、headers 和响应 body'],
+      ['XHR timeout and abort', '请求超时和取消事件'],
+    ].map(([name, functionality]) => ({
+      name,
+      dimension: 'functionality' as const,
+      title: name,
+      functionality,
+      hardening:
+        '在当前 runtime 实际执行并比对结果；网络固定响应仅用于 native Debug DevSession，缺少测试环境时明确标记未测试。',
+    })),
     {
       name: 'Runtime state',
       dimension: 'runtime-state',
@@ -1543,6 +1573,9 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
   checks.push(runFetchInterceptorCheck());
   checks.push(await runTimerInterceptorCheck());
   checks.push(runCryptoShimCheck());
+  checks.push(...(await runSesLanguageChecks()));
+  checks.push(...(await runSesCryptoChecks()));
+  checks.push(...(await runSesNetworkChecks()));
   checks.push(runExtensionApiShimCheck(state?.runtime));
   checks.push(runExtensionXhrShimCheck(state?.runtime));
   checks.push(runDesktopApiProxyCheck(state?.runtime));
