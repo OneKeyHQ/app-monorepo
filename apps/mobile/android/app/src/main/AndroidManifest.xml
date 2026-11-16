@@ -48,6 +48,7 @@
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="com.android.vending.BILLING" />
+  <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <queries>
     <intent>
@@ -140,6 +141,17 @@
         <data android:scheme="https" android:host="perps.onekeytest.com" android:pathPrefix="/" />
         <data android:scheme="https" android:host="swap.onekey.so" android:pathPrefix="/" />
       </intent-filter>
+      <!--
+        Android asks "Open OneKey when <device> is connected?" (with "Always");
+        accepting launches the app and grants USB permission for that device, so
+        the SDK's USB transport needs no extra permission dialog.
+      -->
+      <intent-filter>
+        <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+      </intent-filter>
+      <meta-data
+        android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+        android:resource="@xml/onekey_usb_device_filter" />
     </activity>
     <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />
     <activity
