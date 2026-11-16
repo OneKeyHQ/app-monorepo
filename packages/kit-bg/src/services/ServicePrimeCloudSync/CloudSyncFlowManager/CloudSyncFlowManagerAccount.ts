@@ -502,6 +502,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           await import('../publicAccountSnapshotImport');
         const applied = await importPublicAccountSnapshots({
           backgroundApi: this.backgroundApi,
+          syncCredential,
           snapshots: entries.map((candidate) => candidate.snapshot),
           sourceItemsBySnapshotId: new Map(
             entries.map((candidate) => [

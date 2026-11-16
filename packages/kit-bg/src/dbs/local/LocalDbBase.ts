@@ -253,6 +253,7 @@ import type {
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
+import type { IPublicAccountIndexedName } from '../../services/ServicePrimeCloudSync/publicAccountIndexedNames';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function assertHardwareRuntimeIdsNotPersisted({
@@ -451,6 +452,7 @@ type IPublicCloudAccountApplyParams = {
   expectedCredential?: string;
   accounts: IDBAccount[];
   sourceItemsByAccountId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  indexedNames?: ReadonlyMap<string, IPublicAccountIndexedName>;
   isCurrent: () => boolean;
 };
 
@@ -8182,11 +8184,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
 
+      // Older payloads cannot clear an established avatar seed. A different
+      // nonempty seed must not replace this wallet's local identity.
+      const incomingAddress = params.firstEvmAddress;
+      const firstEvmAddress =
+        typeof incomingAddress === 'string' &&
+        /^0x[0-9a-fA-F]{40}$/.test(incomingAddress)
+          ? incomingAddress.toLowerCase()
+          : undefined;
+      let didSetFirstEvmAddress = false;
+
       // update wallet name
       await this.txUpdateWallet({
         tx,
         walletId,
         updater: (w) => {
+          if (firstEvmAddress && !w.firstEvmAddress) {
+            w.firstEvmAddress = firstEvmAddress;
+            didSetFirstEvmAddress = true;
+          }
           if (walletName) {
             w.name = walletName;
           }
@@ -8196,6 +8212,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return w;
         },
       });
+
+      if (didSetFirstEvmAddress && firstEvmAddress) {
+        const { records: indexes } = await this.txGetAllRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+        });
+        const ids = indexes
+          .filter((item) => item.walletId === walletId)
+          .map((item) => item.id);
+        if (ids.length) {
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            ids,
+            updater: async (item) => {
+              item.idHash = await this.buildIndexedAccountIdHash({
+                firstEvmAddress,
+                indexedAccountId: item.id,
+                index: item.index,
+                useSynchronousHash: true,
+              });
+              return item;
+            },
+          });
+        }
+      }
 
       // **** do NOT update device name, qr wallet use device name to check sign origin
       // if (wallet.associatedDevice) {
@@ -8617,6 +8659,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     expectedCredential,
     accounts,
     sourceItemsByAccountId,
+    indexedNames,
     isCurrent,
     action,
   }: IPublicCloudAccountApplyParams & {
@@ -8882,9 +8925,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 walletId,
                 index,
                 idHash,
-                name:
-                  account.name ||
-                  accountUtils.buildIndexedAccountName({ pathIndex: index }),
+                name: accountUtils.buildIndexedAccountName({
+                  pathIndex: index,
+                }),
               });
             }
             toAdd.push(account);
@@ -8930,6 +8973,39 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             result.deleted = toDelete.size;
           }
+          // Metadata may arrive in an earlier page or already be acknowledged
+          // for another wallet. Apply only its still-current version, and never
+          // rename an existing index: its local custom-name provenance is unknown.
+          if (action === 'copy' && indexedNames?.size) {
+            const { records: currentNames } = await this.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.CloudSyncItem,
+              ids: Array.from(
+                indexedNames.values(),
+                (entry) => entry.source.id,
+              ),
+            });
+            checkCurrent();
+            for (const [id, entry] of indexedNames) {
+              const current = currentNames.find(
+                (item) => item?.id === entry.source.id,
+              );
+              const expected = entry.source;
+              if (
+                !current ||
+                current.isDeleted ||
+                current.data !== expected.data ||
+                current.rawData !== expected.rawData ||
+                current.pwdHash !== expected.pwdHash ||
+                current.dataTime !== expected.dataTime ||
+                current.dataType !== expected.dataType
+              )
+                // eslint-disable-next-line no-continue
+                continue;
+              const created = indexedToAdd.get(id);
+              if (created) created.name = entry.name;
+            }
+          }
           // Write both record types in one transaction, without Cloud hooks or
           // per-account events. Existing records are never removed or updated.
           if (toAdd.length) {
@@ -8952,23 +9028,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
           if (action === 'copy' && result.appliedAccountIds.length) {
             const acceptedIds = new Set(result.appliedAccountIds);
+            // Only the canonical first EVM account defines the shared avatar
+            // seed. Never infer it from another derivation path or replace an
+            // already established local wallet identity.
+            const firstEvmAccount = !wallet.firstEvmAddress
+              ? accounts.find(
+                  (account) =>
+                    acceptedIds.has(account.id) &&
+                    account.pathIndex === 0 &&
+                    account.impl === IMPL_EVM &&
+                    account.coinType === COINTYPE_ETH &&
+                    account.path === FIRST_EVM_ADDRESS_PATH &&
+                    account.address,
+                )
+              : undefined;
+            const firstEvmAddress = firstEvmAccount?.address.toLowerCase();
             const nextIndex = Math.max(
               ...accounts
                 .filter((account) => acceptedIds.has(account.id))
                 .map((account) => (account.pathIndex ?? 0) + 1),
             );
             if (
+              firstEvmAddress ||
               nextIndex >
-              this.getNextIdsValue({
-                nextIds: wallet.nextIds,
-                key: 'accountHdIndex',
-                defaultValue: 0,
-              })
+                this.getNextIdsValue({
+                  nextIds: wallet.nextIds,
+                  key: 'accountHdIndex',
+                  defaultValue: 0,
+                })
             ) {
               await this.txUpdateWallet({
                 tx,
                 walletId,
                 updater: (currentWallet) => {
+                  if (firstEvmAddress && !currentWallet.firstEvmAddress)
+                    currentWallet.firstEvmAddress = firstEvmAddress;
                   // Preserve Realm's dictionary and all unrelated counters.
                   if (!currentWallet.nextIds) currentWallet.nextIds = {};
                   currentWallet.nextIds.accountHdIndex = Math.max(
@@ -8982,6 +9076,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   return currentWallet;
                 },
               });
+              checkCurrent();
+            }
+            if (firstEvmAddress) {
+              // Earlier pages may have created indexes before account zero.
+              // Repair their fallback hashes without changing local names.
+              const { records: indexes } = await this.txGetAllRecords({
+                tx,
+                name: ELocalDBStoreNames.IndexedAccount,
+              });
+              checkCurrent();
+              const indexIds = indexes
+                .filter((item) => item.walletId === walletId)
+                .map((item) => item.id);
+              if (indexIds.length)
+                await this.txUpdateRecords({
+                  tx,
+                  name: ELocalDBStoreNames.IndexedAccount,
+                  ids: indexIds,
+                  updater: async (item) => {
+                    item.idHash = await this.buildIndexedAccountIdHash({
+                      firstEvmAddress,
+                      indexedAccountId: item.id,
+                      index: item.index,
+                      useSynchronousHash: true,
+                    });
+                    return item;
+                  },
+                });
               checkCurrent();
             }
           }
@@ -9380,36 +9502,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       skipIfExists: true,
                     });
                 }
-                const firstAccount: IDBAccount | undefined = accounts?.[0];
+                const firstEvmAccount = accounts.find(
+                  (account) =>
+                    account.impl === IMPL_EVM &&
+                    account.pathIndex === 0 &&
+                    account.address &&
+                    account.coinType === COINTYPE_ETH &&
+                    account.indexedAccountId &&
+                    account.path === FIRST_EVM_ADDRESS_PATH,
+                );
 
-                const shouldBuildIdHash =
-                  firstAccount &&
-                  firstAccount?.pathIndex === 0 &&
-                  firstAccount?.address &&
-                  firstAccount?.coinType === COINTYPE_ETH &&
-                  firstAccount?.indexedAccountId &&
-                  firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
-
-                // build idHash for account avatar by firstEvmAddress
-                if (shouldBuildIdHash) {
-                  const firstEvmAddress = firstAccount.address.toLowerCase();
+                if (firstEvmAccount) {
+                  let firstEvmAddress = firstEvmAccount.address.toLowerCase();
                   await this.txUpdateWallet({
                     tx,
                     walletId,
                     updater: (w) => {
-                      w.firstEvmAddress = firstEvmAddress;
+                      // A later account creation must not replace an established
+                      // wallet identity, including one received from Cloud.
+                      if (!w.firstEvmAddress)
+                        w.firstEvmAddress = firstEvmAddress;
+                      firstEvmAddress = w.firstEvmAddress;
                       return w;
                     },
+                  });
+                  // Account zero can be created after other chain accounts or
+                  // appear later in a batch. Repair every fallback avatar seed.
+                  const { records: indexes } = await this.txGetAllRecords({
+                    tx,
+                    name: ELocalDBStoreNames.IndexedAccount,
                   });
                   await this.txUpdateRecords({
                     tx,
                     name: ELocalDBStoreNames.IndexedAccount,
-                    ids: [firstAccount?.indexedAccountId].filter(Boolean),
+                    ids: indexes
+                      .filter((item) => item.walletId === walletId)
+                      .map((item) => item.id),
                     updater: async (item) => {
                       item.idHash = await this.buildIndexedAccountIdHash({
                         firstEvmAddress,
                         indexedAccountId: item.id,
-                        index: firstAccount.pathIndex,
+                        index: item.index,
+                        useSynchronousHash: true,
                       });
                       return item;
                     },

@@ -244,6 +244,7 @@ export type IDBCreateQRWalletParams = {
   firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
   avatar?: IAvatarInfo;

@@ -343,6 +343,7 @@ export type ICloudSyncPayloadDbWalletFields = {
   avatarInfo: IAvatarInfo | undefined;
 };
 export type ICloudSyncPayloadWallet = {
+  firstEvmAddress?: string;
   name: string;
   avatar: IAvatarInfo | undefined;
   //

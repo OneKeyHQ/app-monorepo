@@ -4,6 +4,7 @@ import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
@@ -217,13 +218,30 @@ class PublicAccountTestDb extends LocalDbBase {
       const current = this.stores.get(name)?.get(id) as
         | ILocalDBRecord<T>
         | undefined;
-      if (current) this.put(name, await updater({ ...current }));
+      if (current) {
+        const input = { ...current };
+        const updated = await updater(input);
+        if (
+          this.useRealAvatarHashes &&
+          name === ELocalDBStoreNames.IndexedAccount &&
+          updated !== input
+        ) {
+          throw new OneKeyLocalError('Realm requires its original object');
+        }
+        this.put(name, updated);
+      }
     }
     this.afterWrite?.();
   }
 
-  override async buildIndexedAccountIdHash() {
-    return 'public-test-avatar-hash';
+  useRealAvatarHashes = false;
+
+  override async buildIndexedAccountIdHash(
+    params: Parameters<LocalDbBase['buildIndexedAccountIdHash']>[0],
+  ) {
+    return this.useRealAvatarHashes
+      ? super.buildIndexedAccountIdHash(params)
+      : 'public-test-avatar-hash';
   }
 
   run(accounts: IDBAccount[], isCurrent = () => true) {
@@ -272,6 +290,64 @@ class PublicAccountTestDb extends LocalDbBase {
     });
   }
 }
+
+describe('wallet metadata avatar seed sync', () => {
+  it('repairs existing indexes without requiring account zero and preserves old payload compatibility', async () => {
+    const db = new PublicAccountTestDb();
+    db.useRealAvatarHashes = true;
+    db.setBackgroundApi({
+      servicePrimeCloudSync: { syncManagers: {} },
+    } as unknown as IBackgroundApi);
+    await db.run([account(2)]);
+    const firstEvmAddress = '0xABCDEF1111111111111111111111111111111111';
+    const params = {
+      walletId: WALLET.id,
+      skipSaveLocalSyncItem: true,
+      firstEvmAddress,
+    };
+    await db.setWalletNameAndAvatar(params);
+    expect((await db.getWallet({ walletId: WALLET.id })).firstEvmAddress).toBe(
+      firstEvmAddress.toLowerCase(),
+    );
+    const index = db.stores
+      .get(ELocalDBStoreNames.IndexedAccount)
+      ?.get('hd-1--2');
+    expect(index).toMatchObject({
+      idHash: await db.buildIndexedAccountIdHash({
+        firstEvmAddress: firstEvmAddress.toLowerCase(),
+        indexedAccountId: 'hd-1--2',
+        index: 2,
+        useSynchronousHash: true,
+      }),
+    });
+    await db.setWalletNameAndAvatar({ ...params, firstEvmAddress: undefined });
+    await db.setWalletNameAndAvatar({
+      ...params,
+      firstEvmAddress: '0x2222222222222222222222222222222222222222',
+    });
+    expect((await db.getWallet({ walletId: WALLET.id })).firstEvmAddress).toBe(
+      firstEvmAddress.toLowerCase(),
+    );
+  });
+
+  it.each([undefined, '', 'not-an-address', '0x123'])(
+    'ignores invalid or absent seed %s',
+    async (firstEvmAddress) => {
+      const db = new PublicAccountTestDb();
+      db.setBackgroundApi({
+        servicePrimeCloudSync: { syncManagers: {} },
+      } as unknown as IBackgroundApi);
+      await db.setWalletNameAndAvatar({
+        walletId: WALLET.id,
+        skipSaveLocalSyncItem: true,
+        firstEvmAddress,
+      });
+      expect(
+        (await db.getWallet({ walletId: WALLET.id })).firstEvmAddress,
+      ).toBeUndefined();
+    },
+  );
+});
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
   it.each(PUBLIC_ACCOUNT_ALL_CHAIN_IMPLS)(
@@ -381,10 +457,196 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       ELocalDBStoreNames.IndexedAccount,
       ELocalDBStoreNames.Account,
       ELocalDBStoreNames.Wallet,
+      ELocalDBStoreNames.IndexedAccount,
     ]);
     expect(
       db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
     ).toMatchObject({ walletId: 'hd-1', index: 0 });
+  });
+
+  it('hydrates canonical avatar seed on duplicate replay and repairs earlier indexes without renaming them', async () => {
+    const db = new PublicAccountTestDb();
+    db.useRealAvatarHashes = true;
+    await db.run([account(4), account(5)]);
+    db.put(ELocalDBStoreNames.Account, account(0));
+    db.put(ELocalDBStoreNames.IndexedAccount, {
+      id: 'hd-1--0',
+      walletId: 'hd-1',
+      index: 0,
+      idHash: 'fallback',
+      name: 'My custom account',
+    });
+    db.put(ELocalDBStoreNames.IndexedAccount, {
+      id: 'hd-2--0',
+      walletId: 'hd-2',
+      index: 0,
+      idHash: 'other-wallet-avatar',
+      name: 'Other wallet account',
+    });
+    expect(
+      (await db.getWallet({ walletId: WALLET.id })).firstEvmAddress,
+    ).toBeUndefined();
+    expect(await db.run([account(0)])).toMatchObject({
+      added: 0,
+      unchanged: 1,
+    });
+    const wallet = await db.getWallet({ walletId: WALLET.id });
+    expect(wallet.firstEvmAddress).toBe(account(0).address.toLowerCase());
+    expect(wallet.name).toBe(WALLET.name);
+    for (const index of [0, 4, 5]) {
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get(`hd-1--${index}`),
+      ).toMatchObject({
+        idHash: createHash('sha256')
+          .update(`${account(0).address.toLowerCase()}--${index}`)
+          .digest('hex')
+          .slice(-42),
+      });
+    }
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
+    ).toMatchObject({ name: 'My custom account' });
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-2--0'),
+    ).toMatchObject({ idHash: 'other-wallet-avatar' });
+  });
+
+  it('does not infer the avatar seed from a noncanonical or conflicting account', async () => {
+    const db = new PublicAccountTestDb();
+    await db.run([account(1)]);
+    expect(
+      (await db.getWallet({ walletId: WALLET.id })).firstEvmAddress,
+    ).toBeUndefined();
+    db.put(ELocalDBStoreNames.Account, {
+      ...account(0),
+      address: '0x2222222222222222222222222222222222222222',
+    });
+    expect(await db.run([account(0)])).toMatchObject({ conflicts: 1 });
+    expect(
+      (await db.getWallet({ walletId: WALLET.id })).firstEvmAddress,
+    ).toBeUndefined();
+  });
+
+  it('preserves an established wallet avatar seed even when a canonical snapshot differs', async () => {
+    const db = new PublicAccountTestDb();
+    const firstEvmAddress = '0x2222222222222222222222222222222222222222';
+    db.put(ELocalDBStoreNames.Wallet, {
+      ...cloneDeep(WALLET),
+      firstEvmAddress,
+    });
+    await db.run([account(0)]);
+    expect((await db.getWallet({ walletId: WALLET.id })).firstEvmAddress).toBe(
+      firstEvmAddress,
+    );
+  });
+
+  it('does not promote a chain label into the universal selector name', async () => {
+    const db = new PublicAccountTestDb();
+    const chain = { ...account(), name: 'BTC Nested SegWit #1' };
+    await db.run([chain]);
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
+    ).toMatchObject({
+      name: accountUtils.buildIndexedAccountName({ pathIndex: 0 }),
+    });
+    expect(
+      db.stores.get(ELocalDBStoreNames.Account)?.get(chain.id),
+    ).toMatchObject({ name: chain.name });
+  });
+
+  it.each([
+    'new',
+    'new-stale-metadata',
+    'new-deleted-metadata',
+    'polluted',
+    'custom',
+    'newer-index',
+    'newer-metadata',
+    'deleted-metadata',
+    'custom-chain-label',
+  ])('applies authoritative indexed metadata safely: %s', async (mode) => {
+    const db = new PublicAccountTestDb();
+    const chain = { ...account(), name: 'BTC Nested SegWit #1' };
+    const index = {
+      id: 'hd-1--0',
+      walletId: 'hd-1',
+      index: 0,
+      idHash: '',
+      name: mode === 'custom' ? 'My savings' : chain.name,
+    };
+    const source: IDBCloudSyncItem = {
+      id: 'indexed-metadata',
+      dataType: EPrimeCloudSyncDataType.IndexedAccount,
+      data: 'encrypted-name',
+      rawData: '',
+      rawKey: '',
+      pwdHash: 'public-test-cloud',
+      dataTime: 144_000_000,
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    };
+    const isNew =
+      (mode.startsWith('new-') && !mode.startsWith('newer-')) || mode === 'new';
+    if (!isNew) {
+      db.put(ELocalDBStoreNames.Account, chain);
+      db.put(ELocalDBStoreNames.IndexedAccount, index);
+    }
+    db.put(ELocalDBStoreNames.CloudSyncItem, source);
+    if (mode === 'newer-index')
+      db.beforeTransaction = () =>
+        db.put(ELocalDBStoreNames.IndexedAccount, {
+          ...index,
+          name: 'My newer name',
+        });
+    if (
+      [
+        'newer-metadata',
+        'deleted-metadata',
+        'new-stale-metadata',
+        'new-deleted-metadata',
+      ].includes(mode)
+    )
+      db.beforeTransaction = () =>
+        db.put(ELocalDBStoreNames.CloudSyncItem, {
+          ...source,
+          dataTime: 144_000_001,
+          isDeleted: mode.includes('deleted-metadata'),
+        });
+    await db.importPublicCloudAccounts({
+      walletId: WALLET.id,
+      expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+      expectedCredential: 'encrypted-local-test-credential',
+      accounts: [chain],
+      isCurrent: () => true,
+      indexedNames: new Map([
+        [
+          index.id,
+          {
+            name: 'Account #1',
+            source,
+          },
+        ],
+      ]),
+    });
+    let expectedName = isNew
+      ? accountUtils.buildIndexedAccountName({ pathIndex: 0 })
+      : chain.name;
+    if (mode === 'new') expectedName = 'Account #1';
+    if (mode === 'custom') expectedName = 'My savings';
+    if (mode === 'newer-index') expectedName = 'My newer name';
+    if (
+      ['newer-metadata', 'deleted-metadata', 'custom-chain-label'].includes(
+        mode,
+      )
+    )
+      expectedName = chain.name;
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get(index.id),
+    ).toMatchObject({ name: expectedName });
+    expect(
+      db.stores.get(ELocalDBStoreNames.Account)?.get(chain.id),
+    ).toMatchObject({ name: chain.name });
   });
 
   it('is idempotent and keeps the local name', async () => {
@@ -606,7 +868,10 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       accountHdIndex: 1501,
       accountGlobalNum: 7,
     });
-    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
+    expect(db.writes).toEqual([
+      ELocalDBStoreNames.Wallet,
+      ELocalDBStoreNames.IndexedAccount,
+    ]);
     for (const record of records) {
       expect(
         db.stores.get(ELocalDBStoreNames.Account)?.get(record.id),
@@ -867,6 +1132,73 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     expect(
       db.stores.get(ELocalDBStoreNames.IndexedAccount)?.has('hd-1--0'),
     ).toBe(true);
+  });
+
+  it('repairs all local avatars when canonical EVM zero is created later in a batch', async () => {
+    const db = new PublicAccountTestDb();
+    db.useRealAvatarHashes = true;
+    for (const index of [0, 1, 3]) {
+      db.put(ELocalDBStoreNames.IndexedAccount, {
+        id: `hd-1--${index}`,
+        walletId: WALLET.id,
+        index,
+        name: `Keep ${index}`,
+        idHash: 'old-local-id-avatar',
+      });
+    }
+    db.put(ELocalDBStoreNames.IndexedAccount, {
+      id: 'hd-other--0',
+      walletId: 'hd-other',
+      index: 0,
+      name: 'Other wallet',
+      idHash: 'keep-other-avatar',
+    });
+    db.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
+      servicePrimeCloudSync: {
+        syncManagers: {
+          account: {
+            buildExistingSyncItemsInfo: async () => ({
+              existingSyncItems: [],
+              newSyncItems: [],
+              existingSyncItemsInfo: {},
+            }),
+            txWithSyncFlowOfDBRecordCreating: async ({
+              runDbTxFn,
+            }: {
+              runDbTxFn: () => ReturnType<LocalDbBase['addAccountsToWallet']>;
+            }) => runDbTxFn(),
+          },
+        },
+      },
+    } as unknown as IBackgroundApi);
+    await db.addAccountsToWallet({
+      walletId: WALLET.id,
+      accounts: [account(1), account(0)],
+      skipEventEmit: true,
+    });
+    expect((await db.getWallet({ walletId: WALLET.id })).firstEvmAddress).toBe(
+      account(0).address,
+    );
+    for (const index of [0, 1, 3]) {
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get(`hd-1--${index}`),
+      ).toMatchObject({
+        name: `Keep ${index}`,
+        idHash: await db.buildIndexedAccountIdHash({
+          firstEvmAddress: account(0).address,
+          index,
+          indexedAccountId: `hd-1--${index}`,
+          useSynchronousHash: true,
+        }),
+      });
+    }
+    expect(
+      db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-other--0'),
+    ).toMatchObject({ idHash: 'keep-other-avatar' });
   });
 
   it('restores historical names and indexes atomically through the trusted user creation write path', async () => {

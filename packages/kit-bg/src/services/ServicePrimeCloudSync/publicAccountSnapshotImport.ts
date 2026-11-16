@@ -5,6 +5,7 @@ import {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
   ICloudPublicAccountSnapshot,
   ICloudPublicAccountSnapshotResult,
@@ -13,6 +14,7 @@ import type {
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { vaultFactory } from '../../vaults/factory';
 
+import { preparePublicAccountIndexedNames } from './publicAccountIndexedNames';
 import {
   PublicAccountSnapshotUnsupportedError,
   getPublicAccountSnapshotId,
@@ -165,12 +167,14 @@ export async function importPublicAccountSnapshots({
   snapshots,
   isCurrent,
   sourceItemsBySnapshotId,
+  syncCredential,
   action = 'copy',
 }: {
   backgroundApi: IBackgroundApi;
   snapshots: readonly unknown[];
   isCurrent: () => boolean;
   sourceItemsBySnapshotId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  syncCredential?: ICloudSyncCredential;
   action?: 'copy' | 'delete';
 }): Promise<IPublicAccountSnapshotApplyResult> {
   const result = emptyResult();
@@ -397,7 +401,18 @@ export async function importPublicAccountSnapshots({
                     typeof entry[0] === 'string' && !!entry[1],
                 ),
             );
+          const indexedNames =
+            action === 'copy'
+              ? await preparePublicAccountIndexedNames({
+                  backgroundApi,
+                  wallet,
+                  accounts: candidates,
+                  syncCredential,
+                })
+              : undefined;
+          if (!isCurrent()) return { ...result, cancelled: true };
           const params = {
+            indexedNames,
             walletId: wallet.id,
             expectedWallet: {
               ...first.wallet,

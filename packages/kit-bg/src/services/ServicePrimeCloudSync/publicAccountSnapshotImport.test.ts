@@ -14,11 +14,13 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { vaultFactory } from '../../vaults/factory';
 
+import * as indexedNames from './publicAccountIndexedNames';
 import {
   buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
@@ -37,6 +39,17 @@ import type {
 } from '../../dbs/local/types';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 
+jest.mock('./publicAccountIndexedNames', () => {
+  const actual = jest.requireActual<
+    typeof import('./publicAccountIndexedNames')
+  >('./publicAccountIndexedNames');
+  return {
+    ...actual,
+    preparePublicAccountIndexedNames: jest.fn(
+      actual.preparePublicAccountIndexedNames,
+    ),
+  };
+});
 jest.mock('../../vaults/factory', () => ({
   vaultFactory: { getWalletOnlyVault: jest.fn() },
 }));
@@ -246,6 +259,37 @@ function harness(wallets = [wallet()]) {
 describe('importPublicAccountSnapshots', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('passes the selected credential and prepared indexed metadata into transactional import', async () => {
+    const h = harness();
+    const syncCredential = {
+      masterPasswordUUID: 'current-space',
+    } as ICloudSyncCredential;
+    const names = new Map<string, indexedNames.IPublicAccountIndexedName>();
+    const prepare = jest
+      .spyOn(indexedNames, 'preparePublicAccountIndexedNames')
+      .mockResolvedValue(names);
+    try {
+      await importPublicAccountSnapshots({
+        backgroundApi: h.api,
+        snapshots: [snapshot()],
+        isCurrent: () => true,
+        syncCredential,
+      });
+      expect(prepare).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundApi: h.api,
+          syncCredential,
+          wallet: expect.objectContaining({ id: wallet().id }),
+        }),
+      );
+      expect(h.write).toHaveBeenCalledWith(
+        expect.objectContaining({ indexedNames: names }),
+      );
+    } finally {
+      prepare.mockRestore();
+    }
   });
 
   it.each([100, 1000])(

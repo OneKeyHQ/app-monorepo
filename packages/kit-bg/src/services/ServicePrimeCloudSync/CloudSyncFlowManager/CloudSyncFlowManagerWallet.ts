@@ -88,6 +88,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     return {
       name: wallet.name,
       avatar: wallet.avatarInfo,
+      firstEvmAddress: wallet.firstEvmAddress,
       //
       walletType,
       walletHash: hdWalletHash,
@@ -105,6 +106,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       walletId: target.wallet.id,
       name: payload.name,
       avatar: payload.avatar,
+      firstEvmAddress: payload.firstEvmAddress,
       // avoid infinite loop sync
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,

@@ -157,16 +157,19 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
     if (!wallets.length) {
       return undefined;
     }
-    const wallet = wallets[0];
-    const indexedAccountId = accountUtils.buildIndexedAccountId({
-      walletId: wallet.id,
-      index,
-    });
-
-    const account = await this.backgroundApi.localDb.getIndexedAccountSafe({
-      id: indexedAccountId,
-    });
-    return account;
+    // One same-xfp wallet can be missing this index while another already has
+    // it. Any existing target is sufficient for the universal-name replay.
+    for (const wallet of wallets) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId: wallet.id,
+        index,
+      });
+      const account = await this.backgroundApi.localDb.getIndexedAccountSafe({
+        id: indexedAccountId,
+      });
+      if (account) return account;
+    }
+    return undefined;
   }
 
   override async buildSyncTargetByPayload(params: {
