@@ -494,6 +494,101 @@ describe('ServiceTokenViewModel', () => {
     expect(unknown.valuationVersion).toBe(-1);
   });
 
+  it('omits unchanged structure/valuation/risky payloads on conditional getTokenListFrames pull and returns full frames after eviction', async () => {
+    const svc = makeService();
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ balance: '3', fiatValue: '30' }) },
+        riskyTokens: [makeToken('risk1')],
+        riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+      }),
+    );
+
+    const initial = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
+    expect(initial.slotId).toBeDefined();
+    expect(initial.structure?.orderedIds).toEqual(['a']);
+    expect(initial.valuation?.changedFiatById.a.fiatValue).toBe('30');
+    expect(initial.riskyTokens.map((t) => t.$key)).toEqual(['risk1']);
+
+    // Conditional pull with matching slotId and versions omits all three frame payloads.
+    const unchanged = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: initial.structureVersion,
+        structureGeneration: initial.structure?.generation,
+        valuationVersion: initial.valuationVersion,
+        riskyVersion: initial.riskyVersion,
+      },
+    });
+    expect(unchanged.structureUnchanged).toBe(true);
+    expect(unchanged.structure).toBeUndefined();
+    expect(unchanged.valuationUnchanged).toBe(true);
+    expect(unchanged.valuation).toBeUndefined();
+    expect(unchanged.riskyUnchanged).toBe(true);
+    expect(unchanged.riskyTokens).toEqual([]);
+    expect(unchanged.riskyMap).toEqual({});
+
+    // Pure price tick advances valuationVersion only; conditional pull returns only valuation.
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ balance: '3', fiatValue: '36' }) },
+        riskyTokens: [makeToken('risk1')],
+        riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+      }),
+    );
+    const valuationOnly = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: initial.structureVersion,
+        structureGeneration: initial.structure?.generation,
+        valuationVersion: initial.valuationVersion,
+        riskyVersion: initial.riskyVersion,
+      },
+    });
+    expect(valuationOnly.structureUnchanged).toBe(true);
+    expect(valuationOnly.structure).toBeUndefined();
+    expect(valuationOnly.valuationUnchanged).toBeUndefined();
+    expect(valuationOnly.valuation?.changedFiatById.a.fiatValue).toBe('36');
+    expect(valuationOnly.riskyUnchanged).toBe(true);
+
+    // Evict acc0__net and recreate it at version 0; old slotId must NOT match.
+    for (let i = 1; i <= OWNER_VM_CAP; i += 1) {
+      void svc.ingestRound(
+        makeRound({
+          ownerKey: `acc${i}__net`,
+          orderedTokens: [makeToken('x')],
+          tokenListMap: { x: makeFiat({ fiatValue: '1' }) },
+        }),
+      );
+    }
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('b')],
+        tokenListMap: { b: makeFiat({ balance: '9', fiatValue: '90' }) },
+      }),
+    );
+    const recreated = await svc.getTokenListFrames({
+      ownerKey: 'acc0__net',
+      knownVersions: {
+        slotId: initial.slotId,
+        structureVersion: 0,
+        structureGeneration: 0,
+        valuationVersion: 0,
+      },
+    });
+    expect(recreated.slotId).not.toBe(initial.slotId);
+    expect(recreated.structureUnchanged).toBeUndefined();
+    expect(recreated.structure?.orderedIds).toEqual(['b']);
+    expect(recreated.valuation?.changedFiatById.b.fiatValue).toBe('90');
+  });
+
   it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {
     const svc = makeService();
     // round 1: a, b, c

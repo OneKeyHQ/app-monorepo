@@ -22,29 +22,36 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export interface IStructurePush {
   ownerKey: string;
+  slotId?: string;
   structureVersion: number;
   structure: IStructureSnapshot;
 }
 export interface IValuationPush {
   ownerKey: string;
+  slotId?: string;
   valuationVersion: number;
   valuation: IValuationFrame;
 }
 export interface IRiskyPush {
   ownerKey: string;
+  slotId?: string;
   riskyVersion: number;
   riskyTokens: IAccountToken[];
   riskyMap: Record<string, ITokenFiat>;
 }
 export interface IFramesPull {
   ownerKey: string;
+  slotId?: string;
   structureVersion: number;
   valuationVersion: number;
   structure: IStructureSnapshot | undefined;
+  structureUnchanged?: boolean;
   valuation: IValuationFrame | undefined;
+  valuationUnchanged?: boolean;
   riskyVersion: number;
   riskyTokens: IAccountToken[];
   riskyMap: Record<string, ITokenFiat>;
+  riskyUnchanged?: boolean;
   storeData?: IJotaiContextStoreData;
 }
 

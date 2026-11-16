@@ -313,8 +313,80 @@ export function useTokenListCellsProducer(
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],
     getPullOwnerKey: (pulled) => pulled.ownerKey,
-    pull: () =>
-      backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({ ownerKey }),
+    pull: async () => {
+      const cachedReplay = identity
+        ? getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey,
+          })
+        : undefined;
+      const replayInCurrentCurrency =
+        cachedReplay && cachedReplay.currencyId === currencyIdRef.current
+          ? cachedReplay
+          : undefined;
+      const slotId =
+        replayInCurrentCurrency?.structure?.slotId ??
+        replayInCurrentCurrency?.valuation?.slotId ??
+        replayInCurrentCurrency?.risky?.slotId;
+      if (!slotId) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
+      const pulled =
+        await backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+          knownVersions: {
+            slotId,
+            structureVersion:
+              replayInCurrentCurrency?.structure?.structureVersion,
+            structureGeneration:
+              replayInCurrentCurrency?.structure?.structure.generation,
+            valuationVersion:
+              replayInCurrentCurrency?.valuation?.valuationVersion,
+            riskyVersion: replayInCurrentCurrency?.risky?.riskyVersion,
+          },
+        });
+      if (
+        !pulled.structureUnchanged &&
+        !pulled.valuationUnchanged &&
+        !pulled.riskyUnchanged
+      ) {
+        return pulled;
+      }
+      const latestReplay = identity
+        ? getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey,
+          })
+        : undefined;
+      if (
+        !latestReplay ||
+        latestReplay.currencyId !== currencyIdRef.current ||
+        (pulled.structureUnchanged && !latestReplay.structure?.structure) ||
+        (pulled.valuationUnchanged && !latestReplay.valuation?.valuation) ||
+        (pulled.riskyUnchanged && !latestReplay.risky)
+      ) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
+      return {
+        ...pulled,
+        structure: pulled.structureUnchanged
+          ? latestReplay.structure?.structure
+          : pulled.structure,
+        valuation: pulled.valuationUnchanged
+          ? latestReplay.valuation?.valuation
+          : pulled.valuation,
+        riskyTokens: pulled.riskyUnchanged
+          ? (latestReplay.risky?.riskyTokens ?? [])
+          : pulled.riskyTokens,
+        riskyMap: pulled.riskyUnchanged
+          ? (latestReplay.risky?.riskyMap ?? {})
+          : pulled.riskyMap,
+      };
+    },
     onSetup: () => {
       if (!store || !identity) {
         return undefined;
@@ -382,6 +454,7 @@ export function useTokenListCellsProducer(
           pulled.structure
             ? ({
                 ownerKey: pulled.ownerKey,
+                ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
                 structureVersion: pulled.structureVersion,
                 structure: pulled.structure,
               } satisfies IStructurePush)
@@ -419,6 +492,7 @@ export function useTokenListCellsProducer(
           pulled.valuation
             ? ({
                 ownerKey: pulled.ownerKey,
+                ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
                 valuationVersion: pulled.valuationVersion,
                 valuation: pulled.valuation,
               } satisfies IValuationPush)
@@ -459,6 +533,7 @@ export function useTokenListCellsProducer(
         fromPull: (pulled) =>
           ({
             ownerKey: pulled.ownerKey,
+            ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
             riskyVersion: pulled.riskyVersion,
             riskyTokens: pulled.riskyTokens,
             riskyMap: pulled.riskyMap,

@@ -13,6 +13,7 @@ import {
   flattenAggregateTokensMap,
   getFilteredTokenBySearchKey,
   mergeDeriveTokenListMap,
+  mergeTokenMetadataWithCustomDataBatchSync,
   nestAggregateTokensMap,
   normalizeTokenSearchResults,
   retainAccountsWorth,
@@ -1926,5 +1927,48 @@ describe('findTokenKeysMissingFromMap', () => {
       riskTokens: { data: [token('k2', 'B')], keys: '', map: { k2: fiat } },
     } as unknown as IFetchAccountTokensResp;
     expect(findTokenKeysMissingFromMap(resp)).toEqual([]);
+  });
+});
+
+describe('mergeTokenMetadataWithCustomDataBatchSync', () => {
+  it('fills missing symbol/name from matching custom tokens and keeps complete tokens unchanged', () => {
+    const completeToken: IAccountToken = {
+      $key: 'evm--1_0x1',
+      networkId: 'evm--1',
+      address: '0x1',
+      decimals: 18,
+      isNative: false,
+      symbol: 'TKN',
+      name: 'Token 1',
+    };
+    const incompleteToken: IAccountToken = {
+      $key: 'evm--1_0x2',
+      networkId: 'evm--1',
+      address: '0x2',
+      decimals: 18,
+      isNative: false,
+      symbol: '',
+      name: '',
+    };
+    const customToken: IAccountToken = {
+      $key: 'evm--1_0x2',
+      networkId: 'evm--1',
+      address: '0x2',
+      decimals: 18,
+      isNative: false,
+      symbol: 'CUST',
+      name: 'Custom Token',
+    };
+    const merged = mergeTokenMetadataWithCustomDataBatchSync({
+      tokens: [completeToken, incompleteToken],
+      customTokens: [customToken],
+      networkId: 'onekeyall--0',
+    });
+    expect(merged[0]).toBe(completeToken);
+    expect(merged[1]).toEqual({
+      ...incompleteToken,
+      symbol: 'CUST',
+      name: 'Custom Token',
+    });
   });
 });

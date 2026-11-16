@@ -144,7 +144,6 @@ import {
   flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
-  getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
@@ -975,7 +974,6 @@ function TokenListBlock({
             networkAccounts.map((networkAccount) =>
               backgroundApiProxy.serviceToken.fetchAccountTokens({
                 accountId: networkAccount.account?.id ?? '',
-                mergeTokens: true,
                 networkId: network.id,
                 flag: 'home-token-list',
                 homeRequest,
@@ -1071,7 +1069,6 @@ function TokenListBlock({
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId,
-            mergeTokens: true,
             networkId: network.id,
             flag: 'home-token-list',
             homeRequest,
@@ -1202,22 +1199,14 @@ function TokenListBlock({
               // SETTLED owner identity for the `getRawTokenList` switch skeleton.
               accountId: account?.id,
               networkId: network?.id,
-              rawKeys: r.allTokens?.keys ?? '',
+              rawKeys:
+                r.allTokens?.keys ||
+                `${r.tokens.keys}_${r.smallBalanceTokens.keys}_${r.riskTokens.keys}`,
               source: 'single',
             })
             .catch((error) => {
               if (!isRequestCanceledError(error)) console.error(error);
             });
-        }
-
-        if (r.allTokens) {
-          const mergedTokens = r.allTokens.data;
-          if (mergedTokens && mergedTokens.length) {
-            void backgroundApiProxy.serviceToken.updateLocalTokens({
-              networkId: network.id,
-              tokens: mergedTokens,
-            });
-          }
         }
 
         perfTokenListView.markEnd(
@@ -1653,14 +1642,11 @@ function TokenListBlock({
       let aggregateTokenMap: Record<string, ITokenFiat> = {};
 
       if (!r.homeTokenRoundRef) {
-        const [tokenNetwork, tokenVaultSettings] = await Promise.all([
-          backgroundApiProxy.serviceNetwork.getNetwork({
+        const tokenNetwork = await backgroundApiProxy.serviceNetwork.getNetwork(
+          {
             networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          }),
-        ]);
+          },
+        );
 
         if (
           !isHomeRequestCurrent() ||
@@ -1723,25 +1709,6 @@ function TokenListBlock({
           r.aggregateTokenListMap = aggregateTokenListMap;
           r.aggregateTokenMap = aggregateTokenMap;
         }
-
-        const { tokens, riskTokens, smallBalanceTokens } = r;
-
-        const { allTokens } = getMergedTokenData({
-          tokens,
-          riskTokens,
-          smallBalanceTokens,
-        });
-
-        if (allTokens) {
-          allTokens.data = allTokens.data.map((token) => ({
-            ...token,
-            accountId,
-            networkId,
-            networkName: tokenNetwork?.name,
-            mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
-          }));
-        }
-        r.allTokens = allTokens;
       }
 
       if (isAccountSwitchDiagnosticsEnabled()) {
@@ -4148,7 +4115,6 @@ function TokenListBlock({
         const fetchTargetAccountTokens = (targetAccountId: string) =>
           backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId: targetAccountId,
-            mergeTokens: true,
             networkId,
             flag: 'home-token-list',
             homeRequest,
@@ -4210,18 +4176,6 @@ function TokenListBlock({
           worth: accountWorth,
           createAtNetworkWorth,
           merge: false,
-        });
-
-        // Keep the broader local token directory in sync, like `run` does;
-        // `saveToLocal` only persists the per-account token cache.
-        responses.forEach((item) => {
-          const mergedTokens = item.allTokens?.data;
-          if (mergedTokens && mergedTokens.length) {
-            void backgroundApiProxy.serviceToken.updateLocalTokens({
-              networkId,
-              tokens: mergedTokens,
-            });
-          }
         });
         // This path only refreshes the header worth; the token rows are not
         // ingested into the owner's cells, so the list must stay uninitialized

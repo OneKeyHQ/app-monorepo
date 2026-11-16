@@ -436,11 +436,13 @@ export interface IAppEventBusPayload {
   // stale PULL result and detect a generation/version gap.
   [EAppEventBusNames.TokenListStructureFrame]: {
     ownerKey: string;
+    slotId?: string;
     structureVersion: number;
     structure: IStructureSnapshot;
   };
   [EAppEventBusNames.TokenListValuationFrame]: {
     ownerKey: string;
+    slotId?: string;
     valuationVersion: number;
     valuation: IValuationFrame;
   };
@@ -452,6 +454,7 @@ export interface IAppEventBusPayload {
   // diffed — always the whole current risky set).
   [EAppEventBusNames.TokenListRiskyFrame]: {
     ownerKey: string;
+    slotId?: string;
     riskyVersion: number;
     riskyTokens: IAccountToken[];
     riskyMap: Record<string, ITokenFiat>;

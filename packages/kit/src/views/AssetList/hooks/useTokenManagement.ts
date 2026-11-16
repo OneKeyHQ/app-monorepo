@@ -14,6 +14,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
+  mergeTokenMetadataWithCustomDataBatchSync,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
@@ -126,36 +127,27 @@ export function useTokenManagement({
         };
       }
 
-      const [aggregateTokenConfigMap, hiddenTokens] = await Promise.all([
-        backgroundApiProxy.serviceToken.getAggregateTokenConfigMap(),
-        backgroundApiProxy.serviceCustomToken.getHiddenTokensBatch({
-          pairs: pair,
-        }),
-      ]);
+      // PULL the merged-with-risky raw list from the BG VM in parallel with
+      // the config/hidden queries, then merge missing custom token metadata
+      // synchronously in memory without another Main -> BG -> Main round-trip.
+      const [aggregateTokenConfigMap, hiddenTokens, rawTokenList] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getAggregateTokenConfigMap(),
+          backgroundApiProxy.serviceCustomToken.getHiddenTokensBatch({
+            pairs: pair,
+          }),
+          ownerKey
+            ? backgroundApiProxy.serviceTokenViewModel.getRawTokenList({
+                ownerKey,
+              })
+            : Promise.resolve({ tokens: [] }),
+        ]);
 
-      // One bridge round-trip for the whole list. The single-item bg method
-      // is `Promise.resolve(syncMerge)` so a Promise.all over .map paid 1
-      // BgTransport round-trip per token for zero real async work — this
-      // pattern shows up as 808 mergeTokenMetadataWithCustomData calls in
-      // the OK-perp/swap freeze trace. See ServiceToken
-      // .mergeTokenMetadataWithCustomDataBatch for the contract.
-      // PULL the merged-with-risky raw list from the BG VM (replaces the deleted
-      // `allTokenListAtom` read). PULL-only; the reactive `listStructure`
-      // generation dep below re-runs this when the home list changes.
-      const rawTokenList = ownerKey
-        ? await backgroundApiProxy.serviceTokenViewModel.getRawTokenList({
-            ownerKey,
-          })
-        : { tokens: [] };
-
-      const allTokens =
-        await backgroundApiProxy.serviceToken.mergeTokenMetadataWithCustomDataBatch(
-          {
-            tokens: [...rawTokenList.tokens, ...customTokens],
-            customTokens,
-            networkId,
-          },
-        );
+      const allTokens = mergeTokenMetadataWithCustomDataBatchSync({
+        tokens: [...rawTokenList.tokens, ...customTokens],
+        customTokens,
+        networkId,
+      });
 
       const uniqueTokens = uniqBy(
         allTokens,

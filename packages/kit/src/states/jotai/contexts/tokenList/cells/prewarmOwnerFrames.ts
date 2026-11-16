@@ -211,6 +211,7 @@ export async function prewarmHomeTokenListOwner(
         kind: 'structure',
         payload: {
           ownerKey,
+          ...(frames.slotId ? { slotId: frames.slotId } : undefined),
           structureVersion: frames.structureVersion,
           structure,
         },
@@ -223,6 +224,7 @@ export async function prewarmHomeTokenListOwner(
           kind: 'valuation',
           payload: {
             ownerKey,
+            ...(frames.slotId ? { slotId: frames.slotId } : undefined),
             valuationVersion: frames.valuationVersion,
             valuation: frames.valuation,
           },
@@ -236,6 +238,7 @@ export async function prewarmHomeTokenListOwner(
           kind: 'risky',
           payload: {
             ownerKey,
+            ...(frames.slotId ? { slotId: frames.slotId } : undefined),
             riskyVersion: frames.riskyVersion,
             riskyTokens: frames.riskyTokens,
             riskyMap: frames.riskyMap,
