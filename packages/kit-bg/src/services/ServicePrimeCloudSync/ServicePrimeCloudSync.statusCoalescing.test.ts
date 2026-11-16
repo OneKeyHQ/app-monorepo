@@ -8,7 +8,10 @@ import type {
   ICloudSyncCredential,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { rejectPublicAccountSnapshotWrite } from './publicAccountSnapshotWriteGuard';
+import {
+  matchesPublicAccountSnapshotWrite,
+  rejectPublicAccountSnapshotWrite,
+} from './publicAccountSnapshotWriteGuard';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -107,6 +110,14 @@ jest.mock('./cloudSyncCheckUtils', () => ({
 jest.mock('./cloudSyncItemBuilder', () => ({
   __esModule: true,
   default: {
+    setDefaultPropsOfServerToLocalItem: ({
+      localItem,
+    }: {
+      localItem: IDBCloudSyncItem;
+    }) => {
+      localItem.serverUploaded = true;
+      localItem.localSceneUpdated = false;
+    },
     normalizeDataTime: (time: number | undefined) => time,
     getPwdHash: (credential?: { masterPasswordUUID: string }) =>
       credential?.masterPasswordUUID ?? '',
@@ -461,6 +472,62 @@ describe('ServicePrimeCloudSync per-record status coalescing', () => {
     expect(upload).not.toHaveBeenCalled();
     await service._drainServerSyncFlowForItems();
     expect(status).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed creation schedules automatic reconciliation without another user event', async () => {
+    const { service, status } = harness();
+    const resume = jest
+      .spyOn(service, 'resumeCloudSyncReconciliation')
+      .mockResolvedValue(undefined);
+    status.mockRejectedValueOnce(new OneKeyLocalError('timeout'));
+    await service.startServerSyncFlowForItems({
+      localItems: [item('retry-auto')],
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(resume).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(resume).toHaveBeenCalledWith({ reason: 'local-mutation' });
+  });
+
+  test('source cancellation prevents a failed creation retry', async () => {
+    const { service, status } = harness();
+    const resume = jest
+      .spyOn(service, 'resumeCloudSyncReconciliation')
+      .mockResolvedValue(undefined);
+    status.mockRejectedValueOnce(new OneKeyLocalError('timeout'));
+    await service.startServerSyncFlowForItems({
+      localItems: [item('retry-cancel')],
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    await service.cancelPublicAccountSnapshotImport();
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(resume).not.toHaveBeenCalled();
+  });
+
+  test('bare deletion ACK is guarded by request version, not the latest local version', async () => {
+    const { service } = harness();
+    const requested = { ...item('recreated'), dataTime: 100, isDeleted: true };
+    const recreated = { ...requested, dataTime: 200, isDeleted: false };
+    const write = jest
+      .spyOn(service, 'updateLocalItemsByServer')
+      .mockResolvedValue(undefined);
+    await service.saveServerDeletedItemsToLocal({
+      deletedItemIds: [requested.id, 'unknown'],
+      requestItems: [requested],
+      shouldSyncToScene: true,
+      syncCredential: undefined,
+      serverPwdHash: 'owner-A',
+    });
+    const updates = write.mock.calls[0][0].localItems;
+    expect(updates).toHaveLength(1);
+    expect(updates[0].dataTime).toBe(100);
+    expect(matchesPublicAccountSnapshotWrite(updates[0], requested)).toBe(true);
+    expect(matchesPublicAccountSnapshotWrite(updates[0], recreated)).toBe(
+      false,
+    );
+    expect(matchesPublicAccountSnapshotWrite(updates[0], undefined)).toBe(
+      false,
+    );
   });
 
   test('failed status restores its records for retry without repeating the public enqueue path', async () => {

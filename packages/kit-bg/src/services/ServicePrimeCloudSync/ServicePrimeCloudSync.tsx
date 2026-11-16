@@ -1744,21 +1744,23 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   async saveServerDeletedItemsToLocal({
     deletedItemIds,
+    requestItems,
     shouldSyncToScene,
     syncCredential,
     serverPwdHash,
     isCurrent,
   }: {
     deletedItemIds: string[];
+    requestItems: IDBCloudSyncItem[];
     shouldSyncToScene: boolean;
     syncCredential: ICloudSyncCredential | undefined;
     serverPwdHash: string;
     isCurrent?: () => boolean;
   }) {
-    const { records: items } = await localDb.getRecordsByIds({
-      name: ELocalDBStoreNames.CloudSyncItem,
-      ids: deletedItemIds,
-    });
+    // A bare deletion ACK only applies to the version sent in that request.
+    // Preserve that version and compare it atomically inside the DB write.
+    const deletedIds = new Set(deletedItemIds);
+    const items = requestItems.filter((item) => deletedIds.has(item.id));
 
     await this.updateLocalItemsByServer({
       localItems: items.filter(Boolean).map((item) => {
@@ -1770,7 +1772,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         cloudSyncItemBuilder.setDefaultPropsOfServerToLocalItem({
           localItem: newItem,
         });
-        return newItem;
+        return rememberPublicAccountSnapshotWrite(newItem, item);
       }),
       syncCredential,
       shouldSyncToScene,
@@ -2102,6 +2104,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     }));
     let networkRequests = 0;
     let latestItems: IDBCloudSyncItem[] = [];
+    let checkRequestItems: IDBCloudSyncItem[] = [];
     let activeApply: Promise<{ applied: number }> | undefined;
     let activeUpload: Promise<{ uploaded: number }> | undefined;
     try {
@@ -2162,6 +2165,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           },
           check: async ({ reconciliation, signal, timeoutMs }) => {
             await this.assertSyncCredentialUnchanged(credential);
+            checkRequestItems = latestItems.map((item) => ({ ...item }));
             const firstRequest = networkRequests === 0;
             networkRequests += 1;
             try {
@@ -2259,6 +2263,7 @@ class ServicePrimeCloudSync extends ServiceBase {
               if (response.deleted.length)
                 await this.saveServerDeletedItemsToLocal({
                   deletedItemIds: response.deleted,
+                  requestItems: checkRequestItems,
                   shouldSyncToScene: true,
                   syncCredential: credential,
                   serverPwdHash: response.pwdHash,
@@ -2598,6 +2603,16 @@ class ServicePrimeCloudSync extends ServiceBase {
           }
         }
         this.serverSyncSetUndefinedTimeToNow ||= setUndefinedTimeToNow;
+        if (isCurrent()) {
+          // Use the same durable dirty-record reconciliation and backoff as
+          // deletions, including offline and source-switch cancellation.
+          this.pendingLocalMutation = {
+            generation,
+            keyGeneration,
+            spaceId: pwdHash,
+          };
+          await this.scheduleLocalMutationRetry();
+        }
         throw error;
       }
     })();
@@ -2611,7 +2626,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (this.serverSyncDrainPromise === run)
         this.serverSyncDrainPromise = undefined;
       // Writes arriving during a successful request get a bounded follow-up.
-      // Failures remain dirty until the next trigger, avoiding a retry loop.
+      // Failures use the local-mutation reconciliation retry instead.
       if (
         succeeded &&
         consumed &&
@@ -2665,6 +2680,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       const assertSelectedKey = () =>
         this.assertSyncCredentialUnchanged(expectedCredential);
       await assertSelectedKey();
+      const checkRequestItems = localItems.map((item) => ({ ...item }));
       const serverStatus = await this.checkServerStatusWithRequestOptions(
         {
           localItems,
@@ -2714,6 +2730,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (serverStatus.deleted.length)
         await this.saveServerDeletedItemsToLocal({
           deletedItemIds: serverStatus.deleted,
+          requestItems: checkRequestItems,
           shouldSyncToScene: true,
           syncCredential,
           serverPwdHash: serverStatus.pwdHash,

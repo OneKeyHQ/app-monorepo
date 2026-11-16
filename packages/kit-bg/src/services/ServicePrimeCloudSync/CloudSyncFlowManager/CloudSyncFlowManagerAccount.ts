@@ -171,7 +171,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         }
       }
     }
-    const built = await super.buildSyncItem(params);
+    const built = await super.buildSyncItem({
+      ...params,
+      // A downloaded version may be ahead of this process's clock or cache.
+      existingDataTime: existing
+        ? Math.max(existing.dataTime ?? 0, params.existingDataTime ?? 0)
+        : params.existingDataTime,
+    });
     if (snapshot && built) {
       if (built.data) built.rawData = '';
       rememberPublicAccountSnapshotWrite(built, existing);

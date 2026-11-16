@@ -104,7 +104,13 @@ function harness() {
       getAllLocalSyncItems: jest.fn(async () => ({
         items: Array.from(pool.values()),
       })),
-      getCloudSyncDataTime: jest.fn(async () => 1_750_000_000_000),
+      getCloudSyncDataTime: jest.fn(
+        async (
+          _params?: Parameters<
+            IBackgroundApi['servicePrimeCloudSync']['getCloudSyncDataTime']
+          >[0],
+        ) => 1_750_000_000_000,
+      ),
       publishPublicAccountSnapshotStatus: jest.fn(
         async ({
           counts,
@@ -301,6 +307,44 @@ describe('public account snapshot Cloud scene integration', () => {
       }),
     );
   });
+
+  test.each([false, true])(
+    'floors ordinary account updates against downloaded versions after restart (deleted=%s)',
+    async (isDeleted) => {
+      const h = harness();
+      const snapshot = publicAccountTestSnapshot();
+      const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
+      const downloaded = await encryptedItem(h.manager);
+      const correctedNow = 1_750_000_000_000;
+      downloaded.dataTime = correctedNow + 1000;
+      h.pool.set(downloaded.id, downloaded);
+      // A fresh process has no last-issued timestamp for this downloaded row.
+      h.bg.servicePrimeCloudSync.getCloudSyncDataTime.mockImplementation(
+        async (params) =>
+          Math.max(correctedNow, (params?.existingDataTime ?? 0) + 1),
+      );
+
+      const updated = await h.manager.buildSyncItemByDBQuery({
+        dbRecord: account,
+        isDeleted,
+        dataTime: undefined,
+        syncCredential: credential,
+      });
+
+      expect(
+        h.bg.servicePrimeCloudSync.getCloudSyncDataTime,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          existingDataTime: downloaded.dataTime,
+        }),
+      );
+      expect(updated).toMatchObject({
+        isDeleted,
+        dataTime: downloaded.dataTime + 1,
+        serverUploaded: false,
+      });
+    },
+  );
 
   test('explicit trusted re-add restores the historical name with a newer existing timestamp', async () => {
     const h = harness();

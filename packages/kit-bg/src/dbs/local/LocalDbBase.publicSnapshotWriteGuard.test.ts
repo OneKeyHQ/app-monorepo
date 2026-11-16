@@ -147,6 +147,26 @@ describe('LocalDbBase public snapshot optimistic write', () => {
     },
   );
 
+  it('rejects a delayed deletion ACK after the account was recreated', async () => {
+    const db = new SnapshotWriteTestDb();
+    const requested = { ...item(), dataTime: 100, isDeleted: true };
+    const ack = rememberPublicAccountSnapshotWrite(
+      { ...requested, serverUploaded: true, localSceneUpdated: false },
+      requested,
+    );
+    const recreated = {
+      ...requested,
+      dataTime: 200,
+      isDeleted: false,
+      serverUploaded: false,
+    };
+    db.records.set(recreated.id, recreated);
+    await db.run([ack]);
+    expect(db.records.get(recreated.id)).toEqual(recreated);
+    expect(db.writes).toBe(0);
+    expect(isRejectedPublicAccountSnapshotWrite(ack)).toBe(true);
+  });
+
   it('does not create over a future record that arrived after the initial scan', async () => {
     const db = new SnapshotWriteTestDb();
     const update = rememberPublicAccountSnapshotWrite({
