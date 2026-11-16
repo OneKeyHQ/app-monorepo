@@ -23,6 +23,7 @@ function createRuntime({
   repair = true,
   rawMode = false,
   beforeRepair = '',
+  afterRepair = '',
 } = {}) {
   // Keep all endowments inside the VM: hardening a host console can freeze
   // the Jest worker's prototypes and break later suites in the same process.
@@ -40,6 +41,7 @@ function createRuntime({
       vm.runInContext(fs.readFileSync(filename, 'utf8'), context);
     });
   }
+  if (afterRepair) vm.runInContext(afterRepair, context);
   const { code } = babel.transformFileSync(helperPath, {
     babelrc: false,
     configFile: false,
@@ -81,6 +83,42 @@ describe('mobile lockdown bootstrap', () => {
       );
       expect(stack).toContain('public stack fixture');
       if (custom) expect(stack).toContain('address at main.jsbundle:1:42');
+      vm.runInContext(
+        'globalThis.previousPrepare = Error.prepareStackTrace; Error.prepareStackTrace = undefined;',
+        context,
+      );
+      expect(
+        vm.runInContext('Error.prepareStackTrace === nativePrepare', context),
+      ).toBe(true);
+      vm.runInContext('Error.prepareStackTrace = previousPrepare;', context);
+      const restoredStack = vm.runInContext(
+        'new Error("after React formatter reset").stack',
+        context,
+      );
+      expect(restoredStack).toContain('after React formatter reset');
+      if (custom)
+        expect(restoredStack).toContain('address at main.jsbundle:1:42');
+      vm.runInContext(
+        `
+        Error.prepareStackTrace = function (error, sites) {
+          globalThis.exposedCallSitePower = sites.some(function (site) {
+            return typeof site.getThis === 'function' || typeof site.getFunction === 'function';
+          });
+          return 'custom ' + error.message;
+        };
+      `,
+        context,
+      );
+      expect(
+        vm.runInContext('new Error("public callback fixture").stack', context),
+      ).toBe('custom public callback fixture');
+      expect(vm.runInContext('exposedCallSitePower', context)).toBe(false);
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace").set)',
+          context,
+        ),
+      ).toBe(true);
       expect(
         vm.runInContext(
           'Object.isFrozen(Error.prototype) && Object.isFrozen(Promise.prototype)',
@@ -89,6 +127,25 @@ describe('mobile lockdown bootstrap', () => {
       ).toBe(true);
     },
   );
+  test('hardens encoding shims installed after SES repair', () => {
+    const context = createRuntime({
+      afterRepair: `
+      globalThis.TextEncoder = class TextEncoder { encode() { return new Uint8Array([42]); } };
+      globalThis.TextDecoder = class TextDecoder { decode() { return 'public fixture'; } };
+    `,
+    });
+    context.exports.finishMobileLockdown('main');
+    expect(
+      vm.runInContext(
+        'Object.isFrozen(TextEncoder) && Object.isFrozen(TextEncoder.prototype) && Object.isFrozen(TextEncoder.prototype.encode) && Object.isFrozen(TextDecoder) && Object.isFrozen(TextDecoder.prototype) && Object.isFrozen(TextDecoder.prototype.decode)',
+        context,
+      ),
+    ).toBe(true);
+    expect(vm.runInContext('new TextEncoder().encode()[0]', context)).toBe(42);
+    expect(vm.runInContext('new TextDecoder().decode()', context)).toBe(
+      'public fixture',
+    );
+  });
   const originalMode = process.env.ONEKEY_MOBILE_LOCKDOWN;
   // Jest's console functions may originate in the worker realm rather than
   // this suite's realm. Check both sets of prototypes for cross-realm damage.

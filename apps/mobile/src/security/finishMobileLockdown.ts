@@ -44,6 +44,14 @@ export function finishMobileLockdown(
     // SES captured its intrinsic graph during repair. A vetted non-Hermes
     // Promise installed afterward must also be included in the hardened graph.
     g.harden?.(Promise);
+    // SES samples these before RN/OneKey install their vetted encoding shims.
+    // Include the active constructors and methods, as on the web startup path.
+    for (const constructor of [
+      globalThis.TextEncoder,
+      globalThis.TextDecoder,
+    ]) {
+      if (typeof constructor === 'function') g.harden?.(constructor);
+    }
     if (
       typeof g.harden !== 'function' ||
       !Object.isFrozen(Object.prototype) ||
