@@ -18,7 +18,6 @@ import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
@@ -31,8 +30,8 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
+  isPrimeCryptoPaymentSupported,
   isPrimeStoreOnlyPayment,
-  isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type {
   EPrimeFeatures,
@@ -50,6 +49,7 @@ import { createPrimeInfiniRemotePendingPaymentResolver } from '../../hooks/prime
 import { retirePrimeWebCheckout } from '../../hooks/retirePrimeWebCheckout';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
 import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
 import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
@@ -65,6 +65,7 @@ import {
 } from '../../purchasesSdk/stripePaymentElementHealth';
 import { showPrimeInfiniWaitingDialog } from '../PrimeInfiniWaitingDialog';
 
+import { PrimePackagesFetchFailed } from './PrimePackagesFetchFailed';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { showPrimeInfiniUnfinishedPaymentDialog } from './showPrimeInfiniUnfinishedPaymentDialog';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
@@ -846,13 +847,11 @@ export const PrimePurchaseDialog = (props: {
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>(defaultSelectedSubscriptionPeriod ?? 'P1Y');
 
-  const { getPackagesNative, getPackagesWeb } = usePrimePayment();
-
-  const { result: packages } = usePromiseResult(
-    async () =>
-      isPrimeStorePayment() ? getPackagesNative?.() : getPackagesWeb?.(),
-    [getPackagesNative, getPackagesWeb],
-  );
+  const { packages, isPackagesLoading, packagesFailure, reloadPackages } =
+    usePrimeSubscriptionPackages({ enabled: true });
+  // Same rule as the paywall: card or crypto checkout needs no store plan.
+  const canPurchaseWithoutPackages =
+    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
 
   const { purchase } = usePrimePurchaseCallback({
     onPurchase,
@@ -863,18 +862,26 @@ export const PrimePurchaseDialog = (props: {
   );
   return (
     <Stack mt="$8">
-      {packages ? (
+      {packagesFailure ? (
+        <PrimePackagesFetchFailed
+          failure={packagesFailure}
+          canPurchaseWithoutPackages={canPurchaseWithoutPackages}
+          onRetry={reloadPackages}
+        />
+      ) : null}
+      {!packagesFailure && !isPackagesLoading && packages.length ? (
         <PrimeSubscriptionPlans
           packages={packages}
           selectedSubscriptionPeriod={selectedSubscriptionPeriod}
           onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
         />
-      ) : (
+      ) : null}
+      {!packagesFailure && (isPackagesLoading || !packages.length) ? (
         <YStack gap="$2.5">
           <Skeleton width="100%" height={100} />
           <Skeleton width="100%" height={100} />
         </YStack>
-      )}
+      ) : null}
 
       <Dialog.Footer
         showCancelButton={false}
@@ -882,10 +889,10 @@ export const PrimePurchaseDialog = (props: {
           id: ETranslations.prime_subscribe,
         })}
         confirmButtonProps={{
-          disabled: !selectedPackage,
+          disabled: !selectedPackage && !canPurchaseWithoutPackages,
         }}
         onConfirm={() => {
-          if (!selectedPackage) {
+          if (!selectedPackage && !canPurchaseWithoutPackages) {
             return undefined;
           }
           return purchase({

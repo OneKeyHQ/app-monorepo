@@ -9,6 +9,10 @@ import type {
   IPrimeFreeTrialResultParams,
 } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
+import type {
+  IPrimePackagesFailureKind,
+  IPrimePurchaseErrorAnalytics,
+} from '@onekeyhq/shared/src/utils/primePurchaseErrorAnalytics';
 import {
   getOneKeyIdAuthFailureServerParams,
   getOneKeyIdAuthFailureSite,
@@ -752,11 +756,68 @@ export class PrimeSubscriptionScene extends BaseScene {
 
   @LogToLocal()
   @LogToServer()
-  public fetchPackagesFailed({ errorMessage }: { errorMessage: string }) {
+  public fetchPackagesFailed({
+    errorMessage,
+    errorCode,
+    errorName,
+    underlyingErrorCategory,
+    failureKind,
+    storefrontCountryCode,
+  }: {
+    errorMessage: string;
+    errorCode?: string;
+    errorName?: string;
+    underlyingErrorCategory?: IPrimePurchaseErrorAnalytics['underlyingErrorCategory'];
+    // Fail state shown on the paywall for this error.
+    failureKind?: IPrimePackagesFailureKind;
+    // Purchase account Storefront country, not the device region or IP:
+    // ISO 3166-1 alpha-3 on Apple stores, alpha-2 on Google Play.
+    storefrontCountryCode?: string;
+  }) {
     return {
       // Store SDK errors are free text; scrub before they leave the device.
       errorMessage: scrubSensitiveErrorMessageText(errorMessage),
+      errorCode,
+      errorName,
+      underlyingErrorCategory,
+      failureKind,
+      storefrontCountryCode,
     };
+  }
+
+  /**
+   * Paywall fail state shown because no subscription plans could be loaded.
+   * Pairs with fetchPackagesFailed (cause) and primePackagesFailStateAction
+   * (recovery attempt). Fired each time the fail state appears, including
+   * after a failed retry.
+   */
+  @LogToServer()
+  public primePackagesFailStateShow({
+    failureKind,
+    storefrontCountryCode,
+    canPurchaseWithoutPackages,
+  }: {
+    failureKind: IPrimePackagesFailureKind;
+    storefrontCountryCode?: string;
+    // Subscribe stays enabled for card or crypto checkout (APK, desktop, web).
+    canPurchaseWithoutPackages: boolean;
+  }) {
+    return { failureKind, storefrontCountryCode, canPurchaseWithoutPackages };
+  }
+
+  /**
+   * Retry pressed on the plans fail state. Whether it recovered shows up as
+   * a later primeSubscribeButtonClick.
+   */
+  @LogToServer()
+  public primePackagesFailStateAction({
+    failureKind,
+    action,
+  }: {
+    failureKind: IPrimePackagesFailureKind;
+    action: 'retry';
+  }) {
+    return { failureKind, action };
   }
 
   /**

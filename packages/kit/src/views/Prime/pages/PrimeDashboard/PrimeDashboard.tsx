@@ -32,6 +32,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
+  isPrimeCryptoPaymentSupported,
   isPrimeStorePayment,
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import {
@@ -42,6 +43,7 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { showOneKeyIdLoginFailedToast } from '../../components/oneKeyIdLoginToastUtils';
+import { PrimePackagesFetchFailed } from '../../components/PrimePurchaseDialog/PrimePackagesFetchFailed';
 import { PrimeSubscriptionPlans } from '../../components/PrimePurchaseDialog/PrimeSubscriptionPlans';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
@@ -385,10 +387,19 @@ export default function PrimeDashboard({
     return true;
   }, [isPrimeSubscriptionActive, shouldShowConfirmButton]);
 
-  const { packages, isPurchaseReady, restorePurchases } =
-    usePrimeSubscriptionPackages({
-      enabled: shouldShowSubscriptionPlans,
-    });
+  const {
+    packages,
+    isPurchaseReady,
+    restorePurchases,
+    packagesFailure,
+    reloadPackages,
+  } = usePrimeSubscriptionPackages({
+    enabled: shouldShowSubscriptionPlans,
+  });
+  // Card and crypto checkout price plans server-side, so a failed store or
+  // card price list must not block them where they are offered.
+  const canPurchaseWithoutPackages =
+    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
 
   const selectedPackage = useMemo(
     () =>
@@ -398,7 +409,8 @@ export default function PrimeDashboard({
     [packages, selectedSubscriptionPeriod],
   );
 
-  const subscribeButtonEnabled = !isTravelMode && Boolean(selectedPackage);
+  const subscribeButtonEnabled =
+    !isTravelMode && (Boolean(selectedPackage) || canPurchaseWithoutPackages);
 
   const subscribeConfirmButtonProps = useMemo(
     () => ({
@@ -591,11 +603,19 @@ export default function PrimeDashboard({
 
             {shouldShowSubscriptionPlans ? (
               <Stack px="$5" pt="$5" pb="$2" gap="$2">
-                <PrimeSubscriptionPlans
-                  packages={packages}
-                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
-                  onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
-                />
+                {packagesFailure ? (
+                  <PrimePackagesFetchFailed
+                    failure={packagesFailure}
+                    canPurchaseWithoutPackages={canPurchaseWithoutPackages}
+                    onRetry={reloadPackages}
+                  />
+                ) : (
+                  <PrimeSubscriptionPlans
+                    packages={packages}
+                    selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                    onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
+                  />
+                )}
               </Stack>
             ) : null}
 

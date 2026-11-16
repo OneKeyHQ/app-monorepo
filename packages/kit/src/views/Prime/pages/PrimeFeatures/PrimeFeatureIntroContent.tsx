@@ -39,6 +39,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeCryptoPaymentSupported } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalBulkExportHistoryRoutes } from '@onekeyhq/shared/src/routes/bulkExportHistory';
@@ -53,6 +54,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
+import { PrimePackagesFetchFailed } from '../../components/PrimePurchaseDialog/PrimePackagesFetchFailed';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
 
@@ -588,15 +590,19 @@ export function PrimeFeatureIntroContent({
   const shouldUseComingSoonCta = ctaKind === 'comingSoon';
 
   const shouldLoadPackages = shouldUseSubscribeCta;
-  const { packages, isPackagesLoading } = usePrimeSubscriptionPackages({
-    enabled: shouldLoadPackages,
-  });
+  const { packages, isPackagesLoading, packagesFailure, reloadPackages } =
+    usePrimeSubscriptionPackages({
+      enabled: shouldLoadPackages,
+    });
 
   const selectedPackage = useMemo(
     () =>
       packages?.find((item) => item.subscriptionPeriod === subscriptionPeriod),
     [packages, subscriptionPeriod],
   );
+  const canPurchaseWithoutPackages =
+    Boolean(packagesFailure) && isPrimeCryptoPaymentSupported();
+  const canSubscribe = Boolean(selectedPackage) || canPurchaseWithoutPackages;
 
   const closeIntro = useCallback(async () => {
     await onClose?.();
@@ -735,7 +741,7 @@ export function PrimeFeatureIntroContent({
   ]);
 
   const handleSubscribe = useCallback(async () => {
-    if (!activeFeature || isPackagesLoading) {
+    if (!activeFeature || isPackagesLoading || !canSubscribe) {
       return;
     }
     defaultLogger.prime.subscription.primeUpsellActionClick({
@@ -755,6 +761,7 @@ export function PrimeFeatureIntroContent({
     });
   }, [
     activeFeature,
+    canSubscribe,
     ensurePrimeSubscriptionActive,
     isLoggedIn,
     isPackagesLoading,
@@ -927,7 +934,8 @@ export function PrimeFeatureIntroContent({
     shouldUseComingSoonCta;
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||
-    (shouldUseSubscribeCta && (isPackagesLoading || isFooterActionLoading));
+    (shouldUseSubscribeCta &&
+      (isPackagesLoading || isFooterActionLoading || !canSubscribe));
 
   const handleFooterAction = useCallback(async () => {
     if (isFooterActionLoading) {
@@ -1039,10 +1047,20 @@ export function PrimeFeatureIntroContent({
     </YStack>
   );
 
+  const packagesFailureContent =
+    shouldUseSubscribeCta && packagesFailure ? (
+      <PrimePackagesFetchFailed
+        failure={packagesFailure}
+        canPurchaseWithoutPackages={canPurchaseWithoutPackages}
+        onRetry={reloadPackages}
+      />
+    ) : null;
+
   const footerInfo = (
     <YStack gap="$4">
       {featureSummary}
       {footerIndicators}
+      {packagesFailureContent}
     </YStack>
   );
 
@@ -1239,6 +1257,7 @@ export function PrimeFeatureIntroContent({
             onConfirmText={ctaText}
           >
             {footerIndicators}
+            {packagesFailureContent}
           </Page.FooterActions>
         </Page.Footer>
       ) : null}
