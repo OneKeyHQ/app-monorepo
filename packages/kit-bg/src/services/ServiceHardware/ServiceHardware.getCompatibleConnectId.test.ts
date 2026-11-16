@@ -284,6 +284,83 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     },
   );
 
+  it('uses the USB serial connectId on Android in experimental NativeUsb mode', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    const dbDevice = {
+      id: 'db-pro-device',
+      connectId: 'AA:BB:CC:DD:EE:FF',
+      usbConnectId: 'PRA50I0011A',
+      bleConnectId: 'AA:BB:CC:DD:EE:FF',
+      deviceId: 'PRO_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+
+    await expect(
+      new ServiceHardware({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.NativeUsb),
+          },
+        } as unknown as IBackgroundApi,
+      }).getCompatibleConnectId({
+        connectId: 'AA:BB:CC:DD:EE:FF',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe('PRA50I0011A');
+    // USB mode must not run the Bluetooth permission precheck.
+    expect(mockedCheckBLEPermissions).not.toHaveBeenCalled();
+  });
+
+  it('keeps the BLE connectId on Android when the USB transport is not selected', async () => {
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: false,
+      isSupportDesktopBle: false,
+      isNative: true,
+      isNativeAndroid: true,
+    });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-pro-device',
+      connectId: 'PRA50I0011A',
+      usbConnectId: 'PRA50I0011A',
+      bleConnectId: 'AA:BB:CC:DD:EE:FF',
+      deviceId: 'PRO_DEVICE_ID',
+      vendor: EHardwareVendor.onekey,
+      name: 'OneKey Pro',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    await expect(
+      new ServiceHardware({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.BLE),
+          },
+        } as unknown as IBackgroundApi,
+      }).getCompatibleConnectId({
+        connectId: 'PRA50I0011A',
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      }),
+    ).resolves.toBe('AA:BB:CC:DD:EE:FF');
+  });
+
   it('uses the bound Noble peripheral ID before stale device info on desktop', async () => {
     const bleConnectId = 'f7e440001d2c1c79509d55dfdc8201ff';
     const dbDevice = {

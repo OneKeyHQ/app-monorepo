@@ -113,7 +113,10 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import { PRIME_FREE_TRIAL_FEATURE_IDS } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -1631,6 +1634,28 @@ const BaseDevSettingsSection = () => {
                             />
                           </SectionFieldItem>
                         </>
+                      ) : null}
+                      {platformEnv.isNativeAndroid ? (
+                        <SectionFieldItem
+                          icon="UsbOutline"
+                          name="androidNativeUsbTransport"
+                          title="Android USB 有线连接 (实验)"
+                          subtitle="将硬件 SDK 切换为 env 'react-native-usb'（需包含 hardware-js-sdk#997 的 SDK 版本）；开启后蓝牙 BLE 不可用"
+                          searchKeywords="android usb react-native-usb hardware-js-sdk 997 硬件 有线"
+                          onValueChange={(value: boolean) => {
+                            // Persists the setting and recreates the SDK so the
+                            // runtime transport (not only the stored one) changes.
+                            void backgroundApiProxy.serviceHardware.switchHardwareTransportType(
+                              {
+                                transportType: value
+                                  ? EHardwareTransportType.NativeUsb
+                                  : EHardwareTransportType.BLE,
+                              },
+                            );
+                          }}
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
                       ) : null}
 
                       <SectionPressItem

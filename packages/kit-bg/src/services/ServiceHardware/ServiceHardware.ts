@@ -5289,6 +5289,20 @@ class ServiceHardware extends ServiceBase {
 
     if (!platformEnv.isSupportDesktopBle) {
       if (platformEnv.isNative) {
+        if (platformEnv.isNativeAndroid) {
+          let nativeTransportType = hardwareTransportType;
+          if (!nativeTransportType) {
+            try {
+              nativeTransportType = await this.getCurrentTransportType();
+            } catch {
+              // Keep the existing BLE resolution if the setting is unreadable.
+            }
+          }
+          if (nativeTransportType === EHardwareTransportType.NativeUsb) {
+            // Experimental Android USB: the SDK locates devices by USB serial.
+            return device?.usbConnectId || connectId;
+          }
+        }
         if (device?.bleConnectId?.toLowerCase() === connectId.toLowerCase()) {
           // Preserve the current scan result, including the UUID casing returned by iOS.
           return connectId;

@@ -22,6 +22,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     isDesktop: false,
     isNative: false,
+    isNativeAndroid: false,
+    isNativeIOS: false,
     isExtension: false,
     isExtensionBackgroundServiceWorker: false,
   },
@@ -95,6 +97,8 @@ describe('hardware SDK firmware config settings', () => {
   const mockedPlatformEnv = platformEnv as {
     isDesktop: boolean;
     isNative: boolean;
+    isNativeAndroid: boolean;
+    isNativeIOS: boolean;
     isExtensionBackgroundServiceWorker?: boolean;
   };
   const mockedImportHardwareSDK = importHardwareSDK as jest.Mock;
@@ -137,6 +141,8 @@ describe('hardware SDK firmware config settings', () => {
     getHardwareSDKInstance.clear();
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isNative = false;
+    mockedPlatformEnv.isNativeAndroid = false;
+    mockedPlatformEnv.isNativeIOS = false;
     mockedPlatformEnv.isExtensionBackgroundServiceWorker = false;
   });
 
@@ -229,5 +235,63 @@ describe('hardware SDK firmware config settings', () => {
         loadFirmwareConfig: jest.fn(async () => firmwareConfig),
       }),
     ).rejects.toThrow('HardwareSDK initialization failed');
+  });
+
+  it('passes env react-native-usb on Android when hardwareTransportType is NativeUsb', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isNativeAndroid = true;
+    mockedPlatformEnv.isNativeIOS = false;
+    const init = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    const settings = init.mock.calls[0]?.[0];
+    expect(settings).toEqual(
+      expect.objectContaining({
+        env: 'react-native-usb',
+      }),
+    );
+  });
+
+  it('keeps env undefined on iOS for NativeUsb and on Android for BLE', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isNativeAndroid = false;
+    mockedPlatformEnv.isNativeIOS = true;
+    const initIos = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    expect(initIos.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: undefined,
+      }),
+    );
+
+    await resetHardwareSDKInstance();
+    mockedPlatformEnv.isNativeAndroid = true;
+    mockedPlatformEnv.isNativeIOS = false;
+    const initBle = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      hardwareTransportType: EHardwareTransportType.BLE,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    expect(initBle.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: undefined,
+      }),
+    );
   });
 });

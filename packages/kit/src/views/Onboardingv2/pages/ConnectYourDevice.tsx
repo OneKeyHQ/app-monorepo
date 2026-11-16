@@ -671,6 +671,15 @@ function USBOrBLEConnectionIndicator({
   const startBLEConnection = useCallback(async () => {
     if (variant === 'dialog') setConnectStatus(EConnectionStatus.searching);
     setIsChecking(true);
+    // Experimental Android USB mode: no Bluetooth permission/state needed.
+    if (
+      (await getForceTransportType(tabValue)) ===
+      EHardwareTransportType.NativeUsb
+    ) {
+      setIsChecking(false);
+      void listingDevice();
+      return;
+    }
     // Back to the start button once a permission or settings prompt closes.
     const onPromptClose = () => {
       setIsChecking(false);
@@ -704,6 +713,7 @@ function USBOrBLEConnectionIndicator({
     setIsChecking,
     setConnectStatus,
     variant,
+    tabValue,
   ]);
 
   // web-usb connect

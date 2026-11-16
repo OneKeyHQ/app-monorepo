@@ -102,6 +102,16 @@ export class HardwareConnectionManager {
         : EHardwareTransportType.BLE;
     }
 
+    if (platformEnv.isNativeAndroid) {
+      // Only the opt-in dev setting enables Android USB; getHardwareTransportType
+      // already falls back to BLE when it is off.
+      const currentSettingType =
+        await this.backgroundApi.serviceSetting.getHardwareTransportType();
+      if (currentSettingType === EHardwareTransportType.NativeUsb) {
+        return EHardwareTransportType.NativeUsb;
+      }
+    }
+
     const mode = await this.getDesktopUsbSetting(connectProtocol);
     return mode === 'bridge'
       ? EHardwareTransportType.Bridge
@@ -547,8 +557,7 @@ export class HardwareConnectionManager {
       if (
         normalizedForceTransportType &&
         (!isMiniDevice ||
-          normalizedForceTransportType === EHardwareTransportType.WEBUSB ||
-          normalizedForceTransportType === EHardwareTransportType.Bridge)
+          deviceUtils.isUsbHardwareTransportType(normalizedForceTransportType))
       ) {
         const shouldSwitch =
           this.actualTransportType !== normalizedForceTransportType;
@@ -660,6 +669,15 @@ export class HardwareConnectionManager {
   async getCurrentTransportType(): Promise<EHardwareTransportType> {
     const currentTransportType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    // If the experimental Android USB dev setting (or dev mode) was turned
+    // off, a stale runtime NativeUsb must not outlive it; the gated setting
+    // already resolves to BLE, and the SDK is rebuilt on the next call.
+    if (
+      this.actualTransportType === EHardwareTransportType.NativeUsb &&
+      currentTransportType !== EHardwareTransportType.NativeUsb
+    ) {
+      return currentTransportType;
+    }
     return this.actualTransportType || currentTransportType;
   }
 

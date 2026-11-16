@@ -7345,7 +7345,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       switch (transportType) {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
-          // Bridge and WEBUSB are both USB-based connections
+        case EHardwareTransportType.NativeUsb:
+          // Bridge, WEBUSB, and NativeUsb are USB-based connections
           if (hasPersistentUsbConnectId) {
             usbConnectId = connectId ?? undefined;
             if (!usesTransportLocatorConnectId) {

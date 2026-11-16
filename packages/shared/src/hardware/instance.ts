@@ -92,6 +92,14 @@ const createHardwareSDKInstance = async (params: {
     params.hardwareTransportType === EHardwareTransportType.DesktopWebBle
   ) {
     env = 'desktop-web-ble' as const;
+  } else if (
+    params.hardwareTransportType === EHardwareTransportType.NativeUsb &&
+    platformEnv.isNativeAndroid
+  ) {
+    // @onekeyfe/hd-core <= 1.2.10 ConnectSettings['env'] lacks 'react-native-usb',
+    // and @onekeyfe/hd-ble-sdk 1.2.10 ignores env (stays BLE) until the SDK
+    // release containing hardware-js-sdk#997 is bumped.
+    env = 'react-native-usb' as ConnectSettings['env'];
   }
 
   const isAppManagedManifest = Boolean(

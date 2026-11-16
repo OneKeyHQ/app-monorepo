@@ -153,6 +153,9 @@ export interface IDevSettings {
   // Only honored while dev mode is enabled; the session bridge then
   // trusts this URL's origin instead of the production one.
   intercomSupportUrl?: string;
+  // Experimental: switches @onekeyfe/hd-ble-sdk to env 'react-native-usb' on
+  // Android (needs @onekeyfe SDK release containing hardware-js-sdk#997).
+  androidNativeUsbTransport?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

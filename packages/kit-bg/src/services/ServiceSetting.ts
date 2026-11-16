@@ -51,11 +51,8 @@ import {
   buildHomeDefaultTokenMapKey,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  EHardwareTransportType,
-  ICurrencyItem,
-  IServerNetwork,
-} from '@onekeyhq/shared/types';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import type { ICurrencyItem, IServerNetwork } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -1004,10 +1001,18 @@ class ServiceSetting extends ServiceBase {
   public async setHardwareTransportType(
     hardwareTransportType: EHardwareTransportType,
   ) {
-    const nextHardwareTransportType =
+    let nextHardwareTransportType =
       deviceUtils.normalizeHardwareTransportTypeForPlatform({
         transportType: hardwareTransportType,
       });
+    // Never persist the experimental Android USB transport unless its dev
+    // setting is on, so it cannot leak into the persisted settings.
+    if (
+      nextHardwareTransportType === EHardwareTransportType.NativeUsb &&
+      !(await this.isAndroidNativeUsbTransportEnabled())
+    ) {
+      nextHardwareTransportType = EHardwareTransportType.BLE;
+    }
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       hardwareTransportType: nextHardwareTransportType,
@@ -1018,11 +1023,33 @@ class ServiceSetting extends ServiceBase {
   public async getHardwareTransportType(): Promise<EHardwareTransportType> {
     const { hardwareTransportType } = await settingsPersistAtom.get();
     if (hardwareTransportType) {
-      return deviceUtils.normalizeHardwareTransportTypeForPlatform({
+      const normalized = deviceUtils.normalizeHardwareTransportTypeForPlatform({
         transportType: hardwareTransportType,
       });
+      if (normalized === EHardwareTransportType.NativeUsb) {
+        return (await this.isAndroidNativeUsbTransportEnabled())
+          ? EHardwareTransportType.NativeUsb
+          : EHardwareTransportType.BLE;
+      }
+      return normalized;
     }
     return deviceUtils.getDefaultHardwareTransportType();
+  }
+
+  // Experimental Android USB (react-native-usb) is opt-in: Android only, dev
+  // mode on, and the androidNativeUsbTransport dev setting on.
+  @backgroundMethod()
+  public async isAndroidNativeUsbTransportEnabled(): Promise<boolean> {
+    if (!platformEnv.isNativeAndroid) {
+      return false;
+    }
+    try {
+      const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
+      return !!(dev?.enabled && dev?.settings?.androidNativeUsbTransport);
+    } catch {
+      // Fall back to BLE when dev settings cannot be read.
+      return false;
+    }
   }
 
   @backgroundMethod()

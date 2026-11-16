@@ -1,3 +1,4 @@
+import { isUsbHardwareTransportType } from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -34,9 +35,7 @@ export function resolveHwWalletTransportType(params: {
     commTypeConnectionType = 'usb';
   }
   const actualConnectionType = deviceConnectionType ?? commTypeConnectionType;
-  const globalIsUsb =
-    globalTransportType === EHardwareTransportType.WEBUSB ||
-    globalTransportType === EHardwareTransportType.Bridge;
+  const globalIsUsb = isUsbHardwareTransportType(globalTransportType);
   const globalIsBle =
     globalTransportType === EHardwareTransportType.BLE ||
     globalTransportType === EHardwareTransportType.DesktopWebBle;

@@ -129,4 +129,6 @@ export enum EHardwareTransportType {
   WEBUSB = 'webusb',
   Bridge = 'bridge',
   DesktopWebBle = 'desktop-web-ble',
+  // Android USB host via @onekeyfe/hd-ble-sdk init({ env: 'react-native-usb' }).
+  NativeUsb = 'native-usb',
 }

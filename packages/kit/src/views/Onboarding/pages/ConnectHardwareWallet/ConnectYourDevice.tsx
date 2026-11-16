@@ -125,6 +125,9 @@ function getHardwareCommunicationTypeString(
   if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
     return 'WebUSB';
   }
+  if (hardwareTransportType === EHardwareTransportType.NativeUsb) {
+    return 'USB';
+  }
   if (hardwareTransportType === 'QRCode') {
     return 'QRCode';
   }
@@ -142,7 +145,13 @@ async function getForceTransportType(
         : EHardwareTransportType.BLE;
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
-      if (platformEnv.isNative) return EHardwareTransportType.BLE;
+      if (platformEnv.isNative) {
+        const currentTransportType =
+          await backgroundApiProxy.serviceSetting.getHardwareTransportType();
+        return currentTransportType === EHardwareTransportType.NativeUsb
+          ? EHardwareTransportType.NativeUsb
+          : EHardwareTransportType.BLE;
+      }
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
         return deviceUtils.getDesktopUsbTransportType({
@@ -687,6 +696,15 @@ function ConnectByUSBOrBLE({
 
   const startBLEConnection = useCallback(async () => {
     setIsChecking(true);
+    // Experimental Android USB mode: no Bluetooth permission/state needed.
+    if (
+      (await getForceTransportType(tabValue)) ===
+      EHardwareTransportType.NativeUsb
+    ) {
+      setIsChecking(false);
+      void listingDevice();
+      return;
+    }
     const isGranted = await checkBLEPermissions();
     if (!isGranted) {
       Dialog.show({
@@ -713,6 +731,7 @@ function ConnectByUSBOrBLE({
     checkBLEState,
     listingDevice,
     setIsChecking,
+    tabValue,
   ]);
 
   // web-usb connect
