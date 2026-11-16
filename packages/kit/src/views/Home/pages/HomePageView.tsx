@@ -220,25 +220,9 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
-// peer panes in a horizontal scroller, so React reconciles every block
-// on each Wallet unfreeze (or any HomePageView re-render) — including
-// the DeFi / NFT / History trees the user is not currently looking at.
-// Freezing the inactive panes drops that work back to the focused tab
-// only, which is what visibly happens already and matches the
-// freeze-on-blur strategy used at the outer tab-navigator level.
-//
-// Timing matters on native: a frozen pane renders nothing, and the pager
-// flips `focusedTab` half-way through its slide. Freezing the outgoing pane
-// at that instant blanks it mid-animation, and a target pane that is still
-// frozen cannot take the tab view's scroll-offset sync (the header then
-// snaps to the wrong collapse state once it thaws). So the pressed target
-// thaws on the tab press itself, and blur only freezes after a delay.
-//
-// `ownerKey` is the account identity the container used to be keyed on. A
-// pane that feeds always-visible state (the wallet pane owns the token data
-// behind the header worth) passes it so an account switch made from another
-// tab thaws it for one commit; see useHomeTabOwnerThaw.
+// The web pager keeps visited panes mounted. Freeze inactive panes after the
+// transition, and thaw the wallet pane for an owner change so header data can
+// refresh even while another tab is focused.
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
@@ -262,12 +246,8 @@ function FreezeInactiveHomeTab({
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
 
-// Tabs.Container no longer remounts on an account switch (OK-63873), so the
-// panes keep their scroll offsets across it. The page still wants a switched
-// account to start at the top, the way the remount used to leave it. The pane
-// refs only exist inside the container, so this bridge, mounted in the
-// always-mounted wallet pane, hands the container-scoped scroll-to-top up to
-// HomePageView through a ref.
+// The web pager survives owner changes, so reset its saved scroll offsets.
+// Native page offsets reset through the owner-keyed pager mount below.
 function HomeTabsScrollToTopBridge({
   scrollToTopRef,
 }: {
@@ -579,18 +559,9 @@ function BaseHomePageView({
     ],
   );
 
-  // Web: alerts sit outside Tabs.Container (rendered next to TabPageHeader
-  // below). Keeping them inside renderHeader made them scroll through the
-  // sticky TabBar area — a partially-scrolled alert would leave a visible band
-  // between TabPageHeader and the tabs.
-  //
-  // Native: alerts live inside the collapsible header instead. Tabs.Container
-  // never moves; its header only translates up by its own height, so anything
-  // left in normal flow above the container keeps its slot when collapsed, and
-  // the header's opaque top container paints over that slot with its own
-  // bottom edge (the banner card). That read as "the banner keeps occupying
-  // the top" whenever an alert was showing (OK-62183). Inside the header the
-  // alerts collapse away with everything else.
+  // Web alerts sit next to TabPageHeader so they do not scroll through the
+  // sticky tab bar. Native alerts belong to the collapsible header and move
+  // away with the rest of its content.
   const homeHeaderLayout = useHomeHeaderLayout();
   const { fontScale } = useWindowDimensions();
   const availableWidth = useTabContainerWidth();
@@ -982,12 +953,8 @@ function BaseHomePageView({
     }
   }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
 
-  // Tabs.Container is not remounted on a wallet / account switch (OK-63873),
-  // so a switch that lands on a network without the focused NFT / DeFi tab
-  // only drops that Tabs.Tab. The effect above moves `activeTabName` to the
-  // first tab, but neither pager follows on its own: the native pager keeps
-  // its index (now another pane), and the web container keeps the removed
-  // name (no highlight, stale page offset). Move the pager explicitly.
+  // Network changes can remove the focused page. Move to an existing page
+  // explicitly so the active tab and pager stay aligned.
   useEffect(() => {
     if (pagerTabConfigs.some((tab) => tab.name === activeTabName)) {
       return;
@@ -1416,28 +1383,10 @@ function BaseHomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Tabs.Container is deliberately NOT keyed on the wallet / account /
-    // network (OK-53686, OK-63873). A remount destroys every pane (the token
-    // list, each Token image, TabHeaderSettings) and repaints them from
-    // scratch: a 3-row skeleton where the list was, icon skeletons, and the
-    // settings icon blinking out — the "home list jitter" on every account
-    // switch. All panes already track `account.id` / `network.id` changes
-    // through their own hooks (HD wallets change account.id on a network
-    // switch, which has run through this no-remount path since #11386), and
-    // the token list is re-stamped for the new owner synchronously by the
-    // cells producer's per-owner replay, so nothing here needs a fresh mount.
-    // isDeFiEnabled/isNFTEnabled stay out for the same reason: tabs render
-    // conditionally inside the container instead.
-    //
-    // The container still remounts when the not-backed-up branch above
-    // toggles, which resets the pager to the first tab while HomePageView's
-    // activeTab state still points at the previously selected tab, so seed
-    // the remounted container with that tab. But the new pagerTabConfigs and
-    // the stale activeTabName can land in the same render (the reset effect
-    // above runs only after it), and the web Tabs.Container initializes
-    // focusedTab with whatever name it receives without falling back when
-    // the name is missing from the tab set — leaving content, highlight and
-    // active state out of sync. Validate here and fall back to the first tab.
+    // Native resets page offsets by remounting for a new scroll owner; web
+    // keeps its panes mounted and resets offsets through the bridge above.
+    // A remount or a network change can remove the previously active page,
+    // so seed either pager with a name that exists in the current page set.
     const seedTabName = pagerTabConfigs.some(
       (tab) => tab.name === activeTabName,
     )

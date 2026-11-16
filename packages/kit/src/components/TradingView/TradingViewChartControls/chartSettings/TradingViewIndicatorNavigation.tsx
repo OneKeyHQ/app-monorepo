@@ -5,10 +5,10 @@ import {
   Icon,
   ScrollView,
   SizableText,
-  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -61,7 +61,7 @@ export function TradingViewIndicatorScopeTabs({
       mb="$2"
     >
       {tabs.map((tab, index) => (
-        <Tabs.TabBarItem
+        <TabBarItem
           key={tab.value}
           testID={`trading-view-indicator-scope-${tab.value}`}
           name={tab.value}

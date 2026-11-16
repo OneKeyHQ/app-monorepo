@@ -31,12 +31,10 @@ function HeaderItem({ label }: { label: string }) {
 }
 
 function ApprovalListHeader({
-  recomputeLayout,
   hideRiskOverview,
   tokenMap,
   contractMap,
 }: {
-  recomputeLayout: () => void;
   hideRiskOverview?: boolean;
   tokenMap: Record<
     string,
@@ -204,16 +202,7 @@ function ApprovalListHeader({
     await Promise.all(tasks);
 
     setShowApprovalsAlert(false);
-    setTimeout(() => {
-      recomputeLayout();
-    }, 350);
-  }, [
-    accountId,
-    networkId,
-    recomputeLayout,
-    riskApprovals.length,
-    warningApprovals.length,
-  ]);
+  }, [accountId, networkId, riskApprovals.length, warningApprovals.length]);
 
   const renderRiskOverview = useCallback(() => {
     if (hideRiskOverview || !isReady) {
@@ -329,18 +318,13 @@ function ApprovalListHeader({
     setIsReady(true);
 
     // Use requestAnimationFrame to wait for the next paint,
-    // then recompute layout and show content
+    // then show content after the layout has settled
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        recomputeLayout();
         setIsVisible(true);
       });
     });
-  }, [
-    shouldShowInactiveApprovalsAlert,
-    shouldShowRiskApprovalsAlert,
-    recomputeLayout,
-  ]);
+  }, [shouldShowInactiveApprovalsAlert, shouldShowRiskApprovalsAlert]);
 
   return (
     <YStack>
