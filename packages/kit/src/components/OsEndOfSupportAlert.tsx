@@ -39,6 +39,7 @@ function BasicOsEndOfSupportAlert() {
       <Alert
         type="warning"
         icon="InfoCircleOutline"
+        alignItems="flex-start"
         title={intl.formatMessage(
           { id: ETranslations.os_end_of_support_notice__title },
           { osName: notice.minSupportedName },
