@@ -6,6 +6,14 @@ import type { IntlShape } from 'react-intl';
 
 export const MAX_PREFERRED_INTERVAL_COUNT = 4;
 export const COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT = 6;
+// A regular toolbar with enough room offers at least the compact chart's slots.
+export const WIDE_MOBILE_MAX_PREFERRED_INTERVAL_COUNT =
+  COMPACT_MOBILE_MAX_PREFERRED_INTERVAL_COUNT;
+// Space beside the trailing chart tools that fits six regular interval
+// segments plus the More trigger in every locale (the longest labels, such as
+// Russian, need about 400pt). Phone toolbars stay below it; tablet split-view
+// panes and full-width tablet windows reach it.
+export const WIDE_MOBILE_INTERVAL_AREA_MIN_WIDTH = 420;
 export const INTERVAL_GRID_COLUMN_COUNT = 4;
 
 const PREFERRED_INTERVAL_STORAGE_KEY =
