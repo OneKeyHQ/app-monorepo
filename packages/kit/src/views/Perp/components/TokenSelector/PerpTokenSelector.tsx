@@ -145,7 +145,7 @@ import {
 import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
-const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
+export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
 const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
@@ -380,7 +380,19 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent() {
+export interface IPerpTokenSelection {
+  coin: string;
+  mode: 'perp' | 'spot';
+  spotUniverse?: ISpotUniverse;
+}
+
+function BasePerpTokenSelectorContent({
+  onSelectToken,
+}: {
+  // Receives the pick instead of switching the trade instrument, for pickers
+  // that choose a token for something else, such as a split-view chart.
+  onSelectToken?: (selection: IPerpTokenSelection) => void | Promise<void>;
+}) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -590,15 +602,23 @@ function BasePerpTokenSelectorContent() {
           sortDirection,
           walletType: activePerpsAccount.walletType ?? 'unknown',
         });
-        if (isSpotToken) {
-          const universe = spotUniverses.find((u) => u.name === symbol);
-          if (!universe) {
-            return;
-          }
+        const spotUniverse = isSpotToken
+          ? spotUniverses.find((u) => u.name === symbol)
+          : undefined;
+        if (isSpotToken && !spotUniverse) {
+          return;
+        }
+        if (onSelectToken) {
+          await onSelectToken({
+            coin: symbol,
+            mode: isSpotToken ? 'spot' : 'perp',
+            spotUniverse,
+          });
+        } else if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
             coin: symbol,
-            spotUniverse: universe,
+            spotUniverse,
           });
         } else {
           await actions.current.switchTradeInstrument({
@@ -616,6 +636,7 @@ function BasePerpTokenSelectorContent() {
       closePopover,
       actions,
       displayActiveTab,
+      onSelectToken,
       selectorConfig,
       spotUniverses,
     ],
@@ -1842,11 +1863,7 @@ function BasePerpTokenSelectorContent() {
   );
 }
 
-function PerpTokenSelectorContent() {
-  return <BasePerpTokenSelectorContent />;
-}
-
-const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
+export const PerpTokenSelectorContent = memo(BasePerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
@@ -2011,7 +2028,7 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
+        renderContent={<PerpTokenSelectorContent key={contentGeneration} />}
       />
     ),
     [
