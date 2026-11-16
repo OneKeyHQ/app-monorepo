@@ -28,11 +28,17 @@ import type {
 
 interface IStructureFramePayload {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   structureVersion: number;
   structure: IStructureSnapshot;
 }
 interface IValuationFramePayload {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   valuationVersion: number;
   valuation: IValuationFrame;
 }
@@ -587,6 +593,64 @@ describe('ServiceTokenViewModel', () => {
     expect(recreated.structureUnchanged).toBeUndefined();
     expect(recreated.structure?.orderedIds).toEqual(['b']);
     expect(recreated.valuation?.changedFiatById.b.fiatValue).toBe('90');
+  });
+
+  it('pushes full frames on v0 and base-versioned delta patches on v1+ while retaining full snapshots in BG for PULLs', async () => {
+    const svc = makeService();
+    // Round 1 (v0): full snapshot
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '10', fiatValue: '100', price: 10 }),
+          b: makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        },
+      }),
+    );
+    expect(structureEmits()[0].isDelta).toBeUndefined();
+    expect(Object.keys(structureEmits()[0].structure.metaPatch)).toEqual([
+      'a',
+      'b',
+    ]);
+    expect(valuationEmits()[0].isDelta).toBeUndefined();
+    expect(Object.keys(valuationEmits()[0].valuation.changedFiatById)).toEqual([
+      'a',
+      'b',
+    ]);
+    mockEmit.mockClear();
+
+    // Round 2 (v1): only `a` balance changes (10 -> 8, fiat 100 -> 80), `b` is unchanged
+    void svc.ingestRound(
+      makeRound({
+        ownerKey: 'accDelta__net',
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        tokenListMap: {
+          a: makeFiat({ balance: '8', fiatValue: '80', price: 10 }),
+          b: makeFiat({ balance: '5', fiatValue: '50', price: 10 }),
+        },
+      }),
+    );
+    const structDelta = structureEmits()[0];
+    expect(structDelta.isDelta).toBe(true);
+    expect(structDelta.baseVersion).toBe(0);
+    expect(structDelta.structureVersion).toBe(1);
+    // Neither `a` nor `b` changed metadata, so delta metaPatch is empty!
+    expect(structDelta.structure.metaPatch).toEqual({});
+
+    const valDelta = valuationEmits()[0];
+    expect(valDelta.isDelta).toBe(true);
+    expect(valDelta.baseVersion).toBe(0);
+    expect(valDelta.valuationVersion).toBe(1);
+    // Only `a` fiat changed; `b` is omitted from the wire delta!
+    expect(Object.keys(valDelta.valuation.changedFiatById)).toEqual(['a']);
+    expect(valDelta.valuation.changedFiatById.a.fiatValue).toBe('80');
+
+    // Meanwhile BG's stored PULL snapshot still holds both `a` and `b` in full!
+    const pulled = await svc.getTokenListFrames({ ownerKey: 'accDelta__net' });
+    expect(Object.keys(pulled.structure?.metaPatch ?? {})).toEqual(['a', 'b']);
+    expect(pulled.valuation?.changedFiatById.a.fiatValue).toBe('80');
+    expect(pulled.valuation?.changedFiatById.b.fiatValue).toBe('50');
   });
 
   it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {

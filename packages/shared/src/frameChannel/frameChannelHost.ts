@@ -67,11 +67,18 @@ export class FrameChannelHost<TPayloads extends Record<string, unknown>> {
   pushFrame<K extends keyof TPayloads>(
     kind: K,
     ownerKey: string,
-    assemble: (version: number) => TPayloads[K],
-    opts?: { version?: number },
+    assemble: (version: number, prevVersion: number) => TPayloads[K],
+    opts?: {
+      version?: number;
+      storedPayload?: (
+        version: number,
+        pushPayload: TPayloads[K],
+      ) => TPayloads[K];
+    },
   ): void {
     const cfg = this.options.kinds[kind];
     const slot = this.ensureOwner(ownerKey);
+    const prevVersion = slot.versions[kind];
 
     let version: number;
     if (cfg.versionMode === 'domain') {
@@ -84,12 +91,14 @@ export class FrameChannelHost<TPayloads extends Record<string, unknown>> {
       }
       version = opts.version;
     } else {
-      version = slot.versions[kind] + 1;
+      version = prevVersion + 1;
     }
 
-    const payload = assemble(version);
+    const payload = assemble(version, prevVersion);
     slot.versions[kind] = version;
-    slot.payloads[kind] = payload;
+    slot.payloads[kind] = opts?.storedPayload
+      ? opts.storedPayload(version, payload)
+      : payload;
     this.options.emit(cfg.eventName, payload);
   }
 

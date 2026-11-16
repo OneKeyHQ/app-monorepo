@@ -47,4 +47,8 @@ export class FrameSubscriberGate<TKind extends string> {
     this.last[kind] = version;
     return true;
   }
+
+  getLastVersion(kind: TKind): number {
+    return this.last[kind] ?? -1;
+  }
 }

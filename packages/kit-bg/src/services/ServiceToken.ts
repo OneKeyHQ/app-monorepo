@@ -39,9 +39,11 @@ import {
   filterAccountTokenListByLimit,
   findTokenKeysMissingFromMap,
   getEmptyTokenData,
+  getMergedDeriveTokenData,
   getMergedTokenData,
   normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -87,6 +89,7 @@ import type {
   ISimpleDBLocalTokens,
 } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
+import type { EJotaiContextStoreNames } from '../states/jotai/atoms';
 import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
 
 export type IDeriveTypesCollapseState =
@@ -421,6 +424,13 @@ class ServiceToken extends ServiceBase {
     },
   ): Promise<IFetchAccountTokensResp> {
     this.claimHomeTokenRequest(params.homeRequest);
+    if (
+      params.mergeDeriveAddressData &&
+      params.indexedAccountId &&
+      !params.isAllNetworks
+    ) {
+      return this.fetchMergedDeriveAccountTokensInBg(params);
+    }
     const controller = new AbortController();
     this._fetchAccountTokensControllers.push({
       controller,
@@ -444,6 +454,166 @@ class ServiceToken extends ServiceBase {
       if (cacheRequest) this.accountTokensSnapshotCache.finish(cacheRequest);
       this.removeFetchAccountTokensController(controller);
     }
+  }
+
+  private async fetchMergedDeriveAccountTokensInBg(
+    params: IFetchAccountTokensParams & {
+      mergeTokens?: boolean;
+      dbAccount?: IDBAccount;
+    },
+  ): Promise<IFetchAccountTokensResp> {
+    const {
+      accountId,
+      networkId,
+      indexedAccountId = '',
+      homeRequest,
+      homeIngest,
+      ...rest
+    } = params;
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const { networkAccounts } =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+
+    const resp = await Promise.all(
+      networkAccounts.map((networkAccount) =>
+        this.fetchAccountTokens({
+          ...rest,
+          accountId: networkAccount.account?.id ?? '',
+          networkId,
+          indexedAccountId,
+          homeRequest,
+          mergeDeriveAddressData: false,
+          homeIngest: undefined,
+        }),
+      ),
+    );
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+
+    const homePortfolioTotalFiatCurrency = resp.reduce<string | undefined>(
+      (currency, item) =>
+        currency ||
+        item.tokens?.currency ||
+        item.smallBalanceTokens?.currency ||
+        item.riskTokens?.currency,
+      undefined,
+    );
+    const homePortfolioTotalFiat = resp
+      .reduce(
+        (total, item) =>
+          total.plus(sumTokenGroupsFiatValueIgnoringUnavailable(item)),
+        new BigNumber(0),
+      )
+      .toFixed();
+
+    const {
+      tokenList,
+      smallBalanceTokenList,
+      riskyTokenList,
+      tokenListMap,
+      smallBalanceTokenListMap,
+      riskyTokenListMap,
+      allTokenList,
+    } = getMergedDeriveTokenData({
+      data: resp,
+      mergeDeriveAssetsEnabled: true,
+    });
+
+    const homeAccountWorth: Record<string, string> = {};
+    resp.forEach((item) => {
+      if (item.accountId && item.networkId) {
+        const key = accountUtils.buildAccountValueKey({
+          accountId: item.accountId,
+          networkId: item.networkId,
+        });
+        homeAccountWorth[key] =
+          sumTokenGroupsFiatValueIgnoringUnavailable(item);
+      }
+    });
+
+    const hasVmIngest = Boolean(
+      homeIngest &&
+      this.backgroundApi.serviceTokenViewModel &&
+      'ingestRound' in this.backgroundApi.serviceTokenViewModel,
+    );
+    if (homeIngest && hasVmIngest) {
+      await this.backgroundApi.serviceTokenViewModel.ingestRound({
+        homeRequest,
+        ownerKey: homeIngest.ownerKey,
+        orderedTokens: tokenList.tokens,
+        smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
+        tokenListMap: {
+          ...tokenListMap,
+          ...smallBalanceTokenListMap,
+        },
+        aggregateTokensMap: {},
+        ownedAggregateTokenListMap: {},
+        smallBalanceFiatValue: smallBalanceTokenList.fiatValue ?? '0',
+        storeData: {
+          storeName: homeIngest.storeName as unknown as EJotaiContextStoreNames,
+        },
+        keepDefault: homeIngest.keepDefault,
+        homeDefaultTokenMap: homeIngest.homeDefaultTokenMap,
+        customTokens: homeIngest.customTokens,
+        riskyTokens: riskyTokenList.riskyTokens,
+        riskyMap: riskyTokenListMap,
+        accountId,
+        networkId,
+        rawKeys: allTokenList.keys,
+        source: 'single',
+      });
+    }
+
+    if (homeIngest?.omitResponseTokenLists && hasVmIngest) {
+      return {
+        ...getEmptyTokenData(),
+        accountId,
+        networkId,
+        homeIngested: true,
+        homeAccountWorth,
+        homeCreateAtNetworkWorth: '0',
+        homePortfolioTotalFiat,
+        homePortfolioTotalFiatCurrency,
+      };
+    }
+
+    return {
+      ...getEmptyTokenData(),
+      accountId,
+      networkId,
+      homeIngested: hasVmIngest,
+      homeAccountWorth,
+      homeCreateAtNetworkWorth: '0',
+      homePortfolioTotalFiat,
+      homePortfolioTotalFiatCurrency,
+      tokens: {
+        data: tokenList.tokens,
+        keys: tokenList.keys,
+        fiatValue: tokenList.fiatValue,
+        map: tokenListMap,
+        currency: homePortfolioTotalFiatCurrency,
+      },
+      smallBalanceTokens: {
+        data: smallBalanceTokenList.smallBalanceTokens,
+        keys: smallBalanceTokenList.keys,
+        fiatValue: smallBalanceTokenList.fiatValue,
+        map: smallBalanceTokenListMap,
+        currency: homePortfolioTotalFiatCurrency,
+      },
+      riskTokens: {
+        data: riskyTokenList.riskyTokens,
+        keys: riskyTokenList.keys,
+        fiatValue: riskyTokenList.fiatValue,
+        map: riskyTokenListMap,
+        currency: homePortfolioTotalFiatCurrency,
+      },
+    };
   }
 
   private async fetchAccountTokensInternal(
@@ -1005,6 +1175,76 @@ class ServiceToken extends ServiceBase {
             round,
             origin: 'live',
           }),
+      };
+    }
+
+    if (
+      !isAllNetworks &&
+      params.homeIngest &&
+      this.backgroundApi.serviceTokenViewModel &&
+      'ingestRound' in this.backgroundApi.serviceTokenViewModel
+    ) {
+      const { homeIngest } = params;
+      const singleWorth = sumTokenGroupsFiatValueIgnoringUnavailable(
+        resp.data.data,
+      );
+      const singleCurrency =
+        resp.data.data.tokens?.currency ||
+        resp.data.data.smallBalanceTokens?.currency ||
+        resp.data.data.riskTokens?.currency;
+      const homeAccountWorth = {
+        [accountUtils.buildAccountValueKey({
+          accountId,
+          networkId,
+        })]: singleWorth,
+      };
+      await this.backgroundApi.serviceTokenViewModel.ingestRound({
+        homeRequest,
+        ownerKey: homeIngest.ownerKey,
+        orderedTokens: resp.data.data.tokens.data,
+        smallBalanceTokens: resp.data.data.smallBalanceTokens.data,
+        tokenListMap: {
+          ...resp.data.data.tokens.map,
+          ...resp.data.data.smallBalanceTokens.map,
+        },
+        aggregateTokensMap: {},
+        ownedAggregateTokenListMap: {},
+        smallBalanceFiatValue:
+          resp.data.data.smallBalanceTokens.fiatValue ?? '0',
+        storeData: {
+          storeName: homeIngest.storeName as unknown as EJotaiContextStoreNames,
+        },
+        keepDefault: homeIngest.keepDefault,
+        homeDefaultTokenMap: homeIngest.homeDefaultTokenMap,
+        customTokens: homeIngest.customTokens,
+        riskyTokens: resp.data.data.riskTokens.data,
+        riskyMap: resp.data.data.riskTokens.map,
+        accountId,
+        networkId,
+        rawKeys: `${resp.data.data.tokens.keys}_${resp.data.data.smallBalanceTokens.keys}_${resp.data.data.riskTokens.keys}`,
+        source: 'single',
+      });
+      if (homeIngest.omitResponseTokenLists) {
+        return {
+          ...getEmptyTokenData(),
+          accountId,
+          networkId,
+          isSameAllNetworksAccountData:
+            resp.data.data.isSameAllNetworksAccountData,
+          homeIngested: true,
+          homeAccountWorth,
+          homeCreateAtNetworkWorth: singleWorth,
+          homePortfolioTotalFiat: singleWorth,
+          homePortfolioTotalFiatCurrency: singleCurrency,
+        };
+      }
+      return {
+        ...resp.data.data,
+        homeIngested: true,
+        homeAccountWorth,
+        homeCreateAtNetworkWorth: singleWorth,
+        homePortfolioTotalFiat: singleWorth,
+        homePortfolioTotalFiatCurrency: singleCurrency,
       };
     }
 

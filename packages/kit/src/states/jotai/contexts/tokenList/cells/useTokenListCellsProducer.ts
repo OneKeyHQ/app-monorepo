@@ -313,7 +313,12 @@ export function useTokenListCellsProducer(
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],
     getPullOwnerKey: (pulled) => pulled.ownerKey,
-    pull: async () => {
+    pull: async (opts) => {
+      if (opts?.forceFull) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
       const cachedReplay = identity
         ? getOwnerReplayFrames({
             storeName: identity.resolvedStoreName,
@@ -427,6 +432,29 @@ export function useTokenListCellsProducer(
         eventName: EAppEventBusNames.TokenListStructureFrame,
         getOwnerKey: (p) => (p as IStructurePush).ownerKey,
         getVersion: (p) => (p as IStructurePush).structureVersion,
+        canApplyPush: (p, lastVersion) => {
+          const push = p as IStructurePush;
+          if (!push.isDelta) {
+            return true;
+          }
+          if (!store || !identity) {
+            return false;
+          }
+          if (ensureStoreProjection(store).curOwnerKey !== push.ownerKey) {
+            return false;
+          }
+          const cached = getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+          })?.structure;
+          const effectiveBaseVersion =
+            lastVersion >= 0 ? lastVersion : (cached?.structureVersion ?? -1);
+          return Boolean(
+            effectiveBaseVersion === push.baseVersion &&
+            cached &&
+            (!push.slotId || !cached.slotId || cached.slotId === push.slotId),
+          );
+        },
         apply: (p) => {
           const push = p as IStructurePush;
           const { structure } = push;
@@ -465,6 +493,29 @@ export function useTokenListCellsProducer(
         eventName: EAppEventBusNames.TokenListValuationFrame,
         getOwnerKey: (p) => (p as IValuationPush).ownerKey,
         getVersion: (p) => (p as IValuationPush).valuationVersion,
+        canApplyPush: (p, lastVersion) => {
+          const push = p as IValuationPush;
+          if (!push.isDelta) {
+            return true;
+          }
+          if (!store || !identity) {
+            return false;
+          }
+          if (ensureStoreProjection(store).curOwnerKey !== push.ownerKey) {
+            return false;
+          }
+          const cached = getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+          })?.valuation;
+          const effectiveBaseVersion =
+            lastVersion >= 0 ? lastVersion : (cached?.valuationVersion ?? -1);
+          return Boolean(
+            effectiveBaseVersion === push.baseVersion &&
+            cached &&
+            (!push.slotId || !cached.slotId || cached.slotId === push.slotId),
+          );
+        },
         apply: (p) => {
           const push = p as IValuationPush;
           const { valuation } = push;
