@@ -2,14 +2,12 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import type { IImpressionHost } from '@onekeyhq/kit/src/hooks/useVisibleImpression';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePrimeGiftOfferImpression } from './usePrimeGiftOfferImpression';
 
-import type {
-  IPrimeGiftOfferImpressionHost,
-  IPrimeGiftOfferMeasureInWindow,
-} from './usePrimeGiftOfferImpression';
+import type { ViewInstance } from 'react-native';
 
 const mockShown = jest.fn();
 let appVisible = true;
@@ -75,8 +73,9 @@ describe('native gift offer impression', () => {
   });
 
   it('ignores a late measure after unmount and does not poll in the background', () => {
-    const measureCallbacks: IPrimeGiftOfferMeasureInWindow[] = [];
-    const node: IPrimeGiftOfferImpressionHost = {
+    const measureCallbacks: Parameters<ViewInstance['measureInWindow']>[0][] =
+      [];
+    const node: IImpressionHost = {
       measureInWindow: (callback) => {
         measureCallbacks.push(callback);
       },

@@ -152,6 +152,9 @@ local static server is handled by `lib/webColdNetwork.js`:
 - Images get a 1x1 PNG, iframes an empty page, analytics
   (`/utility/v1/track/*`) a success body, and WebSockets an open socket that
   never answers.
+- The device-specific Perps recall progress request gets an empty 204 in
+  fixture and record modes, representing an ineligible device without
+  recording private reward data.
 - Anything else is aborted and counted as blocked.
 
 Chromium also runs with `--no-proxy-server` and a host resolver rule that fails
