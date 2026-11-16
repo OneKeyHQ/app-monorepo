@@ -510,7 +510,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   } = {}): Promise<ICloudSyncDownloadResult> {
     const postData: ICloudSyncDownloadPostData = {
       includeDeleted,
-      start,
+      skip: start,
       limit,
     };
 
@@ -2238,12 +2238,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     syncCredential,
     password,
     askPasswordOnlyIfHdXfpMissing,
+    onlyAddMissing,
   }: {
     syncCredential: ICloudSyncCredential;
     password?: string;
     // Set with a password already from resolvePasswordOnlyIfHdXfpMissing, so
     // a missing one is never prompted here.
     askPasswordOnlyIfHdXfpMissing?: boolean;
+    onlyAddMissing?: boolean;
   }) {
     const resolvedPassword = askPasswordOnlyIfHdXfpMissing
       ? password
@@ -2292,9 +2294,17 @@ class ServicePrimeCloudSync extends ServiceBase {
       walletId,
       metadata,
     }));
-    if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
+    // Activation temporarily disables sync. Scope records by the credential
+    // being initialized even while the persisted mode is None.
+    const credentialKeylessWalletId =
+      syncCredential.keylessCredential?.keylessWalletId;
+    if (
+      credentialKeylessWalletId ||
+      (await this.getActiveSyncMode()) === ECloudSyncMode.Keyless
+    ) {
       const currentKeylessWalletId =
-        await this.getCurrentCloudSyncKeylessWalletId();
+        credentialKeylessWalletId ??
+        (await this.getCurrentCloudSyncKeylessWalletId());
       botWalletRecords = filterBotWalletRecordsByCurrentKeylessSyncScope({
         records: botWalletRecords,
         currentKeylessWalletId,
@@ -2426,6 +2436,9 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     await localDb.addAndUpdateSyncItems({
       items: totalItems,
+      // Recovery already retained existing business versions and tombstones.
+      // Check existence in the write transaction, including concurrent inserts.
+      skipUpdate: onlyAddMissing,
       // as init item dataTime is undefined, server will reject the upload
       skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
@@ -2454,6 +2467,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     const { items } = await this.getAllLocalSyncItems();
     const itemsToUpdate: IDBCloudSyncItem[] = [];
     for (const item of items) {
+      // Legacy keyless Lock metadata is never uploaded or applied to scenes.
+      // Preserve it without rebuilding it under the currently selected key.
+      if (
+        item.dataType === EPrimeCloudSyncDataType.Lock &&
+        keylessCloudSyncUtils.isKeylessPwdHash(item.pwdHash)
+      ) {
+        continue;
+      }
       try {
         const shouldRebuildItem =
           !!item.rawData &&

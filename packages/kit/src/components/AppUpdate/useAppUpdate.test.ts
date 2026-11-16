@@ -24,6 +24,8 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
   const svc = {
     getUpdateInfo: jest.fn(),
     reconcileAppShellPackage: jest.fn(),
+    invalidateCorruptedReadyPackage: jest.fn(),
+    prepareUserUpdateRetry: jest.fn(),
     getDownloadEvent: jest.fn(),
     downloadPackage: jest.fn(),
     downloadPackageFailed: jest.fn(),
@@ -34,6 +36,11 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     verifyPackage: jest.fn(),
     verifyPackageFailed: jest.fn(),
     readyToInstall: jest.fn(),
+    canRestartForUpdate: jest.fn().mockResolvedValue(true),
+    canDownloadCurrentTarget: jest.fn().mockResolvedValue(true),
+    recordInstallSource: jest.fn().mockResolvedValue(undefined),
+    restoreInstallSource: jest.fn().mockResolvedValue(undefined),
+    installLocationFailed: jest.fn().mockResolvedValue(undefined),
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
@@ -70,6 +77,9 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     default: {
       serviceAppUpdate: svc,
       serviceDevSetting: dev,
+      serviceSetting: {
+        getEnableAutoDownloadAppUpdate: jest.fn().mockResolvedValue(true),
+      },
       serviceDApp: dapp,
     },
   };
@@ -470,6 +480,10 @@ function resetAllMocks() {
     Promise.resolve(mockAtomHolder.value),
   );
   svc.reconcileAppShellPackage.mockImplementation(() => svc.getUpdateInfo());
+  svc.invalidateCorruptedReadyPackage.mockImplementation(() =>
+    svc.getUpdateInfo(),
+  );
+  svc.prepareUserUpdateRetry.mockImplementation(() => svc.getUpdateInfo());
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
   svc.downloadPackageFailed.mockResolvedValue(undefined);
@@ -553,19 +567,34 @@ describe('Utility functions', () => {
       }
     });
 
-    test('silent strategy returns true only when status is ready', () => {
+    test('silent strategy only surfaces at ready so background retries and self-healing stay imperceptible', () => {
       expect(
         isShowAppUpdateUIWhenUpdating({
           updateStrategy: EUpdateStrategy.silent,
           updateStatus: EAppUpdateStatus.ready,
         }),
       ).toBe(true);
-      expect(
-        isShowAppUpdateUIWhenUpdating({
-          updateStrategy: EUpdateStrategy.silent,
-          updateStatus: EAppUpdateStatus.downloadPackage,
-        }),
-      ).toBe(false);
+      for (const hiddenStatus of [
+        EAppUpdateStatus.notify,
+        EAppUpdateStatus.downloadPackage,
+        EAppUpdateStatus.downloadPackageFailed,
+        EAppUpdateStatus.downloadASC,
+        EAppUpdateStatus.downloadASCFailed,
+        EAppUpdateStatus.verifyASC,
+        EAppUpdateStatus.verifyASCFailed,
+        EAppUpdateStatus.verifyPackage,
+        EAppUpdateStatus.verifyPackageFailed,
+        EAppUpdateStatus.updateIncomplete,
+        EAppUpdateStatus.manualInstall,
+        EAppUpdateStatus.failed,
+      ]) {
+        expect(
+          isShowAppUpdateUIWhenUpdating({
+            updateStrategy: EUpdateStrategy.silent,
+            updateStatus: hiddenStatus,
+          }),
+        ).toBe(false);
+      }
     });
   });
 });
@@ -893,10 +922,13 @@ describe('useDownloadPackage', () => {
         });
 
         expect(appUpd.downloadPackage).not.toHaveBeenCalled();
-        expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
-          ...dto,
-          step: 'download',
-        });
+        expect(svc.downloadPackageFailed).toHaveBeenCalledWith(
+          {
+            ...dto,
+            step: 'download',
+          },
+          { terminal: true },
+        );
       },
     );
 
@@ -932,10 +964,13 @@ describe('useDownloadPackage', () => {
       });
 
       expect(appUpd.downloadPackage).toHaveBeenCalledTimes(1);
-      expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
-        code: EUpdateErrorCode.networkError,
-        step: 'download',
-      });
+      expect(svc.downloadPackageFailed).toHaveBeenCalledWith(
+        {
+          code: EUpdateErrorCode.networkError,
+          step: 'download',
+        },
+        { terminal: true },
+      );
     });
 
     test('entry budget does not reuse an unrelated failure step', async () => {
@@ -955,10 +990,13 @@ describe('useDownloadPackage', () => {
         await result.current.downloadPackage();
       });
 
-      expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
-        code: EUpdateErrorCode.unknown,
-        step: 'download',
-      });
+      expect(svc.downloadPackageFailed).toHaveBeenCalledWith(
+        {
+          code: EUpdateErrorCode.unknown,
+          step: 'download',
+        },
+        { terminal: true },
+      );
     });
 
     test('rotates attemptId AND persists it via setCurrentUpdateAttemptId so the post-relaunch success event can re-emit the same id', async () => {
@@ -1155,10 +1193,13 @@ describe('useDownloadPackage', () => {
         await result.current.downloadPackage();
       });
 
-      expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
-        code: EUpdateErrorCode.unknown,
-        step: 'download',
-      });
+      expect(svc.downloadPackageFailed).toHaveBeenCalledWith(
+        {
+          code: EUpdateErrorCode.unknown,
+          step: 'download',
+        },
+        { terminal: false },
+      );
     });
 
     test('late cancellation does not fail, toast, or reset a newer target', async () => {
@@ -1782,10 +1823,13 @@ describe('useDownloadPackage', () => {
     });
 
     test('appShell install cancelled → does not report success or failure', async () => {
+      mockPlatformEnv.isDesktop = true;
       const onSuccess = jest.fn();
       const onFail = jest.fn();
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+        installSource: 'quit',
         updateStrategy: EUpdateStrategy.manual,
       });
       appUpd.installPackage.mockResolvedValueOnce(false);
@@ -1793,12 +1837,26 @@ describe('useDownloadPackage', () => {
       const { result } = renderHook(() => useDownloadPackage());
 
       await act(async () => {
-        await result.current.installPackage(onSuccess, onFail);
+        await result.current.installPackage(onSuccess, onFail, {
+          userInitiated: true,
+          installSource: 'capsule',
+        });
       });
 
       expect(appUpd.installPackage).toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
       expect(onFail).not.toHaveBeenCalled();
+      expect(svc.recordInstallSource).toHaveBeenCalledWith(
+        'capsule',
+        '2.0.0',
+        'https://cdn.onekey.so/app-2.0.0.exe',
+      );
+      expect(svc.restoreInstallSource).toHaveBeenCalledWith(
+        'capsule',
+        'quit',
+        '2.0.0',
+        'https://cdn.onekey.so/app-2.0.0.exe',
+      );
     });
 
     test('jsBundle success → calls BundleUpdate.installBundle + onSuccess', async () => {
@@ -3084,6 +3142,55 @@ describe('useAppUpdateInfo useEffect', () => {
     });
   });
 
+  test('cold desktop ready state restores the quit installer before dispatch', async () => {
+    mockPlatformEnv.isDesktop = true;
+    setAtom({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      downloadUrl: 'https://cdn.onekey.so/app.exe',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app.exe',
+      },
+    });
+    const hooks = requireFreshHooks();
+    const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+    expect(svc.readyToInstall).toHaveBeenCalledTimes(1);
+    hook.unmount();
+  });
+
+  test.each([EUpdateStrategy.manual, EUpdateStrategy.force])(
+    'automatic download event respects desktop release strategy %s',
+    async (strategy) => {
+      mockPlatformEnv.isDesktop = true;
+      setAtom({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.notify,
+        updateStrategy: strategy,
+        downloadUrl: 'https://cdn.onekey.so/app.exe',
+      });
+      const hooks = requireFreshHooks();
+      const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+      svc.downloadPackage.mockClear();
+      await act(async () => {
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.StartAutoDownloadUpdate,
+          payload: { decision: 'autoDownloadEnabled' },
+        });
+        await Promise.resolve();
+      });
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      hook.unmount();
+    },
+  );
+
   // ----- C5. fetchUpdateInfo result handling -----
   describe('fetchUpdateInfo result handling', () => {
     test('seamless restart failure shows an error and removes the UI listener on unmount', async () => {
@@ -3847,6 +3954,72 @@ describe('onUpdateAction', () => {
     );
   });
 
+  test('menu action uses the checked notify snapshot even when its hook captured ready', async () => {
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+    act(() => {
+      result.current.onUpdateActionWithInfo({
+        ...mockAtomHolder.value,
+        status: EAppUpdateStatus.notify,
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+    });
+    await act(async () => {
+      jest.runAllTimers();
+    });
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({
+        screen: 'UpdatePreview',
+        params: expect.objectContaining({
+          latestVersion: '3.0.0',
+          isForceUpdate: false,
+        }),
+      }),
+    );
+    expect(nav.pushModal).not.toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'DownloadVerify' }),
+    );
+  });
+
+  test('a newly checked force snapshot opens the full update preview', async () => {
+    setAtom({
+      status: EAppUpdateStatus.done,
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+    act(() => {
+      result.current.onUpdateActionWithInfo({
+        ...mockAtomHolder.value,
+        status: EAppUpdateStatus.notify,
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.force,
+      });
+    });
+    await act(async () => {
+      jest.runAllTimers();
+    });
+    expect(nav.pushFullModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({
+        screen: 'UpdatePreview',
+        params: expect.objectContaining({
+          latestVersion: '3.0.0',
+          isForceUpdate: true,
+        }),
+      }),
+    );
+  });
+
   test('status=updateIncomplete → shows incomplete dialog', () => {
     setAtom({
       status: EAppUpdateStatus.updateIncomplete,
@@ -4144,5 +4317,334 @@ describe('isToolboxUpdateIndicatorRedundant', () => {
         fileType: EUpdateFileType.appShell,
       }),
     ).toBe(false);
+  });
+});
+
+describe('install-time self-healing & cold-start self-check recovery', () => {
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
+    jest.isolateModules(() => {
+      jest.mock('react', () => (globalThis as any).__sharedReact);
+      hooks = require('./useAppUpdate');
+    });
+    return hooks;
+  }
+
+  test('installPackage SHA mismatch (integrityFailed) calls invalidateCorruptedReadyPackage, shows Toast on userInitiated silent update, and releases lock', async () => {
+    const onSuccess = jest.fn();
+    const onFail = jest.fn();
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '12',
+        downloadUrl: 'https://cdn.onekey.so/bundle-12.zip',
+      },
+    });
+    svc.invalidateCorruptedReadyPackage.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      status: EAppUpdateStatus.notify,
+    });
+    bundleUpd.installBundle
+      .mockRejectedValueOnce(
+        createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'install',
+        }),
+      )
+      .mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useDownloadPackage());
+
+    await act(async () => {
+      await result.current.installPackage(onSuccess, onFail, {
+        userInitiated: true,
+        installSource: 'capsule',
+      });
+    });
+
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '12',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    // Lock must be released so subsequent install attempt succeeds
+    await act(async () => {
+      await result.current.installPackage(onSuccess, onFail);
+    });
+    expect(bundleUpd.installBundle).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  test('Desktop installPackage packageMissing falls back to forceMissing when availability check still reported ready', async () => {
+    const onSuccess = jest.fn();
+    const onFail = jest.fn();
+    mockPlatformEnv.isDesktop = true;
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    svc.reconcileAppShellPackage
+      .mockResolvedValueOnce({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+      })
+      .mockResolvedValueOnce({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.updateIncomplete,
+      });
+    appUpd.installPackage.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      }),
+    );
+
+    const { result } = renderHook(() => useDownloadPackage());
+    await act(async () => {
+      await result.current.installPackage(onSuccess, onFail, {
+        userInitiated: true,
+      });
+    });
+
+    expect(svc.reconcileAppShellPackage).toHaveBeenNthCalledWith(1, undefined);
+    expect(svc.reconcileAppShellPackage).toHaveBeenNthCalledWith(2, {
+      forceMissing: true,
+      allowJsBundle: true,
+    });
+    expect(onFail).toHaveBeenCalledTimes(1);
+  });
+
+  test('manualInstallPackage SHA mismatch invalidates corrupted ready package and opens incomplete recovery dialog wired to userInitiated retry', async () => {
+    svc.getUpdateInfo.mockResolvedValue({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.manualInstall,
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    svc.getDownloadEvent.mockResolvedValue({
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.apk',
+    });
+    svc.invalidateCorruptedReadyPackage.mockResolvedValue({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.verifyPackageFailed,
+    });
+    appUpd.manualInstallPackage.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      }),
+    );
+
+    const { result } = renderHook(() => useDownloadPackage());
+    await act(async () => {
+      await result.current.manualInstallPackage();
+    });
+
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.manualInstall,
+      }),
+    );
+    expect(svc.resetToInComplete).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+
+    // Confirming the recovery dialog calls prepareUserUpdateRetry via downloadPackage({ userInitiated: true })
+    svc.downloadPackage.mockResolvedValueOnce(false);
+    const dialogArgs = mockDialogShow.mock.calls.at(-1)?.[0] as {
+      onConfirm: () => void;
+    };
+    await act(async () => {
+      dialogArgs.onConfirm();
+      await Promise.resolve();
+    });
+    expect(svc.prepareUserUpdateRetry).toHaveBeenCalledTimes(1);
+  });
+
+  test('Windows/Linux cold-start readyToInstall throwing integrityFailed recovers without crashing startup', async () => {
+    mockPlatformEnv.isDesktop = true;
+    mockPlatformEnv.isDesktopMac = false;
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.exe',
+    });
+    svc.readyToInstall.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      }),
+    );
+    svc.invalidateCorruptedReadyPackage.mockImplementationOnce(async () => {
+      setAtom({
+        status: EAppUpdateStatus.verifyPackageFailed,
+        updateStrategy: EUpdateStrategy.manual,
+        latestVersion: '2.0.0',
+      });
+      return mockAtomHolder.value;
+    });
+    svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
+    expect(svc.fetchAppUpdateInfo).toHaveBeenCalledWith(true);
+  });
+
+  test('cold-start seamless jsBundle installBundle throwing integrityFailed calls invalidateCorruptedReadyPackage', async () => {
+    bundleUpd.installBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      }),
+    );
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '5',
+        signature: 'valid-sig',
+        sha256: 'valid-hash',
+      },
+    });
+    svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+
+    expect(svc.invalidateCorruptedReadyPackage).toHaveBeenCalledWith(
+      {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      },
+      expect.objectContaining({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        status: EAppUpdateStatus.ready,
+      }),
+    );
+  });
+
+  test('onUpdateActionDirect triggers downloadPackage({ userInitiated: true }) when retrying from verifyPackageFailed', async () => {
+    setAtom({
+      status: EAppUpdateStatus.verifyPackageFailed,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.apk',
+    });
+    svc.downloadPackage.mockResolvedValueOnce(false);
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    await act(async () => {
+      result.current.onUpdateActionDirect();
+      await Promise.resolve();
+    });
+
+    expect(svc.prepareUserUpdateRetry).toHaveBeenCalledTimes(1);
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'DownloadVerify' }),
+    );
+  });
+
+  test('onUpdateActionDirect on silent ready jsBundle with missing local package silently self-heals without Toast or UpdateIncompleteDialog', async () => {
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.silent,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '12',
+        downloadUrl: 'https://cdn.onekey.so/bundle-12.zip',
+      },
+    });
+    svc.reconcileAppShellPackage.mockResolvedValue({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '12',
+      status: EAppUpdateStatus.notify,
+      updateStrategy: EUpdateStrategy.silent,
+    });
+    bundleUpd.installBundle.mockRejectedValueOnce(
+      createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      }),
+    );
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    await act(async () => {
+      result.current.onUpdateActionDirect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  test('Desktop cold-start updateIncomplete with silent strategy does not pop UpdateIncompleteDialog', async () => {
+    mockPlatformEnv.isDesktop = true;
+    setAtom({
+      status: EAppUpdateStatus.updateIncomplete,
+      updateStrategy: EUpdateStrategy.silent,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+    });
+    svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 });

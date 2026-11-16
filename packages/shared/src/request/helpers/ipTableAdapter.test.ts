@@ -584,13 +584,7 @@ describe('isIpTableTransportError', () => {
 });
 
 describe('ipTableAdapter fail-open on domain network failures', () => {
-  const BUILTIN_CN_IPS = [
-    '104.18.20.233',
-    '104.18.21.233',
-    '216.19.3.115',
-    '216.19.2.116',
-    '216.19.4.106',
-  ];
+  const BUILTIN_CN_IPS = ['43.168.19.96', '43.168.24.171'];
 
   let originalAdapter: typeof axios.defaults.adapter;
   let fallbackAdapter: jest.Mock<

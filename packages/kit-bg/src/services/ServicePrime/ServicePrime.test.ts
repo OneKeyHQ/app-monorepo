@@ -4,6 +4,7 @@
 import { AxiosError as InfiniAxiosError } from 'axios';
 
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
@@ -173,6 +174,8 @@ jest.mock('../../endpoints', () => ({
 // Captures the interceptor callbacks that ServiceBase.getOneKeyIdClient
 // registers, so tests can invoke the response error interceptor directly.
 const mockCapturedInterceptors: {
+  requestOnFulfilled?: (config: any) => Promise<any>;
+  responseOnFulfilled?: (response: any) => Promise<any>;
   responseOnRejected?: (error: unknown) => Promise<unknown>;
 } = {};
 
@@ -196,14 +199,17 @@ jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
     getOneKeyIdAuthClient: jest.fn(async () => ({
       interceptors: {
         request: {
-          use: jest.fn(),
+          use: jest.fn((onFulfilled: (config: any) => Promise<any>) => {
+            mockCapturedInterceptors.requestOnFulfilled = onFulfilled;
+          }),
         },
         response: {
           use: jest.fn(
             (
-              _onFulfilled: unknown,
+              onFulfilled: (response: any) => Promise<any>,
               onRejected: (error: unknown) => Promise<unknown>,
             ) => {
+              mockCapturedInterceptors.responseOnFulfilled = onFulfilled;
               mockCapturedInterceptors.responseOnRejected = onRejected;
             },
           ),
@@ -344,7 +350,7 @@ const {
 } = require('@onekeyhq/shared/src/locale/enum/translations');
 const {
   stashRequestAuthTokenOfError,
-  takeRequestAuthTokenOfError,
+  takeRequestAuthContextOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
 const {
   getPrimeGiftVerifyFailureLogPayload,
@@ -3728,6 +3734,95 @@ describe('ServicePrime invalid-token handling', () => {
       await service.getPrimeClient();
     });
 
+    it('signs out a 90012 session through the invalid-token handler without exposing the token', async () => {
+      const rawError = {
+        data: { code: 90_012, requestUrl: '/prime/v1/user/info' },
+      };
+      stashRequestAuthTokenOfError({
+        error: rawError,
+        requestAuthToken: REQUEST_TOKEN,
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(rawError),
+      ).rejects.toMatchObject({
+        code: 90_012,
+        className: 'OneKeyErrorPrimeUserBanned',
+      });
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestAuthToken: REQUEST_TOKEN,
+          errorCode: 90_012,
+        }),
+      );
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
+    });
+
+    it('keeps the signed-in account for a bind ban whose error records only the service origin', async () => {
+      const error = {
+        data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
+      };
+      stashRequestAuthTokenOfError({
+        error,
+        requestAuthToken: REQUEST_TOKEN,
+        requestUrl: '/prime/v1/account/identities/oauth/bind',
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(error),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).not.toHaveBeenCalled();
+    });
+
+    it('rejects a banned body even when automatic error handling was disabled', async () => {
+      const response = {
+        data: { code: 90_012, data: { status: 'merge_required' } },
+        config: {
+          url: '/prime/v1/account/oauth/login',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+          autoHandleError: false,
+        },
+      };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(handlerImpl).toHaveBeenCalled();
+    });
+
+    it('normalizes a ban returned as HTTP 403 without exposing its request config', async () => {
+      const error = {
+        response: { data: { code: 90_012 } },
+        config: {
+          url: '/prime/v1/user/info',
+          headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+        },
+      };
+      const thrown = await mockCapturedInterceptors
+        .responseOnRejected?.(error)
+        .catch((reason: unknown) => reason);
+      expect(thrown).toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
+      expect(handlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({ requestAuthToken: REQUEST_TOKEN }),
+      );
+    });
+
+    it('does not treat an ordinary successful payload code as a server ban', async () => {
+      const response = { data: { code: 0, data: { code: 90_012 } } };
+      await expect(
+        mockCapturedInterceptors.responseOnFulfilled?.(response),
+      ).resolves.toBe(response);
+    });
+
+    it('keeps the banned error when signing out fails', async () => {
+      handlerImpl.mockRejectedValueOnce(
+        new OneKeyLocalError('storage unavailable'),
+      );
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.({
+          data: { code: 90_012 },
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+    });
+
     async function invokeInterceptorWith90002() {
       const onRejected = mockCapturedInterceptors.responseOnRejected;
       expect(onRejected).toBeDefined();
@@ -3769,7 +3864,7 @@ describe('ServicePrime invalid-token handling', () => {
       expect(JSON.stringify(rawError)).not.toContain(REQUEST_TOKEN);
       expect(JSON.stringify(thrown)).not.toContain(REQUEST_TOKEN);
       // Read-and-delete: a second take returns nothing.
-      expect(takeRequestAuthTokenOfError(rawError)).toBe('');
+      expect(takeRequestAuthContextOfError(rawError).requestAuthToken).toBe('');
     });
 
     it('marks the rethrown error with $$invalidTokenHandled after handling', async () => {
@@ -8500,6 +8595,32 @@ describe('ServicePrime.apiTranslate free-trial batches', () => {
     });
   });
 
+  it.each(['typed', 'serialized'] as const)(
+    'surfaces a %s ban without automatic per-request toasts',
+    async (kind) => {
+      const { service, post } = createTranslateService(() => ({ code: 0 }));
+      post.mockRejectedValue(
+        kind === 'typed'
+          ? new OneKeyErrorPrimeUserBanned()
+          : { code: '90012', autoToast: true },
+      );
+      await expect(translate(service)).rejects.toMatchObject({
+        code: 90_012,
+        autoToast: false,
+      });
+    },
+  );
+
+  it('prioritizes a concurrent ban over AI-unavailable fallback', async () => {
+    const { service } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_012,
+    }));
+    await expect(translate(service)).rejects.toMatchObject({
+      code: 90_012,
+      autoToast: false,
+    });
+  });
+
   it('keeps the billed batches when another batch is exhausted', async () => {
     const { service, backgroundApi, post } = createTranslateService((batch) =>
       batch[0] === 'b1'
@@ -8958,5 +9079,76 @@ describe('ServicePrime inviteProfilePublic', () => {
     await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
 
     expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+});
+
+describe('ServicePrime banned OneKey ID', () => {
+  let user: Record<string, unknown>;
+  const originalGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalSet = mockPrimePersistAtom.set.getMockImplementation();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    user = {
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'user-a',
+      primeSubscription: { isActive: true },
+    };
+    mockPrimePersistAtom.get.mockImplementation(async () => user);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      user = typeof update === 'function' ? update(user) : update;
+      return undefined;
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockReset();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: REQUEST_TOKEN,
+    });
+  });
+
+  afterEach(() => {
+    mockPrimePersistAtom.get.mockImplementation(
+      originalGet || (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalSet || (async () => undefined),
+    );
+    jest.restoreAllMocks();
+  });
+
+  function setup() {
+    const result = createService();
+    result.simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    result.simpleDbPrime.getActiveAuthToken.mockResolvedValue(REQUEST_TOKEN);
+    result.simpleDbPrime.getAuthStateGeneration.mockResolvedValue(7);
+    return result;
+  }
+
+  it('does not reinterpret 90012 carrying conflict metadata as an account merge', () => {
+    const { service } = setup();
+    expect(
+      service.isOneKeyIdOAuthIdentityAlreadyBoundError({
+        code: 90_012,
+        data: { messageId: 'oauth_identity_already_bound', code: 90_300 },
+      }),
+    ).toBe(false);
+  });
+
+  it('lets a ban win over a successful sibling profile response', async () => {
+    const { service } = setup();
+    const get = jest.fn(async (url: string) => ({
+      status: 200,
+      data:
+        url === '/prime/v1/account/profile'
+          ? { code: 90_012 }
+          : { code: 0, data: { userId: 'user-a', isPrime: true } },
+    }));
+    service.getPrimeClient = jest.fn(async () => ({ get }));
+    await expect(service.callApiFetchPrimeUserInfo()).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
+    );
   });
 });

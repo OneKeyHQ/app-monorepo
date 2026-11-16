@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
 import { Anchor, SizableText, useMedia } from '@onekeyhq/components';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useTermsAndPrivacyLinks } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -14,15 +14,15 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 interface ITermsAndPrivacyProps {
   contentContainerProps?: Omit<IStackProps, 'children'>;
   testID?: string;
+  // Must keep the termsTag and privacyTag placeholders.
+  messageId?: ETranslations;
 }
 
 export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const termsLink = useHelpLink({
-    path: 'articles/11461297',
-  });
-  const privacyLink = useHelpLink({ path: 'articles/11461298' });
+  const { termsUrl: termsLink, privacyUrl: privacyLink } =
+    useTermsAndPrivacyLinks();
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>
@@ -35,7 +35,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
           }}
           size="$bodySm"
           textDecorationLine="underline"
-          color="$textDisabled"
+          color="$text"
         >
           {chunks[0]}
         </SizableText>
@@ -43,7 +43,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
         <Anchor
           href={link}
           size="$bodySm"
-          color="$textDisabled"
+          color="$text"
           target="_blank"
           showExternalIndicator={false}
           $gtMd={{
@@ -74,7 +74,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       testID={props?.testID}
       alignSelf="center"
       size="$bodySm"
-      color="$textDisabled"
+      color="$textSubdued"
       textAlign="center"
       $gtMd={{
         size: '$bodyMd',
@@ -84,7 +84,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       {...(restContentProps as any)}
     >
       {intl.formatMessage(
-        { id: ETranslations.terms_privacy },
+        { id: props?.messageId ?? ETranslations.terms_privacy },
         {
           termsTag: renderTermsTag,
           privacyTag: renderPrivacyTag,

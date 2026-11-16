@@ -32,6 +32,7 @@ import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLiveP
 
 import {
   type IStockSimpleChartRange,
+  type IStockSimpleChartRangeChange,
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
@@ -45,6 +46,7 @@ import {
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
+  shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
@@ -94,6 +96,7 @@ type IStockSimpleChartProps = {
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
   onPriceUpdate?: (price: number | undefined) => void;
+  onRangeChange?: (change: IStockSimpleChartRangeChange | undefined) => void;
   onRequestRetry?: () => void;
   requestError?: boolean;
 };
@@ -127,6 +130,7 @@ export function StockSimpleChartContent({
   priceMode,
   priceScaleFormat,
   onPriceUpdate,
+  onRangeChange,
   requestError = false,
   onRequestRetry,
   retainPreviousRange = false,
@@ -180,19 +184,13 @@ export function StockSimpleChartContent({
           requestCoinGeckoId ||
           (requestNetworkId && (requestTokenAddress || requestIsNative)),
         );
-  const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
-    stockDetail,
-    stockId,
-    tokenStock: tokenDetail?.stock,
-  });
   const snapshotPrice = resolveStockSimpleChartLivePrice({
     priceMode: requestPriceMode,
     stockDetail,
     tokenDetail,
   });
-  // This chart pins its last point to the quote above, so a quote that stops
-  // moving freezes the chart with it. Simple mode mounts no TradingView, which
-  // is what keeps that quote on the traded price everywhere else.
+  // Simple mode mounts no TradingView, so poll the token quote separately
+  // to keep its live tail and title on the latest traded price.
   const polledPrice = useMarketKlineLivePrice({
     enabled:
       active &&
@@ -427,15 +425,32 @@ export function StockSimpleChartContent({
     range: displayedRange,
     stockDetail,
   });
+  const shouldMergeLivePrice = shouldMergeStockSimpleChartLivePrice({
+    points: displayedChartState.data,
+    priceMode: requestPriceMode,
+    priceUpdatedAt: stockDetail?.priceUpdatedAt,
+  });
+  const pulseLastPoint =
+    shouldMergeLivePrice &&
+    resolveStockSimpleChartPulseLastPoint({
+      stockDetail,
+      stockId,
+      tokenStock: tokenDetail?.stock,
+    });
   const chartData = useMemo(
     () =>
       resolveStockSimpleChartDisplayPoints({
         intervalSeconds,
-        livePrice,
+        livePrice: shouldMergeLivePrice ? livePrice : undefined,
         nowSeconds: Math.floor(Date.now() / 1000),
         points: displayedChartState.data,
       }),
-    [displayedChartState.data, intervalSeconds, livePrice],
+    [
+      displayedChartState.data,
+      intervalSeconds,
+      livePrice,
+      shouldMergeLivePrice,
+    ],
   );
 
   const renderChartError = () => (
@@ -517,6 +532,7 @@ export function StockSimpleChartContent({
             previousClose,
             priceMode: requestPriceMode,
             range: displayedRange,
+            sharePrice: stockDetail?.price,
           }),
     [
       chartData,
@@ -524,12 +540,16 @@ export function StockSimpleChartContent({
       hasChartPlaceholder,
       previousClose,
       requestPriceMode,
+      stockDetail?.price,
     ],
   );
   const reportRangeChange = useReportMarketSimpleChartRangeChange();
   useEffect(() => {
     reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
   }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+  useEffect(() => {
+    onRangeChange?.(active ? rangeChange : undefined);
+  }, [active, onRangeChange, rangeChange]);
   // Unmounting (Pro mode, leaving the page) hands the header back to 24h.
   useEffect(() => () => reportRangeChange(undefined), [reportRangeChange]);
 

@@ -153,6 +153,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'swapTokenSymbol',
   'isNative',
   'marketTokenId',
+  'pendingMarketAsset',
   'marketVariantId',
   'marketTokenCategory',
   'skipMarketDataFetch',

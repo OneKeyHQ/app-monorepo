@@ -1,5 +1,6 @@
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { defaultLogger } from '../../logger/logger';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
@@ -61,7 +62,12 @@ const loadIntercomSdk = () => {
   return intercomSdkPromise;
 };
 
-export const setIntercomTheme = async (theme: 'light' | 'dark') => {
+// Web and desktop observe OS appearance changes live, so the resolved theme
+// is enough here; `followSystem` only matters for the native SDK.
+export const setIntercomTheme = async (
+  theme: 'light' | 'dark',
+  _followSystem?: boolean,
+) => {
   currentTheme = theme;
   if (hasBooted) {
     const sdk = await loadIntercomSdk();
@@ -260,6 +266,7 @@ const openIntercom = async (
   const {
     show,
     showConversation,
+    showMessages,
     trackEvent,
     update: updateIntercom,
   } = await loadIntercomSdk();
@@ -288,8 +295,15 @@ const openIntercom = async (
   if (messengerLocked || !canPresent()) {
     return false;
   }
+  const defaultBranch = intercomUnreadCount > 0 ? 'web-messages' : 'web-home';
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId ? 'web-conversation' : defaultBranch,
+  });
   if (params?.conversationId) {
     showConversation(params.conversationId);
+  } else if (intercomUnreadCount > 0) {
+    showMessages();
   } else {
     show();
   }

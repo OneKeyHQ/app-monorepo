@@ -130,3 +130,27 @@ export function useLocalWalletSendReadiness({
     statusText: getLocalWalletSendSyncStatusText({ readiness, intl }),
   };
 }
+
+// Prewarming shares the scan's thread, so it waits for the send sync instead of delaying it.
+export function useLocalWalletSendPrewarm({
+  enabled,
+  networkId,
+  accountId,
+  sourcePool,
+  toAddress,
+  isWaitingForSync,
+}: {
+  enabled: boolean;
+  networkId: string;
+  accountId: string | undefined;
+  sourcePool: string | undefined;
+  toAddress: string;
+  isWaitingForSync: boolean;
+}) {
+  useEffect(() => {
+    if (!enabled || !accountId || !sourcePool || isWaitingForSync) return;
+    void backgroundApiProxy.servicePrivacyChain
+      .prewarmLocalWalletSend({ networkId, accountId, sourcePool, toAddress })
+      .catch(() => undefined);
+  }, [enabled, isWaitingForSync, networkId, accountId, sourcePool, toAddress]);
+}

@@ -25,6 +25,7 @@ const mockNativeUpdater = Object.assign(new EventEmitter(), {
   setFeedURL: jest.fn(),
 });
 const mockSpawn = jest.fn();
+const mockExecFileSync = jest.fn();
 const mockAppQuit = jest.fn();
 const mockAppExit = jest.fn();
 const mockAppRelaunch = jest.fn();
@@ -37,6 +38,7 @@ const mockApp = Object.assign(new EventEmitter(), {
   quit: mockAppQuit,
   exit: mockAppExit,
   relaunch: mockAppRelaunch,
+  moveToApplicationsFolder: jest.fn(() => true),
 });
 const mockGetAllWindows = jest.fn((): unknown[] => []);
 const mockOpenPath = jest.fn(async () => '');
@@ -72,6 +74,7 @@ jest.mock('electron', () => ({
 jest.mock('child_process', () => ({
   ...jest.requireActual<typeof import('child_process')>('child_process'),
   spawn: mockSpawn,
+  execFileSync: mockExecFileSync,
 }));
 jest.mock('./nodeDownload', () => ({
   downloadNodeFile: mockDownloadNodeFile,
@@ -129,6 +132,10 @@ const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
 const originalArch = Object.getOwnPropertyDescriptor(process, 'arch');
 const originalChannel = process.env.DESK_CHANNEL;
 const originalAppImage = process.env.APPIMAGE;
+const originalResourcesPath = Object.getOwnPropertyDescriptor(
+  process,
+  'resourcesPath',
+);
 const originalSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
 const instances: Array<
   InstanceType<typeof import('./DesktopApiAppUpdate').default>
@@ -243,6 +250,8 @@ async function preparePackage(platform: NodeJS.Platform, channel?: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSpawn.mockReset();
+  mockExecFileSync.mockReset();
   mockApp.removeAllListeners();
   mockGetAllWindows.mockReturnValue([]);
   mockAppGetVersion.mockReturnValue('5.9.0');
@@ -257,9 +266,19 @@ beforeEach(() => {
     setImmediate(() => child.emit('spawn'));
     return child;
   });
+  mockExecFileSync.mockImplementation((file: string, args: string[]) => {
+    if (file === 'reg.exe' && args[1]?.startsWith('HKCU\\')) {
+      return `    InstallLocation    REG_SZ    ${path.win32.dirname(process.execPath)}\r\n`;
+    }
+    throw new OneKeyLocalError('Registry key unavailable');
+  });
   mockTempDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'onekey-node-updater-test-'),
   );
+  Object.defineProperty(process, 'resourcesPath', {
+    configurable: true,
+    value: mockTempDir,
+  });
   process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
   (
     globalThis as unknown as { $desktopMainAppFunctions: unknown }
@@ -274,16 +293,21 @@ afterEach(async () => {
       macInstallInProgress: boolean;
       appImageInstallInProgress: boolean;
       installInProgress: boolean;
+      macStagedIdentity?: string;
     };
     state.macInstallInProgress = false;
     state.appImageInstallInProgress = false;
     state.installInProgress = false;
+    state.macStagedIdentity = undefined;
     await api.clearUpdateCache();
   }
   jest.restoreAllMocks();
   fs.rmSync(mockTempDir, { recursive: true, force: true });
   if (originalPlatform)
     Object.defineProperty(process, 'platform', originalPlatform);
+  if (originalResourcesPath)
+    Object.defineProperty(process, 'resourcesPath', originalResourcesPath);
+  else delete (process as { resourcesPath?: string }).resourcesPath;
   if (originalArch) Object.defineProperty(process, 'arch', originalArch);
   if (originalChannel === undefined) delete process.env.DESK_CHANNEL;
   else process.env.DESK_CHANNEL = originalChannel;
@@ -807,6 +831,41 @@ test('macOS forces exit if native update quit stalls', async () => {
   }
 });
 
+test('macOS native staging rejects cache clearing until handoff completes', async () => {
+  const { api, params, file } = await preparePackage('darwin');
+  let started!: () => void;
+  const stagingStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => {
+    started();
+  });
+  const install = api.installPackage(params);
+  await stagingStarted;
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(fs.existsSync(file)).toBe(true);
+  mockNativeUpdater.emit('update-downloaded');
+  expect(await install).toBe(true);
+});
+
+test('macOS staged package cannot be cleared and remains installable', async () => {
+  const { api, params, file } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(fs.existsSync(file)).toBe(true);
+  expect(api.downloadedEvent).toBeDefined();
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+});
+
 test('macOS restages when the checksum changes at the same cache path', async () => {
   const { api } = await preparePackage('darwin');
   const internal = api as unknown as {
@@ -822,12 +881,149 @@ test('macOS restages when the checksum changes at the same cache path', async ()
 test('Windows launches only the verified NSIS installer and then quits', async () => {
   const { api, file, params } = await preparePackage('win32');
   expect(await api.installPackage(params)).toBe(true);
-  expect(mockSpawn).toHaveBeenCalledWith(file, ['--updated', '--force-run'], {
+  expect(mockSpawn).toHaveBeenCalledWith(
+    file,
+    ['/S', '--updated', '--force-run'],
+    {
+      cwd: path.dirname(file),
+      detached: true,
+      stdio: 'ignore',
+    },
+  );
+  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+});
+
+test.each(['allUsers', 'unknown'] as const)(
+  'Windows %s startup defers installation without elevation and preserves explicit installation',
+  async (scope) => {
+    const { api, file, params } = await preparePackage('win32');
+    mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+      if (
+        scope === 'allUsers' &&
+        command === 'reg.exe' &&
+        args[1]?.startsWith('HKLM\\')
+      ) {
+        return `    InstallLocation    REG_SZ    ${path.win32.dirname(process.execPath)}\r\n`;
+      }
+      throw new OneKeyLocalError('Registry key unavailable');
+    });
+    mockSpawn.mockImplementation(() => {
+      const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+      setImmediate(() => child.emit('exit', 0));
+      return child;
+    });
+
+    expect(
+      await api.installPackage({ ...params, installSource: 'startup' }),
+    ).toBe(false);
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockAppQuit).not.toHaveBeenCalled();
+    expect(mockShowMessageBox).not.toHaveBeenCalled();
+    expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+    expect(fs.existsSync(file)).toBe(true);
+    expect(api.downloadedEvent).toBeDefined();
+
+    expect(await api.installPackage({ ...params, userInitiated: true })).toBe(
+      true,
+    );
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(mockSpawn).toHaveBeenCalledWith(
+      path.join(process.resourcesPath, 'elevate.exe'),
+      [file, '/S', '--updated', '--force-run'],
+      {
+        cwd: process.resourcesPath,
+        detached: true,
+        stdio: 'ignore',
+      },
+    );
+    expect(mockAppQuit).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('Windows current-user startup still launches the verified installer', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  expect(
+    await api.installPackage({ ...params, installSource: 'startup' }),
+  ).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledWith(
+    file,
+    ['/S', '--updated', '--force-run'],
+    {
+      cwd: path.dirname(file),
+      detached: true,
+      stdio: 'ignore',
+    },
+  );
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+});
+
+test('Windows cancelled elevation keeps the verified update ready and the window visible', async () => {
+  const { api, params } = await preparePackage('win32');
+  mockExecFileSync.mockImplementation(() => {
+    throw new OneKeyLocalError('Registry key unavailable');
+  });
+  mockSpawn.mockImplementationOnce(() => {
+    const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+    setImmediate(() => child.emit('exit', 1223));
+    return child;
+  });
+  await expect(
+    api.installPackage({ ...params, userInitiated: true }),
+  ).rejects.toThrow('"code":"CANCELLED"');
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(mockMainWindow.show).toHaveBeenCalled();
+  expect(mockMainWindow.focus).toHaveBeenCalled();
+});
+
+test('Windows quit update never asks for elevation after a direct launch error', async () => {
+  const { api, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+  mockSpawn.mockImplementationOnce(() => {
+    const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+    setImmediate(() =>
+      child.emit(
+        'error',
+        Object.assign(new Error('denied'), { code: 'EACCES' }),
+      ),
+    );
+    return child;
+  });
+  expect(await api.installOnQuit()).toBe(false);
+  expect(mockSpawn).toHaveBeenCalledTimes(1);
+  expect(mockSpawn.mock.calls[0][0]).not.toContain('elevate.exe');
+});
+
+test('Windows quit update hands off the verified installer without relaunching', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+
+  expect(api.hasPreparedQuitInstall()).toBe(true);
+  expect(await api.installOnQuit()).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledWith(file, ['/S', '--updated'], {
     cwd: path.dirname(file),
     detached: true,
     stdio: 'ignore',
   });
-  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).not.toHaveBeenCalled();
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(await api.installOnQuit()).toBe(false);
+  expect(mockSpawn).toHaveBeenCalledTimes(1);
+});
+
+test('macOS prepares a native quit update without quitting or relaunching early', async () => {
+  const { api, params } = await preparePackage('darwin');
+  jest.spyOn(fs, 'realpathSync').mockReturnValue('/Applications/OneKey.app');
+
+  await api.prepareMacInstall(params);
+  await api.prepareMacInstall(params);
+
+  expect(mockNativeUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+  expect(mockShowMessageBox).not.toHaveBeenCalled();
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).not.toHaveBeenCalled();
 });
 
 test('Windows rejects a concurrent install before a second confirmation and keeps the handoff locked', async () => {
@@ -898,6 +1094,46 @@ test('Linux AppImage without a writable current path offers the verified downloa
   expect(mockSpawn).not.toHaveBeenCalled();
 });
 
+test.each(['missing', 'read-only-file', 'read-only-directory'] as const)(
+  'Linux startup with %s AppImage defers to explicit installation without reporting a handoff',
+  async (scenario) => {
+    const current = path.join(mockTempDir, 'OneKey.AppImage');
+    if (scenario === 'missing') delete process.env.APPIMAGE;
+    else {
+      fs.writeFileSync(current, 'old app');
+      process.env.APPIMAGE = current;
+    }
+    const { api, file, params } = await preparePackage('linux', 'appImage');
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    const accessSync = fs.accessSync;
+    const readOnlyPath =
+      scenario === 'read-only-file' ? current : path.dirname(current);
+    jest.spyOn(fs, 'accessSync').mockImplementation((filePath, mode) => {
+      if (filePath === readOnlyPath && mode === fs.constants.W_OK) {
+        throw Object.assign(new Error('read-only'), { code: 'EACCES' });
+      }
+      return accessSync(filePath, mode);
+    });
+
+    expect(
+      await api.installPackage({ ...params, installSource: 'startup' }),
+    ).toBe(false);
+    expect(mockOpenPath).not.toHaveBeenCalled();
+    expect(mockAppQuit).not.toHaveBeenCalled();
+    expect(mockAppRelaunch).not.toHaveBeenCalled();
+    expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+    expect(await api.installPackage({ ...params, userInitiated: true })).toBe(
+      true,
+    );
+    expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(file));
+  },
+);
+
 test('Linux replaces a writable AppImage and relaunches it', async () => {
   const current = path.join(mockTempDir, 'OneKey.AppImage');
   fs.writeFileSync(current, 'old app');
@@ -922,6 +1158,167 @@ test('Linux replaces a writable AppImage and relaunches it', async () => {
   expect(
     fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
   ).toBe(false);
+});
+
+test('Linux quit update replaces the original versioned AppImage path and keeps it on next launch', async () => {
+  const current = path.join(
+    mockTempDir,
+    'OneKey-Wallet-5.9.0-linux-x86_64.AppImage',
+  );
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+
+  await api.prepareQuitInstall(params);
+  expect(api.hasPreparedQuitInstall()).toBe(true);
+  expect(await api.installOnQuit()).toBe(true);
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
+  expect(mockAppRelaunch).not.toHaveBeenCalled();
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(true);
+
+  mockAppGetVersion.mockReturnValue('6.0.0');
+  createApi('linux', 'appImage');
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
+  expect(mockStore.setUpdateBuildNumber).toHaveBeenCalledWith('123');
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(false);
+});
+
+test.each([false, true])(
+  'targeted quit cancellation cannot clear a newer preparation (pending=%s)',
+  async (pending) => {
+    const { api, params } = await preparePackage('win32');
+    const internal = api as unknown as {
+      getInstallRecord: (value: typeof params) => Promise<unknown>;
+    };
+    const getRecord = internal.getInstallRecord.bind(internal);
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const verify = jest
+      .spyOn(internal, 'getInstallRecord')
+      .mockImplementation(async (value) => {
+        await barrier;
+        return getRecord(value);
+      });
+    const preparing = api.prepareQuitInstall(params);
+    if (!pending) {
+      release();
+      await preparing;
+    }
+    await api.prepareQuitInstall(undefined, {
+      latestVersion: '5.9.9',
+      downloadUrl: 'https://cdn.onekey.so/old.exe',
+    });
+    if (pending) {
+      release();
+      await preparing;
+    }
+    expect(api.hasPreparedQuitInstall()).toBe(true);
+    verify.mockRestore();
+  },
+);
+
+test('cancelled quit preparation does not revive after verification resolves', async () => {
+  const { api, params } = await preparePackage('win32');
+  const internal = api as unknown as {
+    getInstallRecord: (value: typeof params) => Promise<unknown>;
+  };
+  const getRecord = internal.getInstallRecord.bind(internal);
+  let release!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  jest.spyOn(internal, 'getInstallRecord').mockImplementation(async (value) => {
+    await barrier;
+    return getRecord(value);
+  });
+  const preparing = api.prepareQuitInstall(params);
+  await api.prepareQuitInstall(undefined, params);
+  release();
+  await preparing;
+  expect(api.hasPreparedQuitInstall()).toBe(false);
+  expect(await api.installOnQuit()).toBe(false);
+  expect(mockSpawn).not.toHaveBeenCalled();
+});
+
+test('quit revocation cannot acknowledge success while a selected installer is validating', async () => {
+  const { api, params } = await preparePackage('win32');
+  await api.prepareQuitInstall(params);
+  const internal = api as unknown as {
+    getInstallRecord: (value: typeof params) => Promise<unknown>;
+  };
+  const getRecord = internal.getInstallRecord.bind(internal);
+  let release!: () => void;
+  let started!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const validating = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  jest
+    .spyOn(internal, 'getInstallRecord')
+    .mockImplementationOnce(async (value) => {
+      started();
+      await barrier;
+      return getRecord(value);
+    });
+  const installing = api.installOnQuit();
+  await validating;
+  try {
+    await expect(api.prepareQuitInstall(undefined, params)).rejects.toThrow(
+      '"code":"INSTALL_FAILED"',
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
+  } finally {
+    release();
+  }
+  expect(await installing).toBe(true);
+});
+
+test('Linux quit update holds the install lock until AppImage replacement finishes', async () => {
+  const current = path.join(
+    mockTempDir,
+    'OneKey-Wallet-5.9.0-linux-x86_64.AppImage',
+  );
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  await api.prepareQuitInstall(params);
+  let releaseCopy!: () => void;
+  let copyStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    copyStarted = resolve;
+  });
+  const copyFile = fs.promises.copyFile.bind(fs.promises);
+  jest
+    .spyOn(fs.promises, 'copyFile')
+    .mockImplementationOnce(async (source, destination, mode) => {
+      copyStarted();
+      await new Promise<void>((resolve) => {
+        releaseCopy = resolve;
+      });
+      await copyFile(source, destination, mode);
+    });
+
+  const installing = api.installOnQuit();
+  await started;
+  await expect(api.prepareQuitInstall(undefined, params)).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(await api.installPackage(params)).toBe(false);
+  await expect(api.clearUpdateCache()).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  releaseCopy();
+  expect(await installing).toBe(true);
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
 });
 
 test.each(['x64', 'arm64'] as const)(
@@ -1304,5 +1701,155 @@ test.each([
     code: expect.any(Number),
     message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(dto)}`,
     data: { updateError: dto },
+  });
+});
+
+describe('install-stage IPC error step rebinding (missing file & SHA mismatch)', () => {
+  function simulateElectronIpcRoundtrip(err: unknown): unknown {
+    const { makeIpcSafeError, unwrapElectronIpcError } =
+      require('@onekeyhq/shared/src/errors/utils/electronIpcError') as typeof import('@onekeyhq/shared/src/errors/utils/electronIpcError');
+    const safeError = makeIpcSafeError(err, 'IPC error');
+    const ipcWrapped = new Error(
+      `Error invoking remote method 'desktopApi': ${safeError.message}`,
+    );
+    return unwrapElectronIpcError(ipcWrapped);
+  }
+
+  test('prepareMacInstall rebinds SHA mismatch and missing installer to install step across IPC', async () => {
+    const { getUpdateError } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/error') as typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/error');
+    const { api, file, params } = await preparePackage('darwin');
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    const signedParams = { ...params, skipGPGVerification: false };
+    jest
+      .spyOn(fs, 'realpathSync')
+      .mockReturnValue('/Applications/OneKey.app' as unknown as string);
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+
+    // 1. GPG/SHA-256 mismatch at install time -> INTEGRITY_FAILED rebound to 'install' step
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${'0'.repeat(64)}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    let caughtShaMismatch: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtShaMismatch = e;
+    }
+    expect(caughtShaMismatch).toBeDefined();
+    expect(
+      getUpdateError(
+        simulateElectronIpcRoundtrip(caughtShaMismatch),
+        'install',
+      ),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // 2. Bad GPG signature inside verifyFile -> INTEGRITY_FAILED rebound from 'verifyPackage' to 'install'
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(false) }],
+    });
+    let caughtBadSig: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtBadSig = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(caughtBadSig), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // 3. Installer deleted before prepareMacInstall -> PACKAGE_MISSING rebound from 'verifyPackage' to 'install'
+    fs.rmSync(file, { force: true });
+    let caughtMissing: unknown;
+    try {
+      await api.prepareMacInstall(signedParams);
+    } catch (e) {
+      caughtMissing = e;
+    }
+    expect(caughtMissing).toBeDefined();
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(caughtMissing), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
+  });
+
+  test('prepareQuitInstall and manualInstallPackage rebind SHA mismatch and missing installer to install step across IPC', async () => {
+    const { getUpdateError } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/error') as typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/error');
+    const { api, file, params } = await preparePackage('win32');
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    const signedParams = { ...params, skipGPGVerification: false };
+    jest.spyOn(fs, 'accessSync').mockImplementation(() => undefined);
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${'f'.repeat(64)}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+
+    let quitErr: unknown;
+    try {
+      await api.prepareQuitInstall(signedParams);
+    } catch (e) {
+      quitErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(quitErr), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    let manualTamperErr: unknown;
+    try {
+      await api.manualInstallPackage(signedParams);
+    } catch (e) {
+      manualTamperErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(manualTamperErr), 'install'),
+    ).toEqual({
+      code: 'INTEGRITY_FAILED',
+      step: 'install',
+    });
+
+    // Delete installer on disk -> PACKAGE_MISSING preserved (not overwritten with INSTALL_FAILED)
+    fs.rmSync(file, { force: true });
+    let quitMissingErr: unknown;
+    try {
+      await api.prepareQuitInstall(signedParams);
+    } catch (e) {
+      quitMissingErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(quitMissingErr), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
+
+    let manualMissingErr: unknown;
+    try {
+      await api.manualInstallPackage(signedParams);
+    } catch (e) {
+      manualMissingErr = e;
+    }
+    expect(
+      getUpdateError(simulateElectronIpcRoundtrip(manualMissingErr), 'install'),
+    ).toEqual({
+      code: 'PACKAGE_MISSING',
+      step: 'install',
+    });
   });
 });

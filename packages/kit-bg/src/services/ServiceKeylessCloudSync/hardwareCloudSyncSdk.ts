@@ -40,6 +40,7 @@ import {
   deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
+import { getHardwareCloudSyncDeviceSerialNoHash } from './hardwareCloudSyncDeviceName';
 import {
   convertHardwareCloudSyncDeviceError,
   createHardwareCloudSyncDataError,
@@ -278,6 +279,42 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 targetCredentialId: credentialId,
               });
             }
+            // V2 runtime reads do not refresh the label. This display-only
+            // refresh must not block signing, but user cancellation still does.
+            let displayState = opened.state;
+            if (!displayState.identity.bleName) {
+              try {
+                displayState = await call('getDeviceState.settings', () =>
+                  hardware.getDeviceState({
+                    connectId,
+                    params: { scope: 'settings' },
+                    silentMode: true,
+                  }),
+                );
+              } catch (error) {
+                assertCurrent();
+                if (
+                  isOneKeyHardwareError(error) &&
+                  (error.key === ETranslations.hardware_user_cancel_error ||
+                    error.key ===
+                      ETranslations.feedback_pin_verification_cancelled)
+                ) {
+                  throw error;
+                }
+                logHardwareCloudSyncFailure(
+                  'Refresh device label',
+                  error,
+                  diagnostics,
+                );
+              }
+            }
+            const deviceName = deviceUtils.getDeviceDisplayName({
+              state: displayState,
+              preferBleName: true,
+            });
+            const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+              opened.state.identity.serialNo,
+            );
 
             let standard:
               | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
@@ -350,9 +387,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               type: 'hardware',
               credentialId,
               derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
-              deviceName: deviceUtils.getDeviceDisplayName({
-                state: opened.state,
-              }),
+              deviceName,
+              ...(displayState.identity.bleName
+                ? { deviceBleName: deviceName }
+                : {}),
+              ...(deviceSerialNoHash ? { deviceSerialNoHash } : {}),
               deviceType: opened.state.identity.deviceType,
               // The image only; the serial number is not kept.
               deviceAvatar: getDeviceAvatarImage(

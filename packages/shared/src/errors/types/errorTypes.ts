@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type {
   ETranslations,
   ETranslationsMock,
@@ -52,6 +53,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorOneKeyIdLegacyBindStateChanged = 'OneKeyErrorOneKeyIdLegacyBindStateChanged',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
+  OneKeyErrorPrimeUserBanned = 'OneKeyErrorPrimeUserBanned',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
@@ -70,6 +72,8 @@ export enum EOneKeyErrorClassNames {
   LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
   WrongPassword = 'WrongPassword',
   ReplaceTxNonceConsumed = 'ReplaceTxNonceConsumed',
+  InfiniReplacementUnavailable = 'InfiniReplacementUnavailable',
+  InfiniReplacementExpired = 'InfiniReplacementExpired',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

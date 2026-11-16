@@ -1,0 +1,552 @@
+const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+
+const SCRIPT = path.join(__dirname, 'external-sdk.js');
+const fixtureDirectories = [];
+
+test.after(() => {
+  for (const directory of fixtureDirectories) {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function writeFile(filePath, contents) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, contents);
+}
+
+function createFixture() {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'external-sdk-lint-'));
+  fixtureDirectories.push(base);
+  const packageRoot = path.join(base, 'node_modules', 'fake-sdk');
+  writeFile(
+    path.join(packageRoot, 'package.json'),
+    `${JSON.stringify({ name: 'fake-sdk', version: '1.2.3' }, null, 2)}\n`,
+  );
+  writeFile(
+    path.join(packageRoot, 'ios', 'Frameworks', 'Fake.xcframework', 'a.bin'),
+    'alpha',
+  );
+  writeFile(
+    path.join(
+      packageRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'nested',
+      'b.bin',
+    ),
+    'beta',
+  );
+  writeFile(path.join(packageRoot, 'ios', 'Bridge.swift'), '// bridge\n');
+  writeFile(
+    path.join(packageRoot, 'lib', 'index.js'),
+    'module.exports = {};\n',
+  );
+
+  const configPath = path.join(base, 'external-sdk.config.json');
+  writeFile(
+    configPath,
+    `${JSON.stringify(
+      {
+        version: 1,
+        sdks: [
+          {
+            id: 'fake-sdk',
+            root: 'node_modules/fake-sdk',
+            packageVersion: { file: 'package.json', expect: '1.2.3' },
+            directories: ['ios', 'lib'],
+            files: ['package.json'],
+            hashes: {},
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  return { base, configPath, packageRoot };
+}
+
+function runLint(fixture, args = []) {
+  return spawnSync(
+    process.execPath,
+    [SCRIPT, '--base', fixture.base, '--config', fixture.configPath, ...args],
+    { encoding: 'utf8' },
+  );
+}
+
+function pin(fixture) {
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 0, result.stderr);
+}
+
+function withoutPosixOpenFlags(fileSystem) {
+  const constants = { ...fileSystem.constants };
+  delete constants.O_NOFOLLOW;
+  delete constants.O_NONBLOCK;
+  return { ...fileSystem, constants };
+}
+
+function runLintWithoutPosixOpenFlags(fixture, args = []) {
+  const preloadPath = path.join(
+    fixture.base,
+    'simulate-windows-open-constants.js',
+  );
+  writeFile(
+    preloadPath,
+    `// Simulate a platform without the POSIX-only O_NOFOLLOW/O_NONBLOCK flags.
+const Module = require('node:module');
+const realFs = require('node:fs');
+const constants = { ...realFs.constants };
+delete constants.O_NOFOLLOW;
+delete constants.O_NONBLOCK;
+const patchedFs = { ...realFs, constants };
+const originalLoad = Module._load;
+Module._load = function load(request, parent, isMain) {
+  if (request === 'node:fs' || request === 'fs') return patchedFs;
+  return originalLoad.call(this, request, parent, isMain);
+};
+`,
+  );
+  return spawnSync(
+    process.execPath,
+    [
+      '--require',
+      preloadPath,
+      SCRIPT,
+      '--base',
+      fixture.base,
+      '--config',
+      fixture.configPath,
+      ...args,
+    ],
+    { encoding: 'utf8' },
+  );
+}
+
+function hashInSandbox(fixture, fileSystem, relativePath = 'lib/index.js') {
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  return vm.runInNewContext(`${source}\nsha256File(root, relativePath);`, {
+    require: (name) => (name === 'node:fs' ? fileSystem : require(name)),
+    __dirname,
+    Buffer,
+    root: fixture.packageRoot,
+    relativePath,
+    process: {
+      argv: [process.execPath, SCRIPT, '--help'],
+      cwd: () => fixture.base,
+    },
+    console: { log() {}, error() {} },
+  });
+}
+
+test('reports a clean manifest after --write', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const result = runLint(fixture);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OK/u);
+  assert.match(result.stdout, /5 files/u);
+});
+
+test('fails when a pinned file is modified', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  writeFile(
+    path.join(
+      fixture.packageRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'a.bin',
+    ),
+    'tampered',
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MODIFIED/u);
+  assert.match(result.stderr, /a\.bin/u);
+});
+
+test('fails when a pinned package JavaScript file is modified (P0)', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  writeFile(
+    path.join(fixture.packageRoot, 'lib', 'index.js'),
+    'module.exports = { pwned: true };\n',
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MODIFIED/u);
+  assert.match(result.stderr, /lib\/index\.js/u);
+});
+
+test('fails when a new sibling native source is injected (P1)', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  writeFile(
+    path.join(fixture.packageRoot, 'ios', 'Injected.swift'),
+    '// injected\n',
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /UNEXPECTED/u);
+  assert.match(result.stderr, /Injected\.swift/u);
+});
+
+test('rejects a symlinked explicit file instead of following it', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const outside = path.join(fixture.base, 'outside.json');
+  writeFile(outside, '{"version":"1.2.3"}\n');
+  fs.rmSync(path.join(fixture.packageRoot, 'package.json'));
+  fs.symlinkSync(outside, path.join(fixture.packageRoot, 'package.json'));
+  const result = runLint(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('rejects a symlinked configured directory instead of following it', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const outside = path.join(fixture.base, 'outside-lib');
+  writeFile(path.join(outside, 'index.js'), 'module.exports = {};\n');
+  fs.rmSync(path.join(fixture.packageRoot, 'lib'), { recursive: true });
+  fs.symlinkSync(outside, path.join(fixture.packageRoot, 'lib'));
+  const result = runLint(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('rejects a symlinked SDK root', () => {
+  const fixture = createFixture();
+  const realRoot = path.join(fixture.base, 'real-sdk');
+  fs.rmSync(path.join(fixture.base, 'node_modules', 'fake-sdk'), {
+    recursive: true,
+  });
+  writeFile(path.join(realRoot, 'package.json'), '{"version":"1.2.3"}\n');
+  writeFile(path.join(realRoot, 'ios', 'Bridge.swift'), '// bridge\n');
+  writeFile(path.join(realRoot, 'lib', 'index.js'), 'module.exports = {};\n');
+  writeFile(
+    path.join(realRoot, 'ios', 'Frameworks', 'Fake.xcframework', 'a.bin'),
+    'alpha',
+  );
+  writeFile(
+    path.join(
+      realRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'nested',
+      'b.bin',
+    ),
+    'beta',
+  );
+  fs.symlinkSync(realRoot, path.join(fixture.base, 'node_modules', 'fake-sdk'));
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('fails when an unexpected file is added', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  writeFile(
+    path.join(
+      fixture.packageRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'injected.dylib',
+    ),
+    'payload',
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /UNEXPECTED/u);
+  assert.match(result.stderr, /injected\.dylib/u);
+});
+
+test('fails when a pinned file is removed', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  fs.rmSync(
+    path.join(
+      fixture.packageRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'nested',
+      'b.bin',
+    ),
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MISSING/u);
+  assert.match(result.stderr, /b\.bin/u);
+});
+
+test('fails when the package version no longer matches the pin', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  writeFile(
+    path.join(fixture.packageRoot, 'package.json'),
+    `${JSON.stringify({ name: 'fake-sdk', version: '9.9.9' }, null, 2)}\n`,
+  );
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /expected package version 1\.2\.3/u);
+});
+
+test('refuses to pin a symlink instead of following it', () => {
+  const fixture = createFixture();
+  const target = path.join(fixture.base, 'outside.txt');
+  writeFile(target, 'outside');
+  fs.symlinkSync(
+    target,
+    path.join(
+      fixture.packageRoot,
+      'ios',
+      'Frameworks',
+      'Fake.xcframework',
+      'link.bin',
+    ),
+  );
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('--json returns a machine-readable summary', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const result = runLint(fixture, ['--json']);
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.ok, true);
+  assert.equal(summary.totalFiles, 5);
+  assert.equal(summary.sdks[0].id, 'fake-sdk');
+});
+
+test('uninitialized manifest fails closed', () => {
+  const fixture = createFixture();
+  const result = runLint(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /no SHA-256 pins/u);
+});
+
+function editConfig(fixture, edit) {
+  const config = JSON.parse(fs.readFileSync(fixture.configPath, 'utf8'));
+  edit(config.sdks[0]);
+  writeFile(fixture.configPath, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+test('checks package-root additions when the complete package is selected', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = ['.'];
+    sdk.files = [];
+  });
+  pin(fixture);
+  writeFile(path.join(fixture.packageRoot, 'extra.txt'), 'new root input');
+  const result = runLint(fixture);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /UNEXPECTED\s+extra.txt/u);
+});
+
+test('rejects symlinks in ancestors of the package root', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const modules = path.join(fixture.base, 'node_modules');
+  const relocated = path.join(fixture.base, 'relocated');
+  fs.renameSync(modules, relocated);
+  fs.symlinkSync(relocated, modules);
+  assert.equal(runLint(fixture).status, 2);
+});
+
+test('rejects symlinks in ancestors of a configured nested file', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = [];
+    sdk.files = ['package.json', 'lib/index.js'];
+  });
+  pin(fixture);
+  const directory = path.join(fixture.packageRoot, 'lib');
+  const relocated = path.join(fixture.base, 'relocated');
+  fs.renameSync(directory, relocated);
+  fs.symlinkSync(relocated, directory);
+  const result = runLint(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});
+
+test('rejects noncanonical config paths including packageVersion.file', () => {
+  for (const value of [
+    '../outside',
+    '/absolute',
+    'ios/../lib',
+    './lib',
+    'lib//index.js',
+    'C:\\lib',
+    'lib\\index.js',
+    'cafe\u0301',
+  ]) {
+    const fixture = createFixture();
+    editConfig(fixture, (sdk) => {
+      sdk.packageVersion.file = value;
+    });
+    const result = runLint(fixture, ['--write']);
+    assert.equal(result.status, 2, value);
+    assert.match(result.stderr, /canonical relative POSIX/u);
+  }
+});
+
+test('requires a valid digest and size for every pin', () => {
+  for (const pinValue of [
+    null,
+    { sha256: 'bad', size: 1 },
+    { sha256: 'a'.repeat(64) },
+    { sha256: 'a'.repeat(64), size: -1 },
+  ]) {
+    const fixture = createFixture();
+    pin(fixture);
+    editConfig(fixture, (sdk) => {
+      sdk.hashes['package.json'] = pinValue;
+    });
+    const result = runLint(fixture);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /invalid SHA-256\/size/u);
+  }
+});
+
+test('requires the package version file to be pinned', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.files = [];
+  });
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /packageVersion.file must be included/u);
+});
+
+test('--write rejects version drift without changing the manifest', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const before = fs.readFileSync(fixture.configPath, 'utf8');
+  writeFile(
+    path.join(fixture.packageRoot, 'package.json'),
+    '{"version":"9.9.9"}',
+  );
+  const result = runLint(fixture, ['--write']);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /expected package version/u);
+  assert.equal(fs.readFileSync(fixture.configPath, 'utf8'), before);
+});
+
+test('--write is deterministic and ignores only regular .DS_Store files', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const before = fs.readFileSync(fixture.configPath, 'utf8');
+  const metadata = path.join(fixture.packageRoot, 'lib', '.DS_Store');
+  writeFile(metadata, 'Finder metadata');
+  pin(fixture);
+  assert.equal(fs.readFileSync(fixture.configPath, 'utf8'), before);
+  fs.rmSync(metadata);
+  fs.symlinkSync(path.join(fixture.packageRoot, 'package.json'), metadata);
+  assert.equal(runLint(fixture).status, 2);
+});
+
+test('empty file selection fails closed in write mode', () => {
+  const fixture = createFixture();
+  editConfig(fixture, (sdk) => {
+    sdk.directories = [];
+    sdk.files = [];
+  });
+  assert.equal(runLint(fixture, ['--write']).status, 2);
+});
+
+test('hashes complete content across short reads and rejects unstable file metadata', () => {
+  const fixture = createFixture();
+  const normal = hashInSandbox(fixture, fs);
+  const shortReads = hashInSandbox(fixture, {
+    ...fs,
+    readSync: (fd, buffer, offset, length, position) =>
+      fs.readSync(fd, buffer, offset, Math.min(2, length), position),
+  });
+  assert.equal(shortReads.sha256, normal.sha256);
+  assert.equal(shortReads.size, normal.size);
+  let calls = 0;
+  assert.throws(
+    () =>
+      hashInSandbox(fixture, {
+        ...fs,
+        fstatSync: (...args) => {
+          const stat = fs.fstatSync(...args);
+          calls += 1;
+          if (calls > 1) stat.ctimeNs += 1n;
+          return stat;
+        },
+      }),
+    /File changed while hashing/u,
+  );
+});
+
+test('hashes when the platform provides neither O_NOFOLLOW nor O_NONBLOCK', () => {
+  const fixture = createFixture();
+  const normal = hashInSandbox(fixture, fs);
+  const withoutPosixFlags = hashInSandbox(fixture, withoutPosixOpenFlags(fs));
+  assert.equal(withoutPosixFlags.sha256, normal.sha256);
+  assert.equal(withoutPosixFlags.size, normal.size);
+});
+
+test('detects a symlink swapped in at open time when O_NOFOLLOW is unavailable', () => {
+  const fixture = createFixture();
+  const target = path.join(fixture.packageRoot, 'lib', 'index.js');
+  const outside = path.join(fixture.base, 'outside.js');
+  writeFile(outside, 'module.exports = { pwned: true };\n');
+  let swapped = false;
+  const windowsLike = withoutPosixOpenFlags({
+    ...fs,
+    openSync: (filePath, flags) => {
+      if (!swapped) {
+        swapped = true;
+        fs.renameSync(target, `${target}.pinned`);
+        fs.symlinkSync(outside, target);
+      }
+      return fs.openSync(filePath, flags);
+    },
+  });
+  assert.throws(
+    () => hashInSandbox(fixture, windowsLike),
+    /File changed before hashing/u,
+  );
+});
+
+test('lints an installation when the platform lacks POSIX open constants (Windows simulation)', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  const result = runLintWithoutPosixOpenFlags(fixture);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OK/u);
+  assert.match(result.stdout, /5 files/u);
+});
+
+test('still rejects symlinks when POSIX open constants are unavailable', () => {
+  const fixture = createFixture();
+  pin(fixture);
+  fs.rmSync(path.join(fixture.packageRoot, 'package.json'));
+  fs.symlinkSync(
+    path.join(fixture.base, 'outside.json'),
+    path.join(fixture.packageRoot, 'package.json'),
+  );
+  const result = runLintWithoutPosixOpenFlags(fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /symlink/u);
+});

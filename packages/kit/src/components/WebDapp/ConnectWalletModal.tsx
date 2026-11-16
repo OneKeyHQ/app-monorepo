@@ -62,6 +62,7 @@ function ConnectWalletContent() {
             <ExternalWalletList impl="evm" />
           )}
           <TermsAndPrivacy
+            messageId={ETranslations.connect_wallet_terms_consent__desc}
             contentContainerProps={{
               pb: '$6',
               $gtMd: { alignSelf: 'center' },

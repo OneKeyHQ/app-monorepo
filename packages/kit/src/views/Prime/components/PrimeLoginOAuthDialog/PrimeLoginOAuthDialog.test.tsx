@@ -8,7 +8,10 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
@@ -375,6 +378,37 @@ function getBackgroundApiMocks() {
 }
 
 describe('PrimeLoginOAuthDialog', () => {
+  test.each(['google', 'apple'])(
+    'stops a banned %s login without completing or offering account merging',
+    async (provider) => {
+      getOAuthMocks().getOAuthAccessToken.mockResolvedValue({
+        accessToken: 'banned-account-token',
+        didUseOAuthSignIn: true,
+      });
+      const error = new OneKeyErrorPrimeUserBanned();
+      getBackgroundApiMocks().apiOAuthLogin.mockRejectedValue(error);
+      const onLoginSuccess = jest.fn();
+      const onComplete = jest.fn();
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={onComplete}
+          onLoginSuccess={onLoginSuccess}
+        />,
+      );
+      fireEvent.click(screen.getByTestId(`prime-login-oauth-${provider}-btn`));
+      const { showOneKeyIdLoginFailedToast } = jest.requireMock(
+        '../oneKeyIdLoginToastUtils',
+      );
+      await waitFor(() =>
+        expect(showOneKeyIdLoginFailedToast).toHaveBeenCalledWith(
+          expect.objectContaining({ error }),
+        ),
+      );
+      expect(onLoginSuccess).not.toHaveBeenCalled();
+      expect(onComplete).not.toHaveBeenCalled();
+    },
+  );
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevSettingsEnabled = true;
@@ -385,6 +419,38 @@ describe('PrimeLoginOAuthDialog', () => {
     getOAuthMocks().getOAuthAccessToken.mockReset();
     getBackgroundApiMocks().apiOAuthLogin.mockReset();
   });
+
+  test.each(['google', 'apple'])(
+    'does not reopen the iOS login dialog over the banned %s error',
+    async (provider) => {
+      getPlatformEnvMock().isNativeIOS = true;
+      getPlatformEnvMock().isNative = true;
+      getOAuthMocks().getOAuthAccessToken.mockResolvedValue({
+        accessToken: 'banned-account-token',
+        didUseOAuthSignIn: true,
+      });
+      getBackgroundApiMocks().apiOAuthLogin.mockRejectedValue(
+        new OneKeyErrorPrimeUserBanned(),
+      );
+      const onComplete = jest.fn(async () => undefined);
+      const onLoginSuccess = jest.fn();
+      const onReopenAfterOAuthFailure = jest.fn();
+      const onCancel = jest.fn();
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={onComplete}
+          onLoginSuccess={onLoginSuccess}
+          onReopenAfterOAuthFailure={onReopenAfterOAuthFailure}
+          onCancel={onCancel}
+        />,
+      );
+      fireEvent.click(screen.getByTestId(`prime-login-oauth-${provider}-btn`));
+      await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(onLoginSuccess).not.toHaveBeenCalled();
+      expect(onReopenAfterOAuthFailure).not.toHaveBeenCalled();
+    },
+  );
 
   test.each([
     { isDev: true, clickCount: 3 },

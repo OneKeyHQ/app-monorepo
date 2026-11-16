@@ -142,7 +142,8 @@ function screenTitle(text: string) {
 
 /* ------------------------- connecting ------------------------- *
  * The home screen the physical device idles on while the app reaches for
- * it (an exact 288x484 render, laid flat with no cropping). */
+ * it (an exact 288x484 render, laid flat with no cropping) — one file for
+ * the Pro 2 and the Neo, by design call (2026-09-03). */
 
 /**
  * Decoded-size budget for this asset: iOS only keeps decoded bitmaps of

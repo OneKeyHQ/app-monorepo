@@ -1,3 +1,4 @@
+import { defaultLogger } from '../../logger/logger';
 import openUrlUtils from '../../utils/openUrlUtils';
 
 import { EIntercomBridge } from './bridge';
@@ -23,7 +24,10 @@ export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
-export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
+export const setIntercomTheme = async (
+  _theme: 'light' | 'dark',
+  _followSystem?: boolean,
+) => {
   // The extension embeds the hosted page instead of the native SDK.
 };
 
@@ -67,6 +71,10 @@ const openIntercom = async (
   if (!canPresent()) {
     return false;
   }
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: 'extension-webview',
+  });
   openUrlUtils.openUrlInApp(url, 'Support', {
     hideHeaderRight: true,
     disableBridge: true,

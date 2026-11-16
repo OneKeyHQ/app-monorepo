@@ -6,18 +6,26 @@ import * as jsxRuntime from 'react/jsx-runtime';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
+import { isValidSnapshotCacheKey } from '@onekeyhq/shared/src/storage/SnapshotCache/createSnapshotCacheSync';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 
 import { HomeNativePager } from './HomeNativePager.native';
+import { HOME_PAGE_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
 
-import type { IHomeHeaderContainerProps } from './HomeHeaderContainer';
 import type { ISpotlightScrollState } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockRenderParentHeader = false;
+const mockWindowDimensions = {
+  width: 400,
+  height: 850,
+  scale: 3,
+  fontScale: 1,
+};
+let mockRtl = false;
 let mockRenderPageDescendants = false;
 let mockMountedPageLifecycle = false;
 let mockReadyWithMapping = false;
@@ -63,6 +71,7 @@ const mockNativeEvents: {
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
   stickyHeaderHeight?: number;
   stickyHeader?: React.ReactElement<{
+    children?: React.ReactNode;
     onLayout: (event: LayoutChangeEvent) => void;
   }>;
   topOverlay?: React.ReactNode;
@@ -87,8 +96,12 @@ jest.mock('react-native', () => {
   }: React.ComponentPropsWithRef<typeof native.View>) =>
     react.createElement('View', props, children);
   return new Proxy(native, {
-    get: (target, key): unknown =>
-      key === 'View' ? View : Reflect.get(target, key),
+    get: (target, key): unknown => {
+      if (key === 'View') return View;
+      if (key === 'useWindowDimensions') return () => mockWindowDimensions;
+      if (key === 'I18nManager') return { isRTL: mockRtl };
+      return Reflect.get(target, key);
+    },
   });
 });
 
@@ -374,6 +387,28 @@ it('corrects the hint with layout and retains measurement for a stable hint', ()
   expect(mockHeaderHeightCommits).toEqual([292, 302, 302, 240, 249, 182]);
 });
 
+it('rejects stale header layouts for a different identity with the same numeric hint', () => {
+  const screen = render(
+    <HomeNativePager
+      {...headerTestProps}
+      headerHeightHint={292}
+      headerLayoutKey="ordinary"
+    />,
+  );
+  const stale = mockNativeEvents.header?.props.onLayout;
+  screen.rerender(
+    <HomeNativePager
+      {...headerTestProps}
+      headerHeightHint={292}
+      headerLayoutKey="watch"
+    />,
+  );
+  act(() => stale?.(headerLayoutEvent(370)));
+  expect(mockNativeEvents.headerHeight).toBe(292);
+  act(() => mockNativeEvents.header?.props.onLayout(headerLayoutEvent(300)));
+  expect(mockNativeEvents.headerHeight).toBe(300);
+});
+
 it('snapshots sticky layout before queued state updates read a pooled event', () => {
   render(<HomeNativePager {...headerTestProps} />);
   const onLayout = mockNativeEvents.stickyHeader?.props.onLayout;
@@ -648,15 +683,21 @@ it.each([
 
 describe('HomePageView complete header authority', () => {
   let HomePage: typeof import('./HomePageView').HomePageView;
-  const callbacks: IHomeHeaderContainerProps = {};
+  let PageContentContainer: typeof import('@onekeyhq/components/src/layouts/Page/PageContentContainer').PageContentContainer;
   const measurements: ((
     x: number,
     y: number,
     width: number,
     height: number,
   ) => void)[] = [];
+  const fixedMeasurements: (typeof measurements)[number][] = [];
   let onFullLayout: ((event: LayoutChangeEvent) => void) | undefined;
-  const cache = new Map<string, number>([['B', 182]]);
+  let onFixedLayout: ((event: LayoutChangeEvent) => void) | undefined;
+  const cache = new Map<string, number>();
+  let locale = 'en-US';
+  let internetReachable = true;
+  let walletType = 'hd';
+  let contentVariant = 'banner';
   const noop = () => undefined;
   const host = (name: string) => {
     const Stub = ({ children, ...props }: { children?: React.ReactNode }) =>
@@ -673,6 +714,9 @@ describe('HomePageView complete header authority', () => {
     isNativeIOS: false,
     isNativeIOS26Plus: false,
   };
+  let smallScreen = true;
+  let externalPerps = false;
+  const switchTab = jest.fn();
   let walletBackedUp = true;
   let accountId = 'test-account';
   let validationRequired = false;
@@ -700,15 +744,40 @@ describe('HomePageView complete header authority', () => {
             if (props.ref && props.onLayout) onFullLayout = props.onLayout;
             return React.createElement('View', props, children);
           },
+          YStack: ({
+            children,
+            ...props
+          }: React.ComponentPropsWithRef<
+            typeof import('react-native').View
+          >) => {
+            if (props.onLayout) onFixedLayout = props.onLayout;
+            return React.createElement('View', props, children);
+          },
+          useNetInfo: () => ({ isInternetReachable: internetReachable }),
+          fs: (value: number) => value,
+          s: (value: number) => value,
+          useSafeAreaInsets: () => ({ top: 24, left: 0, right: 0, bottom: 0 }),
           Page: Object.assign(host('Page'), {
             Body: host('Page.Body'),
-            Container: host('Page.Container'),
+            Container: (
+              props: React.ComponentProps<typeof PageContentContainer>,
+            ) => React.createElement(PageContentContainer, props),
           }),
           Keyboard: { AwareScrollView: awareScrollView },
           Icon: Object.assign(host('Icon'), { prefetch: noop }),
           useScrollContentTabBarOffset: () => 48,
-          useMedia: () => ({ md: true }),
-          useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+          useMedia: () => ({ md: smallScreen }),
+          useTheme: () => ({
+            bgApp: { val: '#ffffff' },
+            text: { val: '#111111' },
+            textSubdued: { val: '#666666' },
+            textInverse: { val: '#ffffff' },
+            bgPrimary: { val: '#000000' },
+            iconSubdued: { val: '#666666' },
+            bgStrong: { val: '#dddddd' },
+            bgHover: { val: '#eeeeee' },
+            bgActive: { val: '#cccccc' },
+          }),
           useThemeName: () => 'light',
           useFocusedTab: () => 'spot',
           useTabsScrollToTop: () => noop,
@@ -722,12 +791,19 @@ describe('HomePageView complete header authority', () => {
         Reflect.get(components, key);
       const mocks: Record<string, unknown> = {
         '@onekeyhq/components': components,
+        '@onekeyhq/components/src/utils/scale': {
+          fs: (value: number) => value,
+          s: (value: number) => value,
+        },
         '@react-navigation/core': { useFocusEffect: noop },
         'react-intl': {
-          useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+          useIntl: () => ({
+            locale,
+            formatMessage: ({ id }: { id: string }) => id,
+          }),
         },
         '@onekeyhq/kit/src/hooks/useTabContainerWidth': {
-          useTabContainerWidth: () => 400,
+          useTabContainerWidth: () => mockWindowDimensions.width,
         },
         '@onekeyhq/shared/src/config/presetNetworks': {
           getNetworksSupportBulkRevokeApproval: () => ({}),
@@ -743,6 +819,13 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/src/locale': {
           ETranslations: new Proxy({}, { get: (_target, key) => key }),
         },
+        '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource': {
+          setPerpPageEnterSource: noop,
+          EPerpPageEnterSource: { Home: 'Home' },
+        },
+        '@onekeyhq/shared/src/routes': {
+          ETabRoutes: { Home: 'Home', WebviewPerpTrade: 'WebviewPerpTrade' },
+        },
         '@onekeyhq/shared/types/wallet': { EHomeWalletTab },
         '@onekeyhq/shared/src/eventBus/appEventBus': {
           EAppEventBusNames: {},
@@ -751,8 +834,12 @@ describe('HomePageView complete header authority', () => {
         '@onekeyhq/shared/src/storage/uiSnapshotCaches': {
           homeHeaderLayoutCache: {
             get: (key: string) =>
-              cache.has(key) ? { data: cache.get(key) } : undefined,
-            set: (key: string, value: number) => cache.set(key, value),
+              isValidSnapshotCacheKey(key) && cache.has(key)
+                ? { data: cache.get(key) }
+                : undefined,
+            set: (key: string, value: number) => {
+              if (isValidSnapshotCacheKey(key)) cache.set(key, value);
+            },
           },
         },
         '@onekeyhq/shared/src/travelMode': {
@@ -769,7 +856,7 @@ describe('HomePageView complete header authority', () => {
           __esModule: true,
         },
         '../../../hooks/useAppNavigation': {
-          default: () => ({}),
+          default: () => ({ switchTab }),
           __esModule: true,
         },
         '../../../hooks/usePromiseResult': {
@@ -778,9 +865,6 @@ describe('HomePageView complete header authority', () => {
         '../../../hooks/useRunAfterTokensDone': {
           runAfterTokensDone: () => noop,
         },
-        '../../../hooks/useTabDoublePress': {
-          useTabDoublePress: noop,
-        },
         '../../../hooks/useShortcutsOnRouteFocused': {
           useShortcutsOnRouteFocused: noop,
         },
@@ -788,7 +872,11 @@ describe('HomePageView complete header authority', () => {
           useActiveAccount: () => ({
             activeAccount: {
               ready: true,
-              wallet: { id: 'test-hd', type: 'hd', backuped: walletBackedUp },
+              wallet: {
+                id: walletType,
+                type: walletType,
+                backuped: walletBackedUp,
+              },
               account: { id: accountId },
               network: { id: 'test-network' },
               vaultSettings: { validationRequired, softwareAccountDisabled },
@@ -796,6 +884,7 @@ describe('HomePageView complete header authority', () => {
           }),
           useAccountSelectorStorageInitDoneAtom: () => [true],
           useIsAccountSelectorActiveAccountInitDone: () => true,
+          useIsAccountSelectorSyncLoading: () => false,
         },
         '../../../states/jotai/contexts/accountOverview': {
           buildOverviewOwnerKey: () => 'test-owner',
@@ -805,8 +894,17 @@ describe('HomePageView complete header authority', () => {
         },
         '../../../components/AccountSelector/hooks/useUnifiedNetworkSelectorTrigger':
           { useUnifiedNetworkSelectorTrigger: () => ({}) },
+        '../hooks/useHomeMoneroAccountCreation': {
+          useHomeMoneroAccountCreation: () => ({
+            enableAfterCreate: false,
+            onCreateDone: noop,
+          }),
+        },
         '../hooks/useHomeWalletTabSupport': {
-          useHomeWalletTabSupport: () => ({}),
+          useHomeWalletTabSupport: () => ({
+            isPerpsSupported: externalPerps,
+            perpTabShowWeb: externalPerps,
+          }),
         },
         '../components/HomeStickyHeaderContext': {
           HomeStickyHeaderContext: React.createContext({}),
@@ -821,12 +919,28 @@ describe('HomePageView complete header authority', () => {
           isHomeTabActive: () => true,
         },
         './HomeHeaderContainer': {
-          HomeHeaderContainer: (props: IHomeHeaderContainerProps) => {
-            Object.assign(callbacks, props);
-            return null;
-          },
+          useHomeHeaderLayout: () => ({
+            wallet: {
+              id: walletType,
+              type: walletType,
+              backuped: walletBackedUp,
+            },
+            isWalletNotBackedUp: !walletBackedUp,
+            homeBalanceState: contentVariant === 'banner' ? 'positive' : 'zero',
+            shouldShowBanner: contentVariant === 'banner',
+            nativeMinHeight: contentVariant === 'banner' ? 292 : 182,
+            variant: `home:${contentVariant}`,
+          }),
+          HomeHeaderContainer: () => null,
         },
         './HomeNativePager': { HomeNativePager },
+        '../components/HomeTokenListProvider/HomeTokenListProviderMirror': {
+          HomeTokenListProviderMirror: ({
+            children,
+          }: {
+            children?: React.ReactNode;
+          }) => children,
+        },
         '../../../components/TabPageHeader': {
           TabPageHeader: parentTabPageHeader,
         },
@@ -842,6 +956,7 @@ describe('HomePageView complete header authority', () => {
         'react-intl',
         '@onekeyhq/components',
         '@onekeyhq/components/src/composite/TabBar',
+        '@onekeyhq/components/src/utils/scale',
         '@onekeyhq/kit/src/hooks/useTabContainerWidth',
         '@onekeyhq/shared/src/config/presetNetworks',
         '@onekeyhq/shared/src/consts/dbConsts',
@@ -868,7 +983,6 @@ describe('HomePageView complete header authority', () => {
         '../../../hooks/useAppNavigation',
         '../../../hooks/usePromiseResult',
         '../../../hooks/useRunAfterTokensDone',
-        '../../../hooks/useTabDoublePress',
         '../../../hooks/useShortcutsOnRouteFocused',
         '../../../states/jotai/contexts/accountOverview',
         '../../../states/jotai/contexts/accountSelector',
@@ -879,12 +993,13 @@ describe('HomePageView complete header authority', () => {
         '../components/HomeSupportedWallet',
         '../components/NotBakcedUp',
         '../components/PullToRefresh',
+        '../hooks/useHomeMoneroAccountCreation',
         '../hooks/useHomeWalletTabSupport',
         '../testIDs',
         './DeFiContainer',
         './HomeHeaderContainer',
         './HomeNativePager',
-        './homePageContentMaxWidth',
+        '../components/HomeTokenListProvider/HomeTokenListProviderMirror',
         './homePageNoWalletContent',
         './homeTabFreeze',
         './NFTListContainer',
@@ -913,6 +1028,14 @@ describe('HomePageView complete header authority', () => {
         >('../components/PullToRefresh');
         return refreshModule;
       });
+      jest.doMock('../../../../../components/src/primitives', () => ({
+        Stack: components.Stack,
+      }));
+      PageContentContainer = jest.requireActual<
+        typeof import('@onekeyhq/components/src/layouts/Page/PageContentContainer')
+      >(
+        '../../../../../components/src/layouts/Page/PageContentContainer',
+      ).PageContentContainer;
       HomePage =
         jest.requireActual<typeof import('./HomePageView')>(
           './HomePageView',
@@ -928,11 +1051,28 @@ describe('HomePageView complete header authority', () => {
       isNativeIOS26Plus: false,
     });
     walletBackedUp = true;
+    smallScreen = true;
+    externalPerps = false;
+    switchTab.mockClear();
     accountId = 'test-account';
     validationRequired = false;
     softwareAccountDisabled = false;
     measurements.length = 0;
+    fixedMeasurements.length = 0;
     onFullLayout = undefined;
+    onFixedLayout = undefined;
+    cache.clear();
+    locale = 'en-US';
+    internetReachable = true;
+    walletType = 'hd';
+    contentVariant = 'banner';
+    Object.assign(mockWindowDimensions, {
+      width: 400,
+      height: 850,
+      scale: 3,
+      fontScale: 1,
+    });
+    mockRtl = false;
   });
   afterEach(() => {
     mockRenderParentHeader = false;
@@ -945,12 +1085,56 @@ describe('HomePageView complete header authority', () => {
         sceneName: EAccountSelectorSceneName.home,
       }),
       {
-        createNodeMock: () => ({
-          measure: (callback: (typeof measurements)[number]) =>
-            measurements.push(callback),
-        }),
+        createNodeMock: (element) => {
+          const callbacks =
+            (element.props as { onLayout?: (event: LayoutChangeEvent) => void })
+              .onLayout === onFixedLayout
+              ? fixedMeasurements
+              : measurements;
+          return {
+            measure: (callback: (typeof measurements)[number]) =>
+              callbacks.push(callback),
+          };
+        },
       },
     );
+
+  // The sticky header content is the native-tab-bar spacer followed by the
+  // settings panel, wrapped by the pager in its own measured view.
+  const stickyContentChildren = () => {
+    const rendered = mockNativeEvents.stickyHeader?.props.children as
+      | React.ReactElement<{ children?: React.ReactNode }>
+      | undefined;
+    return React.Children.toArray(
+      React.isValidElement(rendered) && rendered.type === React.Fragment
+        ? rendered.props.children
+        : rendered,
+    );
+  };
+  const nativeToolbarOf = () => {
+    const settings = stickyContentChildren().find(
+      (child) =>
+        (child as React.ReactElement<{ nativeToolbar?: unknown }>).props
+          ?.nativeToolbar,
+    ) as
+      | React.ReactElement<{
+          nativeToolbar: {
+            press?: { key: string };
+            pressConsumed?: boolean;
+            onPressConsumed?: (event: {
+              key: string;
+              anchorRect: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+              };
+            }) => void;
+          };
+        }>
+      | undefined;
+    return settings?.props.nativeToolbar;
+  };
 
   it.each(['ios', 'android', 'web'] as const)(
     'uses the native refresh control for an unbacked wallet on %s',
@@ -991,6 +1175,288 @@ describe('HomePageView complete header authority', () => {
       expect(screen.UNSAFE_getByType(HomeNativePager)).toBeTruthy();
     },
   );
+
+  it.each(['wide-web', 'wide-native'] as const)(
+    'draws centered pill tabs through the pager tab bar on %s',
+    (layout) => {
+      parentPlatform.isNative = layout === 'wide-native';
+      smallScreen = false;
+      const screen = renderParent();
+      const props = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      expect(props.nativeTabBar?.controlled).toBe(true);
+      expect(props.nativeTabBar?.style?.variant).toBe('pill');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBe(
+        HOME_PAGE_CONTENT_MAX_WIDTH,
+      );
+      expect(props.nativeTabBar?.style?.indicatorAnimationEnabled).toBe(false);
+      expect(props.nativeTabBar?.items.map((item) => item.key)).toEqual(
+        props.tabs.map((tab) => tab.id),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'keeps text tabs on small screens (native: %s)',
+    (isNative) => {
+      parentPlatform.isNative = isNative;
+      smallScreen = true;
+      const screen = renderParent();
+      const props = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      expect(props.nativeTabBar?.style?.variant).toBe('text');
+      expect(props.nativeTabBar?.style?.contentMaxWidth).toBeUndefined();
+    },
+  );
+
+  it('routes text tabs by stable key through the existing pager command', () => {
+    const screen = renderParent();
+    const props = screen.UNSAFE_getByType(HomeNativePager)
+      .props as React.ComponentProps<typeof HomeNativePager>;
+    const historyIndex = props.tabs.findIndex(
+      (tab) => tab.id === EHomeWalletTab.History,
+    );
+    expect(props.nativeTabBar?.controlled).toBe(true);
+    expect(props.nativeTabBar?.items.map((item) => item.key)).toEqual(
+      props.tabs.map((tab) => tab.id),
+    );
+    mockSetPage.mockClear();
+    act(() =>
+      props.onNativeTabPress?.({
+        nativeEvent: { position: 99, key: EHomeWalletTab.History },
+      } as Parameters<NonNullable<typeof props.onNativeTabPress>>[0]),
+    );
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+    expect(mockSetPage).toHaveBeenCalledWith(historyIndex);
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.nativeTabBar.selectedKey,
+    ).toBe(EHomeWalletTab.History);
+    act(() =>
+      mockNativeEvents.onPageSelected?.({
+        nativeEvent: { position: historyIndex },
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.initialTabName).toBe(
+      props.tabs[historyIndex].name,
+    );
+    mockSetPage.mockClear();
+    act(() =>
+      props.onNativeTabPress?.({
+        nativeEvent: { position: 0, key: 'removed-tab' },
+      } as Parameters<NonNullable<typeof props.onNativeTabPress>>[0]),
+    );
+    expect(mockSetPage).not.toHaveBeenCalled();
+  });
+
+  it('keeps toolbar settings aligned with React selection when animation focus is stale', () => {
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const name = (key: EHomeWalletTab) =>
+      props().tabs.find((tab) => tab.id === key)!.name;
+    const settingsName = (staleName: string) => {
+      const rendered = props().renderTabBar({
+        focusedTab: {
+          value: staleName,
+          get: () => staleName,
+          set: jest.fn(),
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          modify: jest.fn(),
+        },
+        onTabPress: jest.fn(),
+      }) as React.ReactElement<{ children?: React.ReactNode }>;
+      const settings = React.Children.toArray(
+        React.isValidElement(rendered) && rendered.type === React.Fragment
+          ? rendered.props.children
+          : rendered,
+      ).find(
+        (child) =>
+          (child as React.ReactElement<{ focusedTab?: string }>).props
+            ?.focusedTab !== undefined,
+      ) as React.ReactElement<{ focusedTab: string }> | undefined;
+      return settings?.props.focusedTab;
+    };
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+    const index = props().tabs.findIndex(
+      (tab) => tab.id === EHomeWalletTab.History,
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.History, position: index },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: index } }),
+    );
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(settingsName(name(EHomeWalletTab.Portfolio))).toBe(
+      name(EHomeWalletTab.History),
+    );
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { key: EHomeWalletTab.Portfolio, position: 0 },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(settingsName(name(EHomeWalletTab.History))).toBe(
+      name(EHomeWalletTab.Portfolio),
+    );
+  });
+
+  it('keeps external Perps intent out of pager commands and maps later tabs by key', () => {
+    externalPerps = true;
+    const screen = renderParent();
+    const props = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.Perps,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().tabs.map((tab) => tab.id)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    mockSetPage.mockClear();
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 1, key: EHomeWalletTab.Perps },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(switchTab).toHaveBeenCalledTimes(1);
+    expect(switchTab).toHaveBeenCalledWith('WebviewPerpTrade');
+    expect(mockSetPage).not.toHaveBeenCalled();
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.Portfolio);
+    act(() =>
+      props().onNativeTabPress?.({
+        nativeEvent: { position: 2, key: EHomeWalletTab.History },
+      } as Parameters<
+        NonNullable<ReturnType<typeof props>['onNativeTabPress']>
+      >[0]),
+    );
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+    expect(mockSetPage).toHaveBeenCalledWith(1);
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 1 } }),
+    );
+    externalPerps = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(props().nativeTabBar?.items.map((item) => item.key)).toEqual([
+      EHomeWalletTab.Portfolio,
+      EHomeWalletTab.History,
+    ]);
+    expect(props().nativeTabBar?.selectedKey).toBe(EHomeWalletTab.History);
+    expect(mockSetPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay an old toolbar request after tab or account round trips', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const toolbarRequest = () => nativeToolbarOf()?.press;
+    const pressToolbar = () =>
+      act(() =>
+        pagerProps().onNativeToolbarPress?.({
+          nativeEvent: {
+            key: EHomeWalletTab.Portfolio,
+            anchorRect: { x: 300, y: 100, width: 38, height: 38 },
+          },
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeToolbarPress']>
+        >[0]),
+      );
+    pressToolbar();
+    expect(toolbarRequest()?.key).toBe(EHomeWalletTab.Portfolio);
+    for (const key of [EHomeWalletTab.History, EHomeWalletTab.Portfolio]) {
+      const index = pagerProps().tabs.findIndex((tab) => tab.id === key);
+      act(() =>
+        pagerProps().onNativeTabPress?.({
+          nativeEvent: { key, position: index },
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeTabPress']>
+        >[0]),
+      );
+      expect(toolbarRequest()).toBeUndefined();
+      act(() =>
+        mockNativeEvents.onPageSelected?.({ nativeEvent: { position: index } }),
+      );
+      expect(toolbarRequest()).toBeUndefined();
+    }
+    pressToolbar();
+    expect(toolbarRequest()?.key).toBe(EHomeWalletTab.Portfolio);
+    accountId = 'replacement-account';
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(toolbarRequest()).toBeUndefined();
+    accountId = 'test-account';
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(toolbarRequest()).toBeUndefined();
+  });
+
+  it('reserves the native tab bar height for the React sticky content', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const spacer = stickyContentChildren()[0] as React.ReactElement<{
+      height?: number;
+      pointerEvents?: string;
+    }>;
+    expect(spacer.props.height).toBe(pagerProps().nativeTabBar?.style?.height);
+    expect(spacer.props.pointerEvents).toBe('none');
+  });
+
+  it('keeps a consumed toolbar request from replaying after a same-owner pager remount', () => {
+    const screen = renderParent();
+    const pagerProps = () =>
+      screen.UNSAFE_getByType(HomeNativePager).props as React.ComponentProps<
+        typeof HomeNativePager
+      >;
+    const pressNativeEvent = {
+      key: EHomeWalletTab.Portfolio,
+      anchorRect: { x: 300, y: 100, width: 38, height: 38 },
+    };
+    const pressToolbar = () =>
+      act(() =>
+        pagerProps().onNativeToolbarPress?.({
+          nativeEvent: pressNativeEvent,
+        } as Parameters<
+          NonNullable<ReturnType<typeof pagerProps>['onNativeToolbarPress']>
+        >[0]),
+      );
+    pressToolbar();
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
+    act(() => nativeToolbarOf()?.onPressConsumed?.(pressNativeEvent));
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // The auth wrapper adds and removes the tabs subtree for the same owner.
+    validationRequired = true;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    validationRequired = false;
+    screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+    expect(nativeToolbarOf()?.press?.key).toBe(EHomeWalletTab.Portfolio);
+    expect(nativeToolbarOf()?.pressConsumed).toBe(true);
+    // A fresh native request for the same item must open the panel again.
+    pressToolbar();
+    expect(nativeToolbarOf()?.pressConsumed).toBeUndefined();
+  });
 
   it('clears capability when the pager unmounts and rejects its stale same-owner receipt', () => {
     Object.assign(parentPlatform, {
@@ -1232,34 +1698,227 @@ describe('HomePageView complete header authority', () => {
     expect(screen.UNSAFE_getAllByType(parentTabPageHeader)).toHaveLength(1);
   });
 
-  it('keeps a complete fractional measurement when the inner layout arrives later', () => {
+  const rerenderParent = (screen: ReturnType<typeof renderParent>) => {
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+  };
+  const measureFull = (height: number) =>
+    act(() =>
+      onFullLayout?.({
+        nativeEvent: {
+          layout: { x: 0, y: 0, width: mockWindowDimensions.width, height },
+        },
+      } as LayoutChangeEvent),
+    );
+
+  it('keeps the complete fractional measurement authoritative', () => {
     renderParent();
-    act(() => {
-      mockNativeEvents.header?.props.onLayout(headerLayoutEvent(182.2));
-      onFullLayout?.(headerLayoutEvent(182.2));
-    });
+    act(() =>
+      mockNativeEvents.header?.props.onLayout(headerLayoutEvent(182.2)),
+    );
+    measureFull(182.2);
     expect(mockNativeEvents.headerHeight).toBe(183);
-    act(() => callbacks.onHeaderLayout?.('A', 182.2));
+    act(() => measurements[0](0, 0, 400, 292.2));
     expect(mockNativeEvents.headerHeight).toBe(183);
   });
 
-  it('measures same-height variants and rejects obsolete variant/layout snapshots', () => {
+  it('remeasures unchanged fixed geometry for a new display key and rejects late measurements', () => {
+    const screen = renderParent();
+    act(() => fixedMeasurements[0](0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    locale = 'de-DE';
+    rerenderParent(screen);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    const currentMeasure = fixedMeasurements.at(-1)!;
+    act(() => fixedMeasurements[0](0, 0, 400, 999));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    act(() => currentMeasure(0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    act(() => onFixedLayout?.(headerLayoutEvent(180.2)));
+    act(() => currentMeasure(0, 0, 400, 172));
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(161);
+  });
+
+  it.each([
+    ['pager', 1024],
+    ['pager', 1440],
+    ['outer', 1024],
+    ['outer', 1440],
+  ] as const)(
+    'measures the iPad %s header at %ipt against its constrained host width',
+    (slot, viewportWidth) => {
+      Object.assign(parentPlatform, {
+        isNativeAndroid: false,
+        isNativeIOS: true,
+        isNativeIOS26Plus: slot === 'pager',
+      });
+      smallScreen = false;
+      mockWindowDimensions.width = viewportWidth;
+      const screen = renderParent();
+      if (slot === 'pager') {
+        act(() =>
+          mockNativeEvents.onScrollEdgeCapability?.({
+            nativeEvent: { available: true },
+          }),
+        );
+        expect(mockNativeEvents.topOverlay).toBeDefined();
+      }
+
+      const container = screen.UNSAFE_getByType(PageContentContainer);
+      const containerElement: React.ReactElement<{
+        $gtMd: { maxWidth: number };
+      }> = PageContentContainer(
+        container.props as React.ComponentProps<typeof PageContentContainer>,
+      );
+      expect(containerElement.props.$gtMd.maxWidth).toBe(
+        HOME_PAGE_CONTENT_MAX_WIDTH,
+      );
+      const hostWidth = Math.min(
+        viewportWidth,
+        containerElement.props.$gtMd.maxWidth,
+      );
+      const measure = fixedMeasurements.at(-1)!;
+      act(() => measure(0, 0, 1000, 999));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      act(() => measure(0, 0, hostWidth, 190));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(170);
+
+      const layoutEvent = (width: number, height: number) =>
+        ({
+          nativeEvent: { layout: { x: 0, y: 0, width, height } },
+        }) as LayoutChangeEvent;
+      act(() => onFixedLayout?.(layoutEvent(1000, 999)));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(170);
+      act(() => onFixedLayout?.(layoutEvent(hostWidth, 210.2)));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+      act(() => measure(0, 0, hostWidth, 190));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+
+      const previousLayout = onFixedLayout;
+      locale = 'de-DE';
+      rerenderParent(screen);
+      act(() => {
+        previousLayout?.(layoutEvent(hostWidth, 999));
+        measure(0, 0, hostWidth, 999);
+      });
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(162);
+      expect([...cache.values()]).not.toContain(979);
+      act(() => fixedMeasurements.at(-1)?.(0, 0, hostWidth, 210.2));
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+      screen.unmount();
+      renderParent();
+      expect(mockNativeEvents.topOverlayHeightHint).toBe(191);
+    },
+  );
+
+  it('retains separate ordinary and watch-only heights through both switch directions', () => {
+    const screen = renderParent();
+    measureFull(292);
+    act(() => onFixedLayout?.(headerLayoutEvent(172)));
+    walletType = 'watch';
+    accountId = 'watch-account';
+    rerenderParent(screen);
+    expect(mockNativeEvents.headerHeight).toBe(292);
+    measureFull(370);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    walletType = 'hd';
+    accountId = 'another-ordinary-account';
+    rerenderParent(screen);
+    expect(mockNativeEvents.headerHeight).toBe(292);
+    walletType = 'watch';
+    accountId = 'watch-account';
+    rerenderParent(screen);
+    expect(mockNativeEvents.headerHeight).toBe(370);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+  });
+
+  it('uses the matching persisted geometry on the first remount commit and revalidates it', () => {
+    walletType = 'watch';
+    const screen = renderParent();
+    measureFull(370);
+    act(() => onFixedLayout?.(headerLayoutEvent(172)));
+    screen.unmount();
+    mockHeaderHeightCommits.length = 0;
+    const restored = renderParent();
+    expect(mockHeaderHeightCommits[0]).toBe(370);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(152);
+    measureFull(382.2);
+    expect(mockNativeEvents.headerHeight).toBe(383);
+    restored.unmount();
+    mockHeaderHeightCommits.length = 0;
     renderParent();
-    act(() => onFullLayout?.(headerLayoutEvent(182.2)));
-    for (const variant of ['A', 'B', 'A'])
-      act(() => callbacks.onHeaderVariantChange?.(variant));
-    expect(measurements).toHaveLength(3);
-    act(() => measurements[2](0, 0, 400, 182.2));
-    expect(mockNativeEvents.headerHeight).toBe(183);
+    expect(mockHeaderHeightCommits[0]).toBe(383);
+  });
+
+  it.each([
+    'width',
+    'fontScale',
+    'locale',
+    'direction',
+    'alerts',
+    'variant',
+  ] as const)(
+    'isolates cached geometry when %s changes and preserves the previous layout',
+    (condition) => {
+      const screen = renderParent();
+      measureFull(300);
+      if (condition === 'width') mockWindowDimensions.width = 600;
+      if (condition === 'fontScale') mockWindowDimensions.fontScale = 1.4;
+      if (condition === 'locale') locale = 'de-DE';
+      if (condition === 'direction') mockRtl = true;
+      if (condition === 'alerts') internetReachable = false;
+      if (condition === 'variant') contentVariant = 'zero';
+      rerenderParent(screen);
+      expect(mockNativeEvents.headerHeight).toBe(
+        condition === 'variant' ? 182 : 292,
+      );
+      measureFull(420);
+      mockWindowDimensions.width = 400;
+      mockWindowDimensions.fontScale = 1;
+      locale = 'en-US';
+      mockRtl = false;
+      internetReachable = true;
+      contentVariant = 'banner';
+      rerenderParent(screen);
+      expect(mockNativeEvents.headerHeight).toBe(300);
+    },
+  );
+
+  it('rejects old owner measurements and layouts even when the cache key and height match', () => {
+    const screen = renderParent();
+    measureFull(292);
+    const oldFullLayout = onFullLayout;
+    const oldFixedLayout = onFixedLayout;
+    const oldMeasure = measurements[0];
+    accountId = 'second-ordinary-account';
+    rerenderParent(screen);
     act(() => {
-      measurements[0](0, 0, 400, 292.2);
-      measurements[1](0, 0, 400, 240.2);
+      oldFullLayout?.(headerLayoutEvent(999));
+      oldFixedLayout?.(headerLayoutEvent(999));
+      oldMeasure(0, 0, 400, 999);
     });
-    expect(mockNativeEvents.headerHeight).toBe(183);
-    act(() => callbacks.onHeaderVariantChange?.('B'));
-    act(() => onFullLayout?.(headerLayoutEvent(192.8)));
-    act(() => measurements[3](0, 0, 400, 182.2));
-    expect(mockNativeEvents.headerHeight).toBe(193);
+    expect(mockNativeEvents.headerHeight).toBe(292);
+    expect(mockNativeEvents.topOverlayHeightHint).toBe(92);
+    measureFull(310);
+    accountId = 'test-account';
+    rerenderParent(screen);
+    expect(mockNativeEvents.headerHeight).toBe(310);
+    act(() => oldFullLayout?.(headerLayoutEvent(999)));
+    expect(mockNativeEvents.headerHeight).toBe(310);
+    expect([...cache.values()]).not.toContain(999);
+  });
+
+  it('ignores invalid measurements without preventing a valid measurement', () => {
+    renderParent();
+    measureFull(0);
+    act(() => measurements[0](0, 0, 400, 280));
+    expect(mockNativeEvents.headerHeight).toBe(280);
+    measureFull(Number.NaN);
+    measureFull(-1);
+    expect(mockNativeEvents.headerHeight).toBe(280);
   });
 });
 

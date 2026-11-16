@@ -17,6 +17,50 @@ const currencyMap = {
 };
 
 describe('marketStockQuoteDisplayUtils', () => {
+  it('omits the Stock impact and receive fiat value when the currency rate is unusable', () => {
+    const fromToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xusdc',
+      symbol: 'USDC',
+      decimals: 6,
+      price: '1',
+      currency: 'usd',
+    };
+    const toToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xstock',
+      symbol: 'AAPLon',
+      decimals: 18,
+      price: '100',
+      currency: 'cny',
+      isStock: true,
+    };
+    const result = buildMarketStockQuoteDisplay({
+      currencyMap: {
+        ...currencyMap,
+        cny: {
+          id: 'cny',
+          unit: '¥',
+          name: 'Chinese Yuan',
+          type: ['fiat'],
+          value: '0',
+        },
+      },
+      fallbackCurrencySymbol: '$',
+      fromToken,
+      toToken,
+      quoteResult: {
+        info: { provider: 'test', providerName: 'test' },
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+        toAmount: '2',
+        instantRate: '0.02',
+      },
+      targetCurrency: 'usd',
+    });
+    expect(result.receiveFiatValue).toBe('--');
+    expect(result.rateDifference).toBeUndefined();
+  });
   it('builds receive fiat value and rate difference from the live quote', () => {
     const result = buildMarketStockQuoteDisplay({
       currencyMap,

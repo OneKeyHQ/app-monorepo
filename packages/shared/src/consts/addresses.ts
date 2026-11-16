@@ -26,6 +26,8 @@ export const BinanceSmartChainUSDT =
 export const BinanceSmartChainU = '0xce24439f2d9c6a2289f741120fe202248b666666';
 export const BinanceSmartChainBTW =
   '0x444045b0ee1ee319a660a5e3d604ca0ffa35acaa';
+export const BinanceSmartChainXAUt =
+  '0x21caef8a43163eea865baee23b9c2e327696a3bf';
 export const BinanceSmartChainLISTA =
   '0xFceB31A79F71AC9CBDCF853519c1b12D379EdC46';
 export const BinanceSmartChainSlisBNBx =

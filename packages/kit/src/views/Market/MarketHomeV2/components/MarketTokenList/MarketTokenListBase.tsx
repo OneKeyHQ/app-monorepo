@@ -36,9 +36,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  ECopyFrom,
-  EWatchlistFrom,
+import {
+  type ECopyFrom,
+  EEnterWay,
+  type EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -339,6 +340,7 @@ function MarketTokenListBase({
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory,
+    from: EEnterWay.MarketList,
   });
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();

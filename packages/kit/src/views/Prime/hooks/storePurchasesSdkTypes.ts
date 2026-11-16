@@ -2,6 +2,7 @@ import type {
   IRevenueCatCustomerInfo,
   IRevenueCatPackage,
   IRevenueCatPurchaseResult,
+  IRevenueCatStorefront,
 } from '@onekeyhq/shared/types/prime/revenueCat';
 
 export type IPrimeStorePurchasesSdk<TPackage extends IRevenueCatPackage> = {
@@ -14,6 +15,7 @@ export type IPrimeStorePurchasesSdk<TPackage extends IRevenueCatPackage> = {
   getOfferings: () => Promise<{
     current: { availablePackages: TPackage[] } | null;
   }>;
+  getStorefront?: () => Promise<IRevenueCatStorefront | null>;
   purchasePackage: (
     offering: TPackage,
     expectedAppUserId: string,

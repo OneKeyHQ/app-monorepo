@@ -665,15 +665,16 @@ describe('WebViewModal menu', () => {
         };
       });
 
-      test('delivers the session only to the configured origin', async () => {
+      test('keeps native session delivery on the production origin', async () => {
         Object.assign(platformEnv, { isNative: true });
-        mockParams = { ...supportParams, url: previewHandshake.url };
+        mockParams = supportParams;
         render(<WebViewModal />);
-        await sendFromPage(handshake);
-        expect(mockInjectJavaScript).not.toHaveBeenCalled();
         await sendFromPage(previewHandshake);
+        expect(mockGetIntercomSessionToken).not.toHaveBeenCalled();
+        expect(mockInjectJavaScript).not.toHaveBeenCalled();
+        await sendFromPage(handshake);
         expect(mockInjectJavaScript).toHaveBeenCalledWith(
-          createIntercomSessionScript('intercom-token', previewOrigin),
+          createIntercomSessionScript('intercom-token'),
         );
       });
 
@@ -686,13 +687,14 @@ describe('WebViewModal menu', () => {
         ).toBe(previewOrigin);
       });
 
-      test('falls back to production once developer mode is off', async () => {
-        Object.assign(platformEnv, { isNative: true });
+      test('uses the production origin on extension once developer mode is off', () => {
+        Object.assign(platformEnv, { isExtension: true });
         mockDevSettings = { ...mockDevSettings, enabled: false };
-        mockParams = { ...supportParams, url: previewHandshake.url };
-        render(<WebViewModal />);
-        await sendFromPage(previewHandshake);
-        expect(mockInjectJavaScript).not.toHaveBeenCalled();
+        mockParams = supportParams;
+        const screen = render(<WebViewModal />);
+        expect(
+          screen.getByTestId('support-frame').getAttribute('data-origin'),
+        ).toBe(new URL(INTERCOM_SUPPORT_URL).origin);
       });
     });
 

@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type ITradingViewNativeChartSettings,
   type ITradingViewNativeChartTypePreference,
@@ -197,6 +198,29 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
 
     expect(mockDialogClose).toHaveBeenCalledTimes(1);
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows switching away from an unready TradingView without chart settings', async () => {
+    const onChartSwitch = jest.fn();
+    render(
+      <TradingViewMobileChartSettingsDialogContent
+        chartMode="tradingView"
+        onChartSwitch={onChartSwitch}
+      />,
+    );
+    expect(screen.queryByText(ETranslations.market_chart_settings)).toBeNull();
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockSwitch).not.toHaveBeenCalled();
+    const chartModeProps = mockChartModeSelect.mock.calls[0][0];
+    expect(chartModeProps.isDisabled).toBe(false);
+    await act(async () => {
+      chartModeProps.onChartSwitch();
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
+    expect(onChartSwitch).toHaveBeenCalledTimes(1);
+    expect(mockDialogClose.mock.invocationCallOrder[0]).toBeLessThan(
+      onChartSwitch.mock.invocationCallOrder[0],
+    );
   });
 
   it('hides native-only quick settings in TradingView mode', () => {

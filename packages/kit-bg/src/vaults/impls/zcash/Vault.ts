@@ -31,8 +31,11 @@ import {
   gateLocalWalletHistoryTx,
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type {
+  IAddressValidation,
   IFetchServerAccountDetailsParams,
   IFetchServerAccountDetailsResponse,
+  IXprvtValidation,
+  IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
   IMeasureRpcStatusParams,
@@ -74,7 +77,6 @@ import {
 import { clampZcashBirthdayHeight } from './birthday';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { ZcashPrivacyMode } from './privacyMode';
 import * as zcashBalance from './vaultBalance';
@@ -119,13 +121,22 @@ export default class Vault extends VaultBtc {
     hd: KeyringHd,
     qr: undefined,
     hw: KeyringHardware,
-    imported: KeyringImported,
+    imported: undefined,
     watching: KeyringWatching,
     external: KeyringWatching,
   };
 
   override getBlockbookCoinName() {
     return 'Zcash';
+  }
+
+  // Zcash wallets come from a mnemonic or a device only; no xpub watching, no xprv import.
+  override validateXpub(_xpub: string): Promise<IXpubValidation> {
+    return Promise.resolve({ isValid: false });
+  }
+
+  override validateXprvt(_xprvt: string): Promise<IXprvtValidation> {
+    return Promise.resolve({ isValid: false });
   }
 
   override async validateAddress(address: string) {
@@ -141,6 +152,16 @@ export default class Vault extends VaultBtc {
       address,
       network: await this.getBtcForkNetwork(),
     });
+  }
+
+  // Watch-only never scans and reads balances from the backend, so it takes plain t1 addresses only.
+  override async validateWatchingAddress(
+    address: string,
+  ): Promise<IAddressValidation> {
+    if (!address.startsWith('t1')) {
+      return { isValid: false, normalizedAddress: '', displayAddress: '' };
+    }
+    return this.validateAddress(address);
   }
 
   async zcashResolveLightwalletdUrl(): Promise<string> {
@@ -350,7 +371,7 @@ export default class Vault extends VaultBtc {
     return zcashLifecycle.getLocalWalletCapability(this);
   }
 
-  // Only HD/hardware accounts derive a viewing key; imported/watch-only can send/watch transparent funds but never scan.
+  // Only HD/hardware accounts derive a viewing key; watch-only accounts see transparent funds but never scan.
   override supportsAccountWalletType({
     accountId,
   }: {
@@ -558,7 +579,6 @@ export default class Vault extends VaultBtc {
   }): Promise<{
     total?: BigNumber;
     spendable?: BigNumber;
-    coinbase?: BigNumber;
   }> {
     return zcashBalance.zcashGetIndexerTransparentBalance(this, params);
   }
@@ -661,8 +681,6 @@ export default class Vault extends VaultBtc {
     accountIndex: number;
     targetHeight: number;
     utxos: IZcashTransparentTxRequest['utxos'];
-    // Owned mining rewards this build path cannot spend or shield.
-    coinbaseZat: string;
   }> {
     return zcashTransparent.zcashFetchFreshTransparentUtxos(this, options);
   }

@@ -27,6 +27,7 @@ import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE } from '@onekeyhq/shared/src/co
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
+import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -850,12 +851,27 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
     }
     if (
       !txId &&
+      !getBroadcastTxContext(error, snapshot.networkId) &&
       (error instanceof DustSweepUserCanceled || isUserCancellationError(error))
     ) {
       options.onPrepared();
       throw error instanceof DustSweepUserCanceled
         ? error
         : new DustSweepUserCanceled();
+    }
+    if (
+      signing &&
+      !txId &&
+      !getBroadcastTxContext(error, snapshot.networkId) &&
+      isOneKeyHardwareError(error)
+    ) {
+      const failure = DustSweepError.from(error);
+      options.onPrepared();
+      throw new DustSweepRetryableError(
+        failure.message,
+        failure.providerErrorMessage,
+        failure.localError,
+      );
     }
     // Request failures belong to this token's existing session error collector.
     throw error;

@@ -1,13 +1,16 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketAccountPortfolioResponse } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  SwapStockMobilePositions,
   SwapStockPositionsProvider,
   useSwapStockPositions,
 } from './SwapStockPositions';
@@ -91,6 +94,7 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  EJotaiContextStoreNames: { swap: 'swap' },
   useCurrencyPersistAtom: () => [{ currencyMap: {} }],
 }));
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
@@ -105,12 +109,44 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('../../../Perp/layouts/PerpMobileLayout', () => ({
-  ETabName: {},
-  TabBarItem: () => null,
+  ETabName: { Positions: 'Positions', SwapOrderHistory: 'SwapOrderHistory' },
+  TabBarItem: ({
+    name,
+    isFocused,
+    onPress,
+  }: {
+    name: string;
+    isFocused: boolean;
+    onPress: (name: string) => void;
+  }) => (
+    <button
+      type="button"
+      aria-pressed={isFocused}
+      onClick={() => onPress(name)}
+    >
+      {name}
+    </button>
+  ),
+}));
+jest.mock('./SwapHistoryClearButton', () => ({
+  __esModule: true,
+  default: () => <button type="button">Clear stock history</button>,
+}));
+jest.mock('./SwapMarketHistoryList', () => ({
+  __esModule: true,
+  default: ({
+    firstSectionRightAction,
+  }: {
+    firstSectionRightAction: ReactNode;
+  }) => <div>Stock orders{firstSectionRightAction}</div>,
+}));
+jest.mock('./SwapPendingHistoryList', () => ({
+  __esModule: true,
+  default: () => <div>Recent orders</div>,
 }));
 jest.mock('./SwapProPositionsList', () => ({
   __esModule: true,
-  default: () => null,
+  default: () => <div>Stock positions</div>,
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => undefined,
@@ -183,6 +219,39 @@ afterEach(() => {
   globalThis.requestIdleCallback = originalIdle;
   globalThis.cancelIdleCallback = originalCancelIdle;
   jest.useRealTimers();
+});
+
+it('switches mobile Stocks between positions and order history without duplicating the preview', () => {
+  render(
+    <SwapStockPositionsProvider networks={networks} ready={false}>
+      <SwapStockMobilePositions
+        networks={networks}
+        storeName={EJotaiContextStoreNames.swap}
+      />
+    </SwapStockPositionsProvider>,
+  );
+
+  const positions = screen.getByRole('button', { name: 'Positions' });
+  const history = screen.getByRole('button', { name: 'SwapOrderHistory' });
+  expect(positions.getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByText(ETranslations.stocks_current_stock)).toBeTruthy();
+  expect(screen.getByText('Stock positions')).toBeTruthy();
+  expect(screen.getByText('Recent orders')).toBeTruthy();
+  expect(screen.queryByText('Stock orders')).toBeNull();
+
+  fireEvent.click(history);
+  expect(history.getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByText('Stock orders')).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Clear stock history' }),
+  ).toBeTruthy();
+  expect(screen.queryByText(ETranslations.stocks_current_stock)).toBeNull();
+  expect(screen.queryByText('Stock positions')).toBeNull();
+  expect(screen.queryByText('Recent orders')).toBeNull();
+
+  fireEvent.click(positions);
+  expect(screen.getByText(ETranslations.stocks_current_stock)).toBeTruthy();
+  expect(screen.queryByText('Stock orders')).toBeNull();
 });
 
 it('shares one PnL read and one portfolio projection between both consumers', async () => {

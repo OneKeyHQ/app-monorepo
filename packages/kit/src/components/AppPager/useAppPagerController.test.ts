@@ -27,7 +27,11 @@ const b = { key: 'b', name: 'B' };
 const c = { key: 'c', name: 'C' };
 const d = { key: 'd', name: 'D' };
 
-function setup(pages = [a, b, c, d], commitOnCommand = false) {
+function setup(
+  pages = [a, b, c, d],
+  commitOnCommand = false,
+  animationEnabled?: boolean,
+) {
   const commands = { setPage: jest.fn(), setPageWithoutAnimation: jest.fn() };
   const pagerRef = { current: commands };
   const onSelectionChange = jest.fn();
@@ -41,6 +45,7 @@ function setup(pages = [a, b, c, d], commitOnCommand = false) {
         pagerRef,
         initialTabName: 'B',
         commitOnCommand,
+        animationEnabled,
         onSelectionChange,
       }),
     { initialProps: { items: pages } },
@@ -59,6 +64,16 @@ it('keeps the initial SDK page stable and commits Home selection only on accepte
   expect(result.current.getFocusedTab()).toBe('C');
   expect(result.current.initialIndex).toBe(1);
   expect(onSelectionChange).toHaveBeenCalledTimes(1);
+});
+
+it('never animates a command while the page animation is disabled', () => {
+  const { result, commands } = setup(undefined, false, false);
+  act(() => result.current.setIndex(2));
+  act(() => result.current.setIndex(0, true));
+  act(() => result.current.jumpToTab('C'));
+  expect(commands.setPage).not.toHaveBeenCalled();
+  expect(commands.setPageWithoutAnimation.mock.calls).toEqual([[2], [0], [2]]);
+  expect(result.current.indexDecimal.value).toBe(2);
 });
 
 it('commits native Market commands immediately without synthesizing domain callbacks', () => {

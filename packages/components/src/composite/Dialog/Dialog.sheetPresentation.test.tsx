@@ -19,7 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useKeyboardEventWithoutNavigation } from '../../hooks';
 
-import type { KeyboardEvent } from 'react-native';
+import type { KeyboardEvent, KeyboardEventName } from 'react-native';
 
 const mockMediaMd = { current: true };
 const mockSafeAreaInsets = {
@@ -28,6 +28,12 @@ const mockSafeAreaInsets = {
 const mockWindowDimensions = {
   current: { height: 844, width: 390, scale: 1, fontScale: 1 },
 };
+const mockKeyboardAddListener = jest.fn(
+  (
+    _eventName: KeyboardEventName,
+    _listener: (event: KeyboardEvent) => void,
+  ) => ({ remove: jest.fn() }),
+);
 
 jest.mock('@onekeyhq/components', () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => (
@@ -44,12 +50,16 @@ jest.mock('../../layouts/ScrollView', () => ({
     children,
     maxHeight,
     height,
+    flex,
+    minHeight,
     keyboardShouldPersistTaps,
     testID,
   }: {
     children?: ReactNode;
     maxHeight?: number;
     height?: number;
+    flex?: number;
+    minHeight?: number;
     keyboardShouldPersistTaps?: string;
     testID?: string;
   }) => (
@@ -58,6 +68,8 @@ jest.mock('../../layouts/ScrollView', () => ({
       data-scroll-kind="plain"
       data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
       data-height={height === undefined ? '' : String(height)}
+      data-flex={flex}
+      data-min-height={minHeight}
       data-keyboard-persist={keyboardShouldPersistTaps || ''}
     >
       {children}
@@ -217,16 +229,19 @@ jest.mock('../../primitives', () => ({
     testID,
     paddingTop,
     paddingBottom,
+    height,
   }: {
     children?: ReactNode;
     testID?: string;
     paddingTop?: number;
     paddingBottom?: number;
+    height?: number;
   }) => (
     <div
       data-testid={testID}
       data-padding-top={paddingTop}
       data-padding-bottom={paddingBottom}
+      data-height={height}
     >
       {children}
     </div>
@@ -277,11 +292,19 @@ jest.mock('./HeaderDragZone', () => ({
 jest.mock('./renderToContainer', () => ({}));
 jest.mock('react-native', () => ({
   ...jest.requireActual<typeof import('react-native')>('react-native'),
+  Dimensions: { get: () => mockWindowDimensions.current },
+  Keyboard: {
+    addListener: (
+      eventName: KeyboardEventName,
+      listener: (event: KeyboardEvent) => void,
+    ) => mockKeyboardAddListener(eventName, listener),
+  },
   useWindowDimensions: () => mockWindowDimensions.current,
 }));
 
 const noopOnClose = async () => undefined;
 const loginContent = <div>Login</div>;
+const heightDraftContent = <input data-testid="height-draft" defaultValue="" />;
 const dialogProps = {
   open: true,
   showHeader: false,
@@ -315,6 +338,7 @@ beforeEach(() => {
   };
   jest.mocked(KeyboardController.setInputMode).mockClear();
   jest.mocked(KeyboardController.setDefaultMode).mockClear();
+  mockKeyboardAddListener.mockClear();
 });
 
 describe('Dialog sheet scroll view presentation', () => {
@@ -484,6 +508,133 @@ describe('Dialog native centered opt-in', () => {
 });
 
 describe('Dialog bounded sheet layout opt-in', () => {
+  it('pins the header and actions while only the form body scrolls', () => {
+    render(
+      <DialogContainer
+        {...boundedDialogProps}
+        fixedHeaderFooterHeight={600}
+        sheetDragArea="header"
+      />,
+    );
+
+    const frame = screen.getByTestId('dialog-bounded-frame');
+    const scroll = screen.getByTestId('dialog-bounded-scroll');
+    const header = screen.getByTestId('dialog-header');
+    const footer = screen.getByTestId('dialog-footer');
+    expect(frame.getAttribute('data-height')).toBe('600');
+    expect(frame.contains(header)).toBe(true);
+    expect(frame.contains(footer)).toBe(true);
+    expect(scroll.contains(header)).toBe(false);
+    expect(scroll.contains(footer)).toBe(false);
+    expect(scroll.contains(screen.getByTestId('dialog-content'))).toBe(true);
+    expect(screen.getByTestId('header-drag-zone').contains(header)).toBe(true);
+    expect(scroll.getAttribute('data-flex')).toBe('1');
+    expect(scroll.getAttribute('data-min-height')).toBe('0');
+    expect(scroll.getAttribute('data-keyboard-persist')).toBe('handled');
+  });
+
+  it.each([
+    ['iOS', false, 336, 461],
+    ['Android', true, 300, 463],
+  ] as const)(
+    'bounds pinned actions above the %s keyboard without remounting the draft',
+    (_name, isAndroid, height, expectedHeight) => {
+      platformEnv.isNativeAndroid = isAndroid;
+      platformEnv.isNativeIOS = !isAndroid;
+      render(
+        <DialogContainer
+          {...boundedDialogProps}
+          fixedHeaderFooterHeight={600}
+          renderContent={heightDraftContent}
+        />,
+      );
+      const input = screen.getByTestId('height-draft') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '3428143' } });
+      const keyboardHandlers = jest
+        .mocked(useKeyboardEventWithoutNavigation)
+        .mock.calls.at(-1)?.[0];
+
+      act(() => {
+        keyboardHandlers?.keyboardWillShow?.({
+          endCoordinates: { height },
+        } as KeyboardEvent);
+      });
+      expect(
+        screen.getByTestId('dialog-bounded-frame').getAttribute('data-height'),
+      ).toBe(String(expectedHeight));
+      expect(screen.getByTestId('height-draft')).toBe(input);
+      expect(input.value).toBe('3428143');
+
+      act(() => {
+        keyboardHandlers?.keyboardWillHide?.({
+          endCoordinates: { height: 0 },
+        } as KeyboardEvent);
+      });
+      expect(
+        screen.getByTestId('dialog-bounded-frame').getAttribute('data-height'),
+      ).toBe('600');
+      expect(screen.getByTestId('height-draft')).toBe(input);
+    },
+  );
+
+  it('does not enable pinned native layout on web or without bounded layout', () => {
+    const { unmount } = render(
+      <DialogContainer {...dialogProps} fixedHeaderFooterHeight={600} />,
+    );
+    expect(screen.queryByTestId('dialog-bounded-frame')).toBeNull();
+    unmount();
+
+    platformEnv.isNative = false;
+    platformEnv.isNativeIOS = false;
+    render(
+      <DialogContainer {...boundedDialogProps} fixedHeaderFooterHeight={600} />,
+    );
+    expect(screen.queryByTestId('dialog-bounded-frame')).toBeNull();
+    expect(screen.queryByTestId('dialog-bounded-scroll')).toBeNull();
+  });
+
+  it.each([
+    ['iOS', false, 'keyboardWillChangeFrame', 437],
+    ['Android', true, 'keyboardDidChangeFrame', 403],
+  ] as const)(
+    'updates pinned height for %s keyboard frame changes and hidden frames',
+    (_name, isAndroid, eventName, expectedHeight) => {
+      platformEnv.isNativeAndroid = isAndroid;
+      platformEnv.isNativeIOS = !isAndroid;
+      render(
+        <DialogContainer
+          {...boundedDialogProps}
+          fixedHeaderFooterHeight={600}
+        />,
+      );
+      const listener = mockKeyboardAddListener.mock.calls.find(
+        ([name]) => name === eventName,
+      )?.[1];
+      expect(listener).toBeDefined();
+      act(() => {
+        listener?.({
+          endCoordinates: { height: 360, screenY: 484 },
+        } as KeyboardEvent);
+      });
+      expect(
+        screen.getByTestId('dialog-bounded-frame').getAttribute('data-height'),
+      ).toBe(String(expectedHeight));
+      act(() => {
+        listener?.({
+          endCoordinates: { height: 360, screenY: 844 },
+        } as KeyboardEvent);
+      });
+      expect(
+        screen.getByTestId('dialog-bounded-frame').getAttribute('data-height'),
+      ).toBe('600');
+    },
+  );
+
+  it('leaves keyboard frame tracking off for existing bounded dialogs', () => {
+    render(<DialogContainer {...boundedDialogProps} />);
+    expect(mockKeyboardAddListener).not.toHaveBeenCalled();
+  });
+
   it('uses a capped scroll view with a fixed close and header drag on native', () => {
     render(<DialogContainer {...boundedDialogProps} sheetDragArea="header" />);
 

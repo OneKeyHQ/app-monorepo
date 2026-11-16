@@ -60,3 +60,17 @@ include ':app-update-noop'
 // All MMKV consumers use one source-built Core, including Nitro's prefab.
 include ':mmkv'
 project(':mmkv').projectDir = new File(rootDir, 'mmkv')
+
+// Neutralize remote rich-media HTML rendering and the reflective JavaScript
+// bridge in the pinned JPush Android SDK before Gradle compiles its jar. The
+// patcher is hash-pinned and idempotent; an SDK upgrade fails the build until
+// the new bytes are reviewed. JCore has no WebView call sites, and its
+// JDynamicLoadBase implementation class is not packaged.
+def jpushAndroidPatch = new File(rootDir, '../scripts/patch-jpush-android.py')
+def jpushAndroidNodeModules = new File(rootDir, '../../../node_modules')
+if (!jpushAndroidPatch.isFile()) {
+  throw new GradleException("[JPush] Patch script is missing: ${jpushAndroidPatch.absolutePath}")
+}
+providers.exec {
+  commandLine('python3', '-B', jpushAndroidPatch.absolutePath, jpushAndroidNodeModules.absolutePath)
+}.result.get()

@@ -246,6 +246,14 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable,
     ).toHaveBeenCalledTimes(2);
     expect(mutex.isLocked()).toBe(false);
+    expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: false,
+      change: 'syncState',
+    });
   });
 
   it('completes a new enable after saving authorization without preparing the scan database', async () => {
@@ -572,6 +580,14 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     ).not.toHaveBeenCalled();
     expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
     expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: true,
+      change: 'syncState',
+    });
+    expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({ accountId });
   });
@@ -716,6 +732,13 @@ it.each([false, true])(
       expect(rescan).not.toHaveBeenCalled();
     }
     expect(prepare).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      accountIds: [accountId],
+      backfillActive: true,
+    });
   },
 );
 

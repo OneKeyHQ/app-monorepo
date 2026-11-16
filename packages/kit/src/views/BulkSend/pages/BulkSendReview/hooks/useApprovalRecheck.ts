@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNumber, max } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -106,8 +107,8 @@ export function useApprovalRecheck({
   const startApprovalRecheck = useCallback(
     // Only transfers not yet broadcast: when a split send fails midway, the
     // sent chunks already consumed part of the allowance and must not be rebuilt.
-    // keptTxs (broadcast but not yet recorded) stay ahead of the rebuilt txs
-    // so a retry can still finish their history.
+    // keptTxs (broadcast but not yet recorded, or sent with no verdict) stay
+    // ahead of the rebuilt txs so a retry can still finish them.
     ({
       pendingTransfersInfo,
       keptTxs,
@@ -134,13 +135,18 @@ export function useApprovalRecheck({
         if (isApproved) {
           try {
             // Rebuild pending transfer-only txs with fresh nonce from chain
-            // The tracking id lets the rebuild start above kept txs' nonces
+            // The tracking id lets the rebuild start above kept txs' nonces;
+            // a kept tx whose outcome is unknown is in no lookup, so its
+            // nonce is passed along.
             const newTransferTxs =
               await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
                 networkId,
                 accountId,
                 transfersInfo: pendingTransfersInfo,
                 sentTxsTrackingId,
+                keptTxNonce: max(
+                  keptTxs.map((tx) => tx.nonce).filter(isNumber),
+                ),
               });
 
             if (!isMountedRef.current) return;

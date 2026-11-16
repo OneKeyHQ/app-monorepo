@@ -2589,7 +2589,7 @@ class ServiceAccount extends ServiceBase {
     let address = '';
     let xpub = '';
     let btcForkAddressEncoding: EAddressEncodings | undefined;
-    const addressValidationResult = await vault.validateAddress(input);
+    const addressValidationResult = await vault.validateWatchingAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
       btcForkAddressEncoding = addressValidationResult.encoding;

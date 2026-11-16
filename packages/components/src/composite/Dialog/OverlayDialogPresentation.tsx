@@ -13,7 +13,6 @@ import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
 import { ThemeableStack } from '../../primitives';
 
-import type { IColorTokens } from '../../types';
 import type {
   IOverlayBackdrop,
   IOverlayDismissReason,
@@ -39,7 +38,8 @@ export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   level: IOverlayLevel;
   /** Bottom sheet on narrow windows, centered card otherwise. */
   isSheet: boolean;
-  bg?: IColorTokens;
+  /** Theme token or literal color painted behind the sheet's content. */
+  bg?: string;
   dismissOnOverlayPress: boolean;
   /** Android back. Escape never closes a dialog on web. */
   dismissOnBackPress: boolean;
@@ -88,7 +88,18 @@ export function OverlayDialogPresentation({
         android: Math.min(contentWidth, OVERLAY_SHEET_MAX_WIDTH),
       });
   const surfaceColor = useMemo(() => {
-    const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
+    if (!bg) {
+      return String(theme.bg.val);
+    }
+    // A dialog may paint its content with a literal color (a branded panel)
+    // instead of a theme token. Resolving that literal as a token lands on the
+    // ambient theme's bg, which is the wrong color behind dark content and
+    // leaves the sheet's bottom safe-area tail white on a light app theme
+    // (OK-67133).
+    if (!bg.startsWith('$')) {
+      return bg;
+    }
+    const token = bg.slice(1) as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
   }, [bg, theme]);
 

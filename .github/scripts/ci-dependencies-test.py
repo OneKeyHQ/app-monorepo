@@ -151,6 +151,29 @@ class SnapshotTests(unittest.TestCase):
                 snapshot.cleanup(remove=True)
         self.assertTrue(marker.exists())
 
+    def test_final_cleanup_detaches_busy_mounts_and_preserves_dependency_files(self):
+        snapshot = dependencies.Snapshot()
+        snapshot.temp.mkdir(parents=True)
+        target = self.root / 'node_modules'
+        target.mkdir()
+        marker = target / 'keep'
+        marker.write_text('dependency')
+        lower = snapshot.temp / 'lower'
+        snapshot.state = {'mounts': [str(lower), str(target)], 'owned_roots': ['node_modules']}
+        snapshot.save_state()
+
+        def unmount(command, **kwargs):
+            if '--lazy' not in command:
+                raise subprocess.CalledProcessError(32, command, stderr='target is busy')
+            return subprocess.CompletedProcess(command, 0)
+
+        with patch.object(dependencies, 'mounted', return_value=True), \
+                patch.object(dependencies.subprocess, 'run', side_effect=unmount) as run:
+            snapshot.cleanup()
+        self.assertEqual([call.args[0][-1] for call in run.call_args_list], [str(target), str(lower)])
+        self.assertEqual(json.loads(snapshot.state_path.read_text())['mounts'], [])
+        self.assertTrue(marker.exists())
+
     def test_compatible_key_allows_dependencies_but_rejects_scripts_and_workspace_changes(self):
         runtime = {'node': 'v24.21.0'}
         package = self.root / 'package.json'
@@ -322,7 +345,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
             tools.mkdir()
             # The same real Yarn afterInstall hook and patch-package CLI as the repo.
             shutil.copy2(repository / '.yarn/plugins/@yarnpkg/plugin-after-install.cjs', tools / 'after-install.cjs')
-            package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.12.0',
+            package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.18.1',
                        'workspaces': ['apps/*'],
                        'dependencies': {'isarray': '2.0.5', 'is-number': '7.0.0', 'is-odd': '3.0.1'},
                        'scripts': {'postinstall': f'node {repository}/node_modules/patch-package/index.js --error-on-fail'}}
@@ -334,7 +357,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
                 'dependencies': {'isarray': '1.0.0'},
             }))
             (root / '.yarnrc.yml').write_text(
-                f'yarnPath: {repository}/.yarn/releases/yarn-4.12.0.cjs\n'
+                f'yarnPath: {repository}/.yarn/releases/yarn-4.18.1.cjs\n'
                 f'nodeLinker: node-modules\nafterInstall: yarn postinstall\nplugins:\n  - path: {tools}/after-install.cjs\n')
             (root / 'patches').mkdir()
             subprocess.run(['git', 'init', '-q', str(root)], check=True)
@@ -459,6 +482,17 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
                     self.assertEqual((root / 'node_modules/is-odd/index.js').read_bytes().count(b'NEW_ADDED'), 1)
                     self.assertEqual(workspace_dependency.read_bytes(), workspace_original)
+                    mounts = legacy.state['mounts'][:]
+                    child = subprocess.Popen(['sleep', '60'], cwd=root / 'node_modules')
+                    try:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            legacy.cleanup(remove=True)
+                        legacy.cleanup()
+                        self.assertTrue(all(not dependencies.mounted(target) for target in mounts))
+                        self.assertIsNone(child.poll())
+                    finally:
+                        child.terminate()
+                        child.wait(timeout=10)
                     legacy.cleanup(remove=True)
                     self.assertTrue(all(not snapshot.state['mounts'] for snapshot in snapshots))
                 finally:

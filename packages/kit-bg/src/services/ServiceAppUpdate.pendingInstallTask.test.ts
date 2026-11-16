@@ -93,6 +93,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     downloadASC: jest.fn(async () => undefined),
     installPackage: jest.fn(async () => true),
     clearPackage: jest.fn(async () => undefined),
+    prepareQuitInstall: jest.fn(async () => undefined),
   },
   BundleUpdate: {
     downloadBundle: jest.fn(async () => ({
@@ -222,9 +223,12 @@ function createService() {
     backgroundApi,
     refreshUpdateStatus: jest.fn(async () => undefined),
   });
-  return new ServiceAppUpdate({
+  const service = new ServiceAppUpdate({
     backgroundApi,
   });
+  backgroundApi.serviceAppUpdate = service;
+  jest.spyOn(service, 'canRestartForUpdate').mockResolvedValue(true);
+  return service;
 }
 
 function resetAppUpdateState(overrides?: Partial<IAppUpdateInfo>) {
@@ -1052,6 +1056,86 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
+  test('busy desktop restart leaves pending app install ready without consuming retry budget', async () => {
+    resetAppUpdateState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    resetPendingTask({
+      taskId: 'appShell:2.0.0:direct',
+      revision: 1,
+      action: 'install-app',
+      type: 'app-install',
+      targetAppVersion: '2.0.0',
+      targetBundleVersion: '1',
+      scheduledEnvAppVersion: '1.0.0',
+      scheduledEnvBundleVersion: '1',
+      createdAt: Date.now() - 1000,
+      expiresAt: Date.now() + 60_000,
+      retryCount: 0,
+      status: 'pending',
+      payload: {
+        latestVersion: '2.0.0',
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    jest.spyOn(service, 'canRestartForUpdate').mockResolvedValue(false);
+
+    expect(await service.processPendingInstallTask()).toBe(false);
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 0,
+    });
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+  });
+
+  test('repeated app-install UAC cancellations keep the task pending for another attempt', async () => {
+    resetAppUpdateState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    resetPendingTask({
+      ...makeSwitchTask(),
+      taskId: 'appShell:2.0.0:direct',
+      action: 'install-app',
+      type: 'app-install',
+      targetAppVersion: '2.0.0',
+      targetBundleVersion: '1',
+      payload: {
+        latestVersion: '2.0.0',
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    autoUpdate.AppUpdate.installPackage.mockRejectedValue(
+      createUpdateError({ code: EUpdateErrorCode.cancelled, step: 'install' }),
+    );
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toMatchObject({
+        status: 'pending',
+        retryCount: 0,
+      });
+      expect(pendingTaskValue.runningStartedAt).toBeUndefined();
+      expect(pendingTaskValue.nextRetryAt).toBeUndefined();
+      expect(appUpdateState.freezeUntil).toBeUndefined();
+      expect(appUpdateState.ignoredTargets).toEqual({});
+    }
+    expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalledTimes(3);
+    autoUpdate.AppUpdate.installPackage.mockResolvedValue(true);
+    await service.processPendingInstallTask();
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalledTimes(4);
+  });
+
   test('app-install restart mismatch waits during external installer grace period', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:direct',
@@ -1287,7 +1371,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('non-seamless + appShellUpdate does not create pending task', async () => {
+  test('manual desktop app-shell update persists a startup fallback once verified', async () => {
     setReadyState({
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.manual,
@@ -1299,8 +1383,50 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
 
     await service.readyToInstall();
 
-    expect(pendingTaskValue).toBeUndefined();
+    expect(pendingTaskValue).toMatchObject({
+      type: 'app-install',
+      status: 'pending',
+      targetAppVersion: '2.0.0',
+      payload: { updateStrategy: EUpdateStrategy.manual, channel: 'direct' },
+    });
   });
+
+  test.each([undefined, Number.NaN, 0, Date.now() + 60_000])(
+    'rearming legacy manual ready with unknown age (%s) does not manufacture a startup task',
+    async (readyAt) => {
+      const {
+        AppUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      setReadyState({
+        status: EAppUpdateStatus.ready,
+        latestVersion: '2.0.0',
+        jsBundleVersion: undefined,
+        updateStrategy: EUpdateStrategy.manual,
+        readyAt,
+        downloadUrl: 'feedUrl',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+      await service.readyToInstall();
+      expect(pendingTaskValue).toBeUndefined();
+      expect(appUpdateState.readyAt).toBe(readyAt);
+      expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+      expect(AppUpdate.prepareQuitInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ latestVersion: '2.0.0' }),
+      );
+      await createService().processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+      expect(AppUpdate.installPackage).not.toHaveBeenCalled();
+      expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+        'https://cdn.onekey.so/app-2.0.0.pkg',
+      );
+    },
+  );
 
   test('frozen target blocks app-install scheduling', async () => {
     setReadyState({

@@ -316,7 +316,7 @@ type IChartSettingsDialogProps = {
   showPreviousClose?: boolean;
   tradingViewChartStyle?: ITradingViewChartStyleSettings;
   onChartSwitch?: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
 };
 
 export function TradingViewMobileChartSettingsDialogContent(
@@ -358,7 +358,7 @@ function ChartSettingsDialogContent({
 
   const handleOpenSettings = useCallback(async () => {
     await dialog.close();
-    onOpenSettings();
+    onOpenSettings?.();
   }, [dialog, onOpenSettings]);
   const handleChartSwitch = useCallback(async () => {
     await dialog.close();
@@ -393,7 +393,9 @@ function ChartSettingsDialogContent({
 
   return (
     <YStack pb="$2">
-      <SettingsEntry onPress={() => void handleOpenSettings()} />
+      {onOpenSettings ? (
+        <SettingsEntry onPress={() => void handleOpenSettings()} />
+      ) : null}
 
       {chartMode && onChartSwitch ? (
         <SettingsListRow

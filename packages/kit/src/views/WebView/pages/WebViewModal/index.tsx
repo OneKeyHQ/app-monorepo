@@ -35,6 +35,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  INTERCOM_SUPPORT_ORIGIN,
   createIntercomSessionScript,
   isIntercomNativeHandshake,
   resolveIntercomSupportOrigin,
@@ -96,9 +97,11 @@ export default function WebViewModal() {
   const [isLocked] = useAppIsLockedAtom();
   const [{ isLoggedIn, onekeyUserId }] = usePrimePersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
-  // Follows the developer support URL override, so the session is only handed
-  // to the page the support entry was configured to open.
-  const supportOrigin = resolveIntercomSupportOrigin(devSettings);
+  // Only extension support follows the developer URL override; native fallback
+  // always delivers the session to the production page.
+  const supportOrigin = platformEnv.isExtension
+    ? resolveIntercomSupportOrigin(devSettings)
+    : INTERCOM_SUPPORT_ORIGIN;
   const supportSessionClosed = useRef(false);
   const supportDismissed = useRef(false);
   if (

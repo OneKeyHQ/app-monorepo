@@ -158,6 +158,7 @@ import {
 import { useSwapTokenSelectorPreload } from '../../hooks/useSwapTokenSelectorPreload';
 import { SwapTestIDs } from '../../testIDs';
 import {
+  type ISwapReviewTokens,
   buildSwapReviewState,
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
@@ -245,9 +246,10 @@ const SwapMainLoad = ({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { fetchLoading } = useSwapInit(swapInitParams);
+  const analyticsSwapSource = swapInitParams?.swapSource;
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
-    swapInitParams?.swapSource === ESwapSource.MARKET;
+    analyticsSwapSource === ESwapSource.MARKET;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
@@ -1025,7 +1027,7 @@ const SwapMainLoad = ({
   );
 
   const parseQuoteResultToSteps = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
       if (!currentQuoteRes) {
         return;
       }
@@ -1060,6 +1062,7 @@ const SwapMainLoad = ({
         fromToken: fromSelectToken,
         toToken: toSelectToken,
         stockReviewToken,
+        reviewTokens,
         fromTokenAmount: reviewTokenAmounts.fromTokenAmount,
         toTokenAmount: reviewTokenAmounts.toTokenAmount,
         quoteResult: currentQuoteRes,
@@ -1250,7 +1253,7 @@ const SwapMainLoad = ({
   }, [navigation]);
 
   const onPreSwap = useCallback(
-    (stockReviewToken?: ISwapToken) => {
+    (stockReviewToken?: ISwapToken, reviewTokens?: ISwapReviewTokens) => {
       if (reviewDialogTimerRef.current !== undefined) {
         return;
       }
@@ -1271,7 +1274,9 @@ const SwapMainLoad = ({
       reviewGenerationRef.current += 1;
       beginSwapReview();
       const reviewGeneration = reviewGenerationRef.current;
-      const reviewAnalytics = createSwapReviewAnalytics();
+      const reviewAnalytics = createSwapReviewAnalytics({
+        swapSource: analyticsSwapSource,
+      });
       reviewAnalyticsRef.current?.close('reviewChanged');
       reviewAnalyticsRef.current = reviewAnalytics;
       let analyticsCreateFrom = 'swapPage';
@@ -1287,7 +1292,7 @@ const SwapMainLoad = ({
         onPreSwapClose(reviewGeneration);
       };
       beginGasAccountReviewSession();
-      parseQuoteResultToSteps(stockReviewToken);
+      parseQuoteResultToSteps(stockReviewToken, reviewTokens);
       setSwapBuildTxFetching(true);
       reviewDialogTimerRef.current = setTimeout(() => {
         if (reviewGeneration !== reviewGenerationRef.current) {
@@ -1370,6 +1375,7 @@ const SwapMainLoad = ({
       beginSwapReview,
       invalidateSwapReview,
       isMarketEmbeddedSwap,
+      analyticsSwapSource,
       pageType,
     ],
   );

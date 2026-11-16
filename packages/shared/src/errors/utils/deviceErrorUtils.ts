@@ -62,6 +62,8 @@ function isHwkErrorCode(code: unknown): code is number {
   return typeof n === 'number' && Number.isFinite(n) && HWK_ERROR_CODES.has(n);
 }
 
+const UNKNOWN_MESSAGE_ERRORS = ['Unknown message', 'Handler not found'];
+
 export function captureSpecialError(
   code: string | number | undefined,
   message: string,
@@ -186,6 +188,11 @@ export function convertDeviceError(
       return new HardwareErrors.NewFirmwareForceUpdate({ payload });
     case HardwareErrorCode.DeviceNotSupportMethod:
       return new HardwareErrors.UnknownMethod({ payload });
+    case HardwareErrorCode.ForbiddenKeyPath:
+      return new HardwareErrors.ForbiddenKeyPathError({ payload });
+    // The raw firmware text stays in the payload for logs and reports.
+    case HardwareErrorCode.DeviceNotSupportPath:
+      return new HardwareErrors.UnsupportedAddressTypeError({ payload });
     case HardwareErrorCode.NetworkError:
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
@@ -232,11 +239,9 @@ export function convertDeviceError(
       if (message.indexOf('EIP712 blind sign is disabled') !== -1) {
         return new HardwareErrors.OpenBlindSign({ payload });
       }
-      if (message.indexOf('Unknown message') !== -1) {
+      // Pro 2 answers a message type it lacks with "Handler not found" instead of "Unknown message".
+      if (UNKNOWN_MESSAGE_ERRORS.some((text) => message.indexOf(text) !== -1)) {
         return new HardwareErrors.UnknownMethod({ payload });
-      }
-      if (message.indexOf('Forbidden key path') !== -1) {
-        return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
       if (
         message.toLowerCase().includes('string overflow') ||

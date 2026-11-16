@@ -93,13 +93,12 @@ export function AmountPreview({
   const isRangeValid = useMemo(() => {
     if (amountInputMode !== EAmountInputMode.Range) return false;
     const hasErrors = !!amountInputErrors?.rangeError;
-    const hasValues =
-      amountInputValues.rangeMin !== '' && amountInputValues.rangeMax !== '';
+    // Min is optional, see getBulkSendEffectiveRangeMin
+    const hasValues = amountInputValues.rangeMax !== '';
     return !hasErrors && hasValues;
   }, [
     amountInputMode,
     amountInputErrors?.rangeError,
-    amountInputValues.rangeMin,
     amountInputValues.rangeMax,
   ]);
 

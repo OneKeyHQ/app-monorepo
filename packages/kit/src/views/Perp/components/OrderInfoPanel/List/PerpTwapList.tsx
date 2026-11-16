@@ -68,6 +68,7 @@ import {
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
+  getTwapSideInfo,
   normalizeEpochMs,
 } from '../utils';
 import {
@@ -212,23 +213,6 @@ function getTableRowBgColor({
     return '$bgHover';
   }
   return index % 2 === 1 ? '$bgSubdued' : '$bgApp';
-}
-
-function getTwapSideInfo(state: ITwapState, intl: IntlShape) {
-  if (state.side === 'B') {
-    return {
-      text: state.reduceOnly
-        ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
-        : intl.formatMessage({ id: ETranslations.perp_long }),
-      color: '$green11',
-    };
-  }
-  return {
-    text: state.reduceOnly
-      ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
-      : intl.formatMessage({ id: ETranslations.perp_short }),
-    color: '$red11',
-  };
 }
 
 function getTwapBaseInfo({

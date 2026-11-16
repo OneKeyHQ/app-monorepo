@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EMarketBannerType,
@@ -25,6 +26,12 @@ let mockRequest: () => Promise<unknown>;
 let mockHydrate: () => Promise<unknown>;
 let mockEnabled = false;
 let mockLiveResult: unknown;
+jest.mock('@onekeyhq/components/src/primitives/Image/preload', () => ({
+  preloadImages: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('@onekeyhq/kit/src/components/Token/tokenSize', () => ({
+  getTokenImageResizeWidth: () => 20,
+}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false, isWeb: true, isDesktop: false },
@@ -81,6 +88,7 @@ const makeBanner = (
 });
 
 beforeEach(() => {
+  jest.mocked(preloadImages).mockReset().mockResolvedValue(true);
   (platformEnv as { isDesktop: boolean }).isDesktop = false;
   mockEnabled = false;
   mockLiveResult = undefined;
@@ -814,6 +822,34 @@ describe('desktop banner quote updates', () => {
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
   });
 
+  it.each([EMarketBannerType.Index, EMarketBannerType.StockIndex])(
+    'preloads the rendered index artwork from indices (%s)',
+    async (type) => {
+      mockResult = [
+        makeBanner({
+          type,
+          indices: ['^DJI', '^IXIC', '^GSPC'].map((symbol) => ({
+            ...preview(symbol, '1'),
+            logo: `https://example.com/backend-${symbol}.png`,
+          })),
+        }),
+      ];
+      renderHook(() => useMarketBannerList());
+      const uris = [
+        'https://uni.onekey-asset.com/static/stock/s-and-p-500.png',
+        'https://uni.onekey-asset.com/static/stock/nasdaq-composite.png',
+        'https://uni.onekey-asset.com/static/stock/dow-30.png',
+      ];
+      await waitFor(() => {
+        expect(
+          jest
+            .mocked(preloadImages)
+            .mock.calls.map(([sources]) => sources[0].uri),
+        ).toEqual(uris);
+      });
+    },
+  );
+
   it.each(['stock', 'token', 'evm', 'legacy'])(
     'does not mix quotes for duplicate symbols (%s identity)',
     async (kind) => {
@@ -923,6 +959,265 @@ describe('desktop banner quote updates', () => {
     });
     expect(symbols(result.current.bannerList[0])).toEqual(['D', 'B', 'A']);
   });
+
+  it.each([false, true])(
+    'keeps cached rows while incoming logos load and ignores superseded images (%s)',
+    async (superseded) => {
+      const initial = stock('banner', [preview('A', '1')]);
+      mockResult = [initial];
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      const pendingImage = deferred<boolean>();
+      jest
+        .mocked(preloadImages)
+        .mockImplementation((sources) =>
+          sources.some((source) => source.uri === 'remote.png')
+            ? pendingImage.promise
+            : Promise.resolve(true),
+        );
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockResolvedValue([asset('B', '2', '200')]);
+      mockResult = [{ ...initial }];
+      rerender();
+      const hydration = mockHydrate();
+      await waitFor(() =>
+        expect(preloadImages).toHaveBeenCalledWith([
+          { uri: 'remote.png', resizeWidth: 20 },
+        ]),
+      );
+      expect(symbols(result.current.bannerList[0])).toEqual(['A']);
+      expect(result.current.isLoading).toBe(false);
+      if (superseded) {
+        mockLocale = 'zh-CN';
+        mockResultScope = 'zh-CN:false';
+        mockResult = [stock('banner', [preview('C', '3')])];
+        rerender();
+      }
+      await act(async () => {
+        pendingImage.resolve(true);
+        await hydration;
+      });
+      expect(symbols(result.current.bannerList[0])).toEqual([
+        superseded ? 'C' : 'B',
+      ]);
+    },
+  );
+
+  it.each(['stalled', 'rejected', 'failed'] as const)(
+    'publishes fetched quotes when logo preloading is %s',
+    async (failure) => {
+      jest.useFakeTimers();
+      const pendingImage = deferred<boolean>();
+      let hydration: Promise<unknown> | undefined;
+      try {
+        const initial = stock('banner', [preview('A', '1')]);
+        mockResult = [initial];
+        const { result, rerender } = renderHook(() => useMarketBannerList());
+        await act(async () => {});
+        jest.mocked(preloadImages).mockImplementation(() => {
+          if (failure === 'stalled') return pendingImage.promise;
+          if (failure === 'rejected')
+            return Promise.reject(new Error('offline'));
+          return Promise.resolve(false);
+        });
+        jest
+          .mocked(fetchMarketBannerStockTokenListForPlatform)
+          .mockResolvedValue([asset('B', '2', '200')]);
+        mockResult = [{ ...initial }];
+        rerender();
+        await act(async () => {
+          hydration = mockHydrate();
+        });
+        if (failure === 'stalled') {
+          expect(symbols(result.current.bannerList[0])).toEqual(['A']);
+        }
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(1000);
+        });
+        expect(result.current.bannerList[0].tokens?.[0]).toMatchObject({
+          symbol: 'B',
+          price: '200',
+        });
+        await expect(hydration).resolves.toBeDefined();
+      } finally {
+        await act(async () => {
+          pendingImage.resolve(true);
+          await hydration;
+        });
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('publishes quotes within the deadline when all four preload slots stall', async () => {
+    jest.useFakeTimers();
+    const pendingImage = deferred<boolean>();
+    let hydration: Promise<unknown> | undefined;
+    try {
+      jest.mocked(preloadImages).mockReturnValue(pendingImage.promise);
+      const initial = ['A', 'C', 'D', 'E'].map((symbol) =>
+        stock(symbol, [preview(symbol, '1')]),
+      );
+      mockResult = initial;
+      const { result, rerender } = renderHook(() => useMarketBannerList());
+      await act(async () => {});
+      expect(preloadImages).toHaveBeenCalledTimes(4);
+      mockResult = initial.map((banner) => ({ ...banner }));
+      rerender();
+      jest
+        .mocked(fetchMarketBannerStockTokenListForPlatform)
+        .mockResolvedValue([asset('B', '2', '200')]);
+      await act(async () => {
+        hydration = mockHydrate();
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1001);
+      });
+      expect(
+        result.current.bannerList.map((banner) => banner.tokens?.[0].price),
+      ).toEqual(['200', '200', '200', '200']);
+      await expect(hydration).resolves.toBeDefined();
+    } finally {
+      await act(async () => {
+        pendingImage.resolve(true);
+        await hydration;
+      });
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps at most four real image requests running across timed-out refreshes', async () => {
+    jest.useFakeTimers();
+    const pending = deferred<boolean>();
+    let active = 0;
+    let peak = 0;
+    jest.mocked(preloadImages).mockImplementation(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      try {
+        return await pending.promise;
+      } finally {
+        active -= 1;
+      }
+    });
+    const initial = ['A', 'B', 'C', 'D'].map((symbol) =>
+      stock(symbol, [preview(symbol, '1')]),
+    );
+    mockResult = initial;
+    const view = renderHook(() => useMarketBannerList());
+    try {
+      await act(async () => {});
+      expect(active).toBe(4);
+      for (let refresh = 0; refresh < 2; refresh += 1) {
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(1001);
+        });
+        mockResult = initial.map((banner) => ({
+          ...banner,
+          tokens: banner.tokens?.map((token) => ({
+            ...token,
+            logo: `${refresh}-${token.logo}`,
+          })),
+        }));
+        await act(async () => view.rerender());
+        expect(active).toBe(4);
+      }
+      expect(peak).toBe(4);
+      await act(async () => pending.resolve(true));
+      await act(async () => view.rerender());
+      expect(active).toBe(0);
+      expect(peak).toBe(4);
+    } finally {
+      await act(async () => pending.resolve(true));
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  it.each(['loaded', 'failed', 'timeout', 'superseded'] as const)(
+    'keeps refreshed preview artwork behind preloading (%s)',
+    async (outcome) => {
+      jest.useFakeTimers();
+      const initial = stock('banner', [preview('A', '1')]);
+      mockResult = [initial];
+      const view = renderHook(() => useMarketBannerList());
+      const pendingImage = deferred<boolean>();
+      let hydration: Promise<unknown> | undefined;
+      try {
+        await act(async () => {});
+        jest
+          .mocked(preloadImages)
+          .mockImplementation((sources) =>
+            sources.some((source) => source.uri === 'refreshed.png')
+              ? pendingImage.promise
+              : Promise.resolve(true),
+          );
+        jest
+          .mocked(fetchMarketBannerStockTokenListForPlatform)
+          .mockResolvedValue([asset('A', '1', '200')]);
+        const refreshed = {
+          ...initial,
+          tokens: [{ ...preview('A', '1'), logo: 'refreshed.png' }],
+        };
+        mockResult = [refreshed];
+        await act(async () => view.rerender());
+        expect(view.result.current.bannerList[0].tokens?.[0].logo).toBe(
+          'A.png',
+        );
+        await act(async () => {
+          hydration = mockHydrate();
+        });
+        expect(view.result.current.bannerList[0].tokens?.[0].logo).toBe(
+          'A.png',
+        );
+        if (outcome === 'superseded') {
+          mockLocale = 'zh-CN';
+          mockResultScope = 'zh-CN:false';
+          mockResult = [stock('banner', [preview('C', '3')])];
+          await act(async () => view.rerender());
+        }
+        await act(async () => {
+          if (outcome === 'timeout') {
+            await jest.advanceTimersByTimeAsync(1000);
+          } else {
+            pendingImage.resolve(outcome !== 'failed');
+          }
+          await hydration;
+        });
+        expect(view.result.current.bannerList[0].tokens?.[0]).toMatchObject({
+          symbol: outcome === 'superseded' ? 'C' : 'A',
+          logo: {
+            loaded: 'refreshed.png',
+            failed: 'A.png',
+            timeout: 'A.png',
+            superseded: 'C.png',
+          }[outcome],
+          price: outcome === 'superseded' ? '1' : '200',
+        });
+        if (outcome === 'timeout') {
+          await act(async () => pendingImage.resolve(true));
+          expect(view.result.current.bannerList[0].tokens?.[0].logo).toBe(
+            'A.png',
+          );
+          mockResult = [{ ...refreshed }];
+          await act(async () => view.rerender());
+          await act(async () => {
+            await mockHydrate();
+          });
+          expect(view.result.current.bannerList[0].tokens?.[0].logo).toBe(
+            'refreshed.png',
+          );
+        }
+      } finally {
+        await act(async () => {
+          pendingImage.resolve(true);
+          await hydration;
+        });
+        view.unmount();
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it.each([false, true])(
     'ignores a slow card result after a new response (locale change=%s)',

@@ -67,7 +67,7 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      {...(searchBarMinWidth as any)}
+      {...searchBarMinWidth}
       width="100%"
       {...(containerProps as IXStackProps)}
     >

@@ -1362,6 +1362,12 @@ export function ConnectYourDevicePage() {
         } else {
           await actions.current.createHWWalletWithHidden(params);
         }
+        if (platformEnv.isWebDappMode) {
+          // Connecting is the web's consent, as its connect page states.
+          void backgroundApiProxy.serviceSetting
+            .acceptTermsConsent({ source: 'web_connect' })
+            .catch(() => undefined);
+        }
 
         await trackHardwareWalletConnection({
           status: 'success',

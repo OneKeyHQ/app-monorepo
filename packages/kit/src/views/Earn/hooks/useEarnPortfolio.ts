@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAirdropInvestmentItemV2,
@@ -831,16 +832,36 @@ export const useEarnPortfolio = ({
               }
 
               const resolvedKeys = new Set<string>();
+              const ambiguousSymbols = new Set<string>();
+              const unmatchedVaults = new Set<string>();
+              let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
+                const symbol =
+                  item.protocol.symbol ||
+                  item.assets[0]?.token.info.symbol ||
+                  '';
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
-                  symbol:
-                    item.protocol.symbol ||
-                    item.assets[0]?.token.info.symbol ||
-                    '',
+                  symbol,
                   vault: item.protocol.vault,
                 });
 
+                if (!matchedRequest) {
+                  if (item.protocol.vault) {
+                    unmatchedVaults.add(
+                      createEarnPortfolioRequestKey({
+                        provider: group.provider,
+                        networkId: group.networkId,
+                        symbol: '',
+                        vault: item.protocol.vault,
+                      }),
+                    );
+                  } else if (symbol) {
+                    ambiguousSymbols.add(symbol);
+                  } else {
+                    hasUnidentifiedItem = true;
+                  }
+                }
                 if (
                   !matchedRequest ||
                   (matchedRequest.accountId &&
@@ -853,11 +874,23 @@ export const useEarnPortfolio = ({
                 resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              // Errors, missing items and ambiguous vaults cannot prove an empty
-              // position. Keep the previous value until a matching result arrives.
-              group.requestsByKey.forEach((_request, key) => {
+              // Pendle omits non-positive-value positions from successful batches.
+              group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
-                  normalKeysFailedInThisSession.add(key);
+                  if (
+                    group.provider === EEarnProviderEnum.Pendle.toLowerCase() &&
+                    Array.isArray(response.errors) &&
+                    response.errors.length === 0 &&
+                    !hasUnidentifiedItem &&
+                    !ambiguousSymbols.has(request.symbol) &&
+                    !unmatchedVaults.has(
+                      createEarnPortfolioRequestKey({ ...request, symbol: '' }),
+                    )
+                  ) {
+                    applyResult({ key, source: 'normal', remove: true });
+                  } else {
+                    normalKeysFailedInThisSession.add(key);
+                  }
                 }
               });
             }),

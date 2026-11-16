@@ -19,6 +19,8 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+  isSupportReplyPushMessage,
+  takePendingLegacyNavigationEvent,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -244,6 +246,19 @@ export default class ServiceNotification extends ServiceBase {
       }
     }
 
+    // Only the native Intercom SDK resyncs on this (OK-67112). A reply can
+    // arrive over both websocket and JPush, so resync once per message.
+    if (platformEnv.isNative && isSupportReplyPushMessage(messageInfo)) {
+      const isDuplicate = !!msgId && this.showedNotificationIds.includes(msgId);
+      defaultLogger.notification.support.supportReplyPushReceived({
+        pushSource: messageInfo.pushSource,
+        isDuplicate,
+      });
+      if (!isDuplicate) {
+        appEventBus.emit(EAppEventBusNames.SupportReplyReceived, undefined);
+      }
+    }
+
     this.addShowedNotificationId(msgId);
 
     await notificationsAtom.set((v) =>
@@ -303,6 +318,11 @@ export default class ServiceNotification extends ServiceBase {
     });
   };
 
+  @backgroundMethod()
+  async consumePendingLegacyNavigation() {
+    return takePendingLegacyNavigationEvent();
+  }
+
   onNotificationClosed = async ({
     notificationId,
     params,
@@ -338,6 +358,11 @@ export default class ServiceNotification extends ServiceBase {
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
     this.pendingSupportConversation = { conversationId };
+    defaultLogger.notification.support.supportReplyQueued({
+      conversationId,
+      hasSourceNodeId: !!sourceNodeId,
+      opensExpandTab: !!(platformEnv.isExtensionBackground && !targetNodeId),
+    });
     if (platformEnv.isExtensionBackground && !targetNodeId) {
       await extUtils.openExpandTab({});
     }

@@ -49,6 +49,7 @@ import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProv
 import {
   EApproveType,
   ECheckAmountActionType,
+  EClaimType,
   EStakingActionType,
 } from '@onekeyhq/shared/types/staking';
 import type {
@@ -107,8 +108,10 @@ import {
   isLatestCheckAmountRequest,
 } from './checkAmountRequestUtils';
 import {
+  getWithdrawFormTips,
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
+  shouldShowPendleSummaryTip,
 } from './transactionConfirmationRequestUtils';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -225,6 +228,10 @@ type IWithdrawPathDialogContentProps = {
     current: number;
   };
   onTipAction?: (tip: IEarnTransactionTip) => void | Promise<void>;
+  onClaimAction?: (onPress: () => void) => void;
+  onClaimSuccess?: () => void;
+  protocolInfo?: IProtocolInfo;
+  tokenInfo?: IEarnTokenInfo;
 };
 
 function WithdrawPathDialogContent({
@@ -232,6 +239,10 @@ function WithdrawPathDialogContent({
   initialSelectedIndex,
   selectedIndexRef,
   onTipAction,
+  onClaimAction,
+  onClaimSuccess,
+  protocolInfo,
+  tokenInfo,
 }: IWithdrawPathDialogContentProps) {
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
   const handleSelect = useCallback(
@@ -247,6 +258,15 @@ function WithdrawPathDialogContent({
       {boxes.map((box, index) => {
         const isSelected = index === selectedIndex;
         const isDisabled = !!box.disabled;
+        const claimButton = box.tip?.button;
+        const claimData =
+          claimButton?.type === EClaimType.Claim ? claimButton.data : undefined;
+        const hasClaimAction =
+          box.tip?.text &&
+          claimButton?.type === EClaimType.Claim &&
+          claimData &&
+          protocolInfo &&
+          tokenInfo;
         const tipAction =
           box.tip?.button?.type === EStakingActionType.CancelWithdrawal
             ? {
@@ -327,7 +347,36 @@ function WithdrawPathDialogContent({
                 ) : null}
               </YStack>
             </XStack>
-            {box.tip?.text ? (
+            {hasClaimAction && claimData ? (
+              <EarnActionIcon
+                actionIcon={claimButton}
+                protocolInfo={{
+                  ...protocolInfo,
+                  claimable: claimData.balance,
+                }}
+                tokenInfo={tokenInfo}
+                token={claimData.token.info}
+                onActionSuccess={onClaimSuccess}
+                trigger={({ onPress, disabled }) => (
+                  <Alert
+                    icon="InfoCircleOutline"
+                    type={resolveEarnAlertType(box.tip?.type)}
+                    renderTitle={() => (
+                      <EarnText text={box.tip?.text} size="$bodyMdMedium" />
+                    )}
+                    action={
+                      disabled
+                        ? undefined
+                        : {
+                            primary: claimButton.text.text,
+                            onPrimaryPress: () => onClaimAction?.(onPress),
+                          }
+                    }
+                  />
+                )}
+              />
+            ) : null}
+            {!hasClaimAction && box.tip?.text ? (
               <Alert
                 icon="InfoCircleOutline"
                 type={resolveEarnAlertType(box.tip?.type)}
@@ -408,7 +457,10 @@ export function UniversalWithdraw({
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const price = Number(inputPrice) > 0 ? inputPrice : '0';
+  const withdrawInputToken = protocolInfo?.withdrawApprove?.inputToken;
+  const inputSymbol = withdrawInputToken?.symbol ?? tokenSymbol;
+  const tokenPrice = withdrawInputToken?.price ?? inputPrice;
+  const price = Number(tokenPrice) > 0 ? tokenPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
@@ -417,6 +469,7 @@ export function UniversalWithdraw({
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
+  const [claimRefreshKey, setClaimRefreshKey] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
   // Default selection always prefers the first enabled option (instant); this
   // ref lets an explicit manual choice (e.g. queued in the overlap range) win,
@@ -454,6 +507,13 @@ export function UniversalWithdraw({
   );
   const isPendleProvider = useMemo(
     () => earnUtils.isPendleProvider({ providerName: providerName ?? '' }),
+    [providerName],
+  );
+  const isProtocolExecutedWithdraw = useMemo(
+    () =>
+      earnUtils.isProtocolExecutedWithdraw({
+        providerName: providerName ?? '',
+      }),
     [providerName],
   );
   const requiresEarnWithdrawPath = useMemo(
@@ -528,6 +588,7 @@ export function UniversalWithdraw({
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
         amount: amountValue,
+        claimRefreshKey,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
         isDisabled,
@@ -541,6 +602,7 @@ export function UniversalWithdraw({
     [
       accountAddress,
       amountValue,
+      claimRefreshKey,
       identity,
       isDisabled,
       networkId,
@@ -570,18 +632,9 @@ export function UniversalWithdraw({
     requiresCurrentRequest: requiresEarnWithdrawPath,
   });
 
-  const rootTransactionTip = useMemo(
-    () =>
-      transactionConfirmation?.withdrawPath?.data?.tip ??
-      transactionConfirmation?.tip,
-    [
-      transactionConfirmation?.tip,
-      transactionConfirmation?.withdrawPath?.data?.tip,
-    ],
-  );
-  const formTransactionTip = useMemo(
-    () => (selectedWithdrawPath?.tip ? undefined : rootTransactionTip),
-    [rootTransactionTip, selectedWithdrawPath?.tip],
+  const { formTip: formTransactionTip, inlinePathTip } = getWithdrawFormTips(
+    transactionConfirmation,
+    effectiveSelectedWithdrawPathIndex,
   );
 
   const isQueuedWithdraw = selectedWithdrawType === 'queued';
@@ -1651,6 +1704,15 @@ export function UniversalWithdraw({
           boxes={withdrawPathConfirmBoxes}
           initialSelectedIndex={effectiveSelectedWithdrawPathIndex}
           selectedIndexRef={selectedIndexRef}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
+          onClaimSuccess={() => setClaimRefreshKey((key) => key + 1)}
+          onClaimAction={(pressClaim) => {
+            void (async () => {
+              await dialogRef.close?.();
+              pressClaim();
+            })();
+          }}
           onTipAction={async (tip) => {
             await dialogRef.close?.();
             await handleTipAction(tip);
@@ -1669,12 +1731,20 @@ export function UniversalWithdraw({
     handleSelectWithdrawPath,
     handleTipAction,
     intl,
+    protocolInfo,
+    tokenInfo,
     transactionConfirmation?.withdrawPath?.text?.text,
     withdrawPathConfirmBoxes,
   ]);
 
   const confirmText = useMemo(() => {
-    if (shouldApprove) return ETranslations.global_approve;
+    if (shouldApprove) {
+      // One tap covers both steps when the protocol submits the redeem request
+      // itself after the approve (OK-66931).
+      return isProtocolExecutedWithdraw
+        ? ETranslations.earn_approve_and_withdraw__action
+        : ETranslations.global_approve;
+    }
     if (effectiveShowExpiredRefresh) return ETranslations.global_refresh;
     if (shouldResumeEthenaCooldownUnstake) return ETranslations.defi_unstake;
     if (isCancelWithdrawal) return ETranslations.global_confirm;
@@ -1682,6 +1752,7 @@ export function UniversalWithdraw({
     return ETranslations.global_withdraw;
   }, [
     shouldApprove,
+    isProtocolExecutedWithdraw,
     effectiveShowExpiredRefresh,
     shouldResumeEthenaCooldownUnstake,
     isCancelWithdrawal,
@@ -1761,8 +1832,10 @@ export function UniversalWithdraw({
               onChange={onChangeAmountValue}
               onBlur={onBlurAmountValue}
               tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
+                selectedTokenImageUri: withdrawInputToken
+                  ? withdrawInputToken.logoURI
+                  : tokenImageUri,
+                selectedTokenSymbol: inputSymbol,
                 selectedNetworkImageUri: network?.logoURI,
               }}
               inputProps={{
@@ -1824,6 +1897,14 @@ export function UniversalWithdraw({
         ) : null}
       </Stack>
 
+      {isCheckAmountMessageError ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={checkAmountMessage}
+        />
+      ) : null}
+
       {showWithdrawPathSelector && selectedWithdrawPath ? (
         <XStack
           borderWidth={StyleSheet.hairlineWidth}
@@ -1876,25 +1957,31 @@ export function UniversalWithdraw({
         </XStack>
       ) : null}
 
-      {formTransactionTip?.text ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type={resolveEarnAlertType(formTransactionTip.type)}
-          renderTitle={() => (
-            <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
-          )}
-          descriptionComponent={
-            formTransactionTip.description ? (
-              <EarnText
-                text={formTransactionTip.description}
-                size="$bodyMd"
-                color="$textSubdued"
-              />
-            ) : undefined
-          }
-          action={buildTipAlertAction(formTransactionTip)}
-        />
-      ) : null}
+      {[
+        { key: 'path-tip', tip: inlinePathTip },
+        { key: 'form-tip', tip: formTransactionTip },
+      ].map(({ key, tip }) =>
+        tip?.text ? (
+          <Alert
+            key={key}
+            icon="InfoCircleOutline"
+            type={resolveEarnAlertType(tip.type)}
+            renderTitle={() => (
+              <EarnText text={tip.text} size="$bodyMdMedium" />
+            )}
+            descriptionComponent={
+              tip.description ? (
+                <EarnText
+                  text={tip.description}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                />
+              ) : undefined
+            }
+            action={buildTipAlertAction(tip)}
+          />
+        ) : null,
+      )}
 
       {remainingLessThanMinAmountWarning ? (
         <Alert
@@ -1902,15 +1989,8 @@ export function UniversalWithdraw({
           type="warning"
           title={intl.formatMessage(
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
-            { number: minAmount, symbol: tokenSymbol },
+            { number: minAmount, symbol: inputSymbol },
           )}
-        />
-      ) : null}
-      {isCheckAmountMessageError ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={checkAmountMessage}
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (
@@ -1973,7 +2053,14 @@ export function UniversalWithdraw({
             {hasSummarySection && usePendleSummaryLayout ? (
               <PendleSummarySection
                 rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
+                tipText={
+                  shouldShowPendleSummaryTip({
+                    formTip: formTransactionTip,
+                    transactionTip: transactionConfirmation?.tip,
+                  })
+                    ? pendleTipText
+                    : undefined
+                }
                 loading={quoteLoading}
               />
             ) : null}

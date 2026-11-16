@@ -124,6 +124,10 @@ jest.mock('./MarketDetail/PerpFundingChart', () => ({
   PerpFundingChart: () => null,
 }));
 
+jest.mock('./PerpOrderBook', () => ({
+  PerpOrderBook: () => null,
+}));
+
 jest.mock('./MarketDetail/PerpMarketDetailContent', () => ({
   PERP_MARKET_INFO_TAB_KEYS: [],
   PerpMarketDetailContent: () => null,

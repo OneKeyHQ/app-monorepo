@@ -3,6 +3,8 @@ import type { PropsWithChildren } from 'react';
 
 import { act, isInaccessible, render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
 
 let mockBannerLoading = true;
@@ -87,6 +89,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  isDesktop: false,
   get isNative() {
     return mockIsNative;
   },
@@ -152,6 +155,7 @@ jest.mock('../hooks/marketNetworkUtils', () => ({
 }));
 jest.mock('../hooks/useMarketEnterAnalytics', () => ({
   useMarketHomePageEnterAnalytics: jest.fn(),
+  useMarketHomeViewAnalytics: jest.fn(),
 }));
 jest.mock('../MarketWatchListProviderMirrorV2', () => ({
   MarketWatchListProviderMirrorV2: ({ children }: PropsWithChildren) =>
@@ -182,7 +186,9 @@ jest.mock('./hooks/useMarketHomeSelection', () => ({
   ],
 }));
 jest.mock('./layouts/DesktopLayout', () => ({
-  DesktopLayout: () => <span data-testid="desktop-layout" />,
+  DesktopLayout: ({ isLayoutActive }: { isLayoutActive: boolean }) => (
+    <span data-testid="desktop-layout" data-active={String(isLayoutActive)} />
+  ),
 }));
 jest.mock('./layouts/MobileLayout', () => ({
   MobileLayout: (props: typeof mockLayoutProps) => {
@@ -197,6 +203,7 @@ jest.mock('./utils', () => ({
 }));
 
 beforeEach(() => {
+  platformEnv.isDesktop = false;
   mockIsNative = true;
   mockIsFocused = true;
   mockRootRoutersLength = 1;
@@ -208,6 +215,7 @@ it.each([false, true])(
   'keeps desktop Market visible under search (mounted under a modal: %s)',
   async (mountedUnderModal) => {
     mockIsNative = false;
+    platformEnv.isDesktop = true;
     mockBannerLoading = false;
     mockCategoryLoading = false;
     mockIsFocused = !mountedUnderModal;
@@ -219,11 +227,13 @@ it.each([false, true])(
     await act(async () => screen.rerender(<MarketHomeV2 />));
     const layout = screen.getByTestId('desktop-layout');
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = false;
     mockRootRoutersLength = 2;
     await act(async () => screen.rerender(<MarketHomeV2 />));
     expect(isInaccessible(layout)).toBe(false);
+    expect(layout.getAttribute('data-active')).toBe('true');
 
     mockIsFocused = true;
     mockRootRoutersLength = 1;
@@ -235,6 +245,7 @@ it.each([false, true])(
 
 it('still freezes desktop Market when navigating away and restores it on return', async () => {
   mockIsNative = false;
+  platformEnv.isDesktop = true;
   mockBannerLoading = false;
   mockCategoryLoading = false;
   const screen = render(<MarketHomeV2 />);

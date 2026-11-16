@@ -2,12 +2,11 @@ import { generateUUID } from '../../utils/miscUtils';
 
 import type {
   ISniRequestCancelSettledResult,
-  ISniRequestConfig,
   ISniRequestOptions,
   ISniRequestTransportSettledResult,
 } from '../types/ipTable';
 
-type SniRequestExecutor<T> = (config: ISniRequestConfig) => Promise<T>;
+type SniRequestExecutor<TConfig, T> = (config: TConfig) => Promise<T>;
 type SniRequestCanceller = (requestId: string) => Promise<{ success: boolean }>;
 
 class SniRequestCancelledError extends Error {
@@ -52,17 +51,20 @@ export async function raceSniRequestWithAbort<T>(
   }
 }
 
-export async function executeSniRequestWithAbort<T>(
-  config: ISniRequestConfig,
+export async function executeSniRequestWithAbort<
+  TConfig extends { requestId?: string },
+  T,
+>(
+  config: TConfig,
   options: ISniRequestOptions | undefined,
-  execute: SniRequestExecutor<T>,
+  execute: SniRequestExecutor<TConfig, T>,
   cancel: SniRequestCanceller,
 ): Promise<T> {
   const signal = options?.signal;
   throwIfSniRequestAborted(signal);
 
   const requestId = config.requestId ?? generateUUID();
-  const requestConfig: ISniRequestConfig = {
+  const requestConfig: TConfig = {
     ...config,
     requestId,
   };

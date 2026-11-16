@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   ILocalWalletFrozenPart,
@@ -71,34 +72,45 @@ function frozenLineText(
     .join(' · ');
 }
 
-// Before a hardware account's send asks its device to verify new funds, say
-// why. Resolves whether the user chose to verify.
-export function confirmLocalWalletDeviceVerify({
+// Before a send asks the device or an unlock to verify new funds, say why.
+// Resolves whether the user chose to verify.
+export function confirmLocalWalletVerify({
   intl,
   amount,
+  onDevice,
+  titleId = ETranslations.privacy_device_verify__title,
+  descriptionId = onDevice
+    ? ETranslations.privacy_device_verify__desc
+    : ETranslations.privacy_password_verify__desc,
+  isCurrent,
+  onOpen,
 }: {
   intl: IntlShape;
   amount: string;
+  onDevice: boolean;
+  titleId?: ETranslations;
+  descriptionId?: ETranslations;
+  isCurrent?: () => boolean;
+  onOpen?: (dialog: IDialogInstance) => void;
 }): Promise<boolean> {
+  if (isCurrent?.() === false) return Promise.resolve(false);
   return new Promise((resolve) => {
     let confirmed = false;
-    Dialog.show({
+    const dialog = Dialog.show({
       title: intl.formatMessage({
-        id: ETranslations.privacy_device_verify__title,
+        id: titleId,
       }),
-      description: intl.formatMessage(
-        { id: ETranslations.privacy_device_verify__desc },
-        { amount },
-      ),
+      description: intl.formatMessage({ id: descriptionId }, { amount }),
       onConfirmText: intl.formatMessage({
         id: ETranslations.privacy_balance_verify__action,
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
       onConfirm: () => {
-        confirmed = true;
+        confirmed = isCurrent?.() !== false;
       },
-      onClose: () => resolve(confirmed),
+      onClose: () => resolve(confirmed && isCurrent?.() !== false),
     });
+    onOpen?.(dialog);
   });
 }
 

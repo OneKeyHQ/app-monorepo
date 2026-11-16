@@ -7,6 +7,7 @@ export enum EAtomNames {
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
   inscriptionProtectionControlPersistAtom = 'inscriptionProtectionControlPersistAtom',
+  termsConsentPersistAtom = 'termsConsentPersistAtom',
   settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
   currencyPersistAtom = 'currencyPersistAtom',
@@ -165,8 +166,6 @@ export enum EAtomNames {
   marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
   marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
-  marketPriceSourceAtom = 'marketPriceSourceAtom',
-  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

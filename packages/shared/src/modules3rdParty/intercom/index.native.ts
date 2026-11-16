@@ -1,7 +1,9 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import { AppState, NativeEventEmitter, NativeModules } from 'react-native';
 
 import { defaultColorScheme } from '../../config/appConfig';
 import { OneKeyLocalError } from '../../errors';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
@@ -14,12 +16,21 @@ import {
   createIntercomOpenGuard,
   getInstanceId,
   getIntercomLanguageOverride,
-  getIntercomSupportUrlOverride,
 } from './utils';
 import { showIntercom as showWebIntercom } from './webView.native';
 
+import type {
+  IIntercomUnreadTrigger,
+  ISupportReplyResyncResult,
+} from '../../logger/scopes/notification/scenes/support';
+
 type IIntercomSdk = typeof import('@intercom/intercom-react-native');
 type IUserId = string | null;
+type IIntercomThemeMode = 'light' | 'dark' | 'system';
+
+// The SDK cache can change without a delivered unread event (observed on iOS),
+// so the foreground app re-reads it periodically. The read is a local getter.
+const UNREAD_POLL_INTERVAL_MS = 30_000;
 
 let sdkPromise: Promise<IIntercomSdk> | undefined;
 let sessionPromise: Promise<void> | undefined;
@@ -29,13 +40,17 @@ let activeSessionGeneration = 0;
 let sessionGeneration = 0;
 let unreadRequestId = 0;
 let unreadCount = 0;
-let currentTheme: 'light' | 'dark' = defaultColorScheme;
+let currentTheme: IIntercomThemeMode = defaultColorScheme;
+let unreadPollTimer: ReturnType<typeof setInterval> | undefined;
 let messengerLocked = false;
+// A support reply received in the background resyncs on the next foreground.
+let supportReplyResyncPending = false;
 const intercomOpenGuard = createIntercomOpenGuard(notifyIntercomOpenFailed);
 const unreadListeners = new Set<() => void>();
 
 type IOneKeyIntercom = {
   initialized: boolean;
+  refreshUnreadCount?: (languageOverride: string) => Promise<void>;
   updateLockPolicy?: (
     locked: boolean,
     validFromMs: number,
@@ -70,7 +85,10 @@ export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   };
 };
 
-async function refreshUnreadCount(sdk: IIntercomSdk) {
+async function refreshUnreadCount(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
   const generation = activeSessionGeneration;
   unreadRequestId += 1;
   const requestId = unreadRequestId;
@@ -81,7 +99,19 @@ async function refreshUnreadCount(sdk: IIntercomSdk) {
     requestId === unreadRequestId &&
     activeUserId === userId
   ) {
+    if (count !== unreadCount) {
+      defaultLogger.notification.support.intercomUnreadChanged({
+        trigger,
+        previousCount: unreadCount,
+        count,
+      });
+    }
     setUnreadCount(count);
+    return;
+  }
+  // A poll that keeps missing the session would log every tick.
+  if (trigger !== 'poll') {
+    defaultLogger.notification.support.intercomUnreadDiscarded({ trigger });
   }
 }
 
@@ -90,8 +120,105 @@ async function isCurrentSession(userId: IUserId, generation: number) {
   return generation === sessionGeneration && currentUserId === userId;
 }
 
-function toSdkThemeMode(sdk: IIntercomSdk, theme: 'light' | 'dark') {
+function logUnreadRefreshFailed(
+  trigger: IIntercomUnreadTrigger,
+  error: unknown,
+) {
+  console.warn('Failed to refresh Intercom unread count');
+  defaultLogger.notification.support.intercomUnreadRefreshFailed({
+    trigger,
+    errorName: (error as Error | undefined)?.name,
+  });
+}
+
+function requestUnreadRefresh(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
+  void refreshUnreadCount(sdk, trigger).catch((error: unknown) =>
+    logUnreadRefreshFailed(trigger, error),
+  );
+}
+
+function syncUnreadPolling(sdk: IIntercomSdk, active: boolean) {
+  if (!active) {
+    clearInterval(unreadPollTimer);
+    unreadPollTimer = undefined;
+    return;
+  }
+  unreadPollTimer ??= setInterval(
+    () => requestUnreadRefresh(sdk, 'poll'),
+    UNREAD_POLL_INTERVAL_MS,
+  );
+}
+
+function toSdkThemeMode(sdk: IIntercomSdk, theme: IIntercomThemeMode) {
+  if (theme === 'system') {
+    // Lets an open Messenger follow OS appearance changes on its own; on
+    // Android the app Activity does not see them until it resumes.
+    return sdk.ThemeMode.SYSTEM;
+  }
   return theme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT;
+}
+
+// Support pushes must reach the server. Android first invalidates attribute
+// dedup; SDK unread events publish response changes alongside the local read.
+async function resyncUnreadFromServer(
+  sdk: IIntercomSdk,
+  trigger: IIntercomUnreadTrigger,
+) {
+  const languageOverride = await getIntercomLanguageOverride();
+  if (trigger === 'support-push' && platformEnv.isNativeAndroid) {
+    if (!nativeIntercom?.refreshUnreadCount) {
+      throw new OneKeyLocalError(
+        'Intercom unread refresh requires an updated Android binary',
+      );
+    }
+    await nativeIntercom.refreshUnreadCount(languageOverride);
+  } else {
+    await sdk.default.updateUser({ languageOverride });
+  }
+  await refreshUnreadCount(sdk, trigger);
+}
+
+// In the foreground the SDK only learns about a new reply from its realtime
+// socket and keeps a stale unread cache when that event never arrives
+// (OK-67112). The OneKey support-reply push still reaches bg, so main resyncs.
+async function resyncUnreadOnSupportReply(
+  sdk: IIntercomSdk,
+): Promise<ISupportReplyResyncResult> {
+  // Defer a background user update to the next foreground. Only an explicit
+  // 'background' defers: a state that never changes would never flush it.
+  if (AppState.currentState === 'background') {
+    supportReplyResyncPending = true;
+    return 'deferred-to-foreground';
+  }
+  supportReplyResyncPending = false;
+  // A session sync in flight ends with its own resync, so do not wait on it.
+  if (activeSessionGeneration !== sessionGeneration) {
+    return 'session-syncing';
+  }
+  const userId = activeUserId;
+  const generation = activeSessionGeneration;
+  if (userId === undefined) {
+    return 'no-session';
+  }
+  if (!(await isCurrentSession(userId, generation))) {
+    return 'identity-changed';
+  }
+  await resyncUnreadFromServer(sdk, 'support-push');
+  return 'resynced';
+}
+
+function requestSupportReplyResync(sdk: IIntercomSdk) {
+  void resyncUnreadOnSupportReply(sdk)
+    .then((result) =>
+      defaultLogger.notification.support.supportReplyResync({ result }),
+    )
+    .catch((error: unknown) => {
+      supportReplyResyncPending = true;
+      logUnreadRefreshFailed('support-push', error);
+    });
 }
 
 async function loadSdk() {
@@ -99,8 +226,8 @@ async function loadSdk() {
     sdkPromise = (async () => {
       const sdk = await import('@intercom/intercom-react-native');
       // Native initialization (BaseMainApplication / OneKeyIntercom.mm) owns
-      // the keys and already hides the launcher, in-app messages and proactive
-      // content before either JS runtime starts.
+      // the keys and hides the launcher, in-app messages and proactive content
+      // before either JS runtime starts.
       await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
       // The SDK requires its Android listener before app-owned emitters.
       sdk.default.bootstrapEventListeners();
@@ -108,14 +235,34 @@ async function loadSdk() {
         NativeModules.IntercomEventEmitter,
       );
       // One listener belongs to the main runtime for the native SDK lifetime.
-      emitter.addListener(
-        sdk.IntercomEvents.IntercomUnreadCountDidChange,
-        () => {
-          void refreshUnreadCount(sdk).catch(() => {
-            console.warn('Failed to refresh Intercom unread count');
-          });
-        },
+      emitter.addListener(sdk.IntercomEvents.IntercomUnreadCountDidChange, () =>
+        requestUnreadRefresh(sdk, 'sdk-event'),
       );
+      // Closing the Messenger marks conversations read.
+      emitter.addListener(sdk.IntercomEvents.IntercomWindowDidHide, () =>
+        requestUnreadRefresh(sdk, 'messenger-closed'),
+      );
+      appEventBus.on(EAppEventBusNames.SupportReplyReceived, () =>
+        requestSupportReplyResync(sdk),
+      );
+      AppState.addEventListener('change', (state) => {
+        const active = state === 'active';
+        if (active) {
+          if (supportReplyResyncPending) {
+            requestSupportReplyResync(sdk);
+          } else {
+            requestUnreadRefresh(sdk, 'foreground');
+          }
+        }
+        syncUnreadPolling(sdk, active);
+      });
+      syncUnreadPolling(sdk, AppState.currentState === 'active');
+      // Records whether the foreground poll started at load, e.g. after an
+      // in-process main runtime restart.
+      defaultLogger.notification.support.intercomSdkLoaded({
+        appState: AppState.currentState,
+        pollActive: !!unreadPollTimer,
+      });
       return sdk;
     })();
     void sdkPromise.catch(() => {
@@ -125,8 +272,25 @@ async function loadSdk() {
   return sdkPromise;
 }
 
+// Native never shows Intercom in-app messages; unread dots and OneKey push
+// cover replies. The SDK keeps an unread reply cached after it is swiped away
+// and re-presents it whenever in-app messages turn visible again (OK-67003).
+// Native init sets GONE per process and the SDK never resets it; reassert it
+// per JS main runtime in case an older bundle in this process enabled it.
+async function hideInAppMessages(): Promise<void> {
+  if (!canUseNativeSdk()) {
+    return;
+  }
+  // Setting visibility needs no session, so do not initialize one here.
+  const sdk = await import('@intercom/intercom-react-native');
+  await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
+}
+
 export async function setIntercomInAppMessageVisibility(_visible: boolean) {
-  // Native keeps in-app messages off; unread dots and OneKey push cover replies.
+  if (!platformEnv.isNativeMainThread) {
+    return;
+  }
+  await hideInAppMessages();
 }
 
 export async function setIntercomMessengerLocked(
@@ -137,6 +301,10 @@ export async function setIntercomMessengerLocked(
     return;
   }
   messengerLocked = locked;
+  // IntercomLockGuard syncs the lock on mount at every main runtime start.
+  void hideInAppMessages().catch(() => {
+    console.warn('Failed to hide Intercom in-app messages');
+  });
   if (locked) {
     // Cancel pre-lock opens and allow an immediate deliberate reopen after unlock.
     intercomOpenGuard.reset();
@@ -156,11 +324,14 @@ export async function setIntercomMessengerLocked(
   await sdk.default.hideIntercom();
 }
 
-export async function setIntercomTheme(theme: 'light' | 'dark') {
+export async function setIntercomTheme(
+  theme: 'light' | 'dark',
+  followSystem = false,
+) {
   if (!platformEnv.isNativeMainThread) {
     return;
   }
-  currentTheme = theme;
+  currentTheme = followSystem ? 'system' : theme;
   if (!canUseNativeSdk()) {
     return;
   }
@@ -244,10 +415,7 @@ async function syncSession(
   }
   activeUserId = userId;
   activeSessionGeneration = generation;
-  await sdk.default.updateUser({
-    languageOverride: await getIntercomLanguageOverride(),
-  });
-  await refreshUnreadCount(sdk);
+  await resyncUnreadFromServer(sdk, 'session');
 }
 
 function hasOpenedNativeSupport() {
@@ -317,13 +485,13 @@ async function openIntercom(
   if (!platformEnv.isNativeMainThread) {
     throw new OneKeyLocalError('Intercom must be opened in the main runtime');
   }
-  // A developer support URL override only applies to the hosted page, so it
-  // routes around the native Messenger. The hosted page cannot open a specific
-  // conversation, so notification opens keep using the SDK when it exists.
-  if (
-    !canUseNativeSdk() ||
-    (!params?.conversationId && (await getIntercomSupportUrlOverride()))
-  ) {
+  const nativeSdkReady = canUseNativeSdk();
+  if (!nativeSdkReady) {
+    defaultLogger.notification.support.supportReplyBranch({
+      conversationId: params?.conversationId,
+      selectedBranch: 'native-webview-fallback',
+      nativeSdkReady,
+    });
     return showWebIntercom(
       params,
       (userId) => userId === expectedUserId && !messengerLocked && canPresent(),
@@ -349,7 +517,7 @@ async function openIntercom(
       ...(params?.requestId ? { requestId: params.requestId } : {}),
     });
   }
-  let appliedTheme: 'light' | 'dark';
+  let appliedTheme: IIntercomThemeMode;
   do {
     appliedTheme = currentTheme;
     await sdk.default.setThemeMode(toSdkThemeMode(sdk, appliedTheme));
@@ -369,6 +537,17 @@ async function openIntercom(
   if (messengerLocked) {
     return false;
   }
+  const hasUnreadConversations = unreadCount > 0;
+  const defaultBranch = hasUnreadConversations
+    ? 'native-messages'
+    : 'native-home';
+  defaultLogger.notification.support.supportReplyBranch({
+    conversationId: params?.conversationId,
+    selectedBranch: params?.conversationId
+      ? 'native-conversation'
+      : defaultBranch,
+    nativeSdkReady,
+  });
   if (params?.conversationId) {
     return (
       (await sdk.default.presentContent(
@@ -377,6 +556,9 @@ async function openIntercom(
         ),
       )) !== false
     );
+  }
+  if (hasUnreadConversations) {
+    return (await sdk.default.presentSpace(sdk.Space.messages)) !== false;
   }
   return (await sdk.default.present()) !== false;
 }

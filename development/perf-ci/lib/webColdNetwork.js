@@ -74,6 +74,10 @@ const RECORDABLE_ENDPOINTS = [
     body: /^\{"stockIds":\["NVDA"\]\}$/,
   },
   {
+    route: 'POST utility.onekeycn.com/utility/v1/stocks/batch',
+    body: /^\{"stockIds":\["NVDA"\]\}$/,
+  },
+  {
     route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
     query: ['category', 'ids', 'sparkline'],
   },

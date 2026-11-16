@@ -5,8 +5,10 @@ import type { ReactNode } from 'react';
 import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
+  NavigationMetaContext,
   type ParamListBase,
   type Route,
+  StackActions,
   type TabNavigationState,
 } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
@@ -30,6 +32,11 @@ type Props = NativeBottomTabNavigationConfig & {
   navigation: NativeBottomTabNavigationHelpers;
   descriptors: NativeBottomTabDescriptorMap;
 };
+
+// Native stacks pop to their root on every press of the focused tab unless they
+// sit in native tabs. Here a single press does nothing and a double press is
+// resolved in `onTabDoublePress`.
+const NATIVE_TABS_NAVIGATION_META = { type: 'native-tabs' };
 
 const styles = StyleSheet.create({
   scene: {
@@ -157,7 +164,9 @@ export function NativeBottomTabView({
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
-        {descriptors[route.key]?.render()}
+        <NavigationMetaContext.Provider value={NATIVE_TABS_NAVIGATION_META}>
+          {descriptors[route.key]?.render()}
+        </NavigationMetaContext.Provider>
       </SceneWithActivationPlaceholder>
     ),
     [
@@ -266,7 +275,7 @@ export function NativeBottomTabView({
     [descriptors, tabBarHidden],
   );
   const onTabDoublePress = useCallback(
-    (index: number) => {
+    (index: number, didScrollToTop?: boolean) => {
       const route = state.routes[index];
       if (!route) {
         return;
@@ -276,6 +285,21 @@ export function NativeBottomTabView({
         type: 'tabDoublePress',
         target: route.key,
       });
+
+      // The native side already scrolled the visible page when it was not at
+      // the top, so only a page sitting at the top leaves for the tab root.
+      // Native builds without the flag report nothing and must not pop.
+      const stackState = route.state;
+      if (
+        didScrollToTop === false &&
+        stackState?.key &&
+        (stackState.index ?? 0) > 0
+      ) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: stackState.key,
+        });
+      }
     },
     [state.routes, navigation],
   );

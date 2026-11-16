@@ -127,6 +127,7 @@ interface IApprovalParams {
   amountValue: string;
   repayAll: boolean;
   approveTarget?: IBorrowApproveTarget;
+  stakingInfo?: { protocolLogoURI?: string };
   onApprovedSubmit: () => Promise<void>;
 }
 
@@ -244,6 +245,7 @@ function renderFlow() {
       accountId: 'account-id',
       provider: 'aave',
       marketAddress: '0xMarket',
+      providerLogoURI: 'https://example.com/aave.png',
       targetEModeId: 2,
       onAllDone: jest.fn(),
     }),
@@ -297,6 +299,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       expect(result.current.activeStep?.key).toBe('repay:0xreserve');
     });
     await launchApproval(result);
+    expect(approvalMock.latestParams?.stakingInfo?.protocolLogoURI).toBe(
+      'https://example.com/aave.png',
+    );
 
     switchMock.check = null;
     switchMock.isChecking = true;
@@ -320,6 +325,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
         amount: '3',
         ignoreOrderTrackingError: true,
         reserveAddress: '0xReserve',
+        stakingInfo: expect.objectContaining({
+          protocolLogoURI: 'https://example.com/aave.png',
+        }),
       }),
     );
   });
@@ -595,7 +603,9 @@ describe('useEModeNeedActionFlow approval continuation', () => {
       marketAddress: '0xMarket',
       reserveAddress: '0xReserve',
       useAsCollateral: false,
-      stakingInfo: expect.any(Object),
+      stakingInfo: expect.objectContaining({
+        protocolLogoURI: 'https://example.com/aave.png',
+      }),
       onSuccess: expect.any(Function),
       onFail: expect.any(Function),
       onCancel: expect.any(Function),
@@ -676,7 +686,12 @@ describe('useEModeNeedActionFlow approval continuation', () => {
     await waitFor(() => {
       expect(universalMock.setEMode).toHaveBeenCalledTimes(1);
       expect(universalMock.setEMode).toHaveBeenCalledWith(
-        expect.objectContaining({ ignoreOrderTrackingError: true }),
+        expect.objectContaining({
+          ignoreOrderTrackingError: true,
+          stakingInfo: expect.objectContaining({
+            protocolLogoURI: 'https://example.com/aave.png',
+          }),
+        }),
       );
       expect(switchMock.applyAuthoritativeCheck).toHaveBeenCalledWith({
         eModeId: 2,

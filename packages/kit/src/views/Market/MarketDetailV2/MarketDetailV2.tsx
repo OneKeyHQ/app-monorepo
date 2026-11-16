@@ -15,6 +15,7 @@ import {
   useNavigationState,
 } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -25,8 +26,10 @@ import {
   Stack,
   rootNavigationRef,
   useIsModalPage,
+  useIsOverlayPage,
   useMedia,
   usePreventRemove,
+  useSafeAreaInsets,
   useSplitSubView,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -37,7 +40,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -62,6 +67,7 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -76,6 +82,7 @@ import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDe
 import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
+import { usePendingMarketAsset } from './hooks/usePendingMarketAsset';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -178,6 +185,8 @@ function MarketDetail({
   const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
   const isRouteFocused = useIsFocused();
   const media = useMedia();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { top: safeAreaTop } = useSafeAreaInsets();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
   const rootRoutersLength = getRootRoutersLength();
   const ownsEmbeddedSwapRef = useRef(isRouteFocused);
@@ -265,6 +274,35 @@ function MarketDetail({
     'marketVariantId' in params ? params.marketVariantId : undefined;
   const marketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const pendingMarketAsset =
+    'pendingMarketAsset' in params ? params.pendingMarketAsset : undefined;
+  const lastAssetPreview = useRef({
+    marketTokenId,
+    preview: pendingMarketAsset,
+  });
+  if (
+    pendingMarketAsset ||
+    lastAssetPreview.current.marketTokenId !== marketTokenId
+  ) {
+    lastAssetPreview.current = { marketTokenId, preview: pendingMarketAsset };
+  }
+  const setMarketAssetParams = useCallback(
+    (nextParams: Parameters<typeof navigation.setParams>[0]) => {
+      navigation.setParams(nextParams);
+    },
+    [navigation],
+  );
+  const { isResolving: isMarketAssetResolving, retry: retryMarketAsset } =
+    usePendingMarketAsset({
+      params: {
+        pendingMarketAsset,
+        marketTokenId,
+        network: routeNetworkId,
+        tokenAddress: routeTokenAddress,
+        isNative: routeIsNative,
+      },
+      setParams: setMarketAssetParams,
+    });
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -310,8 +348,11 @@ function MarketDetail({
     networkId,
   });
   const tokenDetailTarget = useMemo(
-    () => ({ tokenAddress, networkId, isNative: isNativeBoolean }),
-    [isNativeBoolean, networkId, tokenAddress],
+    () =>
+      isMarketAssetResolving
+        ? { tokenAddress: '', networkId: '', isNative: false }
+        : { tokenAddress, networkId, isNative: isNativeBoolean },
+    [isMarketAssetResolving, isNativeBoolean, networkId, tokenAddress],
   );
 
   // Track market entry analytics
@@ -324,7 +365,7 @@ function MarketDetail({
     isMarketAssetDetailLoading,
     isInitialTokenDetailPending,
   } = useAutoRefreshTokenDetail({
-    active: shouldOwnSharedMarketDetailState,
+    active: shouldOwnSharedMarketDetailState && !isMarketAssetResolving,
     resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
     tokenAddress,
     networkId,
@@ -341,6 +382,11 @@ function MarketDetail({
   const shouldDisableTrade =
     disableTrade ||
     (isDesktopLayout && !isRouteFocused && !shouldKeepEmbeddedSwapMounted);
+  const marketAssetLoadingPreview =
+    pendingMarketAsset ??
+    (!hasValidInitialContentPreview && isInitialTokenDetailPending
+      ? lastAssetPreview.current.preview
+      : undefined);
   // iOS 26+ root-tab headers are translucent (Liquid Glass) so the page
   // body extends under the bar — without an explicit top inset the
   // chart / 图表 / 概述 tabs sit clipped behind the navbar position.
@@ -349,8 +395,25 @@ function MarketDetail({
   // content out below the bar; adding headerHeight there would push the
   // body down twice and leave a blank band at the top.
   const isModalPage = useIsModalPage();
+  const isOverlayPage = useIsOverlayPage();
   const headerHeight = useHeaderHeight();
   const usesTranslucentHeader = platformEnv.isNativeIOS26Plus && !isModalPage;
+  const inPageHeaderEligible =
+    platformEnv.isNativeIOS26Plus &&
+    !platformEnv.isNativeIOSPad &&
+    !isFoldableIPhone() &&
+    !isOverlayPage;
+  const inPageHeaderRef = useRef(false);
+  if (
+    inPageHeaderEligible &&
+    isRouteFocused &&
+    media.md &&
+    windowWidth <= windowHeight &&
+    safeAreaTop > 0
+  ) {
+    inPageHeaderRef.current = true;
+  }
+  const usesInPageHeader = inPageHeaderEligible && inPageHeaderRef.current;
   // useHeaderHeight() starts from react-navigation's pre-iOS 26 estimate and
   // reports the Liquid Glass bar ~15pt taller a beat later, which dropped the
   // whole body mid-push. Reuse the height this device already settled on.
@@ -368,11 +431,12 @@ function MarketDetail({
   // flag clears before UIKit has finished restoring the portrait geometry.
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
     useSettledHeaderHeight(inlineHeaderHeightRef.current, {
-      enabled: usesTranslucentHeader,
+      enabled: usesTranslucentHeader && !usesInPageHeader,
       estimatedHeaderHeight,
       cacheKey: headerHeightCacheKey,
     });
-  const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
+  const bodyPaddingTop =
+    usesTranslucentHeader && !usesInPageHeader ? settledHeaderHeight : 0;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -384,10 +448,10 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
-      <MarketCurrentTokenLiveDataSync />
+      {isMarketAssetResolving ? null : <MarketCurrentTokenLiveDataSync />}
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
-        preview={tokenDetailPreview}
+        preview={isMarketAssetResolving ? undefined : tokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
         retainedTokenTarget={tokenDetailTarget}
       />
@@ -398,13 +462,15 @@ function MarketDetail({
           <MarketDetailHeader
             showFavoriteButton={showFavoriteButton}
             marketTokenCategory={marketTokenCategory}
+            pendingMarketAsset={marketAssetLoadingPreview}
+            routeTokenPreview={tokenDetailPreview}
           />
         )}
 
         <Page.Body
           pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           // Hidden only while the session's first header measurement settles.
-          opacity={isHeaderHeightSettled ? 1 : 0}
+          opacity={usesInPageHeader || isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
           {isResolvingSwapAsset && lookupError === lookupScope ? (
@@ -431,8 +497,12 @@ function MarketDetail({
             </Stack>
           ) : (
             <MarketDetailResponsiveLayout
-              active={shouldOwnSharedMarketDetailState}
+              active={
+                shouldOwnSharedMarketDetailState && !isMarketAssetResolving
+              }
               isLayoutPending={isResolvingSwapAsset}
+              pendingMarketAsset={marketAssetLoadingPreview}
+              retryMarketAsset={retryMarketAsset}
               disablePerpsBanner={skipMarketDataFetch}
               isInitialContentPending={
                 !hasValidInitialContentPreview &&
@@ -472,6 +542,23 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
+  const routeName = props.route.name;
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    defaultLogger.market.navigation.homeTokenNavigation({
+      stage: 'detailMounted',
+      routeName,
+    });
+  }, [routeName]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!platformEnv.isNative) return;
+      defaultLogger.market.navigation.homeTokenNavigation({
+        stage: 'detailFocused',
+        routeName,
+      });
+    }, [routeName]),
+  );
   const hasPreviousScreen = useNavigationState((state) => state.index > 0);
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
@@ -614,6 +701,7 @@ function MarketDetailV2(
     effectiveIsChartFullscreen ||
       platformEnv.isNative ||
       (!platformEnv.isExtension && media.md),
+    finishMarketDetailTabBarTransition,
   );
 
   return (

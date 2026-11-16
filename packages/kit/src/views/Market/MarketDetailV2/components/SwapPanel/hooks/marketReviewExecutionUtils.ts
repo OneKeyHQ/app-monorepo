@@ -15,6 +15,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapStepType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -38,6 +39,7 @@ export function buildMarketReviewState({
   shouldFallback,
   slippage,
   rateDifference,
+  strictCurrencyConversion,
   texts,
 }: {
   accountId?: string;
@@ -50,6 +52,7 @@ export function buildMarketReviewState({
   shouldFallback?: boolean;
   slippage?: number;
   rateDifference?: ISwapPreSwapData['rateDifference'];
+  strictCurrencyConversion?: boolean;
   texts: ISwapReviewStepTexts;
 }) {
   const reviewState = buildSwapReviewState({
@@ -70,6 +73,7 @@ export function buildMarketReviewState({
     supportPreBuild: true,
     slippage,
     rateDifference,
+    strictCurrencyConversion,
     texts,
   });
 
@@ -88,14 +92,16 @@ export function buildMarketReviewRateDifference({
   swapInfo,
   defaultTokenCurrency,
   currencyMap,
+  strictCurrencyConversion,
 }: {
-  quoteResult?: Pick<IFetchQuoteResult, 'instantRate'>;
+  quoteResult?: Pick<IFetchQuoteResult, 'instantRate' | 'protocol'>;
   swapInfo?: {
     sender?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
     receiver?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
   };
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  strictCurrencyConversion?: boolean;
 }): ISwapPreSwapData['rateDifference'] {
   return buildSwapRateDifference({
     fromTokenPrice: swapInfo?.sender?.token?.price,
@@ -105,6 +111,9 @@ export function buildMarketReviewRateDifference({
     defaultTokenCurrency,
     currencyMap,
     instantRate: quoteResult?.instantRate,
+    strictCurrencyConversion:
+      strictCurrencyConversion ||
+      quoteResult?.protocol === EProtocolOfExchange.STOCK,
   });
 }
 

@@ -113,9 +113,6 @@ jest.mock('../TradingViewChartLoadingMask', () => {
       React.createElement('div', { 'data-testid': 'loading-mask' }),
   };
 });
-jest.mock('../TradingViewChartControls', () => ({
-  TradingViewChartModeSelect: () => null,
-}));
 jest.mock('../TradingViewV2/components/TradingViewV2ChartControls', () => ({
   TradingViewV2ChartControlsContainer: (
     props: ComponentProps<typeof TradingViewV2ChartControlsContainer>,
@@ -192,9 +189,10 @@ describe('Perps chart navigation readiness', () => {
           onChartSwitch,
         });
         expect(mockIndicatorQuickBar).not.toHaveBeenCalled();
+        expect(mockControls.mock.lastCall?.[0].isControlsReady).toBe(false);
         expect(
-          Boolean(mockControls.mock.lastCall?.[0].mobileToolbarExtra),
-        ).toBe(isNative);
+          mockControls.mock.lastCall?.[0].mobileToolbarExtra,
+        ).toBeUndefined();
         markChartReady();
         expect(mockIndicatorQuickBar.mock.calls.length > 0).toBe(isNative);
       } finally {

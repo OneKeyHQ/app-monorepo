@@ -212,19 +212,23 @@ const SwapMarketHistoryList = ({
     [navigation, isPushModal, swapTxHistoryList],
   );
   if (isLoading && !swapTxHistoryList?.length) {
-    return Array.from({ length: 5 }).map((_, index) => (
-      <ListItem key={index}>
-        <Skeleton w="$10" h="$10" radius="round" />
-        <YStack>
-          <YStack py="$1">
-            <Skeleton h="$4" w="$32" />
-          </YStack>
-          <YStack py="$1">
-            <Skeleton h="$3" w="$24" />
-          </YStack>
-        </YStack>
-      </ListItem>
-    ));
+    return (
+      <YStack flex={1}>
+        {Array.from({ length: 5 }, (_, index) => (
+          <ListItem key={index}>
+            <Skeleton w="$10" h="$10" radius="round" />
+            <YStack>
+              <YStack py="$1">
+                <Skeleton h="$4" w="$32" />
+              </YStack>
+              <YStack py="$1">
+                <Skeleton h="$3" w="$24" />
+              </YStack>
+            </YStack>
+          </ListItem>
+        ))}
+      </YStack>
+    );
   }
   return (
     <SectionList

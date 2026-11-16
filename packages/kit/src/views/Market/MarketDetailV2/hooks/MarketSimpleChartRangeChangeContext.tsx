@@ -70,13 +70,22 @@ export function useReportMarketSimpleChartRangeChange() {
  */
 export function useMarketSimpleChartRangePriceChange(
   priceMode: IMarketPriceSource,
+) {
+  return getMarketSimpleChartRangePriceChange(
+    useContext(RangeChangeValueContext),
+    priceMode,
+  );
+}
+
+export function getMarketSimpleChartRangePriceChange(
+  change: IStockSimpleChartRangeChange | undefined,
+  priceMode: IMarketPriceSource,
 ):
   | {
       priceChangePercent: string;
       priceChangeValue: string;
     }
   | undefined {
-  const change = useContext(RangeChangeValueContext);
   if (!change || change.priceMode !== priceMode) {
     return undefined;
   }
@@ -109,7 +118,16 @@ const RANGE_CHANGE_LABEL_IDS: Record<IStockSimpleChartRange, ETranslations> = {
 export function useMarketPriceChangeLabelId(
   priceMode: IMarketPriceSource,
 ): ETranslations {
-  const change = useContext(RangeChangeValueContext);
+  return getMarketPriceChangeLabelId(
+    useContext(RangeChangeValueContext),
+    priceMode,
+  );
+}
+
+export function getMarketPriceChangeLabelId(
+  change: IStockSimpleChartRangeChange | undefined,
+  priceMode: IMarketPriceSource,
+): ETranslations {
   const range = change && change.priceMode === priceMode ? change.range : '1D';
   if (priceMode === 'share' && range === '1D') {
     return ETranslations.date_today;
