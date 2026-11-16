@@ -1,4 +1,5 @@
 import {
+  formatUnifoldChainName,
   formatUnifoldRouteAssetDescription,
   formatUnifoldTokenAmount,
   isUnifoldNativeTokenAddress,
@@ -93,4 +94,24 @@ describe('isUnifoldNativeTokenAddress', () => {
       expect(isUnifoldNativeTokenAddress(tokenAddress)).toBe(false);
     },
   );
+});
+
+describe('formatUnifoldChainName', () => {
+  it.each([
+    ['ethereum', '42161', 'Arbitrum'],
+    ['ethereum', '1337', 'HyperCore'],
+    ['solana', 'mainnet', 'Solana'],
+    ['tron', 'mainnet', 'Tron'],
+  ])('names %s:%s as %s', (chainType, chainId, expected) => {
+    expect(formatUnifoldChainName({ chainType, chainId })).toBe(expected);
+  });
+
+  it('falls back to the raw chain type for an unknown chain', () => {
+    expect(
+      formatUnifoldChainName({ chainType: 'aptos', chainId: 'mainnet' }),
+    ).toBe('aptos');
+    expect(formatUnifoldChainName({ chainType: null, chainId: null })).toBe(
+      '—',
+    );
+  });
 });
