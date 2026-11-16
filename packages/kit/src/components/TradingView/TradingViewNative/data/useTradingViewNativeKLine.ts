@@ -1687,10 +1687,13 @@ function getDataState({
 
 export function useTradingViewNativeKLine({
   onRealtimePoint,
+  panelId,
   source,
   storageNamespace,
 }: {
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
+  /** Split-view panel whose interval is remembered separately. */
+  panelId?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
 }) {
@@ -1930,6 +1933,7 @@ export function useTradingViewNativeKLine({
   const intervalStorageNamespace = getTradingViewNativeIntervalStorageNamespace(
     source,
     storageNamespace,
+    panelId,
   );
   const currentSeriesKeyRef = useRef(seriesKey);
   const latestRequestIdRef = useRef(0);

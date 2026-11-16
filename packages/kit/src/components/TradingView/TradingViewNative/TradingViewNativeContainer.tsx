@@ -78,6 +78,7 @@ import {
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
+import { TradingViewNativeMultiChartPanelContext } from './multiChart/TradingViewNativeMultiChartPanelContext';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
@@ -239,6 +240,8 @@ function getDataStateDebugLevel(status: ITradingViewNativeDataState['status']) {
 }
 
 type ITradingViewNativeContentProps = ITradingViewNativeProps & {
+  /** Split-view panel this chart belongs to; unset for a standalone chart. */
+  panelId?: string;
   chartSettingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
   indicatorSettingsState: ReturnType<
     typeof useTradingViewNativeIndicatorSettings
@@ -256,6 +259,7 @@ const TradingViewNativeContent = memo(
     onInteractionChange,
     useFullscreenOverlay,
     storageNamespace,
+    panelId,
     chartSettingsState,
     indicatorSettingsState,
     forcedChartType,
@@ -274,6 +278,8 @@ const TradingViewNativeContent = memo(
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
     nativeControlsFlushHorizontalInset,
+    nativeControlsLeading,
+    nativeControlsTrailing,
     showNativeChartCloseControl,
     showNativeIndicatorQuickBar = false,
     nativeChartGrowsWithSubIndicators = false,
@@ -453,6 +459,7 @@ const TradingViewNativeContent = memo(
       viewportRequest,
     } = useTradingViewNativeKLine({
       onRealtimePoint: handleRealtimePoint,
+      panelId,
       source,
       storageNamespace,
     });
@@ -1130,6 +1137,15 @@ const TradingViewNativeContent = memo(
       storageNamespace === 'perps'
         ? `perps:${dataProviderKey}`
         : dataProviderKey;
+    // Two panels may show the same token; each keeps its own chart-local state.
+    const chartStorageKey = panelId
+      ? `${drawingSourceKey}:panel:${panelId}`
+      : drawingSourceKey;
+    // Pane order and heights follow the indicator settings they arrange: one
+    // set per namespace, plus one per split-view panel.
+    const indicatorPanesStorageKey = `${storageNamespace ?? 'market'}${
+      panelId ? `:panel:${panelId}` : ''
+    }`;
     return (
       <TradingViewNativePresentation
         useFullscreenOverlay={useFullscreenOverlay}
@@ -1151,6 +1167,8 @@ const TradingViewNativeContent = memo(
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             layoutMode={nativeControlsLayoutMode}
             flushDesktopControls={nativeControlsFlushHorizontalInset}
+            leadingControl={nativeControlsLeading}
+            trailingControl={nativeControlsTrailing}
             showChartCloseControl={showNativeChartCloseControl}
             isFullscreen={isNativeChartFullscreen}
             fullscreenHeader={nativeChartFullscreenHeader}
@@ -1179,7 +1197,8 @@ const TradingViewNativeContent = memo(
                 storageNamespace !== 'swap'
               }
               enableNavigationControls={!isCompactDisplayMode}
-              drawingStorageKey={drawingSourceKey}
+              drawingStorageKey={chartStorageKey}
+              indicatorPanesStorageKey={indicatorPanesStorageKey}
               loadDrawingHistory={loadDrawingHistory}
               prioritizePageScroll={
                 prioritizePageScroll && !isNativeChartFullscreen
@@ -1324,6 +1343,26 @@ function DefaultTradingViewNativeContainer(props: ITradingViewNativeProps) {
   );
 }
 
+function PanelTradingViewNativeContainer({
+  indicatorSettingsState,
+  panelId,
+  ...props
+}: ITradingViewNativeProps &
+  Pick<ITradingViewNativeContentProps, 'indicatorSettingsState' | 'panelId'>) {
+  // Appearance stays shared with the namespace; only indicators are per panel.
+  const chartSettingsState = useTradingViewNativeChartSettings(
+    props.storageNamespace,
+  );
+  return (
+    <TradingViewNativeContent
+      {...props}
+      panelId={panelId}
+      chartSettingsState={chartSettingsState}
+      indicatorSettingsState={indicatorSettingsState}
+    />
+  );
+}
+
 function SwapTradingViewNativeContainer(props: ITradingViewNativeProps) {
   const chartSettingsState = useSwapTradingViewChartSettingsPersistAtom();
   const indicatorSettingsState =
@@ -1339,8 +1378,18 @@ function SwapTradingViewNativeContainer(props: ITradingViewNativeProps) {
 
 export const TradingViewNativeContainer = memo(
   (props: ITradingViewNativeProps) => {
+    const panelScope = useContext(TradingViewNativeMultiChartPanelContext);
     if (props.storageNamespace === 'swap') {
       return <SwapTradingViewNativeContainer {...props} />;
+    }
+    if (panelScope) {
+      return (
+        <PanelTradingViewNativeContainer
+          {...props}
+          panelId={panelScope.panelId}
+          indicatorSettingsState={panelScope.indicatorSettingsState}
+        />
+      );
     }
     return <DefaultTradingViewNativeContainer {...props} />;
   },

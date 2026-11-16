@@ -140,6 +140,7 @@ export enum EAtomNames {
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
   perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
+  perpsTradingViewMultiChartPersistAtom = 'perpsTradingViewMultiChartPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -210,6 +211,11 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // Written as a complete snapshot: lodash merge would keep the track sizes and
+  // panel state of a layout the user has already left.
+  [EAtomNames.perpsTradingViewMultiChartPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

@@ -150,6 +150,7 @@ export const TradingViewNativeChart = memo(
   ({
     locale,
     drawingStorageKey,
+    indicatorPanesStorageKey,
     loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
     enableNavigationControls = true,
@@ -188,9 +189,11 @@ export const TradingViewNativeChart = memo(
     viewportRequest,
   }: ITradingViewNativeChartProps) => {
     const dateFormatTemplate = getDateFormatTemplate(locale);
+    const [measuredChartHeight, setMeasuredChartHeight] = useState(0);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
-      drawingStorageKey,
+      indicatorPanesStorageKey ?? drawingStorageKey,
+      measuredChartHeight,
     );
     const { panes: subIndicatorPanes } = indicatorPanes;
     const subIndicatorWheelHandlers = useMemo(
@@ -360,7 +363,6 @@ export const TradingViewNativeChart = memo(
     const [watermarkImage, setWatermarkImage] =
       useState<HTMLImageElement | null>(null);
     const [measuredChartWidth, setMeasuredChartWidth] = useState(0);
-    const [measuredChartHeight, setMeasuredChartHeight] = useState(0);
     const [measuredPriceAxisWidth, setMeasuredPriceAxisWidth] = useState(0);
     const [measuredMainChartBottomInset, setMeasuredMainChartBottomInset] =
       useState(timeAxisHeight);
