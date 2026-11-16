@@ -109,6 +109,34 @@ it('reports a failed refresh and retries without retaining the previous positive
   expect(result.current.devices).toHaveLength(1);
 });
 
+it('clears the previous devices while a refresh is pending', async () => {
+  const { result } = renderHook(() => usePrimeGiftClaimableDevices());
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.devices).toHaveLength(1);
+
+  let completeRefresh: (value: IPrimeGiftEligibility) => void = () => undefined;
+  mockEligibility.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        completeRefresh = resolve;
+      }),
+  );
+  let refreshing: Promise<unknown> = Promise.resolve();
+  act(() => {
+    refreshing = result.current.refresh();
+  });
+  await waitFor(() => expect(mockEligibility).toHaveBeenCalledTimes(2));
+  expect(result.current.isLoading).toBe(true);
+  expect(result.current.devices).toBeUndefined();
+
+  await act(async () => {
+    completeRefresh({ ...eligible, hasUnclaimedGift: false });
+    await refreshing;
+  });
+  expect(result.current.isLoading).toBe(false);
+  expect(result.current.devices).toEqual([]);
+});
+
 it('publishes a claimable device while another eligibility request is pending', async () => {
   mockWallets.mockResolvedValue({ A: wallet('A'), B: wallet('B') });
   let completeSlow: (value: IPrimeGiftEligibility) => void = () => undefined;

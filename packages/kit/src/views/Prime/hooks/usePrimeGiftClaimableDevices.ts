@@ -36,6 +36,9 @@ export function usePrimeGiftClaimableDevices({ enabled = true } = {}) {
     const isCurrent = () => requestRef.current === request;
     setIsLoading(true);
     setHasError(false);
+    // Drop the previous result so a claimed or removed device cannot stay
+    // clickable while this check is pending.
+    setDevices(undefined);
     try {
       const wallets =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
