@@ -29,6 +29,8 @@ import {
   getPerpFundingTooltipPosition,
 } from '../../utils/fundingChart';
 
+import { PerpOiChart } from './PerpOiChart';
+
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 const FUNDING_INTERVAL_ITEMS: Array<{
@@ -622,6 +624,7 @@ export function PerpFundingChart({
             />
           </XStack>
         ) : null}
+        <PerpOiChart coin={coin} isActive={isActive} isMobile={isMobile} />
       </YStack>
     </YStack>
   );

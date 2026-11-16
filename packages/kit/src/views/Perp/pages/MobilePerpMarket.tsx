@@ -107,7 +107,7 @@ const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
 }> = [
   { key: 'orderbook', translationId: ETranslations.market_chart },
   { key: 'info', translationId: ETranslations.global_info },
-  { key: 'funding', translationId: ETranslations.perp_position_funding },
+  { key: 'funding', translationId: ETranslations.trade_stock_market_data },
 ];
 
 const MOBILE_PERP_MARKET_TAB_INDEX_MAP: Record<IMobilePerpMarketTab, number> = {

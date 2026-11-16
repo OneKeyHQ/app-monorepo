@@ -129,6 +129,10 @@ jest.mock('../../hooks/usePerpMarketDetail', () => ({
     mockUsePerpFundingHistory(coin, range),
 }));
 
+jest.mock('./PerpOiChart', () => ({
+  PerpOiChart: () => null,
+}));
+
 const FUNDING_HISTORY = [
   {
     coin: 'BTC',
