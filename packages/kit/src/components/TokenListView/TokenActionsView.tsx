@@ -10,6 +10,7 @@ import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapSource,
@@ -21,6 +22,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useAggregateSubTokenFiat } from '../../states/jotai/contexts/tokenList/cells/useAggregateSubTokenFiatMap';
 
 import {
   buildTokenActionSwapFromToken,
@@ -28,6 +30,7 @@ import {
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 import { useTokenListViewContext } from './TokenListViewContext';
+import { useTokenBalanceMultiplier } from './useTokenFiatField';
 
 import type { XStackProps } from 'tamagui';
 
@@ -75,6 +78,25 @@ function TokenActionsView(props: IProps) {
   });
   const networkId =
     resolvedActiveToken?.networkId ?? activeAccount?.network?.id ?? '';
+  const aggregateFromTokenFiat = useAggregateSubTokenFiat(
+    token.isAggregateToken ? token.$key : '',
+    resolvedActiveToken?.networkId,
+  );
+  const fromTokenBalanceMultiplier = useTokenBalanceMultiplier(
+    resolvedActiveToken?.$key ?? '',
+  );
+  // Swap has no end-to-end scaled-UI (rebase) support yet — ISwapToken and the
+  // swap display/validation/tx-building paths all treat amounts as raw, so a
+  // token whose multiplier actually scales (≠ 1) would show and build on a
+  // basis out of sync with the wallet list. Fail closed: disable the entry
+  // (and re-check in the press callback) until Swap learns the multiplier. A
+  // multiplier of exactly 1 is the documented no-op and must NOT block.
+  const isScaledUiSwapBlocked =
+    [
+      aggregateFromTokenFiat?.balanceMultiplier,
+      fromTokenBalanceMultiplier,
+      resolvedActiveToken?.balanceMultiplier,
+    ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
   const isSwapEntryDisabled = isSwapEntryDisabledToken({
     contractAddress: resolvedActiveToken?.address,
     isNative: resolvedActiveToken?.isNative,
@@ -147,7 +169,12 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
-    if (!resolvedActiveToken || !isTokenActionReady || isSwapEntryDisabled) {
+    if (
+      !resolvedActiveToken ||
+      !isTokenActionReady ||
+      isScaledUiSwapBlocked ||
+      isSwapEntryDisabled
+    ) {
       return;
     }
 
@@ -190,12 +217,14 @@ function TokenActionsView(props: IProps) {
     network,
     deriveType,
     isTokenActionReady,
+    isScaledUiSwapBlocked,
     isSwapEntryDisabled,
     networkId,
     resolvedActiveToken,
   ]);
 
-  const swapDisabled = !isTokenActionReady || isSwapEntryDisabled;
+  const swapDisabled =
+    !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled;
   useEffect(() => {
     nativeActionState?.({
       disabled: swapDisabled,
