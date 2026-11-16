@@ -376,6 +376,128 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
     ).toBeUndefined();
   });
 
+  it('folds base-versioned delta structure and valuation frames into the full cached snapshot and ignores mismatched baseVersions', () => {
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        structureVersion: 0,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 0,
+          orderedIds: ['a', 'b'],
+          metaPatch: {
+            a: makeToken({ symbol: 'A' }),
+            b: makeToken({ symbol: 'B' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        valuationVersion: 0,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '10' }),
+            b: makeFiat({ fiatValue: '20' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    // Fold v0 -> v1 delta where `c` is added and only `a` + `c` fiat are sent
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 0,
+        isDelta: true,
+        structureVersion: 1,
+        structure: makeStructure({
+          ownerKey: OWNER_A,
+          generation: 1,
+          orderedIds: ['a', 'b', 'c'],
+          metaPatch: {
+            c: makeToken({ symbol: 'C' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 0,
+        isDelta: true,
+        valuationVersion: 1,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '15' }),
+            c: makeFiat({ fiatValue: '30' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    // Mismatched baseVersion (baseVersion: 5 when cached is 1) is ignored
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        slotId: 'slot-1',
+        baseVersion: 5,
+        isDelta: true,
+        valuationVersion: 6,
+        valuation: makeValuation({
+          ownerKey: OWNER_A,
+          changedFiatById: {
+            a: makeFiat({ fiatValue: '999' }),
+          },
+        }),
+      },
+      currencyId: CURRENCY,
+    });
+
+    const cached = getOwnerReplayFrames({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    expect(cached?.structure?.structureVersion).toBe(1);
+    expect(cached?.structure?.isDelta).toBeUndefined();
+    expect(Object.keys(cached?.structure?.structure.metaPatch ?? {})).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+    expect(cached?.valuation?.valuationVersion).toBe(1);
+    expect(cached?.valuation?.isDelta).toBeUndefined();
+    expect(cached?.valuation?.valuation.changedFiatById.a.fiatValue).toBe('15');
+    expect(cached?.valuation?.valuation.changedFiatById.b.fiatValue).toBe('20');
+    expect(cached?.valuation?.valuation.changedFiatById.c.fiatValue).toBe('30');
+  });
+
   // PR #13695 review: the background pushes no structure frame when a
   // currency switch leaves the order and the small-balance scalar unchanged,
   // so dropping the structure on the valuation-only round left the owner with

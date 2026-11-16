@@ -18,17 +18,25 @@ import type {
   IStructureSnapshot,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 export interface IStructurePush {
   ownerKey: string;
   slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   structureVersion: number;
   structure: IStructureSnapshot;
 }
 export interface IValuationPush {
   ownerKey: string;
   slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   valuationVersion: number;
   valuation: IValuationFrame;
 }
@@ -116,7 +124,89 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
   } else if (existing?.structure) {
     base = { currencyId, structure: existing.structure };
   }
-  const next: IOwnerReplayFrames = { ...base, [kind]: payload };
+  let storedPayload: IOwnerReplayPayloadByKind[K] = payload;
+  if (kind === 'structure') {
+    const structPush = payload as IStructurePush;
+    if (structPush.isDelta) {
+      const prevStruct = base.structure;
+      const canFold =
+        prevStruct &&
+        prevStruct.structureVersion === structPush.baseVersion &&
+        (!structPush.slotId ||
+          !prevStruct.slotId ||
+          prevStruct.slotId === structPush.slotId);
+      if (!canFold) {
+        if (existing) {
+          replayCache.set(key, existing);
+        }
+        return;
+      }
+      const liveKeys = new Set<string>([
+        ...structPush.structure.orderedIds,
+        ...structPush.structure.smallBalanceIds,
+      ]);
+      const prevMetaPatch = prevStruct.structure.metaPatch;
+      const mergedMetaPatch: Record<string, IToken> = {};
+      for (const k of liveKeys) {
+        const nextMeta = structPush.structure.metaPatch[k] ?? prevMetaPatch[k];
+        if (nextMeta) {
+          mergedMetaPatch[k] = nextMeta;
+        }
+      }
+      storedPayload = {
+        ownerKey: structPush.ownerKey,
+        ...(structPush.slotId ? { slotId: structPush.slotId } : undefined),
+        structureVersion: structPush.structureVersion,
+        structure: {
+          ...structPush.structure,
+          metaPatch: mergedMetaPatch,
+        },
+      } as IOwnerReplayPayloadByKind[K];
+    }
+  } else if (kind === 'valuation') {
+    const valPush = payload as IValuationPush;
+    if (valPush.isDelta) {
+      const prevVal = base.valuation;
+      const canFold =
+        prevVal &&
+        prevVal.valuationVersion === valPush.baseVersion &&
+        (!valPush.slotId ||
+          !prevVal.slotId ||
+          prevVal.slotId === valPush.slotId);
+      if (!canFold) {
+        if (existing) {
+          replayCache.set(key, existing);
+        }
+        return;
+      }
+      const mergedFiatById: Record<string, ITokenFiat> = {
+        ...prevVal.valuation.changedFiatById,
+        ...valPush.valuation.changedFiatById,
+      };
+      const mergedAggFiat: Record<string, Record<string, ITokenFiat>> = {
+        ...prevVal.valuation.changedAggFiat,
+      };
+      for (const [aggKey, byNet] of Object.entries(
+        valPush.valuation.changedAggFiat,
+      )) {
+        mergedAggFiat[aggKey] = {
+          ...mergedAggFiat[aggKey],
+          ...byNet,
+        };
+      }
+      storedPayload = {
+        ownerKey: valPush.ownerKey,
+        ...(valPush.slotId ? { slotId: valPush.slotId } : undefined),
+        valuationVersion: valPush.valuationVersion,
+        valuation: {
+          ...valPush.valuation,
+          changedFiatById: mergedFiatById,
+          changedAggFiat: mergedAggFiat,
+        },
+      } as IOwnerReplayPayloadByKind[K];
+    }
+  }
+  const next: IOwnerReplayFrames = { ...base, [kind]: storedPayload };
   replayCache.set(key, next);
   while (replayCache.size > OWNER_REPLAY_CACHE_CAP) {
     const lru = replayCache.keys().next().value;

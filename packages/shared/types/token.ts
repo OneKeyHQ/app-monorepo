@@ -111,10 +111,21 @@ export type IHomeTokenRequest = IHomeTokenRequestInvalidation & {
   ownerKey: string;
 };
 
+export type IHomeSingleNetworkIngestOptions = {
+  ownerKey: string;
+  storeName: string;
+  keepDefault?: boolean;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  customTokens?: ICustomTokenItem[];
+  omitResponseTokenLists?: boolean;
+};
+
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
+  mergeDeriveAddressData?: boolean;
+  homeIngest?: IHomeSingleNetworkIngestOptions;
   cursor?: string;
   limit?: number;
   hideSmallBalanceTokens?: boolean;
@@ -150,6 +161,11 @@ export type ITokenData = {
 
 export type IFetchAccountTokensResp = {
   homeTokenRoundRef?: string;
+  homeIngested?: boolean;
+  homeAccountWorth?: Record<string, string>;
+  homeCreateAtNetworkWorth?: string;
+  homePortfolioTotalFiat?: string;
+  homePortfolioTotalFiatCurrency?: string;
   mergeDeriveAssets?: boolean;
   allTokens?: ITokenData;
   tokens: ITokenData;

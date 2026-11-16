@@ -437,12 +437,16 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TokenListStructureFrame]: {
     ownerKey: string;
     slotId?: string;
+    baseVersion?: number;
+    isDelta?: boolean;
     structureVersion: number;
     structure: IStructureSnapshot;
   };
   [EAppEventBusNames.TokenListValuationFrame]: {
     ownerKey: string;
     slotId?: string;
+    baseVersion?: number;
+    isDelta?: boolean;
     valuationVersion: number;
     valuation: IValuationFrame;
   };

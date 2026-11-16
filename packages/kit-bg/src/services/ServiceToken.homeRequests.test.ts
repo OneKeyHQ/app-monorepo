@@ -106,6 +106,7 @@ function makeApi() {
       alignHomeTokenRequest: jest.fn(),
       retireHomeTokenRounds: jest.fn(),
       retainHomeTokenRound: jest.fn().mockReturnValue('fixture-ref'),
+      ingestRound: jest.fn().mockResolvedValue(undefined),
     },
     simpleDb: {
       customTokens: {
@@ -722,5 +723,47 @@ describe('ServiceToken native Home request lifetime', () => {
       name: 'CanceledError',
     });
     expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it('ingests single-network Home rounds directly in BG and omits token arrays when omitResponseTokenLists is set', async () => {
+    const data = getEmptyTokenData();
+    Object.assign(data.tokens, {
+      data: [
+        {
+          $key: 'evm--1_native',
+          address: '',
+          decimals: 18,
+          isNative: true,
+          name: 'Ether',
+          symbol: 'ETH',
+        },
+      ],
+      keys: 'evm--1_native',
+      map: {
+        'evm--1_native': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '2500',
+          price: 2500,
+        },
+      },
+      fiatValue: '2500',
+      currency: 'usd',
+    });
+    fetchTokenListMock.mockResolvedValueOnce({ data: { data } });
+
+    const resp = await service.fetchAccountTokens({
+      ...fetchParams(),
+      homeIngest: {
+        ownerKey: 'home-owner',
+        storeName: 'homeTokenList',
+        omitResponseTokenLists: true,
+      },
+    });
+
+    expect(api.serviceTokenViewModel.ingestRound).toHaveBeenCalledTimes(1);
+    expect(resp.homeIngested).toBe(true);
+    expect(resp.homeCreateAtNetworkWorth).toBe('2500');
+    expect(resp.tokens.data).toEqual([]);
   });
 });

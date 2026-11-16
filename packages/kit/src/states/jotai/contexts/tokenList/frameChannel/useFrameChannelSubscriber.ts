@@ -30,6 +30,13 @@ export interface IFrameChannelKindSubscription<TKind extends string, TPull> {
   getOwnerKey: (framePayload: unknown) => string;
   /** monotonic version carried by a push payload. */
   getVersion: (framePayload: unknown) => number;
+  /**
+   * Optional baseVersion / slotId continuity guard for delta push frames.
+   * When it returns false for an incoming push that is newer than `lastVersion`,
+   * the subscriber drops the partial delta without advancing `gate` and triggers
+   * a full resync `pull({ forceFull: true })`.
+   */
+  canApplyPush?: (framePayload: unknown, lastVersion: number) => boolean;
   /** domain apply for a push-shaped payload (owner-filtered + version-gated). */
   apply: (framePayload: unknown) => void;
   /** map the PULL result to this kind's push-shaped payload; undefined to skip. */
@@ -43,7 +50,7 @@ export interface IUseFrameChannelSubscriberParams<TKind extends string, TPull> {
   kinds: IFrameChannelKindSubscription<TKind, TPull>[];
   /** kind order applied from the PULL result (e.g. structure before valuation). */
   applyOrder: TKind[];
-  pull: () => Promise<TPull>;
+  pull: (opts?: { forceFull?: boolean }) => Promise<TPull>;
   getPullOwnerKey: (pull: TPull) => string;
   /** domain setup on subscribe; return a teardown (e.g. registry deregister). */
   onSetup?: () => (() => void) | void;
@@ -99,9 +106,60 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
         p.onAfterApply?.(k.kind);
       };
 
+      let cancelled = false;
+      let pullInFlight = false;
+      let pendingForceFullPull = false;
+
+      const runPull = (forceFull = false): void => {
+        if (cancelled) {
+          return;
+        }
+        if (pullInFlight) {
+          if (forceFull) {
+            pendingForceFullPull = true;
+          }
+          return;
+        }
+        pullInFlight = true;
+        void p
+          .pull({ forceFull })
+          .then((pulled) => {
+            if (cancelled || p.getPullOwnerKey(pulled) !== ownerKey) {
+              return;
+            }
+            for (const kind of p.applyOrder) {
+              const k = p.kinds.find((x) => x.kind === kind);
+              const framePayload = k?.fromPull(pulled);
+              if (k && framePayload !== undefined) {
+                gateApply(k, framePayload);
+              }
+            }
+          })
+          .catch(() => {
+            // PULL failure is non-fatal: live pushes keep the list current; the
+            // next owner-change / foreground re-sync re-pulls.
+          })
+          .finally(() => {
+            pullInFlight = false;
+            if (!cancelled && pendingForceFullPull) {
+              pendingForceFullPull = false;
+              runPull(true);
+            }
+          });
+      };
+
       const handlers = p.kinds.map((k) => {
         const handler = (framePayload: unknown): void => {
           if (k.getOwnerKey(framePayload) !== ownerKey) {
+            return;
+          }
+          const version = k.getVersion(framePayload);
+          const lastVersion = gate.getLastVersion(k.kind);
+          if (version <= lastVersion) {
+            return;
+          }
+          if (k.canApplyPush && !k.canApplyPush(framePayload, lastVersion)) {
+            runPull(true);
             return;
           }
           gateApply(k, framePayload);
@@ -110,25 +168,7 @@ export function useFrameChannelSubscriber<TKind extends string, TPull>(
         return { eventName: k.eventName, handler };
       });
 
-      let cancelled = false;
-      void p
-        .pull()
-        .then((pulled) => {
-          if (cancelled || p.getPullOwnerKey(pulled) !== ownerKey) {
-            return;
-          }
-          for (const kind of p.applyOrder) {
-            const k = p.kinds.find((x) => x.kind === kind);
-            const framePayload = k?.fromPull(pulled);
-            if (k && framePayload !== undefined) {
-              gateApply(k, framePayload);
-            }
-          }
-        })
-        .catch(() => {
-          // PULL failure is non-fatal: live pushes keep the list current; the
-          // next owner-change / foreground re-sync re-pulls.
-        });
+      runPull(false);
 
       return () => {
         cancelled = true;

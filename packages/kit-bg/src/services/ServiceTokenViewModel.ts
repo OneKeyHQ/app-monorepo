@@ -53,6 +53,10 @@ import {
   metaByKeyFromTokens,
 } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
+import {
+  fiatEqual,
+  metaEqual,
+} from '../states/jotai/contexts/tokenList/cellsPure/pure';
 import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { getVaultSettings } from '../vaults/settings';
 
@@ -90,6 +94,10 @@ interface IDomainPrev {
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
   /** Raw balance by list id as of the last structure frame. */
   lastBalanceByKey: Record<ITokenKey, string | undefined>;
+  /** Full normal-token fiat map as of the last valuation frame, for delta calculation. */
+  lastFiatByKey: Record<ITokenKey, ITokenFiat | undefined>;
+  /** Full aggregate per-network fiat map as of the last valuation frame. */
+  lastAggFiatByKey: Record<IAggKey, Record<INetworkId, ITokenFiat> | undefined>;
 }
 
 /** The minimal previously-emitted risky shape the change-gate compares against. */
@@ -270,6 +278,8 @@ function freshPrev(slotId: string): IDomainPrev {
     lastScalar: '0',
     lastMetaByKey: {},
     lastBalanceByKey: {},
+    lastFiatByKey: {},
+    lastAggFiatByKey: {},
   };
 }
 
@@ -568,50 +578,151 @@ class ServiceTokenViewModel extends ServiceBase {
     valuation.provisional = provisional;
 
     // Structure FIRST (preserve the legacy emit order), then valuation.
+    let nextStructurePrev = prevBlob.lastStructure;
+    let nextScalarPrev = prevBlob.lastScalar;
+    let nextMetaByKeyPrev = prevBlob.lastMetaByKey;
+    let nextBalanceByKeyPrev = prevBlob.lastBalanceByKey ?? {};
+
     if (structure) {
+      const deltaMetaPatch: Record<ITokenKey, IToken> = {};
+      for (const key of Object.keys(structure.metaPatch)) {
+        const nextMeta = structure.metaPatch[key];
+        if (!metaEqual(prevBlob.lastMetaByKey[key], nextMeta)) {
+          deltaMetaPatch[key] = nextMeta;
+        }
+      }
+
       // Structural change — push the frame (version == the structure's own
-      // generation, domain-supplied) and advance the diff `prev` blob so the
-      // next round compares against what we just emitted.
+      // generation, domain-supplied). On subsequent frames (prevVersion >= 0),
+      // emit only the changed/added `metaPatch` entries with `baseVersion` so
+      // `main` applies an O(delta) patch while the BG host slot retains the
+      // full snapshot for PULL backstops.
       this.frames.pushFrame(
         'structure',
         ownerKey,
-        (version) => ({
-          ownerKey,
-          slotId,
-          structureVersion: version,
-          structure,
-        }),
-        { version: structure.generation },
-      );
-      this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
-        slotId,
-        lastStructure: {
-          orderedIds: structure.orderedIds,
-          smallBalanceIds: structure.smallBalanceIds,
-          nonZeroIds: structure.nonZeroIds,
-          fundedIds: structure.fundedIds,
-          aggMembership: structure.aggMembership,
-          ownerKey: structure.ownerKey,
-          generation: structure.generation,
-          ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
+        (version, prevVersion) =>
+          prevVersion >= 0
+            ? {
+                ownerKey,
+                slotId,
+                baseVersion: prevVersion,
+                isDelta: true,
+                structureVersion: version,
+                structure: {
+                  ...structure,
+                  metaPatch: deltaMetaPatch,
+                },
+              }
+            : {
+                ownerKey,
+                slotId,
+                structureVersion: version,
+                structure,
+              },
+        {
+          version: structure.generation,
+          storedPayload: (version) => ({
+            ownerKey,
+            slotId,
+            structureVersion: version,
+            structure,
+          }),
         },
-        lastScalar: structure.smallBalanceFiatValue,
-        lastMetaByKey: metaByKeyFromTokens([
-          ...orderedTokens,
-          ...smallBalanceTokens,
-        ]),
-        lastBalanceByKey: balanceByKey,
-      } satisfies IDomainPrev);
+      );
+      nextStructurePrev = {
+        orderedIds: structure.orderedIds,
+        smallBalanceIds: structure.smallBalanceIds,
+        nonZeroIds: structure.nonZeroIds,
+        fundedIds: structure.fundedIds,
+        aggMembership: structure.aggMembership,
+        ownerKey: structure.ownerKey,
+        generation: structure.generation,
+        ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
+      };
+      nextScalarPrev = structure.smallBalanceFiatValue;
+      nextMetaByKeyPrev = metaByKeyFromTokens([
+        ...orderedTokens,
+        ...smallBalanceTokens,
+      ]);
+      nextBalanceByKeyPrev = balanceByKey;
     }
 
-    // Valuation is emitted on EVERY round (the full current fiat map is
-    // idempotent + self-healing); the increment kind bumps its version each time.
-    this.frames.pushFrame('valuation', ownerKey, (version) => ({
+    const prevFiatByKey = prevBlob.lastFiatByKey ?? {};
+    const prevAggFiatByKey = prevBlob.lastAggFiatByKey ?? {};
+    const deltaChangedFiatById: Record<ITokenKey, ITokenFiat> = {};
+    for (const key of Object.keys(valuation.changedFiatById)) {
+      const nextFiat = valuation.changedFiatById[key];
+      const isNewlyAddedKey = !(key in prevBlob.lastMetaByKey);
+      if (isNewlyAddedKey || !fiatEqual(prevFiatByKey[key], nextFiat)) {
+        deltaChangedFiatById[key] = nextFiat;
+      }
+    }
+    const deltaChangedAggFiat: Record<
+      IAggKey,
+      Record<INetworkId, ITokenFiat>
+    > = {};
+    for (const aggKey of Object.keys(valuation.changedAggFiat)) {
+      const nextByNet = valuation.changedAggFiat[aggKey];
+      const prevByNet = prevAggFiatByKey[aggKey];
+      let changedNetEntries: Record<INetworkId, ITokenFiat> | undefined;
+      for (const netId of Object.keys(nextByNet)) {
+        const nextFiat = nextByNet[netId];
+        if (!prevByNet || !fiatEqual(prevByNet[netId], nextFiat)) {
+          changedNetEntries ??= {};
+          changedNetEntries[netId] = nextFiat;
+        }
+      }
+      if (changedNetEntries) {
+        deltaChangedAggFiat[aggKey] = changedNetEntries;
+      }
+    }
+
+    // Valuation is emitted on EVERY round: first round (prevVersion < 0) emits
+    // the full baseline; subsequent rounds (prevVersion >= 0) emit only the
+    // changed/newly-added fiat entries with `baseVersion`, while `storedPayload`
+    // keeps the full map in the BG slot for `getTokenListFrames` PULLs.
+    this.frames.pushFrame(
+      'valuation',
       ownerKey,
+      (version, prevVersion) =>
+        prevVersion >= 0
+          ? {
+              ownerKey,
+              slotId,
+              baseVersion: prevVersion,
+              isDelta: true,
+              valuationVersion: version,
+              valuation: {
+                ...valuation,
+                changedFiatById: deltaChangedFiatById,
+                changedAggFiat: deltaChangedAggFiat,
+              },
+            }
+          : {
+              ownerKey,
+              slotId,
+              valuationVersion: version,
+              valuation,
+            },
+      {
+        storedPayload: (version) => ({
+          ownerKey,
+          slotId,
+          valuationVersion: version,
+          valuation,
+        }),
+      },
+    );
+
+    this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
       slotId,
-      valuationVersion: version,
-      valuation,
-    }));
+      lastStructure: nextStructurePrev,
+      lastScalar: nextScalarPrev,
+      lastMetaByKey: nextMetaByKeyPrev,
+      lastBalanceByKey: nextBalanceByKeyPrev,
+      lastFiatByKey: valuation.changedFiatById,
+      lastAggFiatByKey: valuation.changedAggFiat,
+    } satisfies IDomainPrev);
 
     const framesNow = this.frames.getFrames(ownerKey);
 
