@@ -3,6 +3,7 @@ import { type ReactNode, memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorActiveAccount';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome';
 import { LazyAllNetworksManagerTrigger } from '@onekeyhq/kit/src/components/AccountSelector/LazyAllNetworksManagerTrigger';
@@ -28,11 +29,15 @@ function AccountSelectorTriggerWithSpotlight({
   linkNetworkId,
   hideAddress,
   desktopHeader,
+  hideAvatar,
+  containerProps,
 }: {
   isFocus: boolean;
   linkNetworkId?: string;
   hideAddress?: boolean;
   desktopHeader?: boolean;
+  hideAvatar?: boolean;
+  containerProps?: IXStackProps;
 }) {
   const intl = useIntl();
   const { tourTimes, tourVisited } = useSpotlight(
@@ -52,6 +57,8 @@ function AccountSelectorTriggerWithSpotlight({
       linkNetworkId={linkNetworkId}
       hideAddress={hideAddress}
       desktopHeader={desktopHeader}
+      hideAvatar={hideAvatar}
+      containerProps={containerProps}
       spotlightProps={{
         visible: spotlightVisible,
         content: (
@@ -73,6 +80,33 @@ function AccountSelectorTriggerWithSpotlight({
 const MemoizedAccountSelectorTriggerWithSpotlight = memo(
   AccountSelectorTriggerWithSpotlight,
 );
+
+const HOME_BALANCE_ACCOUNT_TRIGGER_PROPS: IXStackProps = {
+  // A 44 target around the 24 line, without moving the line.
+  py: '$2.5',
+  my: '$-2.5',
+  width: 'auto',
+  alignSelf: 'flex-start',
+};
+
+// Phone wallet home: the account names itself above the balance; the header
+// row holds the profile avatar, search and network.
+export function HomeBalanceAccountTrigger() {
+  const [isFocus, setIsFocus] = useState(false);
+  useListenTabFocusState(
+    ETabRoutes.Home,
+    async (focus: boolean, hideByModal: boolean) => {
+      setIsFocus(!hideByModal && focus);
+    },
+  );
+  return (
+    <MemoizedAccountSelectorTriggerWithSpotlight
+      isFocus={isFocus}
+      hideAvatar
+      containerProps={HOME_BALANCE_ACCOUNT_TRIGGER_PROPS}
+    />
+  );
+}
 
 interface IWalletConnectionGroupProps {
   tabRoute: ETabRoutes;

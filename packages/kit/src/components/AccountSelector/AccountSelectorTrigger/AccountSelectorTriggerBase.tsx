@@ -78,6 +78,7 @@ export function AccountSelectorTriggerBase({
   containerProps,
   alignChevronToEnd,
   desktopHeader,
+  hideAvatar,
   ...others
 }: {
   num: number;
@@ -93,6 +94,8 @@ export function AccountSelectorTriggerBase({
   // header triggers keep it right after the label (native default).
   alignChevronToEnd?: boolean;
   desktopHeader?: boolean;
+  // The phone wallet home names the account alone above the balance.
+  hideAvatar?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -123,6 +126,13 @@ export function AccountSelectorTriggerBase({
     isWebDappAccountLocked && account?.address
       ? accountUtils.shortenAddress({ address: account.address })
       : displayAccountName;
+
+  let namePaddingLeft: '$0' | '$2' | '$2.5' = '$2';
+  if (hideAvatar) {
+    namePaddingLeft = '$0';
+  } else if (showWalletAvatar) {
+    namePaddingLeft = '$2.5';
+  }
 
   const handleAccountSelectorPress = useCallback(() => {
     if (isTriggerDisabled) {
@@ -190,18 +200,20 @@ export function AccountSelectorTriggerBase({
         {...containerProps}
       >
         {desktopHeader && !isTriggerDisabled ? <DesktopHeaderHitArea /> : null}
-        <AccountAvatar
-          size="small"
-          borderRadius="$1"
-          indexedAccount={indexedAccount}
-          account={account}
-          dbAccount={dbAccount}
-          wallet={showWalletAvatar ? wallet : undefined}
-          compactWalletBadge={desktopHeader}
-        />
+        {hideAvatar ? null : (
+          <AccountAvatar
+            size="small"
+            borderRadius="$1"
+            indexedAccount={indexedAccount}
+            account={account}
+            dbAccount={dbAccount}
+            wallet={showWalletAvatar ? wallet : undefined}
+            compactWalletBadge={desktopHeader}
+          />
+        )}
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
-          pl={showWalletAvatar ? '$2.5' : '$2'}
+          pl={namePaddingLeft}
           flexShrink={1}
           flex={alignChevronToEnd || !platformEnv.isNative ? 1 : undefined}
         >
@@ -217,7 +229,7 @@ export function AccountSelectorTriggerBase({
               }}
               numberOfLines={1}
               flexShrink={1}
-              maxWidth="$40"
+              maxWidth={hideAvatar ? '$60' : '$40'}
               testID={AccountSelectorTestIDs.triggerAccountName}
             >
               {showWalletName
@@ -258,6 +270,8 @@ export function AccountSelectorTriggerBase({
     desktopHeader,
     displayLabel,
     handleAccountSelectorPress,
+    hideAvatar,
+    namePaddingLeft,
     horizontalLayout,
     indexedAccount,
     isWebDappModeWithNoWallet,

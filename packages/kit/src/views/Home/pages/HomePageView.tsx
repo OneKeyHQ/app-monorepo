@@ -626,7 +626,8 @@ function BaseHomePageView({
     sceneName,
   ].join(':');
   const sharedHeaderKey = [
-    'shared',
+    // v2: the phone header moved the account name above the balance.
+    'shared-v2',
     geometryKey,
     homeHeaderLayout.variant,
     wallet?.type === WALLET_TYPE_WATCHING,
@@ -634,7 +635,8 @@ function BaseHomePageView({
   ].join(':');
   const isHeaderSyncLoading = useIsAccountSelectorSyncLoading(0);
   const fixedHeaderKey = [
-    'fixed',
+    // v2: the phone header is one row (profile avatar, search, network).
+    'fixed-v2',
     geometryKey,
     safeAreaInsets.top,
     safeAreaInsets.left,
@@ -655,7 +657,9 @@ function BaseHomePageView({
     fixedHeaderKey,
   ]);
   const initialHeaderHeight = homeHeaderLayout.nativeMinHeight ?? 182;
-  const initialFixedHeight = platformEnv.isNativeIOS ? 162 : 92;
+  // First-frame hint until the header is measured: one 56 row under the top
+  // inset (8 when there is none, as the row's own margin).
+  const initialFixedHeight = (safeAreaInsets.top || 8) + 56;
   const [headerGeometry, setHeaderGeometry] = useState(() => ({
     identity: measurementIdentity,
     generation: 0,

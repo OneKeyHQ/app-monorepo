@@ -79,10 +79,23 @@ jest.mock(
   }),
 );
 jest.mock('../MoreActionButton/LazyMoreActionButton', () => ({
-  LazyMoreActionButton: () => null,
+  LazyMoreActionButton: () => <div data-testid="more-button" />,
+}));
+jest.mock('../ProfileDrawer/LazyProfileAvatarButton', () => ({
+  LazyProfileAvatarButton: () => <div data-testid="profile-avatar" />,
+}));
+jest.mock('../AccountSelector/AccountSelectorProvider', () => ({
+  AccountSelectorProviderMirror: ({ children }: { children?: ReactNode }) =>
+    children,
+}));
+jest.mock('../AccountSelector/LazyAllNetworksManagerTrigger', () => ({
+  LazyAllNetworksManagerTrigger: () => null,
+}));
+jest.mock('../AccountSelector/NetworkSelectorTrigger', () => ({
+  NetworkSelectorTriggerHome: () => null,
 }));
 jest.mock('./components/HeaderNotificationIconButton', () => ({
-  HeaderNotificationIconButton: () => null,
+  HeaderNotificationIconButton: () => <div data-testid="notification-button" />,
 }));
 jest.mock('./components/HeaderUpdateButton', () => ({
   HeaderUpdateButton: () => null,
@@ -166,5 +179,27 @@ describe('MDHeader window controls', () => {
     act(() => mockMeasurements[1](600));
     act(() => firstMeasurement(0));
     expect(margin()).toBe(0);
+  });
+
+  it('draws the phone home header as one row: profile avatar, search, network', () => {
+    const platformEnvMock = jest.requireMock<{
+      default: { isNative?: boolean };
+    }>('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isNative = true;
+    try {
+      render(
+        <MDHeader
+          tabRoute={ETabRoutes.Home}
+          sceneName={EAccountSelectorSceneName.home}
+          hideSearch={false}
+        />,
+      );
+      expect(screen.getByTestId('profile-avatar')).toBeTruthy();
+      // Notifications and the More entries moved into the profile drawer.
+      expect(screen.queryByTestId('notification-button')).toBeNull();
+      expect(screen.queryByTestId('more-button')).toBeNull();
+    } finally {
+      platformEnvMock.isNative = undefined;
+    }
   });
 });

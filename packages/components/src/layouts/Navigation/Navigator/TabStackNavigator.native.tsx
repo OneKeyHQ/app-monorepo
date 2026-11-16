@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { BottomTabsDrawerNative } from '@onekeyfe/react-native-bottom-tabs';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import {
   EAppEventBusNames,
@@ -51,6 +53,11 @@ import {
 } from './NavigationContainer';
 
 import type { ITabNavigatorProps, ITabSubStackNavigatorProps } from './types';
+
+// An animated host lets the drawer's progress handler run as a worklet.
+const AnimatedDrawerHost = Animated.createAnimatedComponent(
+  BottomTabsDrawerNative,
+);
 
 const Stack = createStackNavigator();
 
@@ -206,6 +213,7 @@ export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
   sideAccessory,
+  drawer,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
@@ -213,7 +221,7 @@ export function TabStackNavigator<RouteName extends string>({
   const isSplitMainView = useSplitMainView();
   // Subscribe to theme name so OS dark/light switch triggers re-render —
   // `theme.*.val` reads are non-reactive on native.
-  useThemeName();
+  const themeName = useThemeName();
   const [tabBarHidden, setTabBarHidden] = useState(false);
 
   // Listen for HideTabBar events to show/hide the tab bar
@@ -376,6 +384,16 @@ export function TabStackNavigator<RouteName extends string>({
         sideAccessoryIcon={sideAccessory?.icon}
         sideAccessoryLabel={sideAccessory?.label}
         onSideAccessoryPress={sideAccessory?.onPress}
+        renderDrawerContent={drawer?.renderContent}
+        drawerOpen={drawer?.open}
+        drawerSwipeEnabled={drawer?.swipeEnabled}
+        onDrawerOpenChange={drawer?.onOpenChange}
+        onDrawerProgress={drawer?.onProgress}
+        drawerHostComponent={
+          drawer?.onProgress ? AnimatedDrawerHost : undefined
+        }
+        // Android's native night mode follows the system, not the app theme.
+        drawerColorScheme={themeName === 'dark' ? 'dark' : 'light'}
       >
         {tabScreens}
       </NativeTab.Navigator>

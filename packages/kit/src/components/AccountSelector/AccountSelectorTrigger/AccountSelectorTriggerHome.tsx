@@ -1,4 +1,5 @@
 import { Spinner } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -17,12 +18,16 @@ export function AccountSelectorTriggerHome({
   linkNetworkId,
   hideAddress,
   desktopHeader,
+  hideAvatar,
+  containerProps,
 }: {
   num: number;
   spotlightProps?: ISpotlightViewProps;
   linkNetworkId?: string;
   hideAddress?: boolean;
   desktopHeader?: boolean;
+  hideAvatar?: boolean;
+  containerProps?: IXStackProps;
 }) {
   const {
     activeAccount: { network, vaultSettings, wallet, account },
@@ -59,6 +64,8 @@ export function AccountSelectorTriggerHome({
       spotlightProps={spotlightProps}
       showConnectWalletModalInDappMode
       desktopHeader={desktopHeader}
+      hideAvatar={hideAvatar}
+      containerProps={containerProps}
     />
   );
 }

@@ -1,4 +1,4 @@
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -10,6 +10,7 @@ import type { ParamListBase } from '@react-navigation/routers';
 import type {
   Animated,
   ImageSourcePropType,
+  NativeSyntheticEvent,
   StyleProp,
   ViewStyle,
 } from 'react-native';
@@ -113,6 +114,22 @@ export interface ITabBarSideAccessory {
   onPress: () => void;
 }
 
+// The native tab bar's left drawer: it pushes the whole tab container, tab
+// bar included, and owns the motion and gestures. iOS and Android only.
+export interface ITabBarDrawer {
+  renderContent: () => ReactNode;
+  open: boolean;
+  // A finished user open or close; mirror it into `open`.
+  onOpenChange: (open: boolean) => void;
+  // Opening swipes, for root screens only.
+  swipeEnabled?: boolean;
+  // Visual progress (0 closed, 1 open) on every frame the drawer moves; a
+  // Reanimated `useEvent` handler runs it on the UI thread.
+  onProgress?: (
+    event: NativeSyntheticEvent<Readonly<{ progress: number }>>,
+  ) => void;
+}
+
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
@@ -120,4 +137,5 @@ export interface ITabNavigatorProps<RouteName extends string> {
   bottomMenu: ReactElement;
   webPageTabBar: ReactElement;
   sideAccessory?: ITabBarSideAccessory;
+  drawer?: ITabBarDrawer;
 }

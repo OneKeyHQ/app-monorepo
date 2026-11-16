@@ -23,6 +23,7 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { Footer } from '../../components/Footer';
+import { useProfileTabDrawer } from '../../components/ProfileDrawer/useProfileTabDrawer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
 import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
@@ -125,6 +126,7 @@ export function TabNavigator() {
     [intl, isTravelMode],
   );
   const isLandscape = useIsSplitView();
+  const profileDrawer = useProfileTabDrawer();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
@@ -219,6 +221,8 @@ export function TabNavigator() {
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
         sideAccessory={sideAccessory}
+        // The phone profile drawer (OneKey ID, account and app entries).
+        drawer={profileDrawer}
       />
       {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />

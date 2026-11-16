@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,7 +32,11 @@ import {
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
+import { LazyAllNetworksManagerTrigger } from '../AccountSelector/LazyAllNetworksManagerTrigger';
+import { NetworkSelectorTriggerHome } from '../AccountSelector/NetworkSelectorTrigger';
 import { LazyMoreActionButton } from '../MoreActionButton/LazyMoreActionButton';
+import { LazyProfileAvatarButton } from '../ProfileDrawer/LazyProfileAvatarButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
 import { HeaderUpdateButton } from './components/HeaderUpdateButton';
@@ -92,6 +97,47 @@ function HomeWalletConnectionRow({
         tabRoute={tabRoute}
         customHeaderLeftItems={customHeaderLeftItems}
       />
+    </XStack>
+  );
+}
+
+// Phone wallet home: the network sits at the end of the header row, in the
+// same pill as the search field.
+function HomeHeaderNetworkTrigger({ plain }: { plain: boolean }) {
+  const {
+    activeAccount: { wallet, account, network },
+  } = useActiveAccount({ num: 0 });
+  if (
+    accountUtils.hasNoUsableWallet({ wallet, account }) ||
+    (wallet?.type === WALLET_TYPE_HD && !wallet.backuped)
+  ) {
+    return null;
+  }
+  const trigger =
+    network?.isAllNetworks &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) ? (
+      <LazyAllNetworksManagerTrigger num={0} unifiedMode />
+    ) : (
+      <NetworkSelectorTriggerHome
+        num={0}
+        size="small"
+        recordNetworkHistoryEnabled
+        hideOnNoAccount
+        unifiedMode
+      />
+    );
+  if (!plain && isLiquidGlassAvailable()) {
+    return <GlassButtonCapsule>{trigger}</GlassButtonCapsule>;
+  }
+  return (
+    <XStack
+      h={40}
+      px="$2"
+      alignItems="center"
+      bg="$bgStrong"
+      borderRadius="$full"
+    >
+      {trigger}
     </XStack>
   );
 }
@@ -191,7 +237,42 @@ export function MDHeader({
       <Page.Header headerShown={false} />
       {showBaseHeader ? (
         <>
-          {isHomeTab ? (
+          {isHomeTab && platformEnv.isNative ? (
+            // One row: the profile avatar opens the drawer that now holds
+            // notifications and the More entries; the account name sits
+            // above the balance.
+            <XStack
+              alignItems="center"
+              px={headerPx}
+              ml={windowControlsOffset}
+              h={HOME_HEADER_ROW_HEIGHT}
+              gap="$3"
+              {...getHeaderRowTopMargin(top, HOME_HEADER_ROW_HEIGHT)}
+            >
+              <LazyProfileAvatarButton />
+              <XStack flex={1}>
+                <LegacyUniversalSearchInput
+                  size="medium"
+                  glass={!usePlainHomeHeader}
+                  tabRoute={tabRoute}
+                  containerProps={{
+                    width: '100%',
+                    $gtLg: undefined,
+                  }}
+                />
+              </XStack>
+              <AccountSelectorProviderMirror
+                enabledNum={[0]}
+                config={{
+                  sceneName,
+                  sceneUrl: '',
+                }}
+              >
+                <HomeHeaderNetworkTrigger plain={usePlainHomeHeader} />
+              </AccountSelectorProviderMirror>
+            </XStack>
+          ) : null}
+          {isHomeTab && !platformEnv.isNative ? (
             <>
               {/* Row 1: Search bar + notification + more */}
               <XStack
@@ -246,7 +327,8 @@ export function MDHeader({
                 customHeaderLeftItems={customHeaderLeftItems}
               />
             </>
-          ) : (
+          ) : null}
+          {isHomeTab ? null : (
             <>
               <XStack
                 alignItems="center"

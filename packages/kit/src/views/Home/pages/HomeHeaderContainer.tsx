@@ -8,6 +8,7 @@ import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/ac
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { HomeBalanceAccountTrigger } from '../../../components/TabPageHeader/components/WalletConnectionGroup';
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -219,6 +220,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
           <>
             <HomeHeaderGesture onRefresh={onHomePageRefresh}>
               <Stack gap="$2.5">
+                {platformEnv.isNative ? <HomeBalanceAccountTrigger /> : null}
                 <HomeOverviewContainer />
               </Stack>
             </HomeHeaderGesture>
