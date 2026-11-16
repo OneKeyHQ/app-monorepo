@@ -922,7 +922,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.config().cloudSyncReconciliation?.spaceId).toBe('new-space');
   });
 
-  test('no-progress cooldown survives manual/network triggers and later retries without a permanent gate', async () => {
+  test('no-progress cooldown survives automatic triggers and later retries without a permanent gate', async () => {
     const h = harness();
     h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));
     h.writePool.mockImplementationOnce(async ({ fn }) => {
@@ -939,7 +939,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     const nextRetryAt = h.config().cloudSyncReconciliation?.nextRetryAt;
     expect(nextRetryAt).toBe(Date.now() + 30_000);
     await h.run();
-    await h.service.resumeCloudSyncReconciliation({ reason: 'manual' });
+    await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
     await h.service.resumeCloudSyncReconciliation({ reason: 'network' });
     expect(h.check).toHaveBeenCalledTimes(1);
     await jest.advanceTimersByTimeAsync(29_999);
@@ -951,6 +951,52 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       unfinished: false,
       requests: 2,
     });
+  });
+
+  test('manual retry immediately completes a previously blocked reconciliation', async () => {
+    const h = harness();
+    h.check.mockResolvedValueOnce(reply({ diff: [serverItem(0)] }));
+    h.writePool.mockImplementationOnce(async ({ fn }) => {
+      await fn?.();
+    });
+    await h.run();
+    expect(h.config().cloudSyncReconciliation?.nextRetryAt).toBeGreaterThan(
+      Date.now(),
+    );
+    await h.service.resumeCloudSyncReconciliation({ reason: 'manual' });
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      unfinished: false,
+      requests: 2,
+    });
+  });
+
+  test('manual retry bypasses persisted backoff and failed retry re-arms automatic backoff', async () => {
+    const h = harness();
+    h.check.mockResolvedValue(reply({ diff: [serverItem(0)] }));
+    h.writePool.mockImplementation(async ({ fn }) => {
+      await fn?.();
+    });
+    await h.run();
+    expect(h.check).toHaveBeenCalledTimes(1);
+    expect(h.config().cloudSyncReconciliation?.nextRetryAt).toBe(
+      Date.now() + 30_000,
+    );
+
+    await h.service.resumeCloudSyncReconciliation({ reason: 'manual' });
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'blocked',
+      reason: 'no-progress',
+      failures: 2,
+      nextRetryAt: Date.now() + 60_000,
+    });
+    await h.service.resumeCloudSyncReconciliation({ reason: 'network' });
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(h.check).toHaveBeenCalledTimes(3);
   });
 
   test('existing metadata deletion ACKs advance a delete-only multi-batch drain after pool cleanup', async () => {

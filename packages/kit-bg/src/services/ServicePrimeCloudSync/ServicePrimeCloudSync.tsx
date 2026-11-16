@@ -622,10 +622,29 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!spaceId || !isCurrent()) return;
     const config = await primeCloudSyncPersistAtom.get();
     if (!isCurrent()) return;
-    const state =
+    let state =
       config.cloudSyncReconciliation?.spaceId === spaceId
         ? config.cloudSyncReconciliation
         : undefined;
+    if (reason === 'manual' && state?.nextRetryAt) {
+      // Clear the persisted deadline too: the full reconciliation entry point
+      // independently enforces it. Keep failure counts so a failed manual retry
+      // still re-arms the normal automatic backoff.
+      await primeCloudSyncPersistAtom.set((value) => {
+        if (!isCurrent() || value.cloudSyncReconciliation?.spaceId !== spaceId)
+          return value;
+        return {
+          ...value,
+          cloudSyncReconciliation: {
+            ...value.cloudSyncReconciliation,
+            nextRetryAt: undefined,
+          },
+        };
+      });
+      if (!isCurrent()) return;
+      this.clearReconciliationTimer();
+      state = { ...state, nextRetryAt: undefined };
+    }
     if (this.hasPendingLocalMutation(spaceId)) {
       if (this.cloudSyncNetworkReachable === false) return;
       return this.startServerSyncFlowSilently({

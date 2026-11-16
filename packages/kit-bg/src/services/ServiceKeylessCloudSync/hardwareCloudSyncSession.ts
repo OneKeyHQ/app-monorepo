@@ -1039,12 +1039,12 @@ export async function rotateHardwareCloudSyncDataKey<
     from: current,
     to: next,
   });
-  // Keep only the re-encrypted flush payload, not a second full copy of the
-  // server ciphertext. The pre-download nonce still guards every page at flush.
+  // Read the complete rotation input once, then re-encrypt in bounded batches.
+  // The pre-download nonce still guards concurrent server writes at flush.
   const envelopeRecords: IServerSyncRecord[] = [];
   const serverItems: IServerSyncRecord[] = [];
   const downloadResult = await forEachHardwareCloudSyncResetPage({
-    download: async (page) => {
+    download: async () => {
       const response = await requestWithHardwareCloudSyncSession<{
         serverData?: unknown;
       }>({
@@ -1052,7 +1052,7 @@ export async function rotateHardwareCloudSyncDataKey<
         session,
         method: 'POST',
         urlPath: '/prime/v1/sync/download',
-        data: { pwdHash: current.pwdHash, includeDeleted: true, ...page },
+        data: { pwdHash: current.pwdHash, includeDeleted: true },
       });
       return response?.serverData;
     },
@@ -1085,10 +1085,6 @@ export async function rotateHardwareCloudSyncDataKey<
           isDeleted: !!isDeleted,
         });
       }
-    },
-    onRestart: () => {
-      envelopeRecords.length = 0;
-      serverItems.length = 0;
     },
     assertCurrent,
   });

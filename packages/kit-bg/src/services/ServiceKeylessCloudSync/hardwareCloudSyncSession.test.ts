@@ -839,7 +839,6 @@ describe('hardware Cloud sync session', () => {
       c.post
         .mockResolvedValueOnce(ok({ nonce: 7 }))
         .mockResolvedValueOnce(ok({ serverData }))
-        .mockResolvedValueOnce(ok({ serverData: [] }))
         .mockResolvedValueOnce(ok({}));
       const savePending = jest.fn(async () => undefined);
       const { next, items } = await rotateHardwareCloudSyncDataKey({
@@ -852,7 +851,7 @@ describe('hardware Cloud sync session', () => {
       });
       expect(next.dek).not.toBe(key.dek);
       expect(next.pwdHash).toBe(computeHardwareCloudSyncPwdHash(next.dekId));
-      const newSalt = JSON.parse(c.post.mock.calls[3][1].lock.data).kekSalt;
+      const newSalt = JSON.parse(c.post.mock.calls[2][1].lock.data).kekSalt;
       expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
       expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
       expect(savePending).toHaveBeenCalledWith({ ...next, generation: 2 });
@@ -867,7 +866,7 @@ describe('hardware Cloud sync session', () => {
         }),
       ).resolves.toBe('raw-a');
 
-      const flush = c.post.mock.calls[3] as [
+      const flush = c.post.mock.calls[2] as [
         string,
         {
           localData: Array<{
@@ -885,7 +884,7 @@ describe('hardware Cloud sync session', () => {
         // Refused if anything was uploaded after the copy was read.
         expectedNonce: 7,
       });
-      expect(JSON.parse(c.post.mock.calls[3][1].lock.data).generation).toBe(2);
+      expect(JSON.parse(c.post.mock.calls[2][1].lock.data).generation).toBe(2);
       const types = flush[1].localData.map(
         (i: { dataType: string }) => i.dataType,
       );
@@ -971,7 +970,7 @@ describe('hardware Cloud sync session', () => {
     );
 
     test.each([1000, 1002, 2500])(
-      'streams all %s records before the nonce-guarded reset',
+      'downloads all %s records once before the nonce-guarded reset',
       async (count) => {
         const { key, lock, envelopeItem } = await firstDevice();
         const records = Array.from({ length: count }, (_, i) => ({
@@ -1011,7 +1010,7 @@ describe('hardware Cloud sync session', () => {
         const downloads = c.post.mock.calls.filter(
           ([url]) => url === '/prime/v1/sync/download',
         );
-        expect(downloads).toHaveLength(Math.ceil(count / 500) + 1);
+        expect(downloads).toHaveLength(1);
         const resetLogs = jest
           .spyOn(defaultLogger.app.error, 'log')
           .mock.calls.flat()
@@ -1030,11 +1029,8 @@ describe('hardware Cloud sync session', () => {
         const body = downloads[0][1];
         expect(body).toMatchObject({ includeDeleted: true });
         expect(body).not.toHaveProperty('start');
-        expect(body).toMatchObject({ skip: 0, limit: 500 });
-        expect(downloads.at(-1)?.[1]).toMatchObject({
-          skip: count,
-          limit: 500,
-        });
+        expect(body).not.toHaveProperty('skip');
+        expect(body).not.toHaveProperty('limit');
         const flush = c.post.mock.calls.find(
           ([url]) => url === '/prime/v1/sync/flush',
         );
@@ -1080,7 +1076,7 @@ describe('hardware Cloud sync session', () => {
       });
     });
 
-    test('restarts the entire reset read for non-binary server collation', async () => {
+    test('uses one complete reset read regardless of server collation', async () => {
       const { key, lock, envelopeItem } = await firstDevice();
       const records = [
         ...Array.from({ length: 500 }, (_, i) => ({
@@ -1120,8 +1116,8 @@ describe('hardware Cloud sync session', () => {
       const downloads = c.post.mock.calls.filter(
         ([url]) => url === '/prime/v1/sync/download',
       );
-      expect(downloads).toHaveLength(3);
-      expect(downloads[2][1]).toEqual({
+      expect(downloads).toHaveLength(1);
+      expect(downloads[0][1]).toEqual({
         pwdHash: key.pwdHash,
         includeDeleted: true,
       });
@@ -1139,32 +1135,24 @@ describe('hardware Cloud sync session', () => {
     });
 
     test.each(['failed', 'malformed', 'key changed', 'cancelled'])(
-      'a %s second page cannot save or flush a partial reset',
+      'a %s complete download cannot save or flush a partial reset',
       async (mode) => {
         const { key, lock } = await firstDevice();
         const c = fakeClient();
         let current = true;
         c.get.mockResolvedValue(ok({ lock }));
-        c.post.mockImplementation(
-          async (url: string, body: { skip?: number }) => {
-            if (url === '/prime/v1/sync/check') return ok({ nonce: 3 });
-            if (body.skip === 0)
-              return ok({
-                serverData: [
-                  { key: 'a', dataType: 'Wallet', data: '', isDeleted: true },
-                ],
-              });
-            if (mode === 'failed')
-              throw new OneKeyLocalError('Download unavailable');
-            if (mode === 'key changed')
-              throw Object.assign(new Error('Key changed'), { code: 90_704 });
-            if (mode === 'cancelled') {
-              current = false;
-              return ok({ serverData: [] });
-            }
-            return ok({ serverData: [null] });
-          },
-        );
+        c.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 3 });
+          if (mode === 'failed')
+            throw new OneKeyLocalError('Download unavailable');
+          if (mode === 'key changed')
+            throw Object.assign(new Error('Key changed'), { code: 90_704 });
+          if (mode === 'cancelled') {
+            current = false;
+            return ok({ serverData: [] });
+          }
+          return ok({ serverData: [null] });
+        });
         const savePending = jest.fn(async () => undefined);
         const beforeFlush = jest.fn(async () => undefined);
         await expect(
@@ -1188,7 +1176,7 @@ describe('hardware Cloud sync session', () => {
     );
 
     test.each(['upload', 'delete', 'flush'])(
-      'a concurrent %s during pagination preserves the original nonce and makes no write',
+      'a concurrent %s during download preserves the original nonce and makes no write',
       async () => {
         const { key, lock } = await firstDevice();
         const c = fakeClient();
@@ -1203,12 +1191,6 @@ describe('hardware Cloud sync session', () => {
             if (url === '/prime/v1/sync/check')
               return ok({ nonce: serverNonce });
             if (url === '/prime/v1/sync/download') {
-              if (body.skip === 0)
-                return ok({
-                  serverData: [
-                    { key: 'a', dataType: 'Wallet', data: '', isDeleted: true },
-                  ],
-                });
               serverNonce += 1;
               return ok({ serverData: [] });
             }
