@@ -136,6 +136,28 @@ export function setIndicatorPaneHeights(
   };
 }
 
+/**
+ * A pane only measures below the minimum when the chart squeezes the whole
+ * stack to fit, keeping the panes' ratios. Scaling every height up together
+ * until the smallest reaches the minimum keeps those ratios, so the squeezed
+ * stack still shows the measured heights, and each value is one a reload
+ * accepts.
+ */
+function getStorableHeights(heights: Record<string, number>) {
+  const smallest = Math.min(...Object.values(heights));
+  if (!(smallest > 0) || smallest >= INDICATOR_PANE_MIN_HEIGHT) return heights;
+  const scale = INDICATOR_PANE_MIN_HEIGHT / smallest;
+  return Object.fromEntries(
+    Object.entries(heights).map(([id, height]) => [
+      id,
+      Math.min(
+        INDICATOR_PANE_MAX_HEIGHT,
+        Math.max(INDICATOR_PANE_MIN_HEIGHT, height * scale),
+      ),
+    ]),
+  );
+}
+
 export interface IIndicatorPaneResizeItem {
   id: string;
   top: number;
@@ -144,7 +166,8 @@ export interface IIndicatorPaneResizeItem {
 }
 
 /**
- * Pane heights after dragging the boundary above pane `index` by `delta`.
+ * Pane heights to save after dragging the boundary above pane `index` by
+ * `delta`.
  *
  * The first boundary separates the price chart from the indicators, so it
  * resizes the whole stack and every pane keeps its share. Any other boundary
@@ -189,7 +212,7 @@ export function getIndicatorPaneResizeHeights({
     for (const pane of panes) {
       heights[pane.id] = pane.height * scale;
     }
-    return heights;
+    return getStorableHeights(heights);
   }
   const above = panes[index - 1];
   const boundary = Math.max(
@@ -198,7 +221,7 @@ export function getIndicatorPaneResizeHeights({
   );
   heights[item.id] = item.bottom - boundary;
   heights[above.id] = boundary - above.top;
-  return heights;
+  return getStorableHeights(heights);
 }
 
 export function moveIndicatorPane(order: string[], id: string, target: string) {

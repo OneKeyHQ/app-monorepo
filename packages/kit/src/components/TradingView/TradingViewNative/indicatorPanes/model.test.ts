@@ -1,5 +1,9 @@
 // cspell:ignore macd
 
+import {
+  getTradingViewNativeSubIndicatorPaneLayouts,
+  getTradingViewNativeSubIndicatorPaneStackLayout,
+} from '../utils/subIndicatorRender';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from '../utils/subIndicatorRender/pipeline';
 
 import {
@@ -99,24 +103,55 @@ describe('getIndicatorPaneResizeHeights', () => {
     ).toBeUndefined();
   });
 
+  // A 300px chart too short for its panes: only 'volume' fell below the
+  // minimum, and the stack fills the 180px left above the time axis.
+  const squeezed = [
+    { id: 'volume', top: 96, bottom: 120, height: 24 },
+    { id: 'macd', top: 120, bottom: 198, height: 78 },
+    { id: 'rsi', top: 198, bottom: 276, height: 78 },
+  ];
+  const resizeSqueezed = (index: number) =>
+    getIndicatorPaneResizeHeights({
+      delta: 10,
+      index,
+      minimumTop: 96,
+      panes: squeezed,
+    });
+
   it('still trades height between neighbours when a distant pane is squeezed', () => {
-    // A chart too short for its panes: only 'volume' fell below the minimum.
-    const squeezed = [
-      { id: 'volume', top: 96, bottom: 120, height: 24 },
-      { id: 'macd', top: 120, bottom: 198, height: 78 },
-      { id: 'rsi', top: 198, bottom: 276, height: 78 },
-    ];
-    const resize = (index: number) =>
-      getIndicatorPaneResizeHeights({
-        delta: 10,
-        index,
-        minimumTop: 96,
-        panes: squeezed,
-      });
-    expect(resize(2)).toEqual({ volume: 24, macd: 88, rsi: 68 });
+    // Dragged to 24/88/68, saved scaled up together so no pane is below the
+    // minimum.
+    expect(resizeSqueezed(2)).toEqual({ volume: 36, macd: 132, rsi: 102 });
     // Boundaries that would resize the squeezed pane stay locked.
-    expect(resize(1)).toBeUndefined();
-    expect(resize(0)).toBeUndefined();
+    expect(resizeSqueezed(1)).toBeUndefined();
+    expect(resizeSqueezed(0)).toBeUndefined();
+  });
+
+  it('saves squeezed heights that a reload shows the same way', () => {
+    const saved = resizeSqueezed(2);
+    const restored = parseIndicatorPanePreferences(
+      JSON.stringify({ order: [], heights: saved, referenceHeight: 300 }),
+    );
+    expect(restored.heights).toEqual(saved);
+
+    const arranged = arrangeIndicatorPanes(panes, restored, 300);
+    const stackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
+      height: 300,
+      paneCount: arranged.length,
+      panes: arranged,
+      timeAxisHeight: 24,
+    });
+    const shown = getTradingViewNativeSubIndicatorPaneLayouts({
+      panes: arranged,
+      stackTop: stackLayout.top,
+      stackBottom: stackLayout.bottom,
+      startIndex: 0,
+      endIndex: 0,
+    }).map((layout) => layout.height);
+    expect(shown).toHaveLength(3);
+    [24, 88, 68].forEach((height, index) =>
+      expect(shown[index]).toBeCloseTo(height),
+    );
   });
 });
 
