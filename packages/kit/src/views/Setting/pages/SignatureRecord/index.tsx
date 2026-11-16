@@ -10,6 +10,7 @@ import {
   Tabs,
   XStack,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -113,7 +114,7 @@ const PageView = () => {
           <Tabs.Container
             renderHeader={() => <ListHeaderComponent />}
             containerStyle={{ flex: 1 }}
-            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+            renderTabBar={(props) => <TabBar {...props} />}
           >
             <Tab
               name={intl.formatMessage({

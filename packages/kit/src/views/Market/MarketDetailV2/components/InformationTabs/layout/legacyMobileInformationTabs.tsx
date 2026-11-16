@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,11 +63,8 @@ function MobileInformationTabsHeader({
     [focusedTab, onTabPress],
   );
   const renderTabBarItem = useCallback(
-    (
-      itemProps: React.ComponentProps<typeof Tabs.TabBarItem>,
-      index: number,
-    ) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>, index: number) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         testID={`market-detail-information-tab-${index}`}
@@ -81,7 +79,7 @@ function MobileInformationTabsHeader({
   return (
     <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <Tabs.TabBar
+        <TabBar
           {...props}
           textSize="$bodyMdMedium"
           onTabPress={handleTabPress}

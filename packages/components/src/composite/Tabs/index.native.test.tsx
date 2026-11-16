@@ -13,7 +13,6 @@ jest.mock('./hooks', () => ({}));
 jest.mock('./utils', () => ({}));
 jest.mock('./CollapsibleTabContext', () => ({}));
 jest.mock('./HeaderScrollGestureWrapper', () => ({}));
-jest.mock('./HeaderScrollGestureContext', () => ({}));
 jest.mock('./useFocusedTab', () => ({}));
 
 it('preserves the native tab identity required by the container without the legacy entrypoint', () => {

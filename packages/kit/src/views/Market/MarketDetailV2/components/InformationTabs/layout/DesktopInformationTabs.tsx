@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import { useMarketTransactionsRealtimePauseAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -64,8 +65,8 @@ function DesktopInformationTabsHeader({
     scrollTransactionsToTop?.();
   }, [resumeRealtimeUpdates, scrollTransactionsToTop]);
   const renderTabBarItem = useCallback(
-    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         label={
@@ -89,7 +90,7 @@ function DesktopInformationTabsHeader({
       {/* Figma 25593:18628: the TabBar's defaults already match the redesigned
           tabs ($bodyLgMedium text, 2px active indicator on the item) — only the
           full-width divider under the row is off spec. */}
-      <Tabs.TabBar {...props} divider={false} renderItem={renderTabBarItem} />
+      <TabBar {...props} divider={false} renderItem={renderTabBarItem} />
       {realtimePauseState.isPaused ? (
         <Badge
           position="absolute"

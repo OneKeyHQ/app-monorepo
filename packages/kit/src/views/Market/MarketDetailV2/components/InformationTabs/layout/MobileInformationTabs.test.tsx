@@ -56,6 +56,7 @@ jest.mock('@onekeyhq/components', () => {
     Tab: ({ name, children }: { name?: string; children?: ReactNode }) => (
       <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
     ),
+    TabBar: () => <div data-testid="information-tab-bar" />,
     Tabs: {
       Container: (props: CollapsibleProps) => {
         mockContainerProps(props);
@@ -94,7 +95,6 @@ jest.mock('@onekeyhq/components', () => {
             : ListEmptyComponent}
         </div>
       ),
-      TabBar: () => <div data-testid="information-tab-bar" />,
     },
   };
 });

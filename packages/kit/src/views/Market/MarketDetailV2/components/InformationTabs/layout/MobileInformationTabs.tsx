@@ -8,10 +8,10 @@ import {
   DelayedFreeze,
   Skeleton,
   Tab,
-  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import type { IAppPagerTabBarProps } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -88,11 +88,8 @@ function MobileInformationTabsHeader({
     [focusedTab, onTabPress],
   );
   const renderTabBarItem = useCallback(
-    (
-      itemProps: React.ComponentProps<typeof Tabs.TabBarItem>,
-      index: number,
-    ) => (
-      <Tabs.TabBarItem
+    (itemProps: React.ComponentProps<typeof TabBarItem>, index: number) => (
+      <TabBarItem
         key={itemProps.name}
         {...itemProps}
         testID={`market-detail-information-tab-${index}`}
@@ -113,7 +110,7 @@ function MobileInformationTabsHeader({
           ? { position: 'sticky', top: 0, zIndex: 10 }
           : undefined)}
       >
-        <Tabs.TabBar
+        <TabBar
           {...props}
           scrollable
           keepFocusedTabVisible
