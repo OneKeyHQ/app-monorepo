@@ -19,6 +19,12 @@ const mockNavigate = jest.fn<
 >();
 const mockOnConfirm = jest.fn<Promise<boolean>, [IApproveConfirmFnParams]>();
 const mockGasAlert = jest.fn<void, [{ onCancel?: () => void }]>();
+const mockPushModal = jest.fn<
+  void,
+  [unknown, { params: { onSelect: (item: unknown) => void } }]
+>();
+const mockAssets = jest.fn<Promise<unknown>, [unknown]>();
+const mockProtocolDetails = jest.fn<Promise<unknown>, [unknown]>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -104,6 +110,7 @@ jest.mock('@onekeyhq/components', () => {
     useNetInfo: () => ({ isRawInternetReachable: true }),
   };
 });
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -126,6 +133,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       }),
     },
     serviceStaking: {
+      getEarnAssetsList: (params: unknown) => mockAssets(params),
+      getProtocolDetailsV2: (params: unknown) => mockProtocolDetails(params),
+      buildStakeTransaction: async () => ({ tx: { data: '0x' } }),
+      buildInternalDappTx: async () => ({ data: '0x' }),
       fetchTokenAllowance: (params: unknown) => mockAllowance(params),
       checkAmount: (params: unknown) => mockCheckAmount(params),
       getTransactionConfirmation: (params: unknown) => mockConfirmation(params),
@@ -135,7 +146,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({}),
+  default: () => ({ pushModal: mockPushModal }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
@@ -151,6 +162,45 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => ({
   useEarnActions: () => ({
     current: { getPermitCache: jest.fn(), updatePermitCache: jest.fn() },
   }),
+}));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn/actions', () => ({
+  useEarnActions: () => ({ current: { removePermitCache: jest.fn() } }),
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils',
+  () => ({
+    buildAaveNativeGatewayReceiveToken: jest.fn(),
+    isUnsupportedAaveNativeReserve: () => false,
+    resolveBorrowTokenApproveSpenderAddress: () => '',
+    shouldUseAaveNativeGateway: () => false,
+  }),
+);
+jest.mock('@onekeyhq/kit/src/views/Borrow/components/ManagePosition', () => ({
+  ManagePosition: () => null,
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/borrowApproval.utils',
+  () => ({ buildBorrowTokenApproveTarget: jest.fn() }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks',
+  () => ({
+    useUniversalBorrowBorrow: () => jest.fn(),
+    useUniversalBorrowSupply: () => jest.fn(),
+  }),
+);
+jest.mock('../../hooks/useBorrowApiParams', () => ({
+  useBorrowApiParams: () => ({ isBorrow: false, borrowApiParams: {} }),
+}));
+jest.mock('../../hooks/useIsPendleProvider', () => ({
+  useIsPendleProvider: (provider: string) =>
+    provider.toLowerCase() === 'pendle',
+}));
+jest.mock('../ClaimConversionDialog', () => ({
+  runClaimConversion: jest.fn(),
+}));
+jest.mock('../ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { symbol: '$' } }],
@@ -198,10 +248,12 @@ jest.mock('../../hooks/useQuoteRefresh', () => ({
 }));
 jest.mock('../EarnRiskWarningDialog', () => ({
   showEarnRiskWarningDialog: async () => true,
+  useEarnRiskWarningGate: () => jest.fn(),
 }));
 jest.mock('../EstimateNetworkFee', () => ({
   EstimateNetworkFee: () => null,
   useShowStakeEstimateGasAlert: () => mockGasAlert,
+  useShowClaimEstimateGasAlert: () => jest.fn(),
 }));
 jest.mock('../BtcFeeRateInput', () => ({ BtcFeeRateInput: () => null }));
 jest.mock('../CalculationList', () => ({
@@ -243,15 +295,35 @@ jest.mock('../StakingAmountInput', () => ({
   StakingAmountInput: ({
     value,
     onChange,
+    disabled,
+    tokenSelectorTriggerProps,
   }: {
     value: string;
     onChange: (value: string) => void;
+    disabled?: boolean;
+    tokenSelectorTriggerProps?: {
+      selectedTokenSymbol?: string;
+      disabled?: boolean;
+      onPress?: () => void;
+    };
   }) => (
-    <input
-      aria-label="amount"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <>
+      <input
+        aria-label="amount"
+        disabled={disabled}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {tokenSelectorTriggerProps?.onPress ? (
+        <button
+          type="button"
+          disabled={disabled || tokenSelectorTriggerProps.disabled}
+          onClick={tokenSelectorTriggerProps.onPress}
+        >
+          {tokenSelectorTriggerProps.selectedTokenSymbol}
+        </button>
+      ) : null}
+    </>
   ),
   useOnBlurAmountValue: () => jest.fn(),
 }));
@@ -278,6 +350,7 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 
 import { etherFiDepositRecovery } from '../../hooks/etherFiDepositRecovery';
+import { StakeSection } from '../../pages/ManagePosition/components/StakeSection';
 
 const account = '0x1111111111111111111111111111111111111111';
 const token = {
@@ -907,4 +980,130 @@ describe('EtherFi stake approval continuation', () => {
     await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
     expect(mockOnConfirm).not.toHaveBeenCalled();
   }, 10_000);
+});
+
+describe('EtherFi manage-page deposit', () => {
+  it('allows selecting another asset after handing off the approved deposit', async () => {
+    jest.resetAllMocks();
+    const secondToken = {
+      ...token,
+      uniqueKey: 'eeth',
+      address: '0x35fa164735182de50811e8e2e824cfb9b6118ac2',
+      symbol: 'eETH',
+      name: 'eETH',
+    };
+    const asset = (info: typeof token) => ({
+      info,
+      balance: '2000000000000000000',
+      balanceParsed: '2',
+      fiatValue: '2',
+      price: '1',
+      price24h: '1',
+    });
+    let approved = false;
+    mockAssets.mockResolvedValue({
+      assets: [asset(token), asset(secondToken)],
+    });
+    mockProtocolDetails.mockImplementation(async (params) => {
+      if (!params || typeof params !== 'object' || !('symbol' in params)) {
+        throw new OneKeyLocalError('Missing protocol symbol');
+      }
+      return {
+        protocol: {
+          provider: 'etherfi',
+          networkId: 'evm--1',
+          symbol: params.symbol,
+          vault: props.protocolInfo?.vault,
+          approve: {
+            approveType: EApproveType.Legacy,
+            approveTarget: EtherFiLiquidReferContract,
+          },
+        },
+      };
+    });
+    mockAccount.mockResolvedValue({ address: account });
+    mockAllowance.mockImplementation(async (params) => {
+      const isWeth = Boolean(
+        params &&
+        typeof params === 'object' &&
+        'tokenAddress' in params &&
+        typeof params.tokenAddress === 'string' &&
+        params.tokenAddress.toLowerCase() === EthereumWETH.toLowerCase(),
+      );
+      return isWeth && approved
+        ? { allowance: '100000000000000000', allowanceParsed: '0.1' }
+        : { allowance: '0', allowanceParsed: '0' };
+    });
+    mockCheckAmount.mockResolvedValue({
+      code: 0,
+      message: '',
+      data: { alerts: [] },
+    });
+    mockConfirmation.mockResolvedValue({});
+    mockEstimate.mockResolvedValue({ feeFiatValue: '1', coverFeeSeconds: '0' });
+    mockNavigate.mockResolvedValue(undefined);
+    if (!props.tokenInfo || !props.protocolInfo?.earnAccount) {
+      throw new OneKeyLocalError('Missing manage-page fixture');
+    }
+    const view = render(
+      <StakeSection
+        accountId="account-integration"
+        networkId="evm--1"
+        tokenInfo={{ ...props.tokenInfo, accountId: 'account-integration' }}
+        protocolInfo={{
+          ...props.protocolInfo,
+          earnAccount: {
+            ...props.protocolInfo.earnAccount,
+            accountId: 'account-integration',
+          },
+        }}
+      />,
+    );
+    const selector = await view.findByRole('button', { name: 'WETH' });
+    await waitFor(() => expect(selector.hasAttribute('disabled')).toBe(false));
+    fireEvent.change(view.getByLabelText('amount'), {
+      target: { value: '0.1' },
+    });
+    const approve = await view.findByRole('button', { name: 'global.approve' });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    approved = true;
+    await act(async () =>
+      mockNavigate.mock.calls[0][0].onSuccess([
+        { decodedTx: { txid: `0x${'a'.repeat(64)}` } },
+      ]),
+    );
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    const returnedSelector = view.getByRole('button', { name: 'WETH' });
+    expect(returnedSelector.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(returnedSelector);
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    act(() =>
+      mockPushModal.mock.calls[0][1].params.onSelect(asset(secondToken)),
+    );
+    expect(await view.findByRole('button', { name: 'eETH' })).toBeTruthy();
+    await waitFor(() =>
+      expect(mockAllowance).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenAddress: secondToken.address }),
+      ),
+    );
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+    fireEvent.change(view.getByLabelText('amount'), {
+      target: { value: '0.1' },
+    });
+    const secondApprove = await view.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() =>
+      expect(secondApprove.hasAttribute('disabled')).toBe(false),
+    );
+    fireEvent.click(secondApprove);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    expect(mockNavigate.mock.calls[2][0].approvesInfo).toEqual([
+      expect.objectContaining({
+        tokenInfo: expect.objectContaining({ address: secondToken.address }),
+      }),
+    ]);
+  }, 15_000);
 });
