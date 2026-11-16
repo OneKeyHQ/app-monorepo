@@ -29,7 +29,7 @@ function WhatsNew() {
   }, []);
   const handleClose = useCallback(() => {
     setTimeout(() => {
-      void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
+      void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
     }, 250);
   }, []);
   return (
