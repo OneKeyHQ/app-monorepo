@@ -60,3 +60,41 @@ exact artifact: cold start, login/unlock, wallet creation/import, DApp browser,
 signing, hardware transport, background tasks/notifications, and rollback.
 Historical native receipts from the combined PR do not validate this extraction
 or the newer base branch. No protected WebEmbed acceptance is claimed here.
+
+## Diagnostic integrity and mobile library checks
+
+The developer diagnostics clear the previous report before each run and disable
+copying until a new report is available. Failed or timed-out runs cannot leave a
+previous green report visible. Superseded runs and unmounts abort their resources;
+late results are ignored. Behavior checks have a 10-second deadline, each runtime
+report and the background RPC have a 30-second deadline, and the UI run has a
+65-second deadline. Fetch's 5-second deadline includes consuming the response body.
+
+The same library tasks run in the native report and in isolated child processes
+using the adapter-local SES 1.15.0 Hermes prelude and the production repair script.
+They cover decimal.js, axios, bn.js, elliptic and inversify after hardening,
+including public signing vectors and wrong-message rejection. The child-process
+tests execute Node; native simulator receipts provide the Hermes evidence.
+
+## Opt-in Release/Sentry acceptance
+
+Build a simulator Release app through the normal union/split pipeline with
+`ONEKEY_MOBILE_SES_ACCEPTANCE=true`, `ENABLE_NATIVE_BACKGROUND_THREAD=true`,
+`UNION_BUILD=true` and `SENTRY_DISABLE_AUTO_UPLOAD=true`. Leave the acceptance flag
+unset for normal builds. Its Metro cache namespace is separate, and development
+vendors explicitly clear it.
+
+This opt-in production test build uses the real React Native Sentry SDK with a
+local, in-memory transport and a public fixture DSN. No envelope is sent to a
+Sentry server. Ten seconds after each runtime initializes Sentry, it tests direct
+capture, the native synchronous error handler, unhandled rejection and later
+handled rejection. It requires exactly one sanitized envelope with stack frames
+per fixture, observes the handled callback and verifies Promise identity/freezing.
+It then runs the normal SES report, including the mobile library tasks.
+
+Each independent JS heap writes a `[MobileSesAcceptance]` receipt to NativeLogger.
+Require fresh `status: pass` receipts for both `mobile-main` and
+`mobile-background`, with `dev: false` and `nodeEnv: production`. Receipts contain
+only public fixture metadata. This validates SDK capture, normalization,
+sanitization and transport delivery; remote ingestion, server-side source-map
+symbolication and native fatal-crash delivery require separate acceptance.

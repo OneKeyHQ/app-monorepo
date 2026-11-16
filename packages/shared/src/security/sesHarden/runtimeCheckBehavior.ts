@@ -1,6 +1,10 @@
 import { OneKeyLocalError } from '../../errors';
 
+import { withSesCheckDeadline } from './runtimeCheckDeadline';
+import { SES_LIBRARY_TASKS } from './runtimeCheckLibraryTasks';
+
 import type { ISesRuntimeCheckItem } from './runtimeCheck';
+import type { ISesCheckDeadline } from './runtimeCheckDeadline';
 
 const SHA256_ABC =
   'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
@@ -13,10 +17,26 @@ export function assertSesBehavior(condition: boolean, message: string): void {
   }
 }
 
+export function runSesLibraryChecks(
+  options?: ISesCheckDeadline,
+): Promise<ISesRuntimeCheckItem[]> {
+  return Promise.all(
+    SES_LIBRARY_TASKS.map(({ name, run }) =>
+      checkSesBehavior(
+        name,
+        '验证 lockdown 后实际依赖库的运算、签名和初始化。',
+        run,
+        options,
+      ),
+    ),
+  );
+}
+
 export async function checkSesBehavior(
   name: string,
   purpose: string,
-  task: () => string | Promise<string>,
+  task: (signal: AbortSignal) => string | Promise<string>,
+  options?: ISesCheckDeadline,
 ): Promise<ISesRuntimeCheckItem> {
   try {
     return {
@@ -24,7 +44,7 @@ export async function checkSesBehavior(
       dimension: 'functionality',
       purpose,
       status: 'pass',
-      detail: await task(),
+      detail: await withSesCheckDeadline(name, task, options),
     };
   } catch (error) {
     return {
@@ -37,7 +57,9 @@ export async function checkSesBehavior(
   }
 }
 
-export async function runSesLanguageChecks(): Promise<ISesRuntimeCheckItem[]> {
+export async function runSesLanguageChecks(
+  options?: ISesCheckDeadline,
+): Promise<ISesRuntimeCheckItem[]> {
   return Promise.all([
     checkSesBehavior(
       'Promise edge cases',
@@ -98,6 +120,7 @@ export async function runSesLanguageChecks(): Promise<ISesRuntimeCheckItem[]> {
         );
         return 'microtask order, thenable first resolution, thrown errors, finally, all rejection, empty aggregates';
       },
+      options,
     ),
     checkSesBehavior(
       'Collections and binary data',
@@ -132,11 +155,14 @@ export async function runSesLanguageChecks(): Promise<ISesRuntimeCheckItem[]> {
         );
         return 'Map/WeakMap identity, Set deduplication, TypedArray/DataView, UTF-8 Buffer/TextEncoder/TextDecoder, BigInt';
       },
+      options,
     ),
   ]);
 }
 
-export async function runSesCryptoChecks(): Promise<ISesRuntimeCheckItem[]> {
+export async function runSesCryptoChecks(
+  options?: ISesCheckDeadline,
+): Promise<ISesRuntimeCheckItem[]> {
   // Public test vectors only; these checks never read wallet or storage data.
   return Promise.all([
     checkSesBehavior(
@@ -157,6 +183,7 @@ export async function runSesCryptoChecks(): Promise<ISesRuntimeCheckItem[]> {
         }
         return 'SHA-256, SHA-512, SHA-1 via crypto.subtle.digest (public abc vector)';
       },
+      options,
     ),
     checkSesBehavior(
       'Hash and HMAC vectors',
@@ -182,6 +209,7 @@ export async function runSesCryptoChecks(): Promise<ISesRuntimeCheckItem[]> {
         );
         return 'SHA-256, SHA-512 (abc), RFC 4231 HMAC-SHA256; platform dispatcher';
       },
+      options,
     ),
     checkSesBehavior(
       'PBKDF2 vector',
@@ -202,6 +230,7 @@ export async function runSesCryptoChecks(): Promise<ISesRuntimeCheckItem[]> {
         );
         return `PBKDF2-HMAC-SHA256 public vector; backend=${getPbkdf2BackendForCurrentPlatform()}`;
       },
+      options,
     ),
     checkSesBehavior(
       'AES-GCM vector and authentication',
@@ -246,6 +275,7 @@ export async function runSesCryptoChecks(): Promise<ISesRuntimeCheckItem[]> {
         );
         return `NIST AES-GCM encrypt/decrypt, tampered tag rejected; backend=${getAesGcmBackendForCurrentPlatform()}`;
       },
+      options,
     ),
   ]);
 }

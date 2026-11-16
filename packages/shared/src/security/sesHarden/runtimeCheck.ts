@@ -13,9 +13,12 @@ import {
 import {
   runSesCryptoChecks,
   runSesLanguageChecks,
+  runSesLibraryChecks,
 } from './runtimeCheckBehavior';
+import { withSesCheckDeadline } from './runtimeCheckDeadline';
 import { runSesNetworkChecks } from './runtimeCheckNetwork';
 
+import type { ISesCheckDeadline } from './runtimeCheckDeadline';
 import type {
   ISesHardenLevel,
   ISesHardenPatchWarning,
@@ -133,6 +136,11 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
   [
     ...[
       ['Promise edge cases', 'thenable、微任务顺序、finally 和聚合拒绝'],
+      ['decimal.js after lockdown', '精确小数和构造函数 clone'],
+      ['axios after lockdown', 'Headers 和固定内存 adapter 请求转换'],
+      ['bn.js after lockdown', '大整数精度和模运算继承'],
+      ['elliptic after lockdown', '公开 secp256k1/Ed25519 向量和签名反例'],
+      ['inversify after lockdown', '依赖注入和 Reflect 元数据兼容'],
       [
         'Collections and binary data',
         'Map/WeakMap/Set、字节视图、Unicode 和 BigInt',
@@ -1299,7 +1307,19 @@ function runExtensionBridgeGlobalsCheck(
   );
 }
 
-export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckReport> {
+export function buildSesRuntimeCheckReport(
+  options?: ISesCheckDeadline,
+): Promise<ISesRuntimeCheckReport> {
+  return withSesCheckDeadline(
+    'SES runtime report',
+    (signal) => collectSesRuntimeCheckReport(signal),
+    { timeoutMs: 30_000, ...options },
+  );
+}
+
+async function collectSesRuntimeCheckReport(
+  signal: AbortSignal,
+): Promise<ISesRuntimeCheckReport> {
   const g = getSesGlobal();
   const level = getSesHardenLevelFromRuntime();
   const state = getSesHardenRuntimeState();
@@ -1573,9 +1593,10 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
   checks.push(runFetchInterceptorCheck());
   checks.push(await runTimerInterceptorCheck());
   checks.push(runCryptoShimCheck());
-  checks.push(...(await runSesLanguageChecks()));
-  checks.push(...(await runSesCryptoChecks()));
-  checks.push(...(await runSesNetworkChecks()));
+  checks.push(...(await runSesLanguageChecks({ signal })));
+  checks.push(...(await runSesCryptoChecks({ signal })));
+  checks.push(...(await runSesLibraryChecks({ signal })));
+  checks.push(...(await runSesNetworkChecks(undefined, { signal })));
   checks.push(runExtensionApiShimCheck(state?.runtime));
   checks.push(runExtensionXhrShimCheck(state?.runtime));
   checks.push(runDesktopApiProxyCheck(state?.runtime));

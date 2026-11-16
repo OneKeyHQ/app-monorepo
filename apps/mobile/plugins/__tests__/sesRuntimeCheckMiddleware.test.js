@@ -15,13 +15,22 @@ const sessionId = 'public-test-session';
 const prefix = '/onekey-dev-session/ses-runtime-check';
 const headers = { 'x-onekey-ses-session': sessionId };
 
-async function startServer(session) {
+async function startServer(session, onHangingBodyClosed) {
   const middleware = createSesRuntimeCheckMiddleware(session);
   server = http.createServer((req, res) =>
-    middleware(req, res, () => {
-      res.statusCode = 418;
-      res.end('next');
-    }),
+    onHangingBodyClosed && req.url.endsWith('/json')
+      ? (() => {
+          res.writeHead(200, {
+            'content-type': 'application/json',
+            'x-onekey-ses-fixture': 'onekey-ses-fixture-v1',
+          });
+          res.write('{"value":');
+          res.once('close', onHangingBodyClosed);
+        })()
+      : middleware(req, res, () => {
+          res.statusCode = 418;
+          res.end('next');
+        }),
   );
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -36,6 +45,22 @@ afterEach(async () => {
   await new Promise((resolve, reject) =>
     currentServer.close((error) => (error ? reject(error) : resolve())),
   );
+});
+
+test('a response with headers but an unfinished body times out and closes its socket', async () => {
+  let bodyClosed = false;
+  await startServer(sessionId, () => {
+    bodyClosed = true;
+  });
+  const checks = await runSesNetworkChecks(
+    { baseUrl: `${origin}${prefix}`, sessionId },
+    { timeoutMs: 100 },
+  );
+  expect(checks.find((check) => check.name === 'fetch requests')).toMatchObject(
+    { status: 'fail', detail: 'fetch requests exceeded 100ms' },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(bodyClosed).toBe(true);
 });
 
 test('fixture is disabled without a DevSession and leaves other paths alone', async () => {

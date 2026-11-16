@@ -1,6 +1,6 @@
 // cspell:ignore lockdown evalTaming tamper IndexedDB XHR randomBytes isNormalized oneKey
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   Accordion,
@@ -23,6 +23,7 @@ import {
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getSesHardenLevelFromRuntime,
@@ -44,7 +45,10 @@ import type {
   ISesHardenRuntimeCheckResponse,
   ISesRuntimeCheckReport,
 } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
+import { withSesCheckDeadline } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheckDeadline';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+
+import { useSesRuntimeCheckRun } from './useSesRuntimeCheckRun';
 
 type ISesLevelMatrixRow = {
   item: string;
@@ -938,8 +942,53 @@ function CollapsibleSection({
 
 export default function DevSesHardenRuntimeCheck() {
   const { copyText } = useClipboard();
-  const [report, setReport] = useState<IAggregatedSesRuntimeCheckReport>();
-  const [isRunning, setIsRunning] = useState(false);
+  const collectReports = useCallback(
+    async (signal: AbortSignal): Promise<IAggregatedSesRuntimeCheckReport> => {
+      const currentReport = await buildSesRuntimeCheckReport({ signal });
+      let additionalRuntimeReports: readonly IRuntimeCheckResult[] | undefined;
+      if (platformEnv.isNative) {
+        try {
+          const backgroundReport = await withSesCheckDeadline(
+            'SES background RPC',
+            () =>
+              backgroundApiProxy.serviceDevSetting.runSesHardenRuntimeChecks(),
+            { timeoutMs: 30_000, signal },
+          );
+          if (backgroundReport.state?.runtime !== 'mobile-background')
+            throw new OneKeyLocalError('Unexpected SES background runtime');
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: getRuntimeResultStatus(backgroundReport),
+              report: backgroundReport,
+            },
+          ];
+        } catch (cause) {
+          additionalRuntimeReports = [
+            {
+              runtime: 'mobile-background',
+              status: 'fail',
+              error: getErrorMessage(cause),
+            },
+          ];
+        }
+      } else {
+        additionalRuntimeReports = await collectExtensionRuntimeReports(
+          currentReport.state?.runtime,
+        );
+      }
+      return additionalRuntimeReports?.length
+        ? { ...currentReport, additionalRuntimeReports }
+        : currentReport;
+    },
+    [],
+  );
+  const {
+    report,
+    error: runError,
+    isRunning,
+    runChecks,
+  } = useSesRuntimeCheckRun(collectReports);
 
   const hasFailures = useMemo(() => hasReportFailures(report), [report]);
 
@@ -956,58 +1005,15 @@ export default function DevSesHardenRuntimeCheck() {
     [report],
   );
 
-  const runChecks = useCallback(async () => {
-    setIsRunning(true);
-    try {
-      const currentReport = await buildSesRuntimeCheckReport();
-      let additionalRuntimeReports: readonly IRuntimeCheckResult[] | undefined;
-      if (platformEnv.isNative) {
-        try {
-          const backgroundReport =
-            await backgroundApiProxy.serviceDevSetting.runSesHardenRuntimeChecks();
-          additionalRuntimeReports = [
-            {
-              runtime: 'mobile-background',
-              status: getRuntimeResultStatus(backgroundReport),
-              report: backgroundReport,
-            },
-          ];
-        } catch (error) {
-          additionalRuntimeReports = [
-            {
-              runtime: 'mobile-background',
-              status: 'fail',
-              error: getErrorMessage(error),
-            },
-          ];
-        }
-      } else {
-        additionalRuntimeReports = await collectExtensionRuntimeReports(
-          currentReport.state?.runtime,
-        );
-      }
-      const nextReport: IAggregatedSesRuntimeCheckReport =
-        additionalRuntimeReports?.length
-          ? {
-              ...currentReport,
-              additionalRuntimeReports,
-            }
-          : currentReport;
-      setReport(nextReport);
-      if (hasReportFailures(nextReport)) {
+  useEffect(() => {
+    if (runError)
+      Toast.error({ title: 'SES harden check failed', message: runError });
+    else if (report) {
+      if (hasReportFailures(report))
         Toast.error({ title: 'SES harden check failed' });
-      } else {
-        Toast.success({ title: 'SES harden check passed' });
-      }
-    } catch (error) {
-      Toast.error({
-        title: 'SES harden check crashed',
-        message: getErrorMessage(error),
-      });
-    } finally {
-      setIsRunning(false);
+      else Toast.success({ title: 'SES harden check passed' });
     }
-  }, []);
+  }, [report, runError]);
 
   const copyReport = useCallback(() => {
     if (!reportText) {
@@ -1036,18 +1042,6 @@ export default function DevSesHardenRuntimeCheck() {
       });
     }
   }, []);
-
-  // Auto-run the checks once when the page mounts. The ref guard keeps it to a
-  // single run even under React StrictMode's dev double-invoke, so we don't fire
-  // two runs (and two toasts) on entry.
-  const didAutoRunRef = useRef(false);
-  useEffect(() => {
-    if (didAutoRunRef.current) {
-      return;
-    }
-    didAutoRunRef.current = true;
-    void runChecks();
-  }, [runChecks]);
 
   return (
     <Page scrollEnabled>
@@ -1081,6 +1075,7 @@ export default function DevSesHardenRuntimeCheck() {
                   <Button
                     testID="ses-harden-copy-report"
                     variant="secondary"
+                    disabled={!report || isRunning}
                     onPress={copyReport}
                   >
                     Copy Test Result
@@ -1097,6 +1092,14 @@ export default function DevSesHardenRuntimeCheck() {
                     </Button>
                   ) : null}
                 </XStack>
+                {runError ? (
+                  <SizableText
+                    testID="ses-harden-run-error"
+                    color="$textCritical"
+                  >
+                    {runError}
+                  </SizableText>
+                ) : null}
                 <SizableText color="$textSubdued">
                   每张卡片同时展示测试说明和运行结果。核心硬化验证是
                   Object/Array 原型冻结、harden 深冻结，以及 L2

@@ -1,9 +1,11 @@
 import { OneKeyLocalError } from '../../errors';
 
 import { assertSesBehavior, checkSesBehavior } from './runtimeCheckBehavior';
+import { withSesCheckDeadline } from './runtimeCheckDeadline';
 import { getSesNetworkFixture } from './runtimeCheckNetworkFixture';
 
 import type { ISesRuntimeCheckItem } from './runtimeCheck';
+import type { ISesCheckDeadline } from './runtimeCheckDeadline';
 import type { ISesNetworkFixture } from './runtimeCheckNetworkFixture';
 
 const PURPOSE = '通过当前 DevSession 固定响应验证真实网络行为。';
@@ -29,96 +31,129 @@ export function isSesFetchAbort(error: unknown): boolean {
   );
 }
 
-async function fetchFixture(
+async function fetchFixture<T>(
   fixture: ISesNetworkFixture,
   path: string,
+  consume: (response: Response) => Promise<T>,
   init?: RequestInit,
-): Promise<Response> {
-  const controller = new AbortController();
+  parentSignal?: AbortSignal,
+): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set('x-onekey-ses-session', fixture.sessionId);
-  const onAbort = () => controller.abort();
-  init?.signal?.addEventListener('abort', onAbort, { once: true });
-  if (init?.signal?.aborted) controller.abort();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      fetch(`${fixture.baseUrl}/${path}`, {
+  return withSesCheckDeadline(
+    'SES fetch fixture',
+    async (signal) => {
+      const response = await fetch(`${fixture.baseUrl}/${path}`, {
         ...init,
         headers,
-        signal: controller.signal,
-      }),
-      new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => {
-          controller.abort();
-          reject(new OneKeyLocalError('SES fetch fixture exceeded 5s'));
-        }, 5000);
-      }),
-    ]);
-  } finally {
-    init?.signal?.removeEventListener('abort', onAbort);
-    if (timeout !== undefined) clearTimeout(timeout);
-  }
+        signal,
+      });
+      return consume(response);
+    },
+    { timeoutMs: 5000, signal: init?.signal ?? parentSignal },
+  );
 }
 
-async function checkFetch(fixture: ISesNetworkFixture): Promise<string> {
-  const response = await fetchFixture(fixture, 'json');
-  assertSesBehavior(
-    response.status === 200 &&
-      response.ok &&
-      response.headers.get('x-onekey-ses-fixture') === MARKER,
-    'fetch status/headers',
+async function checkFetch(
+  fixture: ISesNetworkFixture,
+  signal: AbortSignal,
+): Promise<string> {
+  await fetchFixture(
+    fixture,
+    'json',
+    async (response) => {
+      assertSesBehavior(
+        response.status === 200 &&
+          response.ok &&
+          response.headers.get('x-onekey-ses-fixture') === MARKER,
+        'fetch status/headers',
+      );
+      const cloned = response.clone();
+      const json = (await response.json()) as {
+        marker?: string;
+        value?: number;
+        method?: string;
+      };
+      const clonedJson = JSON.parse(await cloned.text()) as typeof json;
+      assertSesBehavior(
+        json.marker === MARKER &&
+          json.method === 'GET' &&
+          json.value === 42 &&
+          clonedJson.value === 42 &&
+          response.bodyUsed,
+        'fetch body/clone',
+      );
+    },
+    undefined,
+    signal,
   );
-  const cloned = response.clone();
-  const json = (await response.json()) as {
-    marker?: string;
-    value?: number;
-    method?: string;
-  };
-  const clonedJson = JSON.parse(await cloned.text()) as typeof json;
-  assertSesBehavior(
-    json.marker === MARKER &&
-      json.method === 'GET' &&
-      json.value === 42 &&
-      clonedJson.value === 42 &&
-      response.bodyUsed,
-    'fetch body/clone',
+  await fetchFixture(
+    fixture,
+    'echo',
+    async (post) => {
+      const result = (await post.json()) as {
+        method?: string;
+        value?: number;
+        marker?: string;
+      };
+      assertSesBehavior(
+        post.status === 200 &&
+          result.method === 'POST' &&
+          result.value === 42 &&
+          result.marker === MARKER,
+        'fetch POST echo',
+      );
+    },
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"value":42}',
+    },
+    signal,
   );
-  const post = await fetchFixture(fixture, 'echo', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: '{"value":42}',
-  });
-  const result = (await post.json()) as {
-    method?: string;
-    value?: number;
-    marker?: string;
-  };
-  assertSesBehavior(
-    post.status === 200 &&
-      result.method === 'POST' &&
-      result.value === 42 &&
-      result.marker === MARKER,
-    'fetch POST echo',
-  );
-  const missing = await fetchFixture(fixture, 'missing');
-  assertSesBehavior(
-    missing.status === 404 && !missing.ok,
-    'fetch HTTP error must resolve with non-ok response',
+  await fetchFixture(
+    fixture,
+    'missing',
+    async (missing) => {
+      assertSesBehavior(
+        missing.status === 404 && !missing.ok,
+        'fetch HTTP error must resolve with non-ok response',
+      );
+      await missing.text();
+    },
+    undefined,
+    signal,
   );
   return 'GET status/headers, JSON/text, clone/bodyUsed, POST body, HTTP 404';
 }
 
-async function checkFetchAbort(fixture: ISesNetworkFixture): Promise<string> {
+async function checkFetchAbort(
+  fixture: ISesNetworkFixture,
+  signal: AbortSignal,
+): Promise<string> {
   for (const preAborted of [true, false]) {
     const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) controller.abort();
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (preAborted) controller.abort();
     else timer = setTimeout(() => controller.abort(), 80);
     try {
       let aborted = false;
       try {
-        await fetchFixture(fixture, 'slow', { signal: controller.signal });
+        // Exercise fetch's own cancellation contract rather than the deadline's cancellation error.
+        await withSesCheckDeadline(
+          'SES fetch cancellation',
+          async () => {
+            const response = await fetch(`${fixture.baseUrl}/slow`, {
+              headers: { 'x-onekey-ses-session': fixture.sessionId },
+              signal: controller.signal,
+            });
+            await response.text();
+          },
+          { timeoutMs: 5000, signal },
+        );
       } catch (error) {
         aborted = controller.signal.aborted && isSesFetchAbort(error);
       }
@@ -128,6 +163,8 @@ async function checkFetchAbort(fixture: ISesNetworkFixture): Promise<string> {
       );
     } finally {
       if (timer !== undefined) clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      controller.abort();
     }
   }
   return 'pre-aborted and in-flight requests reject after signal cancellation; AbortError or Expo native FetchError';
@@ -136,9 +173,11 @@ async function checkFetchAbort(fixture: ISesNetworkFixture): Promise<string> {
 function checkXhr(
   fixture: ISesNetworkFixture,
   mode: 'get' | 'post' | 'timeout' | 'abort',
+  signal: AbortSignal,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
     let abortTimer: ReturnType<typeof setTimeout> | undefined;
     let finished = false;
     const watchdog = setTimeout(() => {
@@ -150,6 +189,7 @@ function checkXhr(
       finished = true;
       clearTimeout(watchdog);
       if (abortTimer !== undefined) clearTimeout(abortTimer);
+      signal.removeEventListener('abort', onAbort);
       xhr.onload = null;
       xhr.onerror = null;
       xhr.ontimeout = null;
@@ -158,6 +198,11 @@ function checkXhr(
       else resolve(mode);
     }
     try {
+      if (signal.aborted) {
+        finish(new OneKeyLocalError('XHR probe cancelled'));
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
       const slow = mode === 'timeout' || mode === 'abort';
       let route = mode === 'post' ? 'echo' : 'json';
       if (slow) route = 'slow';
@@ -206,12 +251,14 @@ function checkXhr(
       if (mode === 'abort') abortTimer = setTimeout(() => xhr.abort(), 80);
     } catch (error) {
       finish(error);
+      xhr.abort();
     }
   });
 }
 
 export async function runSesNetworkChecks(
   fixture = getSesNetworkFixture(),
+  options?: ISesCheckDeadline,
 ): Promise<ISesRuntimeCheckItem[]> {
   if (!fixture) {
     return [
@@ -229,21 +276,31 @@ export async function runSesNetworkChecks(
     }));
   }
   return Promise.all([
-    checkSesBehavior('fetch requests', PURPOSE, () => checkFetch(fixture)),
-    checkSesBehavior('fetch cancellation', PURPOSE, () =>
-      checkFetchAbort(fixture),
+    checkSesBehavior(
+      'fetch requests',
+      PURPOSE,
+      (signal) => checkFetch(fixture, signal),
+      options,
+    ),
+    checkSesBehavior(
+      'fetch cancellation',
+      PURPOSE,
+      (signal) => checkFetchAbort(fixture, signal),
+      options,
     ),
     checkSesBehavior(
       'XHR requests',
       PURPOSE,
-      async () =>
-        `XHR ${await checkXhr(fixture, 'get')}/${await checkXhr(fixture, 'post')}: status, headers, body, readyState`,
+      async (signal) =>
+        `XHR ${await checkXhr(fixture, 'get', signal)}/${await checkXhr(fixture, 'post', signal)}: status, headers, body, readyState`,
+      options,
     ),
     checkSesBehavior(
       'XHR timeout and abort',
       PURPOSE,
-      async () =>
-        `XHR ${await checkXhr(fixture, 'timeout')}/${await checkXhr(fixture, 'abort')}: terminal events`,
+      async (signal) =>
+        `XHR ${await checkXhr(fixture, 'timeout', signal)}/${await checkXhr(fixture, 'abort', signal)}: terminal events`,
+      options,
     ),
   ]);
 }
