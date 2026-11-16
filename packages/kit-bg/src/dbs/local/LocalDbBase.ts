@@ -9031,11 +9031,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             // Only the canonical first EVM account defines the shared avatar
             // seed. Never infer it from another derivation path or replace an
             // already established local wallet identity.
+            const { records: storedFirstEvmAccounts } = !wallet.firstEvmAddress
+              ? await this.txGetRecordsByIds({
+                  tx,
+                  name: ELocalDBStoreNames.Account,
+                  ids: [
+                    accountUtils.buildHDAccountId({
+                      walletId,
+                      path: FIRST_EVM_ADDRESS_PATH,
+                    }),
+                  ],
+                })
+              : { records: [] as IDBAccount[] };
+            checkCurrent();
+            // An old account-zero snapshot can already be acknowledged. Later
+            // batches must repair from that local record without replaying it.
             const firstEvmAccount = !wallet.firstEvmAddress
-              ? accounts.find(
+              ? [
+                  ...storedFirstEvmAccounts,
+                  ...accounts.filter((account) => acceptedIds.has(account.id)),
+                ].find(
                   (account) =>
-                    acceptedIds.has(account.id) &&
-                    account.pathIndex === 0 &&
+                    account?.pathIndex === 0 &&
                     account.impl === IMPL_EVM &&
                     account.coinType === COINTYPE_ETH &&
                     account.path === FIRST_EVM_ADDRESS_PATH &&
@@ -9343,7 +9360,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   name:
                     explicitRestores.get(account.id)?.name ||
                     publicAccountIndexedNames?.[index] ||
-                    account.name ||
                     accountUtils.buildIndexedAccountName({ pathIndex: index }),
                 };
                 return [
@@ -9458,7 +9474,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                           restored?.name ||
                           trustedIndexNames.get(account.indexedAccountId) ||
                           publicAccountIndexedNames?.[index] ||
-                          account.name ||
                           accountUtils.buildIndexedAccountName({
                             pathIndex: index,
                           }),
@@ -9502,9 +9517,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                       skipIfExists: true,
                     });
                 }
-                const firstEvmAccount = accounts.find(
+                const { records: storedFirstEvmAccounts } =
+                  await this.txGetRecordsByIds({
+                    tx,
+                    name: ELocalDBStoreNames.Account,
+                    ids: [
+                      accountUtils.buildHDAccountId({
+                        walletId,
+                        path: FIRST_EVM_ADDRESS_PATH,
+                      }),
+                    ],
+                  });
+                const firstEvmAccount = [
+                  ...storedFirstEvmAccounts,
+                  ...accounts,
+                ].find(
                   (account) =>
-                    account.impl === IMPL_EVM &&
+                    account?.impl === IMPL_EVM &&
                     account.pathIndex === 0 &&
                     account.address &&
                     account.coinType === COINTYPE_ETH &&
