@@ -290,6 +290,7 @@ function setup(items: Array<Partial<IDBCloudSyncItem>> = []) {
         async (): Promise<string | undefined> => undefined,
       ),
       clearCachedSyncCredential,
+      prepareLocalSyncWallets: jest.fn(async () => undefined),
       initLocalSyncItemsDB,
     },
   };
@@ -1873,11 +1874,35 @@ describe('hardware Cloud key source lifecycle', () => {
     await releaseLock();
     await expect(preparing).resolves.toEqual({ success: true });
     expect(initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       password: 'public-test-password',
       syncCredential: expect.objectContaining({
         keylessCredential,
       }),
     });
+  });
+
+  test('prepare rejects a same-identity data-key rotation during wallet preparation', async () => {
+    const { service, backgroundApi, initLocalSyncItemsDB } =
+      setupKeylessPrepare();
+    const selected = { ...keylessCredential, signingPublicKey: '' };
+    const getCredential = jest
+      .spyOn(service, 'getKeylessCloudSyncCredential')
+      .mockImplementation(async () => selected);
+    backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets.mockImplementation(
+      async () => {
+        // A same-source rotation keeps its signing identity but changes its DEK.
+        getCredential.mockResolvedValue({
+          ...selected,
+          pwdHash: 'rotated-hash',
+          encryptionKey: 'rotated-data-key',
+        });
+      },
+    );
+    await expect(
+      service.prepareCloudSyncKeyless({ silentEnable: true }),
+    ).rejects.toThrow('The encryption method for Cloud sync changed');
+    expect(initLocalSyncItemsDB).not.toHaveBeenCalled();
   });
 
   test('Keyless prepare skips its local write when the key switched while it waited', async () => {

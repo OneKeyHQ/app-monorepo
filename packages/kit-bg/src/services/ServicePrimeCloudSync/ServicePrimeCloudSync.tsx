@@ -3236,10 +3236,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     const initPassword = askPasswordOnlyIfHdXfpMissing
       ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
       : await this.resolveInitLocalSyncItemsPassword(password);
+    await this.prepareLocalSyncWallets({
+      password: initPassword,
+      askPasswordOnlyIfHdXfpMissing,
+    });
     await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
       async () => {
         await this.assertSyncCredentialUnchanged(syncCredential);
         await this.initLocalSyncItemsDB({
+          skipWalletPreparation: true,
           syncCredential,
           password: initPassword,
           askPasswordOnlyIfHdXfpMissing,
@@ -3467,19 +3472,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     return this.resolveInitLocalSyncItemsPassword();
   }
 
-  @backgroundMethod()
-  async initLocalSyncItemsDB({
-    syncCredential,
+  // Duplicate-wallet merging can create accounts and therefore acquires the
+  // Cloud key mutex itself. Run this stage before taking that non-reentrant
+  // mutex; callers revalidate the credential before building the sync pool.
+  async prepareLocalSyncWallets({
     password,
     askPasswordOnlyIfHdXfpMissing,
-    onlyAddMissing,
   }: {
-    syncCredential: ICloudSyncCredential;
     password?: string;
-    // Set with a password already from resolvePasswordOnlyIfHdXfpMissing, so
-    // a missing one is never prompted here.
     askPasswordOnlyIfHdXfpMissing?: boolean;
-    onlyAddMissing?: boolean;
   }) {
     const resolvedPassword = askPasswordOnlyIfHdXfpMissing
       ? password
@@ -3498,6 +3499,31 @@ class ServicePrimeCloudSync extends ServiceBase {
     } else {
       // Only HD wallets need the password; QR wallets still get their xfp.
       await this.backgroundApi.serviceAccount.generateAllQrWalletsMissingXfp();
+    }
+  }
+
+  @backgroundMethod()
+  async initLocalSyncItemsDB({
+    syncCredential,
+    password,
+    askPasswordOnlyIfHdXfpMissing,
+    onlyAddMissing,
+    skipWalletPreparation,
+  }: {
+    syncCredential: ICloudSyncCredential;
+    password?: string;
+    // Set with a password already from resolvePasswordOnlyIfHdXfpMissing, so
+    // a missing one is never prompted here.
+    askPasswordOnlyIfHdXfpMissing?: boolean;
+    onlyAddMissing?: boolean;
+    // Only for callers that completed prepareLocalSyncWallets before locking.
+    skipWalletPreparation?: boolean;
+  }) {
+    if (!skipWalletPreparation) {
+      await this.prepareLocalSyncWallets({
+        password,
+        askPasswordOnlyIfHdXfpMissing,
+      });
     }
 
     const { wallets: allWallets, allDevices } =

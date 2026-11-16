@@ -1,5 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { Semaphore } from 'async-mutex';
+import { Mutex, Semaphore } from 'async-mutex';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { BOT_WALLET_STATUS_ACTIVE } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -231,6 +231,7 @@ function buildService({
     allAccounts: [],
     allIndexedAccounts: [],
   };
+  service.prepareLocalSyncWallets = jest.fn(async () => undefined);
   service.initLocalSyncItemsDB = jest.fn(async () => emptyLocalSyncItems);
   service.startServerSyncFlow = jest.fn(async () => true);
   service.updateLastSyncTime = jest.fn(async () => undefined);
@@ -332,6 +333,72 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
     },
   );
 
+  test('duplicate HD account merging completes before the non-reentrant key lock and leaves later writers runnable', async () => {
+    const { service, runWithCloudSyncKeyLock } = buildService();
+    const mutex = new Mutex();
+    runWithCloudSyncKeyLock.mockImplementation((operation) =>
+      mutex.runExclusive(operation),
+    );
+    const accountIds = new Set(['hd-keep--account-0']);
+    const add = jest.fn(async () => {
+      accountIds.add('hd-keep--account-1');
+      return { isOverrideAccounts: false, existsAccounts: [] };
+    });
+    const db: LocalDbBase = Object.assign(
+      Object.create(LocalDbBase.prototype) as LocalDbBase,
+      {
+        backgroundApi: { serviceKeylessCloudSync: { runWithCloudSyncKeyLock } },
+        addAccountsToWalletWithCloudKeyLock: add,
+      },
+    );
+    const mergeDuplicateHDWallets = jest.fn(async () => {
+      // Distinct accounts in the duplicate wallet require the real DB entry
+      // point, which must acquire the same non-reentrant mutex as initialization.
+      await db.addAccountsToWallet({ walletId: 'hd-keep', accounts: [] });
+    });
+    Object.assign(service.backgroundApi, {
+      serviceAccount: {
+        generateAllHdAndQrWalletsHashAndXfp: jest.fn(async () => undefined),
+        mergeDuplicateHDWallets,
+      },
+    });
+    service.prepareLocalSyncWallets =
+      ServicePrimeCloudSync.prototype.prepareLocalSyncWallets.bind(service);
+    service.initLocalSyncItemsDB.mockImplementation(async () => {
+      expect(mutex.isLocked()).toBe(true);
+      expect(accountIds.size).toBe(2);
+      return {
+        allWallets: [],
+        allDevices: undefined,
+        allAccounts: [],
+        allIndexedAccounts: [],
+      };
+    });
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await expect(
+        Promise.race([
+          (async () => {
+            const completed = await service.syncNowKeyless({ password: 'pwd' });
+            await db.addAccountsToWallet({ walletId: 'hd-keep', accounts: [] });
+            return completed;
+          })(),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(
+              () => reject(new OneKeyLocalError('Cloud key lock deadlock')),
+              1000,
+            );
+          }),
+        ]),
+      ).resolves.toBe(true);
+    } finally {
+      clearTimeout(timeout);
+    }
+    expect(mergeDuplicateHDWallets).toHaveBeenCalledTimes(1);
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(mutex.isLocked()).toBe(false);
+  });
+
   test('keyless sync without password skips repair and prompts before the key lock', async () => {
     const {
       service,
@@ -350,6 +417,7 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
 
     expect(repairKeylessSyncCredentialIfNeeded).not.toHaveBeenCalled();
     expect(service.initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       syncCredential: expect.objectContaining({
         primeAccountSalt: 'prime-account-salt',
       }),
@@ -1288,6 +1356,7 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
     ).resolves.toBe(true);
     expect(promptPasswordVerify).not.toHaveBeenCalled();
     expect(service.initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       syncCredential: hardwareKey,
       password: undefined,
       askPasswordOnlyIfHdXfpMissing: true,

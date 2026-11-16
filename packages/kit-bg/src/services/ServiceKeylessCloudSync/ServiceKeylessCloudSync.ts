@@ -653,6 +653,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const { source, credential } = derived;
     const dataKey = { previousPwdHashes };
 
+    await this.backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets({
+      password,
+      askPasswordOnlyIfHdXfpMissing: true,
+    });
+    assertCurrent();
     await this.runWithCloudSyncSourceLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
         assertCurrent();
@@ -804,6 +809,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
             password,
             askPasswordOnlyIfHdXfpMissing: true,
             onlyAddMissing: restoresRotatedHardwareKey,
+            skipWalletPreparation: true,
           });
           await primeCloudSyncPersistAtom.set((value) => ({
             ...value,
@@ -2987,12 +2993,23 @@ class ServiceKeylessCloudSync extends ServiceBase {
       throw new OneKeyError('Failed to get keyless credential');
     }
 
+    await this.backgroundApi.servicePrimeCloudSync.prepareLocalSyncWallets({
+      password,
+    });
+
     // Only the local write needs the key lock. The prompt and repair above ran
     // without it, so confirm this credential is still the selected key first.
     const initLocalSyncItems = () =>
       this.runWithCloudSyncKeyLock(async () => {
         const selected = await this.getKeylessCloudSyncCredential();
-        if (selected?.signingPublicKey !== keylessCredential.signingPublicKey) {
+        if (
+          selected?.keylessWalletId !== keylessCredential.keylessWalletId ||
+          selected?.source?.credentialId !==
+            keylessCredential.source?.credentialId ||
+          selected?.signingPublicKey !== keylessCredential.signingPublicKey ||
+          selected?.pwdHash !== keylessCredential.pwdHash ||
+          selected?.encryptionKey !== keylessCredential.encryptionKey
+        ) {
           throw new HardwareCloudSyncError(
             ETranslations.cloud_sync_key_selection_changed__msg,
             'The encryption method for Cloud sync changed. Your data will sync with the new one next time.',
@@ -3000,6 +3017,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         }
         await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
           password,
+          skipWalletPreparation: true,
           syncCredential:
             this.buildSyncCredentialWithKeylessCredential(keylessCredential),
         });
