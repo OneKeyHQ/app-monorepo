@@ -11,6 +11,7 @@ import PagePrimeCloudSyncDebug from './PagePrimeCloudSyncDebug';
 let mockSelectPage: (index: number) => void;
 let mockScrollPage: (position: number, offset: number) => void;
 const mockSetPage = jest.fn();
+const mockTabBarNames = jest.fn<void, [string[]]>();
 
 jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
@@ -116,19 +117,22 @@ jest.mock('@onekeyhq/components', () => {
       tabNames: string[];
       focusedTab: { value: string };
       onTabPress: (name: string) => void;
-    }) => (
-      <div>
-        {tabNames.map((name) => (
-          <button
-            key={name}
-            aria-pressed={focusedTab.value === name}
-            onClick={() => onTabPress(name)}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-    ),
+    }) => {
+      mockTabBarNames(tabNames);
+      return (
+        <div>
+          {tabNames.map((name) => (
+            <button
+              key={name}
+              aria-pressed={focusedTab.value === name}
+              onClick={() => onTabPress(name)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      );
+    },
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
@@ -209,3 +213,21 @@ it.each([false, true])(
     ).toBe('All');
   },
 );
+
+it('keeps tab names stable when the page rerenders and changes tabs', async () => {
+  platformEnv.isNative = false;
+  const view = render(<PagePrimeCloudSyncDebug />);
+  await act(async () => {});
+  const names = mockTabBarNames.mock.calls.at(-1)![0];
+  const renders = mockTabBarNames.mock.calls.length;
+  view.rerender(<PagePrimeCloudSyncDebug />);
+  expect(mockTabBarNames.mock.calls.length).toBeGreaterThan(renders);
+  expect(mockTabBarNames.mock.calls.at(-1)![0]).toBe(names);
+  fireEvent.click(screen.getByRole('button', { name: '云端数据' }));
+  expect(mockTabBarNames.mock.calls.at(-1)![0]).toBe(names);
+  expect(
+    screen
+      .getByRole('button', { name: '云端数据' })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+});

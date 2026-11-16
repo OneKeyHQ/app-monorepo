@@ -1176,6 +1176,7 @@ export default function PagePrimeCloudSyncDebug() {
     () => tabs.map((tab) => ({ key: tab.name, name: tab.name })),
     [tabs],
   );
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
   const {
     initialIndex,
     selectedIndex,
@@ -1195,7 +1196,7 @@ export default function PagePrimeCloudSyncDebug() {
       <Page.Body>
         <Stack flex={1} minHeight={0}>
           <TabBar
-            tabNames={pages.map((page) => page.name)}
+            tabNames={tabBarNames}
             focusedTab={focusedTab}
             indexDecimal={indexDecimal}
             onTabPress={jumpToTab}

@@ -23,6 +23,7 @@ let mockRouteFocused = true;
 const mockSetParams = jest.fn<void, [unknown]>();
 const mockPagerCommand = jest.fn<void, [number, boolean]>();
 const mockPagerProps = jest.fn<void, [unknown]>();
+const mockTabBarNames = jest.fn<void, [string[]]>();
 const mockAssetMount = jest.fn<void, []>();
 const mockAssetUnmount = jest.fn<void, []>();
 const mockSubscribe = jest.fn<void, []>();
@@ -127,6 +128,7 @@ jest.mock('@onekeyhq/components', () => {
       onTabPress: (name: string) => void;
       renderToolbar: (props: { focusedTab: string }) => React.ReactNode;
     }) => {
+      mockTabBarNames(tabNames);
       const focusedName = React.useSyncExternalStore(
         focusedTab.subscribe,
         () => focusedTab.value,
@@ -329,6 +331,22 @@ it.each([undefined, 'assets', 'portfolio', 'faqs'] as const)(
   },
 );
 
+it('keeps tab names stable across portfolio data updates', () => {
+  const view = renderTabs(<EarnMainTabs {...props} defaultTab="portfolio" />);
+  const names = mockTabBarNames.mock.calls.at(-1)![0];
+  const renders = mockTabBarNames.mock.calls.length;
+  view.rerender(
+    <EarnMainTabs
+      {...props}
+      defaultTab="portfolio"
+      portfolioData={{ ...portfolioData, isLoading: true }}
+    />,
+  );
+  expect(mockTabBarNames.mock.calls.length).toBeGreaterThan(renders);
+  expect(mockTabBarNames.mock.calls.at(-1)![0]).toBe(names);
+  selected('portfolio');
+});
+
 it('synchronizes route changes and focus return without writing route params', () => {
   const view = renderTabs(<EarnMainTabs {...props} defaultTab="assets" />);
   view.rerender(<EarnMainTabs {...props} defaultTab="faqs" />);
@@ -359,9 +377,14 @@ it.each([undefined, 'assets'] as const)(
     });
     fireEvent.change(positionFilter, { target: { value: 'USDC' } });
     expect(screen.queryByRole('textbox', { name: 'asset filter' })).toBeNull();
+    const names = mockTabBarNames.mock.calls.at(-1)![0];
     mockLocale = 'zh';
     view.rerender(<EarnMainTabs {...props} defaultTab={defaultTab} />);
     selected('portfolio');
+    expect(mockTabBarNames.mock.calls.at(-1)![0]).not.toBe(names);
+    expect(mockTabBarNames.mock.calls.at(-1)![0]).toEqual(
+      Object.values(ids).map((id) => `zh:${id}`),
+    );
     expect(screen.getByRole('textbox', { name: 'position filter' })).toBe(
       positionFilter,
     );

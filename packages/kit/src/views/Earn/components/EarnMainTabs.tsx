@@ -99,6 +99,7 @@ const EarnMainTabsComponent = ({
       })),
     [tabNames],
   );
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
   const initialTabName = tabNames[defaultTab ?? 'assets'];
   const { initialIndex, selectedIndex, focusedTab, indexDecimal, selectIndex } =
     useAppPagerController({
@@ -166,7 +167,7 @@ const EarnMainTabsComponent = ({
   return (
     <YStack>
       <TabBar
-        tabNames={pages.map((page) => page.name)}
+        tabNames={tabBarNames}
         focusedTab={focusedTab}
         indexDecimal={indexDecimal}
         onTabPress={handleTabPress}

@@ -97,6 +97,7 @@ const ReserveDetailsTabsComponent = ({
       })),
     [tabNames],
   );
+  const tabBarNames = useMemo(() => pages.map((page) => page.name), [pages]);
   const controller = useAppPagerController({
     pages,
     initialTabName: tabNames.supply,
@@ -135,7 +136,7 @@ const ReserveDetailsTabsComponent = ({
           onLayout={handleStickyHeaderLayout}
         >
           <TabBar
-            tabNames={pages.map((page) => page.name)}
+            tabNames={tabBarNames}
             focusedTab={controller.focusedTab}
             indexDecimal={
               platformEnv.isNative ? controller.indexDecimal : undefined

@@ -24,6 +24,7 @@ const mockTabBarProps = jest.fn<
   void,
   [
     {
+      tabNames: string[];
       indexDecimal?: { value: number };
       scrollable?: boolean;
       keepFocusedTabVisible?: boolean;
@@ -122,7 +123,12 @@ jest.mock('@onekeyhq/components', () => {
       scrollable?: boolean;
       keepFocusedTabVisible?: boolean;
     }) => {
-      mockTabBarProps({ indexDecimal, scrollable, keepFocusedTabVisible });
+      mockTabBarProps({
+        tabNames,
+        indexDecimal,
+        scrollable,
+        keepFocusedTabVisible,
+      });
       const focusedName = React.useSyncExternalStore(
         focusedTab.subscribe,
         () => focusedTab.value,
@@ -442,11 +448,23 @@ it('keeps independent chart periods and page instances through data and locale u
     target: { value: 'quarter' },
   });
   press('more');
+  const names = mockTabBarProps.mock.calls.at(-1)![0].tabNames;
+  const renders = mockTabBarProps.mock.calls.length;
+  view.rerender(
+    <DetailsPart {...partProps} details={{ ...details, liquidity: '550K' }} />,
+  );
+  expect(mockTabBarProps.mock.calls.length).toBeGreaterThan(renders);
+  expect(mockTabBarProps.mock.calls.at(-1)![0].tabNames).toBe(names);
+  selected('more');
   mockLocale = 'zh';
   view.rerender(
     <DetailsPart {...partProps} details={{ ...details, liquidity: '600K' }} />,
   );
   selected('more');
+  expect(mockTabBarProps.mock.calls.at(-1)![0].tabNames).not.toBe(names);
+  expect(mockTabBarProps.mock.calls.at(-1)![0].tabNames).toEqual(
+    (['supply', 'borrow', 'more'] as const).map(label),
+  );
   expect(screen.getByTestId('scroller-supply')).toBe(supplyScroller);
   expect(supplyScroller.scrollTop).toBe(180);
   press('supply');
