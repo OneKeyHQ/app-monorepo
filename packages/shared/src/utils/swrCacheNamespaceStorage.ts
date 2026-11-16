@@ -126,9 +126,13 @@ export function readSwrCacheEntry(
     if (!record?.data) {
       return undefined;
     }
-    return record.rawChars !== undefined
-      ? { ...record.data, serializedChars: record.rawChars }
-      : record.data;
+    if (record.rawChars !== undefined) {
+      Object.defineProperty(record.data, 'serializedChars', {
+        value: record.rawChars,
+        enumerable: false,
+      });
+    }
+    return record.data;
   } catch {
     return undefined;
   }
